@@ -115,8 +115,17 @@ static void check_lostfound(o2fsck_state *ost)
 
 	blkno = 0;
 
-	/* set both icount refs to 2.  add dir info for it.  put it 
-	 * in used, dir bitmaps. */
+	/* XXX maybe this should be a helper to clean up the dir tracking
+	 * for any new dir.  "2" for both the l+f dirent pointing to the
+	 * inode and the "." dirent in its dirblock */
+	o2fsck_icount_set(ost->ost_icount_in_inodes, blkno, 2);
+	o2fsck_icount_set(ost->ost_icount_refs, blkno, 2);
+	o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 
+			      ost->ost_fs->fs_root_blkno,
+			      ost->ost_fs->fs_root_blkno);
+	/* we've already iterated through the dirblocks in pass2 so there
+	 * is no need to register l+f's new dir block */
+
 out:
 	if (blkno) {
 		ret = ocfs2_delete_inode(ost->ost_fs, blkno);
