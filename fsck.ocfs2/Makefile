@@ -61,4 +61,13 @@ dist-subdircreate:
 fsck.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
+.PHONY: check-prompt-dups
+check-prompt-dups: fsck.ocfs2
+	@rm -f .$@.tmp
+	@nm $^ | \
+		awk -F'[ .]' '/fsck_prompt_callers_with_code/ {print $$3}' | \
+		sort | uniq -c | awk '($$1 > 1){print $$0}' > .$@.tmp
+	@cat .$@.tmp
+	@test ! -s .$@.tmp
+
 include $(TOPDIR)/Postamble.make
