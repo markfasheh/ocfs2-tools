@@ -43,7 +43,7 @@ PYSRC = \
 	format.py \
 	general.py \
 	guiutil.py \
-	interface.py \
+	main.py \
 	menu.py \
 	nodemap.py \
 	process.py \
