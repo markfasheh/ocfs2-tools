@@ -29,7 +29,7 @@
 #include <jbd.h>
 
 void read_journal (char *buf, __u64 buflen, FILE *out);
-void print_header (journal_header_t *header, char *hdr, FILE *out);
+void print_header (journal_header_t *header, FILE *out);
 void print_super_block (journal_superblock_t *sb, FILE *out);
 void print_metadata_blocks (int start, int end, FILE *out);
 void print_tag_flag (__u32 flags, FILE *out);

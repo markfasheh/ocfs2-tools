@@ -88,30 +88,18 @@ void read_journal (char *buf, __u64 buflen, FILE *out)
  * print_header()
  *
  */
-void print_header (journal_header_t *header, char *hdr, FILE *out)
+void print_header (journal_header_t *header, FILE *out)
 {
-	fprintf(out, "\t%s->h_magic:\t\t0x%x\n", hdr, ntohl(header->h_magic));
-	fprintf(out, "\t%s->h_blocktype:\t\t%u ", hdr, ntohl(header->h_blocktype));
+	GString *jstr = NULL;
 
-	switch (ntohl(header->h_blocktype)) {
-	case JFS_DESCRIPTOR_BLOCK:
-		fprintf(out, "(JFS_DESCRIPTOR_BLOCK)");
-		break;
-	case JFS_COMMIT_BLOCK:
-		fprintf(out, "(JFS_COMMIT_BLOCK)");
-		break;
-	case JFS_SUPERBLOCK_V1:
-		fprintf(out, "(JFS_SUPERBLOCK_V1)");
-		break;
-	case JFS_SUPERBLOCK_V2:
-		fprintf(out, "(JFS_SUPERBLOCK_V2)");
-		break;
-	case JFS_REVOKE_BLOCK:
-		fprintf(out, "(JFS_REVOKE_BLOCK)");
-		break;
-	}
-	fprintf(out, "\n");
-	fprintf(out, "\t%s->h_sequence:\t\t%u\n", hdr, ntohl(header->h_sequence));
+	jstr = g_string_new (NULL);
+	get_journal_blktyp (ntohl(header->h_blocktype), jstr);
+
+	fprintf (out, "\tSeq: %u   Type: %d (%s)\n", ntohl(header->h_sequence),
+		 ntohl(header->h_blocktype), jstr->str);
+
+	if (jstr)
+		g_string_free (jstr, 1);
 	return;
 }				/* print_header */
 
@@ -119,33 +107,35 @@ void print_header (journal_header_t *header, char *hdr, FILE *out)
  * print_super_block()
  *
  */
-void print_super_block (journal_superblock_t *sb, FILE *out) 
+void print_super_block (journal_superblock_t *jsb, FILE *out) 
 {
 	int i;
 
-	fprintf(out, "Journal Superblock\n");
+	fprintf (out, "Journal Superblock\n");
 
-	print_header(&(sb->s_header), "s_header", out);
+	print_header (&(jsb->s_header), out);
 
-	PRINT_FIELD(sb, "%u", s_blocksize, out);
-	PRINT_FIELD(sb, "%u", s_maxlen, out);
-	PRINT_FIELD(sb, "%u", s_first, out);
-	PRINT_FIELD(sb, "%u", s_sequence, out);
-	PRINT_FIELD(sb, "%u", s_start, out);
-	PRINT_FIELD(sb, "%d", s_errno, out);
-	PRINT_FIELD(sb, "%u", s_feature_compat, out);
-	PRINT_FIELD(sb, "%u", s_feature_incompat, out);
-	PRINT_FIELD(sb, "%u", s_feature_ro_compat, out);
+	fprintf (out, "\tBlocksize: %u   Total Blocks: %u   First Block: %u\n",
+		 jsb->s_blocksize, jsb->s_maxlen, jsb->s_first);
+	fprintf (out, "\tFirst Commit ID: %u   Start Log Blknum: %u\n",
+		 jsb->s_sequence, jsb->s_start);
 
-	fprintf(out, "\ts_uuid[16]:\t\t");
+	fprintf (out, "\tError: %u\n", jsb->s_errno);
+
+	fprintf (out, "\tFeatures Compat: %u   Incompat: %u   RO Compat: %u\n",
+		 jsb->s_feature_compat, jsb->s_feature_incompat,
+		 jsb->s_feature_ro_compat);
+
+	fprintf (out, "\tJournal UUID: ");
 	for(i = 0; i < 16; i++)
-		fprintf(out, "%x ", sb->s_uuid[i]);
-	fprintf(out, "\n");
+		fprintf (out, "%02X", jsb->s_uuid[i]);
+	fprintf (out, "\n");
 
-	PRINT_FIELD(sb, "%u", s_nr_users, out);
-	PRINT_FIELD(sb, "%u", s_dynsuper, out);
-	PRINT_FIELD(sb, "%u", s_max_transaction, out);
-	PRINT_FIELD(sb, "%u", s_max_trans_data, out);
+	fprintf (out, "\tFS Share Cnt: %u   Dynamic Superblk Blknum: %u\n",
+		 jsb->s_nr_users, jsb->s_dynsuper);
+
+	fprintf (out, "\tPer Txn Block Limit    Journal: %u    Data: %u\n",
+		 jsb->s_max_transaction, jsb->s_max_trans_data);
 
 	return;
 }				/* print_super_block */
@@ -207,7 +197,7 @@ void print_jbd_block (journal_header_t *header, FILE *out)
 	switch(ntohl(header->h_blocktype)) {
 	case JFS_DESCRIPTOR_BLOCK:
 		fprintf(out, "Journal Descriptor\n");
-		print_header(header, "hdr", out);
+		print_header (header, out);
 		for(i = sizeof(journal_header_t); i < (1 << gbls.blksz_bits);
 		    i+=sizeof(journal_block_tag_t)) {
 			tag = (journal_block_tag_t *) &blk[i];
@@ -234,12 +224,12 @@ void print_jbd_block (journal_header_t *header, FILE *out)
 
 	case JFS_COMMIT_BLOCK:
 		fprintf(out, "Journal Commit Block\n");
-		print_header(header, "hdr", out);
+		print_header (header, out);
 		break;
 
 	case JFS_REVOKE_BLOCK:
 		fprintf(out, "Journal Revoke Block\n");
-		print_header(header, "r_header", out);
+		print_header (header, out);
 		revoke = (journal_revoke_header_t *) blk;
 		fprintf(out, "\tr_count:\t\t%d\n", ntohl(revoke->r_count));
 		count = (ntohl(revoke->r_count) - 

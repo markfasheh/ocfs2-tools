@@ -197,6 +197,36 @@ void get_publish_flag (__u32 flag, GString *str)
 }				/* get_publish_flag */
 
 /*
+ * get_journal_blktyp()
+ *
+ */
+void get_journal_blktyp (__u32 jtype, GString *str)
+{
+	switch (jtype) {
+	case JFS_DESCRIPTOR_BLOCK:
+		g_string_append (str, "JFS_DESCRIPTOR_BLOCK");
+		break;
+	case JFS_COMMIT_BLOCK:
+		g_string_append (str, "JFS_COMMIT_BLOCK");
+		break;
+	case JFS_SUPERBLOCK_V1:
+		g_string_append (str, "JFS_SUPERBLOCK_V1");
+		break;
+	case JFS_SUPERBLOCK_V2:
+		g_string_append (str, "JFS_SUPERBLOCK_V2");
+		break;
+	case JFS_REVOKE_BLOCK:
+		g_string_append (str, "JFS_REVOKE_BLOCK");
+		break;
+	}
+
+	if (!str->len)
+		g_string_append (str, "none");
+
+	return ;
+}				/* get_journal_blktyp */
+
+/*
  * open_pager() -- copied from e2fsprogs-1.32/debugfs/util.c
  * 
  * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
