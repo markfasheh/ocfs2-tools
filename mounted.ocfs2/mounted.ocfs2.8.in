@@ -1,0 +1,28 @@
+.TH "mounted.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+mounted.ocfs2 \- detect and print nodes that have an OCFS2 partition mounted.
+.SH "SYNOPSIS"
+\fBmounted.ocfs2\fR [\fB\-d\fR] [\fB\-f\fR] \fIdevice\fR
+.SH "DESCRIPTION"
+.PP 
+\fBmounted.ocfs2\fR is used to verify if there are nodes that have a specific OCFS2 \fIdevice\fR mounted.
+.SH "OPTIONS"
+.TP
+\fB\-d\fR
+Perform a quick detection of the \fIdevice\fR. With this option, only the label and uuid will be displayed.
+
+.TP
+\fB\-f\fR
+Perform a full detection of the \fIdevice\fR. With this option, the node name will be displayed in addition to the label and uuid.
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation

@@ -1,0 +1,48 @@
+.TH "tunefs.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+tunefs.ocfs2 \- Change OCFS2 partition parameters.
+.SH "SYNOPSIS"
+\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-n\fR \fInumber-of-nodes\fR] [\fB\-j\fR \fIjournal-size\fR] [\fB\-S\fR \fIvolume-size\fR] [\fB\-qvV\fR] \fIdevice\fR
+.SH "DESCRIPTION"
+.PP 
+\fBtunefs.ocfs2\fR is used to adjust OCFS2 file system parameters on disk. In order to prevent data loss, \fBtunefs.ocfs2\fR will not perform any action to a specified device if any node has it mounted. 
+.SH "OPTIONS"
+.TP
+\fB\-L\fR \fIvolume\-label\fR
+\fIvolume\-label\fR specifiy the new label name of a device. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
+
+.TP
+\fB\-n\fR \fInumber\-of\-nodes\fR
+\fInumber\-of\-nodes\fR specify the number of nodes that will be sharing a specific OCFS2 partition. The maximum value allowed for \fInumber\-of\-nodes\fR is 255. Note that one can increase the number of nodes, but not decrease it. Future versions may allow decrease of the number of nodes.
+
+.TP
+\fB\-j\fR \fIjournal\-size\fR
+\fIjournal\-size\fR specify the size of the OCFS2 journal used by the partition. Valid size values range from 4Mb to 500Mb. Note that one can increase the size of the OCFS2 journal, but not decrease it. Future versions may allow decrease of the OCFS2 journal size.
+
+.TP
+\fB\-S\fR \fIvolume\-size\fR 
+\fIvolume\-size\fR specify the new volume size of an OCFS2 partition. A partition should be physically extended prior to use this option.
+
+.TP
+\fB\-q\fR 
+Execute \fBtunefs.ocfs2\fR in quiet mode. 
+
+.TP
+\fB\-v\fR 
+Execute \fBtunefs.ocfs2\fR in verbose mode.
+
+.TP
+\fB\-V\fR 
+Show version and exit.
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation

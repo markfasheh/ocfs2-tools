@@ -1,0 +1,113 @@
+.TH "o2cb_ctl" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+o2cb_ctl \- Control program for the OCFS2 Cluster Software.
+.SH "SYNOPSIS"
+.B o2cb_ctl 
+\fB\-C\fR \fB\-n\fR \fIobject\fR \fB\-t\fR type\fR [\fB\-i\fR] [\fB\-a\fR \fIattribute\fR ]
+.br
+.B o2cb_ctl 
+\fB\-D\fR \fB\-n\fR \fIobject\fR [\fB\-u\fR]
+.br
+.B o2cb_ctl 
+\fB\-I\fR [\fB\-o\|\-z\fR] \fB\-l\fR \fImanager\fR> [\fB\-n\fR \fIobject\fR>] [\fB\-t\fR \fItype\fR] [\fB\-a\fR \fIattribute\fR]
+.br
+.B o2cb_ctl 
+\fB\-H\fR [\fB\-n\fR \fIobject\fR] [\fB\-t\fR \fItype\fR>] [\fB\-a\fR \fIattribute\fR>] 
+.br
+.B o2cb_ctl 
+\fB\-h\fR
+.br
+.B o2cb_ctl 
+\fB\-V\fR
+
+.SH "DESCRIPTION"
+.PP 
+\fBo2cb_ctl\fR is the control program for he OCFS2 Cluster Software. Oracle strongly recommends users to make use of \fIocfs2console\fR. \fBo2cb_ctl\fR is used to configure, modify and start the OCFS2 Cluster Software (file \fI/etc/cluster.conf\fR). One should be careful when configuring the cluster to make sure all nodes have the exact same copy of the file \fI/etc/cluster.conf\fR or the cluster will not work properly.
+
+.SH "OPTIONS"
+
+.TP
+\fB\-C\fR
+Create a new OCFS2 Cluster Configuration.
+
+.TP
+\fB\-D\fR
+Delete an existing OCFS2 Cluster Configuration.
+
+.TP
+\fB\-I\fR
+Print information about OCFS2 Cluster Configuration.
+
+.TP
+\fB\-H\fR
+Change an existing OCFS2 Cluster Configuration.
+
+.TP
+\fB\-h\fR
+Displays help and exit.
+
+.TP
+\fB\-V\fR
+Print version and exit.
+
+.SH "OTHER OPTIONS"
+
+.TP
+\fB\-a\fR \fI<attribute>\fR
+\fI<attribute>\fR is in format "parameter=value", where the parameter is a valid parameter that can be set in the file \fI/etc/cluster.conf\fR.
+
+.TP
+\fB\-i\fR
+Valid only with \fB\-C\fR. When creating something (\fInode\fR or \fIcluster\fR), it will also install it in the live cluster. If the parameter is not specified, then only update the \fI/etc/cluster.conf\fR.
+
+.TP
+\fB\-n\fR \fIobject\fR
+\fIobject\fR is usually the node name or cluster name. In the \fI/etc/cluster.conf\fR file, it would be the value of the name parameter for any of the sections (\fIcluster\fR or \fInode\fR).
+
+.TP
+\fB\-o\fR
+Valid only with \fB\-I\fR. Using this parameter, if one asks o2cb_ctl to list all nodes, it will output it in a format suitable for shell parsing.
+
+.TP
+\fB\-t\fR \fItype\fR
+\fItype\fR can be cluster, node or heartbeat.
+
+.TP
+\fB\-u\fR
+Valid only with \fB\-D\fR. When deleting something (\fInode\fR or \fIcluster\fR), it will also remove it from the live cluster. If the parameter is not specified, then only update the \fI/etc/cluster.conf\fR.
+
+.TP
+\fB\-z\fR
+Valid only with \fB\-I\fR. This is the default. If one asks o2cb_ctl to list all nodes, it will give a verbose listing.
+
+.SH "EXAMPLES"
+
+.HP
+In the cluster "mycluster", create the node "node5":
+
+o2cb_ctl -C -n node5 -t node -a number=5 -a ip_address=139.185.118.5 -a ip_port=7777 \\
+.br
+-a cluster=mycluster
+
+.TP
+To query the IP address of node5:
+
+o2cb_ctl -I -n node5 -a ip_address
+
+.TP
+To change the IP address of node5:
+
+o2cb_ctl -H -n node5 -a ip_address=130.35.68.5
+
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation
