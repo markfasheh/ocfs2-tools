@@ -81,10 +81,6 @@ void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc)
 	fprintf(out, "\tLocal Bitmap Offset: %u   Size: %u\n",
 	       loc->la_bm_off, loc->la_size);
 
-	fprintf(out, "\tTotal: %u   Used: %u   Clear: %u\n",
-	       loc->la_bm_bits, loc->la_bits_set,
-	       (loc->la_bm_bits - loc->la_bits_set));
-
 	return ;
 }				/* dump_local_alloc */
 

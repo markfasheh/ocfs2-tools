@@ -1865,7 +1865,7 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int dir)
 		rec->flags |= OCFS2_JOURNAL_FL;
 		break;
 	case SFI_LOCAL_ALLOC:
-		rec->flags |= OCFS2_LOCAL_ALLOC_FL;
+		rec->flags |= (OCFS2_BITMAP_FL|OCFS2_LOCAL_ALLOC_FL);
 		break;
 	case SFI_DLM:
 		rec->flags |= OCFS2_DLM_FL;

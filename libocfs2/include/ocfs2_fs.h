@@ -336,12 +336,9 @@ typedef struct _ocfs2_super_block {
 typedef struct _ocfs2_local_alloc
 {
 /*00*/	__u32 la_bm_off;	/* Starting bit offset in main bitmap */
-	/* Do we want to use id1.bitmap1? */
-	__u16 la_bm_bits;	/* Number of bits from main bitmap */
-	__u16 la_bits_set;	/* Number of set bits */
 	__u16 la_size;		/* Size of included bitmap, in bytes */
 	__u16 la_reserved1;
-	__u32 la_reserved2;
+	__u64 la_reserved2;
 /*10*/	__u8 la_bitmap[0];
 } ocfs2_local_alloc;
 
