@@ -159,3 +159,24 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump)
 	safefree (buf);
 	return ret;
 }				/* traverse_extents */
+
+/*
+ * read_dir()
+ *
+ */
+void read_dir (struct ocfs2_dir_entry *dir, int len, GArray *arr)
+{
+	char *p;
+	struct ocfs2_dir_entry *rec;
+
+	p = (char *) dir;
+
+	while (p < (((char *)dir) + len)) {
+		rec = (struct ocfs2_dir_entry *)p;
+		if (rec->inode)
+			add_dir_rec (arr, rec);
+		p += rec->rec_len;
+	}
+
+	return ;
+}				/* read_dir */

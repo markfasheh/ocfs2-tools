@@ -244,26 +244,24 @@ void dump_extent_block (ocfs2_extent_block *blk)
  */
 void dump_dir_entry(struct ocfs2_dir_entry *dir, int len)
 {
-	char *p;
 	struct ocfs2_dir_entry *rec;
+	GArray *arr = NULL;
+	int i;
 
-	p = (char *)dir;
+	arr = g_array_new (0, 1, sizeof(struct ocfs2_dir_entry));
 
 	printf("%-20s %-4s %-4s %-2s %-4s\n",
 	       "Inode", "Rlen", "Nlen", "Ty", "Name");
 
-	while (p < (((char *)dir) + len)) {
-		rec = (struct ocfs2_dir_entry *)p;
-		if (rec->inode) {
-                    char buf[4096];
-                    memcpy(buf, rec->name, rec->name_len);
-                    buf[rec->name_len] = '\0';
-                    printf("%-15llu  %-6u  %-7u  %-4u  %s\n", rec->inode,
-                           rec->rec_len, rec->name_len, rec->file_type,
-                           buf);
-                }
-		p += rec->rec_len;
+	read_dir (dir, len, arr);
+
+	for (i = 0; i < arr->len; ++i) {
+		rec = &(g_array_index(arr, struct ocfs2_dir_entry, i));
+		printf("%-15llu  %-6u  %-7u  %-4u  %s\n", rec->inode,
+		       rec->rec_len, rec->name_len, rec->file_type, rec->name);
 	}
 
+	if (arr)
+		g_array_free (arr, 1);
 	return ;
 }				/* dump_dir_entry */

@@ -48,3 +48,31 @@ void add_extent_rec (GArray *arr, ocfs2_extent_rec *rec)
 
 	return ;
 }				/* add_extent_rec */
+
+/*
+ * add_dir_rec()
+ *
+ */
+void add_dir_rec (GArray *arr, struct ocfs2_dir_entry *rec)
+{
+	struct ocfs2_dir_entry *new;
+
+	if (!arr)
+		return ;
+
+	if (!(new = malloc(sizeof(struct ocfs2_dir_entry))))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	memset(new, 0, sizeof(struct ocfs2_dir_entry));
+
+	new->inode = rec->inode;
+	new->rec_len = rec->rec_len;
+	new->name_len = rec->name_len;
+	new->file_type = rec->file_type;
+	strncpy(new->name, rec->name, rec->name_len);
+	new->name[rec->name_len] = '\0';
+
+	g_array_append_vals(arr, new, 1);
+
+	return ;
+}				/* add_dir_rec */

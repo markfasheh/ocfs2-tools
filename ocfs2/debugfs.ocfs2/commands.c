@@ -45,23 +45,24 @@ struct _Command
 static Command  *find_command (char  *cmd);
 static char    **get_data     (void);
 
-static void      do_open     (char **args);
-static void      do_close    (char **args);
-static void      do_cd       (char **args);
-static void      do_ls       (char **args);
-static void      do_pwd      (char **args);
-static void      do_mkdir    (char **args);
-static void      do_rmdir    (char **args);
-static void      do_rm       (char **args);
-static void      do_read     (char **args);
-static void      do_write    (char **args);
-static void      do_quit     (char **args);
-static void      do_help     (char **args);
-static void      do_dump     (char **args);
-static void      do_lcd      (char **args);
-static void      do_curdev   (char **args);
-static void      do_super    (char **args);
-static void      do_inode    (char **args);
+static void do_open (char **args);
+static void do_close (char **args);
+static void do_cd (char **args);
+static void do_ls (char **args);
+static void do_pwd (char **args);
+static void do_mkdir (char **args);
+static void do_rmdir (char **args);
+static void do_rm (char **args);
+static void do_read (char **args);
+static void do_write (char **args);
+static void do_quit (char **args);
+static void do_help (char **args);
+static void do_dump (char **args);
+static void do_lcd (char **args);
+static void do_curdev (char **args);
+static void do_super (char **args);
+static void do_inode (char **args);
+static void do_nodes (char **args);
 
 extern gboolean allow_write;
 
@@ -108,7 +109,9 @@ static Command commands[] =
   { "stats", do_super },
 
   { "show_inode_info", do_inode },
-  { "stat", do_inode }
+  { "stat", do_inode },
+
+  { "show_nodes", do_nodes }
 };
 
 
@@ -482,3 +485,22 @@ bail:
 	safefree (buf);
 	return ;
 }					/* do_inode */
+
+/*
+ * do_nodes()
+ *
+ */
+static void do_nodes (char **args)
+{
+	char *opts = args[1];
+	__u32 nodenum;
+
+	if (opts)
+		nodenum = atoi(opts);
+	else
+		nodenum = ULONG_MAX;
+
+	/* get the dlm file */
+
+	return ;
+}					/* do_nodes */
