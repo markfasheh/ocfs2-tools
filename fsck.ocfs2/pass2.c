@@ -556,6 +556,8 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 		.fs = ost->ost_fs,
 	};
 
+	printf("Pass 2: Checking directory entries.\n");
+
 	retval = ocfs2_malloc_block(ost->ost_fs->fs_io, &dd.buf);
 	if (retval)
 		return retval;

@@ -42,6 +42,8 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 	char *buf = NULL;
 	errcode_t err;
 
+	printf("Pass 4: Checking inodes link counts.\n");
+
 	for (ino = 0;
 	     ocfs2_bitmap_find_next_set(ost->ost_used_inodes, ino, &ino) != 0;
 	     ino++) {

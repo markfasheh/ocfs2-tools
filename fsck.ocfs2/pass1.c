@@ -310,6 +310,8 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 	ocfs2_inode_scan *scan;
 	ocfs2_filesys *fs = ost->ost_fs;
 
+	printf("Pass 1: Checking inodes and blocks.\n");
+
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
 		com_err(whoami, ret,

@@ -206,6 +206,8 @@ errcode_t o2fsck_pass3(o2fsck_state *ost)
 {
 	o2fsck_dir_parent *dp;
 
+	printf("Pass 3: Checking directory connectivity.\n");
+
 	/* these could probably share more code.  We might need to treat the
 	 * other required directories like root here */
 

@@ -38,6 +38,7 @@
 #include "pass2.h"
 #include "pass3.h"
 #include "pass4.h"
+#include "problem.h"
 #include "util.h"
 
 int verbose = 0;
@@ -149,6 +150,7 @@ int main(int argc, char **argv)
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
 	int c, ret, rw = OCFS2_FLAG_RW;
+	struct stat st;
 
 	memset(ost, 0, sizeof(o2fsck_state));
 	ost->ost_ask = 1;
@@ -227,6 +229,12 @@ int main(int argc, char **argv)
 
 	filename = argv[optind];
 
+	if (stat(filename, &st) == 0 && !S_ISBLK(st.st_mode) &&
+	    !prompt(ost, PY, "%s isn't a special block device.  Proceed "
+		    "anyway?", filename)) {
+		exit(FSCK_ERROR);
+	}
+
 	/* XXX we'll decide on a policy for using o_direct in the future.
 	 * for now we want to test against loopback files in ext3, say. */
 	ret = ocfs2_open(filename, rw | OCFS2_FLAG_BUFFERED, blkno,
@@ -260,6 +268,12 @@ int main(int argc, char **argv)
 
 	/* XXX we don't use the bad blocks inode, do we? */
 
+	printf("Checking OCFS2 filesystem in %s:\n", filename);
+	printf("  number of blocks:   %"PRIu64"\n", ost->ost_fs->fs_blocks);
+	printf("  bytes per block:    %u\n", ost->ost_fs->fs_blocksize);
+	printf("  number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
+	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
+
 	ret = o2fsck_pass1(ost);
 	if (ret)
 		com_err(argv[0], ret, "pass1 failed");
@@ -281,6 +295,9 @@ int main(int argc, char **argv)
 		com_err(argv[0], ret,
 			"while closing file \"%s\"", filename);
 	}
+
+	/* XXX check if the fs is modified and yell something. */
+	printf("fsck completed successfully.\n");
 
 out:
 	return 0;
