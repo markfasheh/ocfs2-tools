@@ -616,6 +616,7 @@ static void do_dump (char **args)
 {
 	__u64 blknum = 0;
 	__s32 outfd = -1;
+	FILE *out = NULL;
 	int flags;
 	int op = 0;  /* 0 = dump, 1 = cat */
 	char *outfile = NULL;
@@ -626,7 +627,8 @@ static void do_dump (char **args)
 	}
 
 	if (!strncasecmp (args[0], "cat", 3)) {
-		outfd = 1;
+		out = open_pager ();
+		outfd = fileno(out);
 		op = 1;
 	}
 
@@ -649,6 +651,11 @@ static void do_dump (char **args)
 	read_file (gbls.dev_fd, blknum, outfd, NULL);
 
 bail:
+	if (out) {
+		close_pager (out);
+		outfd = -1;
+	}
+	
 	if (outfd > 2)
 		close (outfd);
 
