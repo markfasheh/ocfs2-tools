@@ -22,7 +22,7 @@ o2cb_ctl \- Control program for the OCFS2 Cluster Software.
 
 .SH "DESCRIPTION"
 .PP 
-\fBo2cb_ctl\fR is the control program for he OCFS2 Cluster Software. Oracle strongly recommends users to make use of \fIocfs2console\fR. \fBo2cb_ctl\fR is used to configure, modify and start the OCFS2 Cluster Software (file \fI/etc/cluster.conf\fR). One should be careful when configuring the cluster to make sure all nodes have the exact same copy of the file \fI/etc/cluster.conf\fR or the cluster will not work properly.
+\fBo2cb_ctl\fR is the control program for he OCFS2 Cluster Software. Oracle strongly recommends users to make use of \fIocfs2console\fR. \fBo2cb_ctl\fR is used to configure, modify and start the OCFS2 Cluster Software (file \fI/etc/ocfs2/cluster.conf\fR). One should be careful when configuring the cluster to make sure all nodes have the exact same copy of the file \fI/etc/ocfs2/cluster.conf\fR or the cluster will not work properly.
 
 .SH "OPTIONS"
 
@@ -54,15 +54,15 @@ Print version and exit.
 
 .TP
 \fB\-a\fR \fI<attribute>\fR
-\fI<attribute>\fR is in format "parameter=value", where the parameter is a valid parameter that can be set in the file \fI/etc/cluster.conf\fR.
+\fI<attribute>\fR is in format "parameter=value", where the parameter is a valid parameter that can be set in the file \fI/etc/ocfs2/cluster.conf\fR.
 
 .TP
 \fB\-i\fR
-Valid only with \fB\-C\fR. When creating something (\fInode\fR or \fIcluster\fR), it will also install it in the live cluster. If the parameter is not specified, then only update the \fI/etc/cluster.conf\fR.
+Valid only with \fB\-C\fR. When creating something (\fInode\fR or \fIcluster\fR), it will also install it in the live cluster. If the parameter is not specified, then only update the \fI/etc/ocfs2/cluster.conf\fR.
 
 .TP
 \fB\-n\fR \fIobject\fR
-\fIobject\fR is usually the node name or cluster name. In the \fI/etc/cluster.conf\fR file, it would be the value of the name parameter for any of the sections (\fIcluster\fR or \fInode\fR).
+\fIobject\fR is usually the node name or cluster name. In the \fI/etc/ocfs2/cluster.conf\fR file, it would be the value of the name parameter for any of the sections (\fIcluster\fR or \fInode\fR).
 
 .TP
 \fB\-o\fR
@@ -74,7 +74,7 @@ Valid only with \fB\-I\fR. Using this parameter, if one asks o2cb_ctl to list al
 
 .TP
 \fB\-u\fR
-Valid only with \fB\-D\fR. When deleting something (\fInode\fR or \fIcluster\fR), it will also remove it from the live cluster. If the parameter is not specified, then only update the \fI/etc/cluster.conf\fR.
+Valid only with \fB\-D\fR. When deleting something (\fInode\fR or \fIcluster\fR), it will also remove it from the live cluster. If the parameter is not specified, then only update the \fI/etc/ocfs2/cluster.conf\fR.
 
 .TP
 \fB\-z\fR
