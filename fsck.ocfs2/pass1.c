@@ -48,6 +48,7 @@
  * 	make sure the inode's dtime/count/valid match in update_inode_alloc
  * 	more carefully track cluster use in conjunction with pass 0
  * 	handle local alloc inodes for realsies
+ * 	free an inodes chains and extents and such if we free it
  */
 #include <string.h>
 #include <inttypes.h>
@@ -164,13 +165,37 @@ out:
 
 /* Check the basics of the ocfs2_dinode itself.  If we find problems
  * we clear the VALID flag and the caller will see that and update
- * inode allocations and write the inode to disk. */
+ * inode allocations and write the inode to disk. 
+ *
+ * XXX the o2fsck_write_inode helpers need to be fixed here*/
 static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost, 
 				       uint64_t blkno, ocfs2_dinode *di)
 {
 	int clear = 0;
 
 	verbosef("checking inode %"PRIu64"'s fields\n", blkno);
+
+	if (!(di->i_flags & OCFS2_VALID_FL))
+		goto out;
+
+	if (di->i_fs_generation != ost->ost_fs_generation) {
+		if (prompt(ost, PY, "Inode read from block %"PRIu64" looks "
+			   "like it is valid but it has a generation of %x "
+			   "that doesn't match the current volume's "
+			   "generation of %x.  This is probably a harmless "
+			   "old inode.  Mark it deleted?", blkno, 
+			   di->i_fs_generation, ost->ost_fs_generation)) {
+
+			clear = 1;
+			goto out;
+		}
+		if (prompt(ost, PY, "Update the inode's generation to match "
+			  "the volume?")) {
+
+			di->i_fs_generation = ost->ost_fs_generation;
+			o2fsck_write_inode(ost, blkno, di);
+		}
+	}
 
 	/* do we want to detect and delete corrupt system dir/files here
 	 * so we can recreate them later ? */
@@ -698,8 +723,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 		/* scanners have to skip over uninitialized inodes */
 		if (!memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
-		    strlen(OCFS2_INODE_SIGNATURE)) &&
-		    di->i_flags & OCFS2_VALID_FL) {
+		    strlen(OCFS2_INODE_SIGNATURE))) {
 			o2fsck_verify_inode_fields(fs, ost, blkno, di);
 
 			/* XXX be able to mark the blocks in the inode as 

@@ -193,6 +193,7 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
 	di->i_flags = flags;
 	ocfs2_init_inode(fs, di, gd_blkno, *ino);
 	di->i_flags |= OCFS2_SYSTEM_FL;
+	di->i_fs_generation = fs->fs_super->i_fs_generation;
 
 	ret = ocfs2_write_inode(fs, *ino, buf);
 

@@ -143,6 +143,8 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u\n",
 	        in->i_blkno, mode, in->i_generation);
 
+	fprintf(out, "\tFS Generation: %u\n",in->i_fs_generation);
+
 	fprintf(out, "\tType: %s   Flags: %s\n", str, flags->str);
 
 	pw = getpwuid(in->i_uid);

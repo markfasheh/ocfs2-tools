@@ -100,6 +100,24 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 		changed = 1;
 	}
 
+	if (eb->h_fs_generation != ost->ost_fs_generation) {
+		if (prompt(ost, PY, "An extent block at %"PRIu64" in inode "
+			   "%"PRIu64" has a generation of %x which doesn't "
+			   "match the volume's generation of %x.  Consider "
+			   "this extent block invalid?", blkno, di->i_blkno,
+			   eb->h_fs_generation, ost->ost_fs_generation)) {
+
+			*is_valid = 0;
+			goto out;
+		}
+		if (prompt(ost, PY, "Update the extent block's generation to "
+			   "match the volume?")) {
+
+			eb->h_fs_generation = ost->ost_fs_generation;
+			changed = 1;
+		}
+	}
+
 	/* XXX worry about suballoc node/bit */
 	/* XXX worry about next_leaf_blk */
 

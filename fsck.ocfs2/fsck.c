@@ -142,7 +142,8 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 
 static errcode_t check_superblock(char *whoami, o2fsck_state *ost)
 {
-	ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+	ocfs2_dinode *di = ost->ost_fs->fs_super;
+	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 	errcode_t ret = 0;
 
 	if (sb->s_max_nodes == 0) {
@@ -157,6 +158,8 @@ static errcode_t check_superblock(char *whoami, o2fsck_state *ost)
 		com_err(whoami, ret, "while checking the super block's compat "
 			"flags");
 	}
+
+	ost->ost_fs_generation = di->i_fs_generation;
 
 	/* XXX do we want checking for different revisions of ocfs2? */
 

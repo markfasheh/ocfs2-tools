@@ -51,6 +51,8 @@ typedef struct _o2fsck_state {
 
 	o2fsck_dirblocks	ost_dirblocks;
 
+	uint32_t	ost_fs_generation;
+
 	struct rb_root	ost_dir_parents;
 
 	unsigned	ost_ask:1,	/* confirm with the user */

@@ -275,7 +275,7 @@ typedef struct _ocfs2_extent_block
 					   extent_header belongs to */
 	__u16 h_suballoc_bit;		/* Bit offset in suballocater
 					   block group */
-	__u32 h_reserved2;
+	__u32 h_fs_generation;		/* Must match super block */
 	__u64 h_blkno;			/* Offset on disk, in blocks */
 /*20*/	__u64 h_reserved3;
 	__u64 h_next_leaf_blk;		/* Offset on disk, in blocks,
@@ -370,7 +370,9 @@ typedef struct _ocfs2_dinode {
 /*50*/	__u64 i_blkno;			/* Offset on disk, in blocks */
 	__u64 i_last_eb_blk;		/* Pointer to last extent
 					   block */
-/*60*/	__u64 i_reserved1[11];
+/*60*/	__u32 i_fs_generation;		/* Generation per fs-instance */
+	__u32 i_reserved0;		/* Generation per fs-instance */
+/*68*/	__u64 i_reserved1[10];
 /*B8*/	union {
 		__u64 i_pad1;		/* Generic way to refer to this
 					   64bit union */

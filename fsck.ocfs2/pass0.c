@@ -68,9 +68,9 @@ struct chain_state {
 	uint16_t	cs_cpg;
 };
 
-static errcode_t check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
-				  struct chain_state *cs, ocfs2_group_desc *bg,
-				  uint64_t blkno)
+static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
+			    struct chain_state *cs, ocfs2_group_desc *bg,
+			    uint64_t blkno)
 {
 	int changed = 0;
 
@@ -86,7 +86,24 @@ static errcode_t check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 		   strlen(OCFS2_GROUP_DESC_SIGNATURE))) {
 		printf("Group descriptor at block %"PRIu64" has an invalid "
 			"signature.\n", blkno);
-		return OCFS2_ET_BAD_GROUP_DESC_MAGIC;
+		return 1;
+	}
+
+	if (bg->bg_generation != ost->ost_fs_generation) {
+		if (prompt(ost, PY, "Group descriptor at block %"PRIu64" has "
+			   "a generation of %"PRIx32" which doesn't match the "
+			   "volume's generation of %"PRIx32".  Delete this "
+			   "group descriptor?", blkno, bg->bg_generation,
+			   ost->ost_fs_generation)) {
+
+			return 1;
+		}
+		if (prompt(ost, PY, "Update the descriptor's generation to "
+			   "match the volume?")) {
+
+			bg->bg_generation = ost->ost_fs_generation;
+			changed = 1;
+		}
 	}
 
 	/* XXX maybe for advanced pain we could check to see if these 
@@ -230,16 +247,13 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 		goto out;
 	}
 
-	ret = check_group_desc(ost, di, cs, bg, blkno);
-	if (ret) {
-		if (prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
-			   "refers to an invalid descriptor block at "
-			   "%"PRIu64".  Truncate the chain by removing this "
-			   "reference?", cs->cs_chain_no, di->i_blkno,
-			   blkno)) {
-			cbr->cb_new_next_blkno = 1;
-			cbr->cb_next_blkno = 0;
-		}
+	if (check_group_desc(ost, di, cs, bg, blkno) &&
+	    prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" refers "
+		   "to an invalid descriptor block at %"PRIu64".  Truncate "
+		   "the chain by removing this reference?", cs->cs_chain_no,
+		   di->i_blkno, blkno)) {
+		cbr->cb_new_next_blkno = 1;
+		cbr->cb_next_blkno = 0;
 	}
 
 out:

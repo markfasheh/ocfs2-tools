@@ -1469,6 +1469,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->i_suballoc_node = cpu_to_le16((__u16)-1);
 	di->i_suballoc_bit = cpu_to_le16((__u16)-1);
 	di->i_generation = cpu_to_le32(s->vol_generation);
+	di->i_fs_generation = cpu_to_le32(s->vol_generation);
 
 	di->i_atime = 0;
 	di->i_ctime = cpu_to_le64(s->format_time);
@@ -1539,6 +1540,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 
 	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
 	di->i_generation = cpu_to_le32(s->vol_generation);
+	di->i_fs_generation = cpu_to_le32(s->vol_generation);
 	di->i_suballoc_node = cpu_to_le16(-1);
         di->i_suballoc_bit = cpu_to_le16(rec->suballoc_bit);
 	di->i_blkno = cpu_to_le64(rec->fe_off >> s->blocksize_bits);
