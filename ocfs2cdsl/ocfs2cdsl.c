@@ -373,7 +373,7 @@ get_ocfs2_root(const char *path)
 {
 	struct mntent *mnt;
 	FILE *fp;
-	int len, found_len;
+	int len;
 	char *found = NULL, *found_type = NULL;
 	char *ret = NULL;
 
@@ -386,9 +386,7 @@ get_ocfs2_root(const char *path)
 		len = strlen(mnt->mnt_dir);
 
 		if (strncmp(mnt->mnt_dir, path, len) == 0) {
-			if (path[len] == '/') {
-				found_len = len;
-
+			if (path[len] == '/' || path[len] == '\0') {
 				g_free(found);
 				found = g_strdup(mnt->mnt_dir);
 
