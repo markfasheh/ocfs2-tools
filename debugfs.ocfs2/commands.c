@@ -54,6 +54,7 @@ static void do_write (char **args);
 static void do_quit (char **args);
 static void do_help (char **args);
 static void do_dump (char **args);
+static void do_cat (char **args);
 static void do_lcd (char **args);
 static void do_curdev (char **args);
 static void do_super (char **args);
@@ -93,14 +94,12 @@ static Command commands[] =
   { "q",      do_quit   },
 
   { "dump",   do_dump   },
-  { "cat",    do_dump   },
+  { "cat",    do_cat   },
 
   { "curdev", do_curdev },
 
-  { "show_super_stats", do_super },
   { "stats", do_super },
 
-  { "show_inode_info", do_inode },
   { "stat", do_inode },
 
   { "nodes", do_hb },
@@ -586,11 +585,8 @@ static void do_help (char **args)
 	printf ("ls <filepath>\t\t\t\tList directory\n");
 	printf ("cd <filepath>\t\t\t\tChange directory\n");
 	printf ("chroot <filepath>\t\t\tChange root\n");
-//	printf ("cat <blknum> [outfile]\t\tPrints or concatenates file to stdout/outfile\n");
+	printf ("cat <filepath>\t\t\t\tPrints file on stdout\n");
 	printf ("dump [-p] <filepath> <outfile>\t\tDumps file to outfile on a mounted fs\n");
-//	printf ("nodes\t\t\t\tList of nodes\n");
-//	printf ("publish\t\t\t\tPublish blocks\n");
-//	printf ("vote\t\t\t\tVote blocks\n");
 	printf ("logdump <node#>\t\t\t\tPrints journal file for the node\n");
 	printf ("extent <inode#>\t\t\t\tShow extent block\n");
 	printf ("group <inode#>\t\t\t\tShow chain group\n");
@@ -744,6 +740,7 @@ static void do_dump (char **args)
 	char *in_fn;
 	char *out_fn;
 	errcode_t ret;
+	int fd;
 	
 	if (check_device_open())
 		return;
@@ -774,11 +771,51 @@ static void do_dump (char **args)
 		return ;
 	}
 
-	ret = dump_file(gbls.fs, blkno, out_fn, preserve);
+	fd = open(out_fn, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	if (fd < 0) {
+		com_err(args[0], errno, "'%s'", out_fn);
+		return ;
+	}
+
+	ret = dump_file(gbls.fs, blkno, fd, out_fn, preserve);
 	if (ret)
 		com_err(args[0], ret, " ");
 
 	return;
+}
+
+/*
+ * do_cat()
+ *
+ */
+static void do_cat (char **args)
+{
+	uint64_t blkno;
+	errcode_t ret;
+	char *buf;
+	ocfs2_dinode *di;
+
+	if (process_inode_args(args, &blkno))
+		return ;
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, " ");
+		return ;
+	}
+
+	di = (ocfs2_dinode *)buf;
+	if (!S_ISREG(di->i_mode)) {
+		fprintf(stderr, "%s: Not a regular file\n", args[0]);
+		return ;
+	}
+
+	ret = dump_file(gbls.fs, blkno, fileno(stdout),  NULL, 0);
+	if (ret)
+		com_err(args[0], ret, " ");
+
+	return ;
 }
 
 /*

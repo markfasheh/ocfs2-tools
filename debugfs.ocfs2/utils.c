@@ -320,7 +320,8 @@ bail:
  * dump_file()
  *
  */
-errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, char *out_file, int preserve)
+errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
+		    int preserve)
 {
 	errcode_t ret;
 	char *buf = NULL;
@@ -330,13 +331,6 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, char *out_file, int preserv
 	ocfs2_cached_inode *ci = NULL;
 	uint64_t offset = 0;
 	uint64_t filesize;
-	int fd = -1;
-
-	fd = open(out_file, O_CREAT | O_WRONLY | O_TRUNC, 0666);
-	if (fd < 0) {
-		ret = errno;
-		goto bail;
-	}
 
 	ret = ocfs2_read_cached_inode(fs, ino, &ci);
 	if (ret)
@@ -378,7 +372,7 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, char *out_file, int preserv
 		ret = fix_perms(ci->ci_inode, &fd, out_file);
 
 bail:
-	if (fd > 0)
+	if (fd > 0 && fd != fileno(stdout))
 		close(fd);
 	if (buf)
 		ocfs2_free(&buf);

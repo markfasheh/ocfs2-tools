@@ -35,7 +35,7 @@ void close_pager(FILE *stream);
 int inodestr_to_inode(char *str, uint64_t *blkno);
 errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
 			  uint64_t cwd_blkno, char *str, uint64_t *blkno);
-errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, char *out_file,
+errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 		    int preserve);
 
 #endif		/* __UTILS_H__ */
