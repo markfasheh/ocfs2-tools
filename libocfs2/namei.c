@@ -61,7 +61,7 @@ static errcode_t follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t dir,
 	
 #endif
 
-	ret = ocfs2_malloc_block(fs->fs_io, (void **)&di);
+	ret = ocfs2_malloc_block(fs->fs_io, &di);
 	if (ret)
 		goto bail;
 
@@ -89,7 +89,7 @@ static errcode_t follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t dir,
 
 	blkno = el->l_recs[0].e_blkno;
 
-	ret = ocfs2_malloc_block(fs->fs_io, (void **) &buffer);
+	ret = ocfs2_malloc_block(fs->fs_io, &buffer);
 	if (ret)
 		goto bail;
 
@@ -104,7 +104,7 @@ static errcode_t follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t dir,
 
 bail:
 	if (buffer)
-		ocfs2_free((void **) &buffer);
+		ocfs2_free(&buffer);
 
 	if (di)
 		ocfs2_free(&di);
@@ -217,13 +217,13 @@ errcode_t ocfs2_namei(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 	char *buf;
 	errcode_t ret;
 	
-	ret = ocfs2_malloc_block(fs->fs_io, (void **) &buf);
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
 
 	ret = open_namei(fs, root, cwd, name, strlen(name), 0, 0, buf, inode);
 
-	ocfs2_free((void **) &buf);
+	ocfs2_free(&buf);
 	return ret;
 }
 
@@ -237,13 +237,13 @@ errcode_t ocfs2_namei_follow(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 	char *buf;
 	errcode_t ret;
 	
-	ret = ocfs2_malloc_block(fs->fs_io, (void **) &buf);
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
 	
 	ret = open_namei(fs, root, cwd, name, strlen(name), 1, 0, buf, inode);
 
-	ocfs2_free((void **) &buf);
+	ocfs2_free(&buf);
 	return ret;
 }
 
@@ -257,12 +257,12 @@ errcode_t ocfs2_follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 	char *buf;
 	errcode_t ret;
 	
-	ret = ocfs2_malloc_block(fs->fs_io, (void **) &buf);
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
 
 	ret = follow_link(fs, root, cwd, inode, 0, buf, res_inode);
 
-	ocfs2_free((void **) &buf);
+	ocfs2_free(&buf);
 	return ret;
 }
