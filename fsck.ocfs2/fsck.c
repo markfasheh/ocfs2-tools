@@ -150,7 +150,6 @@ int main(int argc, char **argv)
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
 	int c, ret, rw = OCFS2_FLAG_RW;
-	struct stat st;
 
 	memset(ost, 0, sizeof(o2fsck_state));
 	ost->ost_ask = 1;
@@ -229,11 +228,14 @@ int main(int argc, char **argv)
 
 	filename = argv[optind];
 
+#if 0 /* irritating, and e2fsck doesn't do it.  what do others think? */
+	struct stat st;
 	if (stat(filename, &st) == 0 && !S_ISBLK(st.st_mode) &&
 	    !prompt(ost, PY, "%s isn't a special block device.  Proceed "
 		    "anyway?", filename)) {
 		exit(FSCK_ERROR);
 	}
+#endif
 
 	/* XXX we'll decide on a policy for using o_direct in the future.
 	 * for now we want to test against loopback files in ext3, say. */
