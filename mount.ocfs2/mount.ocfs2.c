@@ -1,8 +1,4 @@
 /*
- * listuuid.c
- *
- * Lists UUIDs of all the devices
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -29,6 +25,7 @@
 
 #include <sys/types.h>
 #include <asm/types.h>
+#include <inttypes.h>
 
 #define u8   __u8
 #define s8   __s8
@@ -859,7 +856,9 @@ int get_raw_node_map(__u16 groupnum, char *groupdev, __u32 block_bits, __u32 num
 
 	tmpbuf = buf;
 	for (i=0; i<NM_MAX_NODES; i++) {
-		printf("node: %d: before=%llu, after=%llu\n", i, times[i].time, ((hb_disk_heartbeat_block *)tmpbuf)->time);
+		printf("node: %d: before=%"PRIu64", after=%"PRIu64"\n", i,
+			times[i].time,
+			((hb_disk_heartbeat_block *)tmpbuf)->time);
 		if (times[i].time != ((hb_disk_heartbeat_block *)tmpbuf)->time) {
 			printf(" >>>>>  aha node %d seems to be up!\n", i);
 			ocfs2_set_bit(i, bitmap);
