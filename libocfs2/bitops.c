@@ -86,54 +86,12 @@ int ocfs2_test_bit(int nr, const void * addr)
 
 int ocfs2_find_first_bit_set(void *addr, int size)
 {
-	unsigned char	*cp = (unsigned char *) addr;
-	unsigned int 	res = 0;
-	int		d0;
-	unsigned char	tilde = ~0;
-	unsigned int	mask = 0U | tilde;
-
-	if (!size)
-		return 0;
-
-	while ((size > res) && (*cp == 0)) {
-		cp++;
-		res += 8;
-	}
-	if (res >= size)
-		return size;
-	if ((res + 8) > size)
-		mask >>= 8 - (size - res);
-	d0 = ffs(*cp & mask);
-	if (d0 == 0)
-		return size;
-	
-	return res + d0 - 1;
+	return ocfs2_find_next_bit_set(addr, size, 0);
 }
 
 int ocfs2_find_first_bit_clear(void *addr, int size)
 {
-	unsigned char	*cp = (unsigned char *) addr;
-	unsigned int	res = 0;
-	int		d0;
-	unsigned char	tilde = ~0;
-	unsigned int	mask = 0U | tilde;
-
-	if (!size)
-		return 0;
-
-	while ((size > res) && (*cp == tilde)) {
-		cp++;
-		res += 8;
-	}
-	if (res >= size)
-		return size;
-	if ((res + 8) > size)
-		mask >>= 8 - (size - res);
-	d0 = ffs(~(*cp & mask));
-	if (d0 == 0)
-		return size;
-	
-	return res + d0 - 1;
+	return ocfs2_find_next_bit_clear(addr, size, 0);
 }
 
 int ocfs2_find_next_bit_set(void *addr, int size, int offset)
@@ -143,6 +101,10 @@ int ocfs2_find_next_bit_set(void *addr, int size, int offset)
 	unsigned int	bit = offset & 7, res = 0;
 	unsigned char	tilde = ~0;
 	unsigned int	mask = 0U | tilde;
+
+	/* XXX care to check for null ADDR and <= 0 for int args? */
+	if (size == 0)
+		return 0;
 	
 	res = offset >> 3;
 	p = ((unsigned char *) addr) + res;
@@ -177,6 +139,9 @@ int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 	unsigned int	bit = offset & 7, res = 0;
 	unsigned char tilde = ~0;
 	unsigned int	mask = 0U | tilde;
+
+	if (size == 0)
+		return 0;
 	
 	res = offset >> 3;
 	p = ((unsigned char *) addr) + res;
@@ -211,24 +176,34 @@ int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 #include <stdlib.h>
 #include <string.h>
 
+#define bit_expect(expect, which, args...) do {				\
+	int _ret = ocfs2_find_##which(bitmap, args);			\
+	fprintf(stdout, #which "(" #args ") = %d (expected %d: %s)\n",	\
+			_ret, expect, 					\
+			_ret == expect ? "correct" : "_incorrect_");	\
+} while (0)
+
 int main(int argc, char *argv[])
 {
 	char bitmap[8 * sizeof(unsigned long)];
-	int ret;
 	int size = sizeof(bitmap) * 8;
 
 	/* Test an arbitrary size (not byte bounded) */
 	memset(bitmap, 0, sizeof(bitmap));
 	ocfs2_set_bit(size - 1, bitmap);
-	ret = ocfs2_find_first_bit_set(bitmap, size - 3);
-	fprintf(stdout, "Pass1: first set %d (%s)\n", ret,
-		(ret == (size - 3)) ? "correct" : "incorrect");
+
+	bit_expect(size - 3, first_bit_set, size - 3);
+	bit_expect(size - 1, first_bit_set, size);
+	bit_expect(size - 1, next_bit_set, size, size - 1);
+	bit_expect(size, next_bit_clear, size, size - 1);
 
 	memset(bitmap, 0xFF, sizeof(bitmap));
 	ocfs2_clear_bit(size - 1, bitmap);
-	ret = ocfs2_find_first_bit_clear(bitmap, size - 3);
-	fprintf(stdout, "Pass1: first clear %d (%s)\n", ret,
-		(ret == (size - 3)) ? "correct" : "incorrect");
+
+	bit_expect(size - 3, first_bit_clear, size - 3);
+	bit_expect(size - 1, first_bit_clear, size);
+	bit_expect(size - 1, next_bit_clear, size, size - 1);
+	bit_expect(size, next_bit_set, size, size - 1);
 
 	/* XXX add more tests */
 	return 0;
