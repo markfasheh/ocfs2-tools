@@ -71,36 +71,6 @@ out:
 	return ret;
 }
 
-static errcode_t ocfs2_get_fs_blocks(ocfs2_filesys *fs)
-{
-	errcode_t ret;
-	char *buf;
-	ocfs2_dinode *inode;
-
-	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
-					0, &fs->fs_bm_blkno);
-	if (ret)
-		return ret;
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		return ret;
-
-	ret = ocfs2_read_inode(fs, fs->fs_bm_blkno, buf);
-	if (ret)
-		goto out_free;
-
-	inode = (ocfs2_dinode *)buf;
-
-	fs->fs_clusters = inode->id1.bitmap1.i_total;
-	fs->fs_blocks = ocfs2_clusters_to_blocks(fs, fs->fs_clusters);
-
-out_free:
-	ocfs2_free(&buf);
-
-	return ret;
-}
-
 static errcode_t ocfs2_read_super(ocfs2_filesys *fs, int superblock)
 {
 	errcode_t ret;
@@ -253,10 +223,8 @@ errcode_t ocfs2_open(const char *name, int flags,
 	fs->fs_sysdir_blkno =
 		OCFS2_RAW_SB(fs->fs_super)->s_system_dir_blkno;
 
-	fs->fs_blocks = ULLONG_MAX;
-	ret = ocfs2_get_fs_blocks(fs);
-	if (ret)
-		goto out;
+	fs->fs_clusters = fs->fs_super->i_clusters;
+	fs->fs_blocks = ocfs2_clusters_to_blocks(fs, fs->fs_clusters);
 
 	*ret_fs = fs;
 	return 0;
