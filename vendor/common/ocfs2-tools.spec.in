@@ -65,7 +65,7 @@ do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
 done
 
-%{__python} /usr/lib/python2.3/compileall.py -q "$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface"
+%{__python} "%{_libdir}/python%{pyversion}/compileall.py" -q "$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface"
 
 
 %clean
@@ -91,6 +91,10 @@ chkconfig o2cb on
 /usr/share/man/man8/fsck.ocfs2.8.gz
 /usr/share/man/man8/fsck.ocfs2.checks.8.gz
 /usr/share/man/man8/mkfs.ocfs2.8.gz
+/usr/share/man/man8/tunefs.ocfs2.8.gz
+/usr/share/man/man8/mounted.ocfs2.8.gz
+/usr/share/man/man8/o2cb_ctl.8.gz
+/usr/share/man/man8/ocfs2cdsl.8.gz
 
 
 %files -n ocfs2console
