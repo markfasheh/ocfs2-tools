@@ -47,6 +47,7 @@
 #include <sys/raw.h>
 #include <linux/kdev_t.h>
 #include <inttypes.h>
+#include <utime.h>
 
 #include <glib.h>
 

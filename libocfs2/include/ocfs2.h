@@ -525,6 +525,9 @@ errcode_t ocfs2_namei_follow(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 errcode_t ocfs2_follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 			    uint64_t inode, uint64_t *res_inode);
 
+errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
+			  uint64_t offset, uint32_t *got);
+
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
  * returns the cluster that contains a block, not the number of clusters

@@ -236,6 +236,28 @@ void close_pager(FILE *stream)
 	if (stream && stream != stdout) pclose(stream);
 }
 
+/*
+ * inodestr_to_inode()
+ *
+ * Returns ino if string is of the form <ino>
+ *
+ * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
+ * redistributed under the terms of the GNU Public License.
+ */
+int inodestr_to_inode(char *str, uint64_t *blkno)
+{
+	int len;
+	char *end;
+
+	len = strlen(str);
+	if ((len > 2) && (str[0] == '<') && (str[len-1] == '>')) {
+		*blkno = strtoul(str+1, &end, 0);
+		if (*end=='>')
+			return 0;
+	}
+
+	return -1;
+}
 
 /*
  * string_to_inode()
@@ -249,19 +271,118 @@ void close_pager(FILE *stream)
 errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
 			  uint64_t cwd_blkno, char *str, uint64_t *blkno)
 {
-	int len;
-	char *end;
-
 	/*
 	 * If the string is of the form <ino>, then treat it as an
 	 * inode number.
 	 */
-	len = strlen(str);
-	if ((len > 2) && (str[0] == '<') && (str[len-1] == '>')) {
-		*blkno = strtoul(str+1, &end, 0);
-		if (*end=='>')
-			return 0;
-	}
+	if (!inodestr_to_inode(str, blkno))
+		return 0;
 
 	return ocfs2_namei(fs, root_blkno, cwd_blkno, str, blkno);
+}
+
+/*
+ * fix_perms()
+ *
+ */
+static errcode_t fix_perms(const ocfs2_dinode *di, int *fd, char *out_file)
+{
+	struct utimbuf ut;
+	int i;
+	errcode_t ret = 0;
+
+	i = fchmod(*fd, di->i_mode);
+	if (i == -1) {
+		ret = errno;
+		goto bail;
+	}
+
+	i = fchown(*fd, di->i_uid, di->i_gid);
+	if (i == -1) {
+		ret = errno;
+		goto bail;
+	}
+
+	close(*fd);
+	*fd = -1;
+
+	ut.actime = di->i_atime;
+	ut.modtime = di->i_mtime;
+	if (utime(out_file, &ut) == -1) {
+		ret = errno;
+		goto bail;
+	}
+bail:
+	return ret;
+}
+
+/*
+ * dump_file()
+ *
+ */
+errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, char *out_file, int preserve)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	int buflen;
+	uint32_t got;
+	uint32_t wrote;
+	ocfs2_cached_inode *ci = NULL;
+	uint64_t offset = 0;
+	uint64_t filesize;
+	int fd = -1;
+
+	fd = open(out_file, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	if (fd < 0) {
+		ret = errno;
+		goto bail;
+	}
+
+	ret = ocfs2_read_cached_inode(fs, ino, &ci);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_extent_map_init(fs, ci);
+	if (ret)
+		goto bail;
+
+	buflen = fs->fs_clustersize;
+
+	ret = ocfs2_malloc_blocks(fs->fs_io,
+				  (buflen >>
+				   OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits),
+				  &buf);
+	if (ret)
+		goto bail;
+
+	filesize = ci->ci_inode->i_size;
+
+	while (filesize) {
+		ret = ocfs2_file_read(ci, buf, buflen, offset, &got);
+		if (ret)
+			goto bail;
+
+		if (filesize < got)
+			got = filesize;
+
+		wrote = write(fd, buf, got);
+		if (wrote != got) {
+			ret = errno;
+			goto bail;
+		}
+		offset += got;
+		filesize -= got;
+	}
+
+	if (preserve)
+		ret = fix_perms(ci->ci_inode, &fd, out_file);
+
+bail:
+	if (fd > 0)
+		close(fd);
+	if (buf)
+		ocfs2_free(&buf);
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+	return ret;
 }

@@ -127,7 +127,7 @@ static Command * find_command (char *cmd)
 			return &commands[i];
 
 	return NULL;
-}					/* find_command */
+}
 
 /*
  * do_command()
@@ -148,10 +148,10 @@ void do_command (char *cmd)
 	if (command)
 		command->func (args);
 	else
-		printf ("Unrecognized command: %s\n", args[0]);
+		fprintf(stderr, "%s: Unrecognized command\n", args[0]);
 
 	g_strfreev (args);
-}					/* do_command */
+}
 
 /*
  * check_device_open()
@@ -174,56 +174,64 @@ static int check_device_open(void)
 static int process_inode_args(char **args, uint64_t *blkno)
 {
 	errcode_t ret;
+	char *opts = args[1];
+	char *def = ".";
 
 	if (check_device_open())
 		return -1;
 
-	if (!args[1]) {
-		fprintf(stderr, "usage: %s [filespec]\n", args[0]);
-		return -1;
+	if (!opts) {
+		if (!strncasecmp(args[0], "ls", 2))
+			opts = def;
+		else {
+			fprintf(stderr, "usage: %s <filepath>\n", args[0]);
+			return -1;
+		}
 	}
 
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
-			      args[1], blkno);
+			      opts, blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, " ");
+		com_err(args[0], ret, " ");
 		return -1;
 	}
 
 	if (*blkno >= gbls.max_blocks) {
-		fprintf(stderr, "Block number is larger than volume size\n");
-		ret = -1;
+		fprintf(stderr, "%s: Block number is larger than volume size\n",
+			args[0]);
+		return -1;
 	}
 
 	return 0;
 }
 
-/* only called by do_dump which is preprocessed out.. */
-#if 0
 /*
- * get_blknum()
+ * process_inodestr_args()
  *
  */
-static errcode_t get_blknum(char *blkstr, uint64_t *blkno)
+static int process_inodestr_args(char **args, uint64_t *blkno)
 {
-	errcode_t ret = OCFS2_ET_INVALID_ARGUMENT;
-	char *endptr;
+	if (check_device_open())
+		return -1;
 
-	if (blkstr) {
-		*blkno = strtoull(blkstr, &endptr, 0);
-		if (!*endptr) {
-			if (*blkno < gbls.max_blocks)
-				ret = 0;
-			else
-				printf("Block number is too large\n");
-		} else
-			printf("Invalid block number\n");
-	} else
-		printf("No block number specified\n");
+	if (!args[1]) {
+		fprintf(stderr, "usage: %s <inode#>\n", args[0]);
+		return -1;
+	}
 
-	return ret;
+	if (inodestr_to_inode(args[1], blkno)) {
+		fprintf(stderr, "usage: %s <inode#>\n", args[0]);
+		return -1;
+	}
+
+	if (*blkno >= gbls.max_blocks) {
+		fprintf(stderr, "%s: Block number is larger than volume size\n",
+			args[0]);
+		return -1;
+	}
+
+	return 0;
 }
-#endif
 
 /*
  * get_nodenum()
@@ -253,7 +261,7 @@ static int get_nodenum(char **args, uint16_t *nodenum)
  * traverse_extents()
  *
  */
-static int traverse_extents (ocfs2_filesys *fs, ocfs2_extent_list *el, FILE *out)
+static errcode_t traverse_extents (ocfs2_filesys *fs, ocfs2_extent_list *el, FILE *out)
 {
 	ocfs2_extent_block *eb;
 	ocfs2_extent_rec *rec;
@@ -267,10 +275,8 @@ static int traverse_extents (ocfs2_filesys *fs, ocfs2_extent_list *el, FILE *out
 		rec = &(el->l_recs[i]);
 		if (el->l_tree_depth) {
 			ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
-			if (ret) {
-				com_err(gbls.progname, ret, "while allocating a block");
+			if (ret)
 				goto bail;
-			}
 
 			ret = ocfs2_read_extent_block(fs, rec->e_blkno, buf);
 			if (ret)
@@ -280,7 +286,9 @@ static int traverse_extents (ocfs2_filesys *fs, ocfs2_extent_list *el, FILE *out
 
 			dump_extent_block (out, eb);
 
-			traverse_extents (fs, &(eb->h_list), out);
+			ret = traverse_extents (fs, &(eb->h_list), out);
+			if (ret)
+				goto bail;
 		}
 	}
 
@@ -288,13 +296,13 @@ bail:
 	if (buf)
 		ocfs2_free(&buf);
 	return ret;
-}				/* traverse_extents */
+}
 
 /*
  * traverse_chains()
  *
  */
-static int traverse_chains (ocfs2_filesys *fs, ocfs2_chain_list *cl, FILE *out)
+static errcode_t traverse_chains (ocfs2_filesys *fs, ocfs2_chain_list *cl, FILE *out)
 {
 	ocfs2_group_desc *grp;
 	ocfs2_chain_rec *rec;
@@ -307,10 +315,8 @@ static int traverse_chains (ocfs2_filesys *fs, ocfs2_chain_list *cl, FILE *out)
 	dump_chain_list (out, cl);
 
 	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
-	if (ret) {
-		com_err(gbls.progname, ret, "while allocating a block");
+	if (ret)
 		goto bail;
-	}
 
 	for (i = 0; i < cl->cl_next_free_rec; ++i) {
 		rec = &(cl->cl_recs[i]);
@@ -333,7 +339,7 @@ bail:
 	if (buf)
 		ocfs2_free(&buf);
 	return ret;
-}				/* traverse_chains */
+}
 
 
 /*
@@ -361,14 +367,14 @@ static void do_open (char **args)
 	ret = ocfs2_open(dev, flags, 0, 0, &gbls.fs);
 	if (ret) {
 		gbls.fs = NULL;
-		com_err(gbls.progname, ret, "while opening \"%s\"", dev);
+		com_err(args[0], ret, " ");
 		return ;
 	}
 
 	/* allocate blocksize buffer */
 	ret = ocfs2_malloc_block(gbls.fs->fs_io, &gbls.blockbuf);
 	if (ret) {
-		com_err(gbls.progname, ret, "while allocating a block");
+		com_err(args[0], ret, " ");
 		return ;
 	}
 
@@ -405,7 +411,7 @@ static void do_open (char **args)
 
 	return ;
 	
-}					/* do_open */
+}
 
 /*
  * do_close()
@@ -420,7 +426,7 @@ static void do_close (char **args)
 
 	ret = ocfs2_close(gbls.fs);
 	if (ret)
-		com_err(gbls.progname, ret, "while closing \"%s\"", gbls.device);
+		com_err(args[0], ret, " ");
 	gbls.fs = NULL;
 
 	if (gbls.blockbuf)
@@ -430,7 +436,7 @@ static void do_close (char **args)
 	gbls.device = NULL;
 
 	return ;
-}					/* do_close */
+}
 
 /*
  * do_cd()
@@ -446,14 +452,14 @@ static void do_cd (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, " ");
+		com_err(args[0], ret, " ");
 		return ;
 	}
 
 	gbls.cwd_blkno = blkno;
 
 	return ;
-}					/* do_cd */
+}
 
 /*
  * do_chroot()
@@ -469,7 +475,7 @@ static void do_chroot (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, " ");
+		com_err(args[0], ret, " ");
 		return ;
 	}
 
@@ -493,7 +499,7 @@ static void do_ls (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, " ");
+		com_err(args[0], ret, " ");
 		return ;
 	}
 
@@ -504,14 +510,12 @@ static void do_ls (char **args)
 	ret = ocfs2_dir_iterate(gbls.fs, blkno, 0, NULL,
 				dump_dir_entry, out);
 	if (ret)
-		com_err(gbls.progname, ret,
-			"while listing inode %"PRIu64" on \"%s\"\n",
-			blkno, gbls.device);
+		com_err(args[0], ret, " ");
 
 	close_pager (out);
 
 	return ;
-}					/* do_ls */
+}
 
 /*
  * do_pwd()
@@ -520,7 +524,7 @@ static void do_ls (char **args)
 static void do_pwd (char **args)
 {
 	printf ("%s\n", __FUNCTION__);
-}					/* do_pwd */
+}
 
 /*
  * do_mkdir()
@@ -529,7 +533,7 @@ static void do_pwd (char **args)
 static void do_mkdir (char **args)
 {
 	printf ("%s\n", __FUNCTION__);
-}					/* do_mkdir */
+}
 
 /*
  * do_rmdir()
@@ -538,7 +542,7 @@ static void do_mkdir (char **args)
 static void do_rmdir (char **args)
 {
 	printf ("%s\n", __FUNCTION__);
-}					/* do_rmdir */
+}
 
 /*
  * do_rm()
@@ -546,8 +550,8 @@ static void do_rmdir (char **args)
  */
 static void do_rm (char **args)
 {
-  printf ("%s\n", __FUNCTION__);
-}					/* do_rm */
+	printf ("%s\n", __FUNCTION__);
+}
 
 /*
  * do_read()
@@ -556,7 +560,7 @@ static void do_rm (char **args)
 static void do_read (char **args)
 {
 
-}					/* do_read */
+}
 
 /*
  * do_write()
@@ -565,7 +569,7 @@ static void do_read (char **args)
 static void do_write (char **args)
 {
 
-}					/* do_write */
+}
 
 /*
  * do_help()
@@ -573,26 +577,26 @@ static void do_write (char **args)
  */
 static void do_help (char **args)
 {
-	printf ("curdev\t\t\tShow current device\n");
-	printf ("open\t\t\tOpen a device\n");
-	printf ("close\t\t\tClose a device\n");
-	printf ("show_super_stats, stats\tShow superblock\n");
-	printf ("show_inode_info, stat\tShow inode\n");
+	printf ("curdev\t\t\t\t\tShow current device\n");
+	printf ("open <device>\t\t\t\tOpen a device\n");
+	printf ("close\t\t\t\t\tClose a device\n");
+	printf ("stats [-h]\t\t\t\tShow superblock\n");
+	printf ("stat <filepath>\t\t\t\tShow inode\n");
 //	printf ("pwd\t\t\t\tPrint working directory\n");
-	printf ("ls\t\t\tList directory\n");
-	printf ("cd\t\t\tChange directory\n");
-	printf ("chroot\t\t\tChange root\n");
+	printf ("ls <filepath>\t\t\t\tList directory\n");
+	printf ("cd <filepath>\t\t\t\tChange directory\n");
+	printf ("chroot <filepath>\t\t\tChange root\n");
 //	printf ("cat <blknum> [outfile]\t\tPrints or concatenates file to stdout/outfile\n");
-//	printf ("dump <blknum> <outfile>\t\tDumps file to outfile\n");
+	printf ("dump [-p] <filepath> <outfile>\t\tDumps file to outfile on a mounted fs\n");
 //	printf ("nodes\t\t\t\tList of nodes\n");
 //	printf ("publish\t\t\t\tPublish blocks\n");
 //	printf ("vote\t\t\t\tVote blocks\n");
-	printf ("logdump\t\t\tPrints journal file for the node\n");
-	printf ("extent\t\t\tShow extent block\n");
-	printf ("group\t\t\tShow chain group\n");
-	printf ("help, ?\t\t\tThis information\n");
-	printf ("quit, q\t\t\tExit the program\n");
-}					/* do_help */
+	printf ("logdump <node#>\t\t\t\tPrints journal file for the node\n");
+	printf ("extent <inode#>\t\t\t\tShow extent block\n");
+	printf ("group <inode#>\t\t\t\tShow chain group\n");
+	printf ("help, ?\t\t\t\t\tThis information\n");
+	printf ("quit, q\t\t\t\t\tExit the program\n");
+}
 
 /*
  * do_quit()
@@ -603,7 +607,7 @@ static void do_quit (char **args)
 	if (gbls.device)
 		do_close (NULL);
 	exit (0);
-}					/* do_quit */
+}
 
 /*
  * do_lcd()
@@ -612,7 +616,7 @@ static void do_quit (char **args)
 static void do_lcd (char **args)
 {
 
-}					/* do_lcd */
+}
 
 /*
  * do_curdev()
@@ -621,7 +625,7 @@ static void do_lcd (char **args)
 static void do_curdev (char **args)
 {
 	printf ("%s\n", gbls.device ? gbls.device : "No device");
-}					/* do_curdev */
+}
 
 /*
  * do_super()
@@ -649,7 +653,7 @@ static void do_super (char **args)
 
 bail:
 	return ;
-}					/* do_super */
+}
 
 /*
  * do_inode()
@@ -669,8 +673,7 @@ static void do_inode (char **args)
 	buf = gbls.blockbuf;
 	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
 	if (ret) {
-		com_err(gbls.progname, ret,
-			"while reading inode in block %"PRIu64, blkno);
+		com_err(args[0], ret, " ");
 		return ;
 	}
 
@@ -682,14 +685,17 @@ static void do_inode (char **args)
 	if ((inode->i_flags & OCFS2_LOCAL_ALLOC_FL))
 		dump_local_alloc(out, &(inode->id2.i_lab));
 	else if ((inode->i_flags & OCFS2_CHAIN_FL))
-		traverse_chains(gbls.fs, &(inode->id2.i_chain), out);
+		ret = traverse_chains(gbls.fs, &(inode->id2.i_chain), out);
 	else
-		traverse_extents(gbls.fs, &(inode->id2.i_list), out);
+		ret = traverse_extents(gbls.fs, &(inode->id2.i_list), out);
+
+	if (ret)
+		com_err(args[0], ret, " ");
 
 	close_pager(out);
 
 	return ;
-}					/* do_inode */
+}
 
 /*
  * do_hb()
@@ -710,7 +716,7 @@ static void do_hb (char **args)
 
 	ret = ocfs2_read_whole_file(gbls.fs, gbls.hb_blkno, &hbbuf, &len);
 	if (ret) {
-		com_err(gbls.progname, ret, "while reading hb file");
+		com_err(args[0], ret, " ");
 		goto bail;
 	}
 
@@ -723,7 +729,7 @@ bail:
 		ocfs2_free(&hbbuf);
 
 	return ;
-}					/* do_hb */
+}
 
 /*
  * do_dump()
@@ -731,55 +737,49 @@ bail:
  */
 static void do_dump (char **args)
 {
-#if 0
-	uint64_t blkno = 0;
-	int32_t outfd = -1;
-	FILE *out = NULL;
-	int flags;
-	int op = 0;  /* 0 = dump, 1 = cat */
-	char *outfile = NULL;
+	uint64_t blkno;
+	int preserve = 0;
+	int ind;
+	const char *dump_usage = "Usage: dump [-p] <file> <output_file>";
+	char *in_fn;
+	char *out_fn;
 	errcode_t ret;
-
-	if (!gbls.fs == -1) {
-		printf ("device not open\n");
-		goto bail;
-	}
-
-	if (!strncasecmp (args[0], "cat", 3)) {
-		out = open_pager ();
-		outfd = fileno(out);
-		op = 1;
-	}
-
-	ret = get_blknum(args[1], &blkno);
-	if (ret)
-		goto bail;
-
-	if (args[2]) {
-		outfile = args[2];
-		flags = O_WRONLY| O_CREAT | O_LARGEFILE;
-		flags |= ((op) ? O_APPEND : O_TRUNC);
-		if ((outfd = open (outfile, flags)) == -1) {
-			printf ("unable to open file %s\n", outfile);
-			goto bail;
-		}
-	}
-#if 0
-	/* TODO */
-	read_file (gbls.dev_fd, blknum, outfd, NULL);
-#endif
-
-bail:
-	if (out) {
-		close_pager (out);
-		outfd = -1;
-	}
 	
-	if (outfd > 2)
-		close (outfd);
-#endif
-	return ;
-}					/* do_dump */
+	if (check_device_open())
+		return;
+
+	ind = 1;
+	if (!args[ind]) {
+		fprintf(stderr, "%s\n", dump_usage);
+		return ;
+	}
+
+	if (!strncasecmp(args[ind], "-p", 2)) {
+		++preserve;
+		++ind;
+	}
+
+	in_fn = args[ind];
+	out_fn = args[ind + 1];
+
+	if (!in_fn || !out_fn) {
+		fprintf(stderr, "usage: dump <file> <output_file>\n");
+		return ;
+	}
+
+	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
+			      in_fn, &blkno);
+	if (ret) {
+		com_err(args[0], ret, " ");
+		return ;
+	}
+
+	ret = dump_file(gbls.fs, blkno, out_fn, preserve);
+	if (ret)
+		com_err(args[0], ret, " ");
+
+	return;
+}
 
 /*
  * do_journal()
@@ -804,7 +804,7 @@ static void do_journal (char **args)
 
 	ret = ocfs2_read_whole_file(gbls.fs, blkno, &logbuf, &len);
 	if (ret) {
-		com_err(gbls.progname, ret, "while reading journal file");
+		com_err(args[0], ret, " ");
 		goto bail;
 	}
 
@@ -817,7 +817,7 @@ bail:
 		ocfs2_free(&logbuf);
 
 	return ;
-}					/* do_journal */
+}
 
 /*
  * do_group()
@@ -832,17 +832,15 @@ static void do_group (char **args)
 	errcode_t ret = 0;
 	int index = 0;
 
-	if (process_inode_args(args, &blkno))
+	if (process_inodestr_args(args, &blkno))
 		return ;
 
 	buf = gbls.blockbuf;
-
 	out = open_pager();
 	while (blkno) {
 		ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
 		if (ret) {
-			com_err(gbls.progname, ret,
-				"while reading chain group in block %"PRIu64, blkno);
+			com_err(args[0], ret, " ");
 			close_pager (out);
 			return ;
 		}
@@ -856,7 +854,7 @@ static void do_group (char **args)
 	close_pager (out);
 
 	return ;
-}					/* do_group */
+}
 
 /*
  * do_extent()
@@ -870,14 +868,13 @@ static void do_extent (char **args)
 	FILE *out;
 	errcode_t ret = 0;
 
-	if (process_inode_args(args, &blkno))
+	if (process_inodestr_args(args, &blkno))
 		return ;
 
 	buf = gbls.blockbuf;
 	ret = ocfs2_read_extent_block(gbls.fs, blkno, buf);
 	if (ret) {
-		com_err(gbls.progname, ret,
-			"while reading extent in block %"PRIu64, blkno);
+		com_err(args[0], ret, " ");
 		return ;
 	}
 
@@ -889,7 +886,7 @@ static void do_extent (char **args)
 	close_pager(out);
 
 	return ;
-}					/* do_extent */
+}
 
 /*
  * handle_signal()
@@ -906,5 +903,4 @@ void handle_signal (int sig)
 	}
 
 	return ;
-}					/* handle_signal */
-
+}
