@@ -104,7 +104,7 @@ partition_list (PyObject *self,
   };
 
   if (!PyArg_ParseTupleAndKeywords (args, kwargs,
-				    "O|Ossii:partition_list", kwlist,
+				    "O|Ozzii:partition_list", kwlist,
 				    &py_func, &py_data,
 				    &filter, &fstype, &unmounted, &async))
     return NULL;
