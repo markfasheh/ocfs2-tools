@@ -33,6 +33,11 @@ typedef struct _o2fsck_dir_parent {
 
 	uint64_t 	dp_dirent; /* The inode that has a dirent which points
 				    * to this directory.  */
+
+	/* used by pass3 to walk the dir_parent structs and ensure 
+	 * connectivity */
+	uint64_t	dp_loop_no;
+	int		dp_connected;
 } o2fsck_dir_parent;
 
 void o2fsck_add_dir_parent(struct rb_root *root, uint64_t ino, 
@@ -40,5 +45,7 @@ void o2fsck_add_dir_parent(struct rb_root *root, uint64_t ino,
 
 o2fsck_dir_parent *o2fsck_dir_parent_lookup(struct rb_root *root, 
 						uint64_t ino);
+o2fsck_dir_parent *o2fsck_dir_parent_first(struct rb_root *root);
+o2fsck_dir_parent *o2fsck_dir_parent_next(o2fsck_dir_parent *from);
 #endif /* __O2FSCK_DIRPARENTS_H__ */
 

@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -84,12 +85,12 @@ static icount_node *icount_search(o2fsck_icount *icount, uint64_t blkno)
 	return NULL;
 }
 
-void o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno, 
-				uint16_t count)
+/* keep it simple for now by always updating both data structures */
+void o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno, 
+			uint16_t count)
 {
 	icount_node *in;
 
-	/* keep it simple for now by always clearing/setting */
 	if (count == 1)
 		ocfs2_bitmap_set(icount->ic_single_bm, blkno, NULL);
 	else
@@ -103,7 +104,7 @@ void o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno,
 		} else {
 			in->in_icount = count;
 		}
-	} else if (count > 2){
+	} else if (count > 1) {
 		in = calloc(1, sizeof(*in));
 		if (in == NULL)
 			fatal_error(OCFS2_ET_NO_MEMORY, 
@@ -113,6 +114,38 @@ void o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno,
 		in->in_icount = count;
 		icount_insert(icount, in);
 	}
+}
+
+/* again, simple before efficient.  We just find the old value and
+ * use _set to make sure that the new value updates both the bitmap
+ * and the tree */
+void o2fsck_icount_delta(o2fsck_icount *icount, uint64_t blkno, 
+			 int delta)
+{
+	int was_set;
+	uint16_t prev_count;
+	icount_node *in;
+
+	if (delta == 0)
+		return;
+
+	ocfs2_bitmap_test(icount->ic_single_bm, blkno, &was_set);
+	if (was_set) {
+		prev_count = 1;
+	} else {
+		in = icount_search(icount, blkno);
+		if (in == NULL)
+			prev_count = 0;
+		else
+			prev_count = in->in_icount;
+	}
+
+	if (prev_count + delta < 0) 
+		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "while droping icount "
+			    "from %"PRIu16" bt %d for inode %"PRIu64, 
+			    prev_count, delta, blkno);
+
+	o2fsck_icount_set(icount, blkno, prev_count + delta);
 }
 
 errcode_t o2fsck_icount_new(ocfs2_filesys *fs, o2fsck_icount **ret)

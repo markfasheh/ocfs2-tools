@@ -1,5 +1,5 @@
 /*
- * icount.h
+ * pass3.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,22 +21,12 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_ICOUNT_H__
-#define __O2FSCK_ICOUNT_H__
+#ifndef __O2FSCK_PASS3_H__
+#define __O2FSCK_PASS3_H__
 
-#include "ocfs2.h"
+#include "fsck.h"
 
-typedef struct _o2fsck_icount {
-	ocfs2_bitmap	*ic_single_bm;
-	struct rb_root	ic_multiple_tree;
-} o2fsck_icount;
+errcode_t o2fsck_pass3(o2fsck_state *ost);
 
-void o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno, 
-			uint16_t count);
-errcode_t o2fsck_icount_new(ocfs2_filesys *fs, o2fsck_icount **ret);
-void o2fsck_icount_free(o2fsck_icount *icount);
-void o2fsck_icount_delta(o2fsck_icount *icount, uint64_t blkno, 
-			 int delta);
-
-#endif /* __O2FSCK_ICOUNT_H__ */
+#endif /* __O2FSCK_PASS3_H__ */
 

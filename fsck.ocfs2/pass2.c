@@ -438,14 +438,15 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	if (!was_set)
 		return 0;
 
-	/* XXX there is no byte swapping story here, which is wrong.  we might
-	 * be able to salvage more than read_dir_block() if we did our own
-	 * swabing, so maybe that's what's needed. */
- 	retval = io_read_block(dd->fs->fs_io, dbe->e_blkno, 1, dd->buf);
-	if (retval)
-		return OCFS2_DIRENT_ABORT;
-
 	o2fsck_strings_init(&strings);
+
+ 	retval = ocfs2_read_dir_block(dd->fs, dbe->e_blkno, dd->buf);
+	if (retval && retval != OCFS2_ET_DIR_CORRUPTED) {
+		/* XXX hum, ask to continue here.  more a prompt than a 
+		 * fix.  need to expand problem.c's vocabulary. */
+		fatal_error(retval, "while reading dir block %"PRIu64,
+				dbe->e_blkno);
+	}
 
 	while (offset < dd->fs->fs_blocksize) {
 		dirent = (struct ocfs2_dir_entry *)(dd->buf + offset);
@@ -460,8 +461,15 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 
 		/* first verify that we can trust the dirent's lengths
-		 * to navigate to the next in the block.  doing so can
-		 * modify the one we're checking in place */
+		 * to navigate to the next in the block.  This can try to
+		 * get rid of a broken dirent by trying to shift remaining
+		 * dirents into its place.  The 'contiune' attempts to let
+		 * us recheck the current dirent.
+		 *
+		 * XXX this will have to do some swabbing as it tries
+		 * to salvage as read_dir_block stops swabbing
+		 * when it sees bad entries.
+		 */
 		this_flags = fix_dirent_lengths(dd->ost, dbe, dirent, offset, 
 						 dd->fs->fs_blocksize - offset,
 						 prev);
@@ -506,6 +514,16 @@ next:
 		prev = dirent;
 	}
 
+	if (ret_flags & OCFS2_DIRENT_CHANGED) {
+		retval = ocfs2_write_dir_block(dd->fs, dbe->e_blkno, dd->buf);
+		if (retval) {
+			/* XXX hum, ask to continue here.  more a prompt than a 
+			 * fix.  need to expand problem.c's vocabulary. */
+			fatal_error(retval, "while writing dir block %"PRIu64,
+					dbe->e_blkno);
+		}
+	}
+
 	o2fsck_strings_free(&strings);
 	return ret_flags;
 }
@@ -526,13 +544,18 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 	/* 
 	 * Mark the root directory's dirent parent as itself if we found the
 	 * inode during inode scanning.  The dir will be created in pass3
-	 * if it didn't exist already.  XXX we should do this for our other
+	 * if it didn't exist already.  XXX we should do this for all our other
 	 * magical directories.
 	 */
 	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, 
 					ost->ost_fs->fs_root_blkno);
 	if (dp)
 		dp->dp_dirent = ost->ost_fs->fs_root_blkno;
+
+	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, 
+					ost->ost_fs->fs_sysdir_blkno);
+	if (dp)
+		dp->dp_dirent = ost->ost_fs->fs_sysdir_blkno;
 
 	o2fsck_dir_block_iterate(&ost->ost_dirblocks, pass2_dir_block_iterate, 
 			 	 &dd);

@@ -74,7 +74,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		goto bad;
 
 	if (di->i_links_count)
-		o2fsck_icount_update(ost->ost_icount_in_inodes, di->i_blkno,
+		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 					di->i_links_count);
 
 	/* offer to clear a non-directory root inode so that 
@@ -83,8 +83,8 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	    should_fix(ost, FIX_DEFYES, "Root inode isn't a directory.")) {
 		di->i_dtime = 0ULL;
 		di->i_links_count = 0ULL;
-		o2fsck_icount_update(ost->ost_icount_in_inodes, 
-					di->i_blkno, di->i_links_count);
+		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
+				  di->i_links_count);
 
 		o2fsck_write_inode(fs, blkno, di);
 	}
@@ -273,8 +273,8 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	 */
 	if (vb.vb_clear) {
 		di->i_links_count = 0;
-		o2fsck_icount_update(ost->ost_icount_in_inodes, 
-				          di->i_blkno, di->i_links_count);
+		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
+				  di->i_links_count);
 		di->i_dtime = time(0);
 		o2fsck_write_inode(fs, di->i_blkno, di);
 		/* XXX clear valid flag and stuff? */

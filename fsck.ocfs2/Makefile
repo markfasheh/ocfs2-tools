@@ -18,6 +18,7 @@ CFILES =	fsck.c		\
 		icount.c 	\
 		pass1.c 	\
 		pass2.c 	\
+		pass3.c 	\
 		problem.c 	\
 		strings.c 	\
 		util.c
@@ -28,6 +29,7 @@ HFILES = 	include/fsck.h		\
 		include/icount.h	\
 		include/pass1.h		\
 		include/pass2.h		\
+		include/pass3.h		\
 		include/problem.h	\
 		include/strings.h	\
 		include/util.h

@@ -103,8 +103,6 @@ int should_fix(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 	/* no curses, no nothin.  overly regressive? */
 	while ((c = read_a_char(fileno(stdin))) != EOF) {
 
-		printf("read '%c'\n", c);
-
 		/* XXX control-c, we're done? */
 		if (c == 3) {
 			printf("cancelled!\n");

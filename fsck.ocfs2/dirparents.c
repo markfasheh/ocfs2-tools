@@ -53,6 +53,8 @@ void o2fsck_add_dir_parent(struct rb_root *root, uint64_t ino, uint64_t dot_dot,
 	dp->dp_ino = ino;
 	dp->dp_dot_dot = dot_dot;
 	dp->dp_dirent = dirent;
+	dp->dp_connected = 0;
+	dp->dp_loop_no = 0;
 
 	while (*p)
 	{
@@ -91,3 +93,24 @@ o2fsck_dir_parent *o2fsck_dir_parent_lookup(struct rb_root *root, uint64_t ino)
 	return NULL;
 }
 
+o2fsck_dir_parent *o2fsck_dir_parent_first(struct rb_root *root)
+{
+	struct rb_node *node = rb_first(root);
+	o2fsck_dir_parent *dp = NULL;
+
+	if (node)
+		dp = rb_entry(node, o2fsck_dir_parent, dp_node);
+
+	return dp;
+}
+
+o2fsck_dir_parent *o2fsck_dir_parent_next(o2fsck_dir_parent *from)
+{
+	struct rb_node *node = rb_next(&from->dp_node);
+	o2fsck_dir_parent *dp = NULL;
+
+	if (node)
+		dp = rb_entry(node, o2fsck_dir_parent, dp_node);
+
+	return dp;
+}
