@@ -1,0 +1,16 @@
+%%
+headers
+#include <Python.h>               
+
+#define NO_IMPORT_PYGOBJECT
+#include "pygobject.h"
+#include "ocfscellmap.h"
+%%
+modulename ocfs2
+%%
+import gobject.GObject as PyGObject_Type
+import gtk.DrawingArea as PyGtkDrawingArea_Type
+%%
+ignore-glob
+  *_get_type                            
+%%

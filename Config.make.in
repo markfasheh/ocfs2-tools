@@ -21,6 +21,7 @@ sbindir = @sbindir@
 datadir = @datadir@
 sysconfdir = @sysconfdir@
 mandir = @mandir@
+pyexecdir = @pyexecdir@
 
 top_builddir = .
 
@@ -42,9 +43,19 @@ COM_ERR_LIBS = @COM_ERR_LIBS@
 
 GLIB_CFLAGS = @GLIB_CFLAGS@
 GLIB_LIBS = @GLIB_LIBS@
+GLIB_GENMARSHAL = @GLIB_GENMARSHAL@
 
 GTK_CFLAGS = @GTK_CFLAGS@
 GTK_LIBS = @GTK_LIBS@
+
+PYTHON = @PYTHON@
+PYTHON_INCLUDES = @PYTHON_INCLUDES@
+
+PYGTK_CFLAGS = @PYGTK_CFLAGS@
+PYGTK_LIBS = @PYGTK_LIBS@
+
+PYGTK_CODEGEN = @PYGTK_CODEGEN@
+PYGTK_DEFSDIR = @PYGTK_DEFSDIR@
 
 BUILD_OCFSTOOL = @BUILD_OCFSTOOL@
 

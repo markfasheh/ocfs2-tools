@@ -29,7 +29,7 @@ SUBDIRS += debugfs.ocfs2
 endif
 
 ifdef BUILD_OCFSTOOL
-SUBDIRS += ocfstool
+SUBDIRS += ocfs2tool
 endif
 
 SUBDIRS += vendor
