@@ -24,8 +24,8 @@ toolbar_data = (
 )
 
 class Toolbar:
-    def __init__(self, **callbacks):
-        self.callbacks = callbacks
+    def __init__(self, window):
+        self.window = window
 
     def get_widgets(self, data=None):
         toolbar = gtk.Toolbar()
@@ -33,7 +33,7 @@ class Toolbar:
 
         for i in toolbar_data:
             def make_cb():
-                callback = self.callbacks[i[2]]
+                callback = getattr(self.window, i[2])
 
                 def cb(w, d=None):
                     callback(d)
@@ -67,14 +67,13 @@ def main():
     def dummy(*args):
         gtk.main_quit()
 
-    cb = {}
-    for i in toolbar_data:
-        cb[i[2]] = dummy
-
-    toolbar = Toolbar(**cb)
-
     window = gtk.Window()
     window.connect('delete_event', dummy)
+
+    for i in toolbar_data:
+        setattr(window, i[2], dummy)
+
+    toolbar = Toolbar(window)
 
     vbox = gtk.VBox()
     window.add(vbox)

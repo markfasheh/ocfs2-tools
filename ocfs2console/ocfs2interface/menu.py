@@ -63,7 +63,9 @@ task_menu_data = task_menu_head_data + task_menu_fsck_data + task_menu_tail_data
 menu_data = file_menu_data + task_menu_data + help_menu_data
 
 class Menu:
-    def __init__(self, **callbacks):
+    def __init__(self, window):
+        self.window = window
+
         self.items = []
 
         for i in menu_data:
@@ -71,7 +73,7 @@ class Menu:
 
             if i[2]:
                 def make_cb():
-                    callback = callbacks[i[2]]
+                    callback = getattr(window, i[2])
 
                     def cb(d, a, w):
                         callback(d)
@@ -82,35 +84,32 @@ class Menu:
 
             self.items.append(tuple(item))
 
-    def get_widget(self, window, data=None):
+    def get_widget(self, data=None):
         accel_group = gtk.AccelGroup()
-        window.add_accel_group(accel_group)
+        self.window.add_accel_group(accel_group)
 
-        item_factory = gtk.ItemFactory(gtk.MenuBar, '<main>', accel_group)
-        item_factory.create_items(self.items, data)
+        self.item_factory = gtk.ItemFactory(gtk.MenuBar, '<main>', accel_group)
+        self.item_factory.create_items(self.items, data)
 
-        window.item_factory = item_factory
-
-        return item_factory.get_widget('<main>')
+        return self.item_factory.get_widget('<main>')
 
 def main():
     def dummy(*args):
         gtk.main_quit()
 
-    cb = {}
-    for i in menu_data:
-        if i[2]:
-            cb[i[2]] = dummy
-
-    menubar = Menu(**cb)
-
     window = gtk.Window()
     window.connect('delete_event', dummy)
+
+    for i in menu_data:
+        if i[2]:
+            setattr(window, i[2], dummy)
+
+    menubar = Menu(window)
 
     vbox = gtk.VBox()
     window.add(vbox)
 
-    vbox.add(menubar.get_widget(window))
+    vbox.add(menubar.get_widget())
 
     window.show_all()
 

@@ -17,7 +17,7 @@
 
 import sys
 
-OCFS2TOOL_VERSION = '0.0.2'
+OCFS2TOOL_VERSION = '0.9.0'
 
 def print_version():
     print 'OCFS2Console version %s' % OCFS2TOOL_VERSION
@@ -42,7 +42,7 @@ def process_gui_args():
         print_usage(sys.argv[0])
         sys.exit(1)
         
-def about(pv):
+def about(parent):
     import gtk
 
     from guiutil import set_props
@@ -72,7 +72,7 @@ Boston, MA 02111-1307, USA.
         #logo = gtk.gdk.pixbuf_new_from_file('logo.png')
 
         dialog = gtk.AboutDialog()
-        dialog.set_transient_for(pv.toplevel)
+        dialog.set_transient_for(parent)
         dialog.set_destroy_with_parent(True)
 
         set_props(dialog, name='OCFS2 Console',
@@ -84,7 +84,7 @@ Boston, MA 02111-1307, USA.
                           #logo=logo)
 
     else:
-        dialog = gtk.MessageDialog(parent=pv.toplevel,
+        dialog = gtk.MessageDialog(parent=parent,
                                    flags=gtk.DIALOG_DESTROY_WITH_PARENT,
                                    buttons=gtk.BUTTONS_CLOSE)
         dialog.label.set_text(
@@ -97,14 +97,9 @@ All Rights Reserved.''' % OCFS2TOOL_VERSION)
     dialog.destroy()
 
 def main():
-    process_info_args()
-
-    class Dummy: pass
-
-    pv = Dummy()
-    pv.toplevel = None
-
-    about(pv)
+    process_args()
+    process_gui_args()
+    about(None)
 
 if __name__ == '__main__':
     main()

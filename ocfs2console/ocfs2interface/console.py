@@ -42,16 +42,11 @@ notebook_items = (
     ('nodemap', 'Configured Nodes', NodeMap),
 )
 
-def cleanup(*args):
-    gtk.main_quit()
-
 class PartitionView(gtk.TreeView):
-    def __init__(self, toplevel):
+    def __init__(self):
         store = gtk.ListStore(str, str, str)
 
         gtk.TreeView.__init__(self, store)
-
-        self.toplevel = toplevel
 
         self.insert_column_with_attributes(-1, 'Device',
                                            gtk.CellRendererText(),
@@ -88,7 +83,15 @@ class PartitionView(gtk.TreeView):
             self.mount_button.set_sensitive(True)
             self.unmount_button.set_sensitive(False)
 
-        update_notebook(self, device)
+        self.update_notebook(device)
+
+    def update_notebook(self, device):
+        for tag, d, info in notebook_items:
+            frame = getattr(self, tag + '_frame')
+            frame.child.destroy()
+
+            frame.add(info(device).widget)
+            frame.show_all()
 
     def select_device(self, device):
         for row in self.get_model():
@@ -138,155 +141,150 @@ class PartitionView(gtk.TreeView):
             self.sel.select_iter(iter)
             self.selected = True
 
-def mount(pv):
-    device, mountpoint = pv.get_sel_values()
+class Console(gtk.Window):
+    def __init__(self):
+        gtk.Window.__init__(self)
 
-    mountpoint = query_text(pv.toplevel, 'Mountpoint')
-    if not mountpoint:
-        return
+        set_props(self, title='OCFS2 Console',
+                        default_width=520,
+                        default_height=420,
+                        border_width=0)
+        self.connect('delete_event', self.cleanup)
 
-    command = ('mount', '-t', 'ocfs2', device, mountpoint)
+        pv = PartitionView()
 
-    p = Process(command, 'Mount', 'Mounting...', pv.toplevel, spin_now=False)
-    success, output, killed = p.reap()
+        vbox = gtk.VBox()
+        self.add(vbox)
 
-    if not success:
-        if killed:
-            error_box(pv.toplevel,
-                      'mount died unexpectedly! Your system is probably in '
-                      'an inconsistent state. You should reboot at the '
-                      'earliest opportunity')
-        else:
-            error_box(pv.toplevel, '%s: Could not mount %s' % (output, device))
+        self.menu = Menu(self)
 
-    pv.refresh_partitions()
+        menubar = self.menu.get_widget(pv)
+        vbox.pack_start(menubar, expand=False, fill=False)
 
-def unmount(pv):
-    device, mountpoint = pv.get_sel_values()
+        self.toolbar = Toolbar(self)
 
-    command = ('umount', mountpoint)
+        tb, buttons, pv.filter_entry = self.toolbar.get_widgets(pv)
+        vbox.pack_start(tb, expand=False, fill=False)
 
-    p = Process(command, 'Unmount', 'Unmounting...', pv.toplevel,
-                spin_now=False)
-    success, output, killed = p.reap()
+        for k, v in buttons.iteritems():
+            setattr(pv, k + '_button', v)
 
-    if success:
+        pv.filter_entry.connect('activate', self.filter_update, pv)
+
+        vpaned = gtk.VPaned()
+        vpaned.set_border_width(4)
+        vbox.pack_start(vpaned, expand=True, fill=True)
+
+        scrl_win = gtk.ScrolledWindow()
+        set_props(scrl_win, hscrollbar_policy=gtk.POLICY_AUTOMATIC,
+                            vscrollbar_policy=gtk.POLICY_AUTOMATIC)
+        scrl_win.add(pv)
+        vpaned.pack1(scrl_win)
+
+        notebook = gtk.Notebook()
+        notebook.set_tab_pos(gtk.POS_TOP)
+        vpaned.pack2(notebook)
+
+        for tag, desc, info in notebook_items:
+            frame = gtk.Frame()
+            set_props(frame, shadow=gtk.SHADOW_NONE,
+                             border_width=0)
+
+            tag = tag + '_frame'
+            setattr(pv, tag, frame)
+
+            frame.add(info().widget)
+            frame.show_all()
+
+            notebook.add_with_properties(frame, 'tab_label', desc)
+
         pv.refresh_partitions()
-    else:
-        if killed:
-            error_box(pv.toplevel,
-                      'umount died unexpectedly! Your system is probably in '
-                      'an inconsistent state. You should reboot at the '
-                      'earliest opportunity')
+        pv.grab_focus()
+
+        self.show_all()
+
+    def cleanup(self, *args):
+        gtk.main_quit()
+
+    def about(self, pv):
+        about(self)
+
+    def mount(self, pv):
+        device, mountpoint = pv.get_sel_values()
+
+        mountpoint = query_text(self, 'Mountpoint')
+        if not mountpoint:
+            return
+
+        command = ('mount', '-t', 'ocfs2', device, mountpoint)
+
+        p = Process(command, 'Mount', 'Mounting...', self, spin_now=False)
+        success, output, killed = p.reap()
+
+        if not success:
+            if killed:
+                error_box(self, 'mount died unexpectedly! Your system is '
+                                'probably in an inconsistent state. You '
+                                'should reboot at the earliest opportunity')
+            else:
+                error_box(self, '%s: Could not mount %s' % (output, device))
+
+        pv.refresh_partitions()
+
+    def unmount(pv):
+        device, mountpoint = pv.get_sel_values()
+
+        command = ('umount', mountpoint)
+
+        p = Process(command, 'Unmount', 'Unmounting...', self, spin_now=False)
+        success, output, killed = p.reap()
+
+        if success:
+            pv.refresh_partitions()
         else:
-            error_box(pv.toplevel,
-                      '%s: Could not unmount %s mounted on %s' %
-                      (output, device, mountpoint))
+            if killed:
+                error_box(self, 'umount died unexpectedly! Your system is '
+                                'probably in an inconsistent state. You '
+                                'should reboot at the earliest opportunity')
+            else:
+                error_box(self, '%s: Could not unmount %s mounted on %s' %
+                                (output, device, mountpoint))
 
-def refresh(pv):
-    pv.refresh_partitions()
+    def refresh(self, pv):
+        pv.refresh_partitions()
 
-    if len(pv.get_model()) == 0:
-        update_notebook(pv, None)
+        if len(pv.get_model()) == 0:
+            pv.update_notebook(None)
 
-def update_notebook(pv, device):
-    for tag, d, info in notebook_items:
-        frame = getattr(pv, tag + '_frame')
-        frame.child.destroy()
+    def format(self, pv):
+        format_partition(self, pv.get_device())
+        pv.refresh_partitions()
 
-        frame.add(info(device).widget)
-        frame.show_all()
+    def relabel(self, pv):
+        tune_label(self, pv.get_device())
+        pv.refresh_partitions()
 
-def format(pv):
-    format_partition(pv.toplevel, pv.get_device())
-    pv.refresh_partitions()
+    def node_num(self, pv):
+        tune_nodes(self, pv.get_device())
+        pv.refresh_partitions()
 
-def relabel(pv):
-    tune_label(pv.toplevel, pv.get_device())
-    pv.refresh_partitions()
+    def check(self, pv):
+        fsck_volume(self, pv.get_device(), check=True)
+        pv.refresh_partitions()
 
-def node_num(pv):
-    tune_nodes(pv.toplevel, pv.get_device())
-    pv.refresh_partitions()
+    def repair(self, pv):
+        fsck_volume(self, pv.get_device(), check=False)
+        pv.refresh_partitions()
 
-def check(pv):
-    fsck_volume(pv.toplevel, pv.get_device(), check=True)
+    def clconfig(self, pv):
+        cluster_configurator(self)
 
-def repair(pv):
-    fsck_volume(pv.toplevel, pv.get_device(), check=False)
-
-def clconfig(pv):
-    cluster_configurator(pv.toplevel)
-
-def filter_update(entry, pv):
-    refresh(pv)
-
-def create_window():
-    window = gtk.Window()
-    set_props(window, title='OCFS2 Console',
-                      default_width=520,
-                      default_height=420,
-                      border_width=0)
-    window.connect('delete_event', cleanup)
-
-    pv = PartitionView(window)
-
-    vbox = gtk.VBox()
-    window.add(vbox)
-
-    symbols = globals()
-
-    menu = Menu(**symbols)
-
-    menubar = menu.get_widget(window, pv)
-    vbox.pack_start(menubar, expand=False, fill=False)
-
-    toolbar = Toolbar(**symbols)
-
-    tb, buttons, pv.filter_entry = toolbar.get_widgets(pv)
-    vbox.pack_start(tb, expand=False, fill=False)
-
-    for k, v in buttons.iteritems():
-        setattr(pv, k + '_button', v)
-
-    pv.filter_entry.connect('activate', filter_update, pv)
-
-    vpaned = gtk.VPaned()
-    vpaned.set_border_width(4)
-    vbox.pack_start(vpaned, expand=True, fill=True)
-
-    scrl_win = gtk.ScrolledWindow()
-    set_props(scrl_win, hscrollbar_policy=gtk.POLICY_AUTOMATIC,
-                        vscrollbar_policy=gtk.POLICY_AUTOMATIC)
-    scrl_win.add(pv)
-    vpaned.pack1(scrl_win)
-
-    notebook = gtk.Notebook()
-    notebook.set_tab_pos(gtk.POS_TOP)
-    vpaned.pack2(notebook)
-
-    for tag, desc, info in notebook_items:
-        frame = gtk.Frame()
-        set_props(frame, shadow=gtk.SHADOW_NONE,
-                         border_width=0)
-
-        tag = tag + '_frame'
-        setattr(pv, tag, frame)
-
-        frame.add(info().widget)
-        frame.show_all()
-
-        notebook.add_with_properties(frame, 'tab_label', desc)
-
-    pv.refresh_partitions()
-    pv.grab_focus()
-   
-
-    window.show_all()
+    def filter_update(self, entry, pv):
+        refresh(pv)
 
 def main():
     process_gui_args()
-    create_window()
+    console = Console()
     gtk.main()
 
 if __name__ == '__main__':
