@@ -3,7 +3,9 @@
 mode="$1"
 srcdir="$2"
 
-RPMARCH=
+host_cpu=
+QUERYFILE=
+
 if test -f /etc/redhat-release ; then
   QUERYFILE=/etc/redhat-release
 elif test -f /etc/SuSE-release ; then
@@ -12,7 +14,10 @@ elif test -f /etc/UnitedLinux-release ; then
   QUERYFILE=/etc/UnitedLinux-release
 fi
 
-host_cpu="`rpm -qf $QUERYFILE --queryformat \"%{ARCH}\"`"
+if test -n "$QUERYFILE"; then
+  host_cpu="`rpm -qf $QUERYFILE --queryformat \"%{ARCH}\"`"
+fi
+
 if test -z "$host_cpu" -o "$host_cpu" = "noarch" ; then
   host_alias=`$srcdir/config.guess`
   host=`$srcdir/config.sub $host_alias`
