@@ -1,7 +1,12 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
+ * Copyright (C) 2000 Andreas Dilger
+ * Copyright (C) 2000 Theodore Ts'o
  * Copyright (C) 2004 Oracle.  All rights reserved.
+ *
+ * Parts of the code are based on fs/jfs/journal.c by Stephen C. Tweedie
+ * Copyright (C) 1999 Red Hat Software
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public

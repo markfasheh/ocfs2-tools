@@ -1,7 +1,7 @@
 fsck.ocfs2:
 	Written by Zach Brown.
-	Huge portions of fsck.ocfs2's behaviour were derived from e2fsck by 
-	Theodore Ts'o, Andreas Dilger, Stephen Tweedie, and others.
+	fsck.ocfs2's behaviour is derived from e2fsck by Theodore Ts'o, Andreas
+	Dilger, Stephen Tweedie, and others.
 
 libocfs2:
 	Written by Joel Becker, Zach Brown, and Sunil Mushran
