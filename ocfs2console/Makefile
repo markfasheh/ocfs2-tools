@@ -2,7 +2,13 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SUBDIRS = ocfs2interface
+ifdef HAVE_BLKID
+BLKID_DIR =
+else
+BLKID_DIR = blkid
+endif
+
+SUBDIRS = $(BLKID_DIR) ocfs2interface
 
 MANS = ocfs2console.8
 

@@ -32,6 +32,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include <blkid/blkid.h>
+
 #include <glib.h>
 
 #include "ocfs2.h"
@@ -51,17 +53,21 @@ struct _WalkData
   gpointer               data;
 
   GPatternSpec          *filter;
+  const gchar           *type;
+
   gboolean               unmounted;
   gboolean               async;
 
   guint                  count;
+
+  blkid_cache            cache;
 };
 
 
-static gboolean is_ocfs2_partition  (const gchar  *device);
+static gboolean type_check          (const gchar  *device,
+				     WalkData     *wdata);
 static gboolean valid_device        (const gchar  *device,
-				     GPatternSpec *filter,
-				     gboolean      no_ocfs_check);
+				     WalkData     *wdata);
 static void     partition_info_fill (GHashTable   *info,
                                      gboolean      async);
 static gboolean partition_walk      (gpointer      key,
@@ -79,29 +85,47 @@ async_loop_run (gboolean     async,
       *count++;
 
       if (*count % num_iterations == 0)
-	while (g_main_context_iteration(NULL, FALSE));
+	while (g_main_context_iteration (NULL, FALSE));
     }
 }
 
 static gboolean
-is_ocfs2_partition (const gchar *device)
+type_check (const gchar *device,
+	    WalkData    *wdata)
 {
-  errcode_t      ret;
-  ocfs2_filesys *fs;
+  blkid_dev dev;
+  gboolean  found = FALSE;
 
-  ret = ocfs2_open (device, OCFS2_FLAG_RO, 0, 0, &fs);
+  if (wdata->type == NULL)
+    return TRUE;
 
-  if (ret)
-    return FALSE;
+  dev = blkid_get_dev(wdata->cache, device, BLKID_DEV_NORMAL);
 
-  ocfs2_close (fs);
-  return TRUE;
+  if (dev)
+    {
+      blkid_tag_iterate  iter;
+      const gchar       *type, *value;
+
+      iter = blkid_tag_iterate_begin (dev);
+
+      while (blkid_tag_next (iter, &type, &value) == 0)
+	{
+	  if (!strcmp (type, "TYPE") && !strcmp (value, wdata->type))
+	    {
+	      found = TRUE;
+	      break;
+	    }
+	}
+
+      blkid_tag_iterate_end (iter);
+    }
+
+  return found;
 }
 
 static gboolean
 valid_device (const gchar  *device,
-              GPatternSpec *filter,
-	      gboolean      no_ocfs_check)
+              WalkData     *wdata)
 {
   gboolean     is_bad = FALSE;
   struct stat  sbuf;
@@ -109,7 +133,7 @@ valid_device (const gchar  *device,
   gchar        buf[100], *proc, *d;
   gint         i, fd;
 
-  if (filter && !g_pattern_match_string (filter, device))
+  if (wdata->filter && !g_pattern_match_string (wdata->filter, device))
     return FALSE;
 
   if ((stat (device, &sbuf) != 0) ||
@@ -141,17 +165,12 @@ valid_device (const gchar  *device,
 	return FALSE; 
     }
 
-#ifndef DEVEL_MACHINE
   fd = open (device, O_RDWR);
   if (fd == -1)
     return FALSE;
   close (fd);
 
-  return no_ocfs_check ? TRUE : is_ocfs2_partition (device);
-#else
-  fd = 0;
-  return TRUE;
-#endif
+  return type_check (device, wdata);
 }
 
 static void
@@ -237,7 +256,7 @@ partition_walk (gpointer key,
     {
       device = list->data;
 
-      if (valid_device (device, wdata->filter, wdata->unmounted))
+      if (valid_device (device, wdata))
 	{
 	  info.device = device;
 
@@ -290,11 +309,15 @@ void
 ocfs_partition_list (OcfsPartitionListFunc  func,
 		     gpointer               data,
 		     const gchar           *filter,
+		     const gchar           *type,
 		     gboolean               unmounted,
 		     gboolean               async)
 {
   GHashTable *info;
-  WalkData    wdata = { func, data, NULL, unmounted, async, 0 };
+  WalkData    wdata = { func, data, NULL, type, unmounted, async, 0 };
+
+  if (blkid_get_cache (&wdata.cache, NULL) < 0)
+    return;
 
   if (filter && *filter)
     wdata.filter = g_pattern_spec_new (filter);
@@ -310,6 +333,8 @@ ocfs_partition_list (OcfsPartitionListFunc  func,
   g_hash_table_foreach_remove (info, partition_walk, &wdata);
   
   g_hash_table_destroy (info);
+
+  blkid_put_cache (wdata.cache);
 }
 
 #ifdef LIST_TEST

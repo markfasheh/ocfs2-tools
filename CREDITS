@@ -26,5 +26,8 @@ tunefs.ocfs2
 ocfs2cdsl:
 	Written by Manish Singh.
 
-ocfs2tool:
+ocfs2console:
 	Written by Manish Singh.
+
+ocfs2console/blkid:
+	From e2fsprogs 1.36, by Theodore Ts'o and Andreas Dilger.

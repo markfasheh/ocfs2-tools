@@ -45,6 +45,7 @@ typedef void (*OcfsPartitionListFunc) (OcfsPartitionInfo *info,
 void ocfs_partition_list (OcfsPartitionListFunc  func,
 			  gpointer               data,
 			  const gchar           *filter,
+			  const gchar           *type,
 			  gboolean               unmounted,
 			  gboolean               async);
 

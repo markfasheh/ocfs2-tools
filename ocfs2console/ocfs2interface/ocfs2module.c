@@ -91,19 +91,19 @@ partition_list (PyObject *self,
   ProxyData              proxy_data;
   OcfsPartitionListFunc  func;
   PyObject              *py_func, *py_data = NULL;
-  gchar                 *filter = NULL;
+  gchar                 *filter = NULL, *type = NULL;
   gboolean               unmounted = FALSE, async = FALSE;
 
   static gchar *kwlist[] = {
     "callback", "data",
-    "filter", "unmounted", "async",
+    "filter", "type", "unmounted", "async",
     NULL
   };
 
   if (!PyArg_ParseTupleAndKeywords (args, kwargs,
-				    "O|Osii:partition_list", kwlist,
+				    "O|Ossii:partition_list", kwlist,
 				    &py_func, &py_data,
-				    &filter, &unmounted, &async))
+				    &filter, &type, &unmounted, &async))
     return NULL;
 
   if (!PyCallable_Check (py_func))
@@ -131,7 +131,7 @@ partition_list (PyObject *self,
 	func = proxy_partition_func;
     }
 
-  ocfs_partition_list (func, &proxy_data, filter, unmounted, async);
+  ocfs_partition_list (func, &proxy_data, filter, type, unmounted, async);
 
   Py_INCREF (Py_None);
   return Py_None;
