@@ -95,49 +95,50 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	char *str;
 	__u16 mode;
 	GString *flags = NULL;
+	char tmp_str[30];
 
 	if (S_ISREG(in->i_mode))
-		str = "regular";
+		str = "Regular";
 	else if (S_ISDIR(in->i_mode))
-		str = "directory";
+		str = "Directory";
 	else if (S_ISCHR(in->i_mode))
-		str = "char device";
+		str = "Char Device";
 	else if (S_ISBLK(in->i_mode))
-		str = "block device";
+		str = "Block Device";
 	else if (S_ISFIFO(in->i_mode))
-		str = "fifo";
+		str = "FIFO";
 	else if (S_ISLNK(in->i_mode))
-		str = "symbolic link";
+		str = "Symbolic Link";
 	else if (S_ISSOCK(in->i_mode))
-		str = "socket";
+		str = "Socket";
 	else
-		str = "unknown";
+		str = "Unknown";
 
 	mode = in->i_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
 
 	flags = g_string_new(NULL);
 	if (in->i_flags & OCFS2_VALID_FL)
-		g_string_append (flags, "valid ");
+		g_string_append (flags, "Valid ");
 	if (in->i_flags & OCFS2_UNUSED2_FL)
-		g_string_append (flags, "unused2 ");
+		g_string_append (flags, "Unused2 ");
 	if (in->i_flags & OCFS2_ORPHANED_FL)
-		g_string_append (flags, "orphan ");
+		g_string_append (flags, "Orphan ");
 	if (in->i_flags & OCFS2_UNUSED3_FL)
-		g_string_append (flags, "unused3 ");
+		g_string_append (flags, "Unused3 ");
 	if (in->i_flags & OCFS2_SYSTEM_FL)
-		g_string_append (flags, "system ");
+		g_string_append (flags, "System ");
 	if (in->i_flags & OCFS2_SUPER_BLOCK_FL)
-		g_string_append (flags, "superblock ");
+		g_string_append (flags, "Superblock ");
 	if (in->i_flags & OCFS2_LOCAL_ALLOC_FL)
-		g_string_append (flags, "localalloc ");
+		g_string_append (flags, "Localalloc ");
 	if (in->i_flags & OCFS2_BITMAP_FL)
-		g_string_append (flags, "allocbitmap ");
+		g_string_append (flags, "Allocbitmap ");
 	if (in->i_flags & OCFS2_JOURNAL_FL)
-		g_string_append (flags, "journal ");
+		g_string_append (flags, "Journal ");
 	if (in->i_flags & OCFS2_DLM_FL)
-		g_string_append (flags, "dlm ");
+		g_string_append (flags, "DLM ");
 	if (in->i_flags & OCFS2_CHAIN_FL)
-		g_string_append (flags, "chain ");
+		g_string_append (flags, "Chain ");
 
 	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u\n",
 	        in->i_blkno, mode, in->i_generation);
@@ -165,8 +166,12 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", in->i_dtime, str);
 
 	fprintf(out, "\tLast Extblk: %"PRIu64"\n", in->i_last_eb_blk);
-	fprintf(out, "\tSub Alloc Node: %u   Sub Alloc Bit: %u\n",
-	       in->i_suballoc_node, in->i_suballoc_bit);
+	if (in->i_suballoc_node == -1)
+		strcpy(tmp_str, "Global");
+	else
+		sprintf(tmp_str, "%d", in->i_suballoc_node);
+	fprintf(out, "\tSub Alloc Node: %s   Sub Alloc Bit: %u\n",
+		tmp_str, in->i_suballoc_bit);
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
 		fprintf(out, "\tBitmap Total: %u   Used: %u   Clear: %u\n",
