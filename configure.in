@@ -192,6 +192,7 @@ AC_SUBST(BUILD_OCFSTOOL)
 AC_OUTPUT([
 Config.make
 libocfs2/ocfs2_err.et
+libo2cb/o2cb_err.et
 debugfs.ocfs2/debugfs.ocfs2.8
 mkfs.ocfs2/mkfs.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.8

@@ -46,14 +46,14 @@ enum {
 
 typedef struct _hb_op
 {
-	u16 magic;
-	u16 opcode;
+	__u16 magic;
+	__u16 opcode;
 	unsigned int fd;
 	char disk_uuid[CLUSTER_DISK_UUID_LEN+1];
-	u16 group_num;
-	u32 bits;
-	u32 blocks;
-	u64 start;
+	__u16 group_num;
+	__u32 bits;
+	__u32 blocks;
+	__u64 start;
 } hb_op;
 
 enum {
@@ -79,7 +79,7 @@ enum {
 
 typedef struct _hb_disk_heartbeat_block
 {
-	u64 time;
+	__u64 time;
 } hb_disk_heartbeat_block;
 
 

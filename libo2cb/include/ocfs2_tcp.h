@@ -52,10 +52,10 @@ typedef struct _gsd_ioc
 #define GSD_ACTION_ADD_GROUP_NODE   (0x02)
 typedef struct _gsd_message
 {
-	u16 from;
-	u8 action;
-	u8 namelen;
-	u8 name[NM_MAX_NAME_LEN];
+	__u16 from;
+	__u8 action;
+	__u8 namelen;
+	__u8 name[NM_MAX_NAME_LEN];
 } gsd_message;
 
 #endif /* DLMNET_H */

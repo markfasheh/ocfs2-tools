@@ -64,17 +64,17 @@ enum {
 
 typedef struct _nm_network_iface
 {
-	u16 ip_port;			/* for simplicity, just define exactly one port for this if */
-	u16 ip_version;
+	__u16 ip_port;			/* for simplicity, just define exactly one port for this if */
+	__u16 ip_version;
 	union {
-		u32 ip_addr4;		/* IPv4 address in NBO */
-		u32 ip_addr6[4];	/* IPv6 address in NBO */
+		__u32 ip_addr4;		/* IPv4 address in NBO */
+		__u32 ip_addr6[4];	/* IPv6 address in NBO */
 	} addr_u;
 } nm_network_iface;
 
 typedef struct _nm_node_info 
 {
-	u16 node_num;
+	__u16 node_num;
 	char node_name[NM_MAX_NAME_LEN+1];
 	nm_network_iface ifaces[NM_MAX_IFACES];
 } nm_node_info;
@@ -97,19 +97,19 @@ enum {
 
 typedef struct _nm_group_change
 {
-	u16 group_num;
-	u16 node_num;
-	u16 slot_num;
+	__u16 group_num;
+	__u16 node_num;
+	__u16 slot_num;
 	char disk_uuid[CLUSTER_DISK_UUID_LEN+1];
 	char name[NM_MAX_NAME_LEN+1];
 } nm_group_change;
 
 typedef struct _nm_op
 {
-	u16 magic;
-	u16 opcode;
+	__u16 magic;
+	__u16 opcode;
 	union {
-		u16 index;
+		__u16 index;
 		char name[NM_MAX_NAME_LEN+1];
 		nm_node_info node;
 		nm_group_change gc;
