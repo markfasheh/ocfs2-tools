@@ -98,8 +98,8 @@ extern void * memalign (size_t __alignment, size_t __size);
 enum {
 	sfi_journal,
 	sfi_bitmap,
-	sfi_alloc,
 	sfi_local_alloc,
+	sfi_dlm,
 	sfi_other
 };	
 
@@ -113,15 +113,16 @@ typedef struct _system_file_info {
 
 system_file_info system_files[] = {
 	{ "global_bitmap", sfi_bitmap, 1, 0 },
-	{ "global_inode_alloc", sfi_alloc, 1, 0 },
+	{ "global_inode_alloc", sfi_other, 1, 0 },
 	{ "global_inode_alloc_bitmap", sfi_bitmap, 1, 0 },
-	{ "autoconfig", sfi_other, 1, 0 },
-	{ "publish", sfi_other, 1, 0 },
-	{ "vote", sfi_other, 1, 0 },
+	//{ "autoconfig", sfi_other, 1, 0 },
+	//{ "publish", sfi_other, 1, 0 },
+	//{ "vote", sfi_other, 1, 0 },
+	{ "dlm", sfi_dlm, 1, 0 },
 	{ "orphan_dir", sfi_other, 1, 1 },
-	{ "extent_alloc:%04d", sfi_alloc, 0, 0 },
+	{ "extent_alloc:%04d", sfi_other, 0, 0 },
 	{ "extent_alloc_bitmap:%04d", sfi_bitmap, 0, 0 },
-	{ "inode_alloc:%04d", sfi_alloc, 0, 0 },
+	{ "inode_alloc:%04d", sfi_other, 0, 0 },
 	{ "inode_alloc_bitmap:%04d", sfi_bitmap, 0, 0 },
 	{ "journal:%04d", sfi_journal, 0, 0 },
 	{ "local_alloc:%04d", sfi_local_alloc, 0, 0 },
@@ -190,8 +191,6 @@ void format_file(system_file_disk_record *rec);
 void write_bitmap_data(alloc_bm *bm);
 void write_directory_data(funky_dir *dir);
 void format_leading_space(__u64 start);
-void format_autoconf_publish_vote(__u64 autoconf_off, __u64 publish_off, __u64 vote_off, 
-				  __u64 data_off, __u64 data_len);
 void init_device(void);
 void init_globals(void);
 void usage(void);
@@ -205,6 +204,7 @@ void adjust_autoconfig_publish_vote(system_file_disk_record *autoconfig_rec,
 					system_file_disk_record *vote_rec);
 void write_autoconfig_header(system_file_disk_record *rec);
 void init_record(system_file_disk_record *rec, int type, int dir);
+void version(char *progname);
 
 
 
@@ -970,6 +970,7 @@ void write_autoconfig_header(system_file_disk_record *rec)
 {
 	ocfs_node_config_hdr *hdr;
 
+	// first sector of the whole dlm block is a header
 	hdr = (mapping + rec->extent_off);
 	memset(hdr, 0, blocksize);
 	strcpy(hdr->signature, OCFS2_NODE_CONFIG_HDR_SIGN);
@@ -992,16 +993,16 @@ void init_record(system_file_disk_record *rec, int type, int dir)
 
 	switch (type) {
 		case sfi_journal:
-			//rec->flags |= OCFS2_JOURNAL_FL;
+			rec->flags |= OCFS2_JOURNAL_FL;
 			break;
 		case sfi_bitmap:
 			rec->flags |= OCFS2_BITMAP_FL;
 			break;
-		case sfi_alloc:
-			//rec->flags |= OCFS2_ALLOC_FL;
-			break;
 		case sfi_local_alloc:
 			rec->flags |= OCFS2_LOCAL_ALLOC_FL;
+			break;
+		case sfi_dlm:
+			rec->flags |= OCFS2_DLM_FL;
 			break;
 		case sfi_other:
 			break;
@@ -1019,7 +1020,7 @@ int main(int argc, char **argv)
 	funky_dir *orphan_dir;
 	funky_dir *root_dir;
 	funky_dir *system_dir;
-	system_file_disk_record *tmprec, *tmprec2, *tmprec3;
+	system_file_disk_record *tmprec, *tmprec2;
 
 	progname = strdup(argv[0]);
 	process_args(argc, argv);
@@ -1033,8 +1034,9 @@ int main(int argc, char **argv)
 	/*
 	 * ALLOCATE STUFF
 	 */
+
 	// dummy record representing the whole volume
-	init_record(&global_alloc_rec, sfi_alloc, 0);
+	init_record(&global_alloc_rec, sfi_other, 0);
 	global_alloc_rec.extent_off = 0;
 	global_alloc_rec.extent_len = volume_size_in_bytes;
 
@@ -1129,18 +1131,13 @@ int main(int argc, char **argv)
 		}
 	}
 
-	/* autoconfig, publish, vote data */
-	/* XXX: ok this is messy ;-) */
-	/* give everything to autoconfig, then adjust it */
-	tmprec = &(record[AUTOCONFIG_SYSTEM_INODE][0]);
-	tmprec2 = &(record[PUBLISH_SYSTEM_INODE][0]);
-	tmprec3 = &(record[VOTE_SYSTEM_INODE][0]);
+	/* dlm area data */
+	tmprec = &(record[DLM_SYSTEM_INODE][0]);
 	need = (AUTOCONF_BLOCKS(initial_nodes, 32) +
 		PUBLISH_BLOCKS(initial_nodes, 32) + 
 		VOTE_BLOCKS(initial_nodes, 32));
 	tmprec->extent_off = alloc_inode(need);
-	tmprec->extent_len = need << blocksize_bits;
-	adjust_autoconfig_publish_vote(tmprec, tmprec2, tmprec3);
+	tmprec->file_size = tmprec->extent_len = need << blocksize_bits;
 
 
 	/* orphan dir */
@@ -1193,7 +1190,7 @@ int main(int argc, char **argv)
 	write_directory_data(system_dir);
 	write_directory_data(orphan_dir);
 
-	write_autoconfig_header(&record[AUTOCONFIG_SYSTEM_INODE][0]);
+	write_autoconfig_header(&record[DLM_SYSTEM_INODE][0]);
 	/*
 	 * SYNC TO DISK
 	 */

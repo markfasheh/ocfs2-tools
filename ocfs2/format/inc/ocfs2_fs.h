@@ -45,6 +45,12 @@
  */
 #define OCFS2_SUPER_BLOCK_BLKNO		2
 
+/*
+ * As OCFS2 has a minimum clustersize of 4K, it has a maximum blocksize
+ * of 4K
+ */
+#define OCFS2_MAX_BLOCKSIZE		4096
+
 /* Object signatures */
 #define OCFS2_SUPER_BLOCK_SIGNATURE	"OCFSV2"
 #define OCFS2_FILE_ENTRY_SIGNATURE	"INODE01"
@@ -53,14 +59,17 @@
 /*
  * Flags on ocfs2_dinode.i_flags
  */
-#define OCFS2_VALID_FL		(0x01)
-#define OCFS2_UNUSED2_FL	(0x02)
-#define OCFS2_ORPHANED_FL	(0x04)
-#define OCFS2_UNUSED3_FL	(0x08)
-#define OCFS2_SYSTEM_FL		(0x10)
-#define OCFS2_SUPER_BLOCK_FL	(0x20)
-#define OCFS2_LOCAL_ALLOC_FL	(0x40)
-#define OCFS2_BITMAP_FL		(0x80)
+#define OCFS2_VALID_FL		(0x00000001)	/* Inode is valid */
+#define OCFS2_UNUSED2_FL	(0x00000002)
+#define OCFS2_ORPHANED_FL	(0x00000004)	/* On the orphan list */
+#define OCFS2_UNUSED3_FL	(0x00000008)
+/* System inode flags */
+#define OCFS2_SYSTEM_FL		(0x00000010)	/* System inode */
+#define OCFS2_SUPER_BLOCK_FL	(0x00000020)	/* Super block */
+#define OCFS2_LOCAL_ALLOC_FL	(0x00000040)	/* Node local alloc bitmap */
+#define OCFS2_BITMAP_FL		(0x00000080)	/* Allocation bitmap */
+#define OCFS2_JOURNAL_FL	(0x00000100)	/* Node journal */
+#define OCFS2_DLM_FL		(0x00000200)	/* DLM area */
 	
 
 /* Limit of space in ocfs2_dir_entry */
@@ -83,10 +92,12 @@ enum {
 	GLOBAL_BITMAP_SYSTEM_INODE = 0,
 	GLOBAL_INODE_ALLOC_SYSTEM_INODE,
 	GLOBAL_INODE_ALLOC_BITMAP_SYSTEM_INODE,
-	AUTOCONFIG_SYSTEM_INODE,
-	PUBLISH_SYSTEM_INODE,
-	VOTE_SYSTEM_INODE,
+	//AUTOCONFIG_SYSTEM_INODE,
+	//PUBLISH_SYSTEM_INODE,
+	//VOTE_SYSTEM_INODE,
+	DLM_SYSTEM_INODE,
 	ORPHAN_DIR_SYSTEM_INODE,
+#define OCFS2_LAST_GLOBAL_SYSTEM_INODE ORPHAN_DIR_SYSTEM_INODE
 	EXTENT_ALLOC_SYSTEM_INODE,
 	EXTENT_ALLOC_BITMAP_SYSTEM_INODE,
 	INODE_ALLOC_SYSTEM_INODE,
@@ -96,11 +107,25 @@ enum {
 	NUM_SYSTEM_INODES
 };
 
-/*
- * The last system inode that has only one global copy.  Every system
- * inode after it in the system inode enum has a node-specific copy.
- */
-#define OCFS_LAST_GLOBAL_SYSTEM_INODE ORPHAN_DIR_SYSTEM_INODE
+static char *ocfs2_system_inode_names[NUM_SYSTEM_INODES] = {
+	/* Global system inodes (single copy) */
+	[GLOBAL_BITMAP_SYSTEM_INODE]		"global_bitmap",
+	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	"global_inode_alloc",
+	[GLOBAL_INODE_ALLOC_BITMAP_SYSTEM_INODE]	"global_inode_alloc_bitmap",
+	//[AUTOCONFIG_SYSTEM_INODE]		"autoconfig",
+	//[PUBLISH_SYSTEM_INODE]			"publish",
+	//[VOTE_SYSTEM_INODE]			"vote",
+	[DLM_SYSTEM_INODE]			"dlm",
+	[ORPHAN_DIR_SYSTEM_INODE]		"orphan_dir",
+
+	/* Node-specific system inodes (one copy per node) */
+	[EXTENT_ALLOC_SYSTEM_INODE]		"extent_alloc:%04d",
+	[EXTENT_ALLOC_BITMAP_SYSTEM_INODE]	"extent_alloc_bitmap:%04d",
+	[INODE_ALLOC_SYSTEM_INODE]		"inode_alloc:%04d",
+	[INODE_ALLOC_BITMAP_SYSTEM_INODE]	"inode_alloc_bitmap:%04d",
+	[JOURNAL_SYSTEM_INODE]			"journal:%04d",
+	[LOCAL_ALLOC_SYSTEM_INODE]		"local_alloc:%04d"
+};
 
 
 /* Default size for the local alloc bitmap */
@@ -159,11 +184,11 @@ static unsigned char ocfs_type_by_mode[S_IFMT >> S_SHIFT] = {
 #define OCFS2_NODE_MIN_SUPPORTED_VER	2
 
 #define MAX_IP_ADDR_LEN		32
-#define HOSTID_LEN              20
-#define MACID_LEN		12
-#define GUID_LEN		(HOSTID_LEN+MACID_LEN)
 #define MAX_NODE_NAME_LENGTH	32
 
+#define OCFS2_GUID_HOSTID_LEN	20
+#define OCFS2_GUID_MACID_LEN	12
+#define OCFS2_GUID_LEN		(OCFS2_GUID_HOSTID_LEN + OCFS2_GUID_MACID_LEN)
 
 
 
@@ -354,17 +379,17 @@ typedef struct _ocfs_ipc_config_info			// CLASS
 	__u8 ip_mask[MAX_IP_ADDR_LEN+1];		// CHAR[MAX_IP_ADDR_LEN+1]
 }
 ocfs_ipc_config_info;	// END CLASS
+
 /* TODO this structure will break in 64-bit.... need to pack */
-typedef union _ocfs_guid				// CLASS
+typedef union _ocfs_guid
 {
 	struct
 	{
-		char host_id[HOSTID_LEN];
-		char mac_id[MACID_LEN];
+		char host_id[OCFS2_GUID_HOSTID_LEN];
+		char mac_id[OCFS2_GUID_MACID_LEN];
 	} id;
-	__u8 guid[GUID_LEN];				// CHAR[GUID_LEN]
-}
-ocfs_guid;						// END CLASS
+	__u8 guid[OCFS2_GUID_LEN];
+} ocfs_guid;
 
 typedef struct _ocfs_node_config_info			// CLASS
 {
@@ -443,5 +468,32 @@ static inline int ocfs2_local_alloc_size(int blocksize)
 	return OCFS2_LOCAL_BITMAP_DEFAULT_SIZE;
 }
 #endif  /* __KERNEL__ */
+
+
+static inline int ocfs2_system_inode_is_global(int type)
+{
+	return ((type >= 0) &&
+		(type <= OCFS2_LAST_GLOBAL_SYSTEM_INODE));
+}
+
+static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
+						  int type, int node)
+{
+	int chars;
+
+        /*
+         * Global system inodes can only have one copy.  Everything
+         * after OCFS_LAST_GLOBAL_SYSTEM_INODE in the system inode
+         * list has a copy per node.
+         */
+	if (type <= OCFS2_LAST_GLOBAL_SYSTEM_INODE)
+		chars = snprintf(buf, len,
+				 ocfs2_system_inode_names[type]);
+	else
+		chars = snprintf(buf, len,
+				 ocfs2_system_inode_names[type], node);
+
+	return chars;
+}
 
 #endif  /* _OCFS2_FS_H */
