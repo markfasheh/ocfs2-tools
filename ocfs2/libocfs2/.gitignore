@@ -5,11 +5,5 @@ stamp-md5
 ocfs2_err.c
 ocfs2_err.h
 libocfs2.a
-unix_io
-openfs
-inode
-extents
-dir_iterate
-lookup
-extent_map
 ocfs2_err.et
+debug_*

@@ -131,6 +131,7 @@ typedef struct _ocfs2_filesys ocfs2_filesys;
 typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
 typedef struct _io_channel io_channel;
 typedef struct _ocfs2_extent_map ocfs2_extent_map;
+typedef struct _ocfs2_inode_scan ocfs2_inode_scan;
 
 struct _ocfs2_filesys {
 	char *fs_devname;
@@ -277,5 +278,12 @@ errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 
 errcode_t ocfs2_unlink(ocfs2_filesys *fs, uint64_t dir,
 		       const char *name, uint64_t ino, int flags);
+
+errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
+				ocfs2_inode_scan **ret_scan);
+void ocfs2_close_inode_scan(ocfs2_inode_scan *scan);
+errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,
+			       uint64_t *blkno, char *inode);
+
 #endif  /* _FILESYS_H */
 

@@ -51,6 +51,7 @@ CFILES = 		\
 	closefs.c	\
 	freefs.c	\
 	inode.c		\
+	inode_scan.c	\
 	cached_inode.c	\
 	extent_map.c	\
 	mkjournal.c	\
