@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
+WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
 ifdef OCFS_DEBUG

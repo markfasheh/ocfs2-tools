@@ -31,6 +31,7 @@
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
+#include <inttypes.h>
 
 /* I hate glibc and gcc */
 #ifndef ULLONG_MAX
@@ -338,7 +339,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
-		fprintf(stderr, "Invalid blocksize: %lld\n", blksize);
+		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
 		print_usage();
 		return 1;
 	}
@@ -363,7 +364,7 @@ int main(int argc, char *argv[])
 		"\tblocksize = %d\n"
  		"\tclustersize = %d\n"
 		"\tclusters = %u\n"
-		"\tblocks = %llu\n",
+		"\tblocks = %"PRIu64"\n",
  		fs->fs_blocksize,
 		fs->fs_clustersize,
 		fs->fs_clusters,

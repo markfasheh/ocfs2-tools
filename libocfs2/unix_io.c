@@ -42,6 +42,7 @@
 #include <sys/resource.h>
 #include <sys/utsname.h>
 #endif
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -310,18 +311,17 @@ static void dump_u32(uint32_t *val)
 
 static void dump_block(int64_t blkno, int blksize, char *buf)
 {
-	unsigned int i;
+	size_t i;
 	uint32_t *vals = (uint32_t *)buf;
 
-	fprintf(stdout, "Dumping block %lld (%d bytes):\n", blkno,
+	fprintf(stdout, "Dumping block %"PRId64" (%d bytes):\n", blkno,
 		blksize);
 
 	for (i = 0; i < (blksize / sizeof(uint32_t)); i++) {
 		if (!(i % 4)) {
 			if (i)
 				fprintf(stdout, "\n");
-			fprintf(stdout, "0x%08X\t",
-				i * sizeof(uint32_t));
+			fprintf(stdout, "0x%08zu\t", i * sizeof(uint32_t));
 		}
 		dump_u32(&vals[i]);
 		fprintf(stdout, " ");
@@ -398,13 +398,13 @@ int main(int argc, char *argv[])
 	}
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
-		fprintf(stderr, "Invalid blocksize: %lld\n", blksize);
+		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
 		print_usage();
 		return 1;
 	}
 	if (count < 0) {
 		if (-count > (int64_t)INT_MAX) {
-			fprintf(stderr, "Count is too large: %lld\n",
+			fprintf(stderr, "Count is too large: %"PRId64"\n",
 				count);
 			print_usage();
 			return 1;
@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
 		count = -count / blksize;
 	} else  {
 		if ((count * blksize) > INT_MAX) {
-			fprintf(stderr, "Count is too large: %lld\n",
+			fprintf(stderr, "Count is too large: %"PRId64"\n",
 				count);
 			print_usage();
 			return 1;
@@ -437,15 +437,15 @@ int main(int argc, char *argv[])
 	ret = ocfs2_malloc_blocks(channel, (int)count, &blks);
 	if (ret) {
 		com_err(argv[0], ret,
-			"while allocating %d blocks", count);
+			"while allocating %"PRId64" blocks", count);
 		goto out_channel;
 	}
 
 	ret = io_read_block(channel, blkno, (int)count, blks);
 	if (ret) {
 		com_err(argv[0], ret,
-			"while reading %d blocks at block %lld (%s)",
-			(int)count, blkno,
+			"while reading %"PRId64" blocks at block %"PRId64" (%s)",
+			count, blkno,
 			strerror(io_get_error(channel)));
 		goto out_blocks;
 	}

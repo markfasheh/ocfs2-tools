@@ -33,6 +33,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -391,7 +392,8 @@ int main(int argc, char *argv[])
 			if (!(di->i_flags & OCFS2_VALID_FL))
 				continue;
 
-			fprintf(stdout, "%snode %llu with size %llu\n",
+			fprintf(stdout, 
+				"%snode %"PRIu64" with size %"PRIu64"\n",
 				(di->i_flags & OCFS2_SYSTEM_FL) ?
 				"System i" : "I",
 				blkno, di->i_size);

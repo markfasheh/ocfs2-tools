@@ -39,6 +39,7 @@
 #include <time.h>
 #include <libgen.h>
 #include <netinet/in.h>
+#include <inttypes.h>
 
 #include <asm/bitops.h>
 
@@ -373,7 +374,7 @@ main(int argc, char **argv)
 	leading_space = alloc_inode(s, LEADING_SPACE_BLOCKS);
 	if (leading_space != 0ULL) {
 		com_err(s->progname, 0,
-			"Leading space blocks start at byte %llu, "
+			"Leading space blocks start at byte %"PRIu64", "
 			"must start at 0", leading_space);
 		exit(1);
 	}
@@ -381,10 +382,11 @@ main(int argc, char **argv)
 	superblock_rec.fe_off = alloc_inode(s, SUPERBLOCK_BLOCKS);
 	if (superblock_rec.fe_off != (__u64)MAGIC_SUPERBLOCK_BLOCK_NUMBER << s->blocksize_bits) {
 		com_err(s->progname, 0,
-			"Superblock starts at byte %llu, "
-			"must start at %llu",
+			"Superblock starts at byte %"PRIu64", "
+			"must start at %"PRIu64"",
 			superblock_rec.fe_off,
-			MAGIC_SUPERBLOCK_BLOCK_NUMBER << s->blocksize_bits);
+			(uint64_t)MAGIC_SUPERBLOCK_BLOCK_NUMBER << 
+			s->blocksize_bits);
 		exit(1);
 	}
 
@@ -964,7 +966,7 @@ alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 
 	if (start_bit == (uint32_t)-1) {
 		com_err(s->progname, 0,
-			"Could not allocate %llu bits from %s bitmap",
+			"Could not allocate %"PRIu64" bits from %s bitmap",
 			num_bits, bitmap->name);
 		exit(1);
 	}

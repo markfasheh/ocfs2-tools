@@ -31,6 +31,7 @@
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -180,7 +181,7 @@ int main(int argc, char *argv[])
 
 	lookup_path = p;
 
-	fprintf(stdout, "/ (%llu)\n", blkno);
+	fprintf(stdout, "/ (%"PRIu64")\n", blkno);
 
 	indent = 0;
 	for (p = lookup_path; ; p++) {
@@ -194,7 +195,8 @@ int main(int argc, char *argv[])
 				   &result_blkno);
 		if (ret) {
 			com_err(argv[0], ret,
-				"while looking up \"%s\" in inode %llu on \"%s\"\n",
+				"while looking up \"%s\" in inode %"PRIu64" on"
+			        " \"%s\"\n",
 				lookup_name, blkno, filename);
 			goto out_free;
 		}
@@ -202,7 +204,7 @@ int main(int argc, char *argv[])
 		indent += 4;
 		for (c = 0; c < indent; c++)
 			fprintf(stdout, " ");
-		fprintf(stdout, "%s (%llu)\n", lookup_name,
+		fprintf(stdout, "%s (%"PRIu64")\n", lookup_name,
 			result_blkno);
 
 		blkno = result_blkno;

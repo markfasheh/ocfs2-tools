@@ -32,6 +32,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -123,7 +124,7 @@ static int extent_test_func(ocfs2_filesys *fs,
 		}
 		if (oldval) {
 			fprintf(stdout,
-				"Dup! % 20llu : %u\n",
+				"Dup! %20"PRIu64" : %u\n",
 				we->blkno, cluster + i);
 		}
 	}
@@ -199,8 +200,7 @@ static errcode_t run_scan(struct walk_extents *we, int test)
 						   we);
 			if (ret) {
 				com_err(we->argv0, ret,
-					"while walking inode %llu",
-					blkno);
+					"while walking inode %"PRIu64, blkno);
 				goto out_close_scan;
 			}
 		}

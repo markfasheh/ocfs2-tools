@@ -31,6 +31,7 @@
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -180,8 +181,7 @@ int main(int argc, char *argv[])
 	if (argc > 2) {
 		blkno = read_number(argv[2]);
 		if (blkno < OCFS2_SUPER_BLOCK_BLKNO) {
-			fprintf(stderr, "Invalid blockno: %s\n",
-				blkno);
+			fprintf(stderr, "Invalid blockno: %"PRIu64"\n", blkno);
 			print_usage();
 			return 1;
 		}
@@ -204,14 +204,13 @@ int main(int argc, char *argv[])
 
 	ret = ocfs2_read_inode(fs, blkno, buf);
 	if (ret) {
-		com_err(argv[0], ret,
-			"while reading inode %llu", blkno);
+		com_err(argv[0], ret, "while reading inode %"PRIu64, blkno);
 		goto out_free;
 	}
 
 	di = (ocfs2_dinode *)buf;
 
-	fprintf(stdout, "OCFS2 inode %llu on \"%s\"\n", blkno,
+	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\"\n", blkno,
 		filename);
 
 

@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -93,7 +94,8 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 		ret = ocfs2_bitmap_test(wp->dup_map, dentry->inode,
 					&oldval);
 		if (oldval) {
-			fprintf(stdout, "Dup! % 20llu %s\n", dentry->inode, path);
+			fprintf(stdout, "Dup! %20"PRIu64" %s\n", dentry->inode, 
+					path);
 		}
 		goto out;
 	}
@@ -102,7 +104,7 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 	ret = ocfs2_bitmap_set(wp->inode_map, dentry->inode, &oldval);
 	if (ret) {
 		com_err(wp->argv0, ret,
-			"while setting bitmap bit %llu\n",
+			"while setting bitmap bit %"PRIu64"\n",
 			dentry->inode);
 		reti = OCFS2_DIRENT_ABORT;
 		goto out;
@@ -114,7 +116,7 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 				       NULL);
 		if (ret) {
 			com_err(wp->argv0, ret,
-				"while setting dup bit %llu\n",
+				"while setting dup bit %"PRIu64"\n",
 				dentry->inode);
 			reti = OCFS2_DIRENT_ABORT;
 			goto out;
@@ -122,7 +124,7 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 	}
 
 	if (!wp->quiet)
-		fprintf(stdout, "% 20llu %s\n", dentry->inode, path);
+		fprintf(stdout, "%20"PRIu64" %s\n", dentry->inode, path);
 
 	if (dentry->file_type == OCFS2_FT_DIR) {
 		old_path = wp->path;
@@ -213,7 +215,7 @@ int main(int argc, char *argv[])
 				0, NULL, walk_tree_func, &wp);
 	if (ret) {
 		com_err(argv[0], ret,
-			"while walking sysdm dir inode %llu on \"%s\"\n",
+			"while walking sysdm dir inode %"PRIu64" on \"%s\"\n",
 			blkno, filename);
 		goto out_close;
 	}
@@ -224,7 +226,7 @@ int main(int argc, char *argv[])
 				0, NULL, walk_tree_func, &wp);
 	if (ret) {
 		com_err(argv[0], ret,
-			"while walking root inode %llu on \"%s\"\n",
+			"while walking root inode %"PRIu64" on \"%s\"\n",
 			blkno, filename);
 		goto out_close;
 	}
@@ -240,7 +242,8 @@ int main(int argc, char *argv[])
 					0, NULL, walk_tree_func, &wp);
 		if (ret) {
 			com_err(argv[0], ret,
-				"while dup scanning sysdm dir inode %llu on \"%s\"\n",
+				"while dup scanning sysdm dir inode %"PRIu64
+			        " on \"%s\"\n",
 				blkno, filename);
 			goto out_close;
 		}
@@ -251,7 +254,8 @@ int main(int argc, char *argv[])
 					0, NULL, walk_tree_func, &wp);
 		if (ret) {
 			com_err(argv[0], ret,
-				"while dup scanning root inode %llu on \"%s\"\n",
+				"while dup scanning root inode %"PRIu64
+			       	" on \"%s\"\n",
 				blkno, filename);
 			goto out_close;
 		}

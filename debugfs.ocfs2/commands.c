@@ -39,7 +39,6 @@ struct _Command
 };
 
 static Command  *find_command (char  *cmd);
-static char    **get_data     (void);
 
 static void do_open (char **args);
 static void do_close (char **args);
@@ -453,15 +452,6 @@ static void do_curdev (char **args)
 {
 	printf ("%s\n", gbls.device ? gbls.device : "No device");
 }					/* do_curdev */
-
-/*
- * get_data()
- *
- */
-static char ** get_data (void)
-{
-	return NULL;
-}					/* get_data */
 
 /*
  * do_super()

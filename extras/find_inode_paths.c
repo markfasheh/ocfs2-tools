@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -90,10 +91,12 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 	oldval = 0;
 
 	if (!wp->quiet)
-		fprintf(stdout, "[trace] % 13llu %s\n", dentry->inode, path);
+		fprintf(stdout, "[trace] %13"PRIu64" %s\n", dentry->inode, 
+				path);
 
 	if (dentry->inode == wp->inode)
-		fprintf(stdout, "[found] % 13llu %s\n", dentry->inode, path);
+		fprintf(stdout, "[found] %13"PRIu64" %s\n", dentry->inode, 
+				path);
 
 	if (dentry->file_type == OCFS2_FT_DIR) {
 		old_path = wp->path;
@@ -163,7 +166,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 	wp.fs = fs;
-	fprintf(stdout, "Finding all paths leading to inode %llu\n", 
+	fprintf(stdout, "Finding all paths leading to inode %"PRIu64"\n", 
 		wp.inode);
 
 	if (!wp.quiet)
@@ -174,7 +177,7 @@ int main(int argc, char *argv[])
 				0, NULL, walk_tree_func, &wp);
 	if (ret) {
 		com_err(argv[0], ret,
-			"while walking sysdm dir inode %llu on \"%s\"\n",
+			"while walking sysdm dir inode %"PRIu64" on \"%s\"\n",
 			blkno, filename);
 		goto out_close;
 	}
@@ -187,7 +190,7 @@ int main(int argc, char *argv[])
 				0, NULL, walk_tree_func, &wp);
 	if (ret) {
 		com_err(argv[0], ret,
-			"while walking root inode %llu on \"%s\"\n",
+			"while walking root inode %"PRIu64" on \"%s\"\n",
 			blkno, filename);
 		goto out_close;
 	}

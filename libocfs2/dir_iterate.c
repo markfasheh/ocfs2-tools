@@ -30,6 +30,8 @@
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
 #define _LARGEFILE64_SOURCE
 
+#include <inttypes.h>
+
 #include "ocfs2.h"
 
 #include "dir_iterate.h"
@@ -263,7 +265,7 @@ static int walk_names_func(struct ocfs2_dir_entry *dentry,
 	memcpy(name, dentry->name, dentry->name_len);
 	name[dentry->name_len] = '\0';
 
-	fprintf(stdout, "% 20llu %s\n", dentry->inode, name);
+	fprintf(stdout, "%20"PRIu64" %s\n", dentry->inode, name);
 
 	return 0;
 }
@@ -330,21 +332,20 @@ int main(int argc, char *argv[])
 
 	ret = ocfs2_read_inode(fs, blkno, buf);
 	if (ret) {
-		com_err(argv[0], ret,
-			"while reading inode %llu", blkno);
+		com_err(argv[0], ret, "while reading inode %"PRIu64, blkno);
 		goto out_free;
 	}
 
 	di = (ocfs2_dinode *)buf;
 
-	fprintf(stdout, "OCFS2 inode %llu on \"%s\"\n",
+	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\"\n",
 		blkno, filename);
 
 	ret = ocfs2_dir_iterate(fs, blkno, 0, NULL,
 				walk_names_func, NULL);
 	if (ret) {
 		com_err(argv[0], ret,
-			"while listing inode %llu on \"%s\"\n",
+			"while listing inode %"PRIu64" on \"%s\"\n",
 			blkno, filename);
 		goto out_free;
 	}

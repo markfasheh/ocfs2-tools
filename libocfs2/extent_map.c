@@ -28,6 +28,7 @@
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -233,7 +234,8 @@ static int walk_extents_func(ocfs2_filesys *fs,
 	list_for_each(pos, &em->em_extents) {
 		ent = list_entry(pos, ocfs2_extent_map_entry, e_list);
 
-		fprintf(stdout, "(%08u, %08lu, %08llu) | + %08lu = %08lu / %08lu\n",
+		fprintf(stdout, "(%08"PRIu32", %08"PRIu32", %08"PRIu64") |"
+				" + %08"PRIu32" = %08"PRIu32" / %08"PRIu32"\n",
 			ent->e_rec.e_cpos, ent->e_rec.e_clusters,
 			ent->e_rec.e_blkno, ccount,
 			ccount + ent->e_rec.e_clusters,
@@ -242,7 +244,7 @@ static int walk_extents_func(ocfs2_filesys *fs,
 		ccount += ent->e_rec.e_clusters;
 	}
 
-	fprintf(stdout, "TOTAL: %u\n", cinode->ci_inode->i_clusters);
+	fprintf(stdout, "TOTAL: %"PRIu32"\n", cinode->ci_inode->i_clusters);
 
 	return 0;
 }
@@ -300,12 +302,11 @@ int main(int argc, char *argv[])
 
 	ret = ocfs2_read_cached_inode(fs, blkno, &cinode);
 	if (ret) {
-		com_err(argv[0], ret,
-			"while reading inode %llu", blkno);
+		com_err(argv[0], ret, "while reading inode %"PRIu64, blkno);
 		goto out_close;
 	}
 
-	fprintf(stdout, "OCFS2 inode %llu on \"%s\" has depth %d\n",
+	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\" has depth %"PRId16"\n",
 		blkno, filename,
 		cinode->ci_inode->id2.i_list.l_tree_depth);
 

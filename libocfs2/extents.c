@@ -32,6 +32,7 @@
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -444,10 +445,11 @@ static int walk_extents_func(ocfs2_filesys *fs,
 	if (!ccount && !pad_amount)
 		fprintf(stdout, "EXTENTS:\n");
 
-	fprintf(stdout, "0x%08llX:%02u ", ref_blkno, ref_recno);
+	fprintf(stdout, "0x%08"PRIX64":%02u ", ref_blkno, ref_recno);
 	for (i = 0; i < pad_amount; i++)
 		fprintf(stdout, " ");
-	fprintf(stdout, "(%08u, %08lu, %08llu) | + %08lu = %08lu / %08lu\n",
+	fprintf(stdout, "(%08"PRIu32", %08"PRIu32", %08"PRIu64") |"
+			" + %08"PRIu32" = %08"PRIu32" / %08"PRIu32"\n",
 		rec->e_cpos, rec->e_clusters,
 		rec->e_blkno, ccount, ccount + rec->e_clusters,
 		wi->di->i_clusters);
@@ -484,11 +486,12 @@ static int walk_blocks_func(ocfs2_filesys *fs,
 			fprintf(stdout, ", ");
 
 		if ((wb->run_first_bcount + 1) == bcount) {
-			fprintf(stdout, "(%llu):%llu",
+			fprintf(stdout, "(%"PRIu64"):%"PRIu64"",
 				wb->run_first_bcount,
 				wb->run_first_blkno);
 		} else {
-			fprintf(stdout, "(%llu-%llu):%llu-%llu",
+			fprintf(stdout, 
+				"(%"PRIu64"-%"PRIu64"):%"PRIu64"-%"PRIu64"",
 				wb->run_first_bcount,
 				bcount - 1,
 				wb->run_first_blkno,
@@ -503,17 +506,18 @@ static int walk_blocks_func(ocfs2_filesys *fs,
 			fprintf(stdout, ", ");
 
 		if ((wb->run_prev_blkno + 1) != blkno) {
-			fprintf(stdout, "(%llu):%llu\n",
+			fprintf(stdout, "(%"PRIu64"):%"PRIu64"\n",
 				bcount, blkno);
 		} else {
-			fprintf(stdout, "(%llu-%llu):%llu-%llu\n",
+			fprintf(stdout, 
+				"(%"PRIu64"-%"PRIu64"):%"PRIu64"-%"PRIu64"\n",
 				wb->run_first_bcount,
 				bcount,
 				wb->run_first_blkno,
 				blkno);
 		}
 
-		fprintf(stdout, "TOTAL: %llu\n", bcount + 1);
+		fprintf(stdout, "TOTAL: %"PRIu64"\n", bcount + 1);
 	}
 
 	wb->run_prev_blkno = blkno;
@@ -600,14 +604,13 @@ int main(int argc, char *argv[])
 
 	ret = ocfs2_read_inode(fs, blkno, buf);
 	if (ret) {
-		com_err(argv[0], ret,
-			"while reading inode %llu", blkno);
+		com_err(argv[0], ret, "while reading inode %"PRIu64, blkno);
 		goto out_free;
 	}
 
 	di = (ocfs2_dinode *)buf;
 
-	fprintf(stdout, "OCFS2 inode %llu on \"%s\" has depth %d\n",
+	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\" has depth %"PRId16"\n",
 		blkno, filename, di->id2.i_list.l_tree_depth);
 
 	if (walk_extents) {

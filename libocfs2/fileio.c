@@ -32,6 +32,7 @@
 
 #include <string.h>
 #include <limits.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -260,7 +261,8 @@ int main(int argc, char *argv[])
 				   &result_blkno);
 		if (ret) {
 			com_err(argv[0], ret,
-				"while looking up \"%s\" in inode %llu on \"%s\"\n",
+				"while looking up \"%s\" in inode %"PRIu64
+			       	" on \"%s\"\n",
 				lookup_name, blkno, filename);
 			goto out_free;
 		}

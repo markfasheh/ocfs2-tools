@@ -8,7 +8,7 @@ SBIN_PROGRAMS = fsck.ocfs2
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 
-CFLAGS := -g -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
+CFLAGS := -g -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations -fno-strict-aliasing
 
 DEFINES = -DOCFS2_FLAT_INCLUDES

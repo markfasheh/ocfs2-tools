@@ -24,6 +24,7 @@
  */
 
 #include <main.h>
+#include <inttypes.h>
 
 extern dbgfs_gbls gbls;
 
@@ -104,14 +105,14 @@ bail:
  */
 int read_inode (int fd, __u64 blknum, char *buf, int buflen)
 {
-	__u64 off;
+	uint64_t off;
 	ocfs2_dinode *inode;
 	int ret = 0;
 
 	off = blknum << gbls.blksz_bits;
 
 	if ((pread64(fd, buf, buflen, off)) == -1)
-		DBGFS_FATAL("%s off=%llu", strerror(errno), off);
+		DBGFS_FATAL("%s off=%"PRIu64, strerror(errno), off);
 
 	inode = (ocfs2_dinode *)buf;
 

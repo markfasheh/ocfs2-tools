@@ -29,6 +29,7 @@
 
 #include <string.h>
 #include <limits.h>
+#include <inttypes.h>
 
 #include <asm/bitops.h>
 
@@ -591,14 +592,14 @@ static void dump_clusters(ocfs2_bitmap *bitmap)
 	struct list_head *pos;
 	struct ocfs2_bitmap_cluster *bc;
 
-	fprintf(stdout, "Bitmap \"%s\": total = %llu, set = %llu\n",
+	fprintf(stdout, "Bitmap \"%s\": total = %"PRIu64", set = %"PRIu64"\n",
 		bitmap->b_description, bitmap->b_total_bits,
 		bitmap->b_set_bits);
 	list_for_each(pos, &bitmap->b_clusters) {
 		bc = list_entry(pos, struct ocfs2_bitmap_cluster,
 				bc_list);
 		fprintf(stdout,
-			"(start: %llu, n: %d, set: %d, cpos: %u)\n",
+			"(start: %"PRIu64", n: %d, set: %d, cpos: %"PRIu32")\n",
 			bc->bc_start_bit, bc->bc_total_bits,
 			bc->bc_set_bits, bc->bc_cpos);
 	}
@@ -623,12 +624,12 @@ static void print_bitmap(ocfs2_bitmap *bitmap)
 				continue;
 			}
 			com_err("print_bitmap", ret,
-				"while testing bit %llu\n", bitno);
+				"while testing bit %"PRIu64"\n", bitno);
 			break;
 		}
 		if (gap) {
 			fprintf(stdout,
-				"\nGap of length %llu at %llu\n",
+				"\nGap of length %"PRIu64" at %"PRIu64"\n",
 				bitno - gap_start, gap_start);
 			gap = bitno % 72;
 			gap += gap / 8;
@@ -679,8 +680,7 @@ static int try_op(ocfs2_bitmap *bitmap,
 
 	ret = (*func)(bitmap, bitno, ret_val);
 	if (ret) {
-		com_err("try_op", ret,
-			"while setting bit %llu\n", bitno);
+		com_err("try_op", ret, "while setting bit %"PRIu64"\n", bitno);
 		return 1;
 	}
 
