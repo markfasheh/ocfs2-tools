@@ -112,12 +112,9 @@ typedef struct _system_file_info {
 
 system_file_info system_files[] = {
 	{ "bad_blocks", sfi_other, 1, 0 },
-	{ "global_bitmap", sfi_bitmap, 1, 0 },
 	{ "global_inode_alloc", sfi_other, 1, 0 },
 	{ "global_inode_alloc_bitmap", sfi_bitmap, 1, 0 },
-	//{ "autoconfig", sfi_other, 1, 0 },
-	//{ "publish", sfi_other, 1, 0 },
-	//{ "vote", sfi_other, 1, 0 },
+	{ "global_bitmap", sfi_bitmap, 1, 0 },
 	{ "dlm", sfi_dlm, 1, 0 },
 	{ "orphan_dir", sfi_other, 1, 1 },
 	{ "extent_alloc:%04d", sfi_other, 0, 0 },
@@ -1147,8 +1144,8 @@ int main(int argc, char **argv)
 	need = (AUTOCONF_BLOCKS(initial_nodes, 32) +
 		PUBLISH_BLOCKS(initial_nodes, 32) + 
 		VOTE_BLOCKS(initial_nodes, 32));
-	tmprec->extent_off = alloc_inode(need);
-	tmprec->file_size = tmprec->extent_len = need << blocksize_bits;
+        alloc_from_bitmap(need, global_bm, &tmprec->extent_off, &tmprec->extent_len);
+	tmprec->file_size = need << blocksize_bits;
 
 
 	/* orphan dir */

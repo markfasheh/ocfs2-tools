@@ -29,8 +29,8 @@
 #define _OCFS2_FS_H
 
 /* Version */
-#define OCFS2_MAJOR_REV_LEVEL		2
-#define OCFS2_MINOR_REV_LEVEL          	0
+#define OCFS2_MAJOR_REV_LEVEL		0
+#define OCFS2_MINOR_REV_LEVEL          	90
 
 /*
  * An OCFS2 volume starts this way:
