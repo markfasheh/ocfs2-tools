@@ -13,8 +13,7 @@ CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS)
 
 SBIN_PROGRAMS = fsck.ocfs2
 
-INCLUDES = -Iinc
-DEFINES = -DLINUX 
+INCLUDES = -I../libocfs2/include
 
 OPTIMIZE = -O2
 
