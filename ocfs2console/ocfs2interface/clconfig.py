@@ -24,13 +24,14 @@ from cStringIO import StringIO
 from guiutil import set_props, error_box
 
 from process import Process
+from ipwidget import IPEditor, IPMissing, IPError
 
 COLUMN_NAME, COLUMN_NODE, COLUMN_IP_ADDR, COLUMN_IP_PORT = range(4)
 
 fields = (
     (COLUMN_NAME,    'Name',       gtk.Entry),
     (COLUMN_NODE,    'Node',       None),
-    (COLUMN_IP_ADDR, 'IP Address', gtk.Entry),
+    (COLUMN_IP_ADDR, 'IP Address', IPEditor),
     (COLUMN_IP_PORT, 'IP Port',    gtk.SpinButton)
 )
 
@@ -71,9 +72,9 @@ class ClusterConf(gtk.HBox):
         button.connect('clicked', self.add_node)
         vbbox.add(button)
 
-#        button = gtk.Button(stock=gtk.STOCK_APPLY)
-#        button.connect('clicked', self.apply_changes)
-#        vbbox.add(button)
+        button = gtk.Button(stock=gtk.STOCK_APPLY)
+        button.connect('clicked', self.apply_changes)
+        vbbox.add(button)
 
     def get_cluster_state(self):
         command = 'o2cb_ctl -I -t node -o'
@@ -150,15 +151,19 @@ class ClusterConf(gtk.HBox):
                 return
 
             name = widgets[COLUMN_NAME].get_text()
-            ip_addr = widgets[COLUMN_IP_ADDR].get_text()
-            ip_port = widgets[COLUMN_IP_PORT].get_text()
 
             if not name:
                 error_box(dialog, 'Node name not specified')
-            elif not ip_addr:
-                error_box(dialog, 'IP address not specified')
-            else:
-                break
+                continue
+
+            try:
+                ip_addr = widgets[COLUMN_IP_ADDR].get_text()
+            except (IPMissing, IPError), msg:
+                error_box(dialog, msg[0])
+                continue
+
+            ip_port = widgets[COLUMN_IP_PORT].get_text()
+            break
 
         dialog.destroy()
 
@@ -226,8 +231,7 @@ def cluster_configurator(parent):
         success, output, k = o2cb_ctl.reap()
 
         if not success:
-            error_box(self.toplevel,
-                      '%s\nCould not create cluster' % output)
+            error_box(parent, '%s\nCould not create cluster' % output)
             return
 
     try:

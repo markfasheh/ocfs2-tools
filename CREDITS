@@ -31,3 +31,6 @@ ocfs2console:
 
 ocfs2console/blkid:
 	From e2fsprogs 1.36, by Theodore Ts'o and Andreas Dilger.
+
+ocfs2console/ocfs2interface/ipwidget.py:
+	From anaconda 10.1.1.13, by Jonathan Blandford and Michael Fulbright
