@@ -271,15 +271,15 @@ static errcode_t o2dlm_full_path(char *path,
 static struct o2dlm_lock_res *o2dlm_find_lock_res(struct o2dlm_ctxt *ctxt,
 						  const char *lockid)
 {
-	struct o2dlm_lock_res *lockres = NULL;
+	struct o2dlm_lock_res *lockres;
 	struct list_head *p;
 
 	list_for_each(p, &ctxt->ct_locks) {
 		lockres = list_entry(p, struct o2dlm_lock_res, l_list);
 		if (!strcmp(lockid, lockres->l_id))
-			break;
+			return lockres;
 	}
-	return lockres;
+	return NULL;
 }
 
 static int o2dlm_translate_lock_flags(enum o2dlm_lock_level level,
