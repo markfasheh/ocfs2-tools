@@ -26,6 +26,15 @@
 #include <format.h>
 #include <tune.h>
 
+void init_global_context(void);
+int create_orphan_dirs(ocfs_vol_disk_hdr *volhdr, bool *update, int fd);
+int ocfs_init_orphan_dir(ocfs_super *osb, int node_num, char *filename);
+
+ocfs_super *osb = NULL;
+struct super_block sb;
+ocfs_vol_disk_hdr *vdh = NULL;
+ocfs_global_ctxt OcfsGlobalCtxt;
+
 ocfs_options opts = {
 	.device = "",
 	.block_size = 0,
@@ -234,6 +243,14 @@ int main(int argc, char **argv)
 			goto bail;
 	}
 
+	/* Make orphaned inode dirs for version 2 upgrade. Do this
+	 * before the header is updated as libocfs is looking for a
+	 * 1.2 versioned filesystem! */
+	if (opts.convert == OCFS2_MAJOR_VERSION) {
+		if (create_orphan_dirs(volhdr, &update, file))
+			goto bail;
+	}
+
 	/* Write volume disk header */
 	if (opts.gid != -1 || opts.uid != -1 || opts.perms != -1 ||
 	    opts.device_size || opts.convert != -1) {
@@ -277,7 +294,7 @@ int read_options(int argc, char **argv)
 	if (argc < 2) {
 		version(argv[0]);
 		usage(argv[0]);
-		ret = 0;
+		ret = 0;					  
 		goto bail;
 	}
 
@@ -503,10 +520,10 @@ int update_volume_header(int file, ocfs_vol_disk_hdr *volhdr, __u32 sect_size,
 	}
 
 	if (opts.convert != -1) {
-		if (opts.convert == 1) {
+		if (opts.convert == OCFS_MAJOR_VERSION) {
 			volhdr->minor_version = OCFS_MINOR_VERSION;
 			volhdr->major_version = OCFS_MAJOR_VERSION;
-		} else if (opts.convert == 2) {
+		} else if (opts.convert == OCFS2_MAJOR_VERSION) {
 			volhdr->minor_version = OCFS2_MINOR_VERSION;
 			volhdr->major_version = OCFS2_MAJOR_VERSION;
 		} else {
@@ -762,3 +779,216 @@ bail:
 	safefree(bitmap);
 	return ret;
 }				/* process_new_volsize */
+
+void init_global_context()
+{
+	char *tmp;
+
+	memset(&OcfsGlobalCtxt, 0, sizeof(ocfs_global_ctxt));
+	OcfsGlobalCtxt.obj_id.type = OCFS_TYPE_GLOBAL_DATA;
+	OcfsGlobalCtxt.obj_id.size = sizeof (ocfs_global_ctxt);
+	OcfsGlobalCtxt.pref_node_num = 31;
+	OcfsGlobalCtxt.node_name = "user-tool";
+	OcfsGlobalCtxt.comm_info.type = OCFS_UDP;
+	OcfsGlobalCtxt.comm_info.ip_addr = "0.0.0.0";
+	OcfsGlobalCtxt.comm_info.ip_port = OCFS_IPC_DEFAULT_PORT;
+	OcfsGlobalCtxt.comm_info.ip_mask = NULL;
+	OcfsGlobalCtxt.comm_info_read = true;
+	memset(&OcfsGlobalCtxt.guid.id.host_id, 'f', HOSTID_LEN);
+	memset(&OcfsGlobalCtxt.guid.id.mac_id,  '0', MACID_LEN);
+
+	tmp = getenv("debug_level");
+	if (tmp)
+		debug_level = atoi(tmp);
+	tmp = getenv("debug_context");
+	if (tmp)
+		debug_context = atoi(tmp);
+	tmp = getenv("debug_exclude");
+	if (tmp)
+		debug_exclude = atoi(tmp);
+}
+
+
+/* these are needed for the function below as they are used in OCFS2 */
+#define  OCFS_DEFAULT_DIR_NODE_SECTS (256)
+#define  OCFS_ORPHAN_DIR_FILENAME          "OrphanDir"
+#define  DIR_NODE_FLAG_ORPHAN         0x2
+#define  OCFS_SECTOR_SIZE 512
+enum {
+    OCFS2_INVALID_SYSFILE = -1,
+    OCFS2_VOL_MD_SYSFILE = 0,
+    OCFS2_VOL_MD_LOG_SYSFILE,
+    OCFS2_DIR_SYSFILE,
+    OCFS2_DIR_BM_SYSFILE,
+    OCFS2_FILE_EXTENT_SYSFILE,
+    OCFS2_FILE_EXTENT_BM_SYSFILE,
+    OCFS2_RECOVER_LOG_SYSFILE,
+    OCFS2_CLEANUP_LOG_SYSFILE,
+    OCFS2_VOL_BM_SYSFILE,
+    OCFS2_ORPHAN_DIR_SYSFILE,
+    OCFS2_NUM_SYSFILES
+};
+#define OCFS_ORPHAN_DIR              (OCFS2_ORPHAN_DIR_SYSFILE     * OCFS_MAXIMUM_NODES)
+
+int ocfs_init_orphan_dir(ocfs_super *osb, int node_num, char *filename)
+{
+	int status = 0;
+	__u64 offset = 0;
+	ocfs_file_entry *fe = NULL;
+	__u32 file_id;
+	__u64 bitmap_off;
+	__u64 file_off = 0;
+	ocfs_dir_node *new_dir = NULL;
+	__u64 numsects;
+
+	LOG_ENTRY_ARGS ("(node_num = %u)\n", node_num);
+
+	memset(filename, 0, OCFS_MAX_FILENAME_LENGTH);
+
+	/* I prefer to just use node_num, but we should prolly be consistent
+	 * with the rest of the system files. */
+	file_id = OCFS_ORPHAN_DIR + node_num;
+	offset = (file_id * osb->sect_size) + osb->vol_layout.root_int_off;
+	sprintf(filename, "%s%d", OCFS_ORPHAN_DIR_FILENAME, file_id);
+
+	/* Alright, allocate and create the dirnode */
+	status = ocfs_alloc_node_block (osb, OCFS_DEFAULT_DIR_NODE_SIZE, 
+					&bitmap_off, &file_off, &numsects, 
+					osb->node_num, DISK_ALLOC_DIR_NODE);
+	if (status < 0) {
+		LOG_ERROR_STATUS (status);
+		goto leave;
+	}
+
+	new_dir = (ocfs_dir_node *) malloc_aligned(OCFS_DEFAULT_DIR_NODE_SIZE);
+	if (!new_dir) {
+		status = -ENOMEM;
+		goto leave;
+	}
+	memset(new_dir, 0, OCFS_DEFAULT_DIR_NODE_SIZE);
+
+	ocfs_initialize_dir_node (osb, new_dir, bitmap_off, file_off, 
+				  osb->node_num);
+	DISK_LOCK_CURRENT_MASTER (new_dir) = node_num;
+	DISK_LOCK_FILE_LOCK (new_dir) = OCFS_DLM_ENABLE_CACHE_LOCK;
+	new_dir->dir_node_flags |= DIR_NODE_FLAG_ORPHAN;
+
+	status = ocfs_write_force_disk(osb, new_dir, 
+				       OCFS_DEFAULT_DIR_NODE_SIZE, bitmap_off);
+	if (status < 0) {
+		LOG_ERROR_STATUS (status);
+		goto leave;
+	}
+
+	/* Alright, now setup the file entry. */
+	fe = malloc_aligned(osb->sect_size);
+	if (!fe) {
+		status = -ENOMEM;
+		goto leave;
+	}
+	memset (fe, 0, osb->sect_size);
+
+	fe->local_ext = true;
+	fe->granularity = -1;
+	strcpy (fe->signature, OCFS_FILE_ENTRY_SIGNATURE);
+	fe->next_free_ext = 0;
+	memcpy (fe->filename, filename, strlen (filename));
+	(fe->filename)[strlen (filename)] = '\0';
+	SET_VALID_BIT (fe->sync_flags);
+	fe->sync_flags &= ~(OCFS_SYNC_FLAG_CHANGE);
+	fe->this_sector = offset;
+	fe->last_ext_ptr = 0;
+
+	/* do we do this or leave it like all the other sysfiles (0) */
+	fe->attribs = OCFS_ATTRIB_DIRECTORY;
+
+	fe->alloc_size = osb->vol_layout.dir_node_size;
+	fe->extents[0].disk_off = bitmap_off;
+	fe->file_size = osb->vol_layout.dir_node_size;
+	fe->next_del = INVALID_DIR_NODE_INDEX;
+
+	status = ocfs_write_force_disk(osb, fe, osb->sect_size, offset);
+	if (status < 0) {
+		LOG_ERROR_STATUS (status);
+		goto leave;
+	}
+
+leave:
+	if (fe)
+		free_aligned(fe);
+
+	if (new_dir)
+		free_aligned(new_dir);
+
+	LOG_EXIT_STATUS(status);
+	return(status);
+}
+
+int create_orphan_dirs(ocfs_vol_disk_hdr *volhdr, bool *update, int fd)
+{
+	int i;
+	int ret = 0;
+	bool mounted = false;
+	char *filename = NULL;
+
+	init_global_context();
+
+	if ((vdh = malloc_aligned(1024)) == NULL) {
+		fprintf(stderr, "failed to alloc %d bytes!  exiting!\n", 1024);
+		ret = ENOMEM;
+		goto done;
+	}
+
+	memset(vdh, 0, 1024);
+	memset(&sb, 0, sizeof(struct super_block));
+	sb.s_dev = fd;
+
+	ret = ocfs_read_disk_header ((__u8 **)&vdh, &sb);
+	if (ret < 0) {
+		fprintf(stderr, "failed to read header\n");
+		goto done;
+	}
+
+	ret = ocfs_mount_volume (&sb, false);
+	if (ret < 0) {
+		fprintf(stderr, "failed to mount\n");
+		goto done;
+	}
+	mounted = true;
+	osb = sb.u.generic_sbp;
+
+	filename = malloc(OCFS_MAX_FILENAME_LENGTH);
+	if (!filename) {
+		fprintf(stderr, "failed to alloc %d bytes!  exiting!\n", 
+			OCFS_MAX_FILENAME_LENGTH);
+		ret = ENOMEM;
+		goto done;
+	}
+
+	for(i = 0; i < OCFS_MAXIMUM_NODES; i++) {
+		ret = ocfs_init_orphan_dir(osb, i, filename);
+		if (ret < 0) {
+			fprintf(stderr,"Could not create orphan directory!\n");
+			ret = ENOMEM;
+			goto done;
+		}
+		*update = true;
+	}
+done:
+	if (mounted) {
+		int tmp;
+		if ((tmp = ocfs_dismount_volume (&sb)) < 0) {
+			fprintf(stderr, "dismount failed, ret = %d\n", tmp);
+			if (ret == 0)
+				ret = tmp;
+		}
+	}
+
+	if (vdh)
+		free_aligned(vdh);
+
+	if (filename)
+		free(vdh);
+		
+	return(ret);
+}
