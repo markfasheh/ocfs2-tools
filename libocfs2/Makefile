@@ -67,7 +67,8 @@ CFILES = 		\
 	expanddir.c	\
 	newdir.c	\
 	extend_file.c	\
-	namei.c
+	namei.c		\
+	truncate.c
 
 HFILES =				\
 	include/jfs_user.h		\

@@ -152,6 +152,8 @@ struct extent_context {
 	errcode_t errcode;
 	char **eb_bufs;
 	void *priv_data;
+	uint64_t last_eb_blkno;
+	uint64_t last_eb_cpos;
 };
 
 static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
@@ -159,37 +161,92 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 			     int ref_recno,
 			     struct extent_context *ctxt);
 
+static int update_leaf_rec(struct extent_context *ctxt,
+			 ocfs2_extent_rec *before,
+			 ocfs2_extent_rec *current)
+{
+	uint64_t start;
+	uint32_t len;
+
+	if (current->e_clusters == before->e_clusters)
+		return 0;
+
+	start = current->e_blkno +
+		ocfs2_clusters_to_blocks(ctxt->fs, current->e_clusters);
+	len = current->e_clusters - before->e_clusters;
+
+	ctxt->errcode = ocfs2_free_clusters(ctxt->fs, len, start);
+	if (ctxt->errcode)
+		return OCFS2_EXTENT_ERROR;
+
+	return 0;
+}
+
+static int update_eb_rec(struct extent_context *ctxt,
+			 ocfs2_extent_rec *before,
+			 ocfs2_extent_rec *current)
+{
+	if (current->e_clusters)
+		return 0;
+
+	ctxt->errcode = ocfs2_delete_extent_block(ctxt->fs, before->e_blkno); 
+	if (ctxt->errcode)
+		return OCFS2_EXTENT_ERROR;
+
+	return 0;
+}
 
 static int extent_iterate_el(ocfs2_extent_list *el, uint64_t ref_blkno,
 			     struct extent_context *ctxt)
 {
+	ocfs2_extent_rec before;
 	int iret = 0;
 	int i;
 
 	for (i = 0; i < el->l_next_free_rec; i++) {
+		/* XXX we could put some constraints on how the rec
+		 * is allowed to change.. */
+		before = el->l_recs[i];
+
 		if (el->l_tree_depth) {
 			iret |= extent_iterate_eb(&el->l_recs[i],
 						  el->l_tree_depth,
 						  ref_blkno, i, ctxt);
+			if (iret & OCFS2_EXTENT_CHANGED)
+				iret |= update_eb_rec(ctxt, &before,
+						      &el->l_recs[i]);
+
+			if (el->l_recs[i].e_clusters &&
+			   (el->l_recs[i].e_cpos >= ctxt->last_eb_cpos))
+				ctxt->last_eb_blkno = el->l_recs[i].e_blkno;
+
 		} else {
 			iret |= (*ctxt->func)(ctxt->fs, &el->l_recs[i],
 					      el->l_tree_depth,
 					      ctxt->ccount, ref_blkno,
 					      i, ctxt->priv_data);
+			if (iret & OCFS2_EXTENT_CHANGED)
+				iret |= update_leaf_rec(ctxt, &before,
+							&el->l_recs[i]);
 			ctxt->ccount += el->l_recs[i].e_clusters;
 		}
 		if (iret & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR))
-			goto out_abort;
+			break;
 	}
 
-out_abort:
 	if (iret & OCFS2_EXTENT_CHANGED) {
-		/* Something here ? */
+		for (i = 0; i < el->l_count; i++) {
+			if (el->l_recs[i].e_clusters)
+				continue;
+			el->l_next_free_rec = i;
+			break;
+		}
 	}
 
 	return iret;
 }
 
+/* XXX this needs to be fixed to update the last extent block stuff */
 static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 			     int ref_tree_depth, uint64_t ref_blkno,
 			     int ref_recno, struct extent_context *ctxt)
@@ -206,12 +263,12 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 				     ctxt->ccount, ref_blkno,
 				     ref_recno, ctxt->priv_data);
 	if (!eb_rec->e_blkno || (iret & OCFS2_EXTENT_ABORT))
-		return iret;
+		goto out;
 	if ((eb_rec->e_blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
 	    (eb_rec->e_blkno > ctxt->fs->fs_blocks)) {
 		ctxt->errcode = OCFS2_ET_BAD_BLKNO;
 		iret |= OCFS2_EXTENT_ERROR;
-		return iret;
+		goto out;
 	}
 
 	ctxt->errcode =
@@ -220,7 +277,7 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 					ctxt->eb_bufs[tree_depth]);
 	if (ctxt->errcode) {
 		iret |= OCFS2_EXTENT_ERROR;
-		return iret;
+		goto out;
 	}
 
 	eb = (ocfs2_extent_block *)ctxt->eb_bufs[tree_depth];
@@ -230,7 +287,7 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 	    (eb->h_blkno != eb_rec->e_blkno)) {
 		ctxt->errcode = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 		iret |= OCFS2_EXTENT_ERROR;
-		return iret;
+		goto out;
 	}
 
 	flags = extent_iterate_el(el, eb_rec->e_blkno, ctxt);
@@ -238,8 +295,16 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 	if (flags & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR))
 		iret |= flags & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR);
 
-	if (changed & OCFS2_EXTENT_CHANGED) {
-		/* Do something */
+	/* if the list was changed and we still have recs then we need
+	 * to write the changes to disk */
+	if (changed & OCFS2_EXTENT_CHANGED && el->l_next_free_rec) {
+		ctxt->errcode = ocfs2_write_extent_block(ctxt->fs,
+							 eb_rec->e_blkno,
+						ctxt->eb_bufs[tree_depth]);
+		if (ctxt->errcode) {
+			iret |= OCFS2_EXTENT_ERROR;
+			goto out;
+		}
 	}
 
 	if ((ctxt->flags & OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE) &&
@@ -249,6 +314,7 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 				     ref_tree_depth,
 				     ctxt->ccount, ref_blkno,
 				     ref_recno, ctxt->priv_data);
+out:
 	return iret;
 }
 
@@ -312,6 +378,8 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 	ctxt.priv_data = priv_data;
 	ctxt.flags = flags;
 	ctxt.ccount = 0;
+	ctxt.last_eb_blkno = 0;
+	ctxt.last_eb_cpos = 0;
 
 	ret = 0;
 	iret |= extent_iterate_el(el, 0, &ctxt);
@@ -321,10 +389,15 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 	if (iret & OCFS2_EXTENT_ABORT)
 		goto out_abort;
 
-out_abort:
-	if (iret & OCFS2_EXTENT_CHANGED) {
-		/* Do something */
+	/* we can only trust ctxt.last_eb_blkno if we walked the whole tree */
+	if (inode->i_last_eb_blk != ctxt.last_eb_blkno) {
+		inode->i_last_eb_blk = ctxt.last_eb_blkno;
+		iret |= OCFS2_EXTENT_CHANGED;
 	}
+
+out_abort:
+	if (iret & OCFS2_EXTENT_CHANGED)
+		ret = ocfs2_write_inode(fs, inode->i_blkno, (char *)inode);
 
 out_eb_bufs:
 	if (ctxt.eb_bufs) {
