@@ -74,7 +74,7 @@ libocfs_node;
 
 int libocfs_readdir(const char *dev, const char *dir, int recurse,
 		    GArray ** arr);
-int libocfs_get_bitmap(const char *dev, char **bmap, int *numbits);
+int libocfs_get_bitmap(const char *dev, unsigned char **bmap, int *numbits);
 int libocfs_get_volume_info(const char *dev, libocfs_volinfo ** info);
 int libocfs_is_ocfs_partition(const char *dev);
 int libocfs_chown_volume(const char *dev, int protection, int uid, int gid);

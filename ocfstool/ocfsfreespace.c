@@ -118,7 +118,7 @@ list_populate (GtkCList    *clist,
   gchar           *texts[2], buf[10];
 
   if (!device ||
-      libocfs_get_bitmap (device, (gchar **) &bits, &length) ||
+      libocfs_get_bitmap (device, &bits, &length) ||
       libocfs_get_volume_info (device, &info))
     return FALSE;
 

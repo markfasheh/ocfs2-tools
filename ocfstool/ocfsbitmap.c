@@ -42,7 +42,7 @@ ocfs_bitmap (const gchar *device,
   gint        length, i;
   GByteArray *map;
 
-  if (device && libocfs_get_bitmap (device, (gchar **) &bits, &length) == 0)
+  if (device && libocfs_get_bitmap (device, &bits, &length) == 0)
     {
       scrl_win = gtk_widget_new (GTK_TYPE_SCROLLED_WINDOW,
 				 "hscrollbar_policy", GTK_POLICY_NEVER,

@@ -143,7 +143,7 @@ int libocfs_readdir(const char *dev, const char *dir, int recurse,
     return 0;
 }
 
-int libocfs_get_bitmap(const char *dev, char **bmap, int *numbits)
+int libocfs_get_bitmap(const char *dev, unsigned char **bmap, int *numbits)
 {
     int fd;
     __u64 readlen;
