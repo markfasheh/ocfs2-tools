@@ -63,6 +63,7 @@ class Console(gtk.Window):
             info_frames.append((frame, info))
 
         self.pv = PartitionView(info_frames)
+        self.pv.set_size_request(-1, 100)
 
         vbox = gtk.VBox()
         self.add(vbox)
