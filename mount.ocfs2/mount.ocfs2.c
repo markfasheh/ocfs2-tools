@@ -180,18 +180,12 @@ static int process_options(struct mount_options *mo)
 static int check_for_hb_ctl(const char *hb_ctl_path)
 {
 	int ret;
-	struct stat hb_stats;
 
-	ret = lstat(hb_ctl_path, &hb_stats);
+	ret = access(hb_ctl_path, X_OK);
 	if (ret < 0) {
 		ret = errno;
 		return ret;
 	}
-
-	/* The kernel can't follow a symbolic link for this so lets
-	 * not get stuck in the 1st place. */
-	if (S_ISLNK(hb_stats.st_mode))
-		ret = ELOOP;
 
 	return ret;
 }
