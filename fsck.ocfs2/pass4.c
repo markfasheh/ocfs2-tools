@@ -105,7 +105,7 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 
 	di = (ocfs2_dinode *)buf;
 
-	for(blkno = 0; ref_ret != OCFS2_ET_BIT_NOT_FOUND ;
+	for(blkno = 0, ref_ret = 0; ref_ret != OCFS2_ET_BIT_NOT_FOUND ;
 	    blkno = ref_blkno + 1) {
 		ref_blkno = 0;
 		ref_ret = o2fsck_icount_next_blkno(ost->ost_icount_refs, blkno,
