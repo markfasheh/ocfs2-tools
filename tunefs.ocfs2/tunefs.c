@@ -284,10 +284,10 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 		for (j = old_num; j < opts.num_nodes; ++j) {
 			sprintf(fname, ocfs2_system_inode_names[i], j);
 			printf("Adding %s...  ", fname);
-			inode_num = 0;
+			inode_num = 1000;
 			ret =  ocfs2_new_system_inode(fs, &inode_num);
 			if (ret)
-				return ret;
+				goto bail;
 			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname,
 					 inode_num, S_IFREG);
 			if (ret) {
@@ -298,13 +298,16 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 								 fname, inode_num, S_IFREG);
 				}
 				if (ret)
-					return ret;
+					goto bail;
 			}
 			printf("\r                                                     \r");
 		}
 	}
+bail:
+	if (ret)
+		printf("\n");
 
-	return 0;
+	return ret;
 }
 
 /*
