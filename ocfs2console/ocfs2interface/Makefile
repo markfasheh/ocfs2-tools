@@ -54,6 +54,7 @@ PYSRC = \
 	browser.py \
 	clconfig.py \
 	format.py \
+	fsck.py \
 	general.py \
 	guiutil.py \
 	main.py \
