@@ -86,7 +86,7 @@ void dump_inode(ocfs2_dinode *in)
 Inode: 32001   Type: directory    Mode:  0755   Flags: 0x0   Generation: 721849
 User:     0   Group:     0   Size: 4096
 File ACL: 0    Directory ACL: 0
-Links: 10   Blockcount: 8
+Links: 10   Clusters: 8
 Fragment:  Address: 0    Number: 0    Size: 0
 ctime: 0x40075ba0 -- Thu Jan 15 22:33:52 2004
 atime: 0x40075b9d -- Thu Jan 15 22:33:49 2004
@@ -98,7 +98,7 @@ TOTAL: 1
 Inode: 64004   Type: regular    Mode:  0644   Flags: 0x0   Generation: 721925
 User:     0   Group:     0   Size: 1006409
 File ACL: 0    Directory ACL: 0
-Links: 1   Blockcount: 1976
+Links: 1   Clusters: 1976
 Fragment:  Address: 0    Number: 0    Size: 0
 ctime: 0x40075b9d -- Thu Jan 15 22:33:49 2004
 atime: 0x40075b9d -- Thu Jan 15 22:33:49 2004
@@ -159,7 +159,7 @@ TOTAL: 247
 	       in->i_gid, (gr ? gr->gr_name : "unknown"),
 	       in->i_size);
 
-	printf("Links: %u   Blockcount: %u\n", in->i_links_count, in->i_clusters);
+	printf("Links: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
 	dl = &(in->i_disk_lock);
 	printf("Lock Master: %u   Level: 0x%0x   Seqnum: %llu\n",

@@ -77,16 +77,18 @@ int read_super_block (int fd, char **buf)
 			DBGFS_FATAL("%s", strerror(errno));
 
 		di = (ocfs2_dinode *) *buf;
-		if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
+		if (!memcmp(di->i_signature,
+                            OCFS2_SUPER_BLOCK_SIGNATURE,
 			   strlen(OCFS2_SUPER_BLOCK_SIGNATURE))) {
-			printf("Not an OCFS2 volume.\n");
-			goto bail;
-		} else {
 			ret = 0;
 			break;
 		}
 		safefree (*buf);
 	}
+
+        if (bits >= 13)
+            printf("Not an OCFS2 volume");
+
 bail:
 	return ret;
 }				/* read_super_block */
