@@ -489,12 +489,14 @@ void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb)
 	dump_jbd_header (out, &(jsb->s_header));
 
 	fprintf (out, "\tBlocksize: %u   Total Blocks: %u   First Block: %u\n",
-		 jsb->s_blocksize, jsb->s_maxlen, jsb->s_first);
+		 ntohl(jsb->s_blocksize), ntohl(jsb->s_maxlen), 
+		 ntohl(jsb->s_first));
 	fprintf (out, "\tFirst Commit ID: %u   Start Log Blknum: %u\n",
-		 jsb->s_sequence, jsb->s_start);
+		 ntohl(jsb->s_sequence), ntohl(jsb->s_start));
 
-	fprintf (out, "\tError: %d\n", jsb->s_errno);
+	fprintf (out, "\tError: %d\n", ntohl(jsb->s_errno));
 
+	/* XXX not sure what to do about swabbing these */
 	fprintf (out, "\tFeatures Compat: %u   Incompat: %u   RO Compat: %u\n",
 		 jsb->s_feature_compat, jsb->s_feature_incompat,
 		 jsb->s_feature_ro_compat);
@@ -505,10 +507,10 @@ void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb)
 	fprintf (out, "\n");
 
 	fprintf (out, "\tFS Share Cnt: %u   Dynamic Superblk Blknum: %u\n",
-		 jsb->s_nr_users, jsb->s_dynsuper);
+		 ntohl(jsb->s_nr_users), ntohl(jsb->s_dynsuper));
 
 	fprintf (out, "\tPer Txn Block Limit    Journal: %u    Data: %u\n",
-		 jsb->s_max_transaction, jsb->s_max_trans_data);
+		 ntohl(jsb->s_max_transaction), ntohl(jsb->s_max_trans_data));
 
 	fprintf (out, "\n");
 
