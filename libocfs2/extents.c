@@ -67,6 +67,10 @@ errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 
 	memcpy(eb_buf, blk, fs->fs_blocksize);
 
+	ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+	if (eb->h_list.l_next_free_rec > eb->h_list.l_count)
+		goto out;
+
 	ret = 0;
 out:
 	ocfs2_free(&blk);
