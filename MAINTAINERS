@@ -1,2 +1,19 @@
 fsck.ocfs2: 
-	Zach Brown, Joel Becker
+	Zach Brown <zach.brown@oracle.com>
+	Joel Becker <joel.becker@oracle.com>
+
+libocfs2:
+	Joel Becker <joel.becker@oracle.com>
+	Zach Brown <zach.brown@oracle.com>
+
+ocfs2tool:
+	Manish Singh <manish.singh@oracle.com>
+
+ocfs2cdsl:
+	Manish Singh <manish.singh@oracle.com>
+
+debugfs.ocfs2:
+	Sunil Mushran <sunil.mushran@oracle.com>
+
+mounted.ocfs2:
+	Sunil Mushran <sunil.mushran@oracle.com>

@@ -2,3 +2,26 @@ fsck.ocfs2:
 	Written by Zach Brown.
 	Huge portions of fsck.ocfs2's behaviour were derived from e2fsck by 
 	Theodore Ts'o, Andreas Dilger, Stephen Tweedie, and others.
+
+libocfs2:
+	Written by Joel Becker, Zach Brown, and Sunil Mushran
+	Huge portions of libocfs2's API and behavior were derived from
+	libext2fs by Theodore Ts'o, Andreas Dilger, Stephen Tweedie,
+	and others.
+
+mkfs.ocfs2:
+	Written by Kurt Hackel.
+	Modified by Manish Singh, Joel Becker, and Mark Fasheh.
+
+debugfs.ocfs2:
+	Written by Sunil Mushran.
+	Modified by Mark Fasheh.
+
+mounted.ocfs2:
+	Written by Sunil Mushran.
+
+ocfs2cdsl:
+	Written by Manish Singh.
+
+ocfs2tool:
+	Written by Manish Singh.
