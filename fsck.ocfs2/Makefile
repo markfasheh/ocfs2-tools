@@ -29,6 +29,7 @@ CFILES =	fsck.c		\
 		pass1.c 	\
 		pass2.c 	\
 		problem.c 	\
+		strings.c 	\
 		util.c
 
 HFILES = 	include/fsck.h		\
@@ -38,6 +39,7 @@ HFILES = 	include/fsck.h		\
 		include/pass1.h		\
 		include/pass2.h		\
 		include/problem.h	\
+		include/strings.h	\
 		include/util.h
 
 OBJS = $(subst .c,.o,$(CFILES))

@@ -1,5 +1,5 @@
 /*
- * fsck.h
+ * strings.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,37 +21,19 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_FSCK_H__
-#define __O2FSCK_FSCK_H__
+#ifndef __O2FSCK_STRINGS_H__
+#define __O2FSCK_STRINGS_H__
 
-#include "icount.h"
-#include "dirblocks.h"
+#include "ocfs2.h"
 
-typedef struct _o2fsck_state {
-	ocfs2_filesys 	*ost_fs;
+typedef struct _o2fsck_strings {
+	struct rb_root	s_root;
+} o2fsck_strings;
 
-	ocfs2_bitmap	*ost_used_inodes;
-	ocfs2_bitmap	*ost_bad_inodes;
-	ocfs2_bitmap	*ost_dir_inodes;
-	ocfs2_bitmap	*ost_reg_inodes;
+errcode_t o2fsck_strings_insert(o2fsck_strings *strings, char *string,
+				size_t strlen, int *is_dup);
+void o2fsck_strings_init(o2fsck_strings *strings);
+void o2fsck_strings_free(o2fsck_strings *strings);
 
-	ocfs2_bitmap	*ost_found_blocks;
-	ocfs2_bitmap	*ost_dup_blocks;
-
-	ocfs2_bitmap	*ost_rebuild_dirs;
-
-	o2fsck_icount	*ost_icount_in_inodes;
-	o2fsck_icount	*ost_icount_refs;
-
-	o2fsck_dirblocks	ost_dirblocks;
-
-	struct rb_root	ost_dir_parents;
-
-	/* flags */
-	unsigned	ost_ask:1,	/* confirm with the user */
-			ost_answer:1,	/* answer if we don't ask the user */
-			ost_force:1;	/* -f supplied; force check */
-} o2fsck_state;
-
-#endif /* __O2FSCK_FSCK_H__ */
+#endif /* __O2FSCK_STRINGS_H__ */
 

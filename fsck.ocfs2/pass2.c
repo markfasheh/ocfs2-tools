@@ -34,6 +34,7 @@
 #include "fsck.h"
 #include "pass2.h"
 #include "problem.h"
+#include "strings.h"
 #include "util.h"
 
 struct dirblock_data {
@@ -335,6 +336,41 @@ static int fix_dirent_linkage(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	return 0;
 }
 
+static int fix_dirent_dups(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+			   struct ocfs2_dir_entry *dirent, 
+			   o2fsck_strings *strings, int *dups_in_block)
+{
+	errcode_t err;
+	int was_set;
+
+	if (*dups_in_block)
+		return 0;
+
+	/* does this need to be fatal?  It appears e2fsck just ignores
+	 * the error. */
+	err = o2fsck_strings_insert(strings, dirent->name, dirent->name_len, 
+				   &was_set);
+	if (err)
+		fatal_error(err, "while allocating space to find duplicate "
+				"directory entries");
+
+	if (!was_set)
+		return 0;
+
+	fprintf(stderr, "Duplicate directory entry '%*s' found.\n",
+		      dirent->name_len, dirent->name);
+	fprintf(stderr, "Marking its parent %"PRIu64" for rebuilding.\n",
+			dbe->e_ino);
+
+	err = ocfs2_bitmap_test(ost->ost_rebuild_dirs, dbe->e_ino, &was_set);
+	if (err)
+		fatal_error(err, "while checking for inode %"PRIu64" in "
+				"the used bitmap", dbe->e_ino);
+
+	*dups_in_block = 1;
+	return 0;
+}
+
 /* this could certainly be more clever to issue reads in groups */
 static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe, 
 					void *priv_data) 
@@ -342,7 +378,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
 	unsigned int offset = 0, this_flags, ret_flags = 0;
-	int was_set;
+	o2fsck_strings strings;
+	int was_set, dups_in_block = 0;
 	errcode_t retval;
 
 	retval = ocfs2_bitmap_test(dd->ost->ost_used_inodes, dbe->e_ino, 
@@ -362,6 +399,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 	printf("found %"PRIu64" %"PRIu64" %"PRIu64"\n", dbe->e_ino, 
 			dbe->e_blkno, dbe->e_blkcount);
+
+	o2fsck_strings_init(&strings);
 
 	while (offset < dd->fs->fs_blocksize) {
 		dirent = (struct ocfs2_dir_entry *)(dd->buf + offset);
@@ -385,17 +424,17 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 		ret_flags |= fix_dirent_dots(dd->ost, dbe, dirent, offset, 
 					     dd->fs->fs_blocksize - offset);
-
 		ret_flags |= fix_dirent_name(dd->ost, dbe, dirent, offset);
-
 		ret_flags |= fix_dirent_filetype(dd->ost, dbe, dirent, offset);
-
 		ret_flags |= fix_dirent_linkage(dd->ost, dbe, dirent, offset);
+		ret_flags |= fix_dirent_dups(dd->ost, dbe, dirent, &strings,
+					     &dups_in_block);
 
 		offset += dirent->rec_len;
 		prev = dirent;
 	}
 
+	o2fsck_strings_free(&strings);
 	return ret_flags;
 }
 
