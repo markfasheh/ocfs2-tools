@@ -67,7 +67,8 @@ CFILES = 		\
 	bitmap.c	\
 	fileio.c	\
 	checkhb.c	\
-	kernel-rbtree.c
+	kernel-rbtree.c	\
+	bitops.c
 
 HFILES =				\
 	include/jfs_user.h		\
@@ -82,7 +83,8 @@ HFILES =				\
 	include/ocfs2.h			\
 	include/dir_iterate.h		\
 	include/extent_map.h		\
-	include/bitmap.h
+	include/bitmap.h		\
+	include/bitops.h
 
 HFILES_GEN =		\
 	include/ocfs2_err.h

@@ -35,6 +35,7 @@
 
 #include "ocfs2.h"
 
+#include "bitops.h"
 #include "bitmap.h"
 #include "kernel-rbtree.h"
 
@@ -381,8 +382,8 @@ errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap, uint64_t bitno,
 	if (!bc)
 		return OCFS2_ET_INVALID_BIT;
 
-	old_tmp = __test_and_set_bit(bitno - bc->bc_start_bit,
-				     (unsigned long *)(bc->bc_bitmap));
+	old_tmp = ocfs2_set_bit(bitno - bc->bc_start_bit,
+				bc->bc_bitmap);
 	if (oldval)
 		*oldval = old_tmp;
 
@@ -402,8 +403,8 @@ errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 	if (!bc)
 		return OCFS2_ET_INVALID_BIT;
 
-	old_tmp = __test_and_clear_bit(bitno - bc->bc_start_bit,
-				       (unsigned long *)bc->bc_bitmap);
+	old_tmp = ocfs2_clear_bit(bitno - bc->bc_start_bit,
+				  bc->bc_bitmap);
 	if (oldval)
 		*oldval = old_tmp;
 
@@ -422,8 +423,8 @@ errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 	if (!bc)
 		return OCFS2_ET_INVALID_BIT;
 
-	*val = test_bit(bitno - bc->bc_start_bit,
-			(unsigned long *)bc->bc_bitmap) ? 1 : 0;
+	*val = ocfs2_test_bit(bitno - bc->bc_start_bit,
+			      bc->bc_bitmap) ? 1 : 0;
 	return 0;
 }
 
