@@ -2,7 +2,7 @@
 .SH "NAME"
 ocfs2cdsl \- Create context dependent symbolic link (CDSL).
 .SH "SYNOPSIS"
-\fBocfs2cdsl\fR [\fB-cfnqvV\fR] [\fB\-t\fR \fIhostname|mach|os|nodenum\fR] [\fIfilename\fR]
+\fBocfs2cdsl\fR [\fB-cfnqvV\fR] [\fB\-t\fR \fIhostname|mach|os|nodenum\fR] \fIfilename\fR
 .SH "DESCRIPTION"
 .PP 
 \fBocfs2cdsl\fR is used to create context dependent symbolic link for \fIfilename\fR (file or directory) for a node. A CDSL \fIfilename\fR will have its own image for a specific node, but a common name in the OCFS2. 
@@ -11,7 +11,7 @@ ocfs2cdsl \- Create context dependent symbolic link (CDSL).
 
 .TP
 \fB\-t\fR \fIhostname|mach|os|nodenum\fR
-\fIhostname|mach|os|nodenum\fR - One of these options should be specified in order to create the CDSL. As for information, \fIhostname\fR would be the same as the output of "uname -n", \fImach\fR would be the output of "uname -m", \fIos\fR would the the output of "uname -o" and \fInodenum\fR would be the global node number for the hostname in the \fI/etc/cluster.conf\fR file.
+\fIhostname|mach|os|nodenum\fR - One of these options should be specified in order to create the CDSL. As for information, \fIhostname\fR would be the same as the output of "uname -n", \fImach\fR would be the output of "uname -m", \fIos\fR would the the output of "uname -o" and \fInodenum\fR would be the global node number for the hostname in the \fI/etc/ocfs2/cluster.conf\fR file.
 
 .TP
 \fB\-c\fR
@@ -54,4 +54,4 @@ Stuff.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2002, 2005 Oracle Corporation
