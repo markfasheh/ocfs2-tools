@@ -143,4 +143,13 @@ void *memalign(size_t boundary, size_t size);
 #define  FLAG_VOTE_UPDATE_RETRY       0x8
 #define  FLAG_VOTE_FILE_DEL           0x10
 
+
+/* remaining headers */
+#include <commands.h>
+#include <readfs.h>
+#include <utils.h>
+#include <journal.h>
+#include <dump.h>
+#include <bindraw.h>
+
 #endif		/* __MAIN_H__ */

@@ -24,12 +24,6 @@
  */
 
 #include <main.h>
-#include <commands.h>
-#include <readfs.h>
-#include <utils.h>
-#include <journal.h>
-#include <dump.h>
-#include <bindraw.h>
 
 extern dbgfs_gbls gbls;
 
@@ -57,7 +51,8 @@ void dump_super_block(FILE *out, ocfs2_super_block *sb)
 	       sb->s_feature_ro_compat);
 
 	fprintf(out, "\tRoot Blknum: %llu   System Dir Blknum: %llu\n",
-	       sb->s_root_blkno, sb->s_system_dir_blkno);
+		(unsigned long long)sb->s_root_blkno,
+		(unsigned long long)sb->s_system_dir_blkno);
 
 	fprintf(out, "\tBlock Size Bits: %u   Cluster Size Bits: %u\n",
 	       sb->s_blocksize_bits, sb->s_clustersize_bits);
@@ -142,7 +137,7 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		g_string_append (flags, "dlm ");
 
 	fprintf(out, "\tInode: %llu   Mode: 0%0o   Generation: %u\n",
-	       in->i_blkno, mode, in->i_generation);
+	        (unsigned long long)in->i_blkno, mode, in->i_generation);
 
 	fprintf(out, "\tType: %s   Flags: %s\n", str, flags->str);
 
@@ -151,24 +146,24 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	fprintf(out, "\tUser: %d (%s)   Group: %d (%s)   Size: %llu\n",
 	       in->i_uid, (pw ? pw->pw_name : "unknown"),
 	       in->i_gid, (gr ? gr->gr_name : "unknown"),
-	       in->i_size);
+	       (unsigned long long)in->i_size);
 
 	fprintf(out, "\tLinks: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
 	dump_disk_lock (out, &(in->i_disk_lock));
 
 	str = ctime((time_t*)&in->i_ctime);
-	fprintf(out, "\tctime: 0x%llx -- %s", in->i_ctime, str);
+	fprintf(out, "\tctime: 0x%llx -- %s", (unsigned long long)in->i_ctime, str);
 	str = ctime((time_t*)&in->i_atime);
-	fprintf(out, "\tatime: 0x%llx -- %s", in->i_atime, str);
+	fprintf(out, "\tatime: 0x%llx -- %s", (unsigned long long)in->i_atime, str);
 	str = ctime((time_t*)&in->i_mtime);
-	fprintf(out, "\tmtime: 0x%llx -- %s", in->i_mtime, str);
+	fprintf(out, "\tmtime: 0x%llx -- %s", (unsigned long long)in->i_mtime, str);
 	str = ctime((time_t*)&in->i_dtime);
-	fprintf(out, "\tdtime: 0x%llx -- %s", in->i_dtime, str);
+	fprintf(out, "\tdtime: 0x%llx -- %s", (unsigned long long)in->i_dtime, str);
 
-	fprintf(out, "\tLast Extblk: %llu\n", in->i_last_eb_blk);
+	fprintf(out, "\tLast Extblk: %llu\n", (unsigned long long)in->i_last_eb_blk);
 	fprintf(out, "\tSub Alloc Node: %u   Sub Alloc Blknum: %llu\n",
-	       in->i_suballoc_node, in->i_suballoc_blkno);
+	       in->i_suballoc_node, (unsigned long long)in->i_suballoc_blkno);
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
 		fprintf(out, "\tBitmap Total: %u   Used: %u   Clear: %u\n",
@@ -191,7 +186,7 @@ void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
 	__u32 node_map;
 
 	fprintf(out, "\tLock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
-	       dl->dl_master, dl->dl_level, dl->dl_seq_num);
+	       dl->dl_master, dl->dl_level, (unsigned long long)dl->dl_seq_num);
 
 	fprintf(out, "\tLock Map: ");
 	for (i = 0, j = 0; i < 8 && j < sb->s_max_nodes; ++i) {
@@ -229,7 +224,7 @@ void dump_extent_list (FILE *out, ocfs2_extent_list *ext)
 	for (i = 0; i < ext->l_next_free_rec; ++i) {
 		rec = &(ext->l_recs[i]);
 		fprintf(out, "\t%-2d %-11u   %-12u   %llu\n", i, rec->e_cpos,
-			rec->e_clusters, rec->e_blkno);
+			rec->e_clusters, (unsigned long long)rec->e_blkno);
 	}
 
 bail:
@@ -243,10 +238,12 @@ bail:
 void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 {
 	fprintf (out, "\tSubAlloc Blknum: %llu   SubAlloc Node: %u\n",
-		 blk->h_suballoc_blkno, blk->h_suballoc_node);
+		 (unsigned long long)blk->h_suballoc_blkno, blk->h_suballoc_node);
 
 	fprintf (out, "\tBlknum: %llu   Parent: %llu   Next Leaf: %llu\n",
-		 blk->h_blkno, blk->h_parent_blk, blk->h_next_leaf_blk);
+		 (unsigned long long)blk->h_blkno,
+		 (unsigned long long)blk->h_parent_blk,
+		 (unsigned long long)blk->h_next_leaf_blk);
 
 	return ;
 }				/* dump_extent_block */
@@ -265,8 +262,9 @@ void dump_dir_entry (FILE *out, GArray *arr)
 
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, struct ocfs2_dir_entry, i));
-		fprintf(out, "\t%-15llu %-4u %-4u %-2u %s\n", rec->inode,
-			rec->rec_len, rec->name_len, rec->file_type, rec->name);
+		fprintf(out, "\t%-15llu %-4u %-4u %-2u %s\n",
+			(unsigned long long)rec->inode, rec->rec_len,
+			rec->name_len, rec->file_type, rec->name);
 	}
 
 	return ;
@@ -290,7 +288,8 @@ void dump_config (FILE *out, char *buf)
 	hdr = (ocfs_node_config_hdr *)buf;
 
 	fprintf(out, "\tVersion: %u   Num Nodes: %u   Last Node: %u   Seqnum: %llu\n",
-		hdr->version, hdr->num_nodes, hdr->last_node, hdr->cfg_seq_num);
+		hdr->version, hdr->num_nodes, hdr->last_node,
+		(unsigned long long)hdr->cfg_seq_num);
 
 	dump_disk_lock (out, &(hdr->disk_lock));
 
@@ -343,8 +342,11 @@ void dump_publish (FILE *out, char *buf)
 		get_publish_flag (pub->vote_type, pub_flag);
 
 		fprintf(out, "\t%3d  %1u   %1u   %1u  %-15llu %-15llu %-15llu %-15llu ",
-			i, pub->mounted, pub->vote, pub->dirty, pub->lock_id,
-			pub->publ_seq_num, pub->comm_seq_num, pub->time);
+			i, pub->mounted, pub->vote, pub->dirty,
+			(unsigned long long)pub->lock_id,
+			(unsigned long long)pub->publ_seq_num,
+			(unsigned long long)pub->comm_seq_num,
+			(unsigned long long)pub->time);
 
 		for (j = 0; j < sb->s_max_nodes; j++)
 			fprintf (out, "%d",
@@ -384,8 +386,9 @@ void dump_vote (FILE *out, char *buf)
 		get_vote_flag (vote->type, vote_flag);
 
 		fprintf(out, "\t%3u %-2u %-1u %-15llu %-15llu %-s\n", i,
-			vote->node, vote->open_handle, vote->lock_id,
-			vote->vote_seq_num, vote_flag->str);
+			vote->node, vote->open_handle,
+			(unsigned long long)vote->lock_id,
+			(unsigned long long)vote->vote_seq_num, vote_flag->str);
 
 		g_string_free (vote_flag, 1);
 		p += (1 << gbls.blksz_bits);
@@ -471,7 +474,7 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
 
 	tagflg = g_string_new (NULL);
 
-	fprintf (out, "\tBlock %llu: ", blknum);
+	fprintf (out, "\tBlock %llu: ", (unsigned long long)blknum);
 
 	switch (ntohl(header->h_blocktype)) {
 	case JFS_DESCRIPTOR_BLOCK:
@@ -541,7 +544,7 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
  */
 void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum)
 {
-	fprintf (out, "\tBlock %llu: ", blknum);
+	fprintf (out, "\tBlock %llu: ", (unsigned long long)blknum);
 	switch (type) {
 	case 1:
 		fprintf(out, "Inode\n");
@@ -568,9 +571,10 @@ void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum)
 void dump_jbd_unknown (FILE *out, __u64 start, __u64 end)
 {
 	if (start == end - 1)
-		fprintf (out, "\tBlock %llu: ", start);
+		fprintf (out, "\tBlock %llu: ", (unsigned long long)start);
 	else
-		fprintf (out, "\tBlock %llu to %llu: ", start, end - 1);
+		fprintf (out, "\tBlock %llu to %llu: ", (unsigned long long)start,
+			 (unsigned long long)(end - 1));
 	fprintf (out, "Unknown -- Probably Data\n\n");
 
 	return ;

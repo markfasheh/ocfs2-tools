@@ -24,12 +24,6 @@
  */
 
 #include <main.h>
-#include <commands.h>
-#include <readfs.h>
-#include <utils.h>
-#include <journal.h>
-#include <dump.h>
-#include <bindraw.h>
 
 #define PROMPT "debugfs: "
 
