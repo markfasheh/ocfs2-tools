@@ -1,2 +1,4 @@
 *.d
+*.pyc
+*.pyo
 ocfs2module.so
