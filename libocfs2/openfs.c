@@ -80,6 +80,12 @@ static void ocfs2_swap_super_to_cpu(ocfs2_dinode *di)
 	sb = &di->id2.i_super;
 	sb->s_major_rev_level     = le16_to_cpu(sb->s_major_rev_level);
 	sb->s_minor_rev_level     = le16_to_cpu(sb->s_minor_rev_level);
+	sb->s_mnt_count           = le16_to_cpu(sb->s_mnt_count);
+	sb->s_max_mnt_count       = le16_to_cpu(sb->s_max_mnt_count);
+	sb->s_state               = le16_to_cpu(sb->s_state);
+	sb->s_checkinterval       = le32_to_cpu(sb->s_checkinterval);
+	sb->s_lastcheck           = le64_to_cpu(sb->s_lastcheck);
+	sb->s_creator_os          = le32_to_cpu(sb->s_creator_os);
 	sb->s_feature_compat      = le32_to_cpu(sb->s_feature_compat);
 	sb->s_feature_ro_compat   = le32_to_cpu(sb->s_feature_ro_compat);
 	sb->s_feature_incompat    = le32_to_cpu(sb->s_feature_incompat);
@@ -100,6 +106,12 @@ static void ocfs2_swap_super_to_le(ocfs2_dinode *di)
 	sb = &di->id2.i_super;
 	sb->s_major_rev_level     = cpu_to_le16(sb->s_major_rev_level);
 	sb->s_minor_rev_level     = cpu_to_le16(sb->s_minor_rev_level);
+	sb->s_mnt_count           = cpu_to_le16(sb->s_mnt_count);
+	sb->s_max_mnt_count       = cpu_to_le16(sb->s_max_mnt_count);
+	sb->s_state               = cpu_to_le16(sb->s_state);
+	sb->s_checkinterval       = cpu_to_le32(sb->s_checkinterval);
+	sb->s_lastcheck           = cpu_to_le64(sb->s_lastcheck);
+	sb->s_creator_os          = cpu_to_le32(sb->s_creator_os);
 	sb->s_feature_compat      = cpu_to_le32(sb->s_feature_compat);
 	sb->s_feature_ro_compat   = cpu_to_le32(sb->s_feature_ro_compat);
 	sb->s_feature_incompat    = cpu_to_le32(sb->s_feature_incompat);
