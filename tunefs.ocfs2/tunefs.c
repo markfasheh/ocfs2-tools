@@ -221,16 +221,6 @@ static void get_options(int argc, char **argv)
 			ret = get_number(optarg, &val);
 			if (ret)
 				exit(1);
-
-//			if (ret || val > MAX_VOL_SIZE) {
-//				com_err(opts.progname, 0,
-//					"Invalid device size %s: must be "
-//					"between %d and %"PRIu64" bytes",
-//					optarg,
-//					BOO, MAX_VOL_SIZE);
-//				exit(1);
-//			}
-
 			opts.vol_size = val;
 			break;
 
@@ -316,6 +306,45 @@ bail:
 }
 
 /*
+ * get_default_journal_size()
+ *
+ */
+static errcode_t get_default_journal_size(ocfs2_filesys *fs, uint64_t *jrnl_size)
+{
+	errcode_t ret;
+	char jrnl_node0[40];
+	uint64_t blkno;
+	char *buf = NULL;
+	ocfs2_dinode *di;
+
+	snprintf (jrnl_node0, sizeof(jrnl_node0),
+		  sysfile_info[JOURNAL_SYSTEM_INODE].name, 0);
+
+	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_node0,
+			   strlen(jrnl_node0), NULL, &blkno);
+	if (ret)
+		goto bail;
+
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_inode(fs, blkno, buf);
+	if (ret)
+		goto bail;
+
+	di = (ocfs2_dinode *)buf;
+	*jrnl_size = (di->i_clusters <<
+		      OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits);
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
+/*
  * update_volume_label()
  *
  */
@@ -353,7 +382,65 @@ static errcode_t update_nodes(ocfs2_filesys *fs, int *changed)
  */
 static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 {
-	return 0;
+	errcode_t ret = 0;
+	char jrnl_file[40];
+	uint64_t blkno;
+	int i;
+	uint16_t max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	uint64_t num_clusters;
+	char *buf = NULL;
+	ocfs2_dinode *di;
+
+	num_clusters = opts.jrnl_size >>
+			OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < max_nodes; ++i) {
+		snprintf (jrnl_file, sizeof(jrnl_file),
+			  sysfile_info[JOURNAL_SYSTEM_INODE].name, i);
+
+		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
+				   strlen(jrnl_file), NULL, &blkno);
+		if (ret)
+			goto bail;
+
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret)
+			goto bail;
+
+		di = (ocfs2_dinode *)buf;
+		if (num_clusters <= di->i_clusters)
+			continue;
+
+		ret = ocfs2_extend_allocation(fs, blkno,
+					      (num_clusters - di->i_clusters));
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret)
+			goto bail;
+
+		di = (ocfs2_dinode *)buf;
+		di->i_size = di->i_clusters <<
+				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
+		ret = ocfs2_write_inode(fs, blkno, buf);
+		if (ret)
+			goto bail;
+
+		break;
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
 }
 
 /*
@@ -362,6 +449,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
  */
 static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 {
+	printf("TODO: update_volume_size\n");
 	return 0;
 }
 
@@ -373,8 +461,14 @@ int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
-	int write_super = 0;
+	int upd_label = 0;
+	int upd_nodes = 0;
+	int upd_jrnls = 0;
+	int upd_vsize = 0;
 	uint16_t tmp;
+	uint64_t def_jrnl_size = 0;
+	uint64_t num_clusters;
+	uint64_t vol_size = 0;
 
 	initialize_ocfs_error_table();
 
@@ -418,14 +512,36 @@ int main(int argc, char **argv)
 
 	/* validate journal size */
 	if (opts.jrnl_size) {
-//		printf("Changing journal size %"PRIu64" to %"PRIu64"\n",
-//		       s->journal_size_in_bytes, opts.jrnl_size);
+		ret = get_default_journal_size(fs, &def_jrnl_size);
+		if (ret)
+			goto bail;
+
+		num_clusters = (opts.jrnl_size + fs->fs_clustersize - 1) >>
+				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
+		opts.jrnl_size = num_clusters <<
+				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
+		if (opts.jrnl_size > def_jrnl_size)
+			printf("Changing journal size %"PRIu64" to %"PRIu64"\n",
+			       def_jrnl_size, opts.jrnl_size);
+		else {
+			printf("ERROR: Journal size %"PRIu64" has to be larger "
+			       "than %"PRIu64"\n", opts.jrnl_size, def_jrnl_size);
+			goto bail;
+		}
 	}
 
 	/* validate volume size */
 	if (opts.vol_size) {
-		uint64_t vol_size = fs->fs_clusters <<
-		       	OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+		num_clusters = (opts.vol_size + fs->fs_clustersize - 1) >>
+				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+		opts.vol_size = num_clusters <<
+				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
+		vol_size = fs->fs_clusters <<
+			OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
 		printf("Changing volume size %"PRIu64" to %"PRIu64"\n",
 		       vol_size, opts.vol_size);
 	}
@@ -438,39 +554,48 @@ int main(int argc, char **argv)
 	}
 
 	/* update volume label */
-	if (opts.vol_label)
-		update_volume_label(fs, &write_super);
+	if (opts.vol_label) {
+		update_volume_label(fs, &upd_label);
+		if (upd_label)
+			printf("Changed volume label\n");
+	}
 
 	/* update number of nodes */
 	if (opts.num_nodes) {
-		ret = update_nodes(fs, &write_super);
+		ret = update_nodes(fs, &upd_nodes);
 		if (ret) {
 			com_err(opts.progname, ret, "while updating nodes");
 			goto bail;
 		}
+		if (upd_nodes)
+			printf("Added nodes\n");
 	}
 
 	/* update journal size */
 	if (opts.jrnl_size) {
-		ret = update_journal_size(fs, &write_super);
+		ret = update_journal_size(fs, &upd_jrnls);
 		if (ret) {
 			com_err(opts.progname, ret, "while updating journal size");
 			goto bail;
 		}
+		if (upd_jrnls)
+			printf("Resized journals\n");
 	}
 
 	/* update volume size */
 	if (opts.vol_size) {
-		ret = update_volume_size(fs, &write_super);
+		ret = update_volume_size(fs, &upd_vsize);
 		if (ret) {
 			com_err(opts.progname, ret, "while updating volume size");
 			goto bail;
 		}
+		if (upd_vsize)
+			printf("Resized volume\n");
 	}
 
 
 	/* write superblock */
-	if (write_super) {
+	if (upd_label || upd_nodes || upd_vsize) {
 		ret = ocfs2_write_super(fs);
 		if (ret) {
 			com_err(opts.progname, ret, "while writing superblock");

@@ -64,10 +64,6 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 	if (ret)
 		goto bail;
 
-	ret = ocfs2_extent_map_init(fs, cinode);
-	if (ret)
-		goto bail;
-
 	inode = cinode->ci_inode;
 	/* This relies on the fact that i_size of a directory is a
 	 * multiple of blocksize */
@@ -76,10 +72,21 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 	totl_blks = ocfs2_clusters_to_blocks(fs, inode->i_clusters);
 
 	if (used_blks >= totl_blks) {
-		/* TODO file needs to be extended */
-		ret = OCFS2_ET_EXPAND_DIR_ERR;
-		goto bail;
+		ocfs2_free_cached_inode(fs, cinode);
+
+		/* extend the directory */
+		ret = ocfs2_extend_allocation(fs, dir, 1);
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_read_cached_inode(fs, dir, &cinode);
+		if (ret)
+			goto bail;
 	}
+
+	ret = ocfs2_extent_map_init(fs, cinode);
+	if (ret)
+		goto bail;
 
 	/* get the next free block */
 	ret = ocfs2_extent_map_get_blocks(cinode, used_blks, 1,

@@ -298,6 +298,10 @@ out_free_buf:
 errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint64_t new_clusters)
 {
+	errcode_t ret = 0;
+	uint64_t n_clusters = 0;
+	uint64_t clustno;
+
 	/*
 	 * This should be, in essence:
 	 *
@@ -308,5 +312,24 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 	 * }
 	 */
 
-	return 0;
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	while (new_clusters) {
+		/*n_clusters = ocfs2_new_clusters(); */
+
+		if (n_clusters == 0) {
+			ret = OCFS2_ET_NO_SPACE;
+			goto bail;
+		}
+
+	 	ret = ocfs2_insert_extent(fs, ino, clustno, n_clusters);
+		if (ret)
+			goto bail;
+
+	 	new_clusters -= n_clusters;
+	}
+
+bail:
+	return ret;
 }
