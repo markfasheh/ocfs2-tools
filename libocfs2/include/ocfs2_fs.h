@@ -383,7 +383,7 @@ typedef struct _ocfs2_dinode {
 		ocfs2_local_alloc i_lab;
 		ocfs2_chain_list  i_chain;
 		ocfs2_extent_list i_list;
-		__u8              i_symlink;
+		__u8              i_symlink[0];
 	} id2;
 /* Actual on-disk size is one block */
 } ocfs2_dinode;
