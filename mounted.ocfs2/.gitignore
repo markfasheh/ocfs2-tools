@@ -2,3 +2,4 @@ mounted.ocfs2
 stamp-md5
 .*.sw?
 cscope.*
+*.d

@@ -1,3 +1,5 @@
 cscope*
 tunefs.ocfs2
+.*.sw?
 stamp-md5
+*.d

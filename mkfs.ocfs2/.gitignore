@@ -4,3 +4,4 @@ mkfs.ocfs2
 cscope*
 mkfs.ocfs2.8
 tunefs.ocfs2
+*.d

@@ -5,3 +5,4 @@ ocfsmarshal.h
 cellmap.c
 *.so
 ocfs2tool.8
+*.d

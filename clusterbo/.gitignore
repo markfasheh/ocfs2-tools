@@ -1,2 +1,4 @@
 .*.sw?
+*.d
 clusterbo
+o2cb_ctl

@@ -87,7 +87,7 @@ HFILES =				\
 HFILES_GEN =		\
 	include/ocfs2_err.h
 	
-$(CFILES): $(HFILES) $(HFILES_GEN)
+$(CFILES): $(HFILES_GEN)
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	ocfs2_err.o
@@ -112,5 +112,10 @@ DIST_RULES = dist-subdircreate
 
 dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
+
+CLEAN_RULES = clean-err
+
+clean-err:
+	rm -f ocfs2_err.c ocfs2_err.h include/ocfs2_err.h
 
 include $(TOPDIR)/Postamble.make

@@ -28,10 +28,6 @@ ifdef BUILD_OCFS2CDSL
 SUBDIRS += ocfs2cdsl
 endif
 
-#ifdef BUILD_DEBUGOCFS2
-#SUBDIRS += debugfs.ocfs2
-#endif
-
 ifdef BUILD_OCFSTOOL
 SUBDIRS += ocfs2tool
 endif

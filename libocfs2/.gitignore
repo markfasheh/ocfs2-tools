@@ -7,3 +7,4 @@ ocfs2_err.h
 libocfs2.a
 ocfs2_err.et
 debug_*
+*.d
