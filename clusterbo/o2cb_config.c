@@ -160,6 +160,7 @@ static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
     if (!iter)
         goto out_error;
 
+    rc = 0;
     while (j_iterator_has_more(iter))
     {
         cfs = (JConfigStanza *)j_iterator_get_next(iter);
@@ -284,6 +285,7 @@ gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
     j_config_set_attribute(cfs, "node_count", count);
     g_free(count);
 
+    rc = 0;
     list = config->c_nodes;
     while (list)
     {

@@ -36,6 +36,8 @@
 #include "jiterator.h"
 #include "o2cb_config.h"
 
+#include "o2cb.h"
+
 #define PROGNAME "o2cb_ctl"
 #define O2CB_CONFIG_FILE "/etc/cluster.conf"
 
@@ -300,7 +302,7 @@ static gint parse_options(gint argc, gchar *argv[], O2CBContext *ctxt)
 
     mi = mu = mo = mz = FALSE;
     opterr = 0;
-    while ((c = getopt(argc, argv, ":hVCDIHidozl:n:t:a:-:")) != EOF)
+    while ((c = getopt(argc, argv, ":hVCDIHiuozl:n:t:a:-:")) != EOF)
     {
         switch (c)
         {
@@ -409,6 +411,7 @@ static gint parse_options(gint argc, gchar *argv[], O2CBContext *ctxt)
                 rc = append_attr(ctxt, optarg);
                 if (rc)
                     return rc;
+                break;
 
             case '?':
                 fprintf(stderr, PROGNAME ": Invalid option: \'-%c\'\n",
@@ -424,6 +427,9 @@ static gint parse_options(gint argc, gchar *argv[], O2CBContext *ctxt)
                 break;
 
             default:
+                fprintf(stderr,
+                        PROGNAME ":Shouldn't get here %c %c\n",
+                        optopt, c);
                 return -EINVAL;
                 break;
         }
@@ -491,6 +497,23 @@ static gint load_config(O2CBContext *ctxt)
 
     return 0;
 }  /* load_config() */
+
+static gint write_config(O2CBContext *ctxt)
+{
+    gint rc;
+
+    g_return_val_if_fail(ctxt->oc_config != NULL, -EINVAL);
+
+    rc = o2cb_config_store(ctxt->oc_config, O2CB_CONFIG_FILE);
+    if (rc)
+    {
+        fprintf(stderr,
+                PROGNAME ": Unable to store cluster configuration file \"%s\": %s\n",
+                O2CB_CONFIG_FILE, g_strerror(-rc));
+    }
+
+    return rc;
+}  /* write_config() */
 
 static gint find_objects_for_type(O2CBContext *ctxt)
 {
@@ -561,6 +584,130 @@ static gint find_type_for_objects(O2CBContext *ctxt)
     return rc;
 }  /* find_type_for_objects() */
 
+static gint online_cluster(O2CBContext *ctxt)
+{
+    gint rc;
+    gchar *name, *node_name;
+    JIterator *iter;
+    GList *list = NULL, *l;
+    O2CBNode *node;
+    nm_node_info *node_i;
+    struct in_addr addr;
+
+    rc = -ENOMEM;
+    name = o2cb_config_get_cluster_name(ctxt->oc_config);
+    if (!name)
+        goto out_error;
+
+    iter = o2cb_config_get_nodes(ctxt->oc_config);
+    if (!iter)
+        goto out_error;
+
+    rc = 0;
+    while (j_iterator_has_more(iter))
+    {
+        node = (O2CBNode *)j_iterator_get_next(iter);
+        rc = -ENOMEM;
+        node_i = g_new0(nm_node_info, 1);
+        if (!node_i)
+            break;
+        list = g_list_append(list, node_i);
+        node_i->node_num = o2cb_node_get_number(node);
+        node_name = o2cb_node_get_name(node);
+        if (!node_name)
+            break;
+        /* Ignore truncation */
+        g_strlcpy(node_i->node_name, node_name, NM_MAX_NAME_LEN);
+        g_free(node_name);
+        node_i->ifaces[0].ip_port = htons(o2cb_node_get_port(node));
+        rc = o2cb_node_get_ipv4(node, &addr);
+        if (rc)
+            break;
+        node_i->ifaces[0].addr_u.ip_addr4 = addr.s_addr;
+        rc = 0;
+    }
+    j_iterator_free(iter);
+    if (rc)
+        goto out_error;
+
+    rc = o2cb_set_cluster_name(name);
+    if (rc)
+        goto out_error;
+
+    l = list;
+    while (l)
+    {
+        node_i = (nm_node_info *)l->data;
+        rc = o2cb_add_node(node_i);
+        if (rc)
+            goto out_error;
+        l = l->next;
+    }
+
+    rc = o2cb_activate_cluster();
+    if (rc)
+        goto out_error;
+    rc = o2cb_activate_networking();
+    if (rc)
+        goto out_error;
+
+out_error:
+    g_free(name);
+
+    while (list)
+    {
+        node_i = (nm_node_info *)list->data;
+        list = g_list_delete_link(list, list);
+
+        g_free(node_i);
+    }
+
+    return rc;
+}  /* online_cluster() */
+
+static gint offline_cluster(O2CBContext *ctxt)
+{
+    fprintf(stderr,
+            PROGNAME ": Offline of cluster not supported yet\n");
+    return -ENOTSUP;
+}  /* offline_cluster() */
+
+static gint run_change_cluster(O2CBContext *ctxt)
+{
+    gint rc;
+    const gchar *val;
+
+    if (attr_set(ctxt, "name"))
+    {
+        if (ctxt->oc_modify_running)
+        {
+            fprintf(stderr,
+                    PROGNAME ": Cannot change name of a running cluster\n");
+            return -EINVAL;
+        }
+        val = attr_string(ctxt, "name", NULL);
+        if (!val || !*val)
+        {
+            fprintf(stderr,
+                    PROGNAME ": Empty name for cluster\n");
+            return -EINVAL;
+        }
+        rc = o2cb_config_set_cluster_name(ctxt->oc_config, val);
+        if (rc)
+            return rc;
+    }
+    /* FIXME: Should perhaps store config before changing online info */
+    if (attr_set(ctxt, "online"))
+    {
+        if (attr_boolean(ctxt, "online", FALSE))
+            rc = online_cluster(ctxt);
+        else
+            rc = offline_cluster(ctxt);
+    }
+
+    return 0;
+}  /* run_change_cluster() */
+
 static gint run_change(O2CBContext *ctxt)
 {
     gint rc;
@@ -572,6 +719,10 @@ static gint run_change(O2CBContext *ctxt)
         return -EINVAL;
     } 
 
+    rc = validate_attrs(ctxt);
+    if (rc)
+        return rc;
+
     rc = load_config(ctxt);
     if (rc)
         return rc;
@@ -580,31 +731,40 @@ static gint run_change(O2CBContext *ctxt)
     {
         rc = find_objects_for_type(ctxt);
         if (rc)
-            return rc;
+            goto out_error;
     }
     else if (ctxt->oc_objects && !ctxt->oc_type)
     {
         rc = find_type_for_objects(ctxt);
         if (rc)
-            return rc;
+            goto out_error;
     }
 
     if (ctxt->oc_type == O2CB_TYPE_NODE)
     {
+        rc = -ENOTSUP;
         fprintf(stderr,
                 PROGNAME ": Node changes not yet supported\n");
-        return -ENOTSUP;
+        goto out_error;
     }
     else if (ctxt->oc_type == O2CB_TYPE_CLUSTER)
     {
+        rc = run_change_cluster(ctxt);
+        if (rc)
+            goto out_error;
     }
     else
     {
+        rc = -EINVAL;
         fprintf(stderr,
                 PROGNAME ": Invalid object type!\n");
-        return -EINVAL;
+        goto out_error;
     }
 
+
+    rc = write_config(ctxt);
+
+out_error:
     return rc;
 }  /* run_change() */
 
@@ -644,6 +804,8 @@ gint main(gint argc, gchar *argv[])
             break;
     }
 
+    if (ctxt.oc_config)
+        o2cb_config_free(ctxt.oc_config);
     clear_attrs(&ctxt);
 
     return 0;
