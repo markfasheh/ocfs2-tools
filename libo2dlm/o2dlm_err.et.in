@@ -102,4 +102,13 @@ ec	O2DLM_ET_INVALID_ARGS,
 ec	O2DLM_ET_TRYLOCK_FAILED,
 	"Trylock failed"
 
+ec	O2DLM_ET_LVB_READ,
+	"Error reading LVB"
+
+ec	O2DLM_ET_LVB_WRITE,
+	"Error writing LVB"
+
+ec      O2DLM_ET_SEEK,
+	"Could not seek within file descriptor"
+
 	end

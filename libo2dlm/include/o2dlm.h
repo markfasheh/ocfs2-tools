@@ -100,6 +100,26 @@ errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
 errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
 		       char *lockid);
 
+/* Read the LVB out of a lock.
+ * 'len' is the amount to read into 'lvb'
+ *
+ * We can only read LVB_MAX bytes out of the lock, even if you
+ * specificy a len larger than that.
+ * 
+ * If you want to know how much was read, then pass 'bytes_read'
+ */
+errcode_t o2dlm_read_lvb(struct o2dlm_ctxt *ctxt,
+			 char *lockid,
+			 char *lvb,
+			 unsigned int len,
+			 unsigned int *bytes_read);
+
+errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
+			  char *lockid,
+			  const char *lvb,
+			  unsigned int len,
+			  unsigned int *bytes_written);
+
 /*
  * Unlocks all pending locks and frees the lock context.
  */

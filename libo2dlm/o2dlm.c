@@ -292,7 +292,7 @@ static int o2dlm_translate_lock_flags(enum o2dlm_lock_level level,
 		flags = O_RDONLY;
 		break;
 	case O2DLM_LEVEL_EXMODE:
-		flags = O_WRONLY;
+		flags = O_RDWR;
 		break;
 	default:
 		flags = 0;
@@ -455,6 +455,70 @@ errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
 
 	if (ret && (ret != O2DLM_ET_BUSY_LOCK))
 		return ret;
+	return 0;
+}
+
+errcode_t o2dlm_read_lvb(struct o2dlm_ctxt *ctxt,
+			 char *lockid,
+			 char *lvb,
+			 unsigned int len,
+			 unsigned int *bytes_read)
+{
+	int fd, ret;
+	struct o2dlm_lock_res *lockres;
+
+	if (!ctxt || !lockid || !lvb)
+		return O2DLM_ET_INVALID_ARGS;
+
+	lockres = o2dlm_find_lock_res(ctxt, lockid);
+	if (!lockres)
+		return O2DLM_ET_UNKNOWN_LOCK;
+
+	fd = lockres->l_fd;
+
+	ret = lseek(fd, 0, SEEK_SET);
+	if (ret < 0)
+		return O2DLM_ET_SEEK;
+
+	ret = read(fd, lvb, len);
+	if (ret < 0)
+		return O2DLM_ET_LVB_READ;
+
+	if (bytes_read)
+		*bytes_read = ret;
+
+	return 0;
+}
+
+errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
+			  char *lockid,
+			  const char *lvb,
+			  unsigned int len,
+			  unsigned int *bytes_written)
+{
+	int fd, ret;
+	struct o2dlm_lock_res *lockres;
+
+	if (!ctxt || !lockid || !lvb)
+		return O2DLM_ET_INVALID_ARGS;
+
+	lockres = o2dlm_find_lock_res(ctxt, lockid);
+	if (!lockres)
+		return O2DLM_ET_UNKNOWN_LOCK;
+
+	fd = lockres->l_fd;
+
+	ret = lseek(fd, 0, SEEK_SET);
+	if (ret < 0)
+		return O2DLM_ET_SEEK;
+
+	ret = write(fd, lvb, len);
+	if (ret < 0)
+		return O2DLM_ET_LVB_READ;
+
+	if (bytes_written)
+		*bytes_written = ret;
+
 	return 0;
 }
 

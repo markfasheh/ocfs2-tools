@@ -34,6 +34,8 @@ enum commands
 	LOCK,
 	TRYLOCK,
 	UNLOCK,
+	GETLVB,
+	SETLVB,
 	HELP,
 	NUM_COMMANDS
 };
@@ -44,6 +46,8 @@ static char *command_strings[NUM_COMMANDS] = {
         [LOCK]       "LOCK",
 	[TRYLOCK]    "TRYLOCK",
 	[UNLOCK]     "UNLOCK",
+	[GETLVB]     "GETLVB",
+	[SETLVB]     "SETLVB",
 	[HELP]       "HELP",
 };
 
@@ -69,6 +73,7 @@ struct command_s
 	char                  c_domain[O2DLM_DOMAIN_MAX_LEN];
 	char                  c_id[O2DLM_LOCK_ID_MAX_LEN];
 	enum o2dlm_lock_level c_level;
+	char                  *c_lvb;
 };
 
 static void print_commands(void)
@@ -81,6 +86,8 @@ static void print_commands(void)
 	printf("lock \"level\" \"lockid\"\n");
 	printf("trylock \"level\" \"lockid\"\n");
 	printf("unlock \"lockid\"\n");
+	printf("getlvb \"lockid\"\n");
+	printf("setlvb \"lockid\" \"lvb\"\n");
 }
 
 static int decode_type(struct command_s *c, char *buf)
@@ -165,8 +172,12 @@ static void print_command(struct command_s *c, const char *str)
 		else
 			printf("O2DLM_LEVEL_EXMODE ");
 		/* fall through */
+	case GETLVB:
 	case UNLOCK:
 		printf("\"%s\" %s\n", c->c_id, str);
+		break;
+	case SETLVB:
+		printf("\"%s\" \"%s\" %s\n", c->c_id, c->c_lvb, str);
 		break;
 	case HELP:
 		printf("%s\n", str);
@@ -226,10 +237,25 @@ again:
 		}
 
 		/* fall through */
+	case SETLVB:
+	case GETLVB:
 	case UNLOCK:
 		if (decode_lock(command, next)) {
 			fprintf(stderr, "Invalid lock \"%s\"\n", next);
 			goto again;
+		}
+
+		if (command->c_type == SETLVB) {
+			/* for setlvb we want to get a pointer to the
+			 * start of the string to stuff */
+			next = strtok(NULL, "\n");
+			if (!next) {
+				fprintf(stderr, "invalid input!\n");
+				goto again;
+			}
+
+			kill_return(next);
+			command->c_lvb = next;
 		}
 		break;
 	default:
@@ -238,9 +264,13 @@ again:
 	return 0;
 }
 
+#define LVB_LEN 64
+static char lvb_buf[LVB_LEN];
+
 static errcode_t exec_command(struct command_s *c)
 {
 	errcode_t ret = 0;
+	unsigned int bytes, len;
 
 	switch (c->c_type) {
 	case REGISTER:
@@ -258,6 +288,23 @@ static errcode_t exec_command(struct command_s *c)
 		break;
 	case TRYLOCK:
 		ret = o2dlm_lock(dlm_ctxt, c->c_id, O2DLM_TRYLOCK, c->c_level);
+		break;
+	case GETLVB:
+		ret = o2dlm_read_lvb(dlm_ctxt, c->c_id, lvb_buf, LVB_LEN,
+				     &bytes);
+		if (!ret) {
+			printf("%u bytes read. LVB begins on following "
+			       "line and is terminated by a newline\n",
+			       bytes);
+			printf("%.*s\n", bytes, lvb_buf);
+		}
+		break;
+	case SETLVB:
+		len = strlen(c->c_lvb);
+		ret = o2dlm_write_lvb(dlm_ctxt, c->c_id, c->c_lvb, len,
+				      &bytes);
+		if (!ret)
+			printf("%u bytes written.\n", bytes);
 		break;
 	case HELP:
 	default:
@@ -283,6 +330,8 @@ int main(int argc, char **argv)
 		dlmfs_path = argv[1];
 		printf("Using fs at %s\n", dlmfs_path);
 	}
+
+	printf("Type \"help\" to see a list of commands\n");
 
 	while (!get_command(&c)) {
 		error = exec_command(&c);
