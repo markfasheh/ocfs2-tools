@@ -339,8 +339,91 @@ out_buf:
 	return ret;
 }
 
+struct block_context {
+	int (*func)(ocfs2_filesys *fs,
+		    uint64_t blkno,
+		    uint64_t bcount,
+		    void *priv_data);
+	int flags;
+	ocfs2_dinode *inode;
+	errcode_t errcode;
+	void *priv_data;
+};
+
+static int block_iterate_func(ocfs2_filesys *fs,
+			      ocfs2_extent_rec *rec,
+			      int tree_depth,
+			      uint32_t ccount,
+			      uint64_t ref_blkno,
+			      int ref_recno,
+			      void *priv_data)
+{
+	struct block_context *ctxt = priv_data;
+	uint64_t blkno, bcount, bend;
+	int iret = 0;
+	int c_to_b_bits =
+		(OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
+		 OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
+
+	bcount = (uint64_t)ccount << c_to_b_bits;
+	bend = bcount + ((uint64_t)rec->e_clusters << c_to_b_bits);
+
+	for (blkno = rec->e_blkno; bcount < bend; blkno++, bcount++) {
+		if (((bcount * fs->fs_blocksize) >= ctxt->inode->i_size) &&
+		    !(ctxt->flags & OCFS2_BLOCK_FLAG_APPEND))
+			break;
+
+		iret = (*ctxt->func)(fs, blkno, bcount,
+				     ctxt->priv_data);
+		if (iret & OCFS2_BLOCK_ABORT)
+			break;
+	}
+
+	return iret;
+}
+
+errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
+			      uint64_t blkno,
+			      int flags,
+			      int (*func)(ocfs2_filesys *fs,
+					  uint64_t blkno,
+					  uint64_t bcount,
+					  void *priv_data),
+			      void *priv_data)
+{
+	errcode_t ret;
+	char *buf;
+	struct block_context ctxt;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_inode(fs, blkno, buf);
+	if (ret)
+		goto out_buf;
+
+	ctxt.inode = (ocfs2_dinode *)buf;
+	ctxt.flags = flags;
+	ctxt.func = func;
+	ctxt.errcode = 0;
+	ctxt.priv_data = priv_data;
+
+	ret = ocfs2_extent_iterate(fs, blkno,
+				   OCFS2_EXTENT_FLAG_DATA_ONLY,
+				   NULL,
+				   block_iterate_func, &ctxt);
+
+out_buf:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
 
 #ifdef DEBUG_EXE
+#include <getopt.h>
+
 static uint64_t read_number(const char *num)
 {
 	uint64_t val;
@@ -356,7 +439,7 @@ static uint64_t read_number(const char *num)
 static void print_usage(void)
 {
 	fprintf(stderr,
-		"Usage: extents <filename> <inode_num>\n");
+		"Usage: extents -i <inode_blkno> [-e] [-b] <filename>\n");
 }
 
 struct walk_it {
@@ -375,6 +458,9 @@ static int walk_extents_func(ocfs2_filesys *fs,
 	int pad_amount = wi->di->id2.i_list.l_tree_depth - tree_depth;
 	int i;
 
+	if (!ccount && !pad_amount)
+		fprintf(stdout, "EXTENTS:\n");
+
 	fprintf(stdout, "0x%08llX:%02u ", ref_blkno, ref_recno);
 	for (i = 0; i < pad_amount; i++)
 		fprintf(stdout, " ");
@@ -383,8 +469,78 @@ static int walk_extents_func(ocfs2_filesys *fs,
 		rec->e_blkno, ccount, ccount + rec->e_clusters,
 		wi->di->i_clusters);
 
+	if (!tree_depth &&
+	    ((ccount + rec->e_clusters) == wi->di->i_clusters))
+		fprintf(stdout, "TOTAL: %u\n", wi->di->i_clusters);
+
 	return 0;
 }
+
+struct walk_block {
+	ocfs2_dinode *di;
+	uint64_t last_block;
+	uint64_t run_first_blkno;
+	uint64_t run_first_bcount;
+	uint64_t run_prev_blkno;
+};
+
+static int walk_blocks_func(ocfs2_filesys *fs,
+			    uint64_t blkno,
+			    uint64_t bcount,
+			    void *priv_data)
+{
+	struct walk_block *wb = priv_data;
+
+	/* Very first block */
+	if (!wb->run_prev_blkno) {
+		wb->run_prev_blkno = blkno;
+		wb->run_first_blkno = blkno;
+		fprintf(stdout, "BLOCKS:\n");
+		return 0;
+	}
+
+	if ((wb->run_prev_blkno + 1) != blkno) {
+		if (wb->run_first_bcount)
+			fprintf(stdout, ", ");
+
+		if ((wb->run_first_bcount + 1) == bcount) {
+			fprintf(stdout, "(%llu):%llu",
+				wb->run_first_bcount,
+				wb->run_first_blkno);
+		} else {
+			fprintf(stdout, "(%llu-%llu):%llu-%llu",
+				wb->run_first_bcount,
+				bcount - 1,
+				wb->run_first_blkno,
+				wb->run_prev_blkno);
+		}
+		wb->run_first_bcount = bcount;
+		wb->run_first_blkno = blkno;
+	}
+
+	if ((bcount + 1) == wb->last_block) {
+		if (bcount)
+			fprintf(stdout, ", ");
+
+		if ((wb->run_prev_blkno + 1) != blkno) {
+			fprintf(stdout, "(%llu):%llu\n",
+				bcount, blkno);
+		} else {
+			fprintf(stdout, "(%llu-%llu):%llu-%llu\n",
+				wb->run_first_bcount,
+				bcount,
+				wb->run_first_blkno,
+				blkno);
+		}
+
+		fprintf(stdout, "TOTAL: %llu\n", bcount + 1);
+	}
+
+	wb->run_prev_blkno = blkno;
+
+	return 0;
+}
+
 
 extern int opterr, optind;
 extern char *optarg;
@@ -393,30 +549,58 @@ int main(int argc, char *argv[])
 {
 	errcode_t ret;
 	uint64_t blkno;
+	int c;
+	int walk_blocks = 0, walk_extents = 0;
 	char *filename, *buf, *eb_buf = NULL;
 	ocfs2_filesys *fs;
 	ocfs2_dinode *di;
 	struct walk_it wi;
+	struct walk_block wb;
 
 	blkno = OCFS2_SUPER_BLOCK_BLKNO;
 
 	initialize_ocfs_error_table();
 
-	if (argc < 2) {
+	while ((c = getopt(argc, argv, "bei:")) != EOF) {
+		switch (c) {
+			case 'b':
+				walk_blocks = 1;
+				break;
+
+			case 'e':
+				walk_extents = 1;
+				break;
+
+			case 'i':
+				blkno = read_number(optarg);
+				if (blkno <= OCFS2_SUPER_BLOCK_BLKNO) {
+					fprintf(stderr,
+						"Invalid inode block: %s\n",
+						optarg);
+					print_usage();
+					return 1;
+				}
+				break;
+
+			default:
+				print_usage();
+				return 1;
+				break;
+		}
+	}
+
+	if (optind >= argc) {
 		fprintf(stderr, "Missing filename\n");
 		print_usage();
 		return 1;
 	}
-	filename = argv[1];
-
-	if (argc > 2) {
-		blkno = read_number(argv[2]);
-		if (blkno < OCFS2_SUPER_BLOCK_BLKNO) {
-			fprintf(stderr, "Invalid blockno: %s\n",
-				blkno);
-			print_usage();
-			return 1;
-		}
+	filename = argv[optind];
+	
+	if (!(walk_blocks + walk_extents)) {
+		fprintf(stderr,
+			"No operation specified\n");
+		print_usage();
+		return 1;
 	}
 
 	ret = ocfs2_open(filename, OCFS2_FLAG_RO, 0, 0, &fs);
@@ -446,26 +630,45 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "OCFS2 inode %llu on \"%s\" has depth %d\n",
 		blkno, filename, di->id2.i_list.l_tree_depth);
 
-	if (di->id2.i_list.l_tree_depth) {
-		ret = ocfs2_malloc_blocks(fs->fs_io,
-					  di->id2.i_list.l_tree_depth,
-					  &eb_buf);
+	if (walk_extents) {
+		if (di->id2.i_list.l_tree_depth) {
+			ret = ocfs2_malloc_blocks(fs->fs_io,
+						  di->id2.i_list.l_tree_depth,
+						  &eb_buf);
+			if (ret) {
+				com_err(argv[0], ret,
+					"while allocating eb buffer");
+				goto out_free;
+			}
+		}
+
+		wi.di = di;
+		ret = ocfs2_extent_iterate(fs, blkno, 0,
+					   eb_buf,
+					   walk_extents_func,
+					   &wi);
 		if (ret) {
 			com_err(argv[0], ret,
-				"while allocating eb buffer");
+				"while walking extents");
 			goto out_free;
 		}
 	}
 
-	wi.di = di;
-	ret = ocfs2_extent_iterate(fs, blkno, 0,
-				   eb_buf,
-				   walk_extents_func,
-				   &wi);
-	if (ret) {
-		com_err(argv[0], ret,
-			"while walking extents");
-		goto out_free;
+	if (walk_blocks) {
+		wb.di = di;
+		wb.run_first_blkno = wb.run_first_bcount =
+			wb.run_prev_blkno = 0;
+		wb.last_block = (wb.di->i_size +
+				 (fs->fs_blocksize - 1)) /
+			fs->fs_blocksize;
+		ret = ocfs2_block_iterate(fs, blkno, 0,
+					  walk_blocks_func,
+					  &wb);
+		if (ret) {
+			com_err(argv[0], ret,
+				"while walking blocks");
+			goto out_free;
+		}
 	}
 
 out_free:

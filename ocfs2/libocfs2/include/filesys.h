@@ -133,6 +133,14 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 					   int ref_recno,
 					   void *priv_data),
 			       void *priv_data);
+errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
+			      uint64_t blkno,
+			      int flags,
+			      int (*func)(ocfs2_filesys *fs,
+					  uint64_t blkno,
+					  uint64_t bcount,
+					  void *priv_data),
+			      void *priv_data);
 
 #endif  /* _FILESYS_H */
 
