@@ -67,7 +67,7 @@ class General:
                     if numbits:
                         blocks = (vars()[member] * 
                                   (clustersize >> super.s_blocksize_bits))
-                        val = format_bytes(blocks * blocksize)
+                        val = format_bytes(blocks * blocksize, show_bytes=True)
                     else:
                         val = 'N/A'
                 else:
