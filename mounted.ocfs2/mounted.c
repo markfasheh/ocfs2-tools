@@ -179,11 +179,15 @@ errcode_t ocfs2_quick_detect(char *device)
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
 	uint8_t *vol_label = NULL;
+	uint8_t *vol_uuid = NULL;
 	ocfs1_vol_label *v1_lbl = NULL;
 	struct list_head dev_list;
 	struct list_head *pos;
 	ocfs2_devices *dev;
 	char buf[512];
+	char uuid[40];
+	char *p;
+	int i;
 
 	INIT_LIST_HEAD(&dev_list);
 
@@ -201,23 +205,32 @@ errcode_t ocfs2_quick_detect(char *device)
 		}
 	}
 
-	printf("%-30s  %-6s  %-s\n", "Device", "Type", "Label");
+	printf("%-20s  %-6s  %-32s  %-s\n", "Device", "Type", "GUID", "Label");
 
 	list_for_each(pos, &(dev_list)) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		ret = ocfs2_open(dev->name, OCFS2_FLAG_RO, 0, 0, &fs);
 		if (ret == 0 || ret == OCFS2_ET_OCFS_REV) {
-			if (!ret)
+			if (!ret) {
 				vol_label = OCFS2_RAW_SB(fs->fs_super)->s_label;
-			else {
+				vol_uuid = OCFS2_RAW_SB(fs->fs_super)->s_uuid;
+			} else {
 				if (!ocfs2_get_ocfs1_label(dev->name, buf, sizeof(buf))) {
 					v1_lbl = (ocfs1_vol_label *)buf;
 					vol_label = v1_lbl->label;
-				} else
+					vol_uuid = v1_lbl->vol_id;
+				} else {
 					vol_label = NULL;
+					vol_uuid = NULL;
+				}
 			}
-			printf("%-30s  %-6s  %-s\n", dev->name,
-			       (!ret ? "ocfs2" : "ocfs"),
+	
+			memset(uuid, 0, sizeof(uuid));		
+			for (i = 0, p = uuid; i < 16 && vol_uuid; i++, p += 2)
+				sprintf(p, "%02X", vol_uuid[i]);
+
+			printf("%-20s  %-6s  %-32s  %-s\n", dev->name,
+			       (!ret ? "ocfs2" : "ocfs"), uuid,
 			       (vol_label ? (char *)vol_label : " "));
 		}
 		if (!ret)
