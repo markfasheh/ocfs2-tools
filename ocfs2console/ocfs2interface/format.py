@@ -63,6 +63,8 @@ def format_partition(parent, device):
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                  gtk.STOCK_OK,     gtk.RESPONSE_OK))
 
+    dialog.set_default_response(gtk.RESPONSE_OK)
+
     set_alt_button_order(dialog, (gtk.RESPONSE_OK, gtk.RESPONSE_CANCEL))
 
     table = gtk.Table(rows=5, columns=2)
@@ -84,6 +86,9 @@ def format_partition(parent, device):
 
         if widget_type == Device:
             widget.fill(partitions, device)
+
+        if isinstance(widget, gtk.Entry):
+            widget.set_activates_default(True)
 
         widgets.append(widget)
 

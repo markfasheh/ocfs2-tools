@@ -67,6 +67,8 @@ def tune_action(widget_type, parent, device):
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                  gtk.STOCK_OK,     gtk.RESPONSE_OK))
 
+    dialog.set_default_response(gtk.RESPONSE_OK)
+
     set_alt_button_order(dialog, (gtk.RESPONSE_OK, gtk.RESPONSE_CANCEL))
 
 
@@ -81,6 +83,9 @@ def tune_action(widget_type, parent, device):
     table.attach(label, 0, 1, 0, 1)
 
     table.attach(widget, 1, 2, 0, 1)
+
+    if isinstance(widget, gtk.Entry):
+        widget.set_activates_default(True)
 
     widget.grab_focus()
 
