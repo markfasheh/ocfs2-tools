@@ -217,7 +217,7 @@ int main(int argc, char **argv)
 	char *filename;
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
-	int c, ret, rw = OCFS2_FLAG_RW;
+	int c, ret, open_flags = OCFS2_FLAG_RW;
 	int fsck_mask = FSCK_OK;
 
 	memset(ost, 0, sizeof(o2fsck_state));
@@ -233,7 +233,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:npvy")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:npuvy")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -266,7 +266,8 @@ int main(int argc, char **argv)
 			case 'n':
 				ost->ost_ask = 0;
 				ost->ost_answer = 0;
-				rw = OCFS2_FLAG_RO;
+				open_flags &= ~OCFS2_FLAG_RW;
+				open_flags |= OCFS2_FLAG_RO;
 				break;
 
 			/* "preen" don't ask and force fixing */
@@ -278,6 +279,10 @@ int main(int argc, char **argv)
 			case 'y':
 				ost->ost_ask = 0;
 				ost->ost_answer = 1;
+				break;
+
+			case 'u':
+				open_flags |= OCFS2_FLAG_BUFFERED;
 				break;
 
 			case 'v':
@@ -309,10 +314,7 @@ int main(int argc, char **argv)
 
 	filename = argv[optind];
 
-	/* XXX we'll decide on a policy for using o_direct in the future.
-	 * for now we want to test against loopback files in ext3, say. */
-	ret = ocfs2_open(filename, rw | OCFS2_FLAG_BUFFERED, blkno,
-			 blksize, &ost->ost_fs);
+	ret = ocfs2_open(filename, open_flags, blkno, blksize, &ost->ost_fs);
 	if (ret) {
 		com_err(argv[0], ret,
 			"while opening file \"%s\"", filename);
