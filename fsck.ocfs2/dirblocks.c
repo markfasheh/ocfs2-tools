@@ -34,17 +34,19 @@
 #include "dirblocks.h"
 #include "util.h"
 
-void o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino, uint64_t blkno, 
-			uint64_t blkcount)
+errcode_t o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino,
+			       uint64_t blkno, uint64_t blkcount)
 {
 	struct rb_node ** p = &db->db_root.rb_node;
 	struct rb_node * parent = NULL;
 	o2fsck_dirblock_entry *dbe, *tmp_dbe;
+	errcode_t ret = 0;
 
 	dbe = calloc(1, sizeof(*dbe));
-	if (dbe == NULL)
-		fatal_error(OCFS2_ET_NO_MEMORY, 
-				"while allocating directory entries");
+	if (dbe == NULL) {
+		ret = OCFS2_ET_NO_MEMORY;
+		goto out;
+	}
 
 	dbe->e_ino = ino;
 	dbe->e_blkno = blkno;
@@ -63,6 +65,9 @@ void o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino, uint64_t blkno,
 
 	rb_link_node(&dbe->e_node, parent, p);
 	rb_insert_color(&dbe->e_node, &db->db_root);
+
+out:
+	return ret;
 }
 
 void o2fsck_dir_block_iterate(o2fsck_dirblocks *db, dirblock_iterator func,

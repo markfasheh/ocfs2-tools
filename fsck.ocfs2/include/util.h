@@ -37,12 +37,6 @@
 #define FSCK_CANCELED    32     /* Aborted with a signal or ^C */
 #define FSCK_LIBRARY     128    /* Shared library error */
 
-/* no va_list variant of com_err */
-#define fatal_error(errcode, fmt...) do {				\
-	com_err("o2fsck", errcode, fmt);				\
-	exit(FSCK_ERROR);						\
-} while (0)
-
 void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di);
 void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster);
 void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,

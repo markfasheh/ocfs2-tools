@@ -418,6 +418,7 @@ struct verifying_blocks {
        int		vb_errors;
        o2fsck_state 	*vb_ost;
        ocfs2_dinode	*vb_di;
+       errcode_t	vb_ret;
 };
 
 /* last_block and num_blocks would be different in a sparse file */
@@ -428,24 +429,26 @@ static void vb_saw_block(struct verifying_blocks *vb, uint64_t bcount)
 		vb->vb_last_block = bcount;
 }
 
-static void process_link_block(struct verifying_blocks *vb, uint64_t blkno)
+static errcode_t process_link_block(struct verifying_blocks *vb,
+				    uint64_t blkno)
 {
 	char *buf, *null;
-	errcode_t ret;
+	errcode_t ret = 0;
 	unsigned int blocksize = vb->vb_ost->ost_fs->fs_blocksize;
 
 	if (vb->vb_saw_link_null)
-		return;
+		goto out;
 
 	ret = ocfs2_malloc_blocks(vb->vb_ost->ost_fs->fs_io, 1, &buf);
-	if (ret)
-		fatal_error(ret, "while allocating room to read a block of "
-				 "link data");
-
-	ret = io_read_block(vb->vb_ost->ost_fs->fs_io, blkno, 1, buf);
 	if (ret) {
+		com_err(whoami, ret, "while allocating room to read a block "
+			"of link data");
 		goto out;
 	}
+
+	ret = io_read_block(vb->vb_ost->ost_fs->fs_io, blkno, 1, buf);
+	if (ret)
+		goto out;
 
 	null = memchr(buf, 0, blocksize);
 	if (null != NULL) {
@@ -457,6 +460,7 @@ static void process_link_block(struct verifying_blocks *vb, uint64_t blkno)
 
 out:
 	ocfs2_free(&buf);
+	return ret;
 }
 
 static void check_link_data(struct verifying_blocks *vb)
@@ -524,6 +528,7 @@ static int verify_block(ocfs2_filesys *fs,
 	struct verifying_blocks *vb = priv_data;
 	ocfs2_dinode *di = vb->vb_di;
 	o2fsck_state *ost = vb->vb_ost;
+	errcode_t ret = 0;
 	
 	/* someday we may want to worry about holes in files here */
 
@@ -551,12 +556,19 @@ static int verify_block(ocfs2_filesys *fs,
 
 	if (S_ISDIR(di->i_mode)) {
 		verbosef("adding dir block %"PRIu64"\n", blkno);
-		o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno, blkno,
-					bcount);
-	}
+		ret = o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno,
+					   blkno, bcount);
+		if (ret) {
+			com_err(whoami, ret, "while trying to track block in "
+				"directory inode %"PRIu64, di->i_blkno);
+		}
+	} else if (S_ISLNK(di->i_mode))
+		ret = process_link_block(vb, blkno);
 
-	if (S_ISLNK(di->i_mode))
-		process_link_block(vb, blkno);
+	if (ret) {
+		vb->vb_ret = ret;
+		return OCFS2_BLOCK_ABORT;
+	}
 
 	vb_saw_block(vb, bcount);
 
@@ -579,15 +591,15 @@ static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
 }
 
 
-static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
-				uint64_t blkno, ocfs2_dinode *di)
+static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
+				     uint64_t blkno, ocfs2_dinode *di)
 {
-	struct verifying_blocks vb = {0, };
 	uint64_t expected = 0;
 	errcode_t ret;
-
-	vb.vb_ost = ost;
-	vb.vb_di = di;
+	struct verifying_blocks vb = {
+		.vb_ost = ost,
+		.vb_di = di,
+	};
 
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
 		ret = 0;
@@ -598,11 +610,14 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		if (ret == 0)
 			ret = ocfs2_block_iterate_inode(fs, di, 0,
 							verify_block, &vb);
+		if (vb.vb_ret)
+			ret = vb.vb_ret;
 	}
 
 	if (ret) {
-		fatal_error(ret, "while iterating over the blocks for inode "
-			         "%"PRIu64, di->i_blkno);	
+		com_err(whoami, ret, "while iterating over the blocks for "
+			"inode %"PRIu64, di->i_blkno);	
+		goto out;
 	}
 
 	if (S_ISLNK(di->i_mode))
@@ -654,6 +669,8 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		di->i_clusters = expected;
 		o2fsck_write_inode(ost, blkno, di);
 	}
+out:
+	return ret;
 }
 
 static void sync_local_bitmap(o2fsck_state *ost, ocfs2_dinode *di,
@@ -991,8 +1008,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
-		com_err(whoami, ret,
-			"while allocating inode buffer");
+		com_err(whoami, ret, "while allocating inode buffer");
 		goto out;
 	}
 
@@ -1000,8 +1016,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 	ret = ocfs2_open_inode_scan(fs, &scan);
 	if (ret) {
-		com_err(whoami, ret,
-			"while opening inode scan");
+		com_err(whoami, ret, "while opening inode scan");
 		goto out_free;
 	}
 
@@ -1032,8 +1047,11 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 			if (di->i_flags & OCFS2_VALID_FL)
 				o2fsck_verify_inode_fields(fs, ost, blkno, di);
 
-			if (di->i_flags & OCFS2_VALID_FL)
-				o2fsck_check_blocks(fs, ost, blkno, di);
+			if (di->i_flags & OCFS2_VALID_FL) {
+				ret = o2fsck_check_blocks(fs, ost, blkno, di);
+				if (ret)
+					goto out;
+			}
 
 			valid = di->i_flags & OCFS2_VALID_FL;
 		}
@@ -1051,5 +1069,5 @@ out_free:
 	ocfs2_free(&buf);
 
 out:
-	return 0;
+	return ret;
 }

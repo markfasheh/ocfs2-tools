@@ -37,17 +37,21 @@
 
 /* XXX callers are supposed to make sure they don't call with dup inodes.
  * we'll see. */
-void o2fsck_add_dir_parent(struct rb_root *root, uint64_t ino, uint64_t dot_dot,
-			   uint64_t dirent)
+errcode_t o2fsck_add_dir_parent(struct rb_root *root,
+				uint64_t ino,
+				uint64_t dot_dot,
+				uint64_t dirent)
 {
 	struct rb_node ** p = &root->rb_node;
 	struct rb_node * parent = NULL;
 	o2fsck_dir_parent *dp, *tmp_dp;
+	errcode_t ret = 0;
 
 	dp = calloc(1, sizeof(*dp));
-	if (dp == NULL)
-		fatal_error(OCFS2_ET_NO_MEMORY, 
-				"while allocating directory entries");
+	if (dp == NULL) {
+		ret = OCFS2_ET_NO_MEMORY;
+		goto out;
+	}
 
 	dp->dp_ino = ino;
 	dp->dp_dot_dot = dot_dot;
@@ -64,14 +68,16 @@ void o2fsck_add_dir_parent(struct rb_root *root, uint64_t ino, uint64_t dot_dot,
 			p = &(*p)->rb_left;
 		else if (dp->dp_ino > tmp_dp->dp_ino)
 			p = &(*p)->rb_right;
-		else
-			fatal_error(OCFS2_ET_INTERNAL_FAILURE, "while adding "
-				    "unique dir parent tracking for dir inode "
-				    "%"PRIu64, ino);
+		else {
+			ret = OCFS2_ET_INTERNAL_FAILURE;
+			goto out;
+		}
 	}
 
 	rb_link_node(&dp->dp_node, parent, p);
 	rb_insert_color(&dp->dp_node, root);
+out:
+	return ret;
 }
 
 o2fsck_dir_parent *o2fsck_dir_parent_lookup(struct rb_root *root, uint64_t ino)

@@ -69,6 +69,7 @@ struct dirblock_data {
 	o2fsck_state *ost;
 	ocfs2_filesys *fs;
 	char *buf;
+	errcode_t	ret;
 };
 
 static int dirent_has_dots(struct ocfs2_dir_entry *dirent, int num_dots)
@@ -94,22 +95,25 @@ static int expected_dots(o2fsck_dirblock_entry *dbe, int offset)
 	return 0;
 }
 
-static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
-			   struct ocfs2_dir_entry *dirent, int offset, 
-			   int left)
+static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+				 struct ocfs2_dir_entry *dirent, int offset, 
+				 int left, int *flags)
 {
 	int expect_dots = expected_dots(dbe, offset);
-	int ret_flags = 0, changed_len = 0;
+	int changed_len = 0;
 	struct ocfs2_dir_entry *next;
 	uint16_t new_len;
+	errcode_t ret = 0;
 
 	if (!expect_dots) {
 	       	if (!dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
+			goto out;
 			return 0;
 		if (prompt(ost, PY, 0, "Duplicate '%.*s' directory entry found, "
 			   "remove it?", dirent->name_len, dirent->name)) {
 			dirent->inode = 0;
-			return OCFS2_DIRENT_CHANGED;
+			*flags |= OCFS2_DIRENT_CHANGED;
+			goto out;
 		}
 	}
 
@@ -123,7 +127,7 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		dirent->name_len = expect_dots;
 		memset(dirent->name, '.', expect_dots);
 		changed_len = 1;
-		ret_flags = OCFS2_DIRENT_CHANGED;
+		*flags |= OCFS2_DIRENT_CHANGED;
 	}
 
 	/* we only record where .. points for now and that ends the
@@ -132,14 +136,14 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		o2fsck_dir_parent *dp;
 		dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents,
 						dbe->e_ino);
-		if (dp == NULL)
-			fatal_error(OCFS2_ET_INTERNAL_FAILURE,
-				    "no dir parents for '..' entry for "
-				    "inode %"PRIu64, dbe->e_ino);
+		if (dp == NULL) {
+			ret = OCFS2_ET_INTERNAL_FAILURE;
+			com_err(whoami, ret, "no dir parents for '..' entry "
+				"for inode %"PRIu64, dbe->e_ino);
+		} else 
+			dp->dp_dot_dot = dirent->inode;
 
-		dp->dp_dot_dot = dirent->inode;
-					
-		return ret_flags;
+		goto out;
 	}
 
 	if ((dirent->inode != dbe->e_ino) &&
@@ -147,7 +151,7 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		   "points to inode %"PRIu64" instead of itself.  Fix "
 		   "the '.' entry?", dbe->e_ino, dirent->inode)) {
 		dirent->inode = dbe->e_ino;
-		ret_flags = OCFS2_DIRENT_CHANGED;
+		*flags |= OCFS2_DIRENT_CHANGED;
 	}
 
 	/* 
@@ -168,29 +172,19 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		next->inode = 0;
 		next->name_len = 0;
 		next->rec_len = OCFS2_DIR_REC_LEN(next->rec_len);
-		ret_flags = OCFS2_DIRENT_CHANGED;
+		*flags |= OCFS2_DIRENT_CHANGED;
 	}
-	return ret_flags;
+
+out:
+	return ret;
 }
 
 /* we just copy ext2's fixing behaviour here.  'left' is the number of bytes
  * from the start of the dirent struct to the end of the block. */
-static int fix_dirent_lengths(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
-				struct ocfs2_dir_entry *dirent, int offset,
-				int left, struct ocfs2_dir_entry *prev)
+static void fix_dirent_lengths(struct ocfs2_dir_entry *dirent,
+			       int left, struct ocfs2_dir_entry *prev,
+			       int *flags)
 {
-	if ((dirent->rec_len >= OCFS2_DIR_REC_LEN(1)) &&
-	    ((dirent->rec_len & OCFS2_DIR_ROUND) == 0) &&
-	    (dirent->rec_len <= left) &&
-	    (OCFS2_DIR_REC_LEN(dirent->name_len) <= dirent->rec_len))
-		return 0;
-
-	if (!prompt(ost, PY, 0, "Directory inode %"PRIu64" corrupted in logical "
-		    "block %"PRIu64" physical block %"PRIu64" offset %d. "
-		    "Attempt to repair this block's directory entries?",
-		    dbe->e_ino, dbe->e_blkcount, dbe->e_blkno, offset))
-		fatal_error(OCFS2_ET_DIR_CORRUPTED, "in pass2");
-
 	/* special casing an empty dirent that doesn't include the
 	 * extra rec_len alignment */
 	if ((left >= OCFS2_DIR_MEMBER_LEN) && 
@@ -199,14 +193,14 @@ static int fix_dirent_lengths(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		left -= dirent->rec_len;
 		memmove(cp, cp + dirent->rec_len, left);
 		memset(cp + left, 0, dirent->rec_len);
-		return OCFS2_DIRENT_CHANGED;
+		goto out;
 	}
 
 	/* clamp rec_len to the remainder of the block if name_len
 	 * is within the block */
 	if (dirent->rec_len > left && dirent->name_len <= left) {
 		dirent->rec_len = left;
-		return OCFS2_DIRENT_CHANGED;
+		goto out;
 	}
 
 	/* from here on in we're losing directory entries by adding their
@@ -223,20 +217,22 @@ static int fix_dirent_lengths(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		dirent->file_type = OCFS2_FT_UNKNOWN;
 	}
 
-	return OCFS2_DIRENT_CHANGED;
+out:
+	*flags |= OCFS2_DIRENT_CHANGED;
 }
 
-static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
-			   struct ocfs2_dir_entry *dirent, int offset)
+static void fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+			    struct ocfs2_dir_entry *dirent, int offset,
+			    int *flags)
 {
 	char *chr = dirent->name;
-	int len = dirent->name_len, fix = 0, ret_flags = 0;
+	int len = dirent->name_len, fix = 0;
 
 	if (len == 0) {
 		if (prompt(ost, PY, 0, "Directory entry has a zero-length name, "
 				    "clear it?")) {
 			dirent->inode = 0;
-			ret_flags = OCFS2_DIRENT_CHANGED;
+			*flags |= OCFS2_DIRENT_CHANGED;
 		}
 	}
 
@@ -248,26 +244,25 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 				     "them with dots?", dirent->name_len, 
 				     dirent->name);
 			if (!fix)
-				return 0;
+				break;
 		}
 		*chr = '.';
-		ret_flags = OCFS2_DIRENT_CHANGED;
+		*flags |= OCFS2_DIRENT_CHANGED;
 	}
-
-	return ret_flags;
 }
 
-static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
-				struct ocfs2_dir_entry *dirent, int offset)
+static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+			     struct ocfs2_dir_entry *dirent, int offset,
+			     int *flags)
 {
-	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode)) {
-		if (prompt(ost, PY, 0, "Directory entry '%.*s' refers to inode "
-			   "number %"PRIu64" which is out of range, "
-			   "clear the entry?", dirent->name_len, dirent->name, 
-			   dirent->inode)) {
-			dirent->inode = 0;
-			return OCFS2_DIRENT_CHANGED;
-		}
+	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode) &&
+	    prompt(ost, PY, 0, "Directory entry '%.*s' refers to inode "
+		   "number %"PRIu64" which is out of range, clear the entry?",
+		   dirent->name_len, dirent->name, dirent->inode)) {
+
+		dirent->inode = 0;
+		*flags |= OCFS2_DIRENT_CHANGED;
+		goto out;
 	}
 
 	if (!o2fsck_test_inode_allocated(ost, dbe->e_ino) &&
@@ -275,9 +270,10 @@ static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		   "%"PRIu64" which isn't allocated, clear the entry?", 
 		   dirent->name_len, dirent->name, dirent->inode)) {
 		dirent->inode = 0;
-		return OCFS2_DIRENT_CHANGED;
+		*flags |= OCFS2_DIRENT_CHANGED;
 	}
-	return 0;
+out:
+	return;
 }
 
 #define type_entry(type) [type] = #type
@@ -301,35 +297,42 @@ static char *file_type_string(uint8_t type)
 	return file_types[type];
 }
 
-static int fix_dirent_filetype(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
-				struct ocfs2_dir_entry *dirent, int offset)
+static errcode_t fix_dirent_filetype(o2fsck_state *ost,
+				     o2fsck_dirblock_entry *dbe,
+				     struct ocfs2_dir_entry *dirent,
+				     int offset,
+				     int *flags)
 {
 	uint8_t expected_type;
-	errcode_t err;
+	errcode_t ret;
 	int was_set;
 
-	/* XXX Do I care about possible bitmap_test errors here? */
-
-	ocfs2_bitmap_test(ost->ost_dir_inodes, dirent->inode, &was_set);
+	ret = ocfs2_bitmap_test(ost->ost_dir_inodes, dirent->inode, &was_set);
+	if (ret)
+		goto out;
 	if (was_set) {
 		expected_type = OCFS2_FT_DIR;
 		goto check;
 	}
 
-	ocfs2_bitmap_test(ost->ost_reg_inodes, dirent->inode, &was_set);
+	ret = ocfs2_bitmap_test(ost->ost_reg_inodes, dirent->inode, &was_set);
+	if (ret)
+		goto out;
 	if (was_set) {
 		expected_type = OCFS2_FT_REG_FILE;
 		goto check;
 	}
 
-	ocfs2_bitmap_test(ost->ost_bad_inodes, dirent->inode, &was_set);
+	ret = ocfs2_bitmap_test(ost->ost_bad_inodes, dirent->inode, &was_set);
+	if (ret)
+		goto out;
 	if (was_set) {
 		expected_type = OCFS2_FT_UNKNOWN;
 		goto check;
 	}
 
-	err = o2fsck_type_from_dinode(ost, dirent->inode, &expected_type);
-	if (err) /* XXX propogate this? */
+	ret = o2fsck_type_from_dinode(ost, dirent->inode, &expected_type);
+	if (ret)
 		goto out;
 
 check:
@@ -343,44 +346,55 @@ check:
 		file_type_string(expected_type), expected_type)) {
 
 		dirent->file_type = expected_type;
-		return OCFS2_DIRENT_CHANGED;
+		*flags |= OCFS2_DIRENT_CHANGED;
 	}
 
 out:
-	return 0;
+	if (ret)
+		com_err(whoami, ret, "while trying to verify the file type "
+			"of directory entry %.*s", dirent->name_len,
+			dirent->name);
+
+	return ret;
 }
 
-static int fix_dirent_linkage(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
-			      struct ocfs2_dir_entry *dirent, int offset)
+static errcode_t fix_dirent_linkage(o2fsck_state *ost,
+				    o2fsck_dirblock_entry *dbe,
+				    struct ocfs2_dir_entry *dirent,
+				    int offset,
+				    int *flags)
 {
 	int expect_dots = expected_dots(dbe, offset);
 	o2fsck_dir_parent *dp;
-	errcode_t err;
+	errcode_t ret = 0;
 	int is_dir;
 
 	/* we already took care of special-casing the dots */
 	if (expect_dots)
-		return 0;
+		goto out;
 
 	/* we're only checking the linkage if we already found the dir 
 	 * this inode claims to be pointing to */
-	err = ocfs2_bitmap_test(ost->ost_dir_inodes, dirent->inode, &is_dir);
-	if (err)
-		fatal_error(err, "while checking for inode %"PRIu64" in the "
-				"dir bitmap", dirent->inode);
+	ret = ocfs2_bitmap_test(ost->ost_dir_inodes, dirent->inode, &is_dir);
+	if (ret)
+		com_err(whoami, ret, "while checking for inode %"PRIu64" in "
+			"the dir bitmap", dirent->inode);
 	if (!is_dir)
-		return 0;
+		goto out;
 
 	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, dirent->inode);
-	if (dp == NULL)
-		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "no dir parents for "
-				"'..' entry for inode %"PRIu64, dbe->e_ino);
+	if (dp == NULL) {
+		ret = OCFS2_ET_INTERNAL_FAILURE;
+		com_err(whoami, ret, "no dir parents recorded for inode "
+			"%"PRIu64, dirent->inode);
+		goto out;
+	}
 
 	/* if no dirents have pointed to this inode yet we record ours
 	 * as the first and move on */
 	if (dp->dp_dirent == 0) {
 		dp->dp_dirent = dbe->e_ino;
-		return 0;
+		goto out;
 	}
 
 	if (prompt(ost, 0, 0, "Directory inode %"PRIu64" is not the first to "
@@ -390,45 +404,61 @@ static int fix_dirent_linkage(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		dirent->name_len, dirent->name, dirent->inode)) {
 
 		dirent->inode = 0;
-		return OCFS2_DIRENT_CHANGED;
+		*flags |= OCFS2_DIRENT_CHANGED;
 	}
 
-	return 0;
+out:
+	return ret;
 }
 
-static int fix_dirent_dups(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
-			   struct ocfs2_dir_entry *dirent, 
-			   o2fsck_strings *strings, int *dups_in_block)
+static errcode_t fix_dirent_dups(o2fsck_state *ost,
+				 o2fsck_dirblock_entry *dbe,
+				 struct ocfs2_dir_entry *dirent,
+				 o2fsck_strings *strings,
+				 int *dups_in_block,
+				 int *flags)
 {
-	errcode_t err;
+	errcode_t ret = 0;
 	int was_set;
 
 	if (*dups_in_block)
-		return 0;
+		goto out;
 
-	/* does this need to be fatal?  It appears e2fsck just ignores
-	 * the error. */
-	err = o2fsck_strings_insert(strings, dirent->name, dirent->name_len, 
-				   &was_set);
-	if (err)
-		fatal_error(err, "while allocating space to find duplicate "
-				"directory entries");
+	ret = o2fsck_strings_insert(strings, dirent->name, dirent->name_len, 
+				    &was_set);
+	if (ret) {
+		com_err(whoami, ret, "while allocating space to find "
+			"duplicate directory entries");
+		goto out;
+	}
 
 	if (!was_set)
-		return 0;
+		goto out;
 
-	fprintf(stderr, "Duplicate directory entry '%.*s' found.\n",
-		      dirent->name_len, dirent->name);
-	fprintf(stderr, "Marking its parent %"PRIu64" for rebuilding.\n",
+	printf("Duplicate directory entry '%.*s' found.\n",
+	       dirent->name_len, dirent->name);
+	printf("Marking its parent %"PRIu64" for rebuilding.\n", dbe->e_ino);
+
+	ret = ocfs2_bitmap_set(ost->ost_rebuild_dirs, dbe->e_ino, &was_set);
+	if (ret)
+		com_err(whoami, ret, "while recording that inode %"PRIu64" "
+			"needs to have duplicate entries removed.",
 			dbe->e_ino);
 
-	err = ocfs2_bitmap_test(ost->ost_rebuild_dirs, dbe->e_ino, &was_set);
-	if (err)
-		fatal_error(err, "while checking for inode %"PRIu64" in "
-				"the used bitmap", dbe->e_ino);
-
 	*dups_in_block = 1;
-	return 0;
+out:
+	return ret;
+}
+
+static int corrupt_dirent(struct ocfs2_dir_entry *dirent, int left)
+{
+	if ((dirent->rec_len >= OCFS2_DIR_REC_LEN(1)) &&
+	    ((dirent->rec_len & OCFS2_DIR_ROUND) == 0) &&
+	    (dirent->rec_len <= left) &&
+	    (OCFS2_DIR_REC_LEN(dirent->name_len) <= dirent->rec_len))
+		return 0;
+
+	return 1;
 }
 
 /* this could certainly be more clever to issue reads in groups */
@@ -437,10 +467,10 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 {
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
-	unsigned int offset = 0, this_flags, ret_flags = 0;
+	unsigned int offset = 0, ret_flags = 0;
 	o2fsck_strings strings;
 	int dups_in_block = 0;
-	errcode_t retval;
+	errcode_t ret;
 
 	if (!o2fsck_test_inode_allocated(dd->ost, dbe->e_ino)) {
 		printf("Directory block %"PRIu64" belongs to directory inode "
@@ -451,12 +481,11 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 	o2fsck_strings_init(&strings);
 
- 	retval = ocfs2_read_dir_block(dd->fs, dbe->e_blkno, dd->buf);
-	if (retval && retval != OCFS2_ET_DIR_CORRUPTED) {
-		/* XXX hum, ask to continue here.  more a prompt than a 
-		 * fix.  need to expand problem.c's vocabulary. */
-		fatal_error(retval, "while reading dir block %"PRIu64,
-				dbe->e_blkno);
+ 	ret = ocfs2_read_dir_block(dd->fs, dbe->e_blkno, dd->buf);
+	if (ret && ret != OCFS2_ET_DIR_CORRUPTED) {
+		com_err(whoami, ret, "while reading dir block %"PRIu64,
+			dbe->e_blkno);
+		goto out;
 	}
 
 	verbosef("dir block %"PRIu64"\n", dbe->e_blkno);
@@ -472,23 +501,25 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		/* XXX I wonder if we should be checking that the padding
 		 * is 0 */
 
+		/* if we can't trust this dirent then fix it up or skip
+		 * the whole block */
+		if (corrupt_dirent(dirent, dd->fs->fs_blocksize - offset)) {
+			if (!prompt(dd->ost, PY, 0, "Directory inode %"PRIu64" "
+				    "corrupted in logical block %"PRIu64" "
+				    "physical block %"PRIu64" offset %d. "
+				    "Attempt to repair this block's directory "
+				    "entries?", dbe->e_ino, dbe->e_blkcount,
+				    dbe->e_blkno, offset))
+				break;
 
-		/* first verify that we can trust the dirent's lengths
-		 * to navigate to the next in the block.  This can try to
-		 * get rid of a broken dirent by trying to shift remaining
-		 * dirents into its place.  The 'contiune' attempts to let
-		 * us recheck the current dirent.
-		 *
-		 * XXX this will have to do some swabbing as it tries
-		 * to salvage as read_dir_block stops swabbing
-		 * when it sees bad entries.
-		 */
-		this_flags = fix_dirent_lengths(dd->ost, dbe, dirent, offset, 
-						 dd->fs->fs_blocksize - offset,
-						 prev);
-		ret_flags |= this_flags;
-		if (this_flags & OCFS2_DIRENT_CHANGED)
+			/* we edit the dirent in place so we try to parse
+			 * it again after fixing it */
+			fix_dirent_lengths(dirent,
+					   dd->fs->fs_blocksize - offset,
+					   prev, &ret_flags);
 			continue;
+
+		}
 
 		/* 
 		 * In general, these calls mark ->inode as 0 when they want it
@@ -499,29 +530,40 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		 *
 		 * XXX should verify that ocfs2 reclaims entries like that.
 		 */
-		ret_flags |= fix_dirent_dots(dd->ost, dbe, dirent, offset, 
-					     dd->fs->fs_blocksize - offset);
+		ret = fix_dirent_dots(dd->ost, dbe, dirent, offset, 
+					     dd->fs->fs_blocksize - offset,
+					     &ret_flags);
+		if (ret)
+			goto out;
 		if (dirent->inode == 0)
 			goto next;
 
-		ret_flags |= fix_dirent_name(dd->ost, dbe, dirent, offset);
+		fix_dirent_name(dd->ost, dbe, dirent, offset, &ret_flags);
 		if (dirent->inode == 0)
 			goto next;
 
-		ret_flags |= fix_dirent_inode(dd->ost, dbe, dirent, offset);
+		fix_dirent_inode(dd->ost, dbe, dirent, offset, &ret_flags);
 		if (dirent->inode == 0)
 			goto next;
 
-		ret_flags |= fix_dirent_filetype(dd->ost, dbe, dirent, offset);
+		ret = fix_dirent_filetype(dd->ost, dbe, dirent, offset,
+					  &ret_flags);
+		if (ret)
+			goto out;
 		if (dirent->inode == 0)
 			goto next;
 
-		ret_flags |= fix_dirent_linkage(dd->ost, dbe, dirent, offset);
+		ret = fix_dirent_linkage(dd->ost, dbe, dirent, offset,
+					 &ret_flags);
+		if (ret)
+			goto out;
 		if (dirent->inode == 0)
 			goto next;
 
-		ret_flags |= fix_dirent_dups(dd->ost, dbe, dirent, &strings,
-					     &dups_in_block);
+		ret = fix_dirent_dups(dd->ost, dbe, dirent, &strings,
+				      &dups_in_block, &ret_flags);
+		if (ret)
+			goto out;
 		if (dirent->inode == 0)
 			goto next;
 
@@ -534,16 +576,18 @@ next:
 	}
 
 	if (ret_flags & OCFS2_DIRENT_CHANGED) {
-		retval = ocfs2_write_dir_block(dd->fs, dbe->e_blkno, dd->buf);
-		if (retval) {
-			/* XXX hum, ask to continue here.  more a prompt than a 
-			 * fix.  need to expand problem.c's vocabulary. */
-			fatal_error(retval, "while writing dir block %"PRIu64,
-					dbe->e_blkno);
+		ret = ocfs2_write_dir_block(dd->fs, dbe->e_blkno, dd->buf);
+		if (ret) {
+			com_err(whoami, ret, "while writing dir block %"PRIu64,
+				dbe->e_blkno);
+			dd->ost->ost_write_error = 1;
 		}
 	}
 
 	o2fsck_strings_free(&strings);
+out:
+	if (ret)
+		dd->ret = ret;
 	return ret_flags;
 }
 

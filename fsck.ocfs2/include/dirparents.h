@@ -40,8 +40,10 @@ typedef struct _o2fsck_dir_parent {
 	int		dp_connected;
 } o2fsck_dir_parent;
 
-void o2fsck_add_dir_parent(struct rb_root *root, uint64_t ino, 
-			uint64_t dot_dot, uint64_t dirent);
+errcode_t o2fsck_add_dir_parent(struct rb_root *root,
+				uint64_t ino,
+				uint64_t dot_dot,
+				uint64_t dirent);
 
 o2fsck_dir_parent *o2fsck_dir_parent_lookup(struct rb_root *root, 
 						uint64_t ino);

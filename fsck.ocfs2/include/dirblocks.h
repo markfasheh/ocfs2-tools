@@ -40,8 +40,8 @@ typedef struct _o2fsck_dirblock_entry {
 typedef unsigned (*dirblock_iterator)(o2fsck_dirblock_entry *,
 					void *priv_data);
 
-void o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino, uint64_t blkno, 
-			uint64_t blkcount);
+errcode_t o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino,
+			       uint64_t blkno, uint64_t blkcount);
 
 void o2fsck_dir_block_iterate(o2fsck_dirblocks *db, dirblock_iterator func,
 				void *priv_data);

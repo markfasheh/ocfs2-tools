@@ -36,9 +36,14 @@
  *   _should not_ write to the file system unless it has asked prompt() to do
  *   so.  It should also not exit if prompt() returns 0.  prompt() should give
  *   as much detail as possible as it becomes an error log.
- * - to make life simpler, memory allocation is a fatal error.  We should
- *   have reasonable memory demands in relation to the size of the fs.
- * - I'm still of mixed opinions about IO errors.  thoughts?
+ * - to make life simpler, memory allocation is a fatal error.  It would be
+ *   very exciting to have allocation failure trick fsck -y into tearing
+ *   apart the fs because it didn't have memorty to track what was in use.  
+ *   We should have reasonable memory demands in relation to the size of 
+ *   the fs.
+ * - I'm still of mixed opinions about IO errors.  For now they're fatal.
+ *   One needs to dd a volume off a busted device before fixing it.
+ *   thoughts?
  */
 #include <getopt.h>
 #include <limits.h>

@@ -118,9 +118,15 @@ static void check_lostfound(o2fsck_state *ost)
 	 * inode and the "." dirent in its dirblock */
 	o2fsck_icount_set(ost->ost_icount_in_inodes, blkno, 2);
 	o2fsck_icount_set(ost->ost_icount_refs, blkno, 2);
-	o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 
-			      ost->ost_fs->fs_root_blkno,
-			      ost->ost_fs->fs_root_blkno);
+	ret = o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 
+				    ost->ost_fs->fs_root_blkno,
+				    ost->ost_fs->fs_root_blkno);
+	if (ret) {
+		com_err(whoami, ret, "while recording a new /lost+found "
+			"directory");
+		goto out;
+	}
+
 	/* we've already iterated through the dirblocks in pass2 so there
 	 * is no need to register l+f's new dir block */
 
@@ -272,9 +278,11 @@ out:
 
 static uint64_t loop_no = 0;
 
-static void connect_directory(o2fsck_state *ost, o2fsck_dir_parent *dir)
+static errcode_t connect_directory(o2fsck_state *ost,
+				   o2fsck_dir_parent *dir)
 {
 	o2fsck_dir_parent *dp = dir, *par;
+	errcode_t ret = 0;
 	int fix;
 
 	verbosef("checking dir inode %"PRIu64" parent %"PRIu64" dot_dot "
@@ -294,10 +302,12 @@ static void connect_directory(o2fsck_state *ost, o2fsck_dir_parent *dir)
 		if (dp->dp_dirent) {
 			par = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, 
 							dp->dp_dirent);
-			if (par == NULL)
-				fatal_error(OCFS2_ET_INTERNAL_FAILURE,
-						"no dir info for parent "
-						"%"PRIu64, dp->dp_dirent);
+			if (par == NULL) {
+				ret = OCFS2_ET_INTERNAL_FAILURE;
+				com_err(whoami, ret, "no dir info for parent "
+					"%"PRIu64, dp->dp_dirent);
+				goto out;
+			}
 			if (par->dp_loop_no != loop_no) {
 				par->dp_loop_no = loop_no;
 				dp = par;
@@ -327,11 +337,14 @@ static void connect_directory(o2fsck_state *ost, o2fsck_dir_parent *dir)
 		if (fix)
 			fix_dot_dot(ost, dir);
 	}
+out:
+	return ret;
 }
 
 errcode_t o2fsck_pass3(o2fsck_state *ost)
 {
 	o2fsck_dir_parent *dp;
+	errcode_t ret = 0;
 
 	printf("Pass 3: Checking directory connectivity.\n");
 
@@ -343,25 +356,33 @@ errcode_t o2fsck_pass3(o2fsck_state *ost)
 
 	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, 
 					ost->ost_fs->fs_root_blkno);
-	if (dp == NULL)
-		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "root inode %"PRIu64" "
-				"wasn't marked as a directory in pass1",
-				ost->ost_fs->fs_root_blkno);
+	if (dp == NULL) {
+		ret = OCFS2_ET_INTERNAL_FAILURE;
+		com_err(whoami, ret, "root inode %"PRIu64" wasn't marked as "
+			"a directory in pass1", ost->ost_fs->fs_root_blkno);
+		goto out;
+	}
 	dp->dp_connected = 1;
 
 	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, 
 					ost->ost_fs->fs_sysdir_blkno);
-	if (dp == NULL)
-		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "system dir inode "
-				"%"PRIu64" wasn't marked as a directory in "
-				"pass1", ost->ost_fs->fs_sysdir_blkno);
+	if (dp == NULL) {
+		ret = OCFS2_ET_INTERNAL_FAILURE;
+		com_err(whoami, ret, "system dir inode %"PRIu64" wasn't "
+			"marked as a directory in pass1",
+			ost->ost_fs->fs_sysdir_blkno);
+		goto out;
+	}
 	dp->dp_connected = 1;
 
 	for(dp = o2fsck_dir_parent_first(&ost->ost_dir_parents) ;
 	    dp; dp = o2fsck_dir_parent_next(dp)) {
 		/* XXX hmm, make sure dir->ino is in the dir map? */
-		connect_directory(ost, dp);
+		ret = connect_directory(ost, dp);
+		if (ret)
+			goto out;
 	}
 
-	return 0;
+out:
+	return ret;
 }

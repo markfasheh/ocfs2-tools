@@ -87,10 +87,11 @@ static icount_node *icount_search(o2fsck_icount *icount, uint64_t blkno,
 }
 
 /* keep it simple for now by always updating both data structures */
-void o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno, 
-			uint16_t count)
+errcode_t o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno, 
+			    uint16_t count)
 {
 	icount_node *in;
+	errcode_t ret = 0;
 
 	if (count == 1)
 		ocfs2_bitmap_set(icount->ic_single_bm, blkno, NULL);
@@ -107,14 +108,18 @@ void o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno,
 		}
 	} else if (count > 1) {
 		in = calloc(1, sizeof(*in));
-		if (in == NULL)
-			fatal_error(OCFS2_ET_NO_MEMORY, 
-				    "while allocating to track icount");
+		if (in == NULL) {
+			ret = OCFS2_ET_NO_MEMORY;
+			goto out;
+		}
 
 		in->in_blkno = blkno;
 		in->in_icount = count;
 		icount_insert(icount, in);
 	}
+
+out:
+	return ret;
 }
 
 uint16_t o2fsck_icount_get(o2fsck_icount *icount, uint64_t blkno)
@@ -162,9 +167,9 @@ void o2fsck_icount_delta(o2fsck_icount *icount, uint64_t blkno,
 	}
 
 	if (prev_count + delta < 0) 
-		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "while droping icount "
-			    "from %"PRIu16" bt %d for inode %"PRIu64, 
-			    prev_count, delta, blkno);
+		com_err(__FUNCTION__, OCFS2_ET_INTERNAL_FAILURE,
+		        "while droping icount from %"PRIu16" bt %d for "
+			"inode %"PRIu64, prev_count, delta, blkno);
 
 	o2fsck_icount_set(icount, blkno, prev_count + delta);
 }
