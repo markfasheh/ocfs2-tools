@@ -39,14 +39,22 @@
 #include "ocfsplist.h"
 
 
-typedef struct _BuildData BuildData;
+#define FILL_ASYNC_ITERATIONS 20
+#define WALK_ASYNC_ITERATIONS 10
 
-struct _BuildData
+
+typedef struct _WalkData WalkData;
+
+struct _WalkData
 {
-  GPatternSpec *filter;
-  gboolean      unmounted;
+  OcfsPartitionListFunc  func;
+  gpointer               data;
 
-  GList        *list;
+  GPatternSpec          *filter;
+  gboolean               unmounted;
+  gboolean               async;
+
+  guint                  count;
 };
 
 
@@ -54,11 +62,26 @@ static gboolean is_ocfs2_partition  (const gchar  *device);
 static gboolean valid_device        (const gchar  *device,
 				     GPatternSpec *filter,
 				     gboolean      no_ocfs_check);
-static void     partition_info_fill (GHashTable   *info);
-static gboolean list_builder        (gpointer      key,
+static void     partition_info_fill (GHashTable   *info,
+                                     gboolean      async);
+static gboolean partition_walk      (gpointer      key,
 				     gpointer      value,
 				     gpointer      user_data);
 
+
+static inline void
+async_loop_run (gboolean     async,
+		guint       *count,
+                const guint  num_iterations)
+{
+  if (async)
+    {
+      *count++;
+
+      if (*count % num_iterations == 0)
+	while (g_main_context_iteration(NULL, FALSE));
+    }
+}
 
 static gboolean
 is_ocfs2_partition (const gchar *device)
@@ -132,13 +155,15 @@ valid_device (const gchar  *device,
 }
 
 static void
-partition_info_fill (GHashTable *info)
+partition_info_fill (GHashTable *info,
+		     gboolean    async)
 {
   FILE   *proc;
   gchar   line[100], name[100], *device;
   GSList *list;
   gint    i;
   gchar  *p;
+  guint   count = 0;
 
   proc = fopen ("/proc/partitions", "r");
   if (proc == NULL)
@@ -185,63 +210,51 @@ partition_info_fill (GHashTable *info)
 	}
       else
 	g_free (device);
+
+      async_loop_run (async, &count, FILL_ASYNC_ITERATIONS);
     }
 
   fclose (proc);
 }
 
 static gboolean
-list_builder (gpointer key,
-	      gpointer value,
-	      gpointer user_data)
+partition_walk (gpointer key,
+		gpointer value,
+		gpointer user_data)
 {
-  BuildData         *bdata;
+  WalkData          *wdata;
   GSList            *list, *last;
   gchar             *device;
   gchar              mountpoint[PATH_MAX];
-  OcfsPartitionInfo *info;
+  OcfsPartitionInfo  info;
   gint               flags;
   errcode_t          ret;
 
-  bdata = user_data;
+  wdata = user_data;
   list = value;
 
   while (list)
     {
       device = list->data;
 
-      if (valid_device (device, bdata->filter, bdata->unmounted))
+      if (valid_device (device, wdata->filter, wdata->unmounted))
 	{
-	  info = g_new (OcfsPartitionInfo, 1);
-
-	  info->device = g_strdup (device);
+	  info.device = device;
 
 	  ret = ocfs2_check_mount_point (device, &flags, mountpoint, PATH_MAX);
 
 	  if (ret == 0)
 	    {
 	      if (flags & OCFS2_MF_MOUNTED)
-		info->mountpoint = g_strdup (mountpoint);
+		info.mountpoint = mountpoint;
 	      else
-		info->mountpoint = NULL;
+		info.mountpoint = NULL;
 	    }
 	  else
-	    info->mountpoint = NULL;
+	    info.mountpoint = NULL;
 
-	  if (bdata->unmounted)
-	    {
-	      if (info->mountpoint)
-		{
-		  g_free (info->mountpoint);
-		  g_free (info->device);
-		}
-	      else
-		bdata->list = g_list_prepend (bdata->list, info->device);
-
-	      g_free (info);
-	    }
-	  else
-	    bdata->list = g_list_prepend (bdata->list, info);
+	  if (!wdata->unmounted || !info.mountpoint)
+	    wdata->func (&info, wdata->data);
 	}
 
       last = list;
@@ -249,6 +262,8 @@ list_builder (gpointer key,
 
       g_free (device);
       g_slist_free_1 (last);
+
+      async_loop_run (wdata->async, &wdata->count, WALK_ASYNC_ITERATIONS);
     }
 
   g_free (key);
@@ -271,32 +286,41 @@ print_hash (gpointer key,
 }
 #endif
 
-GList *
-ocfs_partition_list (const gchar *filter,
-                     gboolean     unmounted)
+void
+ocfs_partition_list (OcfsPartitionListFunc  func,
+		     gpointer               data,
+		     const gchar           *filter,
+		     gboolean               unmounted,
+		     gboolean               async)
 {
   GHashTable *info;
-  BuildData   bdata = { NULL, unmounted, NULL };
+  WalkData    wdata = { func, data, NULL, unmounted, async, 0 };
 
   if (filter && *filter)
-    bdata.filter = g_pattern_spec_new (filter);
+    wdata.filter = g_pattern_spec_new (filter);
 
   info = g_hash_table_new (g_str_hash, g_str_equal);
 
-  partition_info_fill (info);
+  partition_info_fill (info, async);
 
 #ifdef LIST_TEST_HASH
   g_hash_table_foreach (info, print_hash, NULL);
 #endif
 
-  g_hash_table_foreach_remove (info, list_builder, &bdata);
+  g_hash_table_foreach_remove (info, partition_walk, &wdata);
   
   g_hash_table_destroy (info);
-
-  return bdata.list;
 }
 
 #ifdef LIST_TEST
+static void
+list_func (OcfsPartitionInfo *info,
+           gpointer           data)
+{
+  g_print ("Device: %s; Mountpoint %s\n",
+           info->device, info->mountpoint ? info->mountpoint : "N/A");
+}
+
 int
 main (int    argc,
       char **argv)
@@ -305,21 +329,10 @@ main (int    argc,
   OcfsPartitionInfo *info;
 
   g_print ("All:\n");
-
-  plist = ocfs_partition_list (NULL, FALSE);
+  ocfs_partition_list (list_func, NULL, FALSE);
   
-  for (list = plist; list; list = list->next)
-    {
-      info = list->data;
-      g_print ("Device: %s; Mountpoint %s\n", info->device, info->mountpoint);
-    }
-
   g_print ("Unmounted:\n");
-
-  plist = ocfs_partition_list (TRUE);
-  
-  for (list = plist; list; list = list->next)
-    g_print ("Device: %s\n", (gchar *) list->data);
+  plist = ocfs_partition_list (list_func, NULL, TRUE);
 
   return 0;
 }

@@ -144,7 +144,12 @@ entries = (
 )
 
 def format_partition(parent, device):
-    partitions = ocfs2.partition_list(unmounted=True)
+    partitions = []
+
+    def add_partition(device):
+        partitions.append(device)
+
+    ocfs2.partition_list(add_partition, unmounted=True)
 
     if not partitions:
         error_box(parent, 'No unmounted partitions')

@@ -79,6 +79,8 @@ class PartitionView(gtk.TreeView):
             return None
 
     def on_select(self, sel):
+        self.selected = True
+
         device, mountpoint = self.get_sel_values()
 
         if mountpoint:
@@ -118,21 +120,25 @@ class PartitionView(gtk.TreeView):
         store = gtk.ListStore(str, str)
         self.set_model(store)
 
-        sel = self.get_selection()
-        selected = False
-
-        for partition in ocfs2.partition_list(filter=filter):
-            iter = store.append(partition)
-
-            if partition[0] == old_device:
-                sel.select_iter(iter)
-                selected = True
+        self.store = store
+        self.sel = self.get_selection()
+        self.selected = False
 
         store.set_sort_func(COLUMN_DEVICE, list_compare)
         store.set_sort_column_id(COLUMN_DEVICE, gtk.SORT_ASCENDING)
 
-        if len(store) and not selected:
-            sel.select_iter(store.get_iter_first())
+        ocfs2.partition_list(self.add_partition, data=old_device,
+                             filter=filter, async=True)
+
+        if len(store) and not self.selected:
+            self.sel.select_iter(store.get_iter_first())
+
+    def add_partition(self, device, mountpoint, old_device):
+        iter = self.store.append((device, mountpoint))
+
+        if device == old_device:
+            self.sel.select_iter(iter)
+            self.selected = True
 
 def mount(pv):
     device, mountpoint = pv.get_sel_values()

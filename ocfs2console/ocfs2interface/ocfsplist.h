@@ -38,8 +38,15 @@ struct _OcfsPartitionInfo
 };
 
 
-GList *ocfs_partition_list (const gchar *filter,
-                            gboolean     unmounted);
+typedef void (*OcfsPartitionListFunc) (OcfsPartitionInfo *info,
+				       gpointer           data);
+
+
+void ocfs_partition_list (OcfsPartitionListFunc  func,
+			  gpointer               data,
+			  const gchar           *filter,
+			  gboolean               unmounted,
+			  gboolean               async);
 
 
 #endif /* __OCFS_PARTITION_LIST_H__ */

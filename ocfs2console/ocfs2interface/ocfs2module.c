@@ -39,74 +39,102 @@
 
 static PyObject *ocfs2_error;
 
+typedef struct
+{
+  PyObject *func;
+  PyObject *data;
+} ProxyData;
+
+static void
+proxy_partition_func (OcfsPartitionInfo *info,
+		      gpointer           pdata)
+{
+  ProxyData *data = pdata;
+
+  PyObject_CallFunction (data->func, "ss", info->device, info->mountpoint);
+}
+
+static void
+proxy_partition_func_data (OcfsPartitionInfo *info,
+			   gpointer           pdata)
+{
+  ProxyData *data = pdata;
+
+  PyObject_CallFunction (data->func, "ssO",
+			 info->device, info->mountpoint, data->data);
+}
+
+static void
+proxy_unmounted_func (OcfsPartitionInfo *info,
+		      gpointer           pdata)
+{
+  ProxyData *data = pdata;
+
+  PyObject_CallFunction (data->func, "s", info->device);
+}
+
+static void
+proxy_unmounted_func_data (OcfsPartitionInfo *info,
+			   gpointer           pdata)
+{
+  ProxyData *data = pdata;
+
+  PyObject_CallFunction (data->func, "sO", info->device, data->data);
+}
+
+
 static PyObject *
 partition_list (PyObject *self,
 		PyObject *args,
 		PyObject *kwargs)
 {
-  gchar             *filter = NULL;
-  gboolean           unmounted = FALSE, bail = FALSE;
-  GList             *list, *last;
-  PyObject          *ret, *val;
-  OcfsPartitionInfo *info;
+  ProxyData              proxy_data;
+  OcfsPartitionListFunc  func;
+  PyObject              *py_func, *py_data = NULL;
+  gchar                 *filter = NULL;
+  gboolean               unmounted = FALSE, async = FALSE;
 
-  static gchar *kwlist[] = { "filter", "unmounted", NULL };
+  static gchar *kwlist[] = {
+    "callback", "data",
+    "filter", "unmounted", "async",
+    NULL
+  };
 
   if (!PyArg_ParseTupleAndKeywords (args, kwargs,
-				    "|si:partition_list", kwlist,
-				    &filter, &unmounted))
+				    "O|Osii:partition_list", kwlist,
+				    &py_func, &py_data,
+				    &filter, &unmounted, &async))
     return NULL;
 
-  list = ocfs_partition_list (filter, unmounted);
-
-  ret = PyList_New (0);
-  if (ret == NULL)
-    bail = TRUE;
-
-  while (list)
+  if (!PyCallable_Check (py_func))
     {
-
-      if (!bail)
-	{
-	  if (!unmounted)
-	    {
-	      info = list->data;
-	      val = Py_BuildValue ("(ss)", info->device, info->mountpoint);
-	    }
-	  else
-	    val = PyString_FromString (list->data);
-
-	  if (val)
-	    {
-	      PyList_Append (ret, val);
-	      Py_DECREF (val);
-	    }
-	  else
-	    bail = TRUE;
-	}
-
-      if (!unmounted)
-	{
-	  g_free (info->device);
-	  g_free (info->mountpoint);
-	  g_free (info);
-        }
-      else
-	g_free (list->data);
-
-      last = list;
-      list = list->next;
-
-      g_list_free_1 (last);
-    }
-
-  if (bail)
-    {
-      Py_XDECREF (ret);
+      PyErr_SetString (PyExc_TypeError, "callback must be a callable object");
       return NULL;
     }
+
+  proxy_data.func = py_func;
+
+  if (py_data)
+    {
+      proxy_data.data = py_data;
+
+      if (unmounted)
+	func = proxy_unmounted_func_data;
+      else
+	func = proxy_partition_func_data;
+    }
   else
-    return ret;
+    {
+      if (unmounted)
+	func = proxy_unmounted_func;
+      else
+	func = proxy_partition_func;
+    }
+
+  ocfs_partition_list (func, &proxy_data, filter, unmounted, async);
+
+  Py_INCREF (Py_None);
+  return Py_None;
 }
 
 static PyStructSequence_Field struct_ocfs2_super_fields[] = {
