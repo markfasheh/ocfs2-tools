@@ -63,11 +63,6 @@ typedef unsigned short kdev_t;
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#define BITCOUNT(x)     (((BX_(x)+(BX_(x)>>4)) & 0x0F0F0F0F) % 255)
-#define BX_(x)          ((x) - (((x)>>1)&0x77777777) \
-			     - (((x)>>2)&0x33333333) \
-			     - (((x)>>3)&0x11111111))
-
 #define MIN_RESERVED_TAIL_BLOCKS    8
 
 #define LEADING_SPACE_BLOCKS    2
