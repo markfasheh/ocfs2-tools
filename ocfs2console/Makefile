@@ -33,9 +33,9 @@ HFILES = $(HBITS)
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-MANS = ocfs2tool.8
+MANS = ocfs2console.8
 
-SBIN_EXTRA = ocfs2tool
+SBIN_EXTRA = ocfs2console
 
 LIBRARIES = ocfs2module.so
 
@@ -56,15 +56,15 @@ PYLIB = $(LIBRARIES) $(PYSRC)
 
 INSTALL_RULES = install-pylib
 
-DIST_FILES = $(CFILES) $(HFILES) $(PYSRC) ocfs2tool ocfs2tool.8.in
+DIST_FILES = $(CFILES) $(HFILES) $(PYSRC) ocfs2console ocfs2console.8.in
 
 ocfs2module.so: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) -shared $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(GLIB_LIBS)
 
 install-pylib:
-	$(SHELL) $(TOPDIR)/mkinstalldirs $(DESTDIR)$(pyexecdir)/ocfs2tool
+	$(SHELL) $(TOPDIR)/mkinstalldirs $(DESTDIR)$(pyexecdir)/ocfs2console
 	for f in $(PYLIB); do \
-	  $(INSTALL_DATA) $$f $(DESTDIR)$(pyexecdir)/ocfs2tool/$$f; \
+	  $(INSTALL_DATA) $$f $(DESTDIR)$(pyexecdir)/ocfs2console/$$f; \
 	done
 
 include $(TOPDIR)/Postamble.make

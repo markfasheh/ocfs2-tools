@@ -28,7 +28,7 @@ ifdef BUILD_OCFS2CDSL
 SUBDIRS += ocfs2cdsl
 endif
 
-ifdef BUILD_OCFS2TOOL
+ifdef BUILD_OCFS2CONSOLE
 SUBDIRS += ocfs2console
 endif
 
