@@ -11,7 +11,7 @@ INCLUDES += $(GLIB_CFLAGS)
 
 CFLAGS += -Wall -O2
 
-CFILES = main.c commands.c dump.c readfs.c utils.c journal.c bindraw.c
+CFILES = main.c commands.c dump.c readfs.c utils.c journal.c
 HFILES =			\
 	include/main.h		\
 	include/commands.h	\
@@ -19,8 +19,7 @@ HFILES =			\
 	include/readfs.h	\
 	include/utils.h		\
 	include/jbd.h		\
-	include/journal.h	\
-	include/bindraw.h
+	include/journal.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 

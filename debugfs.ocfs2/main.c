@@ -32,7 +32,6 @@ static void  print_version (void);
 static char *get_line      (void);
 
 gboolean allow_write = FALSE;
-gboolean no_raw_bind = FALSE;
 
 /*
  * usage()
@@ -45,7 +44,6 @@ static void usage (char *progname)
 	g_print ("  -V, --version  g_print version information and exit\n");
 	g_print ("  -?, --help     display this help and exit\n");
 	g_print ("  -w, --write    turn on write support\n");
-	g_print ("  -N, --no-raw   do not bind device to raw\n");
 	exit (0);
 }					/* usage */
 
@@ -97,8 +95,6 @@ int main (int argc, char **argv)
 	INSTALL_SIGNAL(SIGTERM);
 	INSTALL_SIGNAL(SIGINT);
 
-	init_raw_cleanup_message();
-
 	for (i = 1; i < argc; i++) {
 		arg = argv[i];
 		if ((strcmp (arg, "--write") == 0) ||
@@ -108,9 +104,6 @@ int main (int argc, char **argv)
 			   (strcmp (arg, "-V") == 0)) {
 			print_version ();
 			exit (0);
-		} else if ((strcmp (arg, "--no-raw") == 0) ||
-			   (strcmp (arg, "-N") == 0)) {
-			no_raw_bind = TRUE;
 		} else if ((strcmp (arg, "--help") == 0) ||
 			   (strcmp (arg, "-?") == 0)) {
 			usage (argv[0]);

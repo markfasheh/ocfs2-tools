@@ -65,7 +65,6 @@ static void do_group (char **args);
 static void do_header (char **args);
 
 extern gboolean allow_write;
-extern gboolean no_raw_bind;
 
 dbgfs_gbls gbls = {
 	.device = NULL,
@@ -176,8 +175,8 @@ static void do_open (char **args)
 	ocfs2_super_block *sb;
 	char *buf = NULL;
 	__u32 len;
-	char raw_dev[255];
 	ocfs2_dinode *inode;
+	int flags;
 
 	if (gbls.device)
 		do_close (NULL);
@@ -187,14 +186,8 @@ static void do_open (char **args)
 		goto bail;
 	}
 
-	if (!no_raw_bind) {
-		if (bind_raw (dev, &gbls.raw_minor, raw_dev, sizeof(raw_dev)))
-			goto bail;
-		printf ("Bound %s to %s\n", dev, raw_dev);
-		dev = raw_dev;
-	}
-
-	gbls.dev_fd = open (dev, allow_write ? O_RDONLY : O_RDWR);
+	flags = O_DIRECT | (allow_write ? O_RDONLY : O_RDWR);
+	gbls.dev_fd = open (dev, flags);
 	if (gbls.dev_fd == -1) {
 		printf ("could not open device %s\n", dev);
 		goto bail;
@@ -266,9 +259,6 @@ static void do_close (char **args)
 		gbls.device = NULL;
 		close (gbls.dev_fd);
 		gbls.dev_fd = -1;
-
-		unbind_raw(gbls.raw_minor);
-		gbls.raw_minor = 0;
 
 		g_free (gbls.curdir);
 		gbls.curdir = NULL;

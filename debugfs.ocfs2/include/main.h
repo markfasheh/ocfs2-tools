@@ -153,6 +153,5 @@ void *memalign(size_t boundary, size_t size);
 #include <utils.h>
 #include <journal.h>
 #include <dump.h>
-#include <bindraw.h>
 
 #endif		/* __MAIN_H__ */
