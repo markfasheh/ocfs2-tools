@@ -445,9 +445,6 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	if (retval)
 		return OCFS2_DIRENT_ABORT;
 
-	printf("found %"PRIu64" %"PRIu64" %"PRIu64"\n", dbe->e_ino, 
-			dbe->e_blkno, dbe->e_blkcount);
-
 	o2fsck_strings_init(&strings);
 
 	while (offset < dd->fs->fs_blocksize) {
