@@ -10,7 +10,11 @@ DEFINES += -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
 INCLUDES += $(GLIB_CFLAGS)
 
-CFLAGS += -Wall -O2
+ifdef OCFS_DEBUG
+CFLAGS = -Wall -O -ggdb
+else
+CFLAGS = -Wall -O2
+endif
 
 CFILES = main.c commands.c dump.c readfs.c utils.c journal.c
 HFILES =			\
