@@ -268,7 +268,16 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
 	unsigned int offset = 0, this_flags, ret_flags = 0;
+	int was_set;
 	errcode_t retval;
+
+	retval = ocfs2_bitmap_test(dd->ost->ost_used_inodes, dbe->e_ino, 
+				  &was_set);
+	if (retval)
+		fatal_error(retval, "while checking for inode %"PRIu64" in "
+				"the used bitmap", dbe->e_ino);
+	if (!was_set)
+		return 0;
 
 	/* XXX there is no byte swapping story here, which is wrong.  we might
 	 * be able to salvage more than read_dir_block() if we did our own
