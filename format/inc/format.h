@@ -49,6 +49,54 @@
 
 #define  OCFS_HBT_WAIT			10
 
+// TODO: need to add version 2 stuff to headers
+// BEGIN VERSION 2
+enum {
+	OCFS_VOL_BM_SYSFILE = OCFS_CLEANUP_LOG_SYSFILE+1,
+	OCFS_ORPHAN_DIR_SYSFILE,
+	OCFS_JOURNAL_SYSFILE
+};
+#define OCFS_VOL_BITMAP_FILE         (OCFS_VOL_BM_SYSFILE         * OCFS_MAXIMUM_NODES)
+#define OCFS_ORPHAN_DIR              (OCFS_ORPHAN_DIR_SYSFILE     * OCFS_MAXIMUM_NODES)
+#define OCFS_JOURNAL_FILE            (OCFS_JOURNAL_SYSFILE        * OCFS_MAXIMUM_NODES)
+
+#define OCFS_JOURNAL_DEFAULT_SIZE       (8 * ONE_MEGA_BYTE)
+#define  OCFS_ORPHAN_DIR_FILENAME          "OrphanDir"
+#define  OCFS_JOURNAL_FILENAME         	   "JournalFile"
+#define  OCFS_LOCAL_ALLOC_SIGNATURE          "LCLBMP"
+#define  DIR_NODE_FLAG_ORPHAN         0x02
+
+#define OCFS_JOURNAL_CURRENT_VERSION 1
+
+typedef struct _ocfs_local_alloc
+{
+	ocfs_disk_lock disk_lock;
+	__u8 signature[8];        /* "LCLBMP"                           */
+	__u32 alloc_size;         /* num bits taken from main bitmap    */
+	__u32 num_used;           /* num bits used (is this needed?)    */
+	__u32 bitmap_start;       /* starting bit offset in main bitmap */
+	__u32 node_num;           /* which node owns me                 */
+	__u64 this_sector;        /* disk offset of this structure      */
+	__u8 padding[176];        /* pad out to 256                     */
+	__u8 bitmap[256];
+}
+ocfs_local_alloc;
+
+typedef struct _ocfs_disk_node_config_info2              // CLASS
+{
+	ocfs_disk_lock disk_lock;                       // DISKLOCK
+	__u8 node_name[MAX_NODE_NAME_LENGTH+1];         // CHAR[MAX_NODE_NAME_LENGTH+1]
+	ocfs_guid guid;                                 // GUID
+	ocfs_ipc_config_info ipc_config;                // IPCONFIG
+	__u8 journal_version;
+}
+ocfs_disk_node_config_info2;                             // END CLASS
+
+// END VERSION 2
+
+
+
+
 #define  OCFS_BUFFER_ALIGN(buf, secsz)  ((__u64)buf +                 \
                                          (((__u64)buf % secsz) ?      \
                                           (secsz - ((__u64)buf % secsz)) : 0))
@@ -147,4 +195,16 @@ void SetNodeConfigHeader(ocfs_node_config_hdr * nodehdr);
 void ShowDiskHdrVals(ocfs_vol_disk_hdr * voldiskhdr);
 
 void HandleSignal(int sig);
+
+/* journal.c */
+int ocfs_replacement_journal_create(int file, __u64 journal_off);
+
+/* system.c */
+int ocfs_init_sysfile (int file, ocfs_vol_disk_hdr *volhdr, __u32 file_id, ocfs_file_entry *fe, __u64 data);
+int ocfs_create_root_directory (int file, ocfs_vol_disk_hdr *volhdr);
+__u32 ocfs_alloc_from_global_bitmap (__u64 file_size, ocfs_vol_disk_hdr *volhdr);
+int ocfs_update_bm_lock_stats(int file);
+int ocfs_init_global_alloc_bm (__u32 num_bits, int file, ocfs_vol_disk_hdr *volhdr);
+void ocfs_init_dirnode(ocfs_dir_node *dir, __u64 disk_off, __u32 bit_off);
+
 #endif /* _FORMAT_H_ */

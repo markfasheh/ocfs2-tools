@@ -28,6 +28,10 @@
 #include <signal.h>
 #include <libgen.h>
 
+ocfs_alloc_bm global_bm;
+char *bm_buf = NULL;
+int bm_size = 0;
+
 bool in_data_blocks = false;
 bool format_intr = false;
 
@@ -289,6 +293,32 @@ int main(int argc, char **argv)
 	goto bail;
     fsync(file);
 
+    /* Create the root directory */
+    PRINT_VERBOSE("Writing root directory and system files...");
+    fflush(stdout);
+    if (!ocfs_create_root_directory (file, volhdr))
+        goto bail;
+    fsync(file);
+    PRINT_PROGRESS();
+    PRINT_VERBOSE("\rWrote root directory and system files       \n");
+
+    /* Write the changes to the global bitmap */    
+    PRINT_VERBOSE("Updating global bitmap...");
+    fflush(stdout);
+    if (!SetSeek(file, volhdr->bitmap_off))
+	goto bail;
+    if (!Write(file, bm_size, bm_buf))
+        goto bail;
+    fsync(file);
+    PRINT_PROGRESS();
+    PRINT_VERBOSE("\rUpdated global bitmap                       \n");
+
+    /* Write corresponding change to bitmap lock (for statfs) */
+    if (!ocfs_update_bm_lock_stats(file))
+        goto bail;
+    fsync(file);
+	
+
     /* Write volume header */
     PRINT_VERBOSE("Writing volume header...");
     fflush(stdout);
@@ -303,6 +333,7 @@ int main(int argc, char **argv)
     fflush(stdout);
 
   bail:
+    safefree(bm_buf);
     safefree(volhdr);
     safeclose(file);
     unbind_raw(rawminor);
@@ -868,7 +899,8 @@ int InitVolumeDiskHeader(ocfs_vol_disk_hdr *volhdr, __u32 sect_size, __u64 vol_s
 
     volhdr->num_clusters = num_blocks;
 
-    return 1;
+    // don't bother reading from disk
+    return ocfs_init_global_alloc_bm ((__u32)num_blocks, file, NULL);
 }				/* InitVolumeDiskHeader */
 
 
@@ -998,4 +1030,5 @@ void HandleSignal(int sig)
 		break;
 	}
 } /* HandleSignal */
+
 

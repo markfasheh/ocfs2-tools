@@ -55,7 +55,7 @@ DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs.ocfs.8.in tuneocfs.8.in
 
 vpath ocfsheartbeat.c $(TOPDIR)/libocfs/Common
 
-mkfs.ocfs: format.o frmtport.o
+mkfs.ocfs: format.o frmtport.o journal.o system.o
 	$(LINK) -L$(TOPDIR)/libocfs -locfs
 
 mounted.ocfs: mounted.o frmtport.o
