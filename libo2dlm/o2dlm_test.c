@@ -20,6 +20,8 @@
 
 char cbuf[COMMAND_MAX_LEN];
 
+#define DEFAULT_DLMFS_PATH "/dev/ocfs2/dlm/"
+
 char *dlmfs_path = NULL;
 char *prog;
 
@@ -270,17 +272,17 @@ int main(int argc, char **argv)
 	errcode_t error;
 	struct command_s c;
 
+	initialize_o2dl_error_table();
+
 	prog = argv[0];
 
 	if (argc < 2) {
-		printf("please provide a path to an ocfs2_dlmfs mount\n");
-		return 0;
+		dlmfs_path = DEFAULT_DLMFS_PATH;
+		printf("No fs path provided, using %s\n", dlmfs_path);
+	} else {
+		dlmfs_path = argv[1];
+		printf("Using fs at %s\n", dlmfs_path);
 	}
-
-	initialize_o2dl_error_table();
-
-	dlmfs_path = argv[1];
-	printf("Using fs at %s\n", dlmfs_path);
 
 	while (!get_command(&c)) {
 		error = exec_command(&c);
