@@ -142,7 +142,7 @@ static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 			  	  ocfs2_extent_list *el)
 {
 	errcode_t ret;
-	ocfs2_extent_rec *rec;
+	ocfs2_extent_rec *rec = NULL;
 
 	if (!el->l_tree_depth) {
 		/* A leaf extent_list can do one of three things: */
