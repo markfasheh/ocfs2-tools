@@ -60,15 +60,34 @@ fi
 cp -f vendor/$IVENDOR/ocfs.init $RPM_BUILD_ROOT/etc/init.d/ocfs
 ln -s ocfs $RPM_BUILD_ROOT/etc/init.d/ocfs2
 
-for tool in format fsck load_ocfs ocfs_uid_gen
+for tool in load_ocfs ocfs_uid_gen
 do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
 done
 
-for tool in debugocfs ocfstool
+cd ocfs
+for tool in format fsck
+do
+  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
+done
+
+for tool in debugocfs
 do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
 done
+
+cd ../ocfs2
+for tool in mkfs.ocfs2 debugfs.ocfs2
+do
+  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
+done
+
+cd ..
+for tool in ocfstool
+do
+  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
+done
+
 
 %clean
 rm -rf "$RPM_BUILD_ROOT"
