@@ -30,6 +30,7 @@ from general import General
 from nodemap import NodeMap
 from browser import Browser
 from clconfig import cluster_configurator
+from fsck import fsck
 
 COLUMN_DEVICE = 0
 COLUMN_MOUNTPOINT = 1
@@ -68,15 +69,11 @@ class PartitionView(gtk.TreeView):
         if store and iter:
             return store[iter]
         else:
-            return None
+            return (None, None)
 
     def get_device(self):
         selection = self.get_sel_values()
-
-        if selection:
-            return selection[COLUMN_DEVICE]
-        else:
-            return None
+        return selection[COLUMN_DEVICE]
 
     def on_select(self, sel):
         self.selected = True
@@ -204,10 +201,10 @@ def format(pv):
     pv.refresh_partitions()
 
 def check(pv):
-    pass
+    fsck(pv.toplevel, pv.get_device(), check=True)
 
 def repair(pv):
-    pass
+    fsck(pv.toplevel, pv.get_device(), check=False)
 
 def clconfig(pv):
     cluster_configurator(pv.toplevel)
@@ -272,6 +269,8 @@ def create_window():
         notebook.add_with_properties(frame, 'tab_label', desc)
 
     pv.refresh_partitions()
+    pv.grab_focus()
+   
 
     window.show_all()
 
