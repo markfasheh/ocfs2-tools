@@ -130,12 +130,15 @@ static errcode_t ocfs2_extent_map_find_leaf(ocfs2_extent_map *em,
 			    ((cpos + clusters) >
 			     (rec->e_cpos + rec->e_clusters)))
 				goto out_free;
+
 			/*
 			 * We don't insert this record because we're
 			 * about to traverse it
 			 */
+
+			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 			if (blkno)
-				abort();
+				goto out_free;
 			blkno = rec->e_blkno;
 		}
 
@@ -143,8 +146,9 @@ static errcode_t ocfs2_extent_map_find_leaf(ocfs2_extent_map *em,
 		 * We don't support holes, and we're still up
 		 * in the branches, so we'd better have found someone
 		 */
+		ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 		if (!blkno)
-			abort();
+			goto out_free;
 
 		ret = ocfs2_read_extent_block(em->em_cinode->ci_fs,
 					      blkno, eb_buf);
