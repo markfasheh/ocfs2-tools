@@ -29,18 +29,17 @@
 
 #include "kernel-rbtree.h"
 
-struct ocfs2_bitmap_cluster {
-	struct rb_node bc_node;
-	uint64_t bc_start_bit;		/* Bit offset.  Must be
-					   aligned on
-					   (clustersize * 8) */
-	int bc_total_bits;		/* set_bit() and friends can't
+
+struct ocfs2_bitmap_region {
+	struct rb_node br_node;
+	uint64_t br_start_bit;		/* Bit offset.  Must be
+					   byte-aligned */
+	int br_total_bits;		/* set_bit() and friends can't
 					   handle bitmaps larger than
 					   int offsets */
-	int bc_set_bits;
-	char *bc_bitmap;
-
-	void *bc_private;
+	int br_set_bits;
+	char *br_bitmap;
+	void *br_private;
 };
 
 struct ocfs2_bitmap_operations {
@@ -50,11 +49,13 @@ struct ocfs2_bitmap_operations {
 			       int *oldval);
 	errcode_t (*test_bit)(ocfs2_bitmap *bm, uint64_t bit,
 			      int *val);
-	int (*find_next_set)(ocfs2_bitmap *bm, uint64_t start, 
-			     uint64_t *found);
-	errcode_t (*merge_cluster)(ocfs2_bitmap *bm,
-				   struct ocfs2_bitmap_cluster *prev,
-				   struct ocfs2_bitmap_cluster *next);
+	errcode_t (*find_next_set)(ocfs2_bitmap *bm, uint64_t start, 
+				   uint64_t *found);
+	errcode_t (*find_next_clear)(ocfs2_bitmap *bm, uint64_t start, 
+				     uint64_t *found);
+	errcode_t (*merge_region)(ocfs2_bitmap *bm,
+				   struct ocfs2_bitmap_region *prev,
+				   struct ocfs2_bitmap_region *next);
 	errcode_t (*read_bitmap)(ocfs2_bitmap *bm);
 	errcode_t (*write_bitmap)(ocfs2_bitmap *bm);
 	void (*destroy_notify)(ocfs2_bitmap *bm);
@@ -71,7 +72,7 @@ struct _ocfs2_bitmap {
 						   from if it is a
 						   physical bitmap
 						   inode */
-	struct rb_root b_clusters;
+	struct rb_root b_regions;
 	void *b_private;
 };
 
@@ -82,16 +83,16 @@ errcode_t ocfs2_bitmap_new(ocfs2_filesys *fs,
 			   struct ocfs2_bitmap_operations *ops,
 			   void *private_data,
 			   ocfs2_bitmap **ret_bitmap);
-errcode_t ocfs2_bitmap_alloc_cluster(ocfs2_bitmap *bitmap,
-				     uint64_t start_bit,
-				     int total_bits,
-				     struct ocfs2_bitmap_cluster **ret_bc);
-void ocfs2_bitmap_free_cluster(struct ocfs2_bitmap_cluster *bc);
-errcode_t ocfs2_bitmap_realloc_cluster(ocfs2_bitmap *bitmap,
-				       struct ocfs2_bitmap_cluster *bc,
-				       int total_bits);
-errcode_t ocfs2_bitmap_insert_cluster(ocfs2_bitmap *bitmap,
-				      struct ocfs2_bitmap_cluster *bc);
+errcode_t ocfs2_bitmap_alloc_region(ocfs2_bitmap *bitmap,
+				    uint64_t start_bit,
+				    int total_bits,
+				    struct ocfs2_bitmap_region **ret_br);
+void ocfs2_bitmap_free_region(struct ocfs2_bitmap_region *br);
+errcode_t ocfs2_bitmap_realloc_region(ocfs2_bitmap *bitmap,
+				      struct ocfs2_bitmap_region *br,
+				      int total_bits);
+errcode_t ocfs2_bitmap_insert_region(ocfs2_bitmap *bitmap,
+				     struct ocfs2_bitmap_region *br);
 errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap,
 				   uint64_t bitno, int *oldval);
 errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,

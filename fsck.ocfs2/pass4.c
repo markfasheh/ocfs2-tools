@@ -45,7 +45,7 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 	printf("Pass 4: Checking inodes link counts.\n");
 
 	for (ino = 0;
-	     ocfs2_bitmap_find_next_set(ost->ost_used_inodes, ino, &ino) != 0;
+	     ocfs2_bitmap_find_next_set(ost->ost_used_inodes, ino, &ino) == 0;
 	     ino++) {
 		/*
 		 * XXX e2fsck skips some inodes by their presence in other

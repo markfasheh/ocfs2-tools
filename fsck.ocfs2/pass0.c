@@ -449,8 +449,6 @@ out:
 	if (ret)
 		exit(FSCK_ERROR);
 
-	if (di)
-		ocfs2_free(&di);
 	if (blocks)
 		ocfs2_free(&blocks);
 
