@@ -28,7 +28,7 @@
 #define PROMPT "debugfs: "
 
 static void  usage         (char *progname);
-static void  print_version (void);
+static void  print_version (char *progname);
 static char *get_line      (void);
 
 gboolean allow_write = FALSE;
@@ -51,9 +51,9 @@ static void usage (char *progname)
  * print_version()
  *
  */
-static void print_version (void)
+static void print_version (char *progname)
 {
-	g_print ("debugocfs version " DEBUGOCFS_VERSION "\n");
+	fprintf(stderr, "%s %s\n", progname, VERSION);
 }					/* print_version */
 
 /*
@@ -83,6 +83,7 @@ int main (int argc, char **argv)
 	char *device = NULL;
 	char *arg;
 	gboolean seen_device = FALSE;
+	char *progname;
 
 #define INSTALL_SIGNAL(sig)					\
 	do {							\
@@ -95,6 +96,8 @@ int main (int argc, char **argv)
 	INSTALL_SIGNAL(SIGTERM);
 	INSTALL_SIGNAL(SIGINT);
 
+	progname = basename(argv[0]);
+	
 	for (i = 1; i < argc; i++) {
 		arg = argv[i];
 		if ((strcmp (arg, "--write") == 0) ||
@@ -102,7 +105,7 @@ int main (int argc, char **argv)
 			allow_write = TRUE;
 		} else if ((strcmp (arg, "--version") == 0) ||
 			   (strcmp (arg, "-V") == 0)) {
-			print_version ();
+			print_version (progname);
 			exit (0);
 		} else if ((strcmp (arg, "--help") == 0) ||
 			   (strcmp (arg, "-?") == 0)) {
@@ -117,7 +120,7 @@ int main (int argc, char **argv)
 		}
 	}
 
-	print_version ();
+	print_version (progname);
 
 	if (device) {
 		line = g_strdup_printf ("open %s", device);
