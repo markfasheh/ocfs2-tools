@@ -57,10 +57,10 @@ static void do_dump (char **args);
 static void do_cat (char **args);
 static void do_lcd (char **args);
 static void do_curdev (char **args);
-static void do_super (char **args);
-static void do_inode (char **args);
+static void do_stats (char **args);
+static void do_stat (char **args);
 static void do_hb (char **args);
-static void do_journal (char **args);
+static void do_logdump (char **args);
 static void do_group (char **args);
 static void do_extent (char **args);
 static void do_chroot (char **args);
@@ -98,15 +98,15 @@ static Command commands[] =
 
   { "curdev", do_curdev },
 
-  { "stats", do_super },
+  { "stats", do_stats },
 
-  { "stat", do_inode },
+  { "stat", do_stat },
 
   { "nodes", do_hb },
   { "publish", do_hb },
   { "vote", do_hb },
 
-  { "logdump", do_journal },
+  { "logdump", do_logdump },
 
   { "group", do_group },
   { "extent", do_extent }
@@ -174,24 +174,62 @@ static int process_inode_args(char **args, uint64_t *blkno)
 {
 	errcode_t ret;
 	char *opts = args[1];
-	char *def = ".";
 
 	if (check_device_open())
 		return -1;
 
 	if (!opts) {
-		if (!strncasecmp(args[0], "ls", 2))
-			opts = def;
-		else {
-			fprintf(stderr, "usage: %s <filepath>\n", args[0]);
-			return -1;
-		}
+		fprintf(stderr, "usage: %s <filepath>\n", args[0]);
+		return -1;
 	}
 
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
 			      opts, blkno);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "'%s'", opts);
+		return -1;
+	}
+
+	if (*blkno >= gbls.max_blocks) {
+		fprintf(stderr, "%s: Block number is larger than volume size\n",
+			args[0]);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * process_ls_args()
+ *
+ */
+static int process_ls_args(char **args, uint64_t *blkno, int *long_opt)
+{
+	errcode_t ret;
+	char *def = ".";
+	char *opts;
+	int ind = 1;
+
+	if (check_device_open())
+		return -1;
+
+	if (args[ind]) {
+		if (!strncasecmp(args[1], "-l", 2)) {
+			*long_opt = 1;
+			++ind;
+		}
+	}
+
+	if (args[ind])
+		opts = args[ind];
+	else
+		opts = def;
+
+
+	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
+			      opts, blkno);
+	if (ret) {
+		com_err(args[0], ret, "'%s'", opts);
 		return -1;
 	}
 
@@ -490,10 +528,10 @@ static void do_chroot (char **args)
 static void do_ls (char **args)
 {
 	uint64_t blkno;
-	FILE *out = NULL;
 	errcode_t ret = 0;
+	list_dir_opts ls_opts = { gbls.fs, NULL, 0, NULL };
 
-	if (process_inode_args(args, &blkno))
+	if (process_ls_args(args, &blkno, &ls_opts.long_opt))
 		return ;
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
@@ -502,16 +540,24 @@ static void do_ls (char **args)
 		return ;
 	}
 
-	out = open_pager ();
-	fprintf(out, "\t%-15s %-4s %-4s %-2s %-4s\n",
-		"Inode", "Rlen", "Nlen", "Ty", "Name");
+	if (ls_opts.long_opt) {
+		ret = ocfs2_malloc_block(gbls.fs->fs_io, &ls_opts.buf);
+		if (ret) {
+			com_err(args[0], ret, " ");
+			return ;
+		}
+	}
 
+	ls_opts.out = open_pager();
 	ret = ocfs2_dir_iterate(gbls.fs, blkno, 0, NULL,
-				dump_dir_entry, out);
+				dump_dir_entry, (void *)&ls_opts);
 	if (ret)
 		com_err(args[0], ret, " ");
 
-	close_pager (out);
+	close_pager(ls_opts.out);
+
+	if (ls_opts.buf)
+		ocfs2_free(&ls_opts.buf);
 
 	return ;
 }
@@ -582,7 +628,7 @@ static void do_help (char **args)
 	printf ("stats [-h]\t\t\t\tShow superblock\n");
 	printf ("stat <filepath>\t\t\t\tShow inode\n");
 //	printf ("pwd\t\t\t\tPrint working directory\n");
-	printf ("ls <filepath>\t\t\t\tList directory\n");
+	printf ("ls [-l] <filepath>\t\t\tList directory\n");
 	printf ("cd <filepath>\t\t\t\tChange directory\n");
 	printf ("chroot <filepath>\t\t\tChange root\n");
 	printf ("cat <filepath>\t\t\t\tPrints file on stdout\n");
@@ -624,10 +670,10 @@ static void do_curdev (char **args)
 }
 
 /*
- * do_super()
+ * do_stats()
  *
  */
-static void do_super (char **args)
+static void do_stats (char **args)
 {
 	char *opts = args[1];
 	FILE *out;
@@ -652,10 +698,10 @@ bail:
 }
 
 /*
- * do_inode()
+ * do_stat()
  *
  */
-static void do_inode (char **args)
+static void do_stat (char **args)
 {
 	ocfs2_dinode *inode;
 	uint64_t blkno;
@@ -819,10 +865,10 @@ static void do_cat (char **args)
 }
 
 /*
- * do_journal()
+ * do_logdump()
  *
  */
-static void do_journal (char **args)
+static void do_logdump (char **args)
 {
 	char *logbuf = NULL;
 	uint64_t blkno = 0;
@@ -838,8 +884,7 @@ static void do_journal (char **args)
 		return ;
 
 	blkno = gbls.jrnl_blkno[nodenum];
-
-	ret = ocfs2_read_whole_file(gbls.fs, blkno, &logbuf, &len);
+	ret = read_whole_file(gbls.fs, blkno, &logbuf, &len);
 	if (ret) {
 		com_err(args[0], ret, " ");
 		goto bail;

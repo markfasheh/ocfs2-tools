@@ -283,13 +283,30 @@ void dump_group_descriptor (FILE *out, ocfs2_group_desc *grp, int index)
 int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 		     char *buf, void *priv_data)
 {
-	FILE *out = priv_data;
+	list_dir_opts *ls = (list_dir_opts *)priv_data;
 	char tmp = rec->name[rec->name_len];
+	ocfs2_dinode *di;
+	char perms[20];
+	char timestr[40];
 
 	rec->name[rec->name_len] = '\0';
-	fprintf(out, "\t%-15"PRIu64" %-4u %-4u %-2u %s\n",
-			rec->inode, rec->rec_len,
-			rec->name_len, rec->file_type, rec->name);
+
+	if (!ls->long_opt) {
+		fprintf(ls->out, "\t%-15"PRIu64" %-4u %-4u %-2u %s\n", rec->inode,
+			rec->rec_len, rec->name_len, rec->file_type, rec->name);
+	} else {
+		memset(ls->buf, 0, ls->fs->fs_blocksize);
+		ocfs2_read_inode(ls->fs, rec->inode, ls->buf);
+		di = (ocfs2_dinode *)ls->buf;
+
+		inode_perms_to_str(di->i_mode, perms, sizeof(perms));
+		inode_time_to_str(di->i_mtime, timestr, sizeof(timestr));
+
+		fprintf(ls->out, "\t%-15"PRIu64" %10s %3u %5u %5u %15"PRIu64" %s %s\n",
+		       	rec->inode, perms, di->i_links_count, di->i_uid, di->i_gid,
+			di->i_size, timestr, rec->name);
+	}
+
 	rec->name[rec->name_len] = tmp;
 
 	return 0;

@@ -37,5 +37,9 @@ errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
 			  uint64_t cwd_blkno, char *str, uint64_t *blkno);
 errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 		    int preserve);
+errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf,
+			  uint32_t *buflen);
+void inode_perms_to_str(uint16_t mode, char *str, int len);
+void inode_time_to_str(uint64_t mtime, char *str, int len);
 
 #endif		/* __UTILS_H__ */

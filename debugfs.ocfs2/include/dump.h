@@ -26,6 +26,13 @@
 #ifndef __DUMP_H__
 #define __DUMP_H__
 
+typedef struct _list_dir_opts {
+	ocfs2_filesys *fs;
+	FILE *out;
+	int long_opt;
+	char *buf;
+} list_dir_opts;
+
 void dump_super_block (FILE *out, ocfs2_super_block *sb);
 void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc);
 void dump_inode (FILE *out, ocfs2_dinode *in);

@@ -132,6 +132,7 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	uint64_t	v_blkno;
 	uint64_t	p_blkno;
 	uint32_t	tmp;
+	uint64_t	num_blocks;
 
 	/* o_direct requires aligned io */
 	tmp = fs->fs_blocksize - 1;
@@ -142,6 +143,15 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	wanted_blocks = count >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 	v_blkno = offset >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 	*got = 0;
+
+	num_blocks = (ci->ci_inode->i_size + fs->fs_blocksize - 1) >>
+			OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+
+	if (v_blkno >= num_blocks)
+		return 0;
+
+	if (v_blkno + wanted_blocks > num_blocks)
+		wanted_blocks = (uint32_t) (num_blocks - v_blkno);
 
 	while(wanted_blocks) {
 		ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
@@ -156,13 +166,18 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 		if (ret)
 			return ret;
 
-		tmp = contig_blocks << OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-		*got += tmp;
+		*got += (contig_blocks <<
+			 OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
 		wanted_blocks -= contig_blocks;
 
 		if (wanted_blocks) {
-			ptr += tmp;
+			ptr += (contig_blocks <<
+				OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
 			v_blkno += (uint64_t)contig_blocks;
+		} else {
+			if (*got + offset > ci->ci_inode->i_size)
+				*got = (uint32_t) (ci->ci_inode->i_size - offset);
+			/* break */
 		}
 	}
 

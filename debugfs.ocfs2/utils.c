@@ -330,7 +330,6 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 	uint32_t wrote;
 	ocfs2_cached_inode *ci = NULL;
 	uint64_t offset = 0;
-	uint64_t filesize;
 
 	ret = ocfs2_read_cached_inode(fs, ino, &ci);
 	if (ret)
@@ -340,7 +339,7 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 	if (ret)
 		goto bail;
 
-	buflen = fs->fs_clustersize;
+	buflen = 1024 * 1024;
 
 	ret = ocfs2_malloc_blocks(fs->fs_io,
 				  (buflen >>
@@ -349,23 +348,24 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 	if (ret)
 		goto bail;
 
-	filesize = ci->ci_inode->i_size;
-
-	while (filesize) {
+	while (1) {
 		ret = ocfs2_file_read(ci, buf, buflen, offset, &got);
 		if (ret)
 			goto bail;
 
-		if (filesize < got)
-			got = filesize;
+		if (!got)
+			break;
 
 		wrote = write(fd, buf, got);
 		if (wrote != got) {
 			ret = errno;
 			goto bail;
 		}
-		offset += got;
-		filesize -= got;
+
+		if (got < buflen)
+			break;
+		else
+			offset += got;
 	}
 
 	if (preserve)
@@ -379,4 +379,124 @@ bail:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
 	return ret;
+}
+
+
+/*
+ * read_whole_file()
+ *
+ */
+errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf, uint32_t *buflen)
+{
+	errcode_t ret;
+	uint32_t got;
+	ocfs2_cached_inode *ci = NULL;
+
+	ret = ocfs2_read_cached_inode(fs, ino, &ci);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_extent_map_init(fs, ci);
+	if (ret)
+		goto bail;
+
+	/* bail if file size is larger than reasonable :-) */
+	if (ci->ci_inode->i_size > 100 * 1024 * 1024) {
+		ret = OCFS2_ET_INTERNAL_FAILURE;
+		goto bail;
+	}
+
+	*buflen = (((ci->ci_inode->i_size + fs->fs_blocksize - 1) >>
+		    OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits) <<
+		   OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
+
+	ret = ocfs2_malloc_blocks(fs->fs_io,
+				  (*buflen >>
+				   OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits),
+				  buf);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_file_read(ci, *buf, *buflen, 0, &got);
+	if (ret)
+		goto bail;
+
+bail:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+	return ret;
+}
+
+/*
+ * inode_perms_to_str()
+ *
+ */
+void inode_perms_to_str(uint16_t mode, char *str, int len)
+{
+	if (len < 11)
+		DBGFS_FATAL("internal error");
+
+	if (S_ISREG(mode))
+		str[0] = '-';
+	else if (S_ISDIR(mode))
+		str[0] = 'd';
+	else if (S_ISLNK(mode))
+		str[0] = 'l';
+	else if (S_ISCHR(mode))
+		str[0] = 'c';
+	else if (S_ISBLK(mode))
+		str[0] = 'b';
+	else if (S_ISFIFO(mode))
+		str[0] = 'f';
+	else if (S_ISSOCK(mode))
+		str[0] = 's';
+	else
+		str[0] = '-';
+
+	str[1] = (mode & S_IRUSR) ? 'r' : '-';
+	str[2] = (mode & S_IWUSR) ? 'w' : '-';
+	if (mode & S_ISUID)
+		str[3] = (mode & S_IXUSR) ? 's' : 'S';
+	else
+		str[3] = (mode & S_IXUSR) ? 'x' : '-';
+	
+	str[4] = (mode & S_IRGRP) ? 'r' : '-';
+	str[5] = (mode & S_IWGRP) ? 'w' : '-';
+	if (mode & S_ISGID)
+		str[6] = (mode & S_IXGRP) ? 's' : 'S';
+	else
+		str[6] = (mode & S_IXGRP) ? 'x' : '-';
+	
+	str[7] = (mode & S_IROTH) ? 'r' : '-';
+	str[8] = (mode & S_IWOTH) ? 'w' : '-';
+	if (mode & S_ISVTX)
+		str[9] = (mode & S_IXOTH) ? 't' : 'T';
+	else
+		str[9] = (mode & S_IXOTH) ? 'x' : '-';
+
+	str[10] = '\0';
+
+	return ;
+}
+
+/*
+ * inode_time_to_str()
+ *
+ */
+void inode_time_to_str(uint64_t timeval, char *str, int len)
+{
+	time_t tt = (time_t) timeval;
+	struct tm *tm;
+
+	static const char *month_str[] = {
+		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+	tm = localtime(&tt);
+
+	snprintf(str, len, "%2d-%s-%4d %02d:%02d", tm->tm_mday,
+		 month_str[tm->tm_mon], 1900 + tm->tm_year,
+		 tm->tm_hour, tm->tm_min);
+
+	return ;
 }
