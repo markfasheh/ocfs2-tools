@@ -1,12 +1,12 @@
-.TH OCFSTOOL 1 "August 2002" "Version @VERSION@" "OCFS Manual Pages"
+.TH OCFS2CONSOLE 1 "January 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH NAME
-ocfstool - GUI frontend for OCFS management and debugging
+ocfs2console - GUI frontend for OCFS2 management and debugging
 .SH SYNOPSIS
-.B ocfstool
+.B ocfs2console
 
 .SH DESCRIPTION
 .PP
-\fBocfstool\fP is a GUI frontend for managing and debugging OCFS volumes on
+\fBocfs2console\fP is a GUI frontend for managing and debugging OCFS2 volumes on
 the system. One can mount and unmount volumes, format, view overview
 information and individual files, see the current node map, and block
 bitmap.
@@ -15,10 +15,10 @@ bitmap.
 Stuff.
 
 .SH SEE ALSO
-.BR ocfs(5)
+.BR ocfs2(5)
 
 .SH AUTHORS
 Oracle Corporation
 
 .SH COPYRIGHT
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2002, 2005 Oracle Corporation

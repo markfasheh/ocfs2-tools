@@ -1,4 +1,4 @@
-# OCFS2Tool - GUI frontend for OCFS2 management and debugging
+# OCFS2Console - GUI frontend for OCFS2 management and debugging
 # Copyright (C) 2002, 2005 Oracle.  All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,7 @@
 OCFS2TOOL_VERSION = '0.0.2'
 
 def print_version():
-    print 'OCFS2Tool version %s' % OCFS2TOOL_VERSION
+    print 'OCFS2Console version %s' % OCFS2TOOL_VERSION
 
 def print_usage(name):
     print '''Usage: %s [OPTION]...
@@ -73,7 +73,7 @@ Boston, MA 02111-1307, USA.
         dialog.set_transient_for(pv.toplevel)
         dialog.set_destroy_with_parent(True)
 
-        set_props(dialog, name='OCFS2 Tool',
+        set_props(dialog, name='OCFS2 Console',
                           version=OCFS2TOOL_VERSION,
                           copyright=copyright,
                           license=license,
@@ -86,7 +86,7 @@ Boston, MA 02111-1307, USA.
                                    flags=gtk.DIALOG_DESTROY_WITH_PARENT,
                                    buttons=gtk.BUTTONS_CLOSE)
         dialog.label.set_text(
-'''OCFS2 Tool
+'''OCFS2 Console 
 Version %s
 Copyright (C) 2002, 2005 Oracle.
 All Rights Reserved.''' % OCFS2TOOL_VERSION)

@@ -1,4 +1,4 @@
-# OCFS2Tool - GUI frontend for OCFS2 management and debugging
+# OCFS2Console - GUI frontend for OCFS2 management and debugging
 # Copyright (C) 2002, 2005 Oracle.  All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
