@@ -25,7 +25,7 @@ then
     O2CB_MANAGER=/proc/cluster
 fi
 
-KVER="$(uname -r)"
+KVER="`uname -r`"
 MODPATH="/lib/modules/${KVER}/kernel/drivers/addon/o2cb"
 
 #
@@ -224,7 +224,7 @@ load_module()
     fi
     MODNAME="$1"
 
-    MODOUT="$(awk '$1 ~ /^'$MODNAME'$/{print $1;exit}' < /proc/modules 2>/dev/null)"
+    MODOUT="`awk '$1 ~ /^'$MODNAME'$/{print $1;exit}' < /proc/modules 2>/dev/null`"
     if [ -n "$MODOUT" ]
     then
         return 2
@@ -257,7 +257,7 @@ unload_module()
     fi
     MODNAME="$1"
 
-    MODOUT="$(awk '$1 ~ /^'$MODNAME'$/{print $1,$3;exit}' < /proc/modules 2>/dev/null)"
+    MODOUT="`awk '$1 ~ /^'$MODNAME'$/{print $1,$3;exit}' < /proc/modules 2>/dev/null`"
     if [ -z "$MODOUT" ]
     then
         return 2
@@ -302,8 +302,8 @@ mount_device()
     TYPE="$1"
     MNTPT="$2"
     FULL_MOUNT="${O2CB_MANAGER}/${MNTPT}"
-    FULL_MOUNTSEARCH="$(echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g')"
-    MOUNTOUT="$(awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null)"
+    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
+    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
 
     if [ -n "$MOUNTOUT" ]
     then
@@ -338,8 +338,8 @@ unmount_device()
     TYPE="$1"
     MNTPT="$2"
     FULL_MOUNT="${O2CB_MANAGER}/${MNTPT}"
-    FULL_MOUNTSEARCH="$(echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g')"
-    MOUNTOUT="$(awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null)"
+    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
+    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
 
     if [ -z "$MOUNTOUT" ]
     then
@@ -362,9 +362,9 @@ load()
 {
     for MODSPEC in $MODULE_LIST
     do
-        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
-        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
-        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
+        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
+        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
 
         load_module "$MODULE_NAME"
         if_fail "$?"
@@ -392,7 +392,7 @@ online()
     #
 
     echo -n "Starting cluster ${CLUSTER}: "
-    OUTPUT="$(o2cb_ctl -H -l "${O2CB_MANAGER}" -n "${CLUSTER}" -t cluster -a online=yes 2>&1)"
+    OUTPUT="`o2cb_ctl -H -l "${O2CB_MANAGER}" -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
     if_fail "$?" "$OUTPUT"
 }
 
@@ -423,9 +423,9 @@ unload()
 
     for MODSPEC in $R_MODLIST
     do
-        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
-        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
-        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
+        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
+        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
 
         if [ -n "$FSTYPE" -a -n "$MOUNT_POINT" ]
         then
@@ -456,9 +456,9 @@ status()
     RC=0
     for MODSPEC in $MODULE_LIST
     do
-        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
-        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
-        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
+        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
+        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
 
         if grep "^${MODULE_NAME} " /proc/modules >/dev/null 2>&1
         then
@@ -473,9 +473,9 @@ status()
     echo -n "Checking O2CB mount points: "
     for MODSPEC in $MODULE_LIST
     do
-        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
-        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
-        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
+        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
+        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
 
         if [ -z "$FSTYPE" -o -z "$MOUNT_POINT" ]
         then
@@ -483,7 +483,7 @@ status()
         fi
 
         FULL_MOUNT="${O2CB_MANAGER}/${MOUNT_POINT}"
-        FULL_MOUNTSEARCH="$(echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g')"
+        FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
         if grep "^${FSTYPE} ${FULL_MOUNTSEARCH} ${FSTYPE}" /proc/mounts >/dev/null 2>&1
         then
             echo -n "${MOUNT_POINT} "
