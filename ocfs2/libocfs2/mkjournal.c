@@ -79,7 +79,10 @@ errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 	jsb->s_blocksize = htonl(fs->fs_blocksize);
 	jsb->s_maxlen = htonl(size);
 	jsb->s_nr_users = htonl(1);
-	jsb->s_first = htonl(1);
+	if (fs->fs_blocksize == 512)
+		jsb->s_first = htonl(2);
+	else
+		jsb->s_first = htonl(1);
 	jsb->s_sequence = htonl(1);
 	memcpy(jsb->s_uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
 	       sizeof(OCFS2_RAW_SB(fs->fs_super)->s_uuid));
