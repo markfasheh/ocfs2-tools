@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SBIN_PROGRAMS = mount.ocfs2
+SBIN_PROGRAMS = mount.ocfs2 ocfs2_hb_ctl
 
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libo2cb/include -I$(TOPDIR)/libo2dlm/include
@@ -25,7 +25,7 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
 		-DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-CFILES = opts.c mount.ocfs2.c
+CFILES = opts.c mount.ocfs2.c mount_hb.c
 CFILES += fstab.c mntent.c realpath.c sundries.c xmalloc.c
 
 HFILES = $(subst .c,.h,$(CFILES))
@@ -33,12 +33,21 @@ HFILES += mount_constants.h nls.h paths.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES) $(HFILES)
+HB_CTL_CFILES = mount_hb.c ocfs2_hb_ctl.c
+HB_CTL_HFILES = $(subst .c,.h,$(HB_CTL_CFILES))
+HB_CTL_OBJS = $(subst .c,.o,$(HB_CTL_CFILES))
+
+DIST_FILES = $(CFILES) $(HFILES) $(HB_CTL_CFILES) $(HB_CTL_HFILES)
+
+all: mount.ocfs2 ocfs2_hb_ctl
 
 mount.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
 group: group.o $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+
+ocfs2_hb_ctl: $(HB_CTL_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make
