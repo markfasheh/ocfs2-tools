@@ -135,7 +135,8 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 
 	/* o_direct requires aligned io */
 	tmp = fs->fs_blocksize - 1;
-	if ((count & tmp) || (offset & (uint64_t)tmp) || ((uint32_t)ptr & tmp))
+	if ((count & tmp) || (offset & (uint64_t)tmp) ||
+	    ((unsigned long)ptr & tmp))
 		return OCFS2_ET_INVALID_ARGUMENT;
 
 	wanted_blocks = count >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
