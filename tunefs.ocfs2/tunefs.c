@@ -220,7 +220,6 @@ static void get_options(int argc, char **argv)
 		{ "version", 0, 0, 'V' },
 		{ "journal-options", 0, 0, 'J'},
 		{ "volume-size", 0, 0, 'S'},
-		{ "noprompt", 0, 0, 'x' },
 		{ 0, 0, 0, 0}
 	};
 
