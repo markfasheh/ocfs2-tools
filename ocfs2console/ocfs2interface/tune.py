@@ -72,15 +72,17 @@ def tune_action(widget_type, parent, device):
     dialog.set_default_response(gtk.RESPONSE_OK)
 
     table = gtk.Table(rows=1, columns=2)
-    set_props(table, row_spacing=4,
-                     column_spacing=4,
-                     border_width=4,
+    set_props(table, row_spacing=6,
+                     column_spacing=6,
+                     border_width=6,
                      parent=dialog.vbox)
 
-    label = gtk.Label(widget_type.label + ':')
-    set_props(label, xalign=1.0)
+    label = gtk.Label()
+    label.set_text_with_mnemonic(widget_type.label + ':')
+    set_props(label, xalign=0.0)
     table.attach(label, 0, 1, 0, 1)
 
+    label.set_mnemonic_widget(widget)
     table.attach(widget, 1, 2, 0, 1)
 
     if isinstance(widget, gtk.Entry):
@@ -121,6 +123,8 @@ def tune_action(widget_type, parent, device):
     command = list(base_command)
     command.extend(widget.get_arg())
 
+    command.append(device)
+
     dialog.destroy()
 
     tunefs = Process(command, widget_type.title, widget_type.action + '...',
@@ -140,8 +144,11 @@ def tune_nodes(parent, device):
     tune_action(TuneNumNodes, parent, device)
 
 def main():
-    tune_label(None, None)
-    tune_nodes(None, None)
+    import sys
+    device = sys.argv[1]
+
+    tune_label(None, device)
+    tune_nodes(None, device)
 
 if __name__ == '__main__':
     main()
