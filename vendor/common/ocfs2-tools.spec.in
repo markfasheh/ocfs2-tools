@@ -92,7 +92,7 @@ chkconfig o2cb on
 
 
 %files -n ocfs2console
-/usr/lib/python%{pyversion}
+%{_libdir}/python?.?/site-packages
 /usr/sbin/ocfs2console
 /usr/share/man/man8/ocfs2console.8.gz
 
