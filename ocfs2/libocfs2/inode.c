@@ -53,6 +53,34 @@
 #include "filesys.h"
 
 
+errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir)
+{
+	ocfs2_dinode *inode;
+	char *buf;
+	errcode_t ret;
+
+	if ((dir < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (dir > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_inode(fs, dir, buf);
+	if (ret)
+		goto out_buf;
+
+	inode = (ocfs2_dinode *)buf;
+	if (!S_ISDIR(inode->i_mode))
+		ret = OCFS2_ET_NO_DIRECTORY;
+
+out_buf:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf)
 {

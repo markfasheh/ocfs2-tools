@@ -84,6 +84,22 @@
 #define OCFS2_BLOCK_FLAG_APPEND		0x01
 
 
+/* Return flags for the directory iterator functions */
+#define OCFS2_DIRENT_CHANGED	1
+#define OCFS2_DIRENT_ABORT	2
+#define OCFS2_DIRENT_ERROR	3
+
+/* Directory iterator flags */
+#define OCFS2_DIRENT_FLAG_INCLUDE_EMPTY		1
+#define OCFS2_DIRENT_FLAG_INCLUDE_REMOVED	2
+
+/* Directory constants */
+#define OCFS2_DIRENT_DOT_FILE		1
+#define OCFS2_DIRENT_DOT_DOT_FILE	2
+#define OCFS2_DIRENT_OTHER_FILE		3
+#define OCFS2_DIRENT_DELETED_FILE	4
+
+
 typedef struct _ocfs2_filesys ocfs2_filesys;
 
 struct _ocfs2_filesys {
@@ -113,6 +129,7 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf);
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 			    char *inode_buf);
+errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir);
 
 errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 					  uint32_t size, int flags,
@@ -142,6 +159,34 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 					  uint64_t bcount,
 					  void *priv_data),
 			      void *priv_data);
+
+errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
+			       void *buf);
+errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
+				void *buf);
+
+errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
+			     uint64_t dir,
+			     int flags,
+			     char *block_buf,
+			     int (*func)(uint64_t	dir,
+					 int		entry,
+					 struct ocfs2_dir_entry *dirent,
+					 int	offset,
+					 int	blocksize,
+					 char	*buf,
+					 void	*priv_data),
+			     void *priv_data);
+extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs, 
+				   uint64_t dir,
+				   int flags,
+				   char *block_buf,
+				   int (*func)(struct ocfs2_dir_entry *dirent,
+					       int	offset,
+					       int	blocksize,
+					       char	*buf,
+					       void	*priv_data),
+				   void *priv_data);
 
 #endif  /* _FILESYS_H */
 

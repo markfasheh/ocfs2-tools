@@ -31,7 +31,7 @@ endif
 CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
-BIN_PROGRAMS += unix_io openfs inode extents
+BIN_PROGRAMS += unix_io openfs inode extents dir_iterate
 
 unix_io: unix_io.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
@@ -52,6 +52,11 @@ extents: extents.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
 		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
+
+dir_iterate: dir_iterate.c libocfs2.a
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
+		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
+		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 endif
 CFILES = 		\
 	unix_io.c	\
@@ -61,7 +66,9 @@ CFILES = 		\
 	freefs.c	\
 	inode.c		\
 	mkjournal.c	\
-	extents.c
+	extents.c	\
+	dirblock.c	\
+	dir_iterate.c
 
 HFILES =				\
 	include/jfs_user.h		\
@@ -74,7 +81,8 @@ HFILES =				\
 	include/memory.h		\
 	include/unix_io.h		\
 	include/byteorder.h		\
-	include/filesys.h
+	include/filesys.h		\
+	include/dir_iterate.h
 
 HFILES_GEN =		\
 	ocfs2_err.h

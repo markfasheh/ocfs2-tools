@@ -9,4 +9,5 @@ unix_io
 openfs
 inode
 extents
+dir_iterate
 ocfs2_err.et

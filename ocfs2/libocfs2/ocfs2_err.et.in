@@ -68,4 +68,10 @@ ec	OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC,
 ec	OCFS2_ET_CORRUPT_EXTENT_BLOCK,
 	"Extent block is corrupt"
 
+ec	OCFS2_ET_DIR_CORRUPTED,
+	"OCFS2 directory corrupted"
+
+ec	OCFS2_ET_NO_DIRECTORY,
+	"OCFS2 inode is not a directory"
+
 	end
