@@ -313,7 +313,7 @@ static inline int ocfs2_find_next_bit_set (void * addr, int size, int offset)
 #ifndef _OCFS2_HAVE_ASM_BITOPS_
 extern int ocfs2_set_bit(int nr,void * addr);
 extern int ocfs2_clear_bit(int nr, void * addr);
-extern int ext2fs_test_bit(int nr, const void * addr);
+extern int ocfs2_test_bit(int nr, const void * addr);
 #endif
 
 
