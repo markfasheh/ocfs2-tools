@@ -15,7 +15,7 @@ attributes and one stanza for each node.
 The stanza for the generic cluster attributes looks like so:
 
 cluster:
-	name = mycluster
+	name = ocfs2
 	node_count = 2
 
 Both attributes are required.  The cluster name must start with a letter
@@ -26,7 +26,7 @@ Each node is described by a stanza:
 
 node:
 	name = ca-test17
-	cluster = mycluster
+	cluster = ocfs2
 	number = 0
 	ip_address = 139.185.118.117
 	ip_port = 7777
@@ -86,7 +86,7 @@ If you want step 3 to occur on boot, you must name the cluster to start:
     will abort.
 
     Load O2CB driver on boot (y/n) [n]: y
-    Cluster to start on boot (Enter "none" to clear) []: mycluster
+    Cluster to start on boot (Enter "none" to clear) []: ocfs2
     Writing O2CB configuration: OK
 
 You can now start the cluster by hand as well, with:
@@ -103,7 +103,7 @@ To run steps 1 and 2:
 
 To start a cluster (step 3):
 
-    # /etc/init.d/o2cb online mycluster
+    # /etc/init.d/o2cb online ocfs2
 
 To stop a cluster and unload the modules, you simply use:
 
