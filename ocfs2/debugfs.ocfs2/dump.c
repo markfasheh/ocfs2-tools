@@ -71,6 +71,22 @@ void dump_super_block(ocfs2_super_block *sb)
 }				/* dump_super_block */
 
 /*
+ * dump_local_alloc()
+ *
+ */
+void dump_local_alloc (ocfs2_local_alloc *loc)
+{
+	printf("Local Bitmap Offset: %u   Size: %u\n",
+	       loc->la_bm_off, loc->la_size);
+
+	printf("\tTotal: %u   Used: %u   Clear: %u\n",
+	       loc->la_bm_bits, loc->la_bits_set,
+	       (loc->la_bm_bits - loc->la_bits_set));
+
+	return ;
+}				/* dump_local_alloc */
+
+/*
  * dump_inode()
  *
  */
@@ -87,32 +103,6 @@ void dump_inode(ocfs2_dinode *in)
 	__u16 mode;
 	GString *flags = NULL;
 	__u32 node_map;
-
-/*
-Inode: 32001   Type: directory    Mode:  0755   Flags: 0x0   Generation: 721849
-User:     0   Group:     0   Size: 4096
-File ACL: 0    Directory ACL: 0
-Links: 10   Clusters: 8
-Fragment:  Address: 0    Number: 0    Size: 0
-ctime: 0x40075ba0 -- Thu Jan 15 22:33:52 2004
-atime: 0x40075b9d -- Thu Jan 15 22:33:49 2004
-mtime: 0x40075ba0 -- Thu Jan 15 22:33:52 2004
-BLOCKS:
-(0):66040
-TOTAL: 1
-
-Inode: 64004   Type: regular    Mode:  0644   Flags: 0x0   Generation: 721925
-User:     0   Group:     0   Size: 1006409
-File ACL: 0    Directory ACL: 0
-Links: 1   Clusters: 1976
-Fragment:  Address: 0    Number: 0    Size: 0
-ctime: 0x40075b9d -- Thu Jan 15 22:33:49 2004
-atime: 0x40075b9d -- Thu Jan 15 22:33:49 2004
-mtime: 0x40075b9d -- Thu Jan 15 22:33:49 2004
-BLOCKS:
-(0-11):132071-132082, (IND):132083, (12-245):132084-132317
-TOTAL: 247
-*/
 
 	if (S_ISREG(in->i_mode))
 		str = "regular";
@@ -155,8 +145,10 @@ TOTAL: 247
 	if (in->i_flags & OCFS2_DLM_FL)
 		g_string_append (flags, "dlm ");
 
-	printf("Inode: %llu   Type: %s   Mode: 0%0o   Flags: %s   Generation: %u\n",
-	       in->i_blkno, str, mode, flags->str, in->i_generation);
+	printf("Inode: %llu   Mode: 0%0o   Generation: %u\n",
+	       in->i_blkno, mode, in->i_generation);
+
+	printf("Type: %s   Flags: %s\n", str, flags->str);
 
 	pw = getpwuid(in->i_uid);
 	gr = getgrgid(in->i_gid);
@@ -193,6 +185,11 @@ TOTAL: 247
 	printf("Last Extblk: %llu\n", in->i_last_eb_blk);
 	printf("Sub Alloc Node: %u   Sub Alloc Blknum: %llu\n",
 	       in->i_suballoc_node, in->i_suballoc_blkno);
+
+	if (in->i_flags & OCFS2_BITMAP_FL)
+		printf("Global Bitmap Total: %u   Used: %u   Clear: %u\n",
+		       in->id1.bitmap1.i_total, in->id1.bitmap1.i_used,
+		       (in->id1.bitmap1.i_total - in->id1.bitmap1.i_used));
 
 	if (flags)
 		g_string_free (flags, 1);
@@ -252,8 +249,8 @@ void dump_dir_entry(struct ocfs2_dir_entry *dir, int len)
 
 	p = (char *)dir;
 
-	printf("%-15s  %-6s  %-7s  %-4s  %-4s\n",
-	       "Inode", "Reclen", "Namelen", "Type", "Name");
+	printf("%-20s %-4s %-4s %-2s %-4s\n",
+	       "Inode", "Rlen", "Nlen", "Ty", "Name");
 
 	while (p < (((char *)dir) + len)) {
 		rec = (struct ocfs2_dir_entry *)p;

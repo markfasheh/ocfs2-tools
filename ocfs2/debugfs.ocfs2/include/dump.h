@@ -27,6 +27,7 @@
 #define __DUMP_H__
 
 void dump_super_block (ocfs2_super_block *sb);
+void dump_local_alloc (ocfs2_local_alloc *loc);
 void dump_inode (ocfs2_dinode *in);
 void dump_extent_list (ocfs2_extent_list *ext);
 void dump_extent_block (ocfs2_extent_block *blk);

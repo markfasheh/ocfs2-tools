@@ -473,7 +473,10 @@ static void do_inode (char **args)
 
 	dump_inode(inode);
 
-	traverse_extents (dev_fd, &(inode->id2.i_list), NULL, 1);
+	if ((inode->i_flags & OCFS2_LOCAL_ALLOC_FL))
+		dump_local_alloc(&(inode->id2.i_lab));
+	else
+		traverse_extents(dev_fd, &(inode->id2.i_list), NULL, 1);
 
 bail:
 	safefree (buf);
