@@ -83,4 +83,7 @@ ec	OCFS2_ET_DIR_NO_SPACE,
 ec	OCFS2_ET_INVALID_BIT,
 	"Bit does not exist in bitmap range"
 
+ec	OCFS2_ET_INTERNAL_FAILURE,
+	"Internal logic faliure"
+
 	end

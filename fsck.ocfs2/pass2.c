@@ -29,6 +29,7 @@
 
 #include "ocfs2.h"
 
+#include "dirparents.h"
 #include "icount.h"
 #include "fsck.h"
 #include "pass2.h"
@@ -52,22 +53,27 @@ static int dirent_has_dots(struct ocfs2_dir_entry *dirent, int num_dots)
 	return dirent->name[0] == '.';
 }
 
+static int expected_dots(o2fsck_dirblock_entry *dbe, int offset)
+{
+	if (dbe->e_blkcount == 0) {
+		if (offset == 0)
+			return 1;
+		if (offset == OCFS2_DIR_REC_LEN(1))
+			return 2;
+	}
+
+	return 0;
+}
+
 /* XXX this needs much stronger messages */
 static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 			   struct ocfs2_dir_entry *dirent, int offset, 
 			   int left)
 {
-	int expect_dots = 0;
+	int expect_dots = expected_dots(dbe, offset);
 	int ret_flags = 0, changed_len = 0;
 	struct ocfs2_dir_entry *next;
 	uint16_t new_len;
-
-	if (dbe->e_blkcount == 0) {
-		if (offset == 0)
-			expect_dots = 1;
-		if (offset == OCFS2_DIR_REC_LEN(1))
-			expect_dots = 2;
-	}
 
 	if (!expect_dots) {
 	       	if (!dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
@@ -90,13 +96,21 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		ret_flags = OCFS2_DIRENT_CHANGED;
 	}
 
-	/* 
-	 * We don't have the parent inode for .. so we don't check it yet.
-	 * It is reasonable for ..'s rec_len to go to the end of the
-	 * block for an empty directory, .'s can't because .. is next.
-	 */
-	if (expect_dots == 2)
+	/* we only record where .. points for now and that ends the
+	 * checks for .. */
+	if (expect_dots == 2) {
+		o2fsck_dir_parent *dp;
+		dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents,
+						dbe->e_ino);
+		if (dp == NULL)
+			fatal_error(OCFS2_ET_INTERNAL_FAILURE,
+				    "no dir parents for '..' entry for "
+				    "inode %"PRIu64, dbe->e_ino);
+
+		dp->dp_dot_dot = dirent->inode;
+					
 		return ret_flags;
+	}
 
 	if ((dirent->inode != dbe->e_ino) &&
             should_fix(ost, FIX_DEFYES, "invalid . directory, replace?")) {
@@ -201,6 +215,52 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	return ret_flags;
 }
 
+static int fix_dirent_linkage(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+			      struct ocfs2_dir_entry *dirent, int offset)
+{
+	int expect_dots = expected_dots(dbe, offset);
+	o2fsck_dir_parent *dp;
+	errcode_t err;
+	int is_dir;
+
+	/* we already took care of special-casing the dots */
+	if (expect_dots)
+		return 0;
+
+	/* we're only checking the linkage if we already found the dir 
+	 * this inode claims to be pointing to */
+	err = ocfs2_bitmap_test(ost->ost_dir_inodes, dirent->inode, &is_dir);
+	if (err)
+		fatal_error(err, "while checking for inode %"PRIu64" in the "
+				"dir bitmap", dirent->inode);
+	if (!is_dir)
+		return 0;
+
+	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, dirent->inode);
+	if (dp == NULL)
+		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "no dir parents for "
+				"'..' entry for inode %"PRIu64, dbe->e_ino);
+
+	/* if no dirents have pointed to this inode yet we record ours
+	 * as the first and move on */
+	if (dp->dp_dirent == 0) {
+		dp->dp_dirent = dbe->e_ino;
+		return 0;
+	}
+
+	if (should_fix(ost, 0, "directory inode %"PRIu64" is not the first to "
+		"claim to be the parent of subdir '%*s' (%"PRIu64").  Forget "
+		"this linkage and leave the previous parent of '%*s' intact?",
+		dbe->e_ino, dirent->name_len, dirent->name, dirent->inode,
+		dirent->name_len, dirent->name)) {
+
+		dirent->inode = 0;
+		return OCFS2_DIRENT_CHANGED;
+	}
+
+	return 0;
+}
+
 /* this could certainly be more clever to issue reads in groups */
 static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe, 
 					void *priv_data) 
@@ -240,17 +300,12 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		if (this_flags & OCFS2_DIRENT_CHANGED)
 			continue;
 
-		if (ret_flags & OCFS2_DIRENT_ABORT)
-			break;
-
 		ret_flags |= fix_dirent_dots(dd->ost, dbe, dirent, offset, 
 					     dd->fs->fs_blocksize - offset);
-		if (ret_flags & OCFS2_DIRENT_ABORT)
-			break;
 
 		ret_flags |= fix_dirent_name(dd->ost, dbe, dirent, offset);
-		if (ret_flags & OCFS2_DIRENT_ABORT)
-			break;
+
+		ret_flags |= fix_dirent_linkage(dd->ost, dbe, dirent, offset);
 
 		offset += dirent->rec_len;
 		prev = dirent;
@@ -262,6 +317,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 errcode_t o2fsck_pass2(o2fsck_state *ost)
 {
 	errcode_t retval;
+	o2fsck_dir_parent *dp;
 	struct dirblock_data dd = {
 		.ost = ost,
 		.fs = ost->ost_fs,
@@ -270,6 +326,17 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 	retval = ocfs2_malloc_block(ost->ost_fs->fs_io, &dd.buf);
 	if (retval)
 		return retval;
+
+	/* 
+	 * Mark the root directory's dirent parent as itself if we found the
+	 * inode during inode scanning.  The dir will be created in pass3
+	 * if it didn't exist already.  XXX we should do this for our other
+	 * magical directories.
+	 */
+	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, 
+					ost->ost_fs->fs_root_blkno);
+	if (dp)
+		dp->dp_dirent = ost->ost_fs->fs_root_blkno;
 
 	o2fsck_dir_block_iterate(&ost->ost_dirblocks, pass2_dir_block_iterate, 
 			 	 &dd);

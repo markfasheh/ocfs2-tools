@@ -142,6 +142,7 @@ int main(int argc, char **argv)
 	memset(ost, 0, sizeof(o2fsck_state));
 	ost->ost_ask = 1;
 	ost->ost_dirblocks.db_root = RB_ROOT;
+	ost->ost_dir_parents = RB_ROOT;
 
 	/* These mean "autodetect" */
 	blksize = 0;

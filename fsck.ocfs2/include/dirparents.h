@@ -1,5 +1,5 @@
 /*
- * fsck.h
+ * dirparents.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,35 +21,24 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_FSCK_H__
-#define __O2FSCK_FSCK_H__
+#ifndef __O2FSCK_DIRPARENTS_H__
+#define __O2FSCK_DIRPARENTS_H__
 
-#include "icount.h"
-#include "dirblocks.h"
+typedef struct _o2fsck_dir_parent {
+	struct rb_node	dp_node;
+	uint64_t 	dp_ino; /* The dir inode in question. */
 
-typedef struct _o2fsck_state {
-	ocfs2_filesys 	*ost_fs;
+	uint64_t 	dp_dot_dot; /* The parent according to the dir's own 
+				     * '..' entry */
 
-	ocfs2_bitmap	*ost_used_inodes;
-	ocfs2_bitmap	*ost_bad_inodes;
-	ocfs2_bitmap	*ost_dir_inodes;
-	ocfs2_bitmap	*ost_reg_inodes;
+	uint64_t 	dp_dirent; /* The inode that has a dirent which points
+				    * to this directory.  */
+} o2fsck_dir_parent;
 
-	ocfs2_bitmap	*ost_found_blocks;
-	ocfs2_bitmap	*ost_dup_blocks;
+void o2fsck_add_dir_parent(struct rb_root *root, uint64_t ino, 
+			uint64_t dot_dot, uint64_t dirent);
 
-	o2fsck_icount	*ost_icount_in_inodes;
-	o2fsck_icount	*ost_icount_refs;
-
-	o2fsck_dirblocks	ost_dirblocks;
-
-	struct rb_root	ost_dir_parents;
-
-	/* flags */
-	unsigned	ost_ask:1,	/* confirm with the user */
-			ost_answer:1,	/* answer if we don't ask the user */
-			ost_force:1;	/* -f supplied; force check */
-} o2fsck_state;
-
-#endif /* __O2FSCK_FSCK_H__ */
+o2fsck_dir_parent *o2fsck_dir_parent_lookup(struct rb_root *root, 
+						uint64_t ino);
+#endif /* __O2FSCK_DIRPARENTS_H__ */
 

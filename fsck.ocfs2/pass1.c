@@ -30,6 +30,7 @@
 #include "ocfs2.h"
 
 #include "dirblocks.h"
+#include "dirparents.h"
 #include "icount.h"
 #include "fsck.h"
 #include "pass1.h"
@@ -108,6 +109,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	if (S_ISDIR(di->i_mode)) {
 		/* XXX record dir for dir block walk */
 		ocfs2_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
+		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0);
 	} else if (S_ISREG(di->i_mode)) {
 		ocfs2_bitmap_set(ost->ost_reg_inodes, blkno, NULL);
 	} else if (S_ISLNK(di->i_mode)) {
