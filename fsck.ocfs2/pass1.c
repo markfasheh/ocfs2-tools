@@ -231,7 +231,7 @@ static void check_link_data(struct verifying_blocks *vb)
 		if (prompt(ost, PN, "The target of symlink inode %"PRIu64" "
 			   "fits in %"PRIu64" blocks but the inode has "
 			   "%"PRIu64" allocated.  Clear the inode?", 
-			   di->i_blkno, expected, di->i_blkno)) {
+			   di->i_blkno, expected, vb->vb_num_blocks)) {
 			vb->vb_clear = 1;
 			return;
 		}

@@ -447,8 +447,7 @@ static inline uint64_t ocfs2_blocks_in_bytes(ocfs2_filesys *fs, uint64_t bytes)
 	uint64_t ret = bytes + fs->fs_blocksize - 1;
 
 	if (ret < bytes) /* deal with wrapping */
-		ret = UINT64_MAX;
-		return ret;
+		return UINT64_MAX;
 
 	return ret >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 }
