@@ -2,6 +2,6 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SUBDIRS = libocfs2 fsck.ocfs2
+SUBDIRS = format
 
 include $(TOPDIR)/Postamble.make
