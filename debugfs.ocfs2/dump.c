@@ -177,6 +177,13 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		       in->id1.bitmap1.i_total, in->id1.bitmap1.i_used,
 		       (in->id1.bitmap1.i_total - in->id1.bitmap1.i_used));
 
+	if (in->i_flags & OCFS2_JOURNAL_FL) {
+		fprintf(out, "\tJournal Flags: ");
+		if (in->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL)
+			fprintf(out, "Dirty ");
+		fprintf(out, "\n");
+	}
+
 	if (flags)
 		g_string_free (flags, 1);
 	return ;
