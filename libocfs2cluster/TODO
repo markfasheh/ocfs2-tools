@@ -1,0 +1,7 @@
+* change the name and/or path of /etc/cluster.conf to something friendlier
+  maybe /etc/sysconfig/cluster/xxxx or similar
+* change the cluster.conf format to jlbec's stanza style
+* harden the tools for setuid-ness
+* fix mount.ocfs2 to handle other normal mount options appropriately (at least
+  handle rw, which is passed magically by /sbin/mount)
+

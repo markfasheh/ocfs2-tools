@@ -267,6 +267,7 @@ static void format_file(State *s, SystemFileDiskRecord *rec);
 static void write_metadata(State *s, SystemFileDiskRecord *rec, void *src);
 static void write_bitmap_data(State *s, AllocBitmap *bitmap);
 static void write_directory_data(State *s, DirData *dir);
+static void write_slot_map_data(State *s, SystemFileDiskRecord *slot_map_rec);
 static void write_group_data(State *s, AllocGroup *group);
 static void format_leading_space(State *s);
 static void replacement_journal_create(State *s, uint64_t journal_off);
@@ -292,6 +293,7 @@ extern int optind, opterr, optopt;
 SystemFileInfo system_files[] = {
 	{ "bad_blocks", SFI_OTHER, 1, 0 },
 	{ "global_inode_alloc", SFI_CHAIN, 1, 0 },
+	{ "slot_map", SFI_OTHER, 1, 0 },
 	{ "dlm", SFI_DLM, 1, 0 },
 	{ "global_bitmap", SFI_CLUSTER, 1, 0 },
 	{ "orphan_dir", SFI_OTHER, 1, 1 },
@@ -443,9 +445,8 @@ main(int argc, char **argv)
 		cpu_to_le64(tmprec->fe_off >> s->blocksize_bits);
 
 	tmprec = &(record[DLM_SYSTEM_INODE][0]);
-	need = (AUTOCONF_BLOCKS(s->initial_nodes, 32) +
-		PUBLISH_BLOCKS(s->initial_nodes, 32) +
-		VOTE_BLOCKS(s->initial_nodes, 32)) << s->blocksize_bits;
+	need = (OCFS2_MAX_NODES + 1) << s->blocksize_bits;
+
 	alloc_bytes_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	tmprec->file_size = need;
 
@@ -454,6 +455,10 @@ main(int argc, char **argv)
 	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	add_entry_to_directory(s, orphan_dir, ".", tmprec->fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, orphan_dir, "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
+
+	tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
+	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
+	tmprec->file_size = s->cluster_size;
 
 	format_leading_space(s);
 	format_superblock(s, &superblock_rec, &root_dir_rec, &system_dir_rec);
@@ -493,6 +498,9 @@ main(int argc, char **argv)
 	write_bitmap_data(s, s->global_bm);
 
 	write_group_data(s, s->system_group);
+
+	tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
+	write_slot_map_data(s, tmprec);
 
 	write_directory_data(s, root_dir);
 	write_directory_data(s, system_dir);
@@ -1686,6 +1694,28 @@ static void
 write_directory_data(State *s, DirData *dir)
 {
 	write_metadata(s, dir->record, dir->buf);
+}
+
+static void
+write_slot_map_data(State *s, SystemFileDiskRecord *slot_map_rec)
+{
+	int i, num;
+	int16_t *slot_map;
+
+	/* we only use the 1st block of this file, the rest is zero'd
+	 * out. */
+	num = s->blocksize / sizeof(int16_t);
+
+	slot_map = do_malloc(s, slot_map_rec->extent_len);
+	memset(slot_map, 0, slot_map_rec->extent_len);
+
+	for(i = 0; i < num; i++)
+		slot_map[i] = cpu_to_le16(-1);
+
+	do_pwrite(s, slot_map, slot_map_rec->extent_len,
+		  slot_map_rec->extent_off);
+
+	free(slot_map);
 }
 
 static void

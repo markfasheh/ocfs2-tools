@@ -97,6 +97,11 @@
 #define OCFS2_CHAIN_FL		(0x00000400)	/* Chain allocator */
 
 /*
+ * Journal Flags (ocfs2_dinode.id1.journal1.i_flags)
+ */
+#define OCFS2_JOURNAL_DIRTY_FL	(0x00000001)	/* Journal needs recovery */
+
+/*
  * superblock s_state flags
  */
 #define OCFS2_ERROR_FS		(0x00000001)	/* FS saw errors */
@@ -126,8 +131,9 @@ typedef struct _ocfs2_sysfile_info {
 enum {
 	BAD_BLOCK_SYSTEM_INODE = 0,
 	GLOBAL_INODE_ALLOC_SYSTEM_INODE,
+	SLOT_MAP_SYSTEM_INODE,
+#define OCFS2_FIRST_ONLINE_SYSTEM_INODE SLOT_MAP_SYSTEM_INODE
 	DLM_SYSTEM_INODE,
-#define OCFS2_FIRST_ONLINE_SYSTEM_INODE DLM_SYSTEM_INODE
 	GLOBAL_BITMAP_SYSTEM_INODE,
 	ORPHAN_DIR_SYSTEM_INODE,
 #define OCFS2_LAST_GLOBAL_SYSTEM_INODE ORPHAN_DIR_SYSTEM_INODE
@@ -145,6 +151,7 @@ static ocfs2_sysfile_info sysfile_info[NUM_SYSTEM_INODES] = {
 	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	{ "global_inode_alloc", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, 0 },
 
 	/* These are used by the running filesystem */
+	[SLOT_MAP_SYSTEM_INODE]			{ "slot_map", 0, 0 },
 	[DLM_SYSTEM_INODE]			{ "dlm", OCFS2_DLM_FL, 0 },
 	[GLOBAL_BITMAP_SYSTEM_INODE]		{ "global_bitmap", 0, 0 },
 	[ORPHAN_DIR_SYSTEM_INODE]		{ "orphan_dir", 0, 1 },
