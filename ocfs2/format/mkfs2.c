@@ -531,7 +531,7 @@ void adjust_volume_size()
 	volume_size_in_bytes = vsize;
 }
 
-static inline __u32 mmap_len(void);
+static inline size_t mmap_len(void);
 
 /* total guess */
 static inline size_t mmap_len(void)
