@@ -82,71 +82,10 @@ int add_to_local_group(char *uuid, __u16 group_num, __u16 node_num);
 int create_group(char *uuid, __u16 *group_num);
 int get_my_nodenum(__u16 *nodenum);
 int add_me_to_group(char *groupname, char *groupdev);
-static errcode_t ocfs2_partition_list (struct list_head *dev_list);
-static void ocfs2_partition_list_destroy (struct list_head *dev_list);
 int ocfs2_detect_one(char *dev, char *uuid, int uuid_size);
-static errcode_t ocfs2_detect_all(char *dev_arg, struct list_head *dev_list);
-static int read_options(int argc, char **argv, char **hbuuid, char **hbdev, char **device, char **mp);
+static int read_options(int argc, char **argv, char **device, char **mp);
 
 char *op_buf = NULL;
-
-
-
-/*
- * ocfs2_partition_list()
- *
- */
-static errcode_t ocfs2_partition_list (struct list_head *dev_list)
-{
-	errcode_t ret = 0;
-	FILE *proc;
-	char line[256];
-	char name[256];
-	ocfs2_devices *dev;
-
-	proc = fopen ("/proc/partitions", "r");
-	if (proc == NULL) {
-		ret = OCFS2_ET_IO;
-		goto bail;
-	}
-
-	while (fgets (line, sizeof(line), proc) != NULL) {
-		if (sscanf(line, "%*d %*d %*d %99[^ \t\n]", name) != 1)
-			continue;
-
-		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
-		if (ret)
-			goto bail;
-
-		snprintf(dev->dev_name, sizeof(dev->dev_name), "/dev/%s", name);
-		list_add_tail(&(dev->list), dev_list);
-	}
-
-bail:
-	if (proc)
-		fclose(proc);
-
-	return ret;
-}
-
-
-/*
- * ocfs2_partition_list_destroy()
- *
- */
-static void ocfs2_partition_list_destroy (struct list_head *dev_list)
-{
-	struct list_head *iter, *tmpiter;
-	ocfs2_devices *dev;
-
-	list_for_each_safe(iter, tmpiter, dev_list) {
-		dev = list_entry(iter, ocfs2_devices, list);
-		list_del(&dev->list);
-		free(dev);
-	}
-}
-
-
 
 /* returns fs_type: 0 for unknown, 1 for ocfs, 2 for ocfs2 */
 int ocfs2_detect_one(char *dev, char *uuid, int uuid_size)
@@ -174,65 +113,15 @@ out:
 }
 
 /*
- * ocfs2_detect_all()
- *
- */
-static errcode_t ocfs2_detect_all(char *dev_arg, struct list_head *dev_list)
-{
-	errcode_t ret = 0;
-	struct list_head *pos1;
-	ocfs2_devices *dev;
-	int missing = 1;
-
-	ret = ocfs2_partition_list(dev_list);
-	if (ret) {
-		com_err("mount.ocfs2", ret, "while reading /proc/partitions");
-		return ret;
-	}
-
-	list_for_each(pos1, dev_list) {
-		dev = list_entry(pos1, ocfs2_devices, list);
-
-		dev->fs_type = ocfs2_detect_one(dev->dev_name,
-						dev->uuid,
-						sizeof(dev->uuid));
-		if (missing && !strcasecmp(dev_arg, dev->dev_name))
-			missing = 0;
-	}
-
-	/* let's still consider the given device even if its not
-	 * in /proc/partitions, m'kay? */
-	if (missing) {
-		dev = calloc(1, sizeof(*dev));
-		if (dev == NULL) {
-			ret = OCFS2_ET_NO_MEMORY;
-			com_err("mount.ocfs2", ret, "while allocating a dev");
-			return ret;
-		}
-
-		snprintf(dev->dev_name, sizeof(dev->dev_name), "%s", dev_arg);
-
-		dev->fs_type = ocfs2_detect_one(dev->dev_name,
-						dev->uuid,
-						sizeof(dev->uuid));
-		if (dev->fs_type == 2)
-			list_add_tail(&(dev->list), dev_list);
-		else 
-			free(dev);
-	}
-	return ret;
-}
-
-
-/*
  * read_options()
  *
  */
-static int read_options(int argc, char **argv, char **hbuuid, char **hbdev, char **device, char **mp)
+//static int read_options(int argc, char **argv, char **hbuuid, char **hbdev, char **device, char **mp)
+static int read_options(int argc, char **argv, char **device, char **mp)
 {
 	int ret = 0;
 	int c;
-	char *tmp, *tmp2;
+	char *tmp;
 
 	if (argc < 2) {
 		ret = 1;
@@ -249,35 +138,14 @@ static int read_options(int argc, char **argv, char **hbuuid, char **hbdev, char
 			ret = 1;
 			tmp = optarg;
 			while (*tmp) {
-				if (strncasecmp(tmp, "hbuuid=", strlen("hbuuid="))==0) {
-					tmp += strlen("hbuuid=");
-					tmp2 = strchr(tmp, ',');
-					
-					/* uuid should be exactly 32 hex chars */
-					if (tmp2) {
-						if (tmp2-tmp != 32)
-							goto bail;
-					} else {
-						if (strlen(tmp) != 32)
-							goto bail;
-					}
-					*hbuuid = strndup(tmp, 32);
-				} else if (strncasecmp(tmp, "hbdev=", strlen("hbdev="))==0) {
-					tmp += strlen("hbdev=");
-					tmp2 = strchr(tmp, ',');
-					if (!tmp2)
-						tmp2 = tmp + strlen(tmp);
-					if (tmp2-tmp <= 0)
-						goto bail;
-					*hbdev = strndup(tmp, tmp2-tmp);
-				} else {
-					/* unknown option, ignore
-					 * these for now, but we need
-					 * to eventually handle
-					 * them. */
-					tmp2 = strchr(tmp, ',');
-				}
-				tmp = tmp2;
+				/* TODO: Fill me in with all the -o
+				 * options we'll honor. */
+
+				/* unknown option, ignore
+				 * these for now, but we need
+				 * to eventually handle
+				 * them. */
+				tmp = strchr(tmp, ',');
 				if (!tmp || !*tmp)
 					break;
 				tmp++;
@@ -312,18 +180,13 @@ bail:
 int main(int argc, char **argv)
 {
 	char *device = NULL, *mountpoint = NULL;
-	char *hbdev = NULL, *hbuuid = NULL;
+	char *hbuuid = NULL;
 	errcode_t ret = 0;
-	struct list_head dev_list;
-	char uuid[40];
 	ocfs2_devices *dev;
-	struct list_head *iter;
 	char *p;
-	int i, found = 0;
+	int i;
 	unsigned long flags = 0;
 	char *args = NULL;
-
-	INIT_LIST_HEAD(&dev_list);
 
 	op_buf = malloc(PAGE_SIZE);
 	if (!op_buf) {
@@ -331,82 +194,58 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
-	ret = read_options (argc, argv, &hbuuid, &hbdev, &device, &mountpoint);
-	if (ret)
-		goto bail;
-	
-	ret = 1;
-	if (!device)
-		goto bail;
-
-	/* provide nothing or one, not both */
-	if (hbuuid && hbdev)
-		goto bail;
-
-	ret = ocfs2_detect_all(device, &dev_list);
-	if (ret)
-		goto bail;
-
-	found = 0;
-	/* sort out which device is to be used for heartbeat */
-	if (hbuuid) {
-		list_for_each(iter, &dev_list) {
-			dev = list_entry(iter, ocfs2_devices, list);
-			if (dev->fs_type != 2)
-				continue;
-
-			memset(uuid, 0, sizeof(uuid));
-			for (i = 0, p = uuid; i < 16; i++, p += 2)
-				sprintf(p, "%02X", dev->uuid[i]);
-			if (strncasecmp(uuid, hbuuid, 32)==0) {
-				/* found it */
-				strncpy(hbuuid, uuid, 32);  // normalized uuid
-				hbdev = strdup(dev->dev_name);
-				found = 1;
-				break;
-			}
-		}
-	} else {
-		char *look_for = (hbdev ? hbdev : device);
-		
-		/* broken for now.  have to give exact dev name in /proc/partitions */
-		list_for_each(iter, &dev_list) {
-			dev = list_entry(iter, ocfs2_devices, list);
-			if (dev->fs_type != 2)
-				continue;
-
-			if (strcasecmp(dev->dev_name, look_for)==0) {
-				/* found it */
-				if (!hbdev)
-					hbdev = strdup(dev->dev_name);
-				else
-					strcpy(hbdev, dev->dev_name);
-				hbuuid = malloc(33);
-				memset(hbuuid, 0, 33);
-				for (i = 0, p = hbuuid; i < 16; i++, p += 2)
-					sprintf(p, "%02X", dev->uuid[i]);
-				found = 1;
-				break;
-			}
-		}
-	}
-	if (!found) {
-		ret = 1;
+	ret = read_options (argc, argv, &device, &mountpoint);
+	if (ret) {
+		com_err("mount.ocfs2", ret, "while reading options");
 		goto bail;
 	}
 
-	/* all three should now have valid values */
-	printf("device=%s hbuuid=%s hbdev=%s\n", device, hbuuid, hbdev);
+	if (!device) {
+		ret = OCFS2_ET_BAD_DEVICE_NAME;
+		com_err("mount.ocfs2", ret, "no device specified");
+		goto bail;
+	}
+	if (!mountpoint) {
+		ret = OCFS2_ET_INVALID_ARGUMENT;
+		com_err("mount.ocfs2", ret, "no mountpoint specified");
+		goto bail;
+	}
 
-	ret = add_me_to_group(hbuuid, hbdev);
+	dev = calloc(1, sizeof(*dev));
+	if (dev == NULL) {
+		ret = OCFS2_ET_NO_MEMORY;
+		com_err("mount.ocfs2", ret, "while allocating a dev");
+		goto bail;
+	}
+	snprintf(dev->dev_name, sizeof(dev->dev_name), "%s", device);
+
+	ret = ocfs2_detect_one(dev->dev_name, dev->uuid, sizeof(dev->uuid));
+	if (ret != 2) {
+		com_err("mount.ocfs2", ret, "while opening the file system");
+		goto bail;
+	}
+	dev->fs_type = ret;
+
+	hbuuid = malloc(33);
+	memset(hbuuid, 0, 33);
+	for (i = 0, p = hbuuid; i < 16; i++, p += 2)
+		sprintf(p, "%02X", dev->uuid[i]);
+
+	printf("device=%s hbuuid=%s\n", device, hbuuid);
+
+	ret = add_me_to_group(hbuuid, device);
 	if (ret < 0) {
-		printf("eeek! something bad happened in add_me_to_group: ret=%d\n", (int)ret);
+		printf("eeek! something bad happened in add_me_to_group: "
+		       "ret=%d\n", (int)ret);
 		goto bail;
 	}
 
 	args = malloc(strlen(hbuuid) + strlen("group=") + 1);
-	if (!args)
+	if (!args) {
+		ret = OCFS2_ET_NO_MEMORY;
+		com_err("mount.ocfs2", ret, "while allocating memory");
 		goto bail;
+	}
 	sprintf(args, "group=%s", hbuuid);
 	flags = 0;
 	ret = mount(device, mountpoint, "ocfs2", flags, args);
@@ -418,12 +257,8 @@ bail:
 		free(device);
 	if (mountpoint)
 		free(mountpoint);
-	if (hbdev)
-		free(hbdev);
 	if (hbuuid)
 		free(hbuuid);
-
-	ocfs2_partition_list_destroy (&dev_list);
 
 	if (op_buf)
 		free(op_buf);
