@@ -304,8 +304,6 @@ static char *file_type_string(uint8_t type)
 static int fix_dirent_filetype(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 				struct ocfs2_dir_entry *dirent, int offset)
 {
-	char *buf;
-	ocfs2_dinode *dinode;
 	uint8_t expected_type;
 	errcode_t err;
 	int was_set;
@@ -330,19 +328,9 @@ static int fix_dirent_filetype(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		goto check;
 	}
 
-	err = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
-	if (err)
-		fatal_error(err, "while allocating inode buffer to verify an "
-				"inode's file type");
-
-	err = ocfs2_read_inode(ost->ost_fs, dirent->inode, buf);
-	if (err)
-		fatal_error(err, "reading inode %"PRIu64" when verifying "
-			"an entry's file type", dirent->inode);
-
-	dinode = (ocfs2_dinode *)buf; 
-	expected_type = ocfs_type_by_mode[(dinode->i_mode & S_IFMT)>>S_SHIFT];
-	ocfs2_free(&buf);
+	err = o2fsck_type_from_dinode(ost, dirent->inode, &expected_type);
+	if (err) /* XXX propogate this? */
+		goto out;
 
 check:
 	if ((dirent->file_type != expected_type) &&
@@ -358,7 +346,7 @@ check:
 		return OCFS2_DIRENT_CHANGED;
 	}
 
-
+out:
 	return 0;
 }
 

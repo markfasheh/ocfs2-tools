@@ -30,6 +30,7 @@
  */
 #include <inttypes.h>
 #include <string.h>
+#include <limits.h>
 
 #include <ocfs2.h>
 
@@ -76,11 +77,11 @@ static void check_lostfound(o2fsck_state *ost)
 {
 	char name[] = "lost+found";
 	int namelen = sizeof(name) - 1;
-	uint64_t blkno = 0;
+	uint64_t blkno;
 	errcode_t ret;
 
 	ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_root_blkno, name,
-			   namelen, NULL, &blkno);
+			   namelen, NULL, &ost->ost_lostfound_ino);
 	if (ret == 0)
 		return;
 
@@ -88,7 +89,6 @@ static void check_lostfound(o2fsck_state *ost)
 		    "that we an possibly fill it with orphaned inodes?"))
 		return;
 
-	blkno = 0;
 	ret = ocfs2_new_inode(ost->ost_fs, &blkno, 0755 | S_IFDIR);
 	if (ret) {
 		com_err(whoami, ret, "while trying to allocate a new inode "
@@ -113,8 +113,6 @@ static void check_lostfound(o2fsck_state *ost)
 		goto out;
 	}
 
-	blkno = 0;
-
 	/* XXX maybe this should be a helper to clean up the dir tracking
 	 * for any new dir.  "2" for both the l+f dirent pointing to the
 	 * inode and the "." dirent in its dirblock */
@@ -126,6 +124,8 @@ static void check_lostfound(o2fsck_state *ost)
 	/* we've already iterated through the dirblocks in pass2 so there
 	 * is no need to register l+f's new dir block */
 
+	ost->ost_lostfound_ino = blkno;
+	blkno = 0;
 out:
 	if (blkno) {
 		ret = ocfs2_delete_inode(ost->ost_fs, blkno);
@@ -199,18 +199,74 @@ static void fix_dot_dot(o2fsck_state *ost, o2fsck_dir_parent *dir)
 /* add a directory entry that points to a given inode in lost+found. */
 void o2fsck_reconnect_file(o2fsck_state *ost, uint64_t inode)
 {
+	static char iname[NAME_MAX + 1];
+	char name[] = "lost+found";
+	int namelen = sizeof(name) - 1;
 	o2fsck_dir_parent *dp;
-	fatal_error(OCFS2_ET_INTERNAL_FAILURE, "not implemented yet");
-	/* up the icount ref */
-	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents,
-				dp->dp_ino);
-	if (dp == NULL)
-		fatal_error(OCFS2_ET_INTERNAL_FAILURE,
-				"no dir parents for reconnected inode "
-				"%"PRIu64, dp->dp_ino);
-	dp->dp_dirent = 1/* XXX lost and found */;
-	fix_dot_dot(ost, dp);
-	/* XXX mark invalid if this fails */
+	errcode_t ret;
+	uint8_t type;
+	int len;
+
+	if (ost->ost_lostfound_ino == 0) {
+		ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_root_blkno,
+				   name, namelen, NULL,
+				   &ost->ost_lostfound_ino);
+		if (ret) {
+			com_err(whoami, ret, "while trying to find the "
+				"/lost+found directory so that inode "
+				"%"PRIu64" could be moved there.", inode);
+			goto out;
+		}
+	}
+
+	len = snprintf(iname, sizeof(iname), "#%"PRIu64, inode);
+	if (len <= 0) {
+		ret = OCFS2_ET_NO_MEMORY;
+		com_err(whoami, ret, "while trying to build a new file name "
+			"for inode %"PRIu64" to use in /lost+found", inode);
+		goto out;
+	}
+
+	ret = o2fsck_type_from_dinode(ost, inode, &type);
+	if (ret)
+		goto out;
+
+	/* XXX I gotta say, ocfs2_link_and_expand() seems pretty reasonable */
+	ret = ocfs2_link(ost->ost_fs, ost->ost_lostfound_ino, iname, inode,
+			 type);
+	if (ret) {
+		if (ret == OCFS2_ET_DIR_NO_SPACE) {
+			ret = ocfs2_expand_dir(ost->ost_fs,
+					       ost->ost_lostfound_ino,
+					       ost->ost_fs->fs_root_blkno);
+			if (ret == 0)
+				ret = ocfs2_link(ost->ost_fs,
+						 ost->ost_lostfound_ino,
+						 iname, inode, type);
+		}
+		com_err(whoami, ret, "while trying to link inode %"PRIu64" "
+			"into /lost+found", inode);
+		goto out;
+	}
+
+	/* add another ref to account for this new dirent */
+	o2fsck_icount_delta(ost->ost_icount_refs, inode, 1);
+
+	/* if we just added a directory to l+f we need to track that 
+	 * the new dirent points to the dir.  we leave the dot_dot tracking
+	 * intact because we didn't change that in the dirblock.. */
+	if (type == OCFS2_FT_DIR) {
+		dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, inode);
+		if (dp == NULL) {
+			ret = OCFS2_ET_INTERNAL_FAILURE;
+			com_err(whoami, ret, "while looking up the directory "
+				"parent structure for inode %"PRIu64, inode);
+			goto out;
+		}
+		dp->dp_dirent = ost->ost_lostfound_ino;
+	}
+
+out:
 	return;
 }
 

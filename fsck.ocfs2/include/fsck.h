@@ -52,6 +52,7 @@ typedef struct _o2fsck_state {
 	o2fsck_dirblocks	ost_dirblocks;
 
 	uint32_t	ost_fs_generation;
+	uint64_t	ost_lostfound_ino;
 
 	struct rb_root	ost_dir_parents;
 

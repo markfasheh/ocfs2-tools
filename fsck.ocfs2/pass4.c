@@ -119,7 +119,10 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 
 		if (ref_ret != inode_ret || ref_blkno != inode_blkno) {
 			printf("fsck's internal inode link count tracking "
-			       "isn't consistent\n");
+			       "isn't consistent. (ref_ret = %d ref_blkno = "
+			       "%"PRIu64" inode_ret = %d inode_blkno = "
+			       "%"PRIu64"\n", (int)ref_ret, ref_blkno,
+			       (int)inode_ret, inode_blkno);
 			ret = OCFS2_ET_INTERNAL_FAILURE;
 			break;
 		}

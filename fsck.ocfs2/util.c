@@ -68,3 +68,36 @@ void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,
 	while(num--)
 		o2fsck_mark_cluster_allocated(ost, cluster++);
 }
+
+errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
+				  uint8_t *type)
+{
+	char *buf = NULL;
+	errcode_t ret;
+	ocfs2_dinode *dinode;
+	char *whoami = __FUNCTION__;
+
+	*type = 0;
+
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating an inode buffer to "
+			"read and discover the type of inode %"PRIu64, ino);
+		goto out;
+	}
+
+	ret = ocfs2_read_inode(ost->ost_fs, ino, buf);
+	if (ret) {
+		com_err(whoami, ret, "while reading inode %"PRIu64" to "
+			"discover its file type", ino);
+		goto out;
+	}
+
+	dinode = (ocfs2_dinode *)buf; 
+	*type = ocfs_type_by_mode[(dinode->i_mode & S_IFMT)>>S_SHIFT];
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
