@@ -82,13 +82,18 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     gulong val;
     gint rc;
 
+    rc = -EINVAL;
+    name = j_config_get_attribute(cfs, "name");
+    if (!name || !*name)
+        goto out_error;
+
     /* NB: _add_node() gives us a node number, but we're going to
      * override it, because we know better. */
-    node = o2cb_cluster_add_node(cluster);
+    node = o2cb_cluster_add_node(cluster, name);
     if (!node)
         return -ENOMEM;
 
-    num_s = name = addr = port_s = NULL;
+    num_s = addr = port_s = NULL;
 
     rc = -EINVAL;
     num_s = j_config_get_attribute(cfs, "number");
@@ -101,14 +106,6 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     if ((val == ULONG_MAX) || (val >= INT_MAX))
         goto out_error;
     node->n_number = val;
-
-    rc = -EINVAL;
-    name = j_config_get_attribute(cfs, "name");
-    if (!name || !*name)
-        goto out_error;
-    rc = o2cb_node_set_name(node, name);
-    if (rc)
-        goto out_error;
 
     rc = -EINVAL;
     addr = j_config_get_attribute(cfs, "ip_address");
@@ -155,12 +152,8 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
     if (!match.value && !*match.value)
         goto out_error;
 
-    cluster = o2cb_config_add_cluster(config);
+    cluster = o2cb_config_add_cluster(config, match.value);
     if (!cluster)
-        goto out_error;
-
-    rc = o2cb_cluster_set_name(cluster, match.value);
-    if (rc)
         goto out_error;
 
     rc = -ENOMEM;
@@ -415,7 +408,8 @@ void o2cb_config_free(O2CBConfig *config)
     g_free(config);
 }
 
-O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config)
+O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config,
+                                     const gchar *name)
 {
     O2CBCluster *cluster;
 
@@ -423,7 +417,7 @@ O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config)
 
     cluster = g_new(O2CBCluster, 1);
 
-    cluster->c_name = NULL;
+    cluster->c_name = g_strdup(name);
     cluster->c_num_nodes = 0;
     cluster->c_nodes = NULL;
 
@@ -432,7 +426,7 @@ O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config)
     config->co_valid = TRUE;
 
     return cluster;
-}  /* o2cb_cluster_add_node() */
+}  /* o2cb_cluster_add_cluster() */
 
 O2CBCluster *o2cb_config_get_cluster_by_name(O2CBConfig *config,
                                              const gchar *name)
@@ -528,7 +522,8 @@ O2CBNode *o2cb_cluster_get_node_by_name(O2CBCluster *cluster,
     return NULL;
 }  /* o2cb_cluster_get_node_by_name() */
 
-O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster)
+O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster,
+                                const gchar *name)
 {
     O2CBNode *node;
 
@@ -536,7 +531,7 @@ O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster)
 
     node = g_new(O2CBNode, 1);
 
-    node->n_name = NULL;
+    node->n_name = g_strdup(name);
     node->n_addr = NULL;
     node->n_port = 0;
     node->n_number = cluster->c_num_nodes;

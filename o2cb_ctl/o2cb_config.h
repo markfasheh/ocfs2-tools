@@ -34,7 +34,8 @@ O2CBConfig *o2cb_config_load(const gchar *filename);
 gint o2cb_config_store(O2CBConfig *config, const gchar *filename);
 void o2cb_config_free(O2CBConfig *config);
 
-O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config);
+O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config,
+                                     const gchar *name);
 void o2cb_config_delete_cluster(O2CBConfig *config,
                                 O2CBCluster *cluster);
 JIterator *o2cb_config_get_clusters(O2CBConfig *config);
@@ -47,7 +48,8 @@ JIterator *o2cb_cluster_get_nodes(O2CBCluster *cluster);
 O2CBNode *o2cb_cluster_get_node(O2CBCluster *cluster, guint n);
 O2CBNode *o2cb_cluster_get_node_by_name(O2CBCluster *cluster,
                                         const gchar *name);
-O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster);
+O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster,
+                                const gchar *name);
 void o2cb_cluster_delete_node(O2CBCluster *cluster, O2CBNode *node);
 
 gint o2cb_node_get_number(O2CBNode *node);
