@@ -224,6 +224,23 @@ static void print_uuid(o2fsck_state *ost)
 	printf("\n");
 }
 
+/* we like stdout so people can redirect trivially.  com_err uses stderr.  it
+ * is irritating to have reordering in the buffering between stdout and stderr.
+ * stdio forgot fdreopen(). */
+static void com_err_stdout(const char *who, long code, const char *fmt, 
+			   va_list ap)
+{
+
+	const struct error_table *et = &et_ocfs_error_table;
+	long offset = code - et->base;
+
+	if (code < et->base || offset >= et->n_msgs)
+		return;
+
+	fprintf(stdout, "%s: %s ", who, et->msgs[offset]);
+	vfprintf(stdout, fmt, ap);
+	fprintf(stdout, "\n");
+}
 
 int main(int argc, char **argv)
 {
@@ -242,6 +259,7 @@ int main(int argc, char **argv)
 	blkno = 0;
 
 	initialize_ocfs_error_table();
+	set_com_err_hook(com_err_stdout);
 
 	while((c = getopt(argc, argv, "b:B:npvy")) != EOF) {
 		switch (c) {
