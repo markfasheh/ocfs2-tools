@@ -145,10 +145,10 @@ AC_SUBST(OCFSTOOL)
 
 AC_OUTPUT([
 Config.make
-debugocfs/debugocfs.8
-fsck/fsck.ocfs.8
-format/mkfs.ocfs.8
-format/tuneocfs.8
+ocfs/debugocfs/debugocfs.8
+ocfs/fsck/fsck.ocfs.8
+ocfs/format/mkfs.ocfs.8
+ocfs/format/tuneocfs.8
 ocfs_uid_gen/ocfs_uid_gen.8
 load_ocfs/load_ocfs.8
 ocfstool/ocfstool.8
