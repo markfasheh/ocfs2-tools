@@ -1,14 +1,15 @@
-.TH OCFS2CONSOLE 1 "January 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH OCFS2CONSOLE 8 "January 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH NAME
-ocfs2console - GUI frontend for OCFS2 management and debugging
+ocfs2console - GUI frontend for OCFS2 management
 .SH SYNOPSIS
 .B ocfs2console
 
 .SH DESCRIPTION
 .PP
-\fBocfs2console\fP is a GUI frontend for managing and debugging OCFS2 volumes on
+\fBocfs2console\fP is a GUI frontend for managing OCFS2 volumes on
 the system. One can mount and unmount volumes, format, view overview
-information and individual files, see the current node map.
+information and individual files, and view and modify the current cluster
+configuration.
 
 .SH BUGS
 Stuff.
