@@ -41,6 +41,11 @@
 #include <linux/bitops.h>
 
 #include "ocfs2.h"
+
+/* jfs_compat.h defines these */
+#undef cpu_to_be32
+#undef be32_to_cpu
+
 #include "ocfs2_disk_dlm.h"
 #include "ocfs1_fs_compat.h"
 
@@ -605,7 +610,9 @@ get_state(int argc, char **argv)
 static void
 usage(const char *progname)
 {
-	fprintf(stderr, "Usage: %s [\n", progname);
+	fprintf(stderr, "Usage: %s [-b blocksize] [-c cluster-size] [-L volume-label]\n"
+			"\t[-n number-of-nodes] [-qvV] device [blocks-count]\n",
+			progname);
 	exit(0);
 }
 
@@ -634,7 +641,8 @@ fill_defaults(State *s)
 	s->pagesize_bits = get_bits(s, pagesize);
 
 	if (!s->blocksize) {
-		s->blocksize = 1024;
+		//s->blocksize = 1024;
+		s->blocksize = 512;
 	}
 
 	s->blocksize_bits = get_bits(s, s->blocksize);
@@ -652,10 +660,17 @@ fill_defaults(State *s)
 
 	s->volume_size_in_bytes = s->volume_size_in_blocks * s->blocksize;
 	s->volume_size_in_clusters = s->volume_size_in_bytes >> s->cluster_size_bits;
+	s->volume_size_in_blocks = (s->volume_size_in_clusters << s->cluster_size_bits) >> s->blocksize_bits;
+	
+	s->reserved_tail_size = 0;
 
 	if (!s->initial_nodes) {
 		s->initial_nodes =
 			initial_nodes_for_volume(s->volume_size_in_bytes);
+	}
+
+	if (!s->vol_label) {
+		  s->vol_label = strdup("");
 	}
 }
 
