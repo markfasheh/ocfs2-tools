@@ -37,6 +37,7 @@ HFILES =				\
 	include/kernel-jbh.h		\
 	include/kernel-list.h		\
 	include/ocfs2_fs.h		\
+	include/ocfs2_disk_dlm.h	\
 	include/ocfs1_fs_compat.h
 	
 

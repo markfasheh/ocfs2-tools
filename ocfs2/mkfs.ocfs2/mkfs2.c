@@ -25,8 +25,9 @@
 #include <linux/fs.h>
 #define _GNU_SOURCE
 #include <getopt.h>
-#include <ocfs2_fs.h>
-#include <ocfs1_fs_compat.h>
+#include "ocfs2_fs.h"
+#include "ocfs2_disk_dlm.h"
+#include "ocfs1_fs_compat.h"
 
 typedef unsigned short kdev_t;
 

@@ -51,8 +51,9 @@
 
 #include <linux/types.h>
 
-#include <ocfs2_fs.h>
-#include <ocfs1_fs_compat.h>
+#include "ocfs2_fs.h"
+#include "ocfs2_disk_dlm.h"
+#include "ocfs1_fs_compat.h"
 
 enum {
 	CONFIG,
