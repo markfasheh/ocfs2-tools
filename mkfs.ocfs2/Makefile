@@ -39,8 +39,6 @@ VERSION_FILES = mkfs.c
 VERSION_SRC = mkfs.c
 VERSION_PREFIX = OCFS2
 
-DIST_RULES = dist-incdir
-
 MANS = mkfs.ocfs2.8
 
 DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs2.c mkfs.ocfs2.8.in
@@ -56,8 +54,5 @@ readdir: readdir.o
 
 fe: readdir.o
 	$(LINK) 
-
-dist-incdir:
-	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/inc
 
 include $(TOPDIR)/Postamble.make
