@@ -28,7 +28,7 @@ def mount(parent, device):
 
     command = ('mount', '-t', 'ocfs2', device, mountpoint)
 
-    p = Process(command, 'Mount', 'Mounting...', parent, spin_now=False)
+    p = Process(command, 'Mount', 'Mounting...', parent)
     success, output, killed = p.reap()
 
     if not success:
@@ -46,7 +46,7 @@ def mount(parent, device):
 def unmount(parent, device, mountpoint):
     command = ('umount', mountpoint)
 
-    p = Process(command, 'Unmount', 'Unmounting...', parent, spin_now=False)
+    p = Process(command, 'Unmount', 'Unmounting...', parent)
     success, output, killed = p.reap()
 
     if not success:

@@ -117,7 +117,7 @@ def tune_action(widget_type, parent, device):
     dialog.destroy()
 
     tunefs = Process(command, widget_type.title, widget_type.action + '...',
-                     parent)
+                     parent, spin_now=True)
     success, output, k = tunefs.reap()
 
     if not success:

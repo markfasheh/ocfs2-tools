@@ -79,7 +79,7 @@ class ClusterConf(gtk.HBox):
         command = 'o2cb_ctl -I -t node -o'
 
         o2cb_ctl = Process(command, 'Cluster Control', 'Querying nodes...',
-                           self.toplevel, spin_now=False)
+                           self.toplevel)
         success, output, k = o2cb_ctl.reap()
 
         if not success:
@@ -169,7 +169,7 @@ class ClusterConf(gtk.HBox):
                    '-i')
 
         o2cb_ctl = Process(command, 'Cluster Control', 'Adding node...',
-                           self.toplevel, spin_now=False)
+                           self.toplevel)
         success, output, k = o2cb_ctl.reap()
 
         if not success:
@@ -188,7 +188,7 @@ def cluster_configurator(parent):
         command = ('/etc/init.d/o2cb load')
 
         o2cb = Process(command, 'Cluster Stack', 'Starting cluster stack...',
-                       parent, spin_now=False)
+                       parent)
         success, output, k = o2cb.reap()
 
         if success:
@@ -216,13 +216,13 @@ def cluster_configurator(parent):
 
     command = 'o2cb_ctl -I -t cluster -n ocfs2 -o'
     o2cb_ctl = Process(command, 'Cluster Control', 'Querying cluster...',
-                       parent, spin_now=False)
+                       parent)
     success, output, k = o2cb_ctl.reap()
 
     if not success:
         command = 'o2cb_ctl -C -n ocfs2 -t cluster -i'
         o2cb_ctl = Process(command, 'Cluster Control', 'Creating cluster...',
-                           parent, spin_now=False)
+                           parent)
         success, output, k = o2cb_ctl.reap()
 
         if not success:
@@ -249,7 +249,7 @@ def cluster_configurator(parent):
         command = ('/etc/init.d/o2cb online ocfs2')
 
         o2cb = Process(command, 'Cluster Stack', 'Starting OCFS2 cluster...',
-                       parent, spin_now=False)
+                       parent)
         success, output, k = o2cb.reap()
 
         if not success:

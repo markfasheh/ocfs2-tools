@@ -122,7 +122,7 @@ def format_partition(parent, device):
 
     dialog.destroy()
 
-    mkfs = Process(command, 'Format', 'Formatting...', parent)
+    mkfs = Process(command, 'Format', 'Formatting...', parent, spin_now=True)
     success, output, k = mkfs.reap()
 
     if not success:

@@ -29,7 +29,7 @@ INTERVAL = 100
 TIMEOUT = 10000
 
 class Process:
-    def __init__(self, command, title, desc, parent=None, spin_now=True):
+    def __init__(self, command, title, desc, parent=None, spin_now=False):
         if isinstance(command, types.StringTypes):
             if len(command.split(None, 1)) < 2:
                 command = (command,)
@@ -162,7 +162,8 @@ class Process:
         return True
 
 def main():
-    process = Process('echo Hello; sleep 10', 'Sleep', 'Sleeping')
+    process = Process('echo Hello; sleep 10', 'Sleep', 'Sleeping',
+                      spin_now=True)
     print process.reap()
 
 if __name__ == '__main__':
