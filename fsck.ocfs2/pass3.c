@@ -40,6 +40,8 @@
 #include "problem.h"
 #include "util.h"
 
+static char *whoami = "pass3";
+
 static void check_root(o2fsck_state *ost)
 {
 	int was_set;
@@ -68,6 +70,62 @@ static void check_root(o2fsck_state *ost)
 
 	/* set both icount refs to 2.  add dir info for it.  put it 
 	 * in used, dir bitmaps. */
+}
+
+static void check_lostfound(o2fsck_state *ost)
+{
+	char name[] = "lost+found";
+	int namelen = sizeof(name) - 1;
+	uint64_t blkno = 0;
+	errcode_t ret;
+
+	ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_root_blkno, name,
+			   namelen, NULL, &blkno);
+	if (ret == 0)
+		return;
+
+	if (!prompt(ost, PY, 0, "/lost+found does not exist.  Create it so "
+		    "that we an possibly fill it with orphaned inodes?"))
+		return;
+
+	blkno = 0;
+	ret = ocfs2_new_inode(ost->ost_fs, &blkno, 0755 | S_IFDIR);
+	if (ret) {
+		com_err(whoami, ret, "while trying to allocate a new inode "
+			"for /lost+found");
+		return;
+	}
+
+	ret = ocfs2_expand_dir(ost->ost_fs, blkno, ost->ost_fs->fs_root_blkno);
+	if (ret) {
+		com_err(whoami, ret, "while trying to expand a new "
+			"/lost+found directory");
+		goto out;
+	}
+
+	/* XXX expand_dir itself will leak added dir blocks in some error
+	 * paths so we don't bother trying to clean them up either */
+	ret = ocfs2_link(ost->ost_fs, ost->ost_fs->fs_root_blkno, name, blkno,
+			 OCFS2_FT_DIR);
+	if (ret) {
+		com_err(whoami, ret, "while linking inode %"PRIu64" as "
+			"/lost+found", blkno);
+		goto out;
+	}
+
+	blkno = 0;
+
+	/* set both icount refs to 2.  add dir info for it.  put it 
+	 * in used, dir bitmaps. */
+out:
+	if (blkno) {
+		ret = ocfs2_delete_inode(ost->ost_fs, blkno);
+		if (ret) {
+			com_err(whoami, ret, "while trying to clean up an "
+			        "an allocated inode after linking /lost+found "
+				"failed");
+		}
+	}
 }
 
 struct fix_dot_dot_args {
@@ -216,6 +274,7 @@ errcode_t o2fsck_pass3(o2fsck_state *ost)
 	 * other required directories like root here */
 
 	check_root(ost);
+	check_lostfound(ost);
 
 	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents, 
 					ost->ost_fs->fs_root_blkno);

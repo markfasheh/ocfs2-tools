@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -40,7 +41,9 @@
  * ocfs2_expand_dir()
  *
  */
-errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
+errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
+			   uint64_t dir,
+			   uint64_t parent_dir)
 {
 	errcode_t ret = 0;
 	ocfs2_cached_inode *cinode = NULL;
@@ -94,8 +97,11 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 	if (ret) 
 		goto bail;
 
-	/* init new dir block */
-	ret = ocfs2_new_dir_block(fs, 0, 0, &buf);
+	/* init new dir block, with dotty entries if it's first */
+	if (used_blks == 0)
+		ret = ocfs2_new_dir_block(fs, dir, parent_dir, &buf);
+	else
+		ret = ocfs2_new_dir_block(fs, 0, 0, &buf);
 	if (ret)
 		goto bail;
 
@@ -103,6 +109,19 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 	ret = ocfs2_write_dir_block(fs, new_blk, buf);
 	if (ret)
 		goto bail;
+
+	/* did we just add a '..' reference to a parent?  if so, update
+	 * them */
+	if (used_blks == 0) {
+		ocfs2_dinode *parent = (ocfs2_dinode *)buf;
+		ret = ocfs2_read_inode(fs, parent_dir, buf);
+		if (ret)
+			goto bail;
+		parent->i_links_count++;
+		ret = ocfs2_write_inode(fs, parent_dir, buf);
+		if (ret)
+			goto bail;
+	}
 
 	/* increase the size */
 	inode->i_size += fs->fs_blocksize;
@@ -114,7 +133,7 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 
 bail:
 	if (buf)
-		ocfs2_free(buf);
+		ocfs2_free(&buf);
 
 	if (cinode)
 		ocfs2_free_cached_inode(fs, cinode);

@@ -287,7 +287,7 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 					 blkno, OCFS2_FT_REG_FILE);
 			if (ret) {
 				if (ret == OCFS2_ET_DIR_NO_SPACE) {
-					ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno);
+					ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno, fs->fs_sysdir_blkno);
 					if (!ret)
 						ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
 								 fname, blkno, OCFS2_FT_REG_FILE);

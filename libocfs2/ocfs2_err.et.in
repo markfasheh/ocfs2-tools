@@ -141,4 +141,7 @@ ec	OCFS2_ET_EXPAND_DIR_ERR,
 ec	OCFS2_ET_NO_SPACE,
 	"No space available"
 
+ec	OCFS2_ET_ITERATION_COMPLETE,
+	"Iteration complete"
+
 	end

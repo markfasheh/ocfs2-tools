@@ -42,10 +42,9 @@
 errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 			      uint64_t parent_ino, char **block)
 {
-	struct ocfs2_dir_entry 	*dir = NULL;
+	struct ocfs2_dir_entry 	*dir;
 	errcode_t		ret;
 	char			*buf;
-	int			rec_len;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -61,18 +60,19 @@ errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 		 * Set up entry for '.'
 		 */
 		dir->inode = dir_ino;
-		dir->name_len = 1;
-		dir->name[0] = '.';
-		rec_len = dir->rec_len - OCFS2_DIR_REC_LEN(1);
 		dir->rec_len = OCFS2_DIR_REC_LEN(1);
+		dir->name_len = 1;
+		dir->file_type = OCFS2_FT_DIR;
+		dir->name[0] = '.';
 
 		/*
 		 * Set up entry for '..'
 		 */
 		dir = (struct ocfs2_dir_entry *) (buf + dir->rec_len);
-		dir->rec_len = rec_len;
 		dir->inode = parent_ino;
+		dir->rec_len = fs->fs_blocksize - OCFS2_DIR_REC_LEN(1);
 		dir->name_len = 2;
+		dir->file_type = OCFS2_FT_DIR;
 		dir->name[0] = '.';
 		dir->name[1] = '.';
 	}

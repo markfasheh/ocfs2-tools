@@ -102,6 +102,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
 	ocfs2_extent_list *fel;
 
 	di->i_generation = fs->fs_super->i_generation;
+	di->i_fs_generation = fs->fs_super->i_generation;
 	di->i_blkno = blkno;
 	di->i_suballoc_node = node;
 	di->i_suballoc_bit = (uint16_t)(blkno - gd_blkno);
@@ -142,15 +143,22 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 	if (ret)
 		return ret;
 
-	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE,
-			   	   0, &fs->fs_inode_allocs[0]);
+	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE, 0,
+				   &fs->fs_inode_allocs[0]);
 	if (ret)
 		goto out;
 
 	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_inode_allocs[0],
 					&gd_blkno, ino);
-	if (ret)
-		goto out;
+	if (ret == OCFS2_ET_BIT_NOT_FOUND) {
+		ret = ocfs2_chain_add_group(fs, fs->fs_inode_allocs[0]);
+		if (ret)
+			goto out;
+		ret = ocfs2_chain_alloc_with_io(fs, fs->fs_inode_allocs[0],
+						&gd_blkno, ino);
+		if (ret)
+			goto out;
+	}
 
 	memset(buf, 0, fs->fs_blocksize);
 	di = (ocfs2_dinode *)buf;
@@ -158,6 +166,8 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 	ocfs2_init_inode(fs, di, 0, gd_blkno, *ino);
 
 	ret = ocfs2_write_inode(fs, *ino, buf);
+	if (ret)
+		ocfs2_delete_inode(fs, *ino);
 
 out:
 	ocfs2_free(&buf);
@@ -337,7 +347,6 @@ out:
 	return ret;
 }
 
-#if 0
 /* This function needs to be filled out.  Essentially, it should be
  * calling a function in chainalloc.c.  Something like
  * "ocfs2_chain_alloc_range()".  The difference between that and
@@ -345,12 +354,57 @@ out:
  * That function should take a 'required' number of bits, and return
  * the biggest chunk available.  It will need some sort of
  * "find_clear_bit_range()" function for the bitmaps.
+ *
+ * XXX what to do about local allocs?
  */
-errcode_t ocfs2_new_clusters()
+errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
+			     uint32_t requested,
+			     uint64_t *start_blkno)
 {
-	return 0;
+	errcode_t ret;
+	uint64_t start_bit;
+
+	ret = ocfs2_load_allocator(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+				   0, &fs->fs_cluster_alloc);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_alloc_range(fs, fs->fs_cluster_alloc, requested,
+				      &start_bit);
+	if (ret)
+		goto out;
+
+	*start_blkno = ocfs2_clusters_to_blocks(fs, start_bit);
+
+	ret = ocfs2_write_chain_allocator(fs, fs->fs_cluster_alloc);
+	if (ret)
+		ocfs2_free_clusters(fs, requested, *start_blkno);
+
+out:
+	return ret;
 }
-#endif
+
+errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
+			      uint64_t len,
+			      uint64_t start_blkno)
+{
+	errcode_t ret;
+
+	ret = ocfs2_load_allocator(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+				   0, &fs->fs_cluster_alloc);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_free_range(fs, fs->fs_cluster_alloc, len,
+				     ocfs2_blocks_to_clusters(fs, start_blkno));
+	if (ret)
+		goto out;
+
+	/* XXX OK, it's bad if we can't revert this after the io fails */
+	ret = ocfs2_write_chain_allocator(fs, fs->fs_cluster_alloc);
+out:
+	return ret;
+}
 
 #ifdef DEBUG_EXE
 #include <stdio.h>

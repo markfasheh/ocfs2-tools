@@ -300,28 +300,21 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 {
 	errcode_t ret = 0;
 	uint64_t n_clusters = 0;
-	uint64_t clustno;
-
-	/*
-	 * This should be, in essence:
-	 *
-	 * while (new_clusters) {
-	 * 	n_clusters = ocfs2_new_clusters();
-	 * 	ocfs2_insert_extent(n_clusters);
-	 * 	new_clusters -= n_clusters;
-	 * }
-	 */
+	uint64_t clustno, blkno;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
 
 	while (new_clusters) {
-		/*n_clusters = ocfs2_new_clusters(); */
-
-		if (n_clusters == 0) {
-			ret = OCFS2_ET_NO_SPACE;
+		/* XXX lalala, for now we can only allocate precicely as
+		 * much as we ask for and we leak allocations.  leaking
+		 * allocations half-way through is a strong theme. */
+		n_clusters = 1;
+		ret = ocfs2_new_clusters(fs, n_clusters, &blkno);
+		if (ret)
 			goto bail;
-		}
+
+		clustno = ocfs2_blocks_to_clusters(fs, blkno);
 
 	 	ret = ocfs2_insert_extent(fs, ino, clustno, n_clusters);
 		if (ret)

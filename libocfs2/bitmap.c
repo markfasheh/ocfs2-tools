@@ -137,6 +137,25 @@ errcode_t ocfs2_bitmap_find_next_clear(ocfs2_bitmap *bitmap,
 	return (*bitmap->b_ops->find_next_clear)(bitmap, start, found);
 }
 
+/* kind of poorly named, but I couldn't come up with something nicer */
+errcode_t ocfs2_bitmap_alloc_range(ocfs2_bitmap *bitmap, uint64_t len, 
+				   uint64_t *first_bit)
+{
+	if (len == 0 || len >= bitmap->b_total_bits)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	return (*bitmap->b_ops->alloc_range)(bitmap, len, first_bit);
+}
+
+errcode_t ocfs2_bitmap_clear_range(ocfs2_bitmap *bitmap, uint64_t len, 
+				   uint64_t first_bit)
+{
+	if (len == 0 || len + first_bit > bitmap->b_total_bits)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	return (*bitmap->b_ops->clear_range)(bitmap, len, first_bit);
+}
+
 errcode_t ocfs2_bitmap_read(ocfs2_bitmap *bitmap)
 {
 	if (!bitmap->b_ops->read_bitmap)
@@ -288,6 +307,10 @@ errcode_t ocfs2_bitmap_foreach_region(ocfs2_bitmap *bitmap,
 		br = rb_entry(node, struct ocfs2_bitmap_region, br_node);
 
 		ret = func(br, private_data);
+		if (ret == OCFS2_ET_ITERATION_COMPLETE) {
+			ret = 0;
+			break;
+		}
 		if (ret)
 			break;
 	}
@@ -452,6 +475,21 @@ errcode_t ocfs2_bitmap_insert_region(ocfs2_bitmap *bitmap,
 	return 0;
 }
 
+static int set_generic_shared(ocfs2_bitmap *bitmap, 
+			      struct ocfs2_bitmap_region *br,
+			      uint64_t bitno)
+{
+	int old_tmp;
+
+	old_tmp = ocfs2_set_bit(bitno - br->br_start_bit, br->br_bitmap);
+	if (!old_tmp) {
+		br->br_set_bits++;
+		if (bitmap->b_ops->bit_change_notify)
+			(*bitmap->b_ops->bit_change_notify)(bitmap, br, bitno,
+							    1);
+	}
+	return old_tmp;
+}
 
 /*
  * Helper functions for the most generic of bitmaps.  If there is no
@@ -467,19 +505,29 @@ errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap, uint64_t bitno,
 	if (!br)
 		return OCFS2_ET_INVALID_BIT;
 
-	old_tmp = ocfs2_set_bit(bitno - br->br_start_bit,
-				br->br_bitmap);
+	old_tmp = set_generic_shared(bitmap, br, bitno);
 	if (oldval)
 		*oldval = old_tmp;
 
-	if (!old_tmp) {
-		br->br_set_bits++;
+	return 0;
+}
+
+static int clear_generic_shared(ocfs2_bitmap *bitmap, 
+				struct ocfs2_bitmap_region *br,
+				uint64_t bitno)
+{
+	int old_tmp;
+
+	old_tmp = ocfs2_clear_bit(bitno - br->br_start_bit,
+				  br->br_bitmap);
+	if (old_tmp) {
+		br->br_set_bits--;
 		if (bitmap->b_ops->bit_change_notify)
 			(*bitmap->b_ops->bit_change_notify)(bitmap, br, bitno,
-							    1);
+							    0);
 	}
 
-	return 0;
+	return old_tmp;
 }
 
 errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
@@ -492,17 +540,9 @@ errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 	if (!br)
 		return OCFS2_ET_INVALID_BIT;
 
-	old_tmp = ocfs2_clear_bit(bitno - br->br_start_bit,
-				  br->br_bitmap);
+	old_tmp = clear_generic_shared(bitmap, br, bitno);
 	if (oldval)
 		*oldval = old_tmp;
-
-	if (old_tmp) {
-		br->br_set_bits--;
-		if (bitmap->b_ops->bit_change_notify)
-			(*bitmap->b_ops->bit_change_notify)(bitmap, br, bitno,
-							    0);
-	}
 
 	return 0;
 }
@@ -589,6 +629,95 @@ errcode_t ocfs2_bitmap_find_next_clear_generic(ocfs2_bitmap *bitmap,
 	return OCFS2_ET_BIT_NOT_FOUND;
 }
 
+struct alloc_range_args {
+	ocfs2_bitmap	*ar_bitmap;
+	uint64_t	ar_len;
+	uint64_t	ar_first_bit;
+	errcode_t	ar_ret;
+};
+
+static errcode_t alloc_range_func(struct ocfs2_bitmap_region *br,
+				  void *private_data)
+{
+	struct alloc_range_args *ar = private_data;
+	errcode_t ret = 0;
+	int start, end;
+
+	if ((br->br_total_bits - br->br_set_bits) < ar->ar_len)
+		goto out;
+
+	for (start = 0; start + ar->ar_len <= br->br_total_bits; ) {
+		start = ocfs2_find_next_bit_clear(br->br_bitmap,
+						  br->br_total_bits,
+						  start);
+		if (start == br->br_total_bits)
+			goto out;
+
+		/* avoiding start + 1 here so that start at total_bits - 1
+		 * just works out */
+		end = ocfs2_find_next_bit_set(br->br_bitmap,
+					      br->br_total_bits,
+					      start);
+		if ((end - start) < ar->ar_len) {
+			start = end + 1;
+			continue;
+		}
+
+		if ((end - start) > ar->ar_len)
+			end = start + ar->ar_len;
+
+		ar->ar_first_bit = br->br_start_bit + start;
+		for (; start < end; start++)
+			set_generic_shared(ar->ar_bitmap, br,
+					   start + br->br_start_bit);
+
+		ar->ar_ret = 0;
+		ret = OCFS2_ET_ITERATION_COMPLETE;
+		break;
+	}
+
+out:
+	return ret;
+}
+
+errcode_t ocfs2_bitmap_alloc_range_generic(ocfs2_bitmap *bitmap,
+					   uint64_t len,
+					   uint64_t *first_bit)
+{
+	errcode_t ret;
+	struct alloc_range_args ar = { 
+		.ar_bitmap = bitmap,
+		.ar_len = len,
+		.ar_ret = OCFS2_ET_BIT_NOT_FOUND,
+	};
+
+	ret = ocfs2_bitmap_foreach_region(bitmap, alloc_range_func,
+					  &ar);
+	if (ret == 0)
+		ret = ar.ar_ret;
+
+	if (ret == 0)
+		*first_bit = ar.ar_first_bit;
+
+	return ret;
+}
+
+errcode_t ocfs2_bitmap_clear_range_generic(ocfs2_bitmap *bitmap,
+					   uint64_t len,
+					   uint64_t first_bit)
+{
+	struct ocfs2_bitmap_region *br;
+	uint64_t end;
+
+	br = ocfs2_bitmap_lookup(bitmap, first_bit, len, NULL, NULL, NULL);
+	if (!br)
+		return OCFS2_ET_INVALID_BIT;
+
+	for (end = first_bit + len; first_bit < end; first_bit++)
+		clear_generic_shared(bitmap, br, first_bit + br->br_start_bit);
+
+	return 0;
+}
 
 /*
  * Helper functions for a bitmap with holes in it.
@@ -702,6 +831,8 @@ static struct ocfs2_bitmap_operations global_cluster_ops = {
 	.test_bit		= ocfs2_bitmap_test_generic,
 	.find_next_set		= ocfs2_bitmap_find_next_set_generic,
 	.find_next_clear	= ocfs2_bitmap_find_next_clear_generic,
+	.alloc_range		= ocfs2_bitmap_alloc_range_generic,
+	.clear_range		= ocfs2_bitmap_clear_range_generic,
 };
 
 errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
@@ -759,6 +890,8 @@ static struct ocfs2_bitmap_operations global_block_ops = {
 	.test_bit		= ocfs2_bitmap_test_holes,
 	.find_next_set		= ocfs2_bitmap_find_next_set_holes,
 	.find_next_clear	= ocfs2_bitmap_find_next_clear_holes,
+	/* XXX can't allocate a range yet, would need to fill holes and merge
+	 * with adjacent */
 };
 
 errcode_t ocfs2_block_bitmap_new(ocfs2_filesys *fs,

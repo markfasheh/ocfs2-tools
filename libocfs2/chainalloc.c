@@ -256,6 +256,8 @@ static struct ocfs2_bitmap_operations chainalloc_bitmap_ops = {
 	.write_bitmap		= chainalloc_write_bitmap,
 	.destroy_notify		= chainalloc_destroy_notify,
 	.bit_change_notify	= chainalloc_bit_change_notify,
+	.alloc_range		= ocfs2_bitmap_alloc_range_generic,
+	.clear_range		= ocfs2_bitmap_clear_range_generic,
 };
 
 static errcode_t ocfs2_chainalloc_bitmap_new(ocfs2_filesys *fs,
@@ -335,28 +337,31 @@ errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
 	return ocfs2_bitmap_write(cinode->ci_chains);
 }
 
-struct find_desc_ctxt {
-	uint64_t target_bit;
-	uint64_t gd_blkno;
-};
-
-static errcode_t chainalloc_find_desc(struct ocfs2_bitmap_region *br,
-				      void *private_data)
-{
-	struct chainalloc_region_private *cr = br->br_private;
-	struct find_desc_ctxt *ctxt = private_data;
-
-	if (ctxt->target_bit < br->br_start_bit)
-		return 0;
-	if (ctxt->target_bit >= (br->br_start_bit + br->br_total_bits))
-		return 0;
-
-	ctxt->gd_blkno = cr->cr_ag->bg_blkno;
-	return 0;
-}
-
 /* FIXME: should take a hint, no? */
 /* FIXME: Better name, too */
+errcode_t ocfs2_chain_alloc_range(ocfs2_filesys *fs,
+				  ocfs2_cached_inode *cinode,
+				  uint64_t requested,
+				  uint64_t *start_bit)
+{
+	if (!cinode->ci_chains)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	return ocfs2_bitmap_alloc_range(cinode->ci_chains, requested,
+				        start_bit);
+}
+
+errcode_t ocfs2_chain_free_range(ocfs2_filesys *fs,
+				 ocfs2_cached_inode *cinode,
+				 uint64_t len,
+				 uint64_t start_bit)
+{
+	if (!cinode->ci_chains)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	return ocfs2_bitmap_clear_range(cinode->ci_chains, len, start_bit);
+}
+
 errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 			    ocfs2_cached_inode *cinode,
 			    uint64_t *gd_blkno,
@@ -364,7 +369,6 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	int oldval;
-	struct find_desc_ctxt ctxt;
 
 	if (!cinode->ci_chains)
 		return OCFS2_ET_INVALID_ARGUMENT;
@@ -372,12 +376,6 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 	ret = ocfs2_bitmap_find_next_clear(cinode->ci_chains, 0, bitno);
 	if (ret)
 		return ret;
-
-	ctxt.gd_blkno = 0;
-	ctxt.target_bit = *bitno;
-	ret = ocfs2_bitmap_foreach_region(cinode->ci_chains,
-					  chainalloc_find_desc, &ctxt);
-	*gd_blkno = ctxt.gd_blkno;
 
 	ret = ocfs2_bitmap_set(cinode->ci_chains, *bitno, &oldval);
 	if (ret)
@@ -457,6 +455,91 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs, ocfs2_group_desc *gd,
 	/* First bit set to account for the descriptor block */
 	ocfs2_set_bit(0, gd->bg_bitmap);
 	gd->bg_free_bits_count = gd->bg_bits - 1;
+}
+
+errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode)
+{
+	errcode_t ret;
+	uint64_t blkno = 0, old_blkno = 0;
+	ocfs2_group_desc *gd;
+	char *buf = NULL;
+	ocfs2_chain_rec *rec = NULL;
+	struct chainalloc_bitmap_private *cb = cinode->ci_chains->b_private;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+	gd = (ocfs2_group_desc *)buf;
+
+	ret = ocfs2_new_clusters(fs, cinode->ci_inode->id2.i_chain.cl_cpg,
+				 &blkno);
+	if (ret)
+		goto out;
+
+	ocfs2_init_group_desc(fs, gd, blkno, fs->fs_super->i_fs_generation,
+			      cinode->ci_inode->i_blkno,
+			      cinode->ci_inode->id2.i_chain.cl_cpg *
+			      cinode->ci_inode->id2.i_chain.cl_bpc, 0);
+
+	ret = ocfs2_write_group_desc(fs, blkno, (char *)gd);
+	if (ret)
+		goto out;
+
+	/* XXX could be a helper? */
+	rec = &cinode->ci_inode->id2.i_chain.cl_recs[0];
+	rec->c_free += gd->bg_free_bits_count;
+	rec->c_total += gd->bg_bits;
+	old_blkno = rec->c_blkno;
+	rec->c_blkno = blkno;
+
+	cinode->ci_inode->i_clusters += cinode->ci_inode->id2.i_chain.cl_cpg;
+	cinode->ci_inode->id1.bitmap1.i_total += gd->bg_bits;
+	cinode->ci_inode->id1.bitmap1.i_used += gd->bg_bits -
+						gd->bg_free_bits_count;
+	if (cinode->ci_inode->id2.i_chain.cl_next_free_rec == 0)
+		cinode->ci_inode->id2.i_chain.cl_next_free_rec = 1;
+
+	ret = ocfs2_write_cached_inode(fs, cinode);
+	if (ret)
+		goto out;
+
+	/* XXX this is probably too clever by half */ 
+	ret = chainalloc_process_group(fs, blkno, 0, cinode->ci_chains);
+	if (ret) {
+		ret = cb->cb_errcode;
+		goto out;
+	}
+
+	/* ok, it's official */
+	blkno = 0;
+	rec = NULL;
+
+out:
+	if (rec != NULL) {
+		/* XXX also could be a helper */
+		rec->c_free -= gd->bg_free_bits_count;
+		rec->c_total -= gd->bg_bits;
+		rec->c_blkno = old_blkno;
+
+		cinode->ci_inode->i_clusters -= 
+			cinode->ci_inode->id2.i_chain.cl_cpg;
+		cinode->ci_inode->id1.bitmap1.i_total -= gd->bg_bits;
+		cinode->ci_inode->id1.bitmap1.i_used -= gd->bg_bits -
+							gd->bg_free_bits_count;
+		if (cinode->ci_inode->id2.i_chain.cl_next_free_rec == 1 &&
+		    old_blkno == 0)
+			cinode->ci_inode->id2.i_chain.cl_next_free_rec = 0;
+
+		ocfs2_write_cached_inode(fs, cinode);
+	}
+	if (blkno != 0)
+		ocfs2_free_clusters(fs, cinode->ci_inode->id2.i_chain.cl_cpg,
+				    blkno);
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
 }
 
 #ifdef DEBUG_EXE

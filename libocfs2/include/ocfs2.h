@@ -407,6 +407,10 @@ errcode_t ocfs2_bitmap_find_next_clear(ocfs2_bitmap *bitmap,
 errcode_t ocfs2_bitmap_read(ocfs2_bitmap *bitmap);
 errcode_t ocfs2_bitmap_write(ocfs2_bitmap *bitmap);
 uint64_t ocfs2_bitmap_get_set_bits(ocfs2_bitmap *bitmap);
+errcode_t ocfs2_bitmap_alloc_range(ocfs2_bitmap *bitmap, uint64_t len, 
+				   uint64_t *first_bit);
+errcode_t ocfs2_bitmap_clear_range(ocfs2_bitmap *bitmap, uint64_t len, 
+				   uint64_t first_bit);
 
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 				uint32_t *retblocks);
@@ -453,6 +457,14 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
 			   uint64_t bitno);
+errcode_t ocfs2_chain_alloc_range(ocfs2_filesys *fs,
+				  ocfs2_cached_inode *cinode,
+				  uint64_t requested,
+				  uint64_t *start_bit);
+errcode_t ocfs2_chain_free_range(ocfs2_filesys *fs,
+				 ocfs2_cached_inode *cinode,
+				 uint64_t len,
+				 uint64_t start_bit);
 errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
 			   uint64_t bitno,
@@ -462,8 +474,12 @@ errcode_t ocfs2_chain_force_val(ocfs2_filesys *fs,
 				uint64_t blkno, 
 				int newval,
 				int *oldval);
+errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode);
 
-errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir);
+errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
+			   uint64_t dir,
+			   uint64_t parent_dir);
 
 errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 				     int *is_allocated);
@@ -487,6 +503,12 @@ errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno);
 errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno);
 errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint64_t new_clusters);
+errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
+			     uint32_t requested,
+			     uint64_t *start_blkno);
+errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
+			      uint64_t len,
+			      uint64_t start_blkno);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
