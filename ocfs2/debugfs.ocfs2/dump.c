@@ -147,9 +147,9 @@ TOTAL: 247
 	if (in->i_flags & OCFS2_SUPER_BLOCK_FL)
 		g_string_append (flags, "superblock ");
 	if (in->i_flags & OCFS2_LOCAL_ALLOC_FL)
-		g_string_append (flags, "localbitmap ");
+		g_string_append (flags, "localalloc ");
 	if (in->i_flags & OCFS2_BITMAP_FL)
-		g_string_append (flags, "globalbitmap ");
+		g_string_append (flags, "allocbitmap ");
 	if (in->i_flags & OCFS2_JOURNAL_FL)
 		g_string_append (flags, "journal ");
 	if (in->i_flags & OCFS2_DLM_FL)
@@ -245,7 +245,7 @@ void dump_extent_block (ocfs2_extent_block *blk)
  * dump_dir_entry()
  *
  */
-void dump_dir_entry (struct ocfs2_dir_entry *dir)
+void dump_dir_entry(struct ocfs2_dir_entry *dir, int len)
 {
 	char *p;
 	struct ocfs2_dir_entry *rec;
@@ -255,13 +255,16 @@ void dump_dir_entry (struct ocfs2_dir_entry *dir)
 	printf("%-15s  %-6s  %-7s  %-4s  %-4s\n",
 	       "Inode", "Reclen", "Namelen", "Type", "Name");
 
-	while (1) {
+	while (p < (((char *)dir) + len)) {
 		rec = (struct ocfs2_dir_entry *)p;
-		if (!rec->inode)
-			break;
-		null_term (rec->name, rec->name_len);
-		printf("%-15llu  %-6u  %-7u  %-4u  %s\n", rec->inode,
-		       rec->rec_len, rec->name_len, rec->file_type, rec->name);
+		if (rec->inode) {
+                    char buf[4096];
+                    memcpy(buf, rec->name, rec->name_len);
+                    buf[rec->name_len] = '\0';
+                    printf("%-15llu  %-6u  %-7u  %-4u  %s\n", rec->inode,
+                           rec->rec_len, rec->name_len, rec->file_type,
+                           buf);
+                }
 		p += rec->rec_len;
 	}
 

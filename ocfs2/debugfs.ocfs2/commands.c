@@ -249,7 +249,7 @@ static void do_ls (char **args)
 	int i;
 	GArray *arr = NULL;
 	__u32 len;
-	__u64 off;
+	__u64 off, foff;
 
 	len = 1 << blksz_bits;
 	if (!(buf = malloc(len)))
@@ -280,12 +280,15 @@ static void do_ls (char **args)
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
 		off = rec->e_blkno << blksz_bits;
+                foff = rec->e_cpos << clstrsz_bits;
 		len = rec->e_clusters << clstrsz_bits;
+                if ((foff + len) > inode->i_size)
+                    len = inode->i_size - foff;
 		if (!(buf = malloc (len)))
 			DBGFS_FATAL("%s", strerror(errno));
 		if ((pread64(dev_fd, buf, len, off)) == -1)
 			DBGFS_FATAL("%s", strerror(errno));
-		dump_dir_entry ((struct ocfs2_dir_entry *)buf);
+		dump_dir_entry ((struct ocfs2_dir_entry *)buf, len);
 		safefree (buf);
 	}
 
