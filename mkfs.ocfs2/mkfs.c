@@ -209,6 +209,8 @@ struct _State {
 
 	unsigned int initial_nodes;
 
+	uint64_t journal_size_in_bytes;
+
 	char *vol_label;
 	char *device_name;
 	char *uuid;
@@ -474,7 +476,7 @@ main(int argc, char **argv)
 		for (j = 0; j < num; j++) {
 			tmprec = &(record[i][j]);
 			if (system_files[i].type == SFI_JOURNAL) {
-				alloc_bytes_from_bitmap(s, OCFS2_DEFAULT_JOURNAL_SIZE,
+				alloc_bytes_from_bitmap(s, s->journal_size_in_bytes,
 							s->global_bm,
 							&(tmprec->extent_off),
 							&(tmprec->extent_len));
@@ -528,6 +530,8 @@ get_state(int argc, char **argv)
 	char *device_name;
 	int ret;
 	uint64_t val;
+	uint64_t journal_size_in_bytes = 0;
+	uint64_t max_journal_size = 500 * ONE_MEGA_BYTE;
 
 	static struct option long_options[] = {
 		{ "blocksize", 1, 0, 'b' },
@@ -537,6 +541,7 @@ get_state(int argc, char **argv)
 		{ "verbose", 0, 0, 'v' },
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
+		{ "journalsize", 0, 0, 'j'},
 		{ 0, 0, 0, 0}
 	};
 
@@ -546,7 +551,8 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:c:L:n:vqV", long_options, NULL);
+		c = getopt_long(argc, argv, "b:c:L:n:j:vqV", long_options, 
+				NULL);
 
 		if (c == -1)
 			break;
@@ -617,6 +623,25 @@ get_state(int argc, char **argv)
 
 			break;
 
+		case 'j':
+			ret = get_number(optarg, &val);
+
+			if (ret || 
+			    val < OCFS2_MIN_JOURNAL_SIZE ||
+			    val > max_journal_size) {
+				com_err(progname, 0,
+					"Invalid journal size %s: "
+					"must be between %d and %d bytes",
+					optarg,
+					OCFS2_MIN_JOURNAL_SIZE,
+					max_journal_size);
+				exit(1);
+			}
+
+			journal_size_in_bytes = val;
+
+			break;
+
 		case 'v':
 			verbose = 1;
 			break;
@@ -683,6 +708,8 @@ get_state(int argc, char **argv)
 
 	s->format_time   = time(NULL);
 
+	s->journal_size_in_bytes = journal_size_in_bytes;
+
 	return s;
 }
 
@@ -733,7 +760,7 @@ static void
 usage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s [-b blocksize] [-c cluster-size] [-L volume-label]\n"
-			"\t[-n number-of-nodes] [-qvV] device [blocks-count]\n",
+			"\t[-n number-of-nodes] [-j journal-size] [-qvV] device [blocks-count]\n",
 			progname);
 	exit(0);
 }
@@ -825,6 +852,9 @@ fill_defaults(State *s)
 	if (!s->vol_label) {
 		  s->vol_label = strdup("");
 	}
+
+	if (!s->journal_size_in_bytes)
+		s->journal_size_in_bytes = OCFS2_DEFAULT_JOURNAL_SIZE;
 }
 
 static int
@@ -1447,8 +1477,8 @@ replacement_journal_create(State *s, uint64_t journal_off)
 	journal_superblock_t *sb;
 	void *buf;
 
-	buf = do_malloc(s, OCFS2_DEFAULT_JOURNAL_SIZE);
-	memset(buf, 0, OCFS2_DEFAULT_JOURNAL_SIZE);
+	buf = do_malloc(s, s->journal_size_in_bytes);
+	memset(buf, 0, s->journal_size_in_bytes);
 
 	sb = buf;
 
@@ -1457,7 +1487,7 @@ replacement_journal_create(State *s, uint64_t journal_off)
 
 	sb->s_blocksize = cpu_to_be32(s->blocksize);
 	sb->s_maxlen =
-		cpu_to_be32(OCFS2_DEFAULT_JOURNAL_SIZE >> s->blocksize_bits);
+		cpu_to_be32(s->journal_size_in_bytes >> s->blocksize_bits);
 
 	if (s->blocksize == 512)
 		sb->s_first = htonl(2);
@@ -1468,7 +1498,7 @@ replacement_journal_create(State *s, uint64_t journal_off)
 	sb->s_sequence = htonl(1);
 	sb->s_errno    = htonl(0);
 
-	do_pwrite(s, buf, OCFS2_DEFAULT_JOURNAL_SIZE, journal_off);
+	do_pwrite(s, buf, s->journal_size_in_bytes, journal_off);
 	free(buf);
 }
 
