@@ -34,6 +34,7 @@
  * 	track used blocks that iteration won't see?
  * 	verify more inode fields?
  * 	use prompt to mark soft errors
+ * 	make sure blocks don't overlap as part of cluster tracking
  */
 
 #include <string.h>
@@ -396,6 +397,8 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	char *blocks = NULL;
 	ocfs2_dinode *di = NULL;
 	ocfs2_filesys *fs = ost->ost_fs;
+	ocfs2_cached_inode **ci;
+	int max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
 	int i, type;
 
 	printf("Pass 0: Checking allocation structures\n");
@@ -407,12 +410,18 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	}
 	di = (ocfs2_dinode *)blocks;
 
+	ret = ocfs2_malloc0(max_nodes * sizeof(ocfs2_cached_inode *), 
+			    &ost->ost_inode_allocs);
+	if (ret)
+		fatal_error(ret, "while allocating pointers for each nodes' "
+			    "inode allocator bitmaps");
+
 	/* first the global inode alloc and then each of the node's
 	 * inode allocators */
 	type = GLOBAL_INODE_ALLOC_SYSTEM_INODE;
 	i = -1;
 
-	do {
+	for ( ; i < max_nodes; i++, type = INODE_ALLOC_SYSTEM_INODE) {
 		ret = ocfs2_lookup_system_inode(fs, type, i, &blkno);
 		if (ret) {
 			com_err(whoami, ret, "while looking up the inode "
@@ -439,8 +448,27 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		if (ret)
 			goto out;
 
-		type = INODE_ALLOC_SYSTEM_INODE;
-	} while (++i < OCFS2_RAW_SB(fs->fs_super)->s_max_nodes);
+		if (i == -1)
+			ci = &ost->ost_global_inode_alloc;
+		else
+			ci = &ost->ost_inode_allocs[i];
+
+		ret = ocfs2_read_cached_inode(ost->ost_fs, blkno, ci);
+		if (ret) {
+			com_err(whoami, ret, "while reading node %d's inode "
+				"allocator inode %"PRIu64, i, blkno);	
+			continue;
+		}
+
+		ret = ocfs2_load_chain_allocator(ost->ost_fs, *ci);
+		if (ret) {
+			com_err(whoami, ret, "while loading inode %"PRIu64" "
+				"as a chain allocator", blkno);
+			ocfs2_free_cached_inode(ost->ost_fs, *ci);
+			*ci = NULL;
+			continue;
+		}
+	}
 
 out:
 	/* errors are only returned to this guy if they're fatal -- memory

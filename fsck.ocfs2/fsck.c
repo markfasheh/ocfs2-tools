@@ -114,13 +114,6 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 		return ret;
 	}
 
-	ret = ocfs2_block_bitmap_new(fs, "inodes in use", 
-				     &ost->ost_used_inodes);
-	if (ret) {
-		com_err(whoami, ret, "while allocating used inodes bitmap");
-		return ret;
-	}
-
 	ret = ocfs2_block_bitmap_new(fs, "inodes with bad fields", 
 				     &ost->ost_bad_inodes);
 	if (ret) {

@@ -94,11 +94,11 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *blkno)
 	errcode_t ret;
 
 	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE,
-			   	   0, &fs->fs_inode_alloc);
+			   	   0, &fs->fs_inode_allocs[0]);
 	if (ret)
 		return ret;
 
-	return ocfs2_chain_alloc_with_io(fs, fs->fs_inode_alloc, blkno);
+	return ocfs2_chain_alloc_with_io(fs, fs->fs_inode_allocs[0], blkno);
 }
 
 errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *blkno)
@@ -118,12 +118,51 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t blkno)
 {
 	errcode_t ret;
 
+	/* XXX needs to delete from the allocator that has the inode */
+
 	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE,
-			   	   0, &fs->fs_inode_alloc);
+			   	   0, &fs->fs_inode_allocs[0]);
 	if (ret)
 		return ret;
 
-	return ocfs2_chain_free_with_io(fs, fs->fs_inode_alloc, blkno);
+	return ocfs2_chain_free_with_io(fs, fs->fs_inode_allocs[0], blkno);
+}
+
+errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
+				     int *is_allocated)
+{
+	uint16_t node, max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	ocfs2_cached_inode **ci;
+	int type;
+	errcode_t ret = OCFS2_ET_INTERNAL_FAILURE;
+
+	for (node = ~0; node != max_nodes; node++) {
+		if (node == (uint16_t)~0) {
+			type = GLOBAL_INODE_ALLOC_SYSTEM_INODE;
+			ci = &fs->fs_system_inode_alloc;
+		} else {
+			type = INODE_ALLOC_SYSTEM_INODE;
+			ci = &fs->fs_inode_allocs[node];
+		}
+
+		ret = ocfs2_load_allocator(fs, type, node, ci);
+		if (ret)
+			break;
+
+		/* XXX I don't understand why this isn't in
+		 * ocfs2_load_allocator.. the _with_io guys in this file about
+		 * chain_allocator */
+		if ((*ci)->ci_chains == NULL) {
+			ret = ocfs2_load_chain_allocator(fs, *ci);
+			if (ret)
+				break;
+		}
+
+		ret = ocfs2_chain_test(fs, *ci, blkno, is_allocated);
+		if (ret != OCFS2_ET_INVALID_BIT)
+			break;
+	}
+	return ret;
 }
 
 void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di,

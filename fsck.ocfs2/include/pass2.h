@@ -27,6 +27,7 @@
 #include "fsck.h"
 
 errcode_t o2fsck_pass2(o2fsck_state *ost);
+int o2fsck_test_inode_allocated(o2fsck_state *ost, uint64_t blkno);
 
 #endif /* __O2FSCK_PASS2_H__ */
 

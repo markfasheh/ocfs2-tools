@@ -234,6 +234,12 @@ errcode_t ocfs2_open(const char *name, int flags,
 	if (OCFS2_RAW_SB(fs->fs_super)->s_max_nodes > OCFS2_MAX_NODES)
 		goto out;
 
+	ret = ocfs2_malloc0(OCFS2_RAW_SB(fs->fs_super)->s_max_nodes *
+			    sizeof(ocfs2_cached_inode *), 
+			    &fs->fs_inode_allocs);
+	if (ret)
+		goto out;
+
 	ret = OCFS2_ET_UNEXPECTED_BLOCK_SIZE;
 	if (block_size !=
 	    (1U << OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits))
@@ -258,6 +264,9 @@ errcode_t ocfs2_open(const char *name, int flags,
 	return 0;
 
 out:
+	if (fs->fs_inode_allocs)
+		ocfs2_free(&fs->fs_inode_allocs);
+
 	ocfs2_freefs(fs);
 
 	return ret;

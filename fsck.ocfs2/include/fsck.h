@@ -30,7 +30,9 @@
 typedef struct _o2fsck_state {
 	ocfs2_filesys 	*ost_fs;
 
-	ocfs2_bitmap	*ost_used_inodes;
+	ocfs2_cached_inode	*ost_global_inode_alloc;
+	ocfs2_cached_inode	**ost_inode_allocs;
+
 	ocfs2_bitmap	*ost_bad_inodes;
 	ocfs2_bitmap	*ost_dir_inodes;
 	ocfs2_bitmap	*ost_reg_inodes;
@@ -52,10 +54,11 @@ typedef struct _o2fsck_state {
 
 	struct rb_root	ost_dir_parents;
 
-	/* flags */
 	unsigned	ost_ask:1,	/* confirm with the user */
 			ost_answer:1,	/* answer if we don't ask the user */
-			ost_force:1;	/* -f supplied; force check */
+			ost_force:1,	/* -f supplied; force check */
+			ost_write_inode_alloc_asked:1,
+			ost_write_inode_alloc:1;
 } o2fsck_state;
 
 /* The idea is to let someone off-site run fsck and have it give us 

@@ -37,6 +37,23 @@
 #include "strings.h"
 #include "util.h"
 
+static const char *whoami = "pass2";
+
+int o2fsck_test_inode_allocated(o2fsck_state *ost, uint64_t blkno)
+{
+	errcode_t ret;
+	int was_set;
+
+	ret = ocfs2_test_inode_allocated(ost->ost_fs, blkno, &was_set);
+	/* XXX this should stop fsck from marking the fs clean */
+	if (ret) {
+		com_err(whoami, ret, "while testing if inode %"PRIu64" is "
+			"allocated.  Continuing as though it is.", blkno);
+		was_set = 1;
+	}
+	return was_set;
+}
+
 struct dirblock_data {
 	o2fsck_state *ost;
 	ocfs2_filesys *fs;
@@ -232,8 +249,6 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 				struct ocfs2_dir_entry *dirent, int offset)
 {
-	int was_set;
-
 	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode)) {
 		if (prompt(ost, PY, "Directory entry '%.*s' refers to inode "
 			   "number %"PRIu64" which is out of range, "
@@ -244,16 +259,12 @@ static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		}
 	}
 
-	/* XXX Do I care about possible bitmap_test errors here? */
-	ocfs2_bitmap_test(ost->ost_used_inodes, dirent->inode, &was_set);
-	if (!was_set) {
-		if (prompt(ost, PY, "Directory entry '%.*s' refers to inode "
-			   "number %"PRIu64" which is unused, clear the "
-			   "entry?", dirent->name_len, dirent->name, 
-			   dirent->inode)) {
-			dirent->inode = 0;
-			return OCFS2_DIRENT_CHANGED;
-		}
+	if (!o2fsck_test_inode_allocated(ost, dbe->e_ino) &&
+	    prompt(ost, PY, "Directory entry '%.*s' refers to inode number "
+		   "%"PRIu64" which isn't allocated, clear the entry?", 
+		   dirent->name_len, dirent->name, dirent->inode)) {
+		dirent->inode = 0;
+		return OCFS2_DIRENT_CHANGED;
 	}
 	return 0;
 }
@@ -421,8 +432,6 @@ static int fix_dirent_dups(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	return 0;
 }
 
-
-
 /* this could certainly be more clever to issue reads in groups */
 static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe, 
 					void *priv_data) 
@@ -431,16 +440,15 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
 	unsigned int offset = 0, this_flags, ret_flags = 0;
 	o2fsck_strings strings;
-	int was_set, dups_in_block = 0;
+	int dups_in_block = 0;
 	errcode_t retval;
 
-	retval = ocfs2_bitmap_test(dd->ost->ost_used_inodes, dbe->e_ino, 
-				  &was_set);
-	if (retval)
-		fatal_error(retval, "while checking for inode %"PRIu64" in "
-				"the used bitmap", dbe->e_ino);
-	if (!was_set)
+	if (!o2fsck_test_inode_allocated(dd->ost, dbe->e_ino)) {
+		printf("Directory block %"PRIu64" belongs to directory inode "
+		       "%"PRIu64" which isn't allocated.  Ignoring this "
+		       "block.", dbe->e_blkno, dbe->e_ino);
 		return 0;
+	}
 
 	o2fsck_strings_init(&strings);
 

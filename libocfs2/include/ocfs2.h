@@ -180,7 +180,7 @@ struct _ocfs2_filesys {
 
 	/* Allocators */
 	ocfs2_cached_inode *fs_cluster_alloc;
-	ocfs2_cached_inode *fs_inode_alloc;
+	ocfs2_cached_inode **fs_inode_allocs;
 	ocfs2_cached_inode *fs_system_inode_alloc;
 	ocfs2_cached_inode *fs_eb_alloc;
 	ocfs2_cached_inode *fs_system_eb_alloc;
@@ -425,6 +425,13 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
 			   uint64_t blkno);
+errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
+			   ocfs2_cached_inode *cinode,
+			   uint64_t blkno,
+			   int *oldval);
+
+errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
+				     int *is_allocated);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will

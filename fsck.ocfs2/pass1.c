@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * pass1.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +17,8 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * XXX
+ * 	make sure the inode's dtime/count/valid match in update_inode_alloc
  */
 #include <string.h>
 #include <inttypes.h>
@@ -52,12 +49,111 @@ int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
 	return was_set;
 }
 
-/* XXX should walk down all the i_fields to make sure we're veryfying
+/* update our in memory images of the inode chain alloc bitmaps.  these
+ * will be written out at the end of pass1 and the library will read
+ * them off disk for use from then on.
+ *
+ * XXX this returns errors because inode iteration can return inode numbers
+ * that cause errors when given to the chain alloc bitmaps.  I'm sure its
+ * easy to fix. */
+static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di, 
+			       uint64_t blkno, int val)
+{
+	uint16_t node, max_nodes, yn;
+	errcode_t ret = OCFS2_ET_INTERNAL_FAILURE;
+	ocfs2_cached_inode *cinode;
+	int oldval;
+
+	val = !!val;
+
+	/* XXX we could skip all this if we're not going to write it out
+	 * anyway */
+
+	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+
+	verbosef("updating inode %"PRIu64" alloc to %d\n", blkno, val);
+
+	for (node = ~0; node != max_nodes; node++, 
+					   ret = OCFS2_ET_INTERNAL_FAILURE) {
+
+		if (node == (uint16_t)~0)
+			cinode = ost->ost_global_inode_alloc;
+		else
+			cinode = ost->ost_inode_allocs[node];
+
+		/* we might have had trouble reading the chains in pass 0 */
+		if (cinode == NULL)
+			continue;
+
+		if (val)
+			ret = ocfs2_bitmap_set(cinode->ci_chains, blkno,
+					       &oldval);
+		else
+			ret = ocfs2_bitmap_clear(cinode->ci_chains, blkno,
+						 &oldval);
+
+		com_err(whoami, ret, "node %"PRIu16, node);
+
+		if (ret) {
+		       	if (ret != OCFS2_ET_INVALID_BIT)
+				com_err(whoami, ret, "while trying to set "
+					"inode %"PRIu64"'s allocation to '%d' "
+					"in node %u's chain", blkno, val,
+					node);
+			continue;
+		}
+
+		/* this node covers the inode.  see if we've changed the 
+		 * bitmap and if the user wants us to keep tracking it and
+		 * write back the new map */
+		if (oldval != val && !ost->ost_write_inode_alloc_asked) {
+			yn = prompt(ost, PY, "fsck found an inode whose "
+				    "allocation does not match the chain "
+				    "allocators.  Fix the allocation of this "
+				    "and all future inodes?");
+			ost->ost_write_inode_alloc_asked = 1;
+			ost->ost_write_inode_alloc = !!yn;
+		}
+		break;
+	}
+
+	if (ret) {
+		com_err(whoami, ret, "while trying to set inode %"PRIu64"'s "
+			"allocation to '%d'.  None of the nodes chain "
+			"allocator's had a group covering the inode.",
+			blkno, val);
+		goto out;
+	}
+
+	verbosef("updated inode %"PRIu64" alloc to %d in node %"PRIu16"\n",
+		 blkno, val, node);
+
+	/* make sure the inode's fields are consistent if it's allocated */
+	if (val == 1 && node != (uint16_t)di->i_suballoc_node &&
+	    prompt(ost, PY, "Inode %"PRIu64" indicates that it was allocated "
+		   "from node %"PRIu16" but node %"PRIu16"'s chain allocator "
+		   "covers the inode.  Fix the inode's record of where it is "
+		   "allocated?",
+		   blkno, di->i_suballoc_node, node)) {
+		di->i_suballoc_node = node;
+		o2fsck_write_inode(ost->ost_fs, di->i_blkno, di);
+	}
+out:
+	return;
+}
+
+/* Check the basics of the ocfs2_dinode itself.  If we find problems
+ * we clear the VALID flag and the caller will see that and update
+ * inode allocations and write the inode to disk.
+ *
+ * XXX should walk down all the i_fields to make sure we're veryfying
  * those that we can this early */
 static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost, 
 				       uint64_t blkno, ocfs2_dinode *di)
 {
-	int was_set;
+	int clear = 0;
+
+	verbosef("checking inode %"PRIu64"'s fields\n", blkno);
 
 	/* do we want to detect and delete corrupt system dir/files here
 	 * so we can recreate them later ? */
@@ -70,11 +166,12 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	 * in use?  orphaned?  deleted?  garbage?) to understand what
 	 * fsck can do to fix it up */
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
-		   strlen(OCFS2_INODE_SIGNATURE))) {
-		goto bad;
+		   strlen(OCFS2_INODE_SIGNATURE)) &&
+	    prompt(ost, PY, "Inode %"PRIu64" doesn't have a valid signature. "
+		   "Clear it?", blkno)) {
+		clear = 1;
+		goto out;
 	}
-	if (di->i_flags & OCFS2_SUPER_BLOCK_FL)
-		goto bad;
 
 	if (di->i_links_count)
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
@@ -100,12 +197,6 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		o2fsck_write_inode(fs, blkno, di);
 	}
 
-	ocfs2_bitmap_set(ost->ost_used_inodes, blkno, &was_set);
-	if (was_set) {
-		fprintf(stderr, "duplicate inode %"PRIu64"?\n", blkno);
-		goto bad;
-	}
-
 	if (S_ISDIR(di->i_mode)) {
 		ocfs2_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
 		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0);
@@ -117,16 +208,19 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		 * we walk the inode's blocks */
 	} else {
 		if (!S_ISCHR(di->i_mode) && !S_ISBLK(di->i_mode) &&
-			!S_ISFIFO(di->i_mode) && !S_ISSOCK(di->i_mode))
-			goto bad;
+		    !S_ISFIFO(di->i_mode) && !S_ISSOCK(di->i_mode)) {
+			clear = 1;
+			goto out;
+		}
 
 		/* i_size?  what other sanity testing for devices? */
 	}
 
-	return;
-bad:
-	/* XXX we don't actually do anything with this bitmap */
-	ocfs2_bitmap_set(ost->ost_bad_inodes, blkno, NULL);
+out:
+	if (clear) {
+		di->i_flags &= ~OCFS2_SUPER_BLOCK_FL;
+		o2fsck_write_inode(fs, blkno, di);
+	}
 }
 
 struct verifying_blocks {
@@ -389,6 +483,41 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	}
 }
 
+static void write_inode_alloc(o2fsck_state *ost)
+{
+	int max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	ocfs2_cached_inode **ci;
+	errcode_t ret;
+	int i = -1;
+
+	if (!ost->ost_write_inode_alloc)
+		return;
+
+	for ( ; i < max_nodes; i++) {
+		if (i == -1)
+			ci = &ost->ost_global_inode_alloc;
+		else
+			ci = &ost->ost_inode_allocs[i];
+
+		if (*ci == NULL)
+			continue;
+
+		verbosef("writing node %d's allocator\n", i);
+
+		ret = ocfs2_write_chain_allocator(ost->ost_fs, *ci);
+		if (ret)
+			com_err(whoami, ret, "while trying to write back node "
+				"%d's inode allocator", i);
+
+		ret = ocfs2_free_cached_inode(ost->ost_fs, *ci);
+		if (ret)
+			com_err(whoami, ret, "while trying to free node %d's "
+				"inode allocator", i);
+
+		*ci = NULL;
+	}
+}
+
 errcode_t o2fsck_pass1(o2fsck_state *ost)
 {
 	errcode_t ret;
@@ -431,22 +560,25 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 			break;
 
 		/* scanners have to skip over uninitialized inodes */
-		if (!(di->i_flags & OCFS2_VALID_FL))
-			continue;
+		if (di->i_flags & OCFS2_VALID_FL) {
+			o2fsck_verify_inode_fields(fs, ost, blkno, di);
 
-		verbosef("found inode %"PRIu64"\n", blkno);
+			/* XXX be able to mark the blocks in the inode as 
+			 * bad if the inode was bad */
+			o2fsck_check_blocks(fs, ost, blkno, di);
+		}
 
-		o2fsck_verify_inode_fields(fs, ost, blkno, di);
-
-		/* XXX be able to mark the blocks in the inode as 
-		 * bad if the inode was bad */
-
-		o2fsck_check_blocks(fs, ost, blkno, di);
+		verbosef("blkno %"PRIu64" ino %"PRIu64"\n", blkno,
+				di->i_blkno);
+		update_inode_alloc(ost, di, blkno, 
+				   di->i_flags & OCFS2_VALID_FL);
 	}
 
 	if (ocfs2_bitmap_get_set_bits(ost->ost_dup_blocks))
 		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "duplicate blocks "
 				"found, need to learn to fix.");
+
+	write_inode_alloc(ost);
 
 out_close_scan:
 	ocfs2_close_inode_scan(scan);

@@ -38,6 +38,7 @@
 struct chainalloc_bitmap_private {
 	ocfs2_cached_inode	*cb_cinode;
 	errcode_t		cb_errcode;
+	int			cb_dirty;
 };
 
 struct chainalloc_region_private {
@@ -51,9 +52,14 @@ static void chainalloc_destroy_notify(ocfs2_bitmap *bitmap)
 {
 	struct rb_node *node = NULL;
 	struct ocfs2_bitmap_region *br;
+	struct chainalloc_region_private *cr;
 
 	for (node = rb_first(&bitmap->b_regions); node; node = rb_next(node)) {
 		br = rb_entry(node, struct ocfs2_bitmap_region, br_node);
+
+		cr = br->br_private;
+		if (cr->cr_ag)
+			ocfs2_free(&cr->cr_ag);
 		ocfs2_free(&br->br_private);
 	}
 
@@ -139,12 +145,87 @@ static errcode_t chainalloc_read_bitmap(ocfs2_bitmap *bitmap)
 	return ret;
 }
 
+static errcode_t chainalloc_write_group(struct ocfs2_bitmap_region *br,
+					void *private_data)
+{
+	struct chainalloc_region_private *cr = br->br_private;
+	ocfs2_filesys *fs = private_data;
+	errcode_t ret = 0;
+
+	printf("want to write desc %"PRIu64"\n", cr->cr_ag->bg_blkno);
+
+	if (!cr->cr_dirty)
+		return 0;
+
+	memcpy(cr->cr_ag->bg_bitmap, br->br_bitmap, cr->cr_ag->bg_bits / 8);
+
+	ret = ocfs2_write_group_desc(fs, cr->cr_ag->bg_blkno, 
+				     (char *)cr->cr_ag);
+	if (ret == 0)
+		cr->cr_dirty = 0;
+
+	return ret;
+}
+
+static errcode_t chainalloc_write_bitmap(ocfs2_bitmap *bitmap)
+{
+	struct chainalloc_bitmap_private *cb = bitmap->b_private;
+	ocfs2_filesys *fs;
+	errcode_t ret;
+
+	if (!cb->cb_cinode)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if (!cb->cb_dirty)
+		return 0;
+
+	fs = cb->cb_cinode->ci_fs;
+
+	ret = ocfs2_bitmap_foreach_region(bitmap, chainalloc_write_group, fs);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_write_cached_inode(fs, cb->cb_cinode);
+	if (ret == 0)
+		cb->cb_dirty = 0;
+
+out:
+	return ret;
+}
+
 static int chainalloc_merge_region(ocfs2_bitmap *bitmap,
 				   struct ocfs2_bitmap_region *prev,
 				   struct ocfs2_bitmap_region *next)
 {
 	/* Can't merge */
 	return 0;
+}
+
+/* update the free bit counts in the alloc group, chain rec, and inode so
+ * that they are valid if we're asked to write in the future */
+static void chainalloc_bit_change_notify(ocfs2_bitmap *bitmap,
+					 struct ocfs2_bitmap_region *br,
+					 uint64_t bitno,
+					 int new_val)
+{
+	struct chainalloc_bitmap_private *cb = bitmap->b_private;
+	struct chainalloc_region_private *cr = br->br_private;
+	ocfs2_dinode *di = cb->cb_cinode->ci_inode;
+	ocfs2_group_desc *ag = cr->cr_ag;
+	ocfs2_chain_rec *rec = &di->id2.i_chain.cl_recs[ag->bg_chain];
+
+	if (new_val) {
+		ag->bg_free_bits_count--;
+		rec->c_free--;
+		di->id1.bitmap1.i_used++;
+	} else {
+		ag->bg_free_bits_count++;
+		rec->c_free++;
+		di->id1.bitmap1.i_used--;
+	}
+
+	cr->cr_dirty = 1;
+	cb->cb_dirty = 1;
 }
 
 static struct ocfs2_bitmap_operations chainalloc_bitmap_ops = {
@@ -155,7 +236,9 @@ static struct ocfs2_bitmap_operations chainalloc_bitmap_ops = {
 	.find_next_clear	= ocfs2_bitmap_find_next_clear_generic,
 	.merge_region		= chainalloc_merge_region,
 	.read_bitmap		= chainalloc_read_bitmap,
+	.write_bitmap		= chainalloc_write_bitmap,
 	.destroy_notify		= chainalloc_destroy_notify,
+	.bit_change_notify	= chainalloc_bit_change_notify,
 };
 
 static errcode_t ocfs2_chainalloc_bitmap_new(ocfs2_filesys *fs,
@@ -271,6 +354,17 @@ errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 		return OCFS2_ET_FREEING_UNALLOCATED_REGION;
 
 	return 0;
+}
+
+errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
+			   ocfs2_cached_inode *cinode,
+			   uint64_t blkno,
+			   int *oldval)
+{
+	if (!cinode->ci_chains)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	return ocfs2_bitmap_test(cinode->ci_chains, blkno, oldval);
 }
 
 

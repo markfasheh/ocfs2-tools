@@ -30,6 +30,7 @@
 
 #include "dirparents.h"
 #include "fsck.h"
+#include "pass2.h"
 #include "pass3.h"
 #include "problem.h"
 #include "util.h"
@@ -38,9 +39,7 @@ static void check_root(o2fsck_state *ost)
 {
 	int was_set;
 
-	ocfs2_bitmap_test(ost->ost_used_inodes, ost->ost_fs->fs_root_blkno, 
-			  &was_set);
-	if (was_set) {
+	if (o2fsck_test_inode_allocated(ost, ost->ost_fs->fs_root_blkno)) {
 		ocfs2_bitmap_test(ost->ost_dir_inodes, 
 				ost->ost_fs->fs_root_blkno, &was_set);
 		if (!was_set) {

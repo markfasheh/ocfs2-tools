@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * pass4.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +17,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
  */
 #include <inttypes.h>
 
@@ -34,19 +29,87 @@
 #include "problem.h"
 #include "util.h"
 
+static const char *whoami = "pass4";
+
+static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di)
+{
+	uint16_t refs, in_inode;
+
+	refs = o2fsck_icount_get(ost->ost_icount_refs, di->i_blkno);
+	in_inode = o2fsck_icount_get(ost->ost_icount_in_inodes, di->i_blkno);
+
+	verbosef("ino %"PRIu64", refs %u in %u\n", di->i_blkno, refs, 
+		 in_inode);
+
+	/* XXX offer to remove files/dirs with no data? */
+	if (refs == 0 &&
+	    prompt(ost, PY, "Inode %"PRIu64" isn't referenced by any "
+		   "directory entries.  Move it to lost+found?", 
+		   di->i_blkno)) {
+		o2fsck_reconnect_file(ost, di->i_blkno);
+		refs = o2fsck_icount_get(ost->ost_icount_refs, di->i_blkno);
+	}
+
+	if (refs == in_inode)
+		goto out;
+
+	if (in_inode != di->i_links_count)
+		com_err(whoami, OCFS2_ET_INTERNAL_FAILURE, "fsck's thinks "
+			"inode %"PRIu64" has a link count of %"PRIu16" but on "
+			"disk it is %"PRIu16, di->i_blkno, in_inode, 
+			di->i_links_count);
+
+	if (prompt(ost, PY, "Inode %"PRIu64" has a link count of %"PRIu16" on "
+		   "disk but directory entry references come to %"PRIu16". "
+		   "Update the count on disk to match?", di->i_blkno, in_inode, 
+		   refs)) {
+		di->i_links_count = refs;
+		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
+				  refs);
+		o2fsck_write_inode(ost->ost_fs, di->i_blkno, di);
+	}
+
+out:
+	return 0;
+}
+
 errcode_t o2fsck_pass4(o2fsck_state *ost)
 {
-	uint64_t ino = 0;
-	uint16_t refs, in_inode;
 	ocfs2_dinode *di;
 	char *buf = NULL;
-	errcode_t err;
+	errcode_t ret;
+	ocfs2_inode_scan *scan;
+	uint64_t blkno;
 
 	printf("Pass 4: Checking inodes link counts.\n");
 
-	for (ino = 0;
-	     ocfs2_bitmap_find_next_set(ost->ost_used_inodes, ino, &ino) == 0;
-	     ino++) {
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating space to read inodes");
+		goto out;
+	}
+
+	di = (ocfs2_dinode *)buf;
+
+	ret = ocfs2_open_inode_scan(ost->ost_fs, &scan);
+	if (ret) {
+		com_err(whoami, ret,
+			"while opening inode scan");
+		goto out_free;
+	}
+
+	for(;;) {
+		ret = ocfs2_get_next_inode(scan, &blkno, buf);
+		if (ret) {
+			com_err(whoami, ret, "while reading next inode");
+			break;
+		}
+		if (blkno == 0)
+			break;
+
+		if (!(di->i_flags & OCFS2_VALID_FL))
+			continue;
+
 		/*
 		 * XXX e2fsck skips some inodes by their presence in other
 		 * bitmaps.  I think we should use this loop to verify their
@@ -54,58 +117,12 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 		 * to match our expectations in previous passes.
 		 */
 
-		refs = o2fsck_icount_get(ost->ost_icount_refs, ino);
-		in_inode = o2fsck_icount_get(ost->ost_icount_in_inodes, ino);
-
-		verbosef("ino %"PRIu64", refs %u in %u\n", ino, refs, 
-				in_inode);
-
-		if (refs == 0) {
-			/* XXX offer to remove files/dirs with no data? */
-			if (prompt(ost, PY, "Inode %"PRIu64" isn't referenced "
-				   "by any directory entries.  Move it to "
-				   "lost+found?", ino)) {
-				o2fsck_reconnect_file(ost, ino);
-				refs = o2fsck_icount_get(ost->ost_icount_refs,
-						ino);
-			}
-		}
-
-		if (refs == in_inode)
-			continue;
-
-		if (buf == NULL) {
-			err = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
-			if (err)
-				fatal_error(err, "while allocating inode "
-						"buffer to verify an inode's "
-						"link count");
-		}
-
-		err = ocfs2_read_inode(ost->ost_fs, ino, buf);
-		if (err)
-			fatal_error(err, "while reading inode %"PRIu64" to "
-					"verify its link count", ino);
-
-		di = (ocfs2_dinode *)buf; 
-
-		if (in_inode != di->i_links_count)
-			fatal_error(OCFS2_ET_INTERNAL_FAILURE,
-				    "fsck's thinks inode %"PRIu64" has a link "
-				    "count of %"PRIu16" but on disk it is "
-				    "%"PRIu16, ino, in_inode, 
-				    di->i_links_count);
-
-		if (prompt(ost, PY, "Inode %"PRIu64" has a link count of "
-			   "%"PRIu16" on disk but directory entry references "
-			   "come to %"PRIu16". Update the count on disk to "
-			   "match?", ino, in_inode, refs)) {
-			di->i_links_count = refs;
-			o2fsck_icount_set(ost->ost_icount_in_inodes, ino, 
-					refs);
-			o2fsck_write_inode(ost->ost_fs, ino, di);
-		}
+		check_link_counts(ost, di);
 	}
 
-	return 0;
+	ocfs2_close_inode_scan(scan);
+out_free:
+	ocfs2_free(&buf);
+out:
+	return ret;
 }

@@ -287,6 +287,25 @@ errcode_t ocfs2_bitmap_realloc_region(ocfs2_bitmap *bitmap,
 	return 0;
 }
 
+errcode_t ocfs2_bitmap_foreach_region(ocfs2_bitmap *bitmap,
+				      ocfs2_bitmap_foreach_func func,
+				      void *private_data)
+{
+	struct ocfs2_bitmap_region *br;
+	struct rb_node *node;
+	errcode_t ret = 0;
+
+	for (node = rb_first(&bitmap->b_regions); node; node = rb_next(node)) {
+		br = rb_entry(node, struct ocfs2_bitmap_region, br_node);
+
+		ret = func(br, private_data);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 /*
  * Attempt to merge two regions.  If the merge is successful, 0 will
  * be returned and prev will be the only valid region.  Next will
@@ -432,8 +451,12 @@ errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap, uint64_t bitno,
 	if (oldval)
 		*oldval = old_tmp;
 
-	if (!old_tmp)
+	if (!old_tmp) {
 		br->br_set_bits++;
+		if (bitmap->b_ops->bit_change_notify)
+			(*bitmap->b_ops->bit_change_notify)(bitmap, br, bitno,
+							    1);
+	}
 
 	return 0;
 }
@@ -453,8 +476,12 @@ errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 	if (oldval)
 		*oldval = old_tmp;
 
-	if (old_tmp)
+	if (old_tmp) {
 		br->br_set_bits--;
+		if (bitmap->b_ops->bit_change_notify)
+			(*bitmap->b_ops->bit_change_notify)(bitmap, br, bitno,
+							    0);
+	}
 
 	return 0;
 }

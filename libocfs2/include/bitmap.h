@@ -61,6 +61,10 @@ struct ocfs2_bitmap_operations {
 	errcode_t (*read_bitmap)(ocfs2_bitmap *bitmap);
 	errcode_t (*write_bitmap)(ocfs2_bitmap *bitmap);
 	void (*destroy_notify)(ocfs2_bitmap *bitmap);
+	void (*bit_change_notify)(ocfs2_bitmap *bitmap,
+				  struct ocfs2_bitmap_region *br,
+				  uint64_t bitno,
+				  int new_val);
 };
 
 struct _ocfs2_bitmap {
@@ -90,6 +94,11 @@ errcode_t ocfs2_bitmap_realloc_region(ocfs2_bitmap *bitmap,
 				      int total_bits);
 errcode_t ocfs2_bitmap_insert_region(ocfs2_bitmap *bitmap,
 				     struct ocfs2_bitmap_region *br);
+typedef errcode_t (*ocfs2_bitmap_foreach_func)(struct ocfs2_bitmap_region *br,
+					       void *private_data);
+errcode_t ocfs2_bitmap_foreach_region(ocfs2_bitmap *bitmap,
+				      ocfs2_bitmap_foreach_func func,
+				      void *private_data);
 errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap,
 				   uint64_t bitno, int *oldval);
 errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,

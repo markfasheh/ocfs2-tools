@@ -6,7 +6,9 @@ WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
 	-Wmissing-declarations
 
 ifdef OCFS_DEBUG
-OPTS += -g
+OPTS += -O -g
+else
+OPTS += -O2
 endif
 
 INCLUDES = -Iinclude
@@ -15,10 +17,6 @@ LIBRARIES = libocfs2.a
 
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
 CPPFLAGS += -DOCFS2_FLAT_INCLUDES
-
-OPTIMIZE = -O2
-
-CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
