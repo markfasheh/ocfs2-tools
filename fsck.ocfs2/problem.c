@@ -81,6 +81,63 @@ static int read_a_char(int fd)
 	return c;
 }
 
+/* this had better be null terminated */
+static void print_wrapped(char *str)
+{
+	size_t left = strlen(str);
+	size_t target, width = 80; /* XXX do like e2fsck */
+	int i, j;
+
+	target = width;
+
+	while (left > 0) {
+		/* skip leading space in a line */
+		for(;*str && isspace(*str); left--, str++)
+			; 
+
+		if (left == 0)
+			break;
+
+		/* just dump it if there isn't enough left */
+		if (left <= target) {
+			printf("%s", str);
+			break;
+		}
+
+		/* back up if we break mid-word */
+		for (i = target - 1; i > 0 && !isspace(str[i]); i--)
+			;
+
+		/* see how enormous this broken word is */
+		for (j = target - 1; j < left && !isspace(str[j]); j++)
+			;
+
+		j = j - i + 1; /* from offset to len */
+
+		/* just include the word if it itself is longer than a line */
+		if (j > target)
+			i += j;
+
+		i++; /* from offset to len */
+
+		printf("%.*s", i, str);
+
+		left -= i;
+		str += i;
+
+		/* only add a newline if we cleanly wrapped on a small word.
+		 * otherwise where we start will depend on where we finished
+		 * this crazy long line */
+		target = width;
+		if (i < target) 
+			printf("\n");
+		else
+			target -= (i % width);
+	}
+
+	fflush(stdout);
+}
+
 /* 
  * this checks the user's intent.  someday soon it will check command line flags
  * and have a notion of grouping, as well.  The caller is expected to provide
@@ -90,24 +147,58 @@ int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 {
 	va_list ap;
 	int c, ans = 0;
+	static char fatal[] = " If you answer no fsck will not be able to "
+			      "continue and will exit.";
+	static char yes[] = " <y> ", no[] = " <n> ";
+	char *output;
+	size_t len, part;
 
 	/* paranoia for jokers that claim to default to both */
 	if((flags & PY) && (flags & PN))
-		flags &= ~(PY|PN);
+		flags &= ~PY;
+
+	len = vsnprintf(NULL, 0, fmt, ap);
+	if (len < 0) {
+		perror("vsnprintf failed when trying to bulid an output "
+		       "buffer");
+		exit(FSCK_ERROR);
+	}
+
+	if (flags & PF)
+		len += sizeof(fatal); /* includes null */
+
+	if (flags & (PY|PN))
+		len += sizeof(yes); /* includes null */
+
+	output = malloc(len);
+	if (output == NULL) {
+		perror("malloc failed when trying to bulid an output buffer");
+		exit(FSCK_ERROR);
+	}
 
 	va_start(ap, fmt);
-	vprintf(fmt, ap);
+	part = vsnprintf(output, len, fmt, ap);
 	va_end(ap);
+	if (part < 0) {
+		perror("vsnprintf failed when trying to bulid an output "
+		       "buffer");
+		exit(FSCK_ERROR);
+	}
+
+	if (flags & PF)
+		strcat(output, fatal);
 
 	if (!ost->ost_ask) {
 		ans = ost->ost_answer ? 'y' : 'n';
 	} else {
 		if (flags & PY)
-			printf(" <y> ");
+			strcat(output, yes);
 		else if (flags & PN)
-			printf(" <n> ");
-		fflush(stdout);
+			strcat(output, no);
 	}
+
+	print_wrapped(output);
+	free(output);
 
 	/* no curses, no nothin.  overly regressive? */
 	while (!ans && (c = read_a_char(fileno(stdin))) != EOF) {
@@ -150,6 +241,11 @@ int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 		printf(" %c\n", ans);
 	else
 		printf("%c\n", ans);
+
+	if (flags & PF) {
+		printf("fsck cannot continue.  Exiting.\n");
+		exit(FSCK_ERROR);
+	}
 
 	return ans == 'y';
 }

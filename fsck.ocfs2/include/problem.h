@@ -27,6 +27,7 @@
 /* prompt flags. */
 #define PY (1 << 0) /* default to yes when asked and no answer forced */
 #define PN  (1 << 1) /* default to no when asked and no answer forced */
+#define PF  (1 << 2) /* exit with FSCK_ERROR if 'n' is given */
 
 #include "fsck.h"
 
