@@ -630,8 +630,8 @@ get_state(int argc, char **argv)
 			    val < OCFS2_MIN_JOURNAL_SIZE ||
 			    val > max_journal_size) {
 				com_err(progname, 0,
-					"Invalid journal size %s: "
-					"must be between %d and %d bytes",
+					"Invalid journal size %s: must be "
+					"between %d and %"PRIu64" bytes",
 					optarg,
 					OCFS2_MIN_JOURNAL_SIZE,
 					max_journal_size);
