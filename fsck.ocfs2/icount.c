@@ -64,21 +64,25 @@ static void icount_insert(o2fsck_icount *icount, icount_node *in)
 	rb_insert_color(&in->in_node, &icount->ic_multiple_tree);
 }
 
-static icount_node *icount_search(o2fsck_icount *icount, uint64_t blkno)
+static icount_node *icount_search(o2fsck_icount *icount, uint64_t blkno,
+				  icount_node **next)
 {
 	struct rb_node *node = icount->ic_multiple_tree.rb_node;
-	icount_node *in;
+	icount_node *in, *last_left = NULL;
 
 	while (node) {
 		in = rb_entry(node, icount_node, in_node);
 
-		if (blkno < in->in_blkno)
+		if (blkno < in->in_blkno) {
+			last_left = in;
 			node = node->rb_left;
-		else if (blkno > in->in_blkno)
+		} else if (blkno > in->in_blkno)
 			node = node->rb_right;
 		else
 			return in;
 	}
+	if (next && last_left)
+		*next = last_left;
 	return NULL;
 }
 
@@ -93,7 +97,7 @@ void o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno,
 	else
 		ocfs2_bitmap_clear(icount->ic_single_bm, blkno, NULL);
 
-	in = icount_search(icount, blkno);
+	in = icount_search(icount, blkno, NULL);
 	if (in) {
 		if (count < 2) {
 			rb_erase(&in->in_node, &icount->ic_multiple_tree);
@@ -125,7 +129,7 @@ uint16_t o2fsck_icount_get(o2fsck_icount *icount, uint64_t blkno)
 		goto out;
 	}
 
-	in = icount_search(icount, blkno);
+	in = icount_search(icount, blkno, NULL);
 	if (in)
 		ret = in->in_icount;
 
@@ -150,7 +154,7 @@ void o2fsck_icount_delta(o2fsck_icount *icount, uint64_t blkno,
 	if (was_set) {
 		prev_count = 1;
 	} else {
-		in = icount_search(icount, blkno);
+		in = icount_search(icount, blkno, NULL);
 		if (in == NULL)
 			prev_count = 0;
 		else
@@ -186,6 +190,35 @@ errcode_t o2fsck_icount_new(ocfs2_filesys *fs, o2fsck_icount **ret)
 
 	*ret = icount;
 	return 0;
+}
+
+errcode_t o2fsck_icount_next_blkno(o2fsck_icount *icount, uint64_t start,
+				   uint64_t *found)
+{
+	uint64_t next_bit;
+	errcode_t ret;
+	icount_node *in, *next = NULL;
+
+	ret = ocfs2_bitmap_find_next_set(icount->ic_single_bm, start,
+						  &next_bit);
+
+	in = icount_search(icount, start, &next);
+	if (in == NULL)
+		in = next;
+
+	if (in) {
+		if (ret == OCFS2_ET_BIT_NOT_FOUND)
+			*found = in->in_blkno;
+		else
+			*found = next_bit < in->in_blkno ? next_bit :
+							   in->in_blkno;
+		ret = 0;
+	}
+	else {
+		if (ret != OCFS2_ET_BIT_NOT_FOUND)
+			*found = next_bit;
+	}
+	return ret;
 }
 
 void o2fsck_icount_free(o2fsck_icount *icount)

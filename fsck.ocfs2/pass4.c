@@ -38,27 +38,35 @@
 
 static const char *whoami = "pass4";
 
-static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di)
+static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
+				   uint64_t blkno)
 {
 	uint16_t refs, in_inode;
+	errcode_t ret;
 
-	refs = o2fsck_icount_get(ost->ost_icount_refs, di->i_blkno);
-	in_inode = o2fsck_icount_get(ost->ost_icount_in_inodes, di->i_blkno);
+	refs = o2fsck_icount_get(ost->ost_icount_refs, blkno);
+	in_inode = o2fsck_icount_get(ost->ost_icount_in_inodes, blkno);
 
-	verbosef("ino %"PRIu64", refs %u in %u\n", di->i_blkno, refs, 
-		 in_inode);
+	verbosef("ino %"PRIu64", refs %u in %u\n", blkno, refs, in_inode);
 
 	/* XXX offer to remove files/dirs with no data? */
 	if (refs == 0 &&
 	    prompt(ost, PY, "Inode %"PRIu64" isn't referenced by any "
 		   "directory entries.  Move it to lost+found?", 
 		   di->i_blkno)) {
-		o2fsck_reconnect_file(ost, di->i_blkno);
-		refs = o2fsck_icount_get(ost->ost_icount_refs, di->i_blkno);
+		o2fsck_reconnect_file(ost, blkno);
+		refs = o2fsck_icount_get(ost->ost_icount_refs, blkno);
 	}
 
 	if (refs == in_inode)
 		goto out;
+
+	ret = ocfs2_read_inode(ost->ost_fs, blkno, (char *)di);
+	if (ret) {
+		com_err(whoami, ret, "reading inode %"PRIu64" to update its "
+			"i_links_count", blkno);
+		goto out;
+	}
 
 	if (in_inode != di->i_links_count)
 		com_err(whoami, OCFS2_ET_INTERNAL_FAILURE, "fsck's thinks "
@@ -84,9 +92,8 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 {
 	ocfs2_dinode *di;
 	char *buf = NULL;
-	errcode_t ret;
-	ocfs2_inode_scan *scan;
-	uint64_t blkno;
+	errcode_t ret, ref_ret, inode_ret;
+	uint64_t blkno, ref_blkno, inode_blkno;
 
 	printf("Pass 4: Checking inodes link counts.\n");
 
@@ -98,38 +105,32 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 
 	di = (ocfs2_dinode *)buf;
 
-	ret = ocfs2_open_inode_scan(ost->ost_fs, &scan);
-	if (ret) {
-		com_err(whoami, ret,
-			"while opening inode scan");
-		goto out_free;
-	}
+	for(blkno = 0; ref_ret != OCFS2_ET_BIT_NOT_FOUND ;
+	    blkno = ref_blkno + 1) {
+		ref_blkno = 0;
+		ref_ret = o2fsck_icount_next_blkno(ost->ost_icount_refs, blkno,
+						   &ref_blkno);
+		inode_blkno = 0;
+		inode_ret = o2fsck_icount_next_blkno(ost->ost_icount_in_inodes,
+						     blkno, &inode_blkno);
 
-	for(;;) {
-		ret = ocfs2_get_next_inode(scan, &blkno, buf);
-		if (ret) {
-			com_err(whoami, ret, "while reading next inode");
+		verbosef("ref %"PRIu64" ino %"PRIu64"\n", ref_blkno,
+			 inode_blkno);
+
+		if (ref_ret != inode_ret || ref_blkno != inode_blkno) {
+			printf("fsck's internal inode link count tracking "
+			       "isn't consistent\n");
+			ret = OCFS2_ET_INTERNAL_FAILURE;
 			break;
 		}
-		if (blkno == 0)
-			break;
 
-		if (!(di->i_flags & OCFS2_VALID_FL))
-			continue;
-
-		/*
-		 * XXX e2fsck skips some inodes by their presence in other
-		 * bitmaps.  I think we should use this loop to verify their
-		 * i_links_count as well and just make sure that we update refs
-		 * to match our expectations in previous passes.
-		 */
-
-		check_link_counts(ost, di);
+		if (ref_ret == 0)
+			check_link_counts(ost, di, ref_blkno);
 	}
 
-	ocfs2_close_inode_scan(scan);
-out_free:
-	ocfs2_free(&buf);
 out:
+	if (buf)
+		ocfs2_free(&buf);
+
 	return ret;
 }

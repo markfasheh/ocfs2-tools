@@ -38,6 +38,8 @@ errcode_t o2fsck_icount_new(ocfs2_filesys *fs, o2fsck_icount **ret);
 void o2fsck_icount_free(o2fsck_icount *icount);
 void o2fsck_icount_delta(o2fsck_icount *icount, uint64_t blkno, 
 			 int delta);
+errcode_t o2fsck_icount_next_blkno(o2fsck_icount *icount, uint64_t start,
+				   uint64_t *found);
 
 #endif /* __O2FSCK_ICOUNT_H__ */
 
