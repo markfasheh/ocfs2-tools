@@ -638,7 +638,7 @@ void format_file(system_file_disk_record *rec)
 	di->i_clusters = cpu_to_le32(clusters);
 	if (rec->flags & OCFS2_LOCAL_ALLOC_FL) {
 		di->id2.i_lab.la_size = 
-			cpu_to_le16(OCFS2_LOCAL_BITMAP_DEFAULT_SIZE);
+			cpu_to_le16(ocfs2_local_alloc_size(blocksize));
 		return;
 	} 
 

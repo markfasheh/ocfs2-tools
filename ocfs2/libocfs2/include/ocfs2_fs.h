@@ -153,9 +153,6 @@ static char *ocfs2_system_inode_names[NUM_SYSTEM_INODES] = {
 };
 
 
-/* Default size for the local alloc bitmap */
-#define OCFS2_LOCAL_BITMAP_DEFAULT_SIZE		256
-
 /*
  * OCFS2 directory file types.  Only the low 3 bits are used.  The
  * other bits are reserved for now.
