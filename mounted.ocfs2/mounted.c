@@ -1,7 +1,7 @@
 /*
  * mounted.c
  *
- * ocfs mount detect utility
+ * ocfs2 mount detect utility
  *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
@@ -41,15 +41,20 @@
 #include <ocfs2_disk_dlm.h>
 #include <ocfs1_fs_compat.h>
 
+errcode_t ocfs2_full_detect(char *device);
+errcode_t ocfs2_quick_detect(char *device);
 void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes);
 int read_options(int argc, char **argv);
 void usage(char *progname);
+void ocfs2_partition_list (char **dev_list);
+int ocfs2_get_ocfs1_label(char *device, char *buf, int buflen);
 
 int detect_only = 0;
 char *device = NULL;
+char *progname = NULL;
 
 char *usage_string =
-"usage: %s [-d] device\n"
+"usage: %s [-d] [device]\n"
 "	-d detect only\n";
 
 /*
@@ -59,42 +64,57 @@ char *usage_string =
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
-	int mount_flags = 0;
-	char *node_names[OCFS2_NODE_MAP_MAX_NODES];
-	int i;
-	ocfs2_filesys *fs = NULL;
-	uint8_t vol_label[64];
-	uint8_t vol_uuid[16];
-	uint16_t num_nodes = OCFS2_NODE_MAP_MAX_NODES;
 
 	initialize_ocfs_error_table();
-
-	memset(node_names, 0, sizeof(node_names));
-	memset(vol_label, 0, sizeof(vol_label));
-	memset(vol_uuid, 0, sizeof(vol_uuid));
 
 	ret = read_options(argc, argv);
 	if (ret)
 		goto bail;
 
-	if (!device) {
-		fprintf(stderr, "Error: Device not specified.\n");
-		usage(argv[0]);
+	if (!detect_only && !device) {
+		usage(progname);
 		ret = 1;
 		goto bail;
 	}
 
+	if (detect_only)
+		ret = ocfs2_quick_detect(device);
+	else
+		ret = ocfs2_full_detect(device);
+
+bail:
+	return ret;
+}
+
+/*
+ * ocfs2_full_detect()
+ *
+ */
+errcode_t ocfs2_full_detect(char *device)
+{
+	errcode_t ret = 0;
+	int mount_flags = 0;
+	char *node_names[OCFS2_NODE_MAP_MAX_NODES];
+	int i;
+	ocfs2_filesys *fs = NULL;
+	uint8_t *vol_label = NULL;
+	uint8_t *vol_uuid = NULL;
+	uint16_t num_nodes = OCFS2_NODE_MAP_MAX_NODES;
+
+	memset(node_names, 0, sizeof(node_names));
+
 	/* open	fs */
 	ret = ocfs2_open(device, O_DIRECT | OCFS2_FLAG_RO, 0, 0, &fs);
 	if (ret) {
-		com_err(argv[0], ret, "while opening \"%s\"", device);
+		com_err(progname, ret, "while opening \"%s\"", device);
 		goto bail;
 	}
 
 	num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
-	memcpy(vol_label, OCFS2_RAW_SB(fs->fs_super)->s_label, sizeof(vol_label));
-	memcpy(vol_uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid, sizeof(vol_uuid));
+	vol_label = OCFS2_RAW_SB(fs->fs_super)->s_label;
+	vol_uuid = OCFS2_RAW_SB(fs->fs_super)->s_uuid;
 
+	printf("Device: %s\n", device);
 	printf("Label : %s\n", vol_label);
 	printf("Id    : ");
 	for (i = 0; i < 16; i++)
@@ -106,7 +126,7 @@ int main(int argc, char **argv)
 		
 	ret = ocfs2_check_heartbeat(device, &mount_flags, node_names);
 	if (ret) {
-		com_err(argv[0], ret, "while detecting heartbeat");
+		com_err(progname, ret, "while detecting heartbeat");
 		goto bail;
 	}
 
@@ -130,6 +150,58 @@ bail:
 }
 
 /*
+ * ocfs2_quick_detect()
+ *
+ */
+errcode_t ocfs2_quick_detect(char *device)
+{
+	errcode_t ret = 0;
+	ocfs2_filesys *fs = NULL;
+	char *dev_list[255];
+	char *dev = NULL;
+	uint8_t *vol_label = NULL;
+	ocfs1_vol_label *v1_lbl = NULL;
+	char buf[512];
+	int i;
+
+	memset(dev_list, 0 , sizeof(dev_list));
+
+	if (device)
+		dev_list[0] = strdup(device);
+	else
+		ocfs2_partition_list(dev_list);
+
+	printf("%-20s  %-6s  %-s\n", "Device", "Type", "Label");
+
+	for (i = 0; i < 255 && dev_list[i]; ++i) {
+		dev = dev_list[i];
+		ret = ocfs2_open(dev, OCFS2_FLAG_RO, 0, 0, &fs);
+		if (ret == 0 || ret == OCFS2_ET_OCFS_REV) {
+			if (!ret)
+				vol_label = OCFS2_RAW_SB(fs->fs_super)->s_label;
+			else {
+				if (!ocfs2_get_ocfs1_label(dev, buf, sizeof(buf))) {
+					v1_lbl = (ocfs1_vol_label *)buf;
+					vol_label = v1_lbl->label;
+				} else
+					vol_label = NULL;
+			}
+			printf("%-20s  %-6s  %-s\n", dev,
+			       (!ret ? "ocfs2" : "ocfs"),
+			       (vol_label ? (char *)vol_label : " "));
+		}
+		if (!ret)
+			ocfs2_close(fs);
+	}
+
+	for (i = 0; i < 255; ++i)
+		if (dev_list[i])
+			ocfs2_free(&dev_list[i]);
+
+	return 0;
+}
+
+/*
  * ocfs2_print_live_nodes()
  *
  */
@@ -145,6 +217,58 @@ void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes)
 		}
 	}
 	printf("\n");
+
+	return ;
+}
+
+/*
+ * ocfs2_partition_list()
+ *
+ */
+void ocfs2_partition_list (char **dev_list)
+{
+	FILE   *proc;
+	char   line[100], name[100], device[255];
+	int cnt = 0;
+
+	proc = fopen ("/proc/partitions", "r");
+	if (proc == NULL)
+		return;
+
+	while (fgets (line, sizeof(line), proc) != NULL) {
+		if (sscanf(line, "%*d %*d %*d %99[^ \t\n]", name) != 1)
+			continue;
+
+		snprintf(device, sizeof(device), "/dev/%s", name);
+		dev_list[cnt++] = strdup(device);
+	}
+
+	fclose (proc);
+
+	return ;
+}
+
+/*
+ * ocfs2_get_ocfs1_label()
+ *
+ */
+int ocfs2_get_ocfs1_label(char *device, char *buf, int buflen)
+{
+	int fd = -1;
+	int ret = -1;
+	
+	fd = open(device, O_RDONLY);
+	if (fd == -1)
+		goto bail;
+
+	if (pread(fd, buf, buflen, 512) == -1)
+		goto bail;
+
+	ret = 0;
+bail:
+	if (fd > 0)
+		close(fd);
+	return ret;
 }
 
 /*
@@ -155,7 +279,7 @@ void usage(char *progname)
 {
 	printf(usage_string, progname);
 	return ;
-}				/* usage */
+}
 
 /*
  * read_options()
@@ -192,4 +316,4 @@ int read_options(int argc, char **argv)
 
 bail:
 	return ret;
-}				/* read_options */
+}
