@@ -482,11 +482,40 @@ static void check_link_data(struct verifying_blocks *vb)
 {
 	ocfs2_dinode *di = vb->vb_di;
 	o2fsck_state *ost = vb->vb_ost;
-	uint64_t expected;
+	uint64_t expected, link_max;
+	char *null;
 
 	verbosef("found a link: num %"PRIu64" last %"PRIu64" len "
 		"%"PRIu64" null %d\n", vb->vb_num_blocks, 
 		vb->vb_last_block, vb->vb_link_len, vb->vb_saw_link_null);
+
+	if (di->i_clusters == 0 && vb->vb_num_blocks > 0 &&
+	    prompt(ost, PY, PR_LINK_FAST_DATA,
+		   "Symlink inode %"PRIu64" claims to be a fast symlink "
+		   "but has file data.  Clear the inode?", di->i_blkno)) {
+		vb->vb_clear = 1;
+		return;
+	}
+
+	/* if we're a fast link we doctor the verifying_blocks book-keeping
+	 * to satisfy the following checks */
+	if (di->i_clusters == 0) {
+		link_max = ost->ost_fs->fs_blocksize - 
+			   offsetof(typeof(*di), id2.i_symlink);
+
+		null = memchr(di->id2.i_symlink, 0, link_max);
+
+		if (null != NULL) {
+			vb->vb_saw_link_null = 1;
+			vb->vb_link_len = (char *)null - 
+					  (char *)di->id2.i_symlink;
+		} else
+			vb->vb_link_len = link_max;
+
+		expected = 0;
+	} else
+		expected = ocfs2_blocks_in_bytes(ost->ost_fs,
+						 vb->vb_link_len + 1);
 
 	/* XXX this could offer to null terminate */
 	if (!vb->vb_saw_link_null) {
@@ -499,7 +528,6 @@ static void check_link_data(struct verifying_blocks *vb)
 		}
 	}
 
-	expected = ocfs2_blocks_in_bytes(ost->ost_fs, vb->vb_link_len + 1);
 
 	if (di->i_size != vb->vb_link_len) {
 		if (prompt(ost, PY, PR_LINK_SIZE,

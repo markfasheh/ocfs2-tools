@@ -333,6 +333,15 @@ which is in use but which contains a non-zero dtime.
 Answering yes implies that the inode is still valid and resets its dtime
 to zero.
 
+.SS "LINK_FAST_DATA"
+The target name for a symbolic link is stored either as file contents for
+that inode or in the inode structure itself on disk.  Only small destination
+names are stored in the inode structure.  The i_blocks field of the inode 
+indicates that the name is stored in the inode when it is zero.  An inode
+was found that has both i_blocks set to zero and file contents. 
+
+Answering yes clears the inode and so deletes the link.
+
 .SS "LINK_NULLTERM"
 The targets of links on disk must be null terminated.  A link was found
 whose target wasn't null terminated. 
