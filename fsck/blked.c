@@ -213,7 +213,6 @@ int main(int argc, char **argv)
 	ocfs_disk_structure *s;
 	ocfs_layout_t *l;
 	__u64 blocknum;
-//	GHashTable *bad = NULL;
 	char option = '\0';
 
 	memset(&ctxt, 0, sizeof(ctxt));
@@ -235,7 +234,6 @@ int main(int argc, char **argv)
 	if (parse_blked_cmdline(argc, argv) == -1)
 		goto bail;
 
-	printf("offset=%llu, hi=%u, lo=%u\n", ctxt.offset, HI(ctxt.offset), LO(ctxt.offset));
 	if (!verify_params)
 		goto bail;
 
