@@ -43,18 +43,21 @@ typedef struct _BuildData BuildData;
 
 struct _BuildData
 {
-  gboolean  unmounted;
-  GList    *list;
+  GPatternSpec *filter;
+  gboolean      unmounted;
+
+  GList        *list;
 };
 
 
-static gboolean is_ocfs2_partition  (const gchar *device);
-static gboolean valid_device        (const gchar *device,
-				     gboolean     no_ocfs_check);
-static void     partition_info_fill (GHashTable  *info);
-static gboolean list_builder        (gpointer     key,
-				     gpointer     value,
-				     gpointer     user_data);
+static gboolean is_ocfs2_partition  (const gchar  *device);
+static gboolean valid_device        (const gchar  *device,
+				     GPatternSpec *filter,
+				     gboolean      no_ocfs_check);
+static void     partition_info_fill (GHashTable   *info);
+static gboolean list_builder        (gpointer      key,
+				     gpointer      value,
+				     gpointer      user_data);
 
 
 static gboolean
@@ -73,14 +76,18 @@ is_ocfs2_partition (const gchar *device)
 }
 
 static gboolean
-valid_device (const gchar *device,
-	      gboolean     no_ocfs_check)
+valid_device (const gchar  *device,
+              GPatternSpec *filter,
+	      gboolean      no_ocfs_check)
 {
   gboolean     is_bad = FALSE;
   struct stat  sbuf;
   FILE        *f;
   gchar        buf[100], *proc, *d;
   gint         i, fd;
+
+  if (filter && !g_pattern_match_string (filter, device))
+    return FALSE;
 
   if ((stat (device, &sbuf) != 0) ||
       (!S_ISBLK (sbuf.st_mode)) ||
@@ -203,7 +210,7 @@ list_builder (gpointer key,
     {
       device = list->data;
 
-      if (valid_device (device, bdata->unmounted))
+      if (valid_device (device, bdata->filter, bdata->unmounted))
 	{
 	  info = g_new (OcfsPartitionInfo, 1);
 
@@ -265,10 +272,14 @@ print_hash (gpointer key,
 #endif
 
 GList *
-ocfs_partition_list (gboolean unmounted)
+ocfs_partition_list (const gchar *filter,
+                     gboolean     unmounted)
 {
   GHashTable *info;
-  BuildData   bdata = { unmounted, NULL };
+  BuildData   bdata = { NULL, unmounted, NULL };
+
+  if (filter && *filter)
+    bdata.filter = g_pattern_spec_new (filter);
 
   info = g_hash_table_new (g_str_hash, g_str_equal);
 
@@ -295,7 +306,7 @@ main (int    argc,
 
   g_print ("All:\n");
 
-  plist = ocfs_partition_list (FALSE);
+  plist = ocfs_partition_list (NULL, FALSE);
   
   for (list = plist; list; list = list->next)
     {

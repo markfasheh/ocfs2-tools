@@ -50,9 +50,7 @@ class Toolbar:
         filter_box, entry = self.get_filter_box()
         toolbar.append_widget(filter_box, 'Partition name filter', None)
 
-        items['filter'] = entry
-
-        return toolbar, items
+        return toolbar, items, entry
 
     def get_filter_box(self):
         hbox = gtk.HBox(False, 4)

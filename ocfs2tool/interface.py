@@ -111,6 +111,8 @@ class PartitionView(gtk.TreeView):
         self.mount_button.set_sensitive(False)
         self.unmount_button.set_sensitive(False)
 
+        filter = self.filter_entry.get_text()
+
         old_device = self.get_device()
 
         store = gtk.ListStore(str, str)
@@ -119,7 +121,7 @@ class PartitionView(gtk.TreeView):
         sel = self.get_selection()
         selected = False
 
-        for partition in ocfs2.partition_list():
+        for partition in ocfs2.partition_list(filter=filter):
             iter = store.append(partition)
 
             if partition[0] == old_device:
@@ -204,6 +206,9 @@ def repair(pv):
 def clconfig(pv):
     cluster_configurator(pv.toplevel)
 
+def filter_update(entry, pv):
+    refresh(pv)
+
 def create_window():
     window = gtk.Window()
     set_props(window, title='OCFS2 Tool',
@@ -225,12 +230,14 @@ def create_window():
 
     toolbar = Toolbar(mount=mount, unmount=unmount, refresh=refresh)
 
-    tb, buttons = toolbar.get_widgets(pv)
+    tb, buttons, pv.filter_entry = toolbar.get_widgets(pv)
     vbox.pack_start(tb, expand=False, fill=False)
 
     for k, v in buttons.iteritems():
         setattr(pv, k + '_button', v)
- 
+
+    pv.filter_entry.connect('activate', filter_update, pv)
+
     vpaned = gtk.VPaned()
     vpaned.set_border_width(4)
     vbox.pack_start(vpaned, expand=True, fill=True)

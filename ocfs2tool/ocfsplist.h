@@ -38,7 +38,8 @@ struct _OcfsPartitionInfo
 };
 
 
-GList *ocfs_partition_list (gboolean unmounted);
+GList *ocfs_partition_list (const gchar *filter,
+                            gboolean     unmounted);
 
 
 #endif /* __OCFS_PARTITION_LIST_H__ */

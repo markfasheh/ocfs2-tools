@@ -41,17 +41,23 @@ static PyObject *ocfs2_error;
 
 static PyObject *
 partition_list (PyObject *self,
-		PyObject *args)
+		PyObject *args,
+		PyObject *kwargs)
 {
+  gchar             *filter = NULL;
   gboolean           unmounted = FALSE, bail = FALSE;
   GList             *list, *last;
   PyObject          *ret, *val;
   OcfsPartitionInfo *info;
 
-  if (!PyArg_ParseTuple (args, "|i:partition_list", &unmounted))
+  static gchar *kwlist[] = { "filter", "unmounted" };
+
+  if (!PyArg_ParseTupleAndKeywords (args, kwargs,
+				    "|si:partition_list", kwlist,
+				    &filter, &unmounted))
     return NULL;
 
-  list = ocfs_partition_list (unmounted);
+  list = ocfs_partition_list (filter, unmounted);
 
   ret = PyList_New (0);
   if (ret == NULL)
@@ -191,7 +197,7 @@ get_super (PyObject *self,
 }
 
 static PyMethodDef ocfs2_methods[] = {
-  {"partition_list", partition_list, METH_VARARGS},
+  {"partition_list", partition_list, METH_VARARGS | METH_KEYWORDS},
   {"get_super", get_super, METH_VARARGS},
   {NULL,       NULL}    /* sentinel */
 };
