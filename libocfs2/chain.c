@@ -136,7 +136,7 @@ static int chain_iterate_gd(ocfs2_chain_rec *c_rec, int chain_num,
 		ctxt->errcode = ocfs2_read_group_desc(ctxt->fs, blkno,
 						      ctxt->gd_buf);
 		if (ctxt->errcode) {
-			iret |= OCFS2_EXTENT_ERROR;
+			iret |= OCFS2_CHAIN_ERROR;
 			break;
 		}
 		gd = (ocfs2_group_desc *)ctxt->gd_buf;

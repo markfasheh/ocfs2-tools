@@ -265,8 +265,9 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 		goto out_buf;
 
 	ret = OCFS2_ET_INODE_CANNOT_BE_ITERATED;
-	if (inode->i_flags &
-	    (OCFS2_SUPER_BLOCK_FL | OCFS2_LOCAL_ALLOC_FL))
+	if (inode->i_flags & (OCFS2_SUPER_BLOCK_FL |
+			      OCFS2_LOCAL_ALLOC_FL |
+			      OCFS2_CHAIN_FL))
 		goto out_buf;
 
 	el = &inode->id2.i_list;

@@ -77,6 +77,9 @@ errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 	
 	if (cinode->ci_map)
 		ocfs2_drop_extent_map(fs, cinode);
+	
+	if (cinode->ci_chains)
+		ocfs2_bitmap_free(cinode->ci_chains);
 
 	if (cinode->ci_inode)
 		ocfs2_free(&cinode->ci_inode);

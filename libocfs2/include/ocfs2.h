@@ -187,6 +187,7 @@ struct _ocfs2_cached_inode {
 	uint64_t ci_blkno;
 	ocfs2_dinode *ci_inode;
 	ocfs2_extent_map *ci_map;
+	ocfs2_bitmap *ci_chains;
 };
 
 struct _ocfs2_nodes {
@@ -369,6 +370,8 @@ errcode_t ocfs2_bitmap_find_next_set(ocfs2_bitmap *bitmap,
 				     uint64_t start, uint64_t *found);
 errcode_t ocfs2_bitmap_find_next_clear(ocfs2_bitmap *bitmap,
 				       uint64_t start, uint64_t *found);
+errcode_t ocfs2_bitmap_read(ocfs2_bitmap *bitmap);
+errcode_t ocfs2_bitmap_write(ocfs2_bitmap *bitmap);
 uint64_t ocfs2_bitmap_get_set_bits(ocfs2_bitmap *bitmap);
 
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
@@ -404,6 +407,11 @@ errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
 					  int chain_num,
 					  void *priv_data),
 			      void *priv_data);
+
+errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
+				     ocfs2_cached_inode *cinode);
+errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
+				      ocfs2_cached_inode *cinode);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will

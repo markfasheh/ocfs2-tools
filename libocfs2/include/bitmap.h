@@ -43,22 +43,24 @@ struct ocfs2_bitmap_region {
 };
 
 struct ocfs2_bitmap_operations {
-	errcode_t (*set_bit)(ocfs2_bitmap *bm, uint64_t bit,
+	errcode_t (*set_bit)(ocfs2_bitmap *bitmap, uint64_t bit,
 			     int *oldval);
-	errcode_t (*clear_bit)(ocfs2_bitmap *bm, uint64_t bit,
+	errcode_t (*clear_bit)(ocfs2_bitmap *bitmap, uint64_t bit,
 			       int *oldval);
-	errcode_t (*test_bit)(ocfs2_bitmap *bm, uint64_t bit,
+	errcode_t (*test_bit)(ocfs2_bitmap *bitmap, uint64_t bit,
 			      int *val);
-	errcode_t (*find_next_set)(ocfs2_bitmap *bm, uint64_t start, 
+	errcode_t (*find_next_set)(ocfs2_bitmap *bitmap,
+				   uint64_t start, 
 				   uint64_t *found);
-	errcode_t (*find_next_clear)(ocfs2_bitmap *bm, uint64_t start, 
+	errcode_t (*find_next_clear)(ocfs2_bitmap *bitmap,
+				     uint64_t start, 
 				     uint64_t *found);
-	errcode_t (*merge_region)(ocfs2_bitmap *bm,
-				   struct ocfs2_bitmap_region *prev,
-				   struct ocfs2_bitmap_region *next);
-	errcode_t (*read_bitmap)(ocfs2_bitmap *bm);
-	errcode_t (*write_bitmap)(ocfs2_bitmap *bm);
-	void (*destroy_notify)(ocfs2_bitmap *bm);
+	int (*merge_region)(ocfs2_bitmap *bitmap,
+			    struct ocfs2_bitmap_region *prev,
+			    struct ocfs2_bitmap_region *next);
+	errcode_t (*read_bitmap)(ocfs2_bitmap *bitmap);
+	errcode_t (*write_bitmap)(ocfs2_bitmap *bitmap);
+	void (*destroy_notify)(ocfs2_bitmap *bitmap);
 };
 
 struct _ocfs2_bitmap {
@@ -67,11 +69,6 @@ struct _ocfs2_bitmap {
 	uint64_t b_total_bits;
 	char *b_description;
 	struct ocfs2_bitmap_operations *b_ops;
-	ocfs2_cached_inode *b_cinode;		/* Cached inode this
-						   bitmap was loaded
-						   from if it is a
-						   physical bitmap
-						   inode */
 	struct rb_root b_regions;
 	void *b_private;
 };
@@ -99,10 +96,22 @@ errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 				     uint64_t bitno, int *oldval);
 errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 				    uint64_t bitno, int *val);
+errcode_t ocfs2_bitmap_find_next_set_generic(ocfs2_bitmap *bitmap,
+					     uint64_t start,
+					     uint64_t *found);
+errcode_t ocfs2_bitmap_find_next_clear_generic(ocfs2_bitmap *bitmap,
+					       uint64_t start,
+					       uint64_t *found);
 errcode_t ocfs2_bitmap_set_holes(ocfs2_bitmap *bitmap,
 				 uint64_t bitno, int *oldval);
 errcode_t ocfs2_bitmap_clear_holes(ocfs2_bitmap *bitmap,
 				   uint64_t bitno, int *oldval);
 errcode_t ocfs2_bitmap_test_holes(ocfs2_bitmap *bitmap,
 				  uint64_t bitno, int *val);
+errcode_t ocfs2_bitmap_find_next_set_holes(ocfs2_bitmap *bitmap,
+					   uint64_t start,
+					   uint64_t *found);
+errcode_t ocfs2_bitmap_find_next_clear_holes(ocfs2_bitmap *bitmap,
+					     uint64_t start,
+					     uint64_t *found);
 #endif  /* _BITMAP_H */

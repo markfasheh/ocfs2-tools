@@ -61,6 +61,7 @@ CFILES = 		\
 	bitmap.c	\
 	fileio.c	\
 	chain.c		\
+	chainalloc.c	\
 	checkhb.c	\
 	kernel-rbtree.c	\
 	bitops.c
