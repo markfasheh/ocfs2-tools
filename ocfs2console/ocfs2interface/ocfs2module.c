@@ -33,10 +33,6 @@
 #include "ocfsplist.h"
 
 
-#define MAX_CLUSTER_SIZE       1048576
-#define MIN_CLUSTER_SIZE       4096
-
-
 static PyObject *ocfs2_error;
 
 typedef struct
@@ -311,14 +307,14 @@ initocfs2 (void)
       PyModule_AddObject (m, "error", ocfs2_error);
     }
 
-  PyModule_AddIntConstant (m, "MAX_VOL_LABEL_LEN", MAX_VOL_LABEL_LEN);
+  PyModule_AddIntConstant (m, "MAX_VOL_LABEL_LEN", OCFS2_MAX_VOL_LABEL_LEN);
   PyModule_AddIntConstant (m, "MAX_NODES", OCFS2_MAX_NODES);
 
   PyModule_AddIntConstant (m, "MIN_BLOCKSIZE", OCFS2_MIN_BLOCKSIZE);
   PyModule_AddIntConstant (m, "MAX_BLOCKSIZE", OCFS2_MAX_BLOCKSIZE);
 
-  PyModule_AddIntConstant (m, "MIN_CLUSTER_SIZE", MIN_CLUSTER_SIZE);
-  PyModule_AddIntConstant (m, "MAX_CLUSTER_SIZE", MAX_CLUSTER_SIZE);
+  PyModule_AddIntConstant (m, "MIN_CLUSTERSIZE", OCFS2_MIN_CLUSTERSIZE);
+  PyModule_AddIntConstant (m, "MAX_CLUSTERSIZE", OCFS2_MAX_CLUSTERSIZE);
 
   if (PyErr_Occurred ())
     Py_FatalError ("can't initialize module ocfs2");

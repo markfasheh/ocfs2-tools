@@ -122,8 +122,8 @@ class VolumeLabel(gtk.Entry):
 
 class ClusterSize(ValueCombo):
     def __init__(self):
-        ValueCombo.__init__(self, ocfs2.MIN_CLUSTER_SIZE,
-                                  ocfs2.MAX_CLUSTER_SIZE)
+        ValueCombo.__init__(self, ocfs2.MIN_CLUSTERSIZE,
+                                  ocfs2.MAX_CLUSTERSIZE)
         self.arg = '-C'
 
     label = 'Cluster Size'
