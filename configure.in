@@ -8,8 +8,8 @@ AC_SUBST(PACKAGE)
 # Adjust these for the software version.
 MAJOR_VERSION=1
 MINOR_VERSION=1
-MICRO_VERSION=0
-EXTRA_VERSION=BETA1
+MICRO_VERSION=1
+EXTRA_VERSION=BETA2
 
 # Adjust this only to bump the RPM packaging version
 RPM_VERSION=1
