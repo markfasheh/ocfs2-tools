@@ -40,22 +40,31 @@
 #include <ocfs2_fs.h>
 #include <ocfs2_disk_dlm.h>
 #include <ocfs1_fs_compat.h>
-
-errcode_t ocfs2_full_detect(char *device);
-errcode_t ocfs2_quick_detect(char *device);
-void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes);
-int read_options(int argc, char **argv);
-void usage(char *progname);
-void ocfs2_partition_list (char **dev_list);
-int ocfs2_get_ocfs1_label(char *device, char *buf, int buflen);
+#include <kernel-list.h>
 
 int detect_only = 0;
 char *device = NULL;
 char *progname = NULL;
 
+#define MAX_DEVNAME_LEN		100
+
+struct _ocfs2_devices {
+	struct list_head list;
+	char name[MAX_DEVNAME_LEN];
+};
+typedef struct _ocfs2_devices ocfs2_devices;
+
 char *usage_string =
 "usage: %s [-d] [device]\n"
 "	-d detect only\n";
+
+errcode_t ocfs2_full_detect(char *device);
+errcode_t ocfs2_quick_detect(char *device);
+void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes);
+errcode_t ocfs2_partition_list (struct list_head *dev_list);
+int ocfs2_get_ocfs1_label(char *device, char *buf, int buflen);
+int read_options(int argc, char **argv);
+void usage(char *progname);
 
 /*
  * main()
@@ -95,18 +104,23 @@ errcode_t ocfs2_full_detect(char *device)
 	errcode_t ret = 0;
 	int mount_flags = 0;
 	char *node_names[OCFS2_NODE_MAP_MAX_NODES];
-	int i;
 	ocfs2_filesys *fs = NULL;
 	uint8_t *vol_label = NULL;
 	uint8_t *vol_uuid = NULL;
 	uint16_t num_nodes = OCFS2_NODE_MAP_MAX_NODES;
+	int i;
 
 	memset(node_names, 0, sizeof(node_names));
 
 	/* open	fs */
 	ret = ocfs2_open(device, O_DIRECT | OCFS2_FLAG_RO, 0, 0, &fs);
 	if (ret) {
-		com_err(progname, ret, "while opening \"%s\"", device);
+		if (ret == OCFS2_ET_OCFS_REV)
+			fprintf(stderr, "Error: %s is an ocfs volume. "
+				"Use mounted.ocfs to detect heartbeat on it.\n",
+				device);
+		else
+			com_err(progname, ret, "while opening \"%s\"", device);
 		goto bail;
 	}
 
@@ -157,36 +171,45 @@ errcode_t ocfs2_quick_detect(char *device)
 {
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
-	char *dev_list[255];
-	char *dev = NULL;
 	uint8_t *vol_label = NULL;
 	ocfs1_vol_label *v1_lbl = NULL;
+	struct list_head dev_list;
+	struct list_head *pos;
+	ocfs2_devices *dev;
 	char buf[512];
-	int i;
 
-	memset(dev_list, 0 , sizeof(dev_list));
+	INIT_LIST_HEAD(&dev_list);
 
-	if (device)
-		dev_list[0] = strdup(device);
-	else
-		ocfs2_partition_list(dev_list);
+	if (device) {
+		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
+		if (ret)
+			goto bail;
+		strncpy(dev->name, device, MAX_DEVNAME_LEN);
+		list_add(&(dev->list), &dev_list);
+	} else {
+		ret = ocfs2_partition_list(&dev_list);
+		if (ret) {
+			com_err(progname, ret, "while reading /proc/partitions");
+			goto bail;
+		}
+	}
 
-	printf("%-20s  %-6s  %-s\n", "Device", "Type", "Label");
+	printf("%-30s  %-6s  %-s\n", "Device", "Type", "Label");
 
-	for (i = 0; i < 255 && dev_list[i]; ++i) {
-		dev = dev_list[i];
-		ret = ocfs2_open(dev, OCFS2_FLAG_RO, 0, 0, &fs);
+	list_for_each(pos, &(dev_list)) {
+		dev = list_entry(pos, ocfs2_devices, list);
+		ret = ocfs2_open(dev->name, OCFS2_FLAG_RO, 0, 0, &fs);
 		if (ret == 0 || ret == OCFS2_ET_OCFS_REV) {
 			if (!ret)
 				vol_label = OCFS2_RAW_SB(fs->fs_super)->s_label;
 			else {
-				if (!ocfs2_get_ocfs1_label(dev, buf, sizeof(buf))) {
+				if (!ocfs2_get_ocfs1_label(dev->name, buf, sizeof(buf))) {
 					v1_lbl = (ocfs1_vol_label *)buf;
 					vol_label = v1_lbl->label;
 				} else
 					vol_label = NULL;
 			}
-			printf("%-20s  %-6s  %-s\n", dev,
+			printf("%-30s  %-6s  %-s\n", dev->name,
 			       (!ret ? "ocfs2" : "ocfs"),
 			       (vol_label ? (char *)vol_label : " "));
 		}
@@ -194,9 +217,11 @@ errcode_t ocfs2_quick_detect(char *device)
 			ocfs2_close(fs);
 	}
 
-	for (i = 0; i < 255; ++i)
-		if (dev_list[i])
-			ocfs2_free(&dev_list[i]);
+bail:
+	list_for_each(pos, &(dev_list)) {
+		dev = list_entry(pos, ocfs2_devices, list);
+		list_del(&(dev->list));
+	}
 
 	return 0;
 }
@@ -225,27 +250,37 @@ void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes)
  * ocfs2_partition_list()
  *
  */
-void ocfs2_partition_list (char **dev_list)
+errcode_t ocfs2_partition_list (struct list_head *dev_list)
 {
-	FILE   *proc;
-	char   line[100], name[100], device[255];
-	int cnt = 0;
+	errcode_t ret = 0;
+	FILE *proc;
+	char line[256];
+	char name[256];
+	ocfs2_devices *dev;
 
 	proc = fopen ("/proc/partitions", "r");
-	if (proc == NULL)
-		return;
+	if (proc == NULL) {
+		ret = OCFS2_ET_IO;
+		goto bail;
+	}
 
 	while (fgets (line, sizeof(line), proc) != NULL) {
 		if (sscanf(line, "%*d %*d %*d %99[^ \t\n]", name) != 1)
 			continue;
 
-		snprintf(device, sizeof(device), "/dev/%s", name);
-		dev_list[cnt++] = strdup(device);
+		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
+		if (ret)
+			goto bail;
+
+		snprintf(dev->name, MAX_DEVNAME_LEN, "/dev/%s", name);
+		list_add_tail(&(dev->list), dev_list);
 	}
 
-	fclose (proc);
+bail:
+	if (proc)
+		fclose(proc);
 
-	return ;
+	return ret;
 }
 
 /*
