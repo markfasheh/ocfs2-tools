@@ -75,6 +75,7 @@ typedef struct _filedata
 {
     ocfs_io_runs *array;
     __u32 num;
+    __u64 off;
     mode_t mode;
     uid_t user;
     gid_t group;
@@ -113,7 +114,7 @@ void handle_one_file_entry(int fd, ocfs_file_entry *fe, void *buf);
 ocfs_super *get_fake_vcb(int fd, ocfs_vol_disk_hdr * hdr, int nodenum);
 void walk_dir_nodes(int fd, __u64 offset, const char *parent, void *buf);
 void find_file_entry(ocfs_super * vcb, __u64 offset, const char *parent,
-		     const char *searchFor, int mode, void *buf);
+		     const char *searchFor, int mode, filedata *buf);
 void traverse_fe_extents(ocfs_super * vcb, ocfs_file_entry *fe);
 void traverse_extent(ocfs_super * vcb, ocfs_extent_group * exthdr, int flag);
 

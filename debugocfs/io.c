@@ -33,6 +33,45 @@ extern user_args args;
 extern __u32 OcfsDebugCtxt;
 extern __u32 OcfsDebugLevel;
 
+int myread(int file, char *buf, __u32 len)
+{
+	int ret = 0;
+	char *p = buf;
+	__u32 remlen = len;
+
+	while(remlen) {
+		ret = read(file, p, remlen);
+		if (ret == -1) {
+			printf("Failed to read: %s\n", strerror(errno));
+			goto bail;
+		}
+		remlen -= ret;
+		p += ret;
+	}
+
+bail:
+	return ret;
+}
+
+int mywrite(int file, char *buf, __u32 len)
+{
+	int ret = 0;
+	char *p = buf;
+	__u32 remlen = len;
+
+	while(remlen) {
+		ret = write(file, p, remlen);
+		if (ret == -1) {
+			printf("Failed to write: %s\n", strerror(errno));
+			goto bail;
+		}
+		remlen -= ret;
+		p += ret;
+	}
+
+bail:
+	return ret;
+}
 
 loff_t myseek64(int fd, loff_t off, int whence)
 {

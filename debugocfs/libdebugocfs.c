@@ -104,7 +104,7 @@ int libocfs_readdir(const char *dev, const char *dir, int recurse,
 {
     int fd;
     ocfs_vol_disk_hdr *diskHeader;
-    __u64 off;
+    filedata fil;
     ocfs_super *vcb;
 
     if ((fd = libocfs_init(dev, &diskHeader, TRUE)) == -1)
@@ -118,17 +118,17 @@ int libocfs_readdir(const char *dev, const char *dir, int recurse,
 	return 2;
     }
 
+    memset(&fil, 0, sizeof(filedata));
     if (strcmp(dir, "/") == 0)
-	off = diskHeader->root_off;
+	fil.off = diskHeader->root_off;
     else
     {
 	vcb = get_fake_vcb(fd, diskHeader, DEFAULT_NODE_NUMBER);
-	find_file_entry(vcb, diskHeader->root_off, "/", dir, FIND_MODE_DIR,
-			(void *) (&off));
+	find_file_entry(vcb, diskHeader->root_off, "/", dir, FIND_MODE_DIR, &fil);
 	free_aligned(vcb);
     }
 
-    if (off <= 0)
+    if (fil.off <= 0)
     {
 	g_array_free(*arr, FALSE);
 	free_aligned(diskHeader);
@@ -136,7 +136,7 @@ int libocfs_readdir(const char *dev, const char *dir, int recurse,
 	return 3;
     }
 
-    walk_dir_nodes(fd, off, dir, (void *) (*arr));
+    walk_dir_nodes(fd, fil.off, dir, (void *) (*arr));
 
     close(fd);
     free_aligned(diskHeader);

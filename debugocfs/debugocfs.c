@@ -302,16 +302,19 @@ void traverse_fe_extents(ocfs_super * vcb, ocfs_file_entry *fe)
  *                   ocfs_file_entry structure, depending upon mode
  */
 void find_file_entry(ocfs_super * vcb, __u64 offset, const char *parent,
-		     const char *searchFor, int mode, void *buf)
+		     const char *searchFor, int mode, filedata *buf)
 {
     ocfs_dir_node *dir, *foundDir;
     int i, fd;
     char *newname;
-    __u64 ret = 0, dirPartOffset;
+    filedata ret;
+    __u64 dirPartOffset;
 
     fd = (int) vcb->sb->s_dev;
     dir = (ocfs_dir_node *) malloc_aligned(DIR_NODE_SIZE);
     dirPartOffset = offset;
+
+    memset(&ret, 0, sizeof(filedata));
 
     while (1)
     {
@@ -341,11 +344,11 @@ void find_file_entry(ocfs_super * vcb, __u64 offset, const char *parent,
 		if (strcmp(searchFor, newname) == 0)
 		{
 		    if (mode == FIND_MODE_FILE || mode == FIND_MODE_FILE_EXTENT)
-			ret = offset;	// return the first part of the dir chain
+			ret.off = offset;	// return the first part of the dir chain
 		    else if (mode == FIND_MODE_DIR)
-			ret = fe->extents[0].disk_off;
+			ret.off = fe->extents[0].disk_off;
 		    else if (mode == FIND_MODE_FILE_DATA)
-			get_file_data_mapping(vcb, fe, buf);
+			get_file_data_mapping(vcb, fe, &ret);
 
 #ifndef LIBDEBUGOCFS
 		    printf("\tName = %s\n", newname);
@@ -379,7 +382,7 @@ void find_file_entry(ocfs_super * vcb, __u64 offset, const char *parent,
 		else if (strstr(searchFor, newname) == searchFor)
 		{
 		    find_file_entry(vcb, fe->extents[0].disk_off, newname,
-				    searchFor, mode, (void *) (&ret));
+				    searchFor, mode, &ret);
 		    free(newname);
 		    break;
 		}
@@ -390,11 +393,11 @@ void find_file_entry(ocfs_super * vcb, __u64 offset, const char *parent,
 		if (strcmp(searchFor, newname) == 0)
 		{
 		    if (mode == FIND_MODE_FILE || mode == FIND_MODE_FILE_EXTENT)
-			ret = offset;	// return the first part of the dir chain
+			ret.off = offset;	// return the first part of the dir chain
 		    else if (mode == FIND_MODE_DIR)
-			ret = 0;	// file found, not dir 
+			ret.off = 0;	// file found, not dir 
 		    else if (mode == FIND_MODE_FILE_DATA)
-			get_file_data_mapping(vcb, fe, buf);
+			get_file_data_mapping(vcb, fe, &ret);
 
 #ifndef LIBDEBUGOCFS
 		    if (mode == FIND_MODE_DIR)
@@ -422,9 +425,8 @@ void find_file_entry(ocfs_super * vcb, __u64 offset, const char *parent,
     }
 
     free(dir);
-    if ((mode == FIND_MODE_FILE || mode == FIND_MODE_DIR ||
-	 mode == FIND_MODE_FILE_EXTENT) && buf)
-	*(__u64 *) buf = ret;
+    if (buf)
+	    memcpy(buf, &ret, sizeof(filedata));
 }
 
 
@@ -438,17 +440,26 @@ int suck_file(ocfs_super * vcb, const char *path, const char *file)
     fd = (int) vcb->sb->s_dev;
     oldmask = umask(0000);
 
-    if (unlink(file) == -1)
-    {
-#ifndef LIBDEBUGOCFS
-	printf("failed to unlink file: %s\n", file);
-#endif
-    }
+    memset (&data, 0, sizeof(filedata));
+
+    /* del outfile if it already exists */
+    unlink(file);
 
     if (access(file, F_OK) == -1)
     {
 	find_file_entry(vcb, vcb->vol_layout.root_start_off, "/",
 			path, FIND_MODE_FILE_DATA, &data);
+
+#if 0
+    if (1) {
+        filedata *p = &data;
+	int i;
+	printf("\n");
+   	for(i=0; i < p->num; ++i)
+	    printf("do=%u.%u, fo=%u, len=%u\n", HILO(p->array[i].disk_off),
+		   p->array[i].offset, p->array[i].byte_cnt);
+    }
+#endif
 
 	if (S_ISLNK(data.mode) && data.linkname)
 	{
@@ -471,11 +482,20 @@ int suck_file(ocfs_super * vcb, const char *path, const char *file)
 	else if (S_ISREG(data.mode))
 	{
 	    void *filebuf = malloc_aligned(FILE_BUFFER_SIZE);
-	    __u32 remaining, readlen;
+	    __u32 remaining, readlen, rndup;
+
+	    if (!filebuf) {
+		    ret = -1;
+		    printf("Error: Out of memory\n");
+		    goto do_close;
+	    }
 
 	    newfd = creat(file, data.mode);
 	    if (newfd != -1)
 	    {
+#ifndef LIBDEBUGOCFS
+	        printf("From %s to %s ", path, file);
+#endif
 		for (i = 0; i < data.num; i++)
 		{
 		    run = (ocfs_io_runs *) & (data.array[i]);
@@ -483,22 +503,34 @@ int suck_file(ocfs_super * vcb, const char *path, const char *file)
 		    // in new file: seek to run->Offset
 		    // in ocfs: read from run->disk_off, run->byte_cnt bytes
 		    remaining = run->byte_cnt;
-		    myseek64(newfd, run->offset, SEEK_SET);
 		    myseek64(fd, run->disk_off, SEEK_SET);
 		    while (remaining > 0)
 		    {
 			readlen =
 			    remaining <
 			    FILE_BUFFER_SIZE ? remaining : FILE_BUFFER_SIZE;
-			if (read(fd, filebuf, readlen) != readlen ||
-			    write(newfd, filebuf, readlen) != readlen)
-			{
-			    ret = 2;
-			    goto do_close;
-			}
+			/* rndup is reqd because source is read o_direct */
+			rndup = readlen % 512;
+			rndup = (rndup ? 512 - rndup : 0);
+			readlen += rndup;
+
+			if ((ret = myread(fd, filebuf, readlen)) == -1)
+				goto do_close;
+
+			readlen -= rndup;
+			if ((ret = mywrite(newfd, filebuf, readlen)) == -1)
+				goto do_close;
+
 			remaining -= readlen;
+			ret = 0;
 		    }
+#ifndef LIBDEBUGOCFS
+			printf("."); fflush(stdout);
+#endif
 		}
+#ifndef LIBDEBUGOCFS
+		printf("\n"); fflush(stdout);
+#endif
 	    }
 	}
 
