@@ -18,7 +18,6 @@ OCFS2TOOL_VERSION = '0.0.1'
 
 COLUMN_DEVICE = 0
 COLUMN_MOUNTPOINT = 1
-COLUMN_TYPE = 2
 
 MODE_BASIC = 0
 MODE_ADVANCED = 1
@@ -46,14 +45,11 @@ class PartitionView(gtk.TreeView):
         gtk.TreeView.__init__(self, store)
 
         self.toplevel = toplevel
-        self.advanced = MODE_BASIC
+        self.advanced = False
 
         self.insert_column_with_attributes(-1, 'Device',
                                            gtk.CellRendererText(),
                                            text=COLUMN_DEVICE)
-        self.insert_column_with_attributes(-1, 'Type',
-                                           gtk.CellRendererText(),
-                                           text=COLUMN_TYPE)
         self.insert_column_with_attributes(-1, 'Mountpoint',
                                            gtk.CellRendererText(),
                                            text=COLUMN_MOUNTPOINT)
@@ -79,7 +75,7 @@ class PartitionView(gtk.TreeView):
             return None
 
     def on_select(self, sel):
-        device, mountpoint, type = self.get_sel_values()
+        device, mountpoint = self.get_sel_values()
 
         if mountpoint:
             self.mount_button.set_sensitive(False)
@@ -98,8 +94,8 @@ class PartitionView(gtk.TreeView):
                 
     def refresh_partitions(self):
         def list_compare(store, a, b):
-            d1, m1, t1 = store[a]
-            d2, m2, t1 = store[b]
+            d1, m1 = store[a]
+            d2, m2 = store[b]
 
             if m1 and not m2:
                 return -1
@@ -113,7 +109,7 @@ class PartitionView(gtk.TreeView):
 
         old_device = self.get_device()
 
-        store = gtk.ListStore(str, str, str)
+        store = gtk.ListStore(str, str)
         self.set_model(store)
 
         sel = self.get_selection()
@@ -133,13 +129,13 @@ class PartitionView(gtk.TreeView):
             sel.select_iter(store.get_iter_first())
 
 def mount(button, pv):
-    device, mountpoint, type = pv.get_sel_values()
+    device, mountpoint = pv.get_sel_values()
 
     mountpoint = query_text(pv.toplevel, 'Mountpoint')
     if not mountpoint:
         return
 
-    command = ('mount', '-t', type, device, mountpoint)
+    command = ('mount', '-t', 'ocfs2', device, mountpoint)
 
     p = Process(command, 'Mount', 'Mounting...', pv.toplevel, spin_now=False)
     success, output, killed = p.reap()
@@ -156,7 +152,7 @@ def mount(button, pv):
     pv.refresh_partitions()
 
 def unmount(button, pv):
-    device, mountpoint, type = pv.get_sel_values()
+    device, mountpoint = pv.get_sel_values()
 
     command = ('umount', mountpoint)
 
@@ -221,10 +217,15 @@ def genconfig(pv, action, w):
     pass
 
 def level(pv, action, w):
-    if pv.advanced == action:
+    if action == MODE_ADVANCED:
+        advanced = True
+    else:
+        advanced = False
+
+    if pv.advanced == advanced:
         return
 
-    pv.advanced = action
+    pv.advanced = advanced
 
 def about(pv, a, w):
     dialog = gtk.MessageDialog(parent=pv.toplevel,

@@ -72,10 +72,7 @@ partition_list (PyObject *self,
 	  if (!unmounted)
 	    {
 	      info = list->data;
-	      val = Py_BuildValue ("(sss)",
-				   info->device, info->mountpoint,
-				   info->type == OCFS_FS_TYPE_OCFS2 ? "ocfs2"
-								    : "ocfs");
+	      val = Py_BuildValue ("(ss)", info->device, info->mountpoint);
 	    }
 	  else
 	    val = PyString_FromString (list->data);

@@ -29,23 +29,16 @@
 #include <glib.h>
 
 
-typedef enum
-{
-  OCFS_FS_TYPE_OCFS,
-  OCFS_FS_TYPE_OCFS2
-} OcfsFSType;
-
 typedef struct _OcfsPartitionInfo OcfsPartitionInfo;
 
 struct _OcfsPartitionInfo
 {
   gchar      *device;
   gchar      *mountpoint;
-  OcfsFSType  type;
 };
 
 
-GList *ocfs_partition_list (gboolean     unmounted);
+GList *ocfs_partition_list (gboolean unmounted);
 
 
 #endif /* __OCFS_PARTITION_LIST_H__ */

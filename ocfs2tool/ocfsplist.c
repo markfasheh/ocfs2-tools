@@ -48,20 +48,17 @@ struct _BuildData
 };
 
 
-static gboolean check_partition_type (const gchar *device,
-				      OcfsFSType  *type);
-static gboolean valid_device         (const gchar *device,
-				      gboolean     no_ocfs_check,
-				      OcfsFSType  *type);
-static void     partition_info_fill  (GHashTable  *info);
-static gboolean list_builder         (gpointer     key,
-				      gpointer     value,
-				      gpointer     user_data);
+static gboolean is_ocfs2_partition  (const gchar *device);
+static gboolean valid_device        (const gchar *device,
+				     gboolean     no_ocfs_check);
+static void     partition_info_fill (GHashTable  *info);
+static gboolean list_builder        (gpointer     key,
+				     gpointer     value,
+				     gpointer     user_data);
 
 
 static gboolean
-check_partition_type (const gchar *device,
-		      OcfsFSType  *type)
+is_ocfs2_partition (const gchar *device)
 {
   errcode_t      ret;
   ocfs2_filesys *fs;
@@ -69,14 +66,7 @@ check_partition_type (const gchar *device,
   ret = ocfs2_open (device, OCFS2_FLAG_RO, 0, 0, &fs);
 
   if (ret)
-    {
-      if (ret == OCFS2_ET_OCFS_REV)
-	*type = OCFS_FS_TYPE_OCFS;
-      else
-	return FALSE;
-    }
-  else
-    *type = OCFS_FS_TYPE_OCFS2;
+    return FALSE;
 
   ocfs2_close (fs);
   return TRUE;
@@ -84,8 +74,7 @@ check_partition_type (const gchar *device,
 
 static gboolean
 valid_device (const gchar *device,
-	      gboolean     no_ocfs_check,
-	      OcfsFSType  *type)
+	      gboolean     no_ocfs_check)
 {
   gboolean     is_bad = FALSE;
   struct stat  sbuf;
@@ -128,10 +117,9 @@ valid_device (const gchar *device,
     return FALSE;
   close (fd);
 
-  return no_ocfs_check ? TRUE : check_partition_type (device, type);
+  return no_ocfs_check ? TRUE : is_ocfs2_partition (device);
 #else
   fd = 0;
-  *type = OCFS_FS_TYPE_OCFS2;
   return TRUE;
 #endif
 }
@@ -206,7 +194,6 @@ list_builder (gpointer key,
   gchar              mountpoint[PATH_MAX];
   OcfsPartitionInfo *info;
   gint               flags;
-  OcfsFSType         type;
   errcode_t          ret;
 
   bdata = user_data;
@@ -216,12 +203,11 @@ list_builder (gpointer key,
     {
       device = list->data;
 
-      if (valid_device (device, bdata->unmounted, &type))
+      if (valid_device (device, bdata->unmounted))
 	{
 	  info = g_new (OcfsPartitionInfo, 1);
 
 	  info->device = g_strdup (device);
-	  info->type = type;
 
 	  ret = ocfs2_check_mount_point (device, &flags, mountpoint, PATH_MAX);
 
@@ -314,9 +300,7 @@ main (int    argc,
   for (list = plist; list; list = list->next)
     {
       info = list->data;
-      g_print ("Device: %s; Mountpoint %s; Type %s\n",
-	       info->device, info->mountpoint,
-	       info->type == OCFS_FS_TYPE_OCFS2 ? "ocfs2" : "ocfs");
+      g_print ("Device: %s; Mountpoint %s\n", info->device, info->mountpoint);
     }
 
   g_print ("Unmounted:\n");
