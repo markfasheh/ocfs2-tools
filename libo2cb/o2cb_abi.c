@@ -296,17 +296,17 @@ errcode_t o2cb_add_node(const char *cluster_name,
 	}
 
 	err = o2cb_set_node_attribute(cluster_name, node_name,
-				      "num", node_num);
-	if (err)
-		goto out_rmdir;
-
-	err = o2cb_set_node_attribute(cluster_name, node_name,
 				      "ipv4_port", ip_port);
 	if (err)
 		goto out_rmdir;
 
 	err = o2cb_set_node_attribute(cluster_name, node_name,
 				      "ipv4_address", ip_address);
+	if (err)
+		goto out_rmdir;
+
+	err = o2cb_set_node_attribute(cluster_name, node_name,
+				      "num", node_num);
 	if (err)
 		goto out_rmdir;
 
