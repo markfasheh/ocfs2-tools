@@ -44,12 +44,6 @@
 	exit(FSCK_ERROR);						\
 } while (0)
 
-#define maybe_fatal(errcode, fmt...) do {				\
-	errcode_t _err = errcode;					\
-	if (_err == OCFS2_ET_NO_MEMORY || _err == OCFS2_ET_IO)		\
-		fatal_error(_err, fmt);					\
-} while (0)
-
 void o2fsck_write_inode(ocfs2_filesys *fs, uint64_t blkno, ocfs2_dinode *di);
 
 #endif /* __O2FSCK_UTIL_H__ */

@@ -28,6 +28,7 @@
 
 errcode_t o2fsck_pass1(o2fsck_state *ost);
 int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno);
+void o2fsck_free_inode_allocs(o2fsck_state *ost);
 
 #endif /* __O2FSCK_PASS1_H__ */
 

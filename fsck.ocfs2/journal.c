@@ -507,7 +507,8 @@ static int publish_mounted_set(ocfs2_filesys *fs, char *buf, int node,
 	return pub->mounted;
 }
 
-/* XXX be more strict with the error codes that trickle up to here */
+/* Try and replay the nodes journals if they're dirty.  This only returns
+ * a non-zero error if the caller should not continue. */
 errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 {
 	errcode_t err = 0, ret = 0;
@@ -606,25 +607,18 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		printf("Node %d's journal replayed successfully.\n", i);
 	}
 
-	if (journal_trouble && 
-	    !prompt(ost, PN, "There were problems replaying journals.  This "
-		    "means that the file system is almost certainly badly "
-		    "damanged and that fsck might do more harm than good if "
-		    "it continues to try and repair.  Should fsck continue "
-		    "trying to repair the filesystem?")) {
-		printf("Exiting.\n");
-		exit(FSCK_ERROR);
-	}
+	/* this is awkward, but we want fsck -n to tell us as much as it
+	 * can so we don't want to ask to proceed here.  */
+	if (journal_trouble)
+		printf("*** There were problems replaying journals.  Be "
+		       "careful in telling fsck to make repairs to this "
+		       "filesystem.\n");
+
+	ret = 0;
 
 out:
-	if (ret) {
-		printf("fsck does not deal gracefully with failure to even "
-		       "discover a volume's journals.  Exiting.\n");
-		exit(FSCK_ERROR);
-	}
-
 	if (jis) {
-		for (i = 0, ji = jis; ret == 0 && i < max_nodes; i++, ji++) {
+		for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
 			if (ji->ji_jsb)
 				ocfs2_free(&ji->ji_jsb);
 			if (ji->ji_cinode)

@@ -33,7 +33,7 @@
  *
  * - fsck -n is a good read-only on-site diagnostic tool.  This means that fsck
  *   _should not_ write to the file system unless it has asked prompt() to do
- *   so.  It should also not exit if prompt() returns 0.  prompt() shold give
+ *   so.  It should also not exit if prompt() returns 0.  prompt() should give
  *   as much detail as possible as it becomes an error log.
  * - to make life simpler, memory allocation is a fatal error.  We shouldn't
  *   have unreasonable memory demands in relation to the size of the fs.
@@ -230,6 +230,7 @@ int main(int argc, char **argv)
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
 	int c, ret, rw = OCFS2_FLAG_RW;
+	int fsck_mask = FSCK_OK;
 
 	memset(ost, 0, sizeof(o2fsck_state));
 	ost->ost_ask = 1;
@@ -251,8 +252,9 @@ int main(int argc, char **argv)
 					fprintf(stderr,
 						"Invalid blkno: %s\n",
 						optarg);
+					fsck_mask |= FSCK_USAGE;
 					print_usage();
-					return 1;
+					goto out;
 				}
 				break;
 
@@ -262,8 +264,9 @@ int main(int argc, char **argv)
 					fprintf(stderr, 
 						"Invalid blksize: %s\n",
 						optarg);
+					fsck_mask |= FSCK_USAGE;
 					print_usage();
-					return 1;
+					goto out;
 				}
 				break;
 
@@ -293,8 +296,9 @@ int main(int argc, char **argv)
 				break;
 
 			default:
+				fsck_mask |= FSCK_USAGE;
 				print_usage();
-				return 1;
+				goto out;
 				break;
 		}
 	}
@@ -302,14 +306,16 @@ int main(int argc, char **argv)
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
 		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
+		fsck_mask |= FSCK_USAGE;
 		print_usage();
-		return 1;
+		goto out;
 	}
 
 	if (optind >= argc) {
 		fprintf(stderr, "Missing filename\n");
+		fsck_mask |= FSCK_USAGE;
 		print_usage();
-		return 1;
+		goto out;
 	}
 
 	filename = argv[optind];
@@ -321,19 +327,22 @@ int main(int argc, char **argv)
 	if (ret) {
 		com_err(argv[0], ret,
 			"while opening file \"%s\"", filename);
+		fsck_mask |= FSCK_ERROR;
 		goto out;
 	}
 
 	if (o2fsck_state_init(ost->ost_fs, argv[0], ost)) {
 		fprintf(stderr, "error allocating run-time state, exiting..\n");
-		return 1;
+		fsck_mask |= FSCK_ERROR;
+		goto out;
 	}
 
 	ret = check_superblock(argv[0], ost);
 	if (ret) {
 		printf("fsck saw unrecoverable errors in the super block and "
 		       "will not continue.\n");
-		exit(FSCK_ERROR);
+		fsck_mask |= FSCK_ERROR;
+		goto out;
 	}
 
 	exit_if_skipping(ost);
@@ -356,13 +365,18 @@ int main(int argc, char **argv)
 	if (ret) {
 		printf("fsck encountered unrecoverable errors while replaying "
 		       "the journals and will not continue\n");
-		exit(FSCK_ERROR);
+		fsck_mask |= FSCK_ERROR;
+		goto out;
 	}
 
 	/* XXX think harder about these error cases. */
 	ret = o2fsck_pass0(ost);
-	if (ret)
-		com_err(argv[0], ret, "pass0 failed");
+	if (ret) {
+		printf("fsck encountered unrecoverable errors in pass 0 and "
+		       "will not continue\n");
+		fsck_mask |= FSCK_ERROR;
+		goto out;
+	}
 
 	ret = o2fsck_pass1(ost);
 	if (ret)
@@ -390,5 +404,5 @@ int main(int argc, char **argv)
 	printf("fsck completed successfully.\n");
 
 out:
-	return 0;
+	return fsck_mask;
 }

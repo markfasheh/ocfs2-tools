@@ -46,6 +46,7 @@
 #include "icount.h"
 #include "fsck.h"
 #include "pass0.h"
+#include "pass1.h"
 #include "problem.h"
 #include "util.h"
 
@@ -57,6 +58,7 @@ struct chain_state {
 	uint32_t	cs_chain_no;
 };
 
+/* returns 0 if the group desc is valid */
 static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 			    struct chain_state *cs, ocfs2_group_desc *bg,
 			    uint64_t blkno)
@@ -75,7 +77,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 		   strlen(OCFS2_GROUP_DESC_SIGNATURE))) {
 		printf("Group descriptor at block %"PRIu64" has an invalid "
 			"signature.\n", blkno);
-		return -1;
+		return OCFS2_ET_BAD_GROUP_DESC_MAGIC;
 	}
 
 	/* XXX maybe for advanced pain we could check to see if these 
@@ -130,15 +132,14 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	if (changed) {
 		errcode_t ret;
-		/* XXX maybe a helper.. */
 		ret = ocfs2_write_group_desc(ost->ost_fs, bg->bg_blkno,
 					     (char *)bg);
 		if (ret) {
-			fatal_error(ret, "while writing a group descriptor to "
-				    "block %"PRIu64" somewhere in chain %d in "
-				    "group allocator inode %"PRIu64, 
-				    bg->bg_blkno, cs->cs_chain_no,
-				    di->i_blkno);
+			com_err(whoami, ret, "while writing a group "
+				"descriptor to block %"PRIu64" somewhere in "
+				"chain %d in group allocator inode %"PRIu64, 
+				bg->bg_blkno, cs->cs_chain_no, di->i_blkno);
+			ost->ost_write_error = 1;
 		}
 	}
 
@@ -155,54 +156,48 @@ static int check_chain(o2fsck_state *ost, ocfs2_dinode *di,
 {
 	ocfs2_group_desc *bg1 = (ocfs2_group_desc *)buf1;
 	ocfs2_group_desc *bg2 = (ocfs2_group_desc *)buf2;
-	ocfs2_group_desc *write_bg = NULL;
 	uint64_t blkno = chain->c_blkno;
 	errcode_t ret;
-	int rc;
+	int rc, changed = 0;
 
 	verbosef("free %u total %u blkno %"PRIu64"\n", chain->c_free,
 		 chain->c_total, chain->c_blkno);
 
 	if (chain->c_blkno == 0)
-		return 0;
+		goto out;
 
 	if (ocfs2_block_out_of_range(ost->ost_fs, blkno)) {
-		if (!prompt(ost, PY, "Chain record %d in group allocator inode "
+		if (prompt(ost, PY, "Chain record %d in group allocator inode "
 			    "%"PRIu64" points to block %"PRIu64" which is out "
  			    "of range.  fsck can't continue without deleting "
 			    "this chain.  Delete it?", cs->cs_chain_no,
-			    di->i_blkno, blkno)) 
-			exit(FSCK_ERROR);
+			    di->i_blkno, blkno))  {
+			chain->c_blkno = 0;
+			changed = 1;
+		}
 
-		chain->c_blkno = 0;
-		return 1;
+		goto out;
 	}
 
 	ret = ocfs2_read_group_desc(ost->ost_fs, blkno, buf1);
 	if (ret) {
-		maybe_fatal(ret, "while reading a group descriptor from block "
-			    "%"PRIu64" as pointed to by chain record %d in "
-			    "group allocator inode %"PRIu64, blkno, 
-			    cs->cs_chain_no, di->i_blkno);
-		if (!prompt(ost, PY, "fsck can't continue without deleting "
-		    "this chain.  Delete it?"))
-			exit(FSCK_ERROR);
-
-		chain->c_blkno = 0;
-		return 1;
+		com_err(whoami, ret, "while reading a group descriptor from "
+			"block %"PRIu64" as pointed to by chain record %d in "
+			"group allocator inode %"PRIu64, blkno, 
+			cs->cs_chain_no, di->i_blkno);
+		goto out;
 	}
 
-	rc = check_group_desc(ost, di, cs, bg1, blkno);
-	if (rc < 0) {
-		if (!prompt(ost, PY, "Chain %d in group allocator inode "
-			     "%"PRIu64" points to an invalid descriptor block "
-			     "at %"PRIu64".  fsck can't continue without "
-			     "deleting this chain.  Delete it?",
-			     cs->cs_chain_no, di->i_blkno, blkno))
-			exit(FSCK_ERROR);
-
-		chain->c_blkno = 0;
-		return 1;
+	ret = check_group_desc(ost, di, cs, bg1, blkno);
+	if (ret) {
+		if (prompt(ost, PY, "Chain %d in group allocator inode "
+			   "%"PRIu64" points to an invalid descriptor block "
+			   "at %"PRIu64".  Delete the chain?",
+			   cs->cs_chain_no, di->i_blkno, blkno)) {
+			chain->c_blkno = 0;
+			changed = 1;
+		}
+		goto out;
 	}
 
 	/* read in each group desc and check it.  if we see an error we try
@@ -211,40 +206,39 @@ static int check_chain(o2fsck_state *ost, ocfs2_dinode *di,
 		ret = ocfs2_read_group_desc(ost->ost_fs, bg1->bg_next_group,
 					    buf2);
 		if (ret) {
-			maybe_fatal(ret, "while reading a group descriptor "
+			com_err(whoami, ret, "while reading a group descriptor "
 				    "from block %"PRIu64" as pointed to by "
 				    "chain record %d in group allocator inode "
 				    "%"PRIu64, bg1->bg_next_group, 
 				    cs->cs_chain_no, di->i_blkno);
-		} else {
-			rc = check_group_desc(ost, di, cs, bg2, 
-					      bg1->bg_next_group);
-			if (rc == 0) {
-				memcpy(buf1, buf2, ost->ost_fs->fs_blocksize);
-				continue;
-			}
-			/* fall through if check_group_desc fails */
+			goto out;
+		} 
+
+		rc = check_group_desc(ost, di, cs, bg2, bg1->bg_next_group);
+		if (rc == 0) {
+			memcpy(buf1, buf2, ost->ost_fs->fs_blocksize);
+			continue;
 		}
 
-		if (!prompt(ost, PY, "fsck can't continue without truncating "
-			    "this chain by removing the link to the offending "
-			    "block. Truncate it?"))
-			exit(FSCK_ERROR);
-
-		bg1->bg_next_group = 0;
-		write_bg = bg1;
-		break;
-	}
-
-	if (write_bg) {
-		ret = ocfs2_write_group_desc(ost->ost_fs, write_bg->bg_blkno,
-					     (char *)write_bg);
-		if (ret) {
-			fatal_error(ret, "while writing a group descriptor to "
-				    "block %"PRIu64" somewhere in chain %d in "
-				    "group allocator inode %"PRIu64, 
-				    write_bg->bg_blkno, cs->cs_chain_no,
-				    di->i_blkno);
+		if (prompt(ost, PY, "Chain %d in group allocator inode "
+			   "%"PRIu64" contains an invalid descriptor block "
+			   "at %"PRIu64".  Truncate the chain to the last "
+			   "valid descriptor block?", cs->cs_chain_no,
+			   di->i_blkno, bg1->bg_next_group)) {
+			bg1->bg_next_group = 0;
+			ret = ocfs2_write_group_desc(ost->ost_fs, 
+						     bg1->bg_blkno,
+						     (char *)bg1);
+			if (ret) {
+				com_err(whoami, ret, "while writing a group "
+					"descriptor to block %"PRIu64" "
+					"somewhere in chain %d in group "
+					"allocator inode %"PRIu64, 
+					bg1->bg_blkno, cs->cs_chain_no,
+					di->i_blkno);
+				ost->ost_write_error = 1;
+			}
+			break;
 		}
 	}
 
@@ -260,11 +254,12 @@ static int check_chain(o2fsck_state *ost, ocfs2_dinode *di,
 			   cs->cs_total_bits)) {
 			chain->c_total = cs->cs_total_bits;
 			chain->c_free = cs->cs_free_bits;
-			return 1;
+			changed = 1;
 		}
 	}
 
-	return 0;
+out:
+	return changed;
 }
 
 /* If this returns 0 then the inode allocator had better be amenable to
@@ -277,27 +272,30 @@ static errcode_t verify_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 	uint16_t i, max_count;
 	ocfs2_chain_rec *cr;
 	uint32_t free = 0, total = 0;
-	int changed = 0;
-	errcode_t ret;
+	int changed = 0, trust_next_free = 1;
+	errcode_t ret = 0;
 
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		   strlen(OCFS2_INODE_SIGNATURE))) {
 		printf("Allocator inode %"PRIu64" doesn't have an inode "
 		       "signature.  fsck won't repair this.\n", di->i_blkno);
-		return OCFS2_ET_BAD_INODE_MAGIC;
+		ret = OCFS2_ET_BAD_INODE_MAGIC;
+		goto out;
 	}
 
 	if (!(di->i_flags & OCFS2_VALID_FL)) {
 		printf("Allocator inode %"PRIu64" is not active.  fsck won't "
 		       "repair this.\n", di->i_blkno);
-		return OCFS2_ET_INODE_NOT_VALID;
+		ret = OCFS2_ET_INODE_NOT_VALID;
+		goto out;
 	}
 
 	if (!(di->i_flags & OCFS2_CHAIN_FL)) {
 		printf("Allocator inode %"PRIu64" doesn't have the CHAIN_FL "
 			"flag set.  fsck won't repair this.\n", di->i_blkno);
 		/* not _entirely_ accurate, but pretty close. */
-		return OCFS2_ET_INODE_NOT_VALID;
+		ret = OCFS2_ET_INODE_NOT_VALID;
+		goto out;
 	}
 
 	/* XXX should we check suballoc_node? */
@@ -308,30 +306,37 @@ static errcode_t verify_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	max_count = ocfs2_chain_recs_per_inode(ost->ost_fs->fs_blocksize);
 
-	if (cl->cl_count > max_count) {
-		if (!prompt(ost, PY, "Allocator inode %"PRIu64" claims to "
-			    "have %u chains, but the maximum is %u. Fix the "
-			    "inode's count and keep checking?", di->i_blkno,
-			    cl->cl_count, max_count))
-			exit(FSCK_ERROR);
-
+	/* make sure cl_count is clamped to the size of the inode */
+	if (cl->cl_count > max_count &&
+	    prompt(ost, PY, "Allocator inode %"PRIu64" claims to have %u "
+		   "chains, but the maximum is %u. Fix the inode's count?",
+		   di->i_blkno, cl->cl_count, max_count)) {
 		cl->cl_count = max_count;
 		changed = 1;
 	}
 
-	if (cl->cl_next_free_rec > cl->cl_count) {
-		if (!prompt(ost, PY, "Allocator inode %"PRIu64" claims %u "
-			   "as the next free chain record, but the inode only "
-			   "has %u chains. Clamp the next record value and "
-			   "keep checking?",
-			   di->i_blkno, cl->cl_next_free_rec, cl->cl_count))
-			exit(FSCK_ERROR);
+	if (max_count > cl->cl_count)
+		max_count = cl->cl_count;
 
-		cl->cl_next_free_rec = cl->cl_count;
-		changed = 1;
+	if (cl->cl_next_free_rec > max_count) {
+		if (prompt(ost, PY, "Allocator inode %"PRIu64" claims %u as "
+			   "the next free chain record, but fsck believes the "
+			   "largest valid value is %u.  Clamp the next record "
+			   "value?", di->i_blkno, cl->cl_next_free_rec,
+			   max_count)) {
+			cl->cl_next_free_rec = cl->cl_count;
+			changed = 1;
+		} else {
+			trust_next_free = 0;
+		}
 	}
 
-	for (i = 0; i < cl->cl_next_free_rec; i++) {
+	/* iterate over all chains if we don't trust next_free_rec to mark
+	 * the end of used chains */
+	if (trust_next_free)
+		max_count = cl->cl_next_free_rec;
+
+	for (i = 0; i < max_count; i++) {
 		cr = &cl->cl_recs[i];
 
 		/* reset for each run */
@@ -340,21 +345,34 @@ static errcode_t verify_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		};
 		changed |= check_chain(ost, di, &cs, cr, buf1, buf2);
 
-		/* replace this deleted chain with the last valid one, if
-		 * present, and this 'i' again.  If there isn't one to move
-		 * in place the loop will terminate */
-		if (cr->c_blkno == 0) {
-			if (i < (cl->cl_next_free_rec - 1)) {
-				cl->cl_next_free_rec--;
-				*cr = cl->cl_recs[cl->cl_next_free_rec];
-				changed = 1;
-				i--;
-			}
+		if (cr->c_blkno != 0) {
+			free += cs.cs_free_bits;
+			total += cs.cs_total_bits;
 			continue;
 		}
 
-		free += cs.cs_free_bits;
-		total += cs.cs_total_bits;
+		if (prompt(ost, PY, "Chain %d in allocator inode %"PRIu64" "
+			   "isn't in use any more.  Remove it from the inode?",
+			   cs.cs_chain_no, di->i_blkno)) {
+
+			if (!trust_next_free) {
+				printf("Can't remove the chain becuase "
+				       "next_free_rec hasn't been fixed\n");
+				continue;
+			}
+
+			/* move later lists down if there are any */
+			if (i < (cl->cl_next_free_rec - 1)) {
+				*cr = cl->cl_recs[cl->cl_next_free_rec - 1];
+				i--;
+			}
+
+			cl->cl_next_free_rec--;
+			max_count--;
+			changed = 1;
+			continue;
+		}
+
 	}
 
 	if (di->id1.bitmap1.i_total != total || 
@@ -380,14 +398,20 @@ static errcode_t verify_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 			       sizeof(ocfs2_chain_rec));
 
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
-		if (ret)
-			fatal_error(ret, "while writing inode alloc inode "
+		if (ret) {
+			com_err(whoami, ret, "while writing inode alloc inode "
 				    "%"PRIu64, di->i_blkno);
+			ost->ost_write_error = 1;
+		}
 	}
 
-	return 0;
+out:
+	return ret;
 }
 
+/* this returns an error if it didn't leave the allocators in a state that
+ * the iterators will be able to work with.  There is probably some room
+ * for more resiliance here. */
 errcode_t o2fsck_pass0(o2fsck_state *ost)
 {
 	errcode_t ret;
@@ -410,9 +434,10 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 
 	ret = ocfs2_malloc0(max_nodes * sizeof(ocfs2_cached_inode *), 
 			    &ost->ost_inode_allocs);
-	if (ret)
-		fatal_error(ret, "while allocating pointers for each nodes' "
-			    "inode allocator bitmaps");
+	if (ret) {
+		com_err(whoami, ret, "while cached inodes for each node");
+		goto out;
+	}
 
 	/* first the global inode alloc and then each of the node's
 	 * inode allocators */
@@ -455,7 +480,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		if (ret) {
 			com_err(whoami, ret, "while reading node %d's inode "
 				"allocator inode %"PRIu64, i, blkno);	
-			continue;
+			goto out;
 		}
 
 		ret = ocfs2_load_chain_allocator(ost->ost_fs, *ci);
@@ -464,19 +489,15 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 				"as a chain allocator", blkno);
 			ocfs2_free_cached_inode(ost->ost_fs, *ci);
 			*ci = NULL;
-			continue;
+			goto out;
 		}
 	}
 
 out:
-	/* errors are only returned to this guy if they're fatal -- memory
-	 * alloc or IO errors.  the.. returnee had the responsibility of 
-	 * describing the error at the source. */
-	if (ret)
-		exit(FSCK_ERROR);
-
 	if (blocks)
 		ocfs2_free(&blocks);
+	if (ret)
+		o2fsck_free_inode_allocs(ost);
 
-	return 0;
+	return ret;
 }

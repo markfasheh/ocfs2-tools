@@ -72,7 +72,7 @@ int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
 	return was_set;
 }
 
-static void free_inode_allocs(o2fsck_state *ost)
+void o2fsck_free_inode_allocs(o2fsck_state *ost)
 {
 	uint16_t i;
 
@@ -143,7 +143,7 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 			ost->ost_write_inode_alloc_asked = 1;
 			ost->ost_write_inode_alloc = !!yn;
 			if (!ost->ost_write_inode_alloc)
-				free_inode_allocs(ost);
+				o2fsck_free_inode_allocs(ost);
 		}
 		break;
 	}
@@ -538,7 +538,7 @@ static void write_inode_alloc(o2fsck_state *ost)
 				"%d's inode allocator", i);
 	}
 
-	free_inode_allocs(ost);
+	o2fsck_free_inode_allocs(ost);
 }
 
 errcode_t o2fsck_pass1(o2fsck_state *ost)
