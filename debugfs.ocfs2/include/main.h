@@ -48,7 +48,7 @@
 #include <linux/kdev_t.h>
 #include <inttypes.h>
 #include <utime.h>
-
+#include <getopt.h>
 #include <glib.h>
 
 #include <readline/readline.h>
@@ -68,6 +68,8 @@ enum {
 
 typedef struct _dbgfs_glbs {
 	char *progname;
+	int allow_write;
+	int interactive;
 	char *device;
 	ocfs2_filesys *fs;
 	char *cwd;
@@ -81,6 +83,12 @@ typedef struct _dbgfs_glbs {
 	uint64_t slotmap_blkno;
 	uint64_t jrnl_blkno[256];
 } dbgfs_gbls;
+
+typedef struct _dbgfs_opts {
+	int allow_write;
+	char *cmd_file;
+	char *device;
+} dbgfs_opts;
 
 #define DBGFS_FATAL(fmt, arg...)	({ fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \
 						   __FILE__, __LINE__, ##arg);  \

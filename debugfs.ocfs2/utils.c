@@ -207,20 +207,22 @@ done:
  * redistributed under the terms of the GNU Public License.
  *
  */
-FILE *open_pager(void)
+FILE *open_pager(int interactive)
 {
-	FILE *outfile;
+	FILE *outfile = NULL;
 	const char *pager = getenv("PAGER");
 
-	signal(SIGPIPE, SIG_IGN);
-	if (pager) {
-		if (strcmp(pager, "__none__") == 0) {
-			return stdout;
-		}
-	} else
-		pager = "more";
+	if (interactive) {
+		signal(SIGPIPE, SIG_IGN);
+		if (pager) {
+			if (strcmp(pager, "__none__") == 0) {
+				return stdout;
+			}
+		} else
+			pager = "more";
 
-	outfile = popen(pager, "w");
+		outfile = popen(pager, "w");
+	}
 
 	return (outfile ? outfile : stdout);
 }

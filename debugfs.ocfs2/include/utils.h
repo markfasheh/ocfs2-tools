@@ -37,7 +37,7 @@ void get_vote_flag (__u32 flag, GString *str);
 void get_publish_flag (__u32 flag, GString *str);
 void get_journal_blktyp (__u32 jtype, GString *str);
 void get_tag_flag (__u32 flags, GString *str);
-FILE *open_pager(void);
+FILE *open_pager(int interactive);
 void close_pager(FILE *stream);
 int inodestr_to_inode(char *str, uint64_t *blkno);
 errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,

@@ -60,8 +60,6 @@ static void do_extent (char **args);
 static void do_chroot (char **args);
 static void do_slotmap (char **args);
 
-extern gboolean allow_write;
-
 dbgfs_gbls gbls;
 
 static Command commands[] = {
@@ -136,13 +134,20 @@ void do_command (char *cmd)
 	/* Move empty strings to the end */
 	crunch_strsplit(args);
 
+	/* ignore commented line */
+	if (!strncmp(args[0], "#", 1))
+		goto bail;
+
 	command = find_command (args[0]);
+
+	fflush(stdout);
 
 	if (command)
 		command->func (args);
 	else
-		fprintf(stderr, "%s: Unrecognized command\n", args[0]);
+		fprintf(stderr, "%s: command not found\n", args[0]);
 
+bail:
 	g_strfreev (args);
 }
 
@@ -153,7 +158,7 @@ void do_command (char *cmd)
 static int check_device_open(void)
 {
 	if (!gbls.fs) {
-		fprintf(stderr, "Device not open\n");
+		fprintf(stderr, "No device open\n");
 		return -1;
 	}
 
@@ -388,7 +393,7 @@ static void do_open (char **args)
 		return ;
 	}
 
-	flags = allow_write ? OCFS2_FLAG_RW : OCFS2_FLAG_RO;
+	flags = gbls.allow_write ? OCFS2_FLAG_RW : OCFS2_FLAG_RO;
 	ret = ocfs2_open(dev, flags, 0, 0, &gbls.fs);
 	if (ret) {
 		gbls.fs = NULL;
@@ -544,7 +549,7 @@ static void do_ls (char **args)
 		}
 	}
 
-	ls_opts.out = open_pager();
+	ls_opts.out = open_pager(gbls.interactive);
 	ret = ocfs2_dir_iterate(gbls.fs, blkno, 0, NULL,
 				dump_dir_entry, (void *)&ls_opts);
 	if (ret)
@@ -648,7 +653,7 @@ static void do_stats (char **args)
 	if (check_device_open())
 		goto bail;
 
-	out = open_pager ();
+	out = open_pager(gbls.interactive);
 	in = gbls.fs->fs_super;
 	sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	dump_super_block(out, sb);
@@ -686,7 +691,7 @@ static void do_stat (char **args)
 
 	inode = (ocfs2_dinode *)buf;
 
-	out = open_pager();
+	out = open_pager(gbls.interactive);
 	dump_inode(out, inode);
 
 	if ((inode->i_flags & OCFS2_LOCAL_ALLOC_FL))
@@ -856,7 +861,7 @@ static void do_logdump (char **args)
 		goto bail;
 	}
 
-	out = open_pager ();
+	out = open_pager(gbls.interactive);
 	read_journal (out, logbuf, (uint64_t)len);
 	close_pager (out);
 
@@ -884,7 +889,7 @@ static void do_group (char **args)
 		return ;
 
 	buf = gbls.blockbuf;
-	out = open_pager();
+	out = open_pager(gbls.interactive);
 	while (blkno) {
 		ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
 		if (ret) {
@@ -928,7 +933,7 @@ static void do_extent (char **args)
 
 	eb = (ocfs2_extent_block *)buf;
 
-	out = open_pager();
+	out = open_pager(gbls.interactive);
 	dump_extent_block(out, eb);
 	dump_extent_list(out, &eb->h_list);
 	close_pager(out);
@@ -957,7 +962,7 @@ static void do_slotmap (char **args)
 		goto bail;
 	}
 
-	out = open_pager ();
+	out = open_pager(gbls.interactive);
 	dump_slots (out, buf, len);
 	close_pager (out);
 

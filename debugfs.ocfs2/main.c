@@ -27,11 +27,6 @@
 
 #define PROMPT "debugfs: "
 
-static void  usage         (char *progname);
-static void  print_version (char *progname);
-static char *get_line      (void);
-
-gboolean allow_write = FALSE;
 extern dbgfs_gbls gbls;
 
 /*
@@ -42,9 +37,10 @@ static void usage (char *progname)
 {
 	g_print ("Usage: %s [OPTION]... [DEVICE]\n", progname);
 	g_print ("Options:\n");
-	g_print ("  -V, --version  g_print version information and exit\n");
-	g_print ("  -?, --help     display this help and exit\n");
-	g_print ("  -w, --write    turn on write support\n");
+	g_print ("  -f, --file <cmd_file>	Execute commands in cmd_file\n");
+	g_print ("  -V, --version		Display version\n");
+	g_print ("  -?, --help			Display this help\n");
+	g_print ("  -w, --write			Enable writes\n");
 	exit (0);
 }					/* usage */
 
@@ -58,18 +54,89 @@ static void print_version (char *progname)
 }					/* print_version */
 
 /*
+ * get_options()
+ *
+ */
+static void get_options(int argc, char **argv, dbgfs_opts *opts)
+{
+	int c;
+	static struct option long_options[] = {
+		{ "file", 1, 0, 'f' },
+		{ "version", 0, 0, 'V' },
+		{ "help", 0, 0, '?' },
+		{ "write", 0, 0, '?' },
+		{ 0, 0, 0, 0}
+	};
+
+	while (1) {
+		c = getopt_long(argc, argv, "f:V?w", long_options, NULL);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 'f':
+			opts->cmd_file = strdup(optarg);
+			if (!strlen(opts->cmd_file)) {
+				usage(gbls.progname);
+				exit(1);
+			}
+			break;
+
+		case 'w':
+			opts->allow_write = 1;
+			break;
+
+		case 'h':
+			usage(gbls.progname);
+			exit(0);
+			break;
+
+		case 'V':
+			print_version(gbls.progname);
+			exit(0);
+			break;
+
+		default:
+			usage(gbls.progname);
+			break;
+		}
+	}
+
+	if (optind < argc)
+		opts->device = strdup(argv[optind]);
+
+	return ;
+}
+
+/*
  * get_line()
  *
  */
-static char * get_line (void)
+static char * get_line (FILE *stream)
 {
 	char *line;
+	static char buf[1024];
+	int i;
 
-	line = readline (PROMPT);
+	if (stream) {
+		while (1) {
+			if (!fgets(buf, sizeof(buf), stream))
+				return NULL;
+			line = buf;
+			i = strlen(line);
+			if (i)
+				buf[i - 1] = '\0';
+			g_strchug(line);
+			if (strlen(line))
+				break;
+		}
+	} else {
+		line = readline (PROMPT);
 
-	if (line && *line) {
-		g_strchug(line);
-		add_history (line);
+		if (line && *line) {
+			g_strchug(line);
+			add_history (line);
+		}
 	}
 
 	return line;
@@ -81,11 +148,9 @@ static char * get_line (void)
  */
 int main (int argc, char **argv)
 {
-	int i;
 	char *line;
-	char *device = NULL;
-	char *arg;
-	gboolean seen_device = FALSE;
+	dbgfs_opts opts;
+	FILE *cmd = NULL;
 
 	initialize_ocfs_error_table();
 
@@ -100,49 +165,41 @@ int main (int argc, char **argv)
 	INSTALL_SIGNAL(SIGTERM);
 	INSTALL_SIGNAL(SIGINT);
 
+	memset(&opts, 0, sizeof(opts));
 	memset(&gbls, 0, sizeof(gbls));
 
 	gbls.progname = basename(argv[0]);
 
-	for (i = 1; i < argc; i++) {
-		arg = argv[i];
-		if ((strcmp (arg, "--write") == 0) ||
-		    (strcmp (arg, "-w") == 0)) {
-			allow_write = TRUE;
-		} else if ((strcmp (arg, "--version") == 0) ||
-			   (strcmp (arg, "-V") == 0)) {
-			print_version (gbls.progname);
-			exit (0);
-		} else if ((strcmp (arg, "--help") == 0) ||
-			   (strcmp (arg, "-?") == 0)) {
-			usage (argv[0]);
-			exit (0);
-		} else if (!seen_device) {
-			device = g_strdup (arg);
-			seen_device = TRUE;
-		} else {
-			usage (argv[0]);
-			exit (1);
-		}
-	}
+	get_options(argc, argv, &opts);
+	gbls.allow_write = opts.allow_write;
+	if (!opts.cmd_file)
+		gbls.interactive++;
 
 	print_version (gbls.progname);
 
-	if (device) {
-		line = g_strdup_printf ("open %s", device);
+	if (opts.device) {
+		line = g_strdup_printf ("open %s", opts.device);
 		do_command (line);
 		g_free (line);
 	}
 
+	if (opts.cmd_file) {
+		cmd = fopen(opts.cmd_file, "r");
+		if (!cmd) {
+			com_err(argv[0], errno, "'%s'", opts.cmd_file);
+			goto bail;
+		}
+	}
+
 	while (1) {
-		line = get_line ();
+		line = get_line(cmd);
 
 		if (line) {
-			if (!isatty (0))
-				printf ("%s\n", line);
-
+			if (!gbls.interactive)
+				fprintf (stdout, "%s%s\n", PROMPT, line);
 			do_command (line);
-			free (line);
+			if (gbls.interactive)
+				free (line);
 		} else {
 			printf ("\n");
 			raise (SIGTERM);
@@ -151,5 +208,11 @@ int main (int argc, char **argv)
 	}
 
 bail:
+	if (cmd)
+		fclose(cmd);
+	if (opts.cmd_file)
+		free(opts.cmd_file);
+	if (opts.device)
+		free(opts.device);
 	return 0;
 }					/* main */
