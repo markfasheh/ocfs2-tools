@@ -1,27 +1,33 @@
+/*
+ * commands.c
+ *
+ * handles debugfs commands
+ *
+ * Copyright (C) 2004 Oracle.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 021110-1307, USA.
+ *
+ * Authors: Sunil Mushran, Manish Singh
+ */
 
 #include <main.h>
 #include <commands.h>
 #include <dump.h>
 #include <readfs.h>
-
-#if 0
-#define _GNU_SOURCE
-
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
-#include <glib.h>
-
-#include <readline/readline.h>
-
-#include <linux/types.h>
-#include <ocfs2_fs.h>
-#endif
+#include <utils.h>
 
 typedef void (*PrintFunc) (void *buf);
 typedef gboolean (*WriteFunc) (char **data, void *buf);
@@ -35,7 +41,6 @@ struct _Command
 	char        *cmd;
 	CommandFunc  func;
 };
-
 
 static Command  *find_command (char  *cmd);
 static char    **get_data     (void);
@@ -58,15 +63,18 @@ static void      do_curdev   (char **args);
 static void      do_super    (char **args);
 static void      do_inode    (char **args);
 
-
 extern gboolean allow_write;
 
-static char *device = NULL;
-static int   dev_fd = -1;
-static __u32 blksz_bits = 0;
-static char *curdir = NULL;
-static char superblk[512];
-static char rootin[512];
+char *device = NULL;
+int   dev_fd = -1;
+__u32 blksz_bits = 0;
+__u32 clstrsz_bits = 0;
+__u64 root_blkno = 0;
+__u64 sysdir_blkno = 0;
+char *curdir = NULL;
+char *superblk = NULL;
+char *rootin = NULL;
+char *sysdirin = NULL;
 
 static Command commands[] =
 {
@@ -151,6 +159,8 @@ static void do_open (char **args)
 {
 	char *dev = args[1];
 	ocfs2_dinode *inode;
+	ocfs2_super_block *sb;
+	__u32 len;
 
 	if (device)
 		do_close (NULL);
@@ -164,18 +174,31 @@ static void do_open (char **args)
 
 	device = g_strdup (dev);
 
-	if (read_super_block (dev_fd, superblk, sizeof(superblk), &blksz_bits) != -1)
+	if (read_super_block (dev_fd, &superblk) != -1)
 		curdir = g_strdup ("/");
 
-	/* read root inode */
 	inode = (ocfs2_dinode *)superblk;
-	if ((pread64(dev_fd, rootin, sizeof(rootin),
-		     (inode->id2.i_super.s_root_blkno << blksz_bits))) == -1) {
-		LOG_INTERNAL("%s", strerror(errno));
-		goto bail;
-	}
+	sb = &(inode->id2.i_super);
+	/* set globals */
+	clstrsz_bits = sb->s_clustersize_bits;
+	blksz_bits = sb->s_blocksize_bits;
+	root_blkno = sb->s_root_blkno;
+	sysdir_blkno = sb->s_system_dir_blkno;
 
-bail:
+	/* read root inode */
+	len = 1 << blksz_bits;
+	if (!(rootin = malloc(len)))
+		DBGFS_FATAL("%s", strerror(errno));
+	if ((pread64(dev_fd, rootin, len, (root_blkno << blksz_bits))) == -1)
+		DBGFS_FATAL("%s", strerror(errno));
+
+	/* read sysdir inode */
+	len = 1 << blksz_bits;
+	if (!(sysdirin = malloc(len)))
+		DBGFS_FATAL("%s", strerror(errno));
+	if ((pread64(dev_fd, sysdirin, len, (sysdir_blkno << blksz_bits))) == -1)
+		DBGFS_FATAL("%s", strerror(errno));
+
 	return ;
 }					/* do_open */
 
@@ -194,8 +217,9 @@ static void do_close (char **args)
 		g_free (curdir);
 		curdir = NULL;
 
-		memset (superblk, 0, sizeof(superblk));
-		memset (rootin, 0, sizeof(rootin));
+		safefree (superblk);
+		safefree (rootin);
+		safefree (sysdirin);
 	} else
 		printf ("device not open\n");
 
@@ -208,23 +232,7 @@ static void do_close (char **args)
  */
 static void do_cd (char **args)
 {
-#if 0
-  char *newdir, *dir = args[1];
 
-  if (!dir)
-    {
-      printf ("No directory given\n");
-      return;
-    }
-
-  if (dir[0] == '/')
-    newdir = g_strdup (dir);
-  else
-    newdir = g_strconcat (curdir, "/", dir, NULL);
-
-  g_free (curdir);
-  curdir = newdir;
-#endif
 }					/* do_cd */
 
 /*
@@ -233,27 +241,60 @@ static void do_cd (char **args)
  */
 static void do_ls (char **args)
 {
-#if 0
-  ocfs_super *vcb;
-  __u64 off;
+	char *opts = args[1];
+	ocfs2_dinode *inode;
+	ocfs2_extent_rec *rec;
+	__u32 blknum;
+	char *buf = NULL;
+	int i;
+	GArray *arr = NULL;
+	__u32 len;
+	__u64 off;
 
-  if (strcmp (curdir, "/") != 0)
-    {
-      vcb = get_fake_vcb (dev_fd, header, 0);
-      find_file_entry(vcb, header->root_off, "/", curdir, FIND_MODE_DIR, &off);
-      free (vcb);
-    }
-  else
-    off = header->root_off;
+	len = 1 << blksz_bits;
+	if (!(buf = malloc(len)))
+		DBGFS_FATAL("%s", strerror(errno));
 
-  if (off <= 0)
-    {
-      printf ("Invalid directory %s\n", curdir);
-      return;
-    }
+	if (opts) {
+		blknum = atoi(opts);
+		if ((read_inode (dev_fd, blknum, buf, len)) == -1) {
+			printf("Not an inode\n");
+			goto bail;
+		}
+		inode = (ocfs2_dinode *)buf;
+	} else {
+		inode = (ocfs2_dinode *)rootin;
+	}
 
-  walk_dir_nodes (dev_fd, off, curdir, NULL);
-#endif
+	if (!S_ISDIR(inode->i_mode)) {
+		printf("Not a dir\n");
+		goto bail;
+	}
+
+	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
+
+	traverse_extents (dev_fd, &(inode->id2.i_list), arr, 0);
+
+	safefree (buf);
+
+	for (i = 0; i < arr->len; ++i) {
+		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
+		off = rec->e_blkno << blksz_bits;
+		len = rec->e_clusters << clstrsz_bits;
+		if (!(buf = malloc (len)))
+			DBGFS_FATAL("%s", strerror(errno));
+		if ((pread64(dev_fd, buf, len, off)) == -1)
+			DBGFS_FATAL("%s", strerror(errno));
+		dump_dir_entry ((struct ocfs2_dir_entry *)buf);
+		safefree (buf);
+	}
+
+bail:
+	safefree (buf);
+	if (arr)
+		g_array_free (arr, 1);
+	return ;
+
 }					/* do_ls */
 
 /*
@@ -262,12 +303,7 @@ static void do_ls (char **args)
  */
 static void do_pwd (char **args)
 {
-#if 0
-  if (!curdir)
-    curdir = g_strdup ("/");
-
-  printf ("%s\n", curdir);
-#endif
+	printf ("%s\n", curdir ? curdir : "No dir");
 }					/* do_pwd */
 
 /*
@@ -303,124 +339,7 @@ static void do_rm (char **args)
  */
 static void do_read (char **args)
 {
-#if 0
-  PrintFunc  func;
-  char      *type = args[1];
-  loff_t     offset = -1;
-  void      *buf;
-  int        nodenum = 0;
 
-  if (!device)
-    {
-      printf ("Device not open\n");
-      return;
-    }
-
-  if (!type)
-    {
-      printf ("No type given\n");
-      return;
-    }
-
-  if (strcasecmp (type, "dir_node") == 0 ||
-      strcasecmp (type, "ocfs_dir_node") == 0)
-    {
-      char *dirarg = args[2];
-
-      func = print_dir_node;
-
-      if (dirarg && *dirarg)
-	{
-	  if (dirarg[0] == '/')
-	    {
-	      if (strcmp (dirarg, "/") == 0)
-		{
-		  printf ("Name: /\n");
-		  offset = header->root_off;
-		}
-	    }
-	}
-      else
-        {
-	  printf ("No name or offset\n");
-	  return;
-	}
-    }
-  else if (strcasecmp (type, "file_entry") == 0 ||
-	   strcasecmp (type, "ocfs_file_entry") == 0)
-    {
-      func = print_file_entry;
-    }
-  else if (strcasecmp (type, "publish") == 0 ||
-	   strcasecmp (type, "ocfs_publish") == 0)
-    {
-      func = print_publish;
-
-      if (args[2])
-	{
-	  nodenum = strtol (args[2], NULL, 10);
-	  nodenum = MAX(0, nodenum);
-	  nodenum = MIN(31, nodenum);
-	}
-
-      offset = header->publ_off + nodenum * 512;
-    }
-  else if (strcasecmp (type, "vote") == 0 ||
-	   strcasecmp (type, "ocfs_vote") == 0)
-    {
-      func = print_vote;
-
-      if (args[2])
-	{
-	  nodenum = strtol (args[2], NULL, 10);
-	  nodenum = MAX(0, nodenum);
-	  nodenum = MIN(31, nodenum);
-	}
-
-      offset = header->vote_off + nodenum * 512;
-    }
-  else if (strcasecmp (type, "vol_disk_hdr") == 0 ||
-	   strcasecmp (type, "ocfs_vol_disk_hdr") == 0)
-    {
-      func = print_vol_disk_hdr;
-      offset = 0;
-    }
-  else if (strcasecmp (type, "vol_label") == 0 ||
-	   strcasecmp (type, "ocfs_vol_label") == 0)
-    {
-      func = print_vol_label;
-      offset = 512;
-    }
-  else
-    {
-      printf ("Invalid type\n");
-      return;
-    }
-
-  if (offset == -1)
-    {
-      if (!args[2])
-	{
-	  printf ("No offset given\n");
-	  return;
-	}
-      else
-	offset = strtoll (args[2], NULL, 10);
-    }
-
-  printf ("Reading %s for node %d at offset %lld\n", type, nodenum, offset);
-
-  buf = g_malloc (512);
-
-  myseek64 (dev_fd, offset, SEEK_SET);
-
-  if (read (dev_fd, buf, 512) != -1)
-    func (buf);
-  else
-    printf ("Couldn't read\n");
-
-  g_free (buf);
-#endif
 }					/* do_read */
 
 /*
@@ -429,142 +348,7 @@ static void do_read (char **args)
  */
 static void do_write (char **args)
 {
-#if 0
-  WriteFunc  func;
-  char      *type = args[1];
-  loff_t     offset = -1;
-  void      *buf;
-  int        nodenum = 0;
-  char     **data;
 
-  if (!device)
-    {
-      printf ("Device not open\n");
-      return;
-    }
-
-  if (!type)
-    {
-      printf ("No type given\n");
-      return;
-    }
-
-  if (strcasecmp (type, "dir_node") == 0 ||
-      strcasecmp (type, "ocfs_dir_node") == 0)
-    {
-      char *dirarg = args[2];
-
-      func = write_dir_node;
-
-      if (dirarg && *dirarg)
-	{
-	  if (dirarg[0] == '/')
-	    {
-	      if (strcmp (dirarg, "/") == 0)
-		{
-		  printf ("Name: /\n");
-		  offset = header->root_off;
-		}
-	    }
-	}
-      else
-        {
-	  printf ("No name or offset\n");
-	  return;
-	}
-    }
-  else if (strcasecmp (type, "file_entry") == 0 ||
-	   strcasecmp (type, "ocfs_file_entry") == 0)
-    {
-      func = write_file_entry;
-    }
-  else if (strcasecmp (type, "publish") == 0 ||
-	   strcasecmp (type, "ocfs_publish") == 0)
-    {
-      func = write_publish;
-
-      if (args[2])
-	{
-	  nodenum = strtol (args[2], NULL, 10);
-	  nodenum = MAX(0, nodenum);
-	  nodenum = MIN(31, nodenum);
-	}
-
-      offset = header->publ_off + nodenum * 512;
-    }
-  else if (strcasecmp (type, "vote") == 0 ||
-	   strcasecmp (type, "ocfs_vote") == 0)
-    {
-      func = write_vote;
-
-      if (args[2])
-	{
-	  nodenum = strtol (args[2], NULL, 10);
-	  nodenum = MAX(0, nodenum);
-	  nodenum = MIN(31, nodenum);
-	}
-
-      offset = header->vote_off + nodenum * 512;
-    }
-  else if (strcasecmp (type, "vol_disk_hdr") == 0 ||
-	   strcasecmp (type, "ocfs_vol_disk_hdr") == 0)
-    {
-      func = write_vol_disk_hdr;
-      offset = 0;
-    }
-  else if (strcasecmp (type, "vol_label") == 0 ||
-	   strcasecmp (type, "ocfs_vol_label") == 0)
-    {
-      func = write_vol_label;
-      offset = 512;
-    }
-  else
-    {
-      printf ("Invalid type\n");
-      return;
-    }
-
-  if (offset == -1)
-    {
-      if (!args[2])
-	{
-	  printf ("No offset given\n");
-	  return;
-	}
-      else
-	offset = strtoll (args[2], NULL, 10);
-    }
-
-  printf ("Writing %s for node %d at offset %lld\n", type, nodenum, offset);
-
-  data = get_data ();
-
-  myseek64 (dev_fd, offset, SEEK_SET);
-
-  buf = g_malloc (512);
-
-  if (read (dev_fd, buf, 512) != -1)
-    {
-      if (!func (data, buf))
-	{
-	  printf ("Invalid data\n");
-	  return;
-	}
-    }
-  else
-    {
-      printf ("Couldn't read\n");
-      return;
-    }
-
-  myseek64 (dev_fd, offset, SEEK_SET);
-  
-  if (write (dev_fd, buf, 512) == -1)
-    printf ("Write failed\n");
-
-  g_strfreev (data);
-  g_free (buf);
-#endif
 }					/* do_write */
 
 /*
@@ -573,21 +357,23 @@ static void do_write (char **args)
  */
 static void do_help (char **args)
 {
-	printf ("curdev\t\t\tShow current device\n");
-	printf ("open\t\t\tOpen a device\n");
-	printf ("close\t\t\tClose a device\n");
-	printf ("cd\t\t\tChange working directory\n");
-	printf ("pwd\t\t\tPrint working directory\n");
-	printf ("ls\t\t\tList directory\n");
-	printf ("rm\t\t\tRemove a file\n");
-	printf ("mkdir\t\t\tMake a directory\n");
-	printf ("rmdir\t\t\tRemove a directory\n");
-	printf ("dump, cat\t\tDump contents of a file\n");
-	printf ("lcd\t\t\tChange current local working directory\n");
-	printf ("read\t\t\tRead a low level structure\n");
-	printf ("write\t\t\tWrite a low level structure\n");
-	printf ("help, ?\t\t\tThis information\n");
-	printf ("quit, q\t\t\tExit the program\n");
+	printf ("curdev\t\t\t\tShow current device\n");
+	printf ("open [device]\t\t\tOpen a device\n");
+	printf ("close\t\t\t\tClose a device\n");
+	printf ("show_super_stats, stats [-h]\tShow superblock\n");
+	printf ("show_inode_info, stat [blknum]\tShow inode\n");
+//	printf ("cd\t\t\tChange working directory\n");
+	printf ("pwd\t\t\t\tPrint working directory\n");
+	printf ("ls [blknum]\t\t\tList directory\n");
+//	printf ("rm\t\t\t\tRemove a file\n");
+//	printf ("mkdir\t\t\t\tMake a directory\n");
+//	printf ("rmdir\t\t\t\tRemove a directory\n");
+//	printf ("dump, cat\t\t\tDump contents of a file\n");
+//	printf ("lcd\t\t\t\tChange current local working directory\n");
+//	printf ("read\t\t\t\tRead a low level structure\n");
+//	printf ("write\t\t\t\tWrite a low level structure\n");
+	printf ("help, ?\t\t\t\tThis information\n");
+	printf ("quit, q\t\t\t\tExit the program\n");
 }					/* do_help */
 
 /*
@@ -605,31 +391,7 @@ static void do_quit (char **args)
  */
 static void do_dump (char **args)
 {
-#if 0
-  char *fname = args[1], *filename, *out = args[2];
-  ocfs_super *vcb;
 
-  if (!fname)
-    {
-      printf ("No filename given\n");
-      return;
-    }
-
-  if (!out)
-    {
-      printf ("No output given\n");
-      return;
-    }
-
-  if (fname[0] == '/')
-    filename = g_strdup (fname);
-  else
-    filename = g_strconcat (curdir, "/", fname, NULL);
-
-  vcb = get_fake_vcb (dev_fd, header, 0);
-  suck_file (vcb, filename, out);
-  g_free (filename);
-#endif
 }					/* do_dump */
 
 /*
@@ -638,18 +400,7 @@ static void do_dump (char **args)
  */
 static void do_lcd (char **args)
 {
-#if 0
-  char *dir = args[1];
 
-  if (!dir)
-    {
-      printf ("Directory not given\n");
-      return;
-    }
-
-  if (chdir (dir) == -1)
-    printf ("Could not change directory\n");
-#endif
 }					/* do_lcd */
 
 /*
@@ -667,32 +418,7 @@ static void do_curdev (char **args)
  */
 static char ** get_data (void)
 {
-#if 0
-  char *line, **ret;
-  GPtrArray *arr;
-
-  arr = g_ptr_array_new ();
-
-  while (1)
-    {
-      line = readline ("");
-
-      if (line && strchr (line, '='))
-	g_ptr_array_add (arr, line);
-      else
-	break;
-    }
-
-  if (line)
-    free (line);
-
-  ret = (char **) arr->pdata;
-
-  g_ptr_array_free (arr, FALSE);
-
-  return ret;
-#endif
-  return NULL;
+	return NULL;
 }					/* get_data */
 
 /*
@@ -723,10 +449,30 @@ static void do_inode (char **args)
 {
 	char *opts = args[1];
 	ocfs2_dinode *inode;
+	__u32 blknum;
+	char *buf = NULL;
+	__u32 buflen;
 
-	inode = (ocfs2_dinode *)rootin;
+	buflen = 1 << blksz_bits;
+	if (!(buf = malloc(buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	if (opts) {
+		blknum = atoi(opts);
+		if ((read_inode (dev_fd, blknum, buf, buflen)) == -1) {
+			printf("Not an inode\n");
+			goto bail;
+		}
+		inode = (ocfs2_dinode *)buf;
+	} else {
+		inode = (ocfs2_dinode *)rootin;
+	}
+
 	dump_inode(inode);
 
+	traverse_extents (dev_fd, &(inode->id2.i_list), NULL, 1);
+
+bail:
+	safefree (buf);
 	return ;
 }					/* do_inode */
-

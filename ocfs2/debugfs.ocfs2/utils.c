@@ -1,7 +1,7 @@
 /*
- * commands.h
+ * utils.c
  *
- * Function prototypes, macros, etc. for related 'C' files
+ * utility functions
  *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
@@ -23,9 +23,28 @@
  * Authors: Sunil Mushran
  */
 
-#ifndef __COMMANDS_H__
-#define __COMMANDS_H__
+#include <main.h>
+#include <commands.h>
+#include <dump.h>
+#include <readfs.h>
+#include <utils.h>
 
-void  do_command (char *cmd);
+/*
+ * add_extent_rec()
+ *
+ */
+void add_extent_rec (GArray *arr, ocfs2_extent_rec *rec)
+{
+	ocfs2_extent_rec *new;
 
-#endif /* __COMMANDS_H__ */
+	if (!arr)
+		return ;
+
+	if (!(new = malloc(sizeof(ocfs2_extent_rec))))
+		DBGFS_FATAL();
+
+	memcpy(new, rec, sizeof(ocfs2_extent_rec));
+	g_array_append_vals(arr, new, 1);
+
+	return ;
+}				/* add_extent_rec */

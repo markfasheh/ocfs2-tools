@@ -1,5 +1,5 @@
 /*
- * commands.h
+ * utils.h
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
@@ -23,9 +23,9 @@
  * Authors: Sunil Mushran
  */
 
-#ifndef __COMMANDS_H__
-#define __COMMANDS_H__
+#ifndef __UTILS_H__
+#define __UTILS_H__
 
-void  do_command (char *cmd);
+void add_extent_rec (GArray *arr, ocfs2_extent_rec *rec);
 
-#endif /* __COMMANDS_H__ */
+#endif		/* __UTILS_H__ */

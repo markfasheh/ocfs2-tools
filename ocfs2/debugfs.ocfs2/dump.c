@@ -1,8 +1,33 @@
+/*
+ * dump.c
+ *
+ * dumps ocfs2 structures
+ *
+ * Copyright (C) 2004 Oracle.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 021110-1307, USA.
+ *
+ * Authors: Sunil Mushran
+ */
 
 #include <main.h>
 #include <commands.h>
 #include <dump.h>
 #include <readfs.h>
+#include <utils.h>
 
 /*
  * dump_super_block()
@@ -55,6 +80,7 @@ void dump_inode(ocfs2_dinode *in)
 	ocfs2_disk_lock *dl;
 	int i;
 	__u16 mode;
+	GString *flags = NULL;
 
 /*
 Inode: 32001   Type: directory    Mode:  0755   Flags: 0x0   Generation: 721849
@@ -101,8 +127,30 @@ TOTAL: 247
 
 	mode = in->i_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
 
-	printf("Inode: %llu   Type: %s   Mode: 0%0u   Flags: 0x%x   Generation: %u\n",
-	       in->i_blkno, str, mode, in->i_flags, in->i_generation);
+	flags = g_string_new(NULL);
+	if (in->i_flags & OCFS2_VALID_FL)
+		g_string_append (flags, "valid ");
+	if (in->i_flags & OCFS2_UNUSED2_FL)
+		g_string_append (flags, "unused2 ");
+	if (in->i_flags & OCFS2_ORPHANED_FL)
+		g_string_append (flags, "orphan ");
+	if (in->i_flags & OCFS2_UNUSED3_FL)
+		g_string_append (flags, "unused3 ");
+	if (in->i_flags & OCFS2_SYSTEM_FL)
+		g_string_append (flags, "system ");
+	if (in->i_flags & OCFS2_SUPER_BLOCK_FL)
+		g_string_append (flags, "superblock ");
+	if (in->i_flags & OCFS2_LOCAL_ALLOC_FL)
+		g_string_append (flags, "localbitmap ");
+	if (in->i_flags & OCFS2_BITMAP_FL)
+		g_string_append (flags, "globalbitmap ");
+	if (in->i_flags & OCFS2_JOURNAL_FL)
+		g_string_append (flags, "journal ");
+	if (in->i_flags & OCFS2_DLM_FL)
+		g_string_append (flags, "dlm ");
+
+	printf("Inode: %llu   Type: %s   Mode: 0%0u   Flags: %s   Generation: %u\n",
+	       in->i_blkno, str, mode, flags->str, in->i_generation);
 
 	pw = getpwuid(in->i_uid);
 	gr = getgrgid(in->i_gid);
@@ -134,5 +182,76 @@ TOTAL: 247
 	printf("Sub Alloc Node: %u   Sub Alloc Blknum: %llu\n",
 	       in->i_suballoc_node, in->i_suballoc_blkno); /* ?? */
 
+	if (flags)
+		g_string_free (flags, 1);
 	return ;
 }				/* dump_inode */
+
+/*
+ * dump_extent_list()
+ *
+ */
+void dump_extent_list (ocfs2_extent_list *ext)
+{
+	ocfs2_extent_rec *rec;
+	int i;
+
+	printf("Tree Depth: %d   Count: %u   Next Free Rec: %u\n",
+	       ext->l_tree_depth, ext->l_count, ext->l_next_free_rec);
+
+	if (!ext->l_next_free_rec)
+		goto bail;
+
+	printf("## File Offset   Num Clusters   Disk Offset\n");
+
+	for (i = 0; i < ext->l_next_free_rec; ++i) {
+		rec = &(ext->l_recs[i]);
+		printf("%-2d %-11u   %-12u   %llu\n", i, rec->e_cpos,
+		       rec->e_clusters, rec->e_blkno);
+	}
+
+bail:
+	return ;
+}				/* dump_extent_list */
+
+/*
+ * dump_extent_block()
+ *
+ */
+void dump_extent_block (ocfs2_extent_block *blk)
+{
+	printf ("SubAlloc Blknum: %llu   SubAlloc Node: %u\n",
+	       	blk->h_suballoc_blkno, blk->h_suballoc_node);
+
+	printf ("Blknum: %llu   Parent: %llu   Next Leaf: %llu\n",
+		blk->h_blkno, blk->h_parent_blk, blk->h_next_leaf_blk);
+
+	return ;
+}				/* dump_extent_block */
+
+/*
+ * dump_dir_entry()
+ *
+ */
+void dump_dir_entry (struct ocfs2_dir_entry *dir)
+{
+	char *p;
+	struct ocfs2_dir_entry *rec;
+
+	p = (char *)dir;
+
+	printf("%-15s  %-6s  %-7s  %-4s  %-4s\n",
+	       "Inode", "Reclen", "Namelen", "Type", "Name");
+
+	while (1) {
+		rec = (struct ocfs2_dir_entry *)p;
+		if (!rec->inode)
+			break;
+		printf("%-15llu  %-6u  %-7u  %-4u  %*s\n", rec->inode,
+		       rec->rec_len, rec->name_len, rec->file_type,
+		       rec->name_len, rec->name);
+		p += rec->rec_len;
+	}
+
+	return ;
+}				/* dump_dir_entry */
