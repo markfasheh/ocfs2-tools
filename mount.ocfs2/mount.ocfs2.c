@@ -84,7 +84,8 @@ int get_my_nodenum(__u16 *nodenum);
 int add_me_to_group(char *groupname, char *groupdev);
 static errcode_t ocfs2_partition_list (struct list_head *dev_list);
 static void ocfs2_partition_list_destroy (struct list_head *dev_list);
-static errcode_t ocfs2_detect_all(struct list_head *dev_list);
+int ocfs2_detect_one(char *dev, char *uuid, int uuid_size);
+static errcode_t ocfs2_detect_all(char *dev_arg, struct list_head *dev_list);
 static int read_options(int argc, char **argv, char **hbuuid, char **hbdev, char **device, char **mp);
 
 char *op_buf = NULL;
@@ -146,17 +147,42 @@ static void ocfs2_partition_list_destroy (struct list_head *dev_list)
 }
 
 
+
+/* returns fs_type: 0 for unknown, 1 for ocfs, 2 for ocfs2 */
+int ocfs2_detect_one(char *dev, char *uuid, int uuid_size)
+{
+	ocfs2_filesys *fs = NULL;
+	int fs_type = 0;
+	int fs_size = sizeof(OCFS2_RAW_SB(fs->fs_super)->s_uuid);
+	errcode_t ret;
+
+	if (uuid_size != fs_size)
+		goto out;
+
+	ret = ocfs2_open(dev, OCFS2_FLAG_RO, 0, 0, &fs);
+	if (ret)
+		goto out;
+
+	memcpy(uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
+	       uuid_size);
+	fs_type = 2;
+
+	ocfs2_close(fs);
+
+out:
+	return fs_type;
+}
+
 /*
  * ocfs2_detect_all()
  *
  */
-static errcode_t ocfs2_detect_all(struct list_head *dev_list)
+static errcode_t ocfs2_detect_all(char *dev_arg, struct list_head *dev_list)
 {
 	errcode_t ret = 0;
 	struct list_head *pos1;
 	ocfs2_devices *dev;
-	ocfs2_filesys *fs = NULL;
-	char *dev_name;
+	int missing = 1;
 
 	ret = ocfs2_partition_list(dev_list);
 	if (ret) {
@@ -166,26 +192,33 @@ static errcode_t ocfs2_detect_all(struct list_head *dev_list)
 
 	list_for_each(pos1, dev_list) {
 		dev = list_entry(pos1, ocfs2_devices, list);
-		dev_name = dev->dev_name;
 
-		/* open	fs */
-		fs = NULL;
-		ret = ocfs2_open(dev_name, OCFS2_FLAG_RO, 0, 0, &fs);
-		if (ret) {
-			dev->fs_type = 0;
-			ret = 0;
-			continue;
-		} else
-			dev->fs_type = 2;
+		dev->fs_type = ocfs2_detect_one(dev->dev_name,
+						dev->uuid,
+						sizeof(dev->uuid));
+		if (missing && !strcasecmp(dev_arg, dev->dev_name))
+			missing = 0;
+	}
 
-		/* get uuid for ocfs2 */
-		if (dev->fs_type == 2) {
-			memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
-			       sizeof(dev->uuid));
+	/* let's still consider the given device even if its not
+	 * in /proc/partitions, m'kay? */
+	if (missing) {
+		dev = calloc(1, sizeof(*dev));
+		if (dev == NULL) {
+			ret = OCFS2_ET_NO_MEMORY;
+			com_err("mount.ocfs2", ret, "while allocating a dev");
+			return ret;
 		}
 
-		/* close fs */
-		ocfs2_close(fs);
+		snprintf(dev->dev_name, sizeof(dev->dev_name), "%s", dev_arg);
+
+		dev->fs_type = ocfs2_detect_one(dev->dev_name,
+						dev->uuid,
+						sizeof(dev->uuid));
+		if (dev->fs_type == 2)
+			list_add_tail(&(dev->list), dev_list);
+		else 
+			free(dev);
 	}
 	return ret;
 }
@@ -310,7 +343,7 @@ int main(int argc, char **argv)
 	if (hbuuid && hbdev)
 		goto bail;
 
-	ret = ocfs2_detect_all(&dev_list);
+	ret = ocfs2_detect_all(device, &dev_list);
 	if (ret)
 		goto bail;
 
