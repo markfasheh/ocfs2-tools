@@ -4,7 +4,7 @@ include $(TOPDIR)/Preamble.make
 
 MANS = fsck.ocfs.8
 
-SBIN_PROGRAMS = fsck.ocfs blked.ocfs parse classes.c
+SBIN_PROGRAMS = fsck.ocfs blked.ocfs
 DIST_FILES = mkgetconst fsck.h classes.h  defaults.h fsck_print.h layout.h sig.h verify.h mkgetconst classes.c parse fsck.ocfs.8.in
 
 ifdef OCFS_DEBUG
