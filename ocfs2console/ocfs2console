@@ -3,8 +3,8 @@
 # XXX: for production
 #!/usr/bin/python -W ignore::DeprecationWarning
 
-from ocfs2interface.about import process_info_args
-process_info_args()
+from ocfs2interface.about import process_args
+process_args()
 
 try:
     import gtk

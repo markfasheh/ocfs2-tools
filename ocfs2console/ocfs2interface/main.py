@@ -23,7 +23,7 @@ from guiutil import set_props, error_box, query_text
 
 from menu import Menu
 from toolbar import Toolbar
-from about import about
+from about import about, process_gui_args
 from process import Process
 from format import format_partition
 from general import General
@@ -270,6 +270,7 @@ def create_window():
     window.show_all()
 
 def main():
+    process_gui_args()
     create_window()
     gtk.main()
 

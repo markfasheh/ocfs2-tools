@@ -15,6 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
+import sys
+
 OCFS2TOOL_VERSION = '0.0.2'
 
 def print_version():
@@ -26,9 +28,7 @@ Options:
   -V, --version  print version information and exit
       --help     display this help and exit''' % name
 
-def process_info_args():
-    import sys
-
+def process_args():
     for arg in sys.argv[1:]:
         if arg == '--version' or arg == '-V':
             print_version()
@@ -36,10 +36,12 @@ def process_info_args():
         elif arg == '--help':
             print_usage(sys.argv[0])
             sys.exit(0)
-        else:
-            print_usage(sys.argv[0])
-            sys.exit(1)
 
+def process_gui_args():
+    if len(sys.argv) > 1:
+        print_usage(sys.argv[0])
+        sys.exit(1)
+        
 def about(pv):
     import gtk
 
