@@ -49,13 +49,19 @@ int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
 	return was_set;
 }
 
+static void free_inode_allocs(o2fsck_state *ost)
+{
+	uint16_t i;
+
+	ocfs2_free_cached_inode(ost->ost_fs, ost->ost_global_inode_alloc);
+
+	for (i = 0; i < OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;i++)
+		ocfs2_free_cached_inode(ost->ost_fs, ost->ost_inode_allocs[i]);
+}
+
 /* update our in memory images of the inode chain alloc bitmaps.  these
  * will be written out at the end of pass1 and the library will read
- * them off disk for use from then on.
- *
- * XXX this returns errors because inode iteration can return inode numbers
- * that cause errors when given to the chain alloc bitmaps.  I'm sure its
- * easy to fix. */
+ * them off disk for use from then on. */
 static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di, 
 			       uint64_t blkno, int val)
 {
@@ -66,8 +72,8 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	val = !!val;
 
-	/* XXX we could skip all this if we're not going to write it out
-	 * anyway */
+	if (!ost->ost_write_inode_alloc)
+		return;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
 
@@ -113,6 +119,8 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 				    "and all future inodes?");
 			ost->ost_write_inode_alloc_asked = 1;
 			ost->ost_write_inode_alloc = !!yn;
+			if (!ost->ost_write_inode_alloc)
+				free_inode_allocs(ost);
 		}
 		break;
 	}
@@ -508,14 +516,9 @@ static void write_inode_alloc(o2fsck_state *ost)
 		if (ret)
 			com_err(whoami, ret, "while trying to write back node "
 				"%d's inode allocator", i);
-
-		ret = ocfs2_free_cached_inode(ost->ost_fs, *ci);
-		if (ret)
-			com_err(whoami, ret, "while trying to free node %d's "
-				"inode allocator", i);
-
-		*ci = NULL;
 	}
+
+	free_inode_allocs(ost);
 }
 
 errcode_t o2fsck_pass1(o2fsck_state *ost)
