@@ -9,6 +9,39 @@ extern int major_version;
 extern int minor_version;
 
 
+typedef struct _ocfs_file_entry_v2
+{
+	ocfs_disk_lock disk_lock;       // DISKLOCK
+	__u8 signature[8];              // CHAR[8]
+	bool local_ext;		        // BOOL
+	__u8 next_free_ext;             // NUMBER RANGE(0,OCFS_MAX_FILE_ENTRY_EXTENTS) 
+	__s8 next_del;                  // DIRNODEINDEX
+	__s32 granularity;	        // NUMBER RANGE(-1,3)
+	__u8 filename[OCFS_MAX_FILENAME_LENGTH];  // CHAR[OCFS_MAX_FILENAME_LENGTH]
+	__u16 filename_len;               // NUMBER RANGE(0,OCFS_MAX_FILENAME_LENGTH)
+	__u64 file_size;                  // NUMBER RANGE(0,ULONG_LONG_MAX)
+	__u64 alloc_size;		        // NUMBER RANGE(0,ULONG_LONG_MAX)
+	__u64 create_time;                // DATE
+	__u64 modify_time;	        // DATE
+	ocfs_alloc_ext extents[OCFS_MAX_FILE_ENTRY_EXTENTS];  // EXTENT[OCFS_MAX_FILE_ENTRY_EXTENTS]
+	__u64 dir_node_ptr;               // NUMBER RANGE(0,ULONG_LONG_MAX)
+	__u64 this_sector;                // NUMBER RANGE(0,ULONG_LONG_MAX)
+	__u64 last_ext_ptr;               /* NUMBER RANGE(0,ULONG_LONG_MAX)
+					     Points to the last
+					     allocated extent */
+	__u32 sync_flags;		  // NUMBER RANGE(0,0)
+	__u32 link_cnt;                   // NUMBER RANGE(0,UINT_MAX)
+	__u32 attribs;                    // ATTRIBS
+	__u32 prot_bits;                  // PERMS
+	__u32 uid;                        // UID
+	__u32 gid;                        // GID
+	__u16 dev_major;                  // NUMBER RANGE(0,65535)   
+	__u16 dev_minor;                  // NUMBER RANGE(0,65535)
+        __u8 fe_reserved1[4];		  // UNUSED
+	__u64 child_dirnode;		  // NUMBER RANGE(0,ULONG_LONG_MAX)
+/* sizeof(fe) = 496 bytes */
+} ocfs_file_entry_v2;
+
 int ocfs_init_global_alloc_bm (__u32 num_bits, int file, ocfs_vol_disk_hdr *volhdr)
 {
 	int ret = 0;
@@ -64,6 +97,7 @@ __u32 ocfs_alloc_from_global_bitmap (__u64 file_size, ocfs_vol_disk_hdr *volhdr)
 	return startbit;
 }
 
+static int ocfs_create_root_file_entry(int file, ocfs_vol_disk_hdr *volhdr);
 
 int ocfs_create_root_directory (int file, ocfs_vol_disk_hdr * volhdr)
 {
@@ -141,12 +175,61 @@ int ocfs_create_root_directory (int file, ocfs_vol_disk_hdr * volhdr)
 		journal_off += OCFS_JOURNAL_DEFAULT_SIZE;
 	}
 
+	if (major_version == OCFS2_MAJOR_VERSION) {
+		if (!ocfs_create_root_file_entry(file, volhdr))
+			goto bail;
+	}
+	
 	status = 1;
 
 bail:
 	safefree (dir);
 	safefree (fe);
 	return status;
+}
+
+#define OCFS_ROOT_FILE_ENTRY_OFF (3 * OCFS_SECTOR_SIZE)
+
+static int ocfs_create_root_file_entry(int file, ocfs_vol_disk_hdr *volhdr)
+{
+	int ret = 0;
+	ocfs_file_entry_v2 *fe;
+
+	fe = MemAlloc(OCFS_SECTOR_SIZE);
+	if (fe == NULL)
+		goto bail;
+	
+	memset(fe, 0, OCFS_SECTOR_SIZE);
+	strcpy(&fe->filename[0], "root");
+	fe->filename_len = strlen(fe->filename);
+	fe->local_ext = true;
+	fe->granularity = -1;
+	strcpy (fe->signature, OCFS_FILE_ENTRY_SIGNATURE);
+	SET_VALID_BIT (fe->sync_flags);
+	fe->sync_flags &= ~(OCFS_SYNC_FLAG_CHANGE);
+	fe->last_ext_ptr = 0;
+	fe->this_sector = OCFS_ROOT_FILE_ENTRY_OFF;
+	fe->alloc_size = 0ULL;
+	fe->file_size = 0ULL;
+	//fe->extents[0].disk_off = volhdr->root_off;
+	//fe->extents[0].file_off = 0ULL;
+	//fe->extents[0].num_bytes = OCFS_DEFAULT_DIR_NODE_SIZE;
+	fe->next_free_ext = 0;
+	fe->uid = volhdr->uid;
+	fe->gid = volhdr->gid;
+	fe->prot_bits = volhdr->prot_bits;
+        fe->attribs = OCFS_ATTRIB_DIRECTORY;
+	fe->child_dirnode = volhdr->root_off;
+
+	if (!SetSeek(file, OCFS_ROOT_FILE_ENTRY_OFF))
+		goto bail;
+	if (!Write(file, OCFS_SECTOR_SIZE, (void *) fe))
+		goto bail;
+	fsync(file);
+	ret = 1;
+bail:
+	safefree (fe);
+	return ret;
 }
 
 void ocfs_init_dirnode(ocfs_dir_node *dir, __u64 disk_off, __u32 bit_off)
