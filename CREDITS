@@ -20,6 +20,9 @@ debugfs.ocfs2:
 mounted.ocfs2:
 	Written by Sunil Mushran.
 
+tunefs.ocfs2
+	Written by Sunil Mushran.
+
 ocfs2cdsl:
 	Written by Manish Singh.
 

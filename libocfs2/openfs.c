@@ -106,6 +106,33 @@ out_blk:
 	return ret;
 }
 
+errcode_t ocfs2_write_super(ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	char *blk;
+	ocfs2_dinode *di;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	blk = (char *)fs->fs_super;
+	di = (ocfs2_dinode *)blk;
+
+	ret = OCFS2_ET_BAD_MAGIC;
+	if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
+		   strlen(OCFS2_SUPER_BLOCK_SIGNATURE)))
+		goto out_blk;
+
+	ret = io_write_block(fs->fs_io, OCFS2_SUPER_BLOCK_BLKNO, 1, blk);
+	if (ret)
+		goto out_blk;
+
+	return 0;
+
+out_blk:
+	return ret;
+}
+
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int block_size,
 		     ocfs2_filesys **ret_fs)

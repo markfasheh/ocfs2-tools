@@ -260,6 +260,7 @@ static DirData *alloc_directory(State *s);
 static void add_entry_to_directory(State *s, DirData *dir, char *name,
 				   uint64_t byte_off, uint8_t type);
 static uint32_t blocks_needed(State *s);
+static uint32_t sys_blocks_needed(State *s);
 static uint32_t system_dir_blocks_needed(State *s);
 static void check_32bit_blocks(State *s);
 static void format_superblock(State *s, SystemFileDiskRecord *rec,
@@ -1381,14 +1382,31 @@ blocks_needed(State *s)
 }
 
 static uint32_t
+sys_blocks_needed(State *s)
+{
+	uint32_t num = 0;
+	uint32_t cnt = sizeof(system_files) / sizeof(SystemFileInfo);
+	int i;
+
+	for (i = 0; i < cnt; ++i) {
+		if (system_files[i].global)
+			++num;
+		else
+			num += s->initial_nodes;
+	}
+
+	return num;
+}
+
+static uint32_t
 system_dir_blocks_needed(State *s)
 {
 	int bytes_needed = 0;
 	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
 	int entries_per_block = s->blocksize / each;
 
-	bytes_needed = (blocks_needed(s) + entries_per_block -
-			1 / entries_per_block) << s->blocksize_bits;
+	bytes_needed = ((sys_blocks_needed(s) + entries_per_block -
+			1) / entries_per_block) << s->blocksize_bits;
 
 	return (bytes_needed + s->cluster_size - 1) >> s->cluster_size_bits;
 }

@@ -234,6 +234,7 @@ errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
 			 const char *data);
 
+errcode_t ocfs2_write_super(ocfs2_filesys *fs);
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int blksize,
 		     ocfs2_filesys **ret_fs);
@@ -430,8 +431,13 @@ errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 			   uint64_t blkno,
 			   int *oldval);
 
+errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir);
+
 errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 				     int *is_allocated);
+
+errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
+			      uint64_t parent_ino, char **block);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will

@@ -5,9 +5,10 @@ include $(TOPDIR)/Preamble.make
 WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
            -Wmissing-declarations
 
-OPTS = -g
 ifdef OCFS_DEBUG
-OPTS = -g
+OPTS = -O -ggdb
+else
+OPTS = -O2
 endif
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
@@ -19,8 +20,6 @@ SBIN_PROGRAMS = tunefs.ocfs2
 INCLUDES = -I$(TOPDIR)/libocfs2/include
 DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-OPTIMIZE = -O2
-
 ifeq ($(OCFS_PROCESSOR),x86_64)
   CFLAGS += -m64
 endif
@@ -29,8 +28,6 @@ endif
 ifeq ($(OCFS_PROCESSOR),i686)
   DEFINES += -D__ILP32__
 endif
-
-CFLAGS += $(OPTIMIZE)
 
 #MANS = fsck.ocfs2.8
 

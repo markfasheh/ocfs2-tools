@@ -42,12 +42,15 @@
 #include <libgen.h>
 #include <netinet/in.h>
 #include <inttypes.h>
+#include <ctype.h>
 
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
 #include <ocfs2_disk_dlm.h>
 #include <ocfs1_fs_compat.h>
 #include <kernel-list.h>
+
+#define SYSTEM_FILE_NAME_MAX   40
 
 typedef struct _ocfs2_tune_opts {
 	uint16_t num_nodes;
@@ -266,6 +269,95 @@ static void get_options(int argc, char **argv)
 }
 
 /*
+ * add_nodes()
+ *
+ */
+static errcode_t add_nodes(ocfs2_filesys *fs)
+{
+	errcode_t ret = 0;
+	uint16_t old_num = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	char fname[SYSTEM_FILE_NAME_MAX];
+	uint64_t inode_num;
+	int i, j;
+
+	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
+		for (j = old_num; j < opts.num_nodes; ++j) {
+			sprintf(fname, ocfs2_system_inode_names[i], j);
+			printf("Adding %s...  ", fname);
+			inode_num = 0;
+			ret =  ocfs2_new_system_inode(fs, &inode_num);
+			if (ret)
+				return ret;
+			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname,
+					 inode_num, S_IFREG);
+			if (ret) {
+				if (ret == OCFS2_ET_DIR_NO_SPACE) {
+					ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno);
+					if (!ret)
+						ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
+								 fname, inode_num, S_IFREG);
+				}
+				if (ret)
+					return ret;
+			}
+			printf("\r                                                     \r");
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * update_volume_label()
+ *
+ */
+static void update_volume_label(ocfs2_filesys *fs, int *changed)
+{
+	strncpy (OCFS2_RAW_SB(fs->fs_super)->s_label, opts.vol_label,
+		 MAX_VOL_LABEL_LEN);
+
+	*changed = 1;
+
+	return ;
+}
+
+/*
+ * update_nodes()
+ *
+ */
+static errcode_t update_nodes(ocfs2_filesys *fs, int *changed)
+{
+	errcode_t ret = 0;
+
+	ret = add_nodes(fs);
+	if (ret)
+		return ret;
+
+	OCFS2_RAW_SB(fs->fs_super)->s_max_nodes = opts.num_nodes;
+	*changed = 1;
+
+	return ret;
+}
+
+/*
+ * update_journal_size()
+ *
+ */
+static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
+{
+	return 0;
+}
+
+/*
+ * update_volume_size()
+ *
+ */
+static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
+{
+	return 0;
+}
+
+/*
  * main()
  *
  */
@@ -273,6 +365,8 @@ int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
+	int write_super = 0;
+	uint16_t tmp;
 
 	initialize_ocfs_error_table();
 
@@ -283,29 +377,44 @@ int main(int argc, char **argv)
 
 	get_options(argc, argv);
 
-	ret = ocfs2_open(opts.device, OCFS2_FLAG_RO, 0, 0, &fs);
-	if (ret)
+	ret = ocfs2_open(opts.device, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		if (ret == OCFS2_ET_OCFS_REV)
+			printf("ERROR: %s is an ocfs (and not ocfs2) volume. ", opts.device);
+		else
+			printf("ERROR: %s is not an ocfs2 volume. ", opts.device);
+		printf("Aborting.\n");
 		goto bail;
+	}
 
 //	check_32bit_blocks (s);
 
-	// validate_changes();
-
+	/* validate volume label */
 	if (opts.vol_label) {
 		printf("Changing volume label from %s to %s\n",
 		       OCFS2_RAW_SB(fs->fs_super)->s_label, opts.vol_label);
 	}
 
+	/* validate num nodes */
 	if (opts.num_nodes) {
-		printf("Changing number of nodes from %d to %d\n",
-		       OCFS2_RAW_SB(fs->fs_super)->s_max_nodes, opts.num_nodes);
+		tmp = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+		if (opts.num_nodes > tmp) {
+			printf("Changing number of nodes from %d to %d\n",
+			       tmp, opts.num_nodes);
+		} else {
+			printf("ERROR: Nodes (%d) has to be larger than "
+			       "configured nodes (%d)\n", opts.num_nodes, tmp);
+			goto bail;
+		}
 	}
 
+	/* validate journal size */
 	if (opts.jrnl_size) {
 //		printf("Changing journal size %"PRIu64" to %"PRIu64"\n",
 //		       s->journal_size_in_bytes, opts.jrnl_size);
 	}
 
+	/* validate volume size */
 	if (opts.vol_size) {
 		uint64_t vol_size = fs->fs_clusters <<
 		       	OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
@@ -313,7 +422,54 @@ int main(int argc, char **argv)
 		       vol_size, opts.vol_size);
 	}
 
-	// write_superblock();
+	/* Abort? */
+	printf("Proceed (y/N): ");
+	if (toupper(getchar()) != 'Y') {
+		printf("Aborting operation.\n");
+		goto bail;
+	}
+
+	/* update volume label */
+	if (opts.vol_label)
+		update_volume_label(fs, &write_super);
+
+	/* update number of nodes */
+	if (opts.num_nodes) {
+		ret = update_nodes(fs, &write_super);
+		if (ret) {
+			com_err(opts.progname, ret, "while updating nodes");
+			goto bail;
+		}
+	}
+
+	/* update journal size */
+	if (opts.jrnl_size) {
+		ret = update_journal_size(fs, &write_super);
+		if (ret) {
+			com_err(opts.progname, ret, "while updating journal size");
+			goto bail;
+		}
+	}
+
+	/* update volume size */
+	if (opts.vol_size) {
+		ret = update_volume_size(fs, &write_super);
+		if (ret) {
+			com_err(opts.progname, ret, "while updating volume size");
+			goto bail;
+		}
+	}
+
+
+	/* write superblock */
+	if (write_super) {
+		ret = ocfs2_write_super(fs);
+		if (ret) {
+			com_err(opts.progname, ret, "while writing superblock");
+			goto bail;
+		}
+		printf("Wrote Superblock\n");
+	}
 
 bail:
 	if (fs)
