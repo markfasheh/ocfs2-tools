@@ -13,7 +13,7 @@ CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) -pthread $(GLIB_CFLAGS)
 
 SBIN_PROGRAMS = mkfs.ocfs mounted.ocfs tuneocfs
 
-INCLUDES = -I$(TOPDIR)/libocfs/Common/inc -I$(TOPDIR)/libocfs/Linux/inc -Iinc -I$(TOPDIR)/libocfs
+INCLUDES = -I$(TOPDIR)/ocfs/libocfs/Common/inc -I$(TOPDIR)/ocfs/libocfs/Linux/inc -Iinc -I$(TOPDIR)/ocfs/libocfs
 DEFINES = -DLINUX -DUSERSPACE_TOOL -DFORMAT_OCFS
 
 OPTIMIZE = -O2
@@ -53,16 +53,16 @@ install-man-links: install-mans
 
 DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs.ocfs.8.in tuneocfs.8.in
 
-vpath ocfsheartbeat.c $(TOPDIR)/libocfs/Common
+vpath ocfsheartbeat.c $(TOPDIR)/ocfs/libocfs/Common
 
 mkfs.ocfs: format.o frmtport.o journal.o system.o
-	$(LINK) -L$(TOPDIR)/libocfs -locfs
+	$(LINK) -L$(TOPDIR)/ocfs/libocfs -locfs
 
 mounted.ocfs: mounted.o frmtport.o
-	$(LINK) -L$(TOPDIR)/libocfs -locfs
+	$(LINK) -L$(TOPDIR)/ocfs/libocfs -locfs
 
 tuneocfs: tune.o frmtport.o
-	$(LINK) -L$(TOPDIR)/libocfs -locfs
+	$(LINK) -L$(TOPDIR)/ocfs/libocfs -locfs
 
 dist-incdir:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/inc

@@ -14,11 +14,11 @@ endif
 WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
            -Wmissing-declarations
 
-LIBOCFS_LIBS = -L$(TOPDIR)/libocfs -locfs
-LIBOCFS_CFLAGS = -pthread -I$(TOPDIR)/libocfs
+LIBOCFS_LIBS = -L$(TOPDIR)/ocfs/libocfs -locfs
+LIBOCFS_CFLAGS = -pthread -I$(TOPDIR)/ocfs/libocfs
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) $(LIBOCFS_CFLAGS)
-INCLUDES = -I. -I$(TOPDIR)/libocfs/Common/inc -I$(TOPDIR)/libocfs/Linux/inc
+INCLUDES = -I. -I$(TOPDIR)/ocfs/libocfs/Common/inc -I$(TOPDIR)/ocfs/libocfs/Linux/inc
 
 DEFINES = -DLINUX -DUSERSPACE_TOOL -DSHOW_INVALID_VALUES -DFSCK_OCFS
 
@@ -50,7 +50,7 @@ parse: parse.c
 	gcc $(INCLUDES) -D_GNU_SOURCE parse.c -o $@
 
 classes.c: parse
-	export COMMON_HEADERS=$(TOPDIR)/libocfs/Common/inc; cat $(TOPDIR)/libocfs/Common/inc/ocfsdisk.h $(TOPDIR)/libocfs/Common/inc/ocfsvol.h | ./parse > $@
+	export COMMON_HEADERS=$(TOPDIR)/ocfs/libocfs/Common/inc; cat $(TOPDIR)/ocfs/libocfs/Common/inc/ocfsdisk.h $(TOPDIR)/ocfs/libocfs/Common/inc/ocfsvol.h | ./parse > $@
 
 classes.o: classes.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(DEFINES) $(GLIB_CFLAGS) -o $@ -c $<

@@ -16,7 +16,7 @@ LIBRARIES = libdebugocfs.a
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS)
 
-INCLUDES = -I. -I$(TOPDIR)/libocfs/Common/inc -I$(TOPDIR)/libocfs/Linux/inc -I$(TOPDIR)/libocfs
+INCLUDES = -I. -I$(TOPDIR)/ocfs/libocfs/Common/inc -I$(TOPDIR)/ocfs/libocfs/Linux/inc -I$(TOPDIR)/ocfs/libocfs
 DEFINES = -DLINUX -DUSERSPACE_TOOL -DDEBUGOCFS
 
 OPTIMIZE = -O2
