@@ -771,6 +771,40 @@ version(const char *progname)
 	fprintf(stderr, "%s %s\n", progname, VERSION);
 }
 
+/* stolen from e2fsprogs */
+static uint64_t figure_journal_size(uint64_t size, State *s)
+{
+	unsigned int j_blocks;
+
+	if (s->volume_size_in_blocks < 2048) {
+		fprintf(stderr,	"Filesystem too small for a journal\n");
+		exit(1);
+	}
+
+	if (size > 0) {
+		j_blocks = size >> s->blocksize_bits;
+		/* mke2fs knows about free blocks at this point, but
+		 * we don't so lets just take a wild guess as to what
+		 * the fs overhead we're looking at will be. */
+		if ((j_blocks * s->initial_nodes + 1024) > 
+		    s->volume_size_in_blocks) {
+			fprintf(stderr, 
+				"Journal size too big for filesystem.\n");
+			exit(1);
+		}
+		return size;
+	}
+
+	if (s->volume_size_in_blocks < 32768)
+		j_blocks = 1024;
+	else if (s->volume_size_in_blocks < 262144)
+		j_blocks = 4096;
+	else
+		j_blocks = 8192;
+
+	return j_blocks << s->blocksize_bits;
+}
+
 static void
 fill_defaults(State *s)
 {
@@ -853,8 +887,7 @@ fill_defaults(State *s)
 		  s->vol_label = strdup("");
 	}
 
-	if (!s->journal_size_in_bytes)
-		s->journal_size_in_bytes = OCFS2_DEFAULT_JOURNAL_SIZE;
+	s->journal_size_in_bytes = figure_journal_size(s->journal_size_in_bytes, s);
 }
 
 static int
