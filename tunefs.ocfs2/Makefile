@@ -32,15 +32,14 @@ endif
 
 CFLAGS += $(OPTIMIZE)
 
-VERSION_FILES = tunefs.c
-VERSION_SRC = tunefs.c
-VERSION_PREFIX = OCFS2
-
 #MANS = fsck.ocfs2.8
 
-DIST_FILES = $(VERSION_FILES) $(VERSION_SRC)
+CFILES = tunefs.c
+OBJS = $(subst .c,.o,$(CFILES))
 
-tunefs.ocfs2: tunefs.o
-	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(VERMAGIC)
+DIST_FILES = $(CFILES)
+
+tunefs.ocfs2: $(OBJS)
+	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make
