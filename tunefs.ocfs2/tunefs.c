@@ -285,7 +285,8 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 			sprintf(fname, ocfs2_system_inode_names[i], j);
 			printf("Adding %s...  ", fname);
 			inode_num = 1000;
-			ret =  ocfs2_new_system_inode(fs, &inode_num);
+			ret =  ocfs2_new_system_inode(fs, &inode_num,
+						      0644 | S_IFREG);
 			if (ret)
 				goto bail;
 			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname,

@@ -336,6 +336,7 @@ out:
 	return ret;
 }
 
+#if 0
 /* This function needs to be filled out.  Essentially, it should be
  * calling a function in chainalloc.c.  Something like
  * "ocfs2_chain_alloc_range()".  The difference between that and
@@ -348,6 +349,7 @@ errcode_t ocfs2_new_clusters()
 {
 	return 0;
 }
+#endif
 
 #ifdef DEBUG_EXE
 #include <stdio.h>

@@ -484,7 +484,8 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
 errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino);
 errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno);
 errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno);
-
+errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
+				  uint64_t new_clusters);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
