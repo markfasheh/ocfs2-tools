@@ -22,7 +22,7 @@
  * Boston, MA 021110-1307, USA.
  *
  * Authors: Kurt Hackel, Mark Fasheh, Sunil Mushran, Wim Coekaerts,
- *	    Manish Singh, Neeraj Goyal, Suchit Kaura, Joel Becker
+ *	    Manish Singh, Joel Becker
  */
 
 #ifndef _OCFS2_FS_H
@@ -34,8 +34,8 @@
 
 /*
  * An OCFS2 volume starts this way:
- * Sector 0: Valid ocfs1_vol_disk_hdr that cleanly fails to mount v1.
- * Sector 1: Valid ocfs1_vol_label that cleanly fails to mount v1.
+ * Sector 0: Valid ocfs1_vol_disk_hdr that cleanly fails to mount OCFS.
+ * Sector 1: Valid ocfs1_vol_label that cleanly fails to mount OCFS.
  * Block OCFS2_SUPER_BLOCK_BLKNO: OCFS2 superblock.
  *
  * All other structures are found from the superblock information.
@@ -523,4 +523,11 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
 	return chars;
 }
 
+static inline void ocfs_set_de_type(struct ocfs2_dir_entry *de,
+				    umode_t mode)
+{
+	de->file_type = ocfs_type_by_mode[(mode & S_IFMT)>>S_SHIFT];
+}
+
 #endif  /* _OCFS2_FS_H */
+

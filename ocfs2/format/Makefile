@@ -13,7 +13,7 @@ CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS)
 
 SBIN_PROGRAMS = mkfs.ocfs2
 
-INCLUDES = -Iinc
+INCLUDES = -I$(TOPDIR)/ocfs2/libocfs2/include
 DEFINES = -DLINUX -DUSERSPACE_TOOL -DFORMAT_OCFS
 
 OPTIMIZE = -O2
@@ -32,7 +32,7 @@ endif
 
 CFLAGS += $(OPTIMIZE)
 
-VERSION_FILES = mkfs2.c inc/jfs_compat.h inc/kernel-jbd.h inc/kernel-list.h
+VERSION_FILES = mkfs2.c
 VERSION_SRC = mkfs2.c
 VERSION_PREFIX = OCFS2
 
