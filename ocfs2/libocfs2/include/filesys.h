@@ -27,6 +27,8 @@
 #ifndef _FILESYS_H
 #define _FILESYS_H
 
+#include <stdint.h>
+
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		OCFS2_FEATURE_INCOMPAT_SUPP
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP
 
@@ -198,5 +200,11 @@ errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir,
 
 errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
 				    int node_num, uint64_t *blkno);
+
+errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
+		     uint64_t ino, int flags);
+
+errcode_t ocfs2_unlink(ocfs2_filesys *fs, uint64_t dir,
+		       const char *name, uint64_t ino, int flags);
 #endif  /* _FILESYS_H */
 

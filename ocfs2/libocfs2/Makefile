@@ -14,6 +14,7 @@ INCLUDES = -I. -Iinclude
 LIBRARIES = libocfs2.a
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS)
+CPPFLAGS += -DOCFS2_FLAT_INCLUDES
 
 OPTIMIZE = -O2
 
@@ -75,7 +76,9 @@ CFILES = 		\
 	dirblock.c	\
 	dir_iterate.c	\
 	lookup.c	\
-	sysfile.c
+	sysfile.c	\
+	link.c		\
+	unlink.c
 
 HFILES =				\
 	include/jfs_user.h		\

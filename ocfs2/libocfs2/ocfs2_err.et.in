@@ -77,4 +77,7 @@ ec	OCFS2_ET_NO_DIRECTORY,
 ec	OCFS2_ET_FILE_NOT_FOUND,
 	"File not found by ocfs2_lookup"
 
+ec	OCFS2_ET_DIR_NO_SPACE,
+	"No free space in the directory"
+
 	end
