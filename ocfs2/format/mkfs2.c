@@ -613,11 +613,14 @@ void format_superblock(system_file_disk_record *rec, system_file_disk_record *ro
 void format_file(system_file_disk_record *rec)
 {
 	ocfs2_dinode *di;
-	int mode = default_mode | (rec->dir ? S_IFDIR : S_IFREG);
+	int mode;
 	__u32 clusters;
-	
-	//rec->flags |= (OCFS2_VALID_FL | OCFS2_SYSTEM_FL);
 
+	if (default_mode)
+		mode = default_mode | (rec->dir ? S_IFDIR : S_IFREG);
+	else
+		mode = rec->dir ? 0755 | S_IFDIR: 0644 | S_IFREG;
+	
 	clusters = (rec->extent_len + cluster_size - 1) >> cluster_size_bits;
 
 	di = mapping + rec->fe_off;
