@@ -814,5 +814,5 @@ gint main(gint argc, gchar *argv[])
         o2cb_config_free(ctxt.oc_config);
     clear_attrs(&ctxt);
 
-    return 0;
+    return rc;
 }  /* main() */
