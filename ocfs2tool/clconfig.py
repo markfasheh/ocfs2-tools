@@ -60,7 +60,7 @@ def cluster_configurator(parent):
     return True
 
 def main():
-    cluster_configurator(None, True)
+    cluster_configurator(None)
 
 if __name__ == '__main__':
     main()

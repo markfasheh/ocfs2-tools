@@ -82,9 +82,13 @@ class General:
 def main():
     import sys
 
-    window = gtk.Window()
+    def dummy(*args):
+        gtk.main_quit()
 
-    general = General(sys.argv[1], False).widget
+    window = gtk.Window()
+    window.connect('delete_event', dummy)
+
+    general = General(sys.argv[1]).widget
     window.add(general)
 
     window.show_all()

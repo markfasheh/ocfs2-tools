@@ -61,3 +61,22 @@ class Browser:
              table.attach(label, i, i + 1, 1, 2)
 
              label.modify_font(font)
+
+def main():
+    import sys
+
+    def dummy(*args):
+        gtk.main_quit()
+
+    window = gtk.Window()
+    window.connect('delete_event', dummy)
+
+    browser = Browser(sys.argv[1]).widget
+    window.add(browser)
+
+    window.show_all()
+
+    gtk.main()
+
+if __name__ == '__main__':
+    main()

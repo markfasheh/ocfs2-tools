@@ -67,13 +67,17 @@ class NodeMap:
 def main():
     import sys
 
-    window = gtk.Window()
-    window.show()
+    def dummy(*args):
+        gtk.main_quit()
 
-    nodemap = NodeMap(sys.argv[1], False).widget
+    window = gtk.Window()
+    window.connect('delete_event', dummy)
+
+    nodemap = NodeMap(sys.argv[1]).widget
     window.add(nodemap)
 
     window.show_all()
+
     gtk.main()
 
 if __name__ == '__main__':
