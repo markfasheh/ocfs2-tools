@@ -22,7 +22,6 @@
 
 #include "mount.ocfs2.h"
 #include "o2cb.h"
-#include "mount_hb.h"
 
 int verbose = 0;
 int mount_quiet = 0;
@@ -178,11 +177,83 @@ static int process_options(struct mount_options *mo)
 	return 0;
 }
 
+static int check_for_hb_ctl(const char *hb_ctl_path)
+{
+	int ret;
+	struct stat hb_stats;
+
+	ret = lstat(hb_ctl_path, &hb_stats);
+	if (ret < 0) {
+		ret = errno;
+		return ret;
+	}
+
+	/* The kernel can't follow a symbolic link for this so lets
+	 * not get stuck in the 1st place. */
+	if (S_ISLNK(hb_stats.st_mode))
+		ret = ELOOP;
+
+	return ret;
+}
+
+static int run_hb_ctl(const char *hb_ctl_path,
+		      const char *device)
+{
+	int ret = 0;
+	int child_status;
+	char * argv[5];
+	pid_t child;
+
+	child = fork();
+	if (child < 0) {
+		ret = errno;
+		goto bail;
+	}
+
+	if (!child) {
+		argv[0] = (char *) hb_ctl_path;
+		argv[1] = "-S";
+		argv[2] = "-d";
+		argv[3] = (char *) device;
+		argv[4] = NULL;
+
+		ret = execv(argv[0], argv);
+
+		ret = errno;
+		exit(ret);
+	} else {
+		ret = waitpid(child, &child_status, 0);
+		if (ret < 0) {
+			ret = errno;
+			goto bail;
+		}
+
+		ret = WEXITSTATUS(child_status);
+	}
+
+bail:
+	return ret;
+}
+
+static int start_heartbeat(const char *hb_ctl_path,
+			   const char *device)
+{
+	int ret;
+
+	ret = check_for_hb_ctl(hb_ctl_path);
+	if (ret)
+		return ret;
+
+	ret = run_hb_ctl(hb_ctl_path, device);
+
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	struct mount_options mo;
-	char hbuuid[33];
+	const char *hb_ctl_path = "/sbin/ocfs2_hb_ctl";
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -195,18 +266,13 @@ int main(int argc, char **argv)
 	if (ret)
 		goto bail;
 
-	ret = get_uuid(mo.dev, hbuuid);
-	if (ret) {
-		com_err(progname, ret, "while opening the file system");
-		goto bail;
-	}
-
 	if (verbose)
-		printf("device=%s hbuuid=%s\n", mo.dev, hbuuid);
+		printf("device=%s\n", mo.dev);
 
-	ret = start_heartbeat(mo.dev);
-	if (ret < 0) {
-		com_err(progname, ret, "while starting heartbeat");
+	ret = start_heartbeat(hb_ctl_path, mo.dev);
+	if (ret) {
+		com_err(progname, 0, "Error when attempting to run %s: "
+			"\"%s\"\n", hb_ctl_path, strerror(ret));
 		goto bail;
 	}
 
@@ -225,5 +291,5 @@ bail:
 	free(mo.opts);
 	free(mo.xtra_opts);
 
-	return ret;
+	return ret ? 1 : 0;
 }

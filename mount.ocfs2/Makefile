@@ -25,7 +25,7 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
 		-DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-CFILES = opts.c mount.ocfs2.c mount_hb.c
+CFILES = opts.c mount.ocfs2.c
 CFILES += fstab.c mntent.c realpath.c sundries.c xmalloc.c
 
 HFILES = $(subst .c,.h,$(CFILES))
@@ -33,7 +33,7 @@ HFILES += mount_constants.h nls.h paths.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-HB_CTL_CFILES = mount_hb.c ocfs2_hb_ctl.c
+HB_CTL_CFILES = ocfs2_hb_ctl.c
 HB_CTL_HFILES = $(subst .c,.h,$(HB_CTL_CFILES))
 HB_CTL_OBJS = $(subst .c,.o,$(HB_CTL_CFILES))
 

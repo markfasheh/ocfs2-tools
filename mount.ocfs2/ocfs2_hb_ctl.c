@@ -24,9 +24,52 @@
 #include "ocfs2_hb_ctl.h"
 
 #include "o2cb.h"
-#include "mount_hb.h"
 
 char *progname = "ocfs2_hb_ctl";
+
+static errcode_t get_uuid(char *dev, char *uuid)
+{
+	ocfs2_filesys *fs = NULL;
+	errcode_t ret;
+
+	ret = ocfs2_open(dev, OCFS2_FLAG_RO, 0, 0, &fs);
+	if (ret)
+		goto out;
+
+	strcpy(uuid, fs->uuid_str);
+
+	ocfs2_close(fs);
+
+out:
+	return ret;
+}
+
+static errcode_t start_heartbeat(char *device)
+{
+	errcode_t err;
+	ocfs2_filesys *fs = NULL;
+
+	err = ocfs2_open(device, OCFS2_FLAG_RO, 0, 0, &fs);
+	if (err)
+		goto bail;
+
+	err = ocfs2_start_heartbeat(fs);
+
+bail:
+	if (fs)
+		ocfs2_close(fs);
+
+	return err;
+}
+
+static errcode_t stop_heartbeat(const char *hbuuid)
+{
+	errcode_t err;
+
+	err = o2cb_remove_heartbeat_region_disk(NULL, hbuuid);
+
+	return err;
+}
 
 enum hb_ctl_action {
 	HB_ACTION_UKNOWN,
@@ -179,5 +222,5 @@ int main(int argc, char **argv)
 	}
 
 bail:
-	return ret;
+	return ret ? 1 : 0;
 }

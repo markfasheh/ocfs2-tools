@@ -37,6 +37,7 @@
 #include <linux/fd.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include "fstab.h"
 #include "nls.h"
