@@ -17,8 +17,8 @@
 #define READ 0
 #define WRITE 1
 
-#define cpu_to_be32(n) htonl(n)
-#define be32_to_cpu(n) ntohl(n)
+//#define cpu_to_be32(n) htonl(n)
+//#define be32_to_cpu(n) ntohl(n)
 
 typedef unsigned int tid_t;
 typedef struct journal_s journal_t;
