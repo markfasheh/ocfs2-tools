@@ -520,14 +520,12 @@ case "$1" in
         ;;
 
     online)
-        #
-        # FIXME: Cluster argument should perhaps be optional, with
-        # the default being all clusters configured.
-        #
+        load
         online "$2"
         ;;
 
     unload)
+        # offline
         unload
         ;;
 
