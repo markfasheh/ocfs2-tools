@@ -410,6 +410,12 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 					di->i_links_count);
 
+	/* orphan inodes are a special case. if -n is given pass4 will try
+	 * and assert that their links_count should include the dirent
+	 * reference from the orphan dir. */
+	if (di->i_flags & OCFS2_ORPHANED_FL && di->i_links_count == 0)
+		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno, 1);
+
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
 		verify_local_alloc(ost, di);
 

@@ -26,6 +26,7 @@
  * to lost+found.
  */
 #include <inttypes.h>
+#include <limits.h>
 
 #include <ocfs2.h>
 
@@ -90,6 +91,75 @@ out:
 	return 0;
 }
 
+static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
+				 int	offset,
+				 int	blocksize,
+				 char	*buf,
+				 void	*priv_data)
+{
+	o2fsck_state *ost = priv_data;
+	int ret_flags = 0;
+	errcode_t ret;
+
+	if (!(ost->ost_fs->fs_flags & OCFS2_FLAG_RW)) {
+		printf("** Skipping orphan dir replay because -n was "
+		       "given.\n");
+		ret_flags |= OCFS2_DIRENT_ABORT;
+		goto out;
+	}
+
+	ret = ocfs2_truncate(ost->ost_fs, dirent->inode, 0);
+	if (ret) {
+		com_err(whoami, ret, "while truncating orphan inode %"PRIu64,
+			dirent->inode);
+		ret_flags |= OCFS2_DIRENT_ABORT;
+		goto out;
+	}
+
+	ret = ocfs2_delete_inode(ost->ost_fs, dirent->inode);
+	if (ret) {
+		com_err(whoami, ret, "while deleting orphan inode %"PRIu64
+			"after truncating it", dirent->inode);
+		ret_flags |= OCFS2_DIRENT_ABORT;
+		goto out;
+	}
+
+	o2fsck_icount_delta(ost->ost_icount_in_inodes, dirent->inode, -1);
+	o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -1);
+	dirent->inode = 0;
+	ret_flags |= OCFS2_DIRENT_CHANGED;
+
+out:
+	return ret_flags;
+}
+
+static errcode_t replay_orphan_dir(o2fsck_state *ost)
+{
+	errcode_t ret;
+	char name[PATH_MAX];
+	uint64_t ino;
+	int bytes;
+
+	bytes = ocfs2_sprintf_system_inode_name(name, PATH_MAX,
+			ORPHAN_DIR_SYSTEM_INODE, 0);
+	if (bytes < 1) {
+		ret = OCFS2_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_sysdir_blkno, name,
+			   bytes, NULL, &ino);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_dir_iterate(ost->ost_fs, ino,
+				OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,
+				replay_orphan_iterate, ost);
+
+out:
+	return ret;
+}
+
 errcode_t o2fsck_pass4(o2fsck_state *ost)
 {
 	ocfs2_dinode *di;
@@ -97,7 +167,16 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 	errcode_t ret, ref_ret, inode_ret;
 	uint64_t blkno, ref_blkno, inode_blkno;
 
-	printf("Pass 4: Checking inodes link counts.\n");
+	printf("Pass 4a: checking for orphaned inodes\n");
+
+	ret = replay_orphan_dir(ost);
+	if (ret) {
+		com_err(whoami, ret, "while trying to replay the orphan "
+			"directory");
+		goto out;
+	}
+
+	printf("Pass 4b: Checking inodes link counts.\n");
 
 	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
 	if (ret) {
