@@ -23,11 +23,14 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 CFILES = opts.c mount.ocfs2.c
-CFILES += fstab.c get_label_uuid.c mntent.c sundries.c realpath.c
+CFILES += fstab.c mntent.c realpath.c sundries.c xmalloc.c
+
+HFILES = $(subst .c,.h,$(CFILES))
+HFILES += mount_constants.h nls.h paths.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES) 
+DIST_FILES = $(CFILES) $(HFILES)
 
 mount.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(COM_ERR_LIBS)

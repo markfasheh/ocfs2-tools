@@ -23,10 +23,12 @@
 #include "mount.ocfs2.h"
 
 int verbose = 0;
-int mount_quiet=0;
-int nomtab = 0;
+int mount_quiet = 0;
 char *progname = NULL;
-char op_buf[PAGE_SIZE];
+
+static int nomtab = 0;
+
+static char op_buf[PAGE_SIZE];
 
 struct mount_options {
 	char *dev;
@@ -106,10 +108,10 @@ bail:
 }
 
 /*
- * Code based on similar function in util-linux-2.12a/mount/mount.c
+ * Code based on similar function in util-linux-2.12p/mount/mount.c
  *
  */
-static void print_one (const struct mntent *me)
+static void print_one(const struct my_mntent *me)
 {
 	if (mount_quiet)
 		return ;
@@ -125,15 +127,21 @@ static void print_one (const struct mntent *me)
 	printf ("\n");
 }
 
+
+static void my_free(const void *s)
+{
+	if (s)
+		free((void *) s);
+}
+
 /*
- * Code based on similar function in util-linux-2.12a/mount/mount.c
+ * Code based on similar function in util-linux-2.12p/mount/mount.c
  *
  */
 static void update_mtab_entry(char *spec, char *node, char *type, char *opts,
 			      int flags, int freq, int pass)
 {
-	struct mntent mnt;
-	mntFILE *mfp;
+	struct my_mntent mnt;
 
 	mnt.mnt_fsname = canonicalize (spec);
 	mnt.mnt_dir = canonicalize (node);
@@ -143,38 +151,37 @@ static void update_mtab_entry(char *spec, char *node, char *type, char *opts,
 	mnt.mnt_passno = pass;
       
 	/* We get chatty now rather than after the update to mtab since the
-	mount succeeded, even if the write to /etc/mtab should fail.  */
+	   mount succeeded, even if the write to /etc/mtab should fail.  */
 	if (verbose)
 		print_one (&mnt);
 
-	if (nomtab || !mtab_is_writable())
-		goto bail;
+	if (!nomtab && mtab_is_writable()) {
+#if 0
+		if (flags & MS_REMOUNT)
+			update_mtab (mnt.mnt_dir, &mnt);
+		else
+#endif
+		{
+			mntFILE *mfp;
 
-//	if (flags & MS_REMOUNT) {
-//		update_mtab (mnt.mnt_dir, &mnt);
-//		goto bail;
-//	}
+			lock_mtab();
 
-	lock_mtab();
-
-	mfp = my_setmntent(MOUNTED, "a+");
-	if (mfp == NULL || mfp->mntent_fp == NULL) {
-		com_err(progname, OCFS2_ET_IO, "%s, %s", MOUNTED,
-			strerror(errno));
-		goto unlock;
+			mfp = my_setmntent(MOUNTED, "a+");
+			if (mfp == NULL || mfp->mntent_fp == NULL) {
+				com_err(progname, OCFS2_ET_IO, "%s, %s",
+					MOUNTED, strerror(errno));
+			} else {
+				if ((my_addmntent (mfp, &mnt)) == 1) {
+					com_err(progname, OCFS2_ET_IO, "%s, %s",
+						MOUNTED, strerror(errno));
+				}
+			}
+			my_endmntent(mfp);
+			unlock_mtab();
+		}
 	}
-
-	if ((my_addmntent (mfp, &mnt)) == 1) {
-		com_err(progname, OCFS2_ET_IO, "%s, %s", MOUNTED,
-			strerror(errno));
-	}
-
-	my_endmntent(mfp);
-
-unlock:
-	unlock_mtab();
-bail:
-	return ;
+	my_free(mnt.mnt_fsname);
+	my_free(mnt.mnt_dir);
 }
 
 static int get_my_nodenum(uint8_t *nodenum)
@@ -833,14 +840,10 @@ int main(int argc, char **argv)
 	update_mtab_entry(mo.dev, mo.dir, "ocfs2", mo.xtra_opts, mo.flags, 0, 0);
 
 bail:
-	if (mo.dev)
-		free(mo.dev);
-	if (mo.dir)
-		free(mo.dir);
-	if (mo.opts)
-		free(mo.opts);
-	if (mo.xtra_opts)
-		free(mo.xtra_opts);
+	free(mo.dev);
+	free(mo.dir);
+	free(mo.opts);
+	free(mo.xtra_opts);
 
 	return ret;
 }

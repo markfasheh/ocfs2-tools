@@ -1,7 +1,7 @@
 /*
  * nls.h
  *
- * Code extracted from util-linux-2.12a/mount/nls.h
+ * Code extracted from util-linux-2.12p/mount/nls.h
  *
  * Copyright (C) 2005 Oracle.  All rights reserved.
  *

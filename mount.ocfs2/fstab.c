@@ -11,8 +11,10 @@
 #include <sys/stat.h>
 #include "mntent.h"
 #include "fstab.h"
-#include "sundries.h"		/* for xmalloc() etc */
-#include "get_label_uuid.h"
+#include "sundries.h"
+#include "xmalloc.h"
+/* #include "mount_blkid.h" -- OCFS2 modification */
+#include "paths.h"
 #include "nls.h"
 
 #define streq(s, t)	(strcmp ((s), (t)) == 0)
@@ -76,9 +78,10 @@ mtab_is_writable() {
 
 struct mntentchn mounttable, fstab;
 static int got_mtab = 0;
-static int got_fstab = 0;
 
-static void read_mounttable(void), read_fstab(void);
+/* static int got_fstab = 0; -- OCFS2 modification */
+
+static void read_mounttable(void); /*, read_fstab(void); -- OCFS2 modification */
 
 struct mntentchn *
 mtab_head() {
@@ -87,19 +90,41 @@ mtab_head() {
 	return &mounttable;
 }
 
+#if 0 /* OCFS2 modification */
 struct mntentchn *
 fstab_head() {
 	if (!got_fstab)
 		read_fstab();
 	return &fstab;
 }
+#endif
+
+static void
+my_free(const void *s) {
+	if (s)
+		free((void *) s);
+}
+
+static void
+discard_mntentchn(struct mntentchn *mc0) {
+	struct mntentchn *mc, *mc1;
+
+	for (mc = mc0->nxt; mc && mc != mc0; mc = mc1) {
+		mc1 = mc->nxt;
+		my_free(mc->m.mnt_fsname);
+		my_free(mc->m.mnt_dir);
+		my_free(mc->m.mnt_type);
+		my_free(mc->m.mnt_opts);
+		free(mc);
+	}
+}
 
 static void
 read_mntentchn(mntFILE *mfp, const char *fnam, struct mntentchn *mc0) {
 	struct mntentchn *mc = mc0;
-	struct mntent *mnt;
+	struct my_mntent *mnt;
 
-	while ((mnt = my_getmntent (mfp)) != NULL) {
+	while ((mnt = my_getmntent(mfp)) != NULL) {
 		if (!streq(mnt->mnt_type, MNTTYPE_IGNORE)) {
 			mc->nxt = (struct mntentchn *) xmalloc(sizeof(*mc));
 			mc->nxt->prev = mc;
@@ -109,7 +134,7 @@ read_mntentchn(mntFILE *mfp, const char *fnam, struct mntentchn *mc0) {
 		}
 	}
 	mc0->prev = mc;
-	if (ferror (mfp->mntent_fp)) {
+	if (ferror(mfp->mntent_fp)) {
 		int errsv = errno;
 		error(_("warning: error reading %s: %s"),
 		      fnam, strerror (errsv));
@@ -151,6 +176,7 @@ read_mounttable() {
 	read_mntentchn(mfp, fnam, mc);
 }
 
+#if 0 /* OCFS2 modification */
 static void
 read_fstab() {
 	mntFILE *mfp = NULL;
@@ -170,6 +196,7 @@ read_fstab() {
 	}
 	read_mntentchn(mfp, fnam, mc);
 }
+#endif
      
 
 /* Given the name NAME, try to find it in mtab.  */ 
@@ -239,7 +266,7 @@ is_mounted_once(const char *name) {
 struct mntentchn *
 getmntoptfile (const char *file) {
 	struct mntentchn *mc, *mc0;
-	char *opts, *s;
+	const char *opts, *s;
 	int l;
 
 	if (!file)
@@ -258,22 +285,27 @@ getmntoptfile (const char *file) {
 	return NULL;
 }
 
+#if 0 /* OCFS2 modification */
 static int
 has_label(const char *device, const char *label) {
-	char devuuid[16];
-	char *devlabel;
+	const char *devlabel;
+	int ret;
 
-	return !get_label_uuid(device, &devlabel, devuuid) &&
-		!strcmp(label, devlabel);
+	devlabel = mount_get_volume_label_by_spec(device);
+	ret = !strcmp(label, devlabel);
+	/* free(devlabel); */
+	return ret;
 }
 
 static int
 has_uuid(const char *device, const char *uuid){
-	char devuuid[16];
-	char *devlabel;
+	const char *devuuid;
+	int ret;
 
-	return !get_label_uuid(device, &devlabel, devuuid) &&
-		!memcmp(uuid, devuuid, sizeof(devuuid));
+	devuuid = mount_get_devname_by_uuid(device);
+	ret = !strcmp(uuid, devuuid);
+	/* free(devuuid); */
+	return ret;
 }
 
 /* Find the entry (SPEC,FILE) in fstab */
@@ -364,6 +396,7 @@ getfsvolspec (const char *label) {
 			return mc;
 	return NULL;
 }
+#endif
 
 /* Updating mtab ----------------------------------------------*/
 
@@ -374,14 +407,25 @@ static int we_created_lockfile = 0;
 static int signals_have_been_setup = 0;
 
 /* Ensure that the lock is released if we are interrupted.  */
+extern char *strsignal(int sig);	/* not always in <string.h> */
+
 static void
 handler (int sig) {
-     die (EX_USER, "%s", sys_siglist[sig]);
+     die(EX_USER, "%s", strsignal(sig));
 }
 
 static void
 setlkw_timeout (int sig) {
      /* nothing, fcntl will fail anyway */
+}
+
+/* Remove lock file.  */
+void
+unlock_mtab (void) {
+	if (we_created_lockfile) {
+		unlink (MOUNTED_LOCK);
+		we_created_lockfile = 0;
+	}
 }
 
 /* Create the lock file.
@@ -400,13 +444,16 @@ setlkw_timeout (int sig) {
 
 /* Where does the link point to? Obvious choices are mtab and mtab~~.
    HJLu points out that the latter leads to races. Right now we use
-   mtab~.<pid> instead. */
-#define MOUNTLOCK_LINKTARGET	MOUNTED_LOCK "%d"
+   mtab~.<pid> instead. Use 20 as upper bound for the length of %d. */
+#define MOUNTLOCK_LINKTARGET		MOUNTED_LOCK "%d"
+#define MOUNTLOCK_LINKTARGET_LTH	(sizeof(MOUNTED_LOCK)+20)
 
 void
 lock_mtab (void) {
 	int tries = 3;
-	char *linktargetfile;
+	char linktargetfile[MOUNTLOCK_LINKTARGET_LTH];
+
+	at_die = unlock_mtab;
 
 	if (!signals_have_been_setup) {
 		int sig = 0;
@@ -427,9 +474,6 @@ lock_mtab (void) {
 		signals_have_been_setup = 1;
 	}
 
-	/* somewhat clumsy, but some ancient systems do not have snprintf() */
-	/* use 20 as upper bound for the length of %d output */
-	linktargetfile = xmalloc(strlen(MOUNTLOCK_LINKTARGET) + 20);
 	sprintf(linktargetfile, MOUNTLOCK_LINKTARGET, getpid ());
 
 	/* Repeat until it was us who made the link */
@@ -454,6 +498,9 @@ lock_mtab (void) {
 		errsv = errno;
 
 		(void) unlink(linktargetfile);
+
+		if (j == 0)
+			we_created_lockfile = 1;
 
 		if (j < 0 && errsv != EEXIST) {
 			die (EX_FILEIO, _("can't link lock file %s: %s "
@@ -488,7 +535,6 @@ lock_mtab (void) {
 				}
 				/* proceed anyway */
 			}
-			we_created_lockfile = 1;
 		} else {
 			static int tries = 0;
 
@@ -516,15 +562,6 @@ lock_mtab (void) {
 	}
 }
 
-/* Remove lock file.  */
-void
-unlock_mtab (void) {
-	if (we_created_lockfile) {
-		unlink (MOUNTED_LOCK);
-		we_created_lockfile = 0;
-	}
-}
-
 /*
  * Update the mtab.
  *  Used by umount with null INSTEAD: remove the last DIR entry.
@@ -536,11 +573,11 @@ unlock_mtab (void) {
  */
 
 void
-update_mtab (const char *dir, struct mntent *instead) {
+update_mtab (const char *dir, struct my_mntent *instead) {
 	mntFILE *mfp, *mftmp;
 	const char *fnam = MOUNTED;
 	struct mntentchn mtabhead;	/* dummy */
-	struct mntentchn *mc, *mc0, absent;
+	struct mntentchn *mc, *mc0, *absent = NULL;
 
 	if (mtab_does_not_exist() || mtab_is_a_symlink())
 		return;
@@ -571,6 +608,7 @@ update_mtab (const char *dir, struct mntent *instead) {
 			if (mc && mc != mc0) {
 				mc->prev->nxt = mc->nxt;
 				mc->nxt->prev = mc->prev;
+				free(mc);
 			}
 		} else {
 			/* A remount */
@@ -578,12 +616,13 @@ update_mtab (const char *dir, struct mntent *instead) {
 		}
 	} else if (instead) {
 		/* not found, add a new entry */
-		absent.m = *instead;
-		absent.nxt = mc0;
-		absent.prev = mc0->prev;
-		mc0->prev = &absent;
+		absent = xmalloc(sizeof(*absent));
+		absent->m = *instead;
+		absent->nxt = mc0;
+		absent->prev = mc0->prev;
+		mc0->prev = absent;
 		if (mc0->nxt == NULL)
-			mc0->nxt = &absent;
+			mc0->nxt = absent;
 	}
 
 	/* write chain to mtemp */
@@ -602,6 +641,8 @@ update_mtab (const char *dir, struct mntent *instead) {
 			     MOUNTED_TEMP, strerror (errsv));
 		}
 	}
+
+	discard_mntentchn(mc0);
 
 	if (fchmod (fileno (mftmp->mntent_fp),
 		    S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH) < 0) {

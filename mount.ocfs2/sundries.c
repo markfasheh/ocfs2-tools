@@ -15,37 +15,8 @@
 #include "fstab.h"
 #include "sundries.h"
 #include "realpath.h"
-//#include "nfsmount.h"
+/* #include "nfsmount.h" -- OCFS2 modification */
 #include "nls.h"
-
-void *
-xmalloc (size_t size) {
-     void *t;
-
-     if (size == 0)
-          return NULL;
-
-     t = malloc (size);
-     if (t == NULL)
-          die (EX_SYSERR, _("not enough memory"));
-
-     return t;
-}
-
-char *
-xstrdup (const char *s) {
-     char *t;
-
-     if (s == NULL)
-          return NULL;
-
-     t = strdup (s);
-
-     if (t == NULL)
-          die (EX_SYSERR, _("not enough memory"));
-
-     return t;
-}
 
 char *
 xstrndup (const char *s, int n) {
@@ -73,6 +44,7 @@ xstrconcat2 (const char *s, const char *t) {
      return res;
 }
 
+/* frees its first arg - typical use: s = xstrconcat3(s,t,u); */
 char *
 xstrconcat3 (const char *s, const char *t, const char *u) {
      char *res;
@@ -84,9 +56,11 @@ xstrconcat3 (const char *s, const char *t, const char *u) {
      strcpy(res, s);
      strcat(res, t);
      strcat(res, u);
+     free((void *) s);
      return res;
 }
 
+/* frees its first arg - typical use: s = xstrconcat4(s,t,u,v); */
 char *
 xstrconcat4 (const char *s, const char *t, const char *u, const char *v) {
      char *res;
@@ -100,6 +74,7 @@ xstrconcat4 (const char *s, const char *t, const char *u, const char *v) {
      strcat(res, t);
      strcat(res, u);
      strcat(res, v);
+     free((void *) s);
      return res;
 }
 
@@ -130,20 +105,6 @@ error (const char *fmt, ...) {
      vfprintf (stderr, fmt2, args);
      va_end (args);
      free (fmt2);
-}
-
-/* Fatal error.  Print message and exit.  */
-void
-die (int err, const char *fmt, ...) {
-     va_list args;
-
-     va_start (args, fmt);
-     vfprintf (stderr, fmt, args);
-     fprintf (stderr, "\n");
-     va_end (args);
-
-     unlock_mtab ();
-     exit (err);
 }
 
 /* True if fstypes match.  Null *TYPES means match anything,
@@ -269,19 +230,19 @@ matching_opts (const char *options, const char *test_opts) {
    we return unmodified.   */
 char *
 canonicalize (const char *path) {
-     char *canonical;
+	char canonical[PATH_MAX+2];
 
-     if (path == NULL)
-	  return NULL;
+	if (path == NULL)
+		return NULL;
 
-     if (streq(path, "none") || streq(path, "proc") || streq(path, "devpts"))
-	  return xstrdup(path);
+#if 1
+	if (streq(path, "none") ||
+	    streq(path, "proc") ||
+	    streq(path, "devpts"))
+		return xstrdup(path);
+#endif
+	if (myrealpath (path, canonical, PATH_MAX+1))
+		return xstrdup(canonical);
 
-     canonical = xmalloc (PATH_MAX+2);
-  
-     if (myrealpath (path, canonical, PATH_MAX+1))
-	  return canonical;
-
-     free(canonical);
-     return xstrdup(path);
+	return xstrdup(path);
 }

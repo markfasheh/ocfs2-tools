@@ -28,18 +28,27 @@
 #include <grp.h>
 #include <pwd.h>
 
+/* Map from -o and fstab option strings to the flag argument to mount(2).  */
+struct opt_map {
+  const char *opt;		/* option name */
+  int  skip;			/* skip in mtab option string */
+  int  inv;			/* true if flag value should be inverted */
+  int  mask;			/* flag mask value */
+};
+
 /* Custom mount options for our own purposes.  */
 /* Maybe these should now be freed for kernel use again */
 #define MS_NOAUTO	0x80000000
 #define MS_USERS	0x40000000
 #define MS_USER		0x20000000
 #define MS_OWNER	0x10000000
-#define MS_PAMCONSOLE   0x08000000
-#define MS_NETDEV	0x00020000
+#define MS_GROUP	0x08000000
+#define MS_PAMCONSOLE   0x04000000
+#define MS_COMMENT	0x00020000
 #define MS_LOOP		0x00010000
 
 /* Options that we keep the mount system call from seeing.  */
-#define MS_NOSYS	(MS_NOAUTO|MS_USERS|MS_USER|MS_NETDEV|MS_LOOP|MS_PAMCONSOLE)
+#define MS_NOSYS	(MS_NOAUTO|MS_USERS|MS_USER|MS_COMMENT|MS_LOOP|MS_PAMCONSOLE)
 
 /* Options that we keep from appearing in the options field in the mtab.  */
 #define MS_NOMTAB	(MS_REMOUNT|MS_NOAUTO|MS_USERS|MS_USER|MS_PAMCONSOLE)
@@ -49,13 +58,6 @@
 
 /* Options that we make owner-mounted devices have by default */
 #define MS_OWNERSECURE	(MS_NOSUID|MS_NODEV)
-
-struct opt_map {
-  const char *opt;		/* option name */
-  int  skip;			/* skip in mtab option string */
-  int  inv;			/* true if flag value should be inverted */
-  int  mask;			/* flag mask value */
-};
 
 static const struct opt_map opt_map[] = {
   { "defaults",	0, 0, 0		},	/* default options */
@@ -80,7 +82,12 @@ static const struct opt_map opt_map[] = {
   { "nouser",	0, 1, MS_USER	},	/* Forbid ordinary user to mount */
   { "owner",	0, 0, MS_OWNER  },	/* Let the owner of the device mount */
   { "noowner",	0, 1, MS_OWNER  },	/* Device owner has no special privs */
-  { "_netdev",	0, 0, MS_NETDEV },	/* Device accessible only via network */
+  { "group",    0, 0, MS_GROUP  },	/* Let the group of the device mount */
+  { "nogroup",  0, 1, MS_GROUP  },	/* Device group has no special privs */
+  { "_netdev",	0, 0, MS_COMMENT},	/* Device accessible only via network */
+  { "comment",  0, 0, MS_COMMENT},	/* fstab comment only (kudzu,_netdev)*/
+
+  /* add new options here */
   { "pamconsole",   0, 0, MS_PAMCONSOLE }, /* Allow users at console to mount */
   { "nopamconsole", 0, 1, MS_PAMCONSOLE }, /* Console user has no special privs */
 #ifdef MS_NOSUB
@@ -104,14 +111,14 @@ static const struct opt_map opt_map[] = {
   { "diratime",	0, 1, MS_NODIRATIME },	/* Update dir access times */
   { "nodiratime", 0, 0, MS_NODIRATIME },/* Do not update dir access times */
 #endif
-  { "kudzu",	0, 0, 0 },		/* Silently remove this option (backwards compat use only) */
-  { "managed",	0, 0, 0 },		/* Silently remove this option */
+  { "kudzu",	0, 0, MS_COMMENT },	/* Silently remove this option (backwards compat use only) */
+  { "managed",	0, 0, MS_COMMENT },	/* Silently remove this option */
   { NULL,	0, 0, 0	}
 };
 
 
 static char *opt_loopdev, *opt_vfstype, *opt_offset, *opt_encryption,
-  *opt_speed;
+  *opt_speed, *opt_comment;
 
 static struct string_opt_map {
   char *tag;
@@ -123,6 +130,7 @@ static struct string_opt_map {
   { "offset=",	0, &opt_offset },
   { "encryption=", 0, &opt_encryption },
   { "speed=", 0, &opt_speed },
+  { "comment=", 1, &opt_comment },
   { NULL, 0, NULL }
 };
 
@@ -148,12 +156,13 @@ static int parse_string_opt(char *s)
 	}
 	return 0;
 }
+
 /*
  * Look for OPT in opt_map table and return mask value.
  * If OPT isn't found, tack it onto extra_opts (which is non-NULL).
  * For the options uid= and gid= replace user or group name by its value.
  */
-static inline void parse_opt (const char *opt, int *mask, char *extra_opts)
+static inline void parse_opt (const char *opt, int *mask, char *extra_opts, int len)
 {
 	const struct opt_map *om;
 
@@ -166,9 +175,9 @@ static inline void parse_opt (const char *opt, int *mask, char *extra_opts)
 			if ((om->mask == MS_USER || om->mask == MS_USERS || om->mask == MS_PAMCONSOLE)
 			    && !om->inv)
 				*mask |= MS_SECURE;
-			if ((om->mask == MS_OWNER) && !om->inv)
+			if ((om->mask == MS_OWNER || om->mask == MS_GROUP)
+			    && !om->inv)
 				*mask |= MS_OWNERSECURE;
-
 #ifdef MS_SILENT
 			if (om->mask == MS_SILENT && om->inv)  {
 				mount_quiet = 1;
@@ -178,7 +187,9 @@ static inline void parse_opt (const char *opt, int *mask, char *extra_opts)
 			return;
 		}
 
-	if (*extra_opts)
+	len -= strlen(extra_opts);
+
+	if (*extra_opts && --len > 0)
 		strcat(extra_opts, ",");
 
 	/* convert nonnumeric ids to numeric */
@@ -188,7 +199,8 @@ static inline void parse_opt (const char *opt, int *mask, char *extra_opts)
 
 		if (pw) {
 			sprintf(uidbuf, "uid=%d", pw->pw_uid);
-			strcat(extra_opts, uidbuf);
+			if ((len -= strlen(uidbuf)) > 0)
+				strcat(extra_opts, uidbuf);
 			return;
 		}
 	}
@@ -198,33 +210,40 @@ static inline void parse_opt (const char *opt, int *mask, char *extra_opts)
 
 		if (gr) {
 			sprintf(gidbuf, "gid=%d", gr->gr_gid);
-			strcat(extra_opts, gidbuf);
+			if ((len -= strlen(gidbuf)) > 0)
+				strcat(extra_opts, gidbuf);
 			return;
 		}
 	}
 
-	strcat(extra_opts, opt);
+	if ((len -= strlen(opt)) > 0)
+		strcat(extra_opts, opt);
 }
   
 /* Take -o options list and compute 4th and 5th args to mount(2).  flags
    gets the standard options (indicated by bits) and extra_opts all the rest */
-void parse_opts (char *opts, int *flags, char **extra_opts)
+void parse_opts (char *options, int *flags, char **extra_opts)
 {
-	char *opt;
-
 	*flags = 0;
 	*extra_opts = NULL;
 
 	clear_string_opts();
 
-	if (opts != NULL) {
-		*extra_opts = xmalloc (strlen (opts) + 1); 
+	if (options != NULL) {
+		char *opts = xstrdup(options);
+		char *opt;
+		int len = strlen(opts) + 20;
+
+		*extra_opts = xmalloc(len);
 		**extra_opts = '\0';
 
 		for (opt = strtok (opts, ","); opt; opt = strtok (NULL, ","))
 			if (!parse_string_opt (opt))
-				parse_opt (opt, flags, *extra_opts);
+				parse_opt (opt, flags, *extra_opts, len);
+
+		free(opts);
 	}
+
 #if 0
 	if (readonly)
 		*flags |= MS_RDONLY;

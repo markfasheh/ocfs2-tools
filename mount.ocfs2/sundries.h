@@ -37,9 +37,6 @@ void die (int errcode, const char *fmt, ...);
 #ifdef HAVE_NFS
 int nfsmount (const char *spec, const char *node, int *flags,
 	      char **orig_opts, char **opt_args, int *version, int running_bg);
-int nfs4mount (const char *spec, const char *node, int *flags,
-		char **orig_opts, char **opt_args, int running_bg);
-int nfsumount(const char *spec, const char *opts);
 #endif
 
 /* exit status - bits below are ORed */

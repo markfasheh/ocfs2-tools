@@ -39,11 +39,11 @@
 #include <sys/stat.h>
 
 #include "fstab.h"
-#include "get_label_uuid.h"
-#include "linux_fs.h"
 #include "nls.h"
+#include "paths.h"
 #include "realpath.h"
 #include "sundries.h"
+#include "xmalloc.h"
 #include "mntent.h"
 #include "mount_constants.h"
 #include "opts.h"

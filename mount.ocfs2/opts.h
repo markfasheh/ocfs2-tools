@@ -20,4 +20,4 @@
  *
  */
 
-void parse_opts (char *opts, int *flags, char **extra_opts);
+void parse_opts (char *options, int *flags, char **extra_opts);
