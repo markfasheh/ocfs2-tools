@@ -11,7 +11,7 @@ endif
 
 INCLUDES = -I. -Iinclude
 
-LIBRARIES = libocfs.a
+LIBRARIES = libocfs2.a
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS)
 
@@ -30,27 +30,44 @@ endif
 
 CFLAGS += $(OPTIMIZE)
 
+ifneq ($(OCFS2_DEBUG_EXE),)
+DEFINES += -DDEBUG_EXE
+
+BIN_PROGRAMS += unix_io
+
+unix_io: unix_io.o memory.o ocfs2_err.o
+	$(LINK)	$(COM_ERR) $(COM_ERR_LIBS)
+
+endif
 CFILES = 		\
-	mounted.c	\
+	unix_io.c	\
+	memory.c
 
 HFILES =				\
-	include/kernel-jbh.h		\
+	include/kernel-jbd.h		\
 	include/kernel-list.h		\
 	include/ocfs2_fs.h		\
 	include/ocfs2_disk_dlm.h	\
-	include/ocfs1_fs_compat.h
+	include/ocfs1_fs_compat.h	\
+	include/memory.h
+
+HFILES_GEN =		\
+	ocfs2_err.h
 	
+$(CFILES): $(HFILES) $(HFILES_GEN)
 
-$(CFILES): $(HFILES)
+OBJS = $(subst .c,.o,$(CFILES)) \
+	ocfs2_err.o
 
-OBJS = $(subst .c,.o,$(CFILES))
+ocfs2_err.c ocfs2_err.h: ocfs2_err.et
+	compile_et ocfs2_err.et
 
-libocfs.a: $(OBJS)
+libocfs2.a: $(OBJS)
 	rm -f $@
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(HFILES)
+DIST_FILES = $(CFILES) $(HFILES) ocfs2_err.et.in
 
 DIST_RULES = dist-subdircreate
 

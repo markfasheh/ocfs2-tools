@@ -124,6 +124,13 @@ fi
 AC_SUBST(OCFS_TRACE)
 AC_MSG_RESULT($enable_trace)
 
+COM_ERR_LIBS=
+AC_CHECK_LIB(com_err, com_err, COM_ERR_LIBS=-lcom_err)
+if test "x$COM_ERR_LIBS" = "x"; then
+    AC_MSG_ERROR([Unable to find com_err library])
+fi
+AC_SUBST(COM_ERR_LIBS)
+
 GLIB_REQUIRED_VERSION=1.2.8
 GTK_REQUIRED_VERSION=1.2.8
 
@@ -156,4 +163,5 @@ ocfs_uid_gen/ocfs_uid_gen.8
 load_ocfs/load_ocfs.8
 ocfstool/ocfstool.8
 vendor/common/ocfs-tools.spec
+ocfs2/libocfs2/ocfs2_err.et
 ])

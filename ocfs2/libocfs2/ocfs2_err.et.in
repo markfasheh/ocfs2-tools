@@ -1,0 +1,29 @@
+#
+# Copyright (C) 2004 Oracle Corporation
+#
+# Authors: Joel Becker
+#
+	error_table ocfs
+
+ec	OCFS2_ET_BASE,
+	"OCFS2 Library version @VERSION@"
+
+ec	OCFS2_ET_BAD_DEVICE_NAME,
+	"Illegal or malformed device name"
+
+ec	OCFS2_ET_IO,
+	"I/O error on channel"
+
+ec	OCFS2_ET_SHORT_READ,
+	"Attempt to read block from filesystem resulted in short read"
+
+ec	OCFS2_ET_SHORT_WRITE,
+	"Attempt to read block from filesystem resulted in short write"
+
+ec	OCFS2_ET_NO_MEMORY,
+	"Memory allocation failed"
+
+ec	OCFS2_ET_INVALID_ARGUMENT,
+	"Invalid argument passed to OCFS2 library"
+
+	end
