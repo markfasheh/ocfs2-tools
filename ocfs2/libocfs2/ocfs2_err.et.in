@@ -80,4 +80,7 @@ ec	OCFS2_ET_FILE_NOT_FOUND,
 ec	OCFS2_ET_DIR_NO_SPACE,
 	"No free space in the directory"
 
+ec	OCFS2_ET_INVALID_BIT,
+	"Bit does not exist in bitmap range"
+
 	end

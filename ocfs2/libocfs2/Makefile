@@ -61,7 +61,8 @@ CFILES = 		\
 	lookup.c	\
 	sysfile.c	\
 	link.c		\
-	unlink.c	
+	unlink.c	\
+	bitmap.c
 
 HFILES =				\
 	include/jfs_user.h		\
