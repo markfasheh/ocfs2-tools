@@ -29,6 +29,8 @@
 
 #include "fsck.h"
 #include "pass1.h"
+#include "problem.h"
+#include "util.h"
 
 const char *whoami = "pass1";
 
@@ -47,8 +49,8 @@ const char *whoami = "pass1";
  * - a bitmap of data blocks duplicated between inodes
  */
 
-static void o2fsck_verify_inode_fields(o2fsck_state *ost, uint64_t blkno, 
-					ocfs2_dinode *di)
+static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost, 
+				       uint64_t blkno, ocfs2_dinode *di)
 {
 	int was_set;
 
@@ -73,6 +75,16 @@ static void o2fsck_verify_inode_fields(o2fsck_state *ost, uint64_t blkno,
 	if (!(di->i_flags & OCFS2_VALID_FL)) {
 		printf("inode %llu missing valid flag\n", blkno);
 		goto bad;
+	}
+
+	if (di->i_dtime) {
+		if (should_fix(ost, FIX_DEFYES, 
+		    "Inode %llu is in use but has a non-zero dtime.", 
+		    di->i_blkno)) {
+
+			di->i_dtime = 0ULL;
+			o2fsck_write_inode(fs, blkno, di);
+		}
 	}
 
 	ocfs2_bitmap_set(ost->ost_used_inodes, blkno, &was_set);
@@ -193,7 +205,7 @@ errcode_t o2fsck_pass1(ocfs2_filesys *fs, o2fsck_state *ost)
 		if (blkno == 0)
 			break;
 
-		o2fsck_verify_inode_fields(ost, blkno, di);
+		o2fsck_verify_inode_fields(fs, ost, blkno, di);
 		/* XXX be able to mark the blocks in the inode as 
 		 * bad if the inode was bad */
 		o2fsck_verify_inode_data(fs, ost, blkno, di);

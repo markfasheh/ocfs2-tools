@@ -61,8 +61,6 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 {
 	errcode_t ret;
 
-	memset(ost, 0, sizeof(*ost));
-
 	ret = ocfs2_block_bitmap_new(fs, "inodes in use", 
 				     &ost->ost_used_inodes);
 	if (ret) {
@@ -113,9 +111,11 @@ int main(int argc, char **argv)
 	char *filename;
 	ocfs2_filesys *fs;
 	int64_t blkno, blksize;
-	o2fsck_state ost;
-	int c, ret;
+	o2fsck_state _ost, *ost = &_ost;
+	int c, ret, rw = OCFS2_FLAG_RW;
 
+	memset(ost, 0, sizeof(o2fsck_state));
+	ost->ost_ask = 1;
 
 	/* These mean "autodetect" */
 	blksize = 0;
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 
 	initialize_ocfs_error_table();
 
-	while((c = getopt(argc, argv, "s:B:")) != EOF) {
+	while((c = getopt(argc, argv, "nps:B:")) != EOF) {
 		switch (c) {
 			case 's':
 				blkno = read_number(optarg);
@@ -145,6 +145,18 @@ int main(int argc, char **argv)
 					print_usage();
 					return 1;
 				}
+				break;
+
+			case 'n':
+				ost->ost_ask = 0;
+				ost->ost_answer = 0;
+				rw = OCFS2_FLAG_RO;
+				break;
+
+			/* "preen" don't ask and force fixing */
+			case 'p':
+				ost->ost_ask = 0;
+				ost->ost_answer = 1;
 				break;
 
 			default:
@@ -170,7 +182,7 @@ int main(int argc, char **argv)
 
 	/* XXX we'll decide on a policy for using o_direct in the future.
 	 * for now we want to test against loopback files in ext3, say. */
-	ret = ocfs2_open(filename, OCFS2_FLAG_RO | OCFS2_FLAG_BUFFERED, blkno,
+	ret = ocfs2_open(filename, rw | OCFS2_FLAG_BUFFERED, blkno,
 			 blksize, &fs);
 	if (ret) {
 		com_err(argv[0], ret,
@@ -178,7 +190,7 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	if (o2fsck_state_init(fs, argv[0], &ost)) {
+	if (o2fsck_state_init(fs, argv[0], ost)) {
 		fprintf(stderr, "error allocating run-time state, exiting..\n");
 		return 1;
 	}
@@ -194,7 +206,7 @@ int main(int argc, char **argv)
 		fs->fs_clusters,
 		fs->fs_blocks);
 
-	ret = o2fsck_pass1(fs, &ost);
+	ret = o2fsck_pass1(fs, ost);
 	if (ret)
 		com_err(argv[0], ret, "pass1 failed");
 

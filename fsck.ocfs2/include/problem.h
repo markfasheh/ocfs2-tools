@@ -1,5 +1,5 @@
 /*
- * fsck.h
+ * problem.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,23 +21,15 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_FSCK_H__
-#define __O2FSCK_FSCK_H__
+#ifndef __O2FSCK_PROBLEM_H__
+#define __O2FSCK_PROBLEM_H__
 
-typedef struct _o2fsck_state {
-	ocfs2_bitmap	*ost_used_inodes;
-	ocfs2_bitmap	*ost_bad_inodes;
-	ocfs2_bitmap	*ost_dir_inodes;
-	ocfs2_bitmap	*ost_reg_inodes;
+#define FIX_DEFYES (1 << 0)
+#define FIX_DEFNO  (1 << 1)
 
-	ocfs2_bitmap	*ost_found_blocks;
-	ocfs2_bitmap	*ost_dup_blocks;
+#include "fsck.h"
 
-	/* whether or not we should be asking questions of the user, and 
-	 * if not, what the answer should be instead. */
-	unsigned	ost_ask:1,
-			ost_answer:1;
-} o2fsck_state;
+int should_fix(o2fsck_state *ost, unsigned flags, const char *fmt, ...);
 
-#endif /* __O2FSCK_FSCK_H__ */
+#endif /* __O2FSCK_PROBLEM_H__ */
 
