@@ -292,9 +292,9 @@ bail:
 void dump_group_descriptor (FILE *out, ocfs2_group_desc *blk)
 {
 
-	fprintf (out, "\tParent Chain: %u   Blknum: %"PRIu64"\n",
-		 blk->bg_chain,
-		 blk->bg_blkno);
+	fprintf (out, "\tBlknum: %"PRIu64"   Next Group %"PRIu64"\n",
+		 blk->bg_blkno,
+		 blk->bg_next_group);
 
 	fprintf (out, "\tFree Bits Count: %u   Group Bits: %u   "
 		 "Group Size: %u\n",
@@ -302,9 +302,9 @@ void dump_group_descriptor (FILE *out, ocfs2_group_desc *blk)
 		 blk->bg_bits,
 		 blk->bg_size);
 
-	fprintf (out, "\tNext Group: %"PRIu64"   Parent Dinode: %"PRIu64"  "
+	fprintf (out, "\tParent Chain: %u   Parent Dinode: %"PRIu64"  "
 		 "Generation: %u\n",
-		 blk->bg_next_group,
+		 blk->bg_chain,
 		 blk->bg_parent_dinode,
 		 blk->bg_generation);
 
