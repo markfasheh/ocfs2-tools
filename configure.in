@@ -8,8 +8,8 @@ AC_SUBST(PACKAGE)
 # Adjust these for the software version.
 MAJOR_VERSION=1
 MINOR_VERSION=1
-MICRO_VERSION=1
-EXTRA_VERSION=BETA2
+MICRO_VERSION=2
+EXTRA_VERSION=PROD1
 
 # Adjust this only to bump the RPM packaging version
 RPM_VERSION=1
@@ -133,14 +133,14 @@ AC_ARG_ENABLE(ocfstool, [  --enable-ocfstool=[yes/no]       Build GUI frontend [
 
 if test "x$enable_ocfstool" = "xyes"; then
   AM_PATH_GTK($GTK_REQUIRED_VERSION, have_gtk=yes, have_gtk=no)
-                                                                                
+
   if test "x$have_gtk" = "xyes"; then
     OCFSTOOL=yes
   else
     AC_MSG_WARN([GTK+ $GTK_REQUIRED_VERSION or better not found, ocfstool will not be built])
   fi
 fi
-                                                                                
+
 AC_SUBST(OCFSTOOL)
 
 AC_OUTPUT([
