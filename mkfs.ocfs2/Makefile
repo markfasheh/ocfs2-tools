@@ -34,10 +34,4 @@ DIST_FILES = $(CFILES) mkfs.ocfs2.8.in
 mkfs.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
-readdir: readdir.o
-	$(LINK) 
-
-fe: readdir.o
-	$(LINK) 
-
 include $(TOPDIR)/Postamble.make
