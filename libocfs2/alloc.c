@@ -336,6 +336,18 @@ out:
 	return ret;
 }
 
+/* This function needs to be filled out.  Essentially, it should be
+ * calling a function in chainalloc.c.  Something like
+ * "ocfs2_chain_alloc_range()".  The difference between that and
+ * ocfs2_chain_alloc() is that the range can return a number of bits.
+ * That function should take a 'required' number of bits, and return
+ * the biggest chunk available.  It will need some sort of
+ * "find_clear_bit_range()" function for the bitmaps.
+ */
+errcode_t ocfs2_new_clusters()
+{
+	return 0;
+}
 
 #ifdef DEBUG_EXE
 #include <stdio.h>

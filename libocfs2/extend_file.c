@@ -34,12 +34,97 @@
 #include "ocfs2.h"
 
 
-static errcode_t insert_extent_eb(ocfs2_filesys *fs, uint64_t eb_blkno,
-				  ocfs2_extent_rec *new_rec);
+struct insert_ctxt {
+	ocfs2_filesys *fs;
+	ocfs2_dinode *di;
+	ocfs2_extent_rec rec;
+};
 
-static errcode_t insert_extent_el(ocfs2_filesys *fs,
-			  	  ocfs2_extent_list *el,
-				  ocfs2_extent_rec *new_rec)
+static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
+				  uint64_t eb_blkno);
+
+static errcode_t update_last_eb_blk(struct insert_ctxt *ctxt,
+				    ocfs2_extent_block *eb)
+{
+	errcode_t ret;
+	char *buf;
+	ocfs2_extent_block *last_eb;
+
+	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_extent_block(ctxt->fs, ctxt->di->i_last_eb_blk,
+				      buf);
+	if (ret)
+		goto out;
+
+	last_eb = (ocfs2_extent_block *)buf;
+	last_eb->h_next_leaf_blk = eb->h_blkno;
+
+	ret = ocfs2_write_extent_block(ctxt->fs, last_eb->h_blkno,
+				       buf);
+	if (ret)
+		goto out;
+
+	ctxt->di->i_last_eb_blk = eb->h_blkno;
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
+static errcode_t append_eb(struct insert_ctxt *ctxt,
+			   ocfs2_extent_list *el)
+{
+	errcode_t ret;
+	char *buf;
+	uint64_t blkno;
+	ocfs2_extent_block *eb;
+	ocfs2_extent_rec *rec;
+
+	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_new_extent_block(ctxt->fs, &blkno);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_extent_block(ctxt->fs, blkno, buf);
+	if (ret)
+		goto out;
+
+	eb = (ocfs2_extent_block *)buf;
+	eb->h_list.l_tree_depth = el->l_tree_depth - 1;
+
+	if (!eb->h_list.l_tree_depth) {
+		ret = update_last_eb_blk(ctxt, eb);
+		if (ret)
+			goto out;
+	}
+
+	if (el->l_next_free_rec) {
+		rec = &el->l_recs[el->l_next_free_rec - 1];
+		if (!rec->e_blkno) {
+			rec->e_blkno = blkno;
+			goto out;
+		}
+	}
+	rec = &el->l_recs[el->l_next_free_rec];
+	rec->e_blkno = blkno;
+	rec->e_cpos = ctxt->rec.e_cpos;
+	el->l_next_free_rec++;
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
+static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
+			  	  ocfs2_extent_list *el)
 {
 	errcode_t ret;
 	ocfs2_extent_rec *rec;
@@ -49,14 +134,14 @@ static errcode_t insert_extent_el(ocfs2_filesys *fs,
 			rec = &el->l_recs[el->l_next_free_rec - 1];
 
 			if ((rec->e_blkno +
-			     ocfs2_clusters_to_blocks(fs, rec->e_clusters)) ==
-			    new_rec->e_blkno) {
-				rec->e_clusters += new_rec->e_clusters;
+			     ocfs2_clusters_to_blocks(ctxt->fs, rec->e_clusters)) ==
+			    ctxt->rec.e_blkno) {
+				rec->e_clusters += ctxt->rec.e_clusters;
 				return 0;
 			}
 
 			if (!rec->e_clusters) {
-				*rec = *new_rec;
+				*rec = ctxt->rec;
 				return 0;
 			}
 
@@ -65,14 +150,18 @@ static errcode_t insert_extent_el(ocfs2_filesys *fs,
 		}
 
 		rec = &el->l_recs[el->l_next_free_rec];
-		*rec = *new_rec;
+		*rec = ctxt->rec;
 		el->l_next_free_rec++;
 		return 0;
 	}
 
 	/* We're a branch node */
-	rec = &el->l_recs[el->l_next_free_rec - 1];
-	ret = insert_extent_eb(fs, rec->e_blkno, new_rec);
+	ret = OCFS2_ET_NO_SPACE;
+	if (el->l_next_free_rec) {
+		rec = &el->l_recs[el->l_next_free_rec - 1];
+		if (rec->e_blkno)
+			ret = insert_extent_eb(ctxt, rec->e_blkno);
+	}
 	if (ret) {
 		if (ret != OCFS2_ET_NO_SPACE)
 			return ret;
@@ -80,36 +169,86 @@ static errcode_t insert_extent_el(ocfs2_filesys *fs,
 		if (el->l_next_free_rec == el->l_count)
 			return OCFS2_ET_NO_SPACE;
 
-		/* FIXME: Alloc a metadata block */
+		ret = append_eb(ctxt, el);
+		if (ret)
+			return ret;
+
+		ret = insert_extent_eb(ctxt, rec->e_blkno);
+		if (ret)
+			return ret;
 	}
 
-	rec->e_clusters += new_rec->e_clusters;
+	rec->e_clusters += ctxt->rec.e_clusters;
 	return 0;
 }
 
-static errcode_t insert_extent_eb(ocfs2_filesys *fs, uint64_t eb_blkno,
-				  ocfs2_extent_rec *new_rec)
+static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
+				  uint64_t eb_blkno)
 {
 	errcode_t ret;
 	char *buf;
 	ocfs2_extent_block *eb;
 
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
 	if (ret)
 		return ret;
 
-	ret = ocfs2_read_extent_block(fs, eb_blkno, buf);
+	ret = ocfs2_read_extent_block(ctxt->fs, eb_blkno, buf);
 	if (!ret) {
 		eb = (ocfs2_extent_block *)buf;
-		ret = insert_extent_el(fs, &eb->h_list, new_rec);
+		ret = insert_extent_el(ctxt, &eb->h_list);
 	}
+
+	if (!ret)
+		ret = ocfs2_write_extent_block(ctxt->fs, eb_blkno, buf);
 
 	ocfs2_free(&buf);
 	return ret;
 }
 
-static errcode_t shift_tree_depth(ocfs2_filesys *fs, ocfs2_dinode *di)
+static errcode_t shift_tree_depth(struct insert_ctxt *ctxt)
 {
+	errcode_t ret;
+	char *buf;
+	uint64_t blkno;
+	ocfs2_extent_block *eb;
+	ocfs2_extent_list *el;
+
+	el = &ctxt->di->id2.i_list;
+	if (el->l_next_free_rec != el->l_count)
+		return OCFS2_ET_INTERNAL_FAILURE;
+
+	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_new_extent_block(ctxt->fs, &blkno);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_extent_block(ctxt->fs, blkno, buf);
+	if (ret)
+		goto out;
+
+	eb = (ocfs2_extent_block *)buf;
+	eb->h_list.l_tree_depth = el->l_tree_depth;
+	eb->h_list.l_next_free_rec = el->l_next_free_rec;
+	memcpy(eb->h_list.l_recs, el->l_recs,
+	       sizeof(ocfs2_extent_rec) * el->l_count);
+
+	el->l_tree_depth++;
+	memset(el->l_recs, 0, sizeof(ocfs2_extent_rec) * el->l_count);
+	el->l_recs[0].e_cpos = 0;
+	el->l_recs[0].e_blkno = blkno;
+	el->l_recs[0].e_clusters = ctxt->di->i_clusters;
+	el->l_next_free_rec = 1;
+
+	if (el->l_tree_depth == 1)
+		ctxt->di->i_last_eb_blk = blkno;
+
+out:
+	ocfs2_free(&buf);
+
 	return 0;
 }
 
@@ -117,29 +256,32 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
 			      uint64_t c_blkno, uint32_t clusters)
 {
 	errcode_t ret;
-	ocfs2_extent_rec rec;
-	ocfs2_dinode *di;
+	struct insert_ctxt ctxt;
 	char *buf;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
 
-	di = (ocfs2_dinode *)buf;
+	ctxt.fs = fs;
+	ctxt.di = (ocfs2_dinode *)buf;
+
 	ret = ocfs2_read_inode(fs, ino, buf);
 	if (ret)
 		goto out_free_buf;
 
-	rec.e_cpos = di->i_clusters;
-	rec.e_blkno = c_blkno;
-	rec.e_clusters = clusters;
-	ret = insert_extent_el(fs, &di->id2.i_list, &rec);
+	ctxt.rec.e_cpos = ctxt.di->i_clusters;
+	ctxt.rec.e_blkno = c_blkno;
+	ctxt.rec.e_clusters = clusters;
+	ret = insert_extent_el(&ctxt, &ctxt.di->id2.i_list);
 	if (ret == OCFS2_ET_NO_SPACE) {
-		ret = shift_tree_depth(fs, di);
+		ret = shift_tree_depth(&ctxt);
 		if (!ret)
-			ret = insert_extent_el(fs, &di->id2.i_list,
-					       &rec);
+			ret = insert_extent_el(&ctxt,
+					       &ctxt.di->id2.i_list);
 	}
+	if (!ret)
+		ret = ocfs2_write_inode(fs, ino, buf);
 
 out_free_buf:
 	ocfs2_free(&buf);
@@ -150,5 +292,17 @@ out_free_buf:
 errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint64_t new_clusters)
 {
+	/*
+	 * This should be, in essence:
+	 *
+	 * read_inode();
+	 * while (new_clusters) {
+	 * 	n_clusters = ocfs2_new_clusters();
+	 * 	ocfs2_insert_extent(n_clusters);
+	 * 	new_clusters -= n_clusters;
+	 * 	}
+	 * write_inode();
+	 */
+
 	return 0;
 }
