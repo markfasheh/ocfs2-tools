@@ -17,26 +17,48 @@
 
 import gtk
 
+from fsck import fsck_ok
+
 try:
     stock_about = gtk.STOCK_ABOUT
 except AttributeError:
     stock_about = ''
 
-menu_data = (
+file_menu_data = (
     ('/_File',                     None,         None,      0, '<Branch>'),
     ('/File/_Quit',                None,         'cleanup', 0, '<StockItem>',
-     gtk.STOCK_QUIT),
-    ('/_Tasks',                    None,         None,      0, '<Branch>'),
-    ('/Tasks/_Format...',          '<control>F', 'format'),
-    ('/Tasks/---',                 None,         None,      0, '<Separator>'),
-    ('/Tasks/Chec_k...',           '<control>K', 'check'),
-    ('/Tasks/_Repair...',          '<control>R', 'repair'),
-    ('/Tasks/---',                 None,         None,      0, '<Separator>'),
-    ('/Tasks/_Cluster Config...',  '<control>C', 'clconfig'),
+     gtk.STOCK_QUIT)
+)
+
+help_menu_data = (
     ('/_Help',                     None,         None,      0, '<Branch>'),
     ('/Help/_About',               None,         'about',   0, '<StockItem>',
      stock_about)
 )
+
+if fsck_ok:
+    task_menu_fsck_data = (
+        ('/Tasks/---',                 None,         None,      0,
+         '<Separator>'),
+        ('/Tasks/Chec_k...',           '<control>K', 'check'),
+        ('/Tasks/_Repair...',          '<control>R', 'repair'),
+    )
+else:
+    task_menu_fsck_data = ()
+
+task_menu_head_data = (
+    ('/_Tasks',                    None,         None,      0, '<Branch>'),
+    ('/Tasks/_Format...',          '<control>F', 'format')
+)
+
+task_menu_tail_data = (
+    ('/Tasks/---',                 None,         None,      0, '<Separator>'),
+    ('/Tasks/_Cluster Config...',  '<control>C', 'clconfig'),
+)
+
+task_menu_data = task_menu_head_data + task_menu_fsck_data + task_menu_tail_data
+
+menu_data = file_menu_data + task_menu_data + help_menu_data
 
 class Menu:
     def __init__(self, **callbacks):
