@@ -477,6 +477,11 @@ static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
 		goto out;
 	}
 
+	if (ji->ji_cinode->ci_inode->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL) {
+		ji->ji_replay = 0;
+		goto out;
+	}
+
 	err = ocfs2_extent_map_init(fs, ji->ji_cinode);
 	if (err) {
 		com_err(whoami, err, "while initializing extent map");
@@ -504,8 +509,7 @@ out:
 	return err;
 }
 
-errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
-					int *should)
+errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 {
 	uint16_t i, max_nodes;
 	ocfs2_dinode *di;
@@ -542,9 +546,9 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
 		}
 		
 		verbosef("node %d JOURNAL_DIRTY_FL: %d\n", i,
-			 di->id1.journal1.i_flags & OCFS2_JOURNAL_DIRTY_FL);
+			 di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL);
 
-		if (di->id1.journal1.i_flags & OCFS2_JOURNAL_DIRTY_FL) 
+		if (di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL) 
 			*should = 1;
 	}
 
@@ -557,8 +561,7 @@ out:
 
 /* Try and replay the nodes journals if they're dirty.  This only returns
  * a non-zero error if the caller should not continue. */
-errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
-				 int *replayed)
+errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 {
 	errcode_t err = 0, ret = 0;
 	struct journal_info *jis, *ji;
@@ -594,16 +597,20 @@ errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
 	printf("Checking each node's journal.\n");
 
 	for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
-		if (!pub[i].mounted) {
-			verbosef("node %d is clean\n", i);
-			continue;
-		}
 		ji->ji_replay = 1;
 		ji->ji_used_blocks = used_blocks;
 
 		err = prep_journal_info(fs, i, ji);
-		if (err == 0)
+		if (err == 0) {
+			/* Will only be modified in prep_journal_info()
+			 * if 0 is returned */
+			if (!ji->ji_replay) {
+				verbosef("node %d is clean\n", i);
+				continue;
+			}
+
 			err = walk_journal(fs, i, ji, buf, 0);
+		}
 
 		if (err) {
 			ji->ji_replay = 0;

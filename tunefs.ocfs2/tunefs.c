@@ -46,7 +46,6 @@
 
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
-#include <ocfs2_disk_dlm.h>
 #include <ocfs1_fs_compat.h>
 #include <kernel-list.h>
 
@@ -273,12 +272,12 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
 		for (j = old_num; j < opts.num_nodes; ++j) {
-			sprintf(fname, sysfile_info[i].name, j);
+			sprintf(fname, ocfs2_system_inodes[i].si_name, j);
 			printf("Adding %s...  ", fname);
 
 			/* create inode for system file */
-			mode = sysfile_info[i].dir ? 0755 | S_IFDIR : 0644 | S_IFREG;
-			ret =  ocfs2_new_system_inode(fs, &blkno, mode, sysfile_info[i].flags);
+			mode = ocfs2_system_inodes[i].si_mode ? 0755 | S_IFDIR : 0644 | S_IFREG;
+			ret =  ocfs2_new_system_inode(fs, &blkno, mode, ocfs2_system_inodes[i].si_flags);
 			if (ret)
 				goto bail;
 
@@ -318,7 +317,7 @@ static errcode_t get_default_journal_size(ocfs2_filesys *fs, uint64_t *jrnl_size
 	ocfs2_dinode *di;
 
 	snprintf (jrnl_node0, sizeof(jrnl_node0),
-		  sysfile_info[JOURNAL_SYSTEM_INODE].name, 0);
+		  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, 0);
 
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_node0,
 			   strlen(jrnl_node0), NULL, &blkno);
@@ -400,7 +399,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 
 	for (i = 0; i < max_nodes; ++i) {
 		snprintf (jrnl_file, sizeof(jrnl_file),
-			  sysfile_info[JOURNAL_SYSTEM_INODE].name, i);
+			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
 
 		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
 				   strlen(jrnl_file), NULL, &blkno);

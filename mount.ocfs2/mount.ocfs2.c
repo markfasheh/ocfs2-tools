@@ -59,7 +59,6 @@ typedef unsigned short kdev_t;
 #define  OCFS2_FLAT_INCLUDES	1
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
-#include <ocfs2_disk_dlm.h>
 #include <ocfs1_fs_compat.h>
 #include <kernel-list.h>
 
@@ -721,7 +720,7 @@ int get_ocfs2_disk_hb_params(char *group_dev, __u32 *block_bits, __u32 *cluster_
 	if (ret)
 		return status;
 
-	heartbeat_filename = sysfile_info[HEARTBEAT_SYSTEM_INODE].name;
+	heartbeat_filename = ocfs2_system_inodes[HEARTBEAT_SYSTEM_INODE].si_name;
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, heartbeat_filename,
 			   strlen(heartbeat_filename),  NULL, &blkno);
 	if (ret)

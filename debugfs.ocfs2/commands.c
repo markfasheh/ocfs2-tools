@@ -338,7 +338,7 @@ static void do_open (char **args)
 
 	/* lookup heartbeat file */
 	snprintf (sysfile, sizeof(sysfile),
-		  sysfile_info[HEARTBEAT_SYSTEM_INODE].name);
+		  ocfs2_system_inodes[HEARTBEAT_SYSTEM_INODE].si_name);
 	ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
 			   strlen(sysfile), NULL, &gbls.hb_blkno);
 	if (ret)
@@ -347,7 +347,7 @@ static void do_open (char **args)
 	/* lookup journal files */
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		snprintf (sysfile, sizeof(sysfile),
-			  sysfile_info[JOURNAL_SYSTEM_INODE].name, i);
+			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
 		ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
 				   strlen(sysfile), NULL, &gbls.jrnl_blkno[i]);
 		if (ret)
@@ -655,14 +655,7 @@ static void do_hb (char **args)
 		goto bail;
 	}
 
-	if (!strcasecmp(args[0], "nodes"))
-		dump_func = dump_config;
-	else if (!strcasecmp(args[0], "publish"))
-		dump_func = dump_publish;
-	else if (!strcasecmp(args[0], "vote"))
-		dump_func = dump_vote;
-	else
-		DBGFS_FATAL("internal");
+	DBGFS_FATAL("internal");
 
 	ret = ocfs2_read_whole_file(gbls.fs, gbls.hb_blkno, &hbbuf, &len);
 	if (ret) {

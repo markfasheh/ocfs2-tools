@@ -359,8 +359,7 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 	errcode_t ret = 0;
 	char *whoami = __FUNCTION__;
 
-	ret = o2fsck_should_replay_journals(ost->ost_fs, ost->ost_publish,
-					    &should);
+	ret = o2fsck_should_replay_journals(ost->ost_fs, &should);
 	if (ret)
 		goto out;
 	if (!should)
@@ -380,8 +379,7 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 	/* journal replay is careful not to use ost as we only really
 	 * build it up after spraying the journal all over the disk
 	 * and reopening */
-	ret = o2fsck_replay_journals(ost->ost_fs, ost->ost_publish,
-				     &replayed);
+	ret = o2fsck_replay_journals(ost->ost_fs, &replayed);
 	if (ret)
 		goto out;
 

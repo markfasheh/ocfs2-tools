@@ -201,6 +201,9 @@ struct _ocfs2_cached_inode {
 	ocfs2_bitmap *ci_chains;
 };
 
+/* FIXME: this is totally bogus now.  Userspace needs to change
+ * its heartbeat checking */
+#define MAX_NODE_NAME_LENGTH    32
 struct _ocfs2_nodes {
 	struct list_head list;
 	char node_name[MAX_NODE_NAME_LENGTH+1];

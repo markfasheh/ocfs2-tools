@@ -155,8 +155,6 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 
 	fprintf(out, "\tLinks: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
-	dump_disk_lock (out, &(in->i_disk_lock));
-
 	str = ctime((time_t*)&in->i_ctime);
 	fprintf(out, "\tctime: 0x%"PRIx64" -- %s", in->i_ctime, str);
 	str = ctime((time_t*)&in->i_atime);
@@ -184,17 +182,6 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	return ;
 }				/* dump_inode */
 
-/*
- * dump_disk_lock()
- *
- */
-void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
-{
-	fprintf(out, "\tLock Master: %u   Level: 0x%0x\n",
-		dl->dl_master, dl->dl_level);
-
-	return ;
-}				/* dump_disk_lock */
 
 /*
  * dump_chain_list()
@@ -307,130 +294,6 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 
 	return 0;
 }
-
-/*
- * dump_config()
- *
- */
-void dump_config (FILE *out, char *buf)
-{
-	char *p;
-	ocfs_node_config_hdr *hdr;
-	ocfs_node_config_info *node;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
-	__u16 port;
-	char addr[32];
-	struct in_addr ina;
-	int i, j;
-
-	hdr = (ocfs_node_config_hdr *)buf;
-
-	fprintf(out, "\tVersion: %u   Num Nodes: %u   Last Node: %u   "
-		"Seqnum: %"PRIu64"\n",
-		hdr->version, hdr->num_nodes, hdr->last_node, hdr->cfg_seq_num);
-
-	dump_disk_lock (out, &(hdr->disk_lock));
-
-	fprintf(out, "\t%-3s %-32s %-15s %-6s %s\n",
-		"###", "Name", "IP Address", "Port", "UUID");
-
-	p = buf + (2 << sb->s_blocksize_bits);
-	for (i = 0; i < sb->s_max_nodes; ++i) {
-		node = (ocfs_node_config_info *)p;
-		if (!*node->node_name)
-			continue;
-
-		port  = htonl(node->ipc_config.ip_port);
-
-		ina.s_addr = node->ipc_config.addr_u.ip_addr4;
-		strcpy (addr, inet_ntoa(ina));
-
-		fprintf(out, "\t%3u %-32s %-15s %-6u ", i, node->node_name,
-			addr, port);
-		for (j = 0; j < OCFS2_GUID_LEN; j++)
-			fprintf(out, "%c", node->guid.guid[j]);
-		fprintf(out, "\n");
-		p += (1 << sb->s_blocksize_bits);
-	}
-
-	return ;
-}				/* dump_config */
-
-/*
- * dump_publish()
- *
- */
-void dump_publish (FILE *out, char *buf)
-{
-	ocfs_publish *pub;
-	char *p;
-	GString *pub_flag;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
-	__u32 i, j;
-
-	fprintf(out, "\t%-3s %-3s %-3s %-3s %-15s %-15s %-15s %-15s %-*s %-s\n",
-		"###", "Mnt", "Vot", "Dty", "LockId", "Seq", "Comm Seq", "Time",
-		sb->s_max_nodes, "Map", "Type");
-
-	p = buf + ((2 + 4 + sb->s_max_nodes) << sb->s_blocksize_bits);
-	for (i = 0; i < sb->s_max_nodes; ++i) {
-		pub = (ocfs_publish *)p;
-
-		pub_flag = g_string_new (NULL);
-		get_publish_flag (pub->vote_type, pub_flag);
-
-		fprintf(out, "\t%3d  %1u   %1u   %1u  %-15"PRIu64" "
-			"%-15"PRIu64" %-15"PRIu64" %-15"PRIu64" ",
-			i, pub->mounted, pub->vote, pub->dirty, pub->lock_id,
-			pub->publ_seq_num, pub->comm_seq_num, pub->time);
-
-		for (j = 0; j < sb->s_max_nodes; j++)
-			fprintf (out, "%d",
-				 ((pub->vote_map[j / sizeof(pub->vote_map[0])] &
-				   (1 << (j % sizeof(pub->vote_map[0])))) ? 1 : 0));
-
-		fprintf(out, " %-s\n", pub_flag->str);
-
-		g_string_free (pub_flag, 1);
-
-		p += (1 << sb->s_blocksize_bits);
-	}
-
-	return ;
-}				/* dump_publish */
-
-/*
- * dump_vote()
- *
- */
-void dump_vote (FILE *out, char *buf)
-{
-	ocfs_vote *vote;
-	char *p;
-	GString *vote_flag;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
-	__u32 i;
-
-	fprintf(out, "\t%-3s %-2s %-1s %-15s %-15s %-s\n",
-		"###", "NV", "O", "LockId", "Seq", "Type");
-
-	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << sb->s_blocksize_bits);
-	for (i = 0; i < sb->s_max_nodes; ++i) {
-		vote = (ocfs_vote *)p;
-
-		vote_flag = g_string_new (NULL);
-		get_vote_flag (vote->type, vote_flag);
-
-		fprintf(out, "\t%3u %-2u %-1u %-15"PRIu64" %-15"PRIu64" %-s\n", i,
-			vote->node, vote->open_handle, vote->lock_id,
-			vote->vote_seq_num, vote_flag->str);
-
-		g_string_free (vote_flag, 1);
-		p += (1 << sb->s_blocksize_bits);
-	}
-
-	return ;
-}				/* dump_vote */
 
 /*
  * dump_jbd_header()

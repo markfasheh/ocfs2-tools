@@ -37,9 +37,10 @@
 
 #include "ocfs2.h"
 #include "ocfs2_fs.h"
-#include "ocfs2_disk_dlm.h"
 #include "ocfs1_fs_compat.h"
 
+#warning checkbh DOES NOT WORK.  It needs a rewrite.
+#if 0
 
 typedef struct _ocfs2_fs {
 	ocfs2_filesys *fs;
@@ -83,9 +84,14 @@ errcode_t ocfs2_gather_times_v1(ocfs2_fs *fs_blk, struct list_head *node_list,
  *  	List of live nodes
  *
  */
+#endif /* 0 */
 errcode_t ocfs2_check_heartbeat(char *device, int quick_detect,
 				int *mount_flags, struct list_head *nodes_list,
                                 ocfs2_chb_notify notify, void *user_data)
+{
+	return OCFS2_ET_INTERNAL_FAILURE;
+}
+#if 0
 {
 	errcode_t ret = 0;
 	struct list_head dev_list;
@@ -147,8 +153,13 @@ bail:
  * ocfs2_check_heartbeats()
  *
  */
+#endif /* 0 */
 errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int quick_detect,
 				 ocfs2_chb_notify notify, void *user_data)
+{
+	return OCFS2_ET_INTERNAL_FAILURE;
+}
+#if 0
 {
 	ocfs2_filesys *fs = NULL;
 	errcode_t ret = 0;
@@ -352,7 +363,7 @@ errcode_t ocfs2_gather_times_v2(ocfs2_fs *fs_blk, struct list_head *node_list,
 			       	int first_time)
 {
 	ocfs2_filesys *fs = fs_blk->fs;
-	char *hb = sysfile_info[HEARTBEAT_SYSTEM_INODE].name;
+	char *hb = ocfs2_system_inodes[HEARTBEAT_SYSTEM_INODE].si_name;
 	char *buf = NULL;
 	int buflen = 0;
 	errcode_t ret = 0;
@@ -504,3 +515,4 @@ bail:
 		close(fd);
 	return ret;
 }
+#endif /* 0 */

@@ -26,7 +26,6 @@
 
 #include "icount.h"
 #include "dirblocks.h"
-#include "ocfs2_disk_dlm.h"
 
 typedef struct _o2fsck_state {
 	ocfs2_filesys 	*ost_fs;
@@ -49,8 +48,6 @@ typedef struct _o2fsck_state {
 	/* this records references to each inode from other directory 
 	 * entries, including '.' and '..'. */
 	o2fsck_icount	*ost_icount_refs;
-
-	ocfs_publish	*ost_publish;
 
 	o2fsck_dirblocks	ost_dirblocks;
 

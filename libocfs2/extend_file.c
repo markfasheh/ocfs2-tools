@@ -74,6 +74,7 @@ static errcode_t update_last_eb_blk(struct insert_ctxt *ctxt,
 	if (ret)
 		goto out;
 
+	/* This is written at the end by insert_extent() */
 	ctxt->di->i_last_eb_blk = eb->h_blkno;
 
 out:

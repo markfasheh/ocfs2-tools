@@ -57,7 +57,6 @@
 
 #include "ocfs2.h"
 #include "ocfs2_fs.h"
-#include "ocfs2_disk_dlm.h"
 #include "ocfs1_fs_compat.h"
 
 enum {

@@ -48,7 +48,6 @@
 #undef cpu_to_be32
 #undef be32_to_cpu
 
-#include "ocfs2_disk_dlm.h"
 #include "ocfs1_fs_compat.h"
 
 typedef unsigned short kdev_t;
@@ -111,7 +110,7 @@ struct _SystemFileInfo {
 	char *name;
 	int type;
 	int global;
-	int dir;
+	int mode;
 };
 
 struct BitInfo {
@@ -147,7 +146,7 @@ struct _SystemFileDiskRecord {
 
 	int flags;
 	int links;
-	int dir;
+	int mode;
 	int cluster_bitmap;
 };
 
@@ -276,7 +275,7 @@ static void close_device(State *s);
 static int initial_nodes_for_volume(uint64_t size);
 static void generate_uuid(State *s);
 static void create_generation(State *s);
-static void init_record(State *s, SystemFileDiskRecord *rec, int type, int dir);
+static void init_record(State *s, SystemFileDiskRecord *rec, int type, int mode);
 static void print_state(State *s);
 static int ocfs2_clusters_per_group(int block_size,
 				    int cluster_size_bits);
@@ -290,16 +289,16 @@ extern char *optarg;
 extern int optind, opterr, optopt;
 
 SystemFileInfo system_files[] = {
-	{ "bad_blocks", SFI_OTHER, 1, 0 },
-	{ "global_inode_alloc", SFI_CHAIN, 1, 0 },
-	{ "slot_map", SFI_OTHER, 1, 0 },
-	{ "heartbeat", SFI_HEARTBEAT, 1, 0 },
-	{ "global_bitmap", SFI_CLUSTER, 1, 0 },
-	{ "orphan_dir", SFI_OTHER, 1, 1 },
-	{ "extent_alloc:%04d", SFI_CHAIN, 0, 0 },
-	{ "inode_alloc:%04d", SFI_CHAIN, 0, 0 },
-	{ "journal:%04d", SFI_JOURNAL, 0, 0 },
-	{ "local_alloc:%04d", SFI_LOCAL_ALLOC, 0, 0 }
+	{ "bad_blocks", SFI_OTHER, 1, S_IFREG | 0644 },
+	{ "global_inode_alloc", SFI_CHAIN, 1, S_IFREG | 0644 },
+	{ "slot_map", SFI_OTHER, 1, S_IFREG | 0644 },
+	{ "heartbeat", SFI_HEARTBEAT, 1, S_IFREG | 0644 },
+	{ "global_bitmap", SFI_CLUSTER, 1, S_IFREG | 0644 },
+	{ "orphan_dir", SFI_OTHER, 1, S_IFDIR | 0755 },
+	{ "extent_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
+	{ "inode_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
+	{ "journal:%04d", SFI_JOURNAL, 0, S_IFREG | 0644 },
+	{ "local_alloc:%04d", SFI_LOCAL_ALLOC, 0, S_IFREG | 0644 }
 };
 
 int
@@ -338,9 +337,9 @@ main(int argc, char **argv)
 
 	check_32bit_blocks (s);
 
-	init_record(s, &superblock_rec, SFI_OTHER, 0);
-	init_record(s, &root_dir_rec, SFI_OTHER, 1);
-	init_record(s, &system_dir_rec, SFI_OTHER, 1);
+	init_record(s, &superblock_rec, SFI_OTHER, S_IFREG | 0644);
+	init_record(s, &root_dir_rec, SFI_OTHER, S_IFDIR | 0755);
+	init_record(s, &system_dir_rec, SFI_OTHER, S_IFDIR | 0755);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		num = system_files[i].global ? 1 : s->initial_nodes;
@@ -348,7 +347,7 @@ main(int argc, char **argv)
 
 		for (j = 0; j < num; j++) {
 			init_record(s, &record[i][j],
-				    system_files[i].type, system_files[i].dir);
+				    system_files[i].type, system_files[i].mode);
 		}
 	}
 
@@ -432,7 +431,7 @@ main(int argc, char **argv)
 			sprintf(fname, system_files[i].name, j);
 			add_entry_to_directory(s, system_dir, fname,
 					       record[i][j].fe_off,
-					       system_files[i].dir ? OCFS2_FT_DIR
+					       S_ISDIR(system_files[i].mode) ? OCFS2_FT_DIR
 							           : OCFS2_FT_REG_FILE);
 		}
 	}
@@ -1528,7 +1527,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	uint32_t clusters;
 	AllocBitmap *bitmap;
 
-	mode = rec->dir ? 0755 | S_IFDIR : 0644 | S_IFREG;
+	mode = rec->mode;
 
 	clusters = (rec->extent_len + s->cluster_size - 1) >> s->cluster_size_bits;
 
@@ -1860,14 +1859,14 @@ static void create_generation(State *s)
 }
 
 static void
-init_record(State *s, SystemFileDiskRecord *rec, int type, int dir)
+init_record(State *s, SystemFileDiskRecord *rec, int type, int mode)
 {
 	memset(rec, 0, sizeof(SystemFileDiskRecord));
 
 	rec->flags = OCFS2_VALID_FL | OCFS2_SYSTEM_FL;
-	rec->dir = dir;
+	rec->mode = mode;
 
-	rec->links = dir ? 0 : 1;
+	rec->links = S_ISDIR(mode) ? 0 : 1;
 
 	rec->bi.used_bits = rec->bi.total_bits = 0;
 	rec->flags = (OCFS2_VALID_FL | OCFS2_SYSTEM_FL);

@@ -121,11 +121,11 @@
 #define OCFS2_DEFAULT_JOURNAL_SIZE	(8 * ONE_MEGA_BYTE)
 #define OCFS2_MIN_JOURNAL_SIZE		(4 * ONE_MEGA_BYTE)
 
-typedef struct _ocfs2_sysfile_info {
-	char *name;
-	int flags;
-	int dir;
-} ocfs2_sysfile_info;
+struct ocfs2_system_inode_info {
+	char	*si_name;
+	int	si_flags;
+	int	si_mode;
+};
 
 /* System file index */
 enum {
@@ -144,23 +144,23 @@ enum {
 	NUM_SYSTEM_INODES
 };
 
-static ocfs2_sysfile_info sysfile_info[NUM_SYSTEM_INODES] = {
+static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 	/* Global system inodes (single copy) */
 	/* The first two are only used from userspace mfks/tunefs */
-	[BAD_BLOCK_SYSTEM_INODE]		{ "bad_blocks", 0, 0 },
-	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	{ "global_inode_alloc", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, 0 },
+	[BAD_BLOCK_SYSTEM_INODE]		{ "bad_blocks", 0, S_IFREG | 0644 },
+	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	{ "global_inode_alloc", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
 
 	/* These are used by the running filesystem */
-	[SLOT_MAP_SYSTEM_INODE]			{ "slot_map", 0, 0 },
-	[HEARTBEAT_SYSTEM_INODE]		{ "heartbeat", OCFS2_HEARTBEAT_FL, 0 },
-	[GLOBAL_BITMAP_SYSTEM_INODE]		{ "global_bitmap", 0, 0 },
-	[ORPHAN_DIR_SYSTEM_INODE]		{ "orphan_dir", 0, 1 },
+	[SLOT_MAP_SYSTEM_INODE]			{ "slot_map", 0, S_IFREG | 0644 },
+	[HEARTBEAT_SYSTEM_INODE]		{ "heartbeat", OCFS2_HEARTBEAT_FL, S_IFREG | 0644 },
+	[GLOBAL_BITMAP_SYSTEM_INODE]		{ "global_bitmap", 0, S_IFREG | 0644 },
+	[ORPHAN_DIR_SYSTEM_INODE]		{ "orphan_dir", 0, S_IFDIR | 0755 },
 
 	/* Node-specific system inodes (one copy per node) */
-	[EXTENT_ALLOC_SYSTEM_INODE]		{ "extent_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, 0 },
-	[INODE_ALLOC_SYSTEM_INODE]		{ "inode_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, 0 },
-	[JOURNAL_SYSTEM_INODE]			{ "journal:%04d", OCFS2_JOURNAL_FL, 0 },
-	[LOCAL_ALLOC_SYSTEM_INODE]		{ "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, 0 }
+	[EXTENT_ALLOC_SYSTEM_INODE]		{ "extent_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
+	[INODE_ALLOC_SYSTEM_INODE]		{ "inode_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
+	[JOURNAL_SYSTEM_INODE]			{ "journal:%04d", OCFS2_JOURNAL_FL, S_IFREG | 0644 },
+	[LOCAL_ALLOC_SYSTEM_INODE]		{ "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, S_IFREG | 0644 }
 };
 
 
@@ -209,21 +209,7 @@ static unsigned char ocfs_type_by_mode[S_IFMT >> S_SHIFT] = {
  * Convenience casts
  */
 #define OCFS2_RAW_SB(dinode)	(&((dinode)->id2.i_super))
-#define DISK_LOCK(dinode)	(&((dinode)->i_disk_lock))
 #define LOCAL_ALLOC(dinode)	(&((dinode)->id2.i_lab))
-
-/* TODO: change these?  */
-#define OCFS2_NODE_CONFIG_HDR_SIGN	"NODECFG"
-#define OCFS2_NODE_CONFIG_SIGN_LEN	8
-#define OCFS2_NODE_CONFIG_VER		2
-#define OCFS2_NODE_MIN_SUPPORTED_VER	2
-
-#define MAX_NODE_NAME_LENGTH	32
-
-#define OCFS2_GUID_HOSTID_LEN	20
-#define OCFS2_GUID_MACID_LEN	12
-#define OCFS2_GUID_LEN		(OCFS2_GUID_HOSTID_LEN + OCFS2_GUID_MACID_LEN)
-
 
 
 /*
@@ -298,17 +284,6 @@ typedef struct _ocfs2_extent_block
 } ocfs2_extent_block;
 
 /*
- * On disk lock structure for OCFS2
- */
-typedef struct _ocfs2_disk_lock
-{
-/*00*/	__s16 dl_master;	/* Node number of current master */
-	__u8 dl_level;		/* Lock level */
-	__u8 dl_reserved1;
-/*04*/
-} ocfs2_disk_lock;
-
-/*
  * On disk superblock for OCFS2
  * Note that it is contained inside an ocfs2_dinode, so all offsets
  * are relative to the start of ocfs2_dinode.id2.
@@ -367,9 +342,9 @@ typedef struct _ocfs2_dinode {
 					   belongs to */
 	__u16 i_suballoc_bit;		/* Bit offset in suballocater
 					   block group */
-	__u32 i_reserved0;
-/*14*/	__u32 i_clusters;		/* Cluster count */
-/*18*/	__u32 i_uid;			/* Owner UID */
+/*10*/	__u32 i_reserved0;
+	__u32 i_clusters;		/* Cluster count */
+	__u32 i_uid;			/* Owner UID */
 	__u32 i_gid;			/* Owning GID */
 /*20*/	__u64 i_size;			/* Size in bytes */
 	__u16 i_mode;			/* File mode */
@@ -399,8 +374,8 @@ typedef struct _ocfs2_dinode {
 		} bitmap1;
 		struct {		/* Info for journal system
 					   inodes */
-			__u32 i_flags;	/* Mounted, version, etc.    */
-			__u32 i_j_pad;
+			__u32 ij_flags;	/* Mounted, versoin, etc. */
+			__u32 ij_pad;
 		} journal1;
 	} id1;				/* Inode type dependant 1 */
 /*C0*/	union {
@@ -567,9 +542,12 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
          * list has a copy per node.
          */
 	if (type <= OCFS2_LAST_GLOBAL_SYSTEM_INODE)
-		chars = snprintf(buf, len, sysfile_info[type].name);
+		chars = snprintf(buf, len,
+				 ocfs2_system_inodes[type].si_name);
 	else
-		chars = snprintf(buf, len, sysfile_info[type].name, node);
+		chars = snprintf(buf, len,
+				 ocfs2_system_inodes[type].si_name,
+				 node);
 
 	return chars;
 }

@@ -356,6 +356,10 @@ out:
  * "find_clear_bit_range()" function for the bitmaps.
  *
  * XXX what to do about local allocs?
+ * XXX Well, we shouldn't use local allocs to allocate, as we are
+ *     userspace and we have the entire bitmap in memory.  However, this
+ *     doesn't solve the issue of "is space still in dirty local
+ *     allocs?"
  */
 errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
 			     uint32_t requested,
