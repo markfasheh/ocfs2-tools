@@ -41,6 +41,8 @@
 #include <inttypes.h>
 #include <ctype.h>
 
+#include <uuid/uuid.h>
+
 #include "ocfs2.h"
 #include "bitops.h"
 

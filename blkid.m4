@@ -7,9 +7,6 @@ AC_DEFUN([OCFS2_BLKID], [
   AC_SUBST(HAVE_BLKID)
 
   if test "x$HAVE_BLKID" != "xyes"; then
-    AC_CHECK_LIB(uuid, uuid_unparse, :,
-      [AC_MSG_ERROR([could not find uuid library])])
-
     AC_CHECK_SIZEOF(short)
     AC_CHECK_SIZEOF(int)
     AC_CHECK_SIZEOF(long)

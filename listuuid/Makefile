@@ -40,6 +40,6 @@ dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 listuuid: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
-	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(LIBO2DLM_LIBS)
+	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(COM_ERR_LIBS) $(UUID_LIBS)
 
 include $(TOPDIR)/Postamble.make

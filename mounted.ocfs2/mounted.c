@@ -34,6 +34,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include <uuid/uuid.h>
+
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
 #include <ocfs1_fs_compat.h>
@@ -133,20 +135,16 @@ static void ocfs2_print_quick_detect(struct list_head *dev_list)
 	ocfs2_devices *dev;
 	struct list_head *pos;
 	char uuid[40];
-	char *p;
-	int i;
 
-	printf("%-20s  %-5s  %-32s  %-s\n", "Device", "FS", "GUID", "Label");
+	printf("%-20s  %-5s  %-36s  %-s\n", "Device", "FS", "UUID", "Label");
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		if (dev->fs_type == 0)
 			continue;
 
-		memset(uuid, 0, sizeof(uuid));		
-		for (i = 0, p = uuid; i < 16; i++, p += 2)
-			sprintf(p, "%02X", dev->uuid[i]);
+		uuid_unparse(dev->uuid, uuid);
 
-		printf("%-20s  %-5s  %-32s  %-s\n", dev->dev_name,
+		printf("%-20s  %-5s  %-36s  %-s\n", dev->dev_name,
 		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"), uuid,
 		       dev->label);
 	}

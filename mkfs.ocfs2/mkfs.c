@@ -1686,35 +1686,11 @@ initial_nodes_for_volume(uint64_t size)
 	return (i < 4) ? defaults[i] : 32;
 }
 
-/* XXX: Hm, maybe replace this with libuuid? */
 static void
 generate_uuid(State *s)
 {
-	int randfd = 0;
-	int readlen = 0;
-	int len = 0;
-
-	if ((randfd = open("/dev/urandom", O_RDONLY)) == -1) {
-		com_err(s->progname, 0,
-			"Error opening /dev/urandom: %s", strerror(errno));
-		exit(1);
-	}
-
 	s->uuid = do_malloc(s, OCFS2_VOL_UUID_LEN);
-
-	while (readlen < OCFS2_VOL_UUID_LEN) {
-		if ((len = read(randfd, s->uuid + readlen,
-				OCFS2_VOL_UUID_LEN - readlen)) == -1) {
-			com_err(s->progname, 0,
-				"Error reading from /dev/urandom: %s",
-				strerror(errno));
-			exit(1);
-		}
-
-		readlen += len;
-	}
-
-	close(randfd);
+	uuid_generate(s->uuid);
 }
 
 static void create_generation(State *s)

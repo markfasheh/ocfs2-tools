@@ -65,9 +65,20 @@ AC_MSG_RESULT($enable_debug)
 COM_ERR_LIBS=
 AC_CHECK_LIB(com_err, com_err, COM_ERR_LIBS=-lcom_err)
 if test "x$COM_ERR_LIBS" = "x"; then
-    AC_MSG_ERROR([Unable to find com_err library])
+  AC_MSG_ERROR([Unable to find com_err library])
 fi
+AC_CHECK_HEADER(et/com_err.h, :,
+  AC_MSG_ERROR([Unable to find com_err headers]))
 AC_SUBST(COM_ERR_LIBS)
+
+UUID_LIBS=
+AC_CHECK_LIB(uuid, uuid_unparse, UUID_LIBS=-luuid)
+if test "x$COM_ERR_LIBS" = "x"; then
+  AC_MSG_ERROR([Unable to find uuid library])
+fi
+AC_CHECK_HEADER(uuid/uuid.h, :,
+  AC_MSG_ERROR([Unable to find uuid headers]))
+AC_SUBST(UUID_LIBS)
 
 AC_C_BIGENDIAN()
 

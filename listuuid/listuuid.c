@@ -35,6 +35,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include <uuid/uuid.h>
+
 #define  OCFS2_FLAT_INCLUDES	1
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
@@ -101,21 +103,17 @@ static void ocfs2_print_uuids(struct list_head *dev_list)
 	struct list_head *pos;
 	char uuid[40];
 	char devstr[10];
-	char *p;
-	int i;
 
-	printf("%-20s  %7s  %-5s  %-32s  %-s\n", "Device", "maj,min", "FS", "UUID", "Label");
+	printf("%-20s  %7s  %-5s  %-36s  %-s\n", "Device", "maj,min", "FS", "UUID", "Label");
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		if (dev->fs_type == 0)
 			continue;
 
-		memset(uuid, 0, sizeof(uuid));
-		for (i = 0, p = uuid; i < 16; i++, p += 2)
-			sprintf(p, "%02X", dev->uuid[i]);
+		uuid_unparse(dev->uuid, uuid);
 
 		sprintf(devstr, "%3d,%-d", dev->maj_num, dev->min_num);
-		printf("%-20s  %-7s  %-5s  %-32s  %s\n", dev->dev_name, devstr, 
+		printf("%-20s  %-7s  %-5s  %-36s  %s\n", dev->dev_name, devstr, 
 		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"), uuid, dev->label);
 	}
 
