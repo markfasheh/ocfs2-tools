@@ -2,6 +2,6 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SUBDIRS = format
+SUBDIRS = mkfs.ocfs2
 
 include $(TOPDIR)/Postamble.make
