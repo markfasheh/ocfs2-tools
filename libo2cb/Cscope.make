@@ -7,6 +7,6 @@ cscope:
 	find . -maxdepth 2 -name '*.h' -print >>cscope.files
 	find ../libocfs2/ -maxdepth 2 -name '*.c' -print >>cscope.files
 	find ../libocfs2/ -maxdepth 2 -name '*.h' -print >>cscope.files
-	find ../libo2cb/ -maxdepth 2 -name '*.c' -print >>cscope.files
-	find ../libo2cb/ -maxdepth 2 -name '*.h' -print >>cscope.files
+	find ../libo2dlm/ -maxdepth 2 -name '*.c' -print >>cscope.files
+	find ../libo2dlm/ -maxdepth 2 -name '*.h' -print >>cscope.files
 	cscope -b

@@ -40,33 +40,7 @@
 #include "ocfs2_fs.h"
 #include "ocfs1_fs_compat.h"
 
-#define FATAL_ERROR(fmt, arg...)        \
-	({	fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \
-			__FILE__, __LINE__, ##arg);  \
-		raise (SIGTERM);     \
-		exit(1); \
-	})
-
-static void ocfs2_fill_nodes_list (char *buf, uint32_t len, struct list_head *node_list)
-{
-	int16_t *slots = (int16_t *)buf;
-	uint32_t i;
-	uint32_t num_slots = (len / sizeof(uint16_t));
-	ocfs2_nodes *node_blk;
-	
-	for (i = 0; i < num_slots; ++i) {
-		if (slots[i] == -1)
-			break;
-		if (ocfs2_malloc0(sizeof(ocfs2_nodes), &node_blk))
-			FATAL_ERROR("out of memory");
-		node_blk->node_num = slots[i];
-		list_add_tail(&(node_blk->list), node_list);
-	}
-
-	return ;
-}
-
-static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, struct list_head *node_list)
+static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, uint8_t *node_nums)
 {
 	errcode_t ret = 0;
 	char *slotbuf = NULL;
@@ -74,6 +48,9 @@ static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, struct list_head *node_l
 	char *slotmap = ocfs2_system_inodes[SLOT_MAP_SYSTEM_INODE].si_name;
 	uint32_t slotmap_len;
 	uint64_t slotmap_blkno;
+	int16_t *slots;
+	int i, j;
+	uint32_t num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
 
 	slotmap_len = strlen(slotmap);
 
@@ -82,29 +59,24 @@ static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, struct list_head *node_l
 	if (ret)
 		return ret;
 
-	ret =  ocfs2_read_whole_file(fs, slotmap_blkno,
-				     &slotbuf, &slotbuf_len);
+	ret =  ocfs2_read_whole_file(fs, slotmap_blkno, &slotbuf, &slotbuf_len);
 	if (!ret) {
-		ocfs2_fill_nodes_list(slotbuf, slotbuf_len, node_list);
-		ocfs2_free(&slotbuf);
+		slots = (int16_t *)slotbuf;
+		for (i = 0, j = 0; i < num_nodes; ++i)
+			if (slots[i] != -1)
+				node_nums[j++] = (uint8_t)slots[i];
 	}
+
+	if (slotbuf)
+		ocfs2_free(&slotbuf);
 
 	return ret;
 }
 
 /*
- * ocfs2_check_heartbeat() check if the device is mounted on the
- * cluster or not
+ * ocfs2_check_heartbeats() check if the list of ocfs2 devices are
+ * mounted on the cluster or not
  * 
- *  notify ==>
- *      Called for every step of progress (because this takes a few
- *      seconds).  Can be NULL.  States are:
- *              OCFS2_CHB_START
- *              OCFS2_CHB_WAITING  (N times)
- *              OCFS2_CHB_COMPLETE
- *  user_data ==>
- *      User data pointer for the notify function.
- *
  * Return:
  *  mounted_flags set to ==>
  * 	OCFS2_MF_MOUNTED		if mounted locally
@@ -112,72 +84,6 @@ static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, struct list_head *node_l
  * 	OCFS2_MF_READONLY
  * 	OCFS2_MF_SWAP
  * 	OCFS2_MF_MOUNTED_CLUSTER	if mounted on cluster
- *  nodes_list set to ==>
- *  	List of live nodes
- *
- */
-errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
-			       	struct list_head *nodes_list)
-{
-	errcode_t ret = 0;
-	struct list_head dev_list;
-	struct list_head *pos1, *pos2, *pos3, *pos4;
-	ocfs2_devices *dev;
-	ocfs2_nodes *node;
-
-	INIT_LIST_HEAD(&dev_list);
-
-	if (!device)
-		goto bail;
-
-	ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
-	if (ret)
-		goto bail;
-	strncpy(dev->dev_name, device, sizeof(dev->dev_name));
-	dev->mount_flags = 0;
-	INIT_LIST_HEAD(&(dev->node_list));
-	list_add(&(dev->list), &dev_list);
-
-	ret = ocfs2_check_heartbeats(&dev_list);
-	if (ret)
-		goto bail;
-
-	list_for_each_safe(pos1, pos2, &(dev_list)) {
-		dev = list_entry(pos1, ocfs2_devices, list);
-		*mount_flags = dev->mount_flags;
-		list_for_each_safe(pos3, pos4, &(dev->node_list)) {
-			node = list_entry(pos3, ocfs2_nodes, list);
-			if (nodes_list) {
-				list_add_tail(&node->list, nodes_list);
-			} else {
-				list_del(&(node->list));
-				ocfs2_free(&node);
-			}
-		}
-		list_del(&(dev->list));
-		ocfs2_free(&dev);
-		break;
-	}
-
-bail:
-	if (ret) {
-		list_for_each_safe(pos1, pos2, &(dev_list)) {
-			dev = list_entry(pos1, ocfs2_devices, list);
-			list_for_each_safe(pos3, pos4, &(dev->node_list)) {
-				node = list_entry(pos3, ocfs2_nodes, list);
-				list_del(&(node->list));
-				ocfs2_free(&node);
-			}
-			list_del(&(dev->list));
-			ocfs2_free(&dev);
-		}
-	}
-	return ret;
-}
-
-/*
- * ocfs2_check_heartbeats()
- *
  */
 errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 {
@@ -192,13 +98,6 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 		dev = list_entry(pos, ocfs2_devices, list);
 		device = dev->dev_name;
 
-		INIT_LIST_HEAD(&(dev->node_list));
-
-		/* is it locally mounted */
-		ret = ocfs2_check_mount_point(device, &dev->mount_flags, NULL, 0);
-		if (ret)
-			goto bail;
-
 		/* open	fs */
 		fs = NULL;
 		ret = ocfs2_open(device, OCFS2_FLAG_RO, 0, 0, &fs);
@@ -208,31 +107,32 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 		} else
 			dev->fs_type = 2;
 
-		/* get label/uuid for ocfs and ocfs2 */
-		if (dev->fs_type == 2) {
-			num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
-			memcpy(dev->label, OCFS2_RAW_SB(fs->fs_super)->s_label,
-			       sizeof(dev->label));
-			memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
-			       sizeof(dev->uuid));
-		} else {
-			num_nodes = 32;
-			if (ocfs2_get_ocfs1_label(dev->dev_name,
-					dev->label, sizeof(dev->label),
-					dev->uuid, sizeof(dev->uuid))) {
-				dev->label[0] = '\0';
-				memset(dev->uuid, 0, sizeof(dev->uuid));
-			}
-			continue;
-		}
+		/* is it locally mounted */
+		ret = ocfs2_check_mount_point(device, &dev->mount_flags, NULL, 0);
+		if (ret)
+			goto bail;
+
+		/* get label/uuid for ocfs2 */
+		num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+		memcpy(dev->label, OCFS2_RAW_SB(fs->fs_super)->s_label,
+		       sizeof(dev->label));
+		memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
+		       sizeof(dev->uuid));
+
+		ret = ocfs2_malloc((sizeof(uint8_t) * num_nodes), &dev->node_nums);
+		if (ret)
+			goto bail;
+
+		memset(dev->node_nums, OCFS2_MAX_NODES,
+		       (sizeof(uint8_t) * num_nodes));
 
 		/* read slotmap to get nodes on which the volume is mounted */
-		ret = ocfs2_read_slotmap(fs, &dev->node_list);
+		ret = ocfs2_read_slotmap(fs, dev->node_nums);
 		if (ret) {
 			dev->errcode = ret;
 			ret = 0;
 		} else {
-			if (!list_empty(&(dev->node_list)))
+			if (dev->node_nums[0] != OCFS2_MAX_NODES)
 				dev->mount_flags |= OCFS2_MF_MOUNTED_CLUSTER;
 		}
 		ocfs2_close(fs);

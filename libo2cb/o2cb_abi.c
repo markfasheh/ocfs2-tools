@@ -572,18 +572,18 @@ out:
 	return err;
 }
 
-errcode_t o2cb_list_clusters(char ***clusters)
+static errcode_t o2cb_list_dir(char *path, char ***objs)
 {
 	errcode_t ret;
 	int count;
 	DIR *dir;
 	struct dirent *dirent;
-	struct clist {
-		struct clist *next;
-		char *cluster;
+	struct dlist {
+		struct dlist *next;
+		char *name;
 	} *tmp, *list;
 
-	dir = opendir(O2CB_FORMAT_CLUSTER_DIR);
+	dir = opendir(path);
 	if (!dir) {
 		switch (errno) {
 			default:
@@ -611,12 +611,12 @@ errcode_t o2cb_list_clusters(char ***clusters)
 	count = 0;
 	list = NULL;
 	while ((dirent = readdir(dir)) != NULL) {
-		tmp = malloc(sizeof(struct clist));
+		tmp = malloc(sizeof(struct dlist));
 		if (!tmp)
 			goto out_free_list;
 
-		tmp->cluster = strdup(dirent->d_name);
-		if (!tmp->cluster) {
+		tmp->name = strdup(dirent->d_name);
+		if (!tmp->name) {
 			free(tmp);
 			goto out_free_list;
 		}
@@ -626,17 +626,17 @@ errcode_t o2cb_list_clusters(char ***clusters)
 		count++;
 	}
 
-	*clusters = malloc(sizeof(char *) * (count + 1));
-	if (!*clusters)
+	*objs = malloc(sizeof(char *) * (count + 1));
+	if (!*objs)
 		goto out_free_list;
 
 	tmp = list;
 	count = 0;
 	for (tmp = list, count = 0; tmp; tmp = tmp->next, count++) {
-		(*clusters)[count] = tmp->cluster;
-		tmp->cluster = NULL;
+		(*objs)[count] = tmp->name;
+		tmp->name = NULL;
 	}
-	(*clusters)[count] = NULL;
+	(*objs)[count] = NULL;
 
 	ret = 0;
 
@@ -645,8 +645,8 @@ out_free_list:
 		tmp = list;
 		list = list->next;
 
-		if (tmp->cluster)
-			free(tmp->cluster);
+		if (tmp->name)
+			free(tmp->name);
 		free(tmp);
 	}
 
@@ -656,13 +656,59 @@ out:
 	return ret;
 }
 
-void o2cb_free_cluster_list(char **clusters)
+static void o2cb_free_dir_list(char **objs)
 {
 	int i;
 
-	for (i = 0; clusters[i]; i++) {
-		free(clusters[i]);
-	}
+	for (i = 0; objs[i]; i++)
+		free(objs[i]);
 
-	free(clusters);
+	free(objs);
+}
+
+errcode_t o2cb_list_clusters(char ***clusters)
+{
+	return o2cb_list_dir(O2CB_FORMAT_CLUSTER_DIR, clusters);
+}
+
+void o2cb_free_cluster_list(char **clusters)
+{
+	o2cb_free_dir_list(clusters);
+}
+
+errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes)
+{
+	char path[PATH_MAX];
+	errcode_t ret;
+
+	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_NODE_DIR,
+		       cluster_name);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	return o2cb_list_dir(path, nodes);
+}
+
+void o2cb_free_nodes_list(char **nodes)
+{
+	o2cb_free_dir_list(nodes);
+}
+
+errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
+			    uint16_t *node_num)
+{
+	char val[30];
+	char *p;
+	errcode_t ret;
+
+	ret = o2cb_get_node_attribute(cluster_name, node_name,
+				      "num", val, sizeof(val));
+	if (ret)
+		return ret;
+
+	*node_num = strtoul(val, &p, 0);
+	if (!p || (*p && *p != '\n'))
+		return O2CB_ET_INVALID_NODE_NUM;
+
+	return 0;
 }

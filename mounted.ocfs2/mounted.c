@@ -2,9 +2,8 @@
  * mounted.c
  *
  * ocfs2 mount detect utility
- * Detects both ocfs and ocfs2 volumes
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2005 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -21,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #define _LARGEFILE64_SOURCE
@@ -50,19 +48,20 @@ char *usage_string =
 "	-d quick detect\n"
 "	-f full detect\n";
 
-static void ocfs2_print_nodes(struct list_head *node_list)
+static void ocfs2_print_nodes(uint8_t *nums, char **names)
 {
-	ocfs2_nodes *node;
-	struct list_head *pos;
-	int begin = 1;
+	int i = 0;
+	uint8_t n;
 
-	list_for_each(pos, node_list) {
-		node = list_entry(pos, ocfs2_nodes, list);
-		if (begin) {
-			printf("%d", node->node_num);
-			begin = 0;
-		}  else
-			printf(", %d", node->node_num);
+	while (nums[i] != OCFS2_MAX_NODES) {
+		if (i)
+			printf(", ");
+		n = nums[i];
+		if (names && names[n] && *(names[n]))
+			printf("%s", names[n]);
+		else
+			printf("%d", n);
+		++i;
 	}
 
 	return ;
@@ -73,6 +72,31 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 {
 	ocfs2_devices *dev;
 	struct list_head *pos;
+	char **node_names = NULL;
+	char **cluster_names = NULL;
+	char *nodes[OCFS2_MAX_NODES];
+	char value[10];
+	int i = 0;
+	uint16_t num;
+
+	memset(nodes, 0, sizeof(nodes));
+
+	o2cb_list_clusters(&cluster_names);
+
+	if (cluster_names && *cluster_names) {
+		o2cb_list_nodes(*cluster_names, &node_names);
+
+		/* sort the names according to the node number */
+		while(node_names && node_names[i] && *(node_names[i])) {
+			if (o2cb_get_node_num(*cluster_names, node_names[i],
+					      &num))
+				break;
+			if (num >= OCFS2_MAX_NODES)
+				break;
+			nodes[num] = node_names[i];
+			++i;
+		}
+	}
 
 	printf("%-20s  %-5s  %s\n", "Device", "FS", "Nodes");
 	list_for_each(pos, dev_list) {
@@ -80,21 +104,27 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 		if (dev->fs_type == 0)
 			continue;
 
-		printf("%-20s  %-5s  ", dev->dev_name,
-		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"));
+		printf("%-20s  %-5s  ", dev->dev_name, "ocfs2");
 
 		if (dev->errcode) {
 			fflush(stdout);
 			com_err("Unknown", dev->errcode, " ");
 		} else {
-			if (list_empty(&(dev->node_list))) {
+			if (dev->node_nums[0] == OCFS2_MAX_NODES) {
 				printf("Not mounted\n");
 				continue;
 			}
-			ocfs2_print_nodes(&(dev->node_list));
+			ocfs2_print_nodes(dev->node_nums, nodes);
 			printf("\n");
 		}
 	}
+
+	if (node_names)
+		o2cb_free_nodes_list(node_names);
+
+	if (cluster_names)
+		o2cb_free_cluster_list(cluster_names);
+
 	return ;
 }
 
@@ -210,8 +240,7 @@ static errcode_t ocfs2_detect(char *device, int quick_detect)
 {
 	errcode_t ret = 0;
 	struct list_head dev_list;
-	struct list_head *pos1, *pos2, *pos3, *pos4;
-	ocfs2_nodes *node;
+	struct list_head *pos1, *pos2;
 	ocfs2_devices *dev;
 
 	INIT_LIST_HEAD(&(dev_list));
@@ -244,11 +273,8 @@ static errcode_t ocfs2_detect(char *device, int quick_detect)
 bail:
 	list_for_each_safe(pos1, pos2, &(dev_list)) {
 		dev = list_entry(pos1, ocfs2_devices, list);
-		list_for_each_safe(pos3, pos4, &(dev->node_list)) {
-			node = list_entry(pos3, ocfs2_nodes, list);
-			list_del(&(node->list));
-			ocfs2_free(&node);
-		}
+		if (dev->node_nums)
+			ocfs2_free(&dev->node_nums);
 		list_del(&(dev->list));
 		ocfs2_free(&dev);
 	}

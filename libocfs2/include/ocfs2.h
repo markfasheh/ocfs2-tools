@@ -210,15 +210,6 @@ struct _ocfs2_cached_inode {
 	ocfs2_bitmap *ci_chains;
 };
 
-/* FIXME: this is totally bogus now.  Userspace needs to change
- * its heartbeat checking */
-#define MAX_NODE_NAME_LENGTH    32
-struct _ocfs2_nodes {
-	struct list_head list;
-	char node_name[MAX_NODE_NAME_LENGTH+1];
-	uint16_t node_num;
-};
-
 struct _ocfs2_devices {
 	struct list_head list;
 	char dev_name[100];
@@ -230,7 +221,7 @@ struct _ocfs2_devices {
 	uint32_t min_num;		/* minor number of the device */
 	errcode_t errcode;		/* error encountered reading device */
 	void *private;
-	struct list_head node_list;
+	uint8_t *node_nums;
 };
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);

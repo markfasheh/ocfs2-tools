@@ -56,6 +56,9 @@ errcode_t o2cb_add_node(const char *cluster_name,
 errcode_t o2cb_list_clusters(char ***clusters);
 void o2cb_free_cluster_list(char **clusters);
 
+errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes);
+void o2cb_free_nodes_list(char **nodes);
+
 errcode_t o2cb_create_heartbeat_region_disk(const char *cluster_name,
 					    const char *region_name,
 					    const char *device_name,
@@ -65,5 +68,8 @@ errcode_t o2cb_create_heartbeat_region_disk(const char *cluster_name,
 errcode_t o2cb_remove_heartbeat_region_disk(const char *cluster_name,
 					    const char *region_name);
 
+errcode_t o2cb_get_node_num(const char *cluster_name,
+			    const char *node_name,
+			    uint16_t *node_num);
 
 #endif  /* _O2CB_H */

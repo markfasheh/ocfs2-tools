@@ -63,4 +63,7 @@ ec	O2CB_ET_HOSTNAME_UNKNOWN,
 ec	O2CB_ET_CONFIGURATION_ERROR,
 	"Configuration error discovered"
 
+ec	O2CB_ET_INVALID_NODE_NUM,
+	"Node number is invalid"
+
 	end
