@@ -135,20 +135,11 @@ static errcode_t do_write(int fd, const void *bytes, size_t count)
 	return err;
 }
 
-static errcode_t o2cb_set_node_attribute(const char *cluster_name,
-					 const char *node_name,
-					 const char *attr_name,
-					 const char *attr_value)
+static errcode_t o2cb_set_attribute(const char *attr_path,
+				    const char *attr_value)
 {
-	int ret;
 	errcode_t err = 0;
-	char attr_path[PATH_MAX];
 	int fd;
-
-	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_NODE_ATTR,
-		       cluster_name, node_name, attr_name);
-	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
-		return O2CB_ET_INTERNAL_FAILURE;
 
 	fd = open(attr_path, O_WRONLY);
 	if (fd < 0) {
@@ -177,21 +168,13 @@ static errcode_t o2cb_set_node_attribute(const char *cluster_name,
 	return err;
 }
 
-static errcode_t o2cb_get_node_attribute(const char *cluster_name,
-					 const char *node_name,
-					 const char *attr_name,
-					 char *attr_value,
-					 size_t count)
+static errcode_t o2cb_get_attribute(const char *attr_path,
+				    char *attr_value,
+				    size_t count)
 {
 	int ret;
 	errcode_t err = 0;
-	char attr_path[PATH_MAX];
 	int fd;
-
-	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_NODE_ATTR,
-		       cluster_name, node_name, attr_name);
-	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
-		return O2CB_ET_INTERNAL_FAILURE;
 
 	fd = open(attr_path, O_RDONLY);
 	if (fd < 0) {
@@ -224,6 +207,41 @@ static errcode_t o2cb_get_node_attribute(const char *cluster_name,
 	}
 
 	return err;
+}
+
+
+
+static errcode_t o2cb_set_node_attribute(const char *cluster_name,
+					 const char *node_name,
+					 const char *attr_name,
+					 const char *attr_value)
+{
+	int ret;
+	char attr_path[PATH_MAX];
+
+	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_NODE_ATTR,
+		       cluster_name, node_name, attr_name);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	return o2cb_set_attribute(attr_path, attr_value);
+}
+
+static errcode_t o2cb_get_node_attribute(const char *cluster_name,
+					 const char *node_name,
+					 const char *attr_name,
+					 char *attr_value,
+					 size_t count)
+{
+	int ret;
+	char attr_path[PATH_MAX];
+
+	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_NODE_ATTR,
+		       cluster_name, node_name, attr_name);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	return o2cb_get_attribute(attr_path, attr_value, count);
 }
 
 /* XXX there is no commit yet, so this just creates the node in place
@@ -308,9 +326,7 @@ static errcode_t o2cb_set_region_attribute(const char *cluster_name,
 					   const char *attr_value)
 {
 	int ret;
-	errcode_t err = 0;
 	char attr_path[PATH_MAX];
-	int fd;
 
 	ret = snprintf(attr_path, PATH_MAX - 1,
 		       O2CB_FORMAT_HEARTBEAT_REGION_ATTR,
@@ -318,31 +334,7 @@ static errcode_t o2cb_set_region_attribute(const char *cluster_name,
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
-	fd = open(attr_path, O_WRONLY);
-	if (fd < 0) {
-		switch (errno) {
-			default:
-				err = O2CB_ET_INTERNAL_FAILURE;
-				break;
-
-			case ENOTDIR:
-			case ENOENT:
-			case EISDIR:
-				err = O2CB_ET_SERVICE_UNAVAILABLE;
-				break;
-
-			case EACCES:
-			case EPERM:
-			case EROFS:
-				err = O2CB_ET_PERMISSION_DENIED;
-				break;
-		}
-	} else {
-		err = do_write(fd, attr_value, strlen(attr_value));
-		close(fd);
-	}
-
-	return err;
+	return o2cb_set_attribute(attr_path, attr_value);
 }
 
 static errcode_t o2cb_get_region_attribute(const char *cluster_name,
@@ -352,9 +344,7 @@ static errcode_t o2cb_get_region_attribute(const char *cluster_name,
 					   size_t count)
 {
 	int ret;
-	errcode_t err = 0;
 	char attr_path[PATH_MAX];
-	int fd;
 
 	ret = snprintf(attr_path, PATH_MAX - 1,
 		       O2CB_FORMAT_HEARTBEAT_REGION_ATTR,
@@ -362,37 +352,7 @@ static errcode_t o2cb_get_region_attribute(const char *cluster_name,
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
-	fd = open(attr_path, O_RDONLY);
-	if (fd < 0) {
-		switch (errno) {
-			default:
-				err = O2CB_ET_INTERNAL_FAILURE;
-				break;
-
-			case ENOTDIR:
-			case ENOENT:
-			case EISDIR:
-				err = O2CB_ET_SERVICE_UNAVAILABLE;
-				break;
-
-			case EACCES:
-			case EPERM:
-			case EROFS:
-				err = O2CB_ET_PERMISSION_DENIED;
-				break;
-		}
-	} else {
-		ret = do_read(fd, attr_value, count);
-		close(fd);
-		if (ret == -EIO)
-			err = O2CB_ET_IO;
-		else if (ret < 0)
-			err = O2CB_ET_INTERNAL_FAILURE;
-		else if (ret < count)
-			attr_value[ret] = '\0';
-	}
-
-	return err;
+	return o2cb_get_attribute(attr_path, attr_value, count);
 }
 
 static errcode_t _fake_default_cluster(char *cluster)
