@@ -20,8 +20,9 @@ Distribution: Oracle
 Vendor: Oracle Corporation
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: ocfs2-support >= @DIST_VERSION@, %{gtk_name} >= 1.2.8
-BuildRequires: %{gtk_name}-devel >= 1.2.8
+Requires: ocfs2-support >= @DIST_VERSION@
+#Requires: ocfs2-support >= @DIST_VERSION@, %{gtk_name} >= 1.2.8
+#BuildRequires: %{gtk_name}-devel >= 1.2.8
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 
