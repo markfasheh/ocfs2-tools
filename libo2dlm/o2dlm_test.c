@@ -179,6 +179,8 @@ static int get_command(struct command_s *command)
 	char *next;
 
 again:
+	printf("command: ");
+
 	if (!fgets(cbuf, COMMAND_MAX_LEN, stdin))
 		return -1;
 
