@@ -959,7 +959,7 @@ ocfs_rename_file (ocfs_super * osb,
 	if (lockfe != fe)
 		ocfs_release_file_entry (lockfe);
 	ocfs_release_file_entry (fe);
-	ocfs_release_file_entry ((ocfs_file_entry *) pLockNode);
+	ocfs_release_file_entry (pLockNode);
 	ocfs_put_lockres (pLockResource);
 	ocfs_put_lockres (pParentLockResource);
 	LOG_EXIT_STATUS (status);
@@ -1110,7 +1110,7 @@ ocfs_del_file (ocfs_super * osb, __u64 parent_off, __u32 flags, __u64 file_off)
 	}
 
 	if ((fe != (ocfs_file_entry *) pLockNode))
-		ocfs_release_file_entry ((ocfs_file_entry *) pLockNode);
+		ocfs_release_file_entry (pLockNode);
 
 	ocfs_release_file_entry (fe);
 	ocfs_safefree (pCleanupLogRec);
@@ -1647,7 +1647,7 @@ int ocfs_create_directory (ocfs_super * osb, __u64 parent_off, ocfs_file_entry *
 			LOG_ERROR_STATUS (tmpstat);
 	}
 	ocfs_release_dirnode (PDirNode);
-	ocfs_release_file_entry ((ocfs_file_entry *) pLockNode);
+	ocfs_release_file_entry (pLockNode);
 	ocfs_put_lockres (pLockResource);
 	LOG_EXIT_STATUS (status);
 	return status;
@@ -1737,7 +1737,7 @@ int ocfs_create_file (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 			LOG_ERROR_STATUS (tmpstat);
 	}
 	ocfs_release_dirnode (PDirNode);
-	ocfs_release_file_entry ((ocfs_file_entry *) pLockNode);
+	ocfs_release_file_entry (pLockNode);
 	ocfs_put_lockres (pLockResource);
 	LOG_EXIT_STATUS (status);
 	return status;
@@ -2511,7 +2511,7 @@ int ocfs_delete_cdsl (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 			LOG_ERROR_STATUS (tmpstat);
 	}
 
-	ocfs_release_file_entry ((ocfs_file_entry *) pLockNode);
+	ocfs_release_file_entry (pLockNode);
 	ocfs_put_lockres (pLockResource);
 	ocfs_put_lockres (pParentLockResource);
 	LOG_EXIT_STATUS (status);
@@ -2802,7 +2802,7 @@ int ocfs_create_cdsl (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 	}
 
 	ocfs_release_dirnode (PDirNode);
-	ocfs_release_file_entry ((ocfs_file_entry *) pLockNode);
+	ocfs_release_file_entry (pLockNode);
 	ocfs_safefree (buffer);
 	ocfs_put_lockres (pLockResource);
 	LOG_EXIT_STATUS (status);

@@ -574,7 +574,7 @@ int ocfs_process_record (ocfs_super * osb, void *buffer)
 	if (fe)
 		ocfs_release_file_entry (fe);
 	if (lock_node)
-		ocfs_release_file_entry ((ocfs_file_entry *) lock_node);
+		ocfs_release_file_entry (lock_node);
 	ocfs_safefree (read_buf);
 	ocfs_safefree (lock_res_array);
 	LOG_EXIT_STATUS (status);
