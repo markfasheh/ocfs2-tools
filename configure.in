@@ -37,42 +37,6 @@ case "$host" in
     ;;
 esac
 
-AC_MSG_CHECKING(build architectures)
-
-TOOLSARCH=
-
-QUERYFILE=
-if test -f /etc/redhat-release; then
-  QUERYFILE=/etc/redhat-release
-elif test -f /etc/SuSE-release ; then
-  QUERYFILE=/etc/SuSE-release
-fi
-
-RPMARCH="`rpm -qf $QUERYFILE --queryformat \"%{ARCH}\"`"
-if test -n "$RPMARCH" -a "$RPMARCH" != "noarch"; then
-  TOOLSARCH="$RPMARCH"
-fi
-
-if test -z "$TOOLSARCH"; then
-  case "$host_cpu" in
-  x86_64|ppc|ia64|s390x)
-    TOOLSARCH="$host_cpu"
-    ;;
-  i386|i486|i586|i686|i786|k6|k7)
-    TOOLSARCH="i386"
-    ;;
-  ppc64|ppciseries|ppcpseries|ppc64iseries|ppc64pseries|powerpc|powerpc64)
-    TOOLSARCH="ppc"
-    ;;
-  *)
-    AC_MSG_RESULT([not found])
-    AC_MSG_WARN([invalid or unsupported CPU type, things may break])
-    ;;
-  esac
-fi
-
-AC_MSG_RESULT($TOOLSARCH)
-
 AC_PROG_CC
 AC_PROG_CPP
 
