@@ -2,7 +2,7 @@
 .SH "NAME"
 mkfs.ocfs2 \- Build an OCFS2 file system.
 .SH "SYNOPSIS"
-\fBmkfs.ocfs2\fR [ \fB\-b\fR \fIblocksize\fR ] [ \fB\-c\fR \fIcluster\-size\fR ] [ \fB\-L\fR \fIvolume\-label\fR ] [ \fB\-n\fR \fInumber\-of\-nodes\fR ] [ \fB\-j\fR \fIjournal\-size\fR ] [ \fB\-q\fR ] [ \fB\-v\fR ] [ \fB\-V\fR ] \fIdevice\fR
+\fBmkfs.ocfs2\fR [ \fB\-b\fR \fIblocksize\fR ] [ \fB\-c\fR \fIcluster\-size\fR ] [ \fB\-L\fR \fIvolume\-label\fR ] [ \fB\-n\fR \fInumber\-of\-nodes\fR ] [ \fB\-j\fR \fIjournal\-size\fR ] [ \fB\-f\fR ] [ \fB\-q\fR ] [ \fB\-v\fR ] [ \fB\-V\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
 \fBmkfs.ocfs2\fR is used to build an OCFS2 file system on a \fIdevice\fR, usually a partition in a shared disk. In order to prevent data loss, \fBmkfs.ocfs2\fR will not format a specified device if a node has it mounted. Different than OCFS, there is no need to mount the partition exclusively after formatting it.
@@ -26,6 +26,10 @@ mkfs.ocfs2 \- Build an OCFS2 file system.
 .TP
 \fB\-j\fR \fIjournal\-size\fR 
 \fIjournal\-size\fR specify the size of the journal that will be created. Valid sizes range from 4Mb to 500Mb.
+
+.TP
+\fB\-f\fR 
+Force the execution of \fBmkfs.ocfs2\fR. This parameter should be used if the partition was previously used by OCFS2 or when the OCFS2 cluster service is not running.
 
 .TP
 \fB\-q\fR 
