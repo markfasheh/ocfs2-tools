@@ -27,8 +27,7 @@
 #ifndef _BITMAP_H
 #define _BITMAP_H
 
-#include "kernel-list.h"
-
+#include "kernel-rbtree.h"
 
 struct ocfs2_bitmap_operations {
 	errcode_t (*set_bit)(ocfs2_bitmap *bm, uint64_t bit,
@@ -53,12 +52,12 @@ struct _ocfs2_bitmap {
 						   from if it is a
 						   physical bitmap
 						   inode */
-	struct list_head b_clusters;
+	struct rb_root b_clusters;
 	void *b_private;
 };
 
 struct ocfs2_bitmap_cluster {
-	struct list_head bc_list;
+	struct rb_node bc_node;
 	uint64_t bc_start_bit;		/* Bit offset.  Must be
 					   aligned on
 					   (clustersize * 8) */

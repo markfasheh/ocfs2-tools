@@ -66,7 +66,8 @@ CFILES = 		\
 	unlink.c	\
 	bitmap.c	\
 	fileio.c	\
-	checkhb.c
+	checkhb.c	\
+	kernel-rbtree.c
 
 HFILES =				\
 	include/jfs_user.h		\

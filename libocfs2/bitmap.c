@@ -36,13 +36,14 @@
 #include "ocfs2.h"
 
 #include "bitmap.h"
+#include "kernel-rbtree.h"
 
 
 /* The public API */
 
 void ocfs2_bitmap_free(ocfs2_bitmap *bitmap)
 {
-	struct list_head *pos, *next;
+	struct rb_node *node;
 	struct ocfs2_bitmap_cluster *bc;
 
 	if (bitmap->b_ops->destroy_notify)
@@ -52,12 +53,10 @@ void ocfs2_bitmap_free(ocfs2_bitmap *bitmap)
 	 * If the bitmap needs to do extra cleanup of clusters,
 	 * it should have done it in destroy_notify
 	 */
-	for (pos = bitmap->b_clusters.next, next = pos->next;
-	     pos != &bitmap->b_clusters;
-	     pos = next, next = pos->next) {
-		bc = list_entry(pos, struct ocfs2_bitmap_cluster,
-				bc_list);
-		list_del(pos);
+	while ((node = rb_first(&bitmap->b_clusters)) != NULL) {
+		bc = rb_entry(node, struct ocfs2_bitmap_cluster, bc_node);
+
+		rb_erase(&bc->bc_node, &bitmap->b_clusters);
 		ocfs2_bitmap_free_cluster(bc);
 	}
 
@@ -150,7 +149,7 @@ errcode_t ocfs2_bitmap_new(ocfs2_filesys *fs,
 	bitmap->b_fs = fs;
 	bitmap->b_total_bits = total_bits;
 	bitmap->b_ops = ops;
-	INIT_LIST_HEAD(&bitmap->b_clusters);
+	bitmap->b_clusters = RB_ROOT;
 	bitmap->b_private = private_data;
 	if (description) {
 		ret = ocfs2_malloc0(sizeof(char) *
@@ -291,49 +290,79 @@ static errcode_t ocfs2_bitmap_merge_cluster(ocfs2_bitmap *bitmap,
 	memcpy(prev->bc_bitmap + (prev_bits / 8), next->bc_bitmap,
 	       next->bc_total_bits / 8);
 
-	list_del(&next->bc_list);
+	rb_erase(&next->bc_node, &bitmap->b_clusters);
 	ocfs2_bitmap_free_cluster(next);
 
 	return 0;
 }
 
+/* Find a bitmap cluster in the tree that intersects the bit region
+ * that is passed in.  The rb_node garbage lets insertion share this
+ * searching code, most trivial callers will pass in NULLs. */
+static
+struct ocfs2_bitmap_cluster *ocfs2_bitmap_lookup(ocfs2_bitmap *bitmap, 
+						 uint64_t bitno, 
+						 uint64_t total_bits, 
+						 struct rb_node ***ret_p,
+						 struct rb_node **ret_parent)
+{
+	struct rb_node **p = &bitmap->b_clusters.rb_node;
+	struct rb_node *parent = NULL;
+	struct ocfs2_bitmap_cluster *bc = NULL;
+
+	while (*p)
+	{
+		parent = *p;
+		bc = rb_entry(parent, struct ocfs2_bitmap_cluster, bc_node);
+
+		if (bitno + total_bits <= bc->bc_start_bit) {
+			p = &(*p)->rb_left;
+			bc = NULL;
+		} else if (bitno >= (bc->bc_start_bit + bc->bc_total_bits)) {
+			p = &(*p)->rb_right;
+			bc = NULL;
+		} else
+			break;
+	}
+	if (ret_p != NULL)
+		*ret_p = p;
+	if (ret_parent != NULL)
+		*ret_parent = parent;
+	return bc;
+}
+
 errcode_t ocfs2_bitmap_insert_cluster(ocfs2_bitmap *bitmap,
 				      struct ocfs2_bitmap_cluster *bc)
 {
-	struct list_head *pos, *prev;
 	struct ocfs2_bitmap_cluster *bc_tmp;
+	struct rb_node **p, *parent, *node;
 
 	if (bc->bc_start_bit > bitmap->b_total_bits)
 		return OCFS2_ET_INVALID_BIT;
 
-	prev = &bitmap->b_clusters;
-	list_for_each(pos, &bitmap->b_clusters) {
-		bc_tmp = list_entry(pos, struct ocfs2_bitmap_cluster,
-				    bc_list);
-		if (bc->bc_start_bit >=
-		    (bc_tmp->bc_start_bit + bc_tmp->bc_total_bits)) {
-			prev = pos;
-			continue;
-		}
-		if ((bc->bc_start_bit + bc->bc_total_bits) <=
-		    bc_tmp->bc_start_bit)
-			break;
-
+	/* we shouldn't find an existing cluster that intersects our new one */
+	bc_tmp = ocfs2_bitmap_lookup(bitmap, bc->bc_start_bit, 
+				     bc->bc_total_bits, &p, &parent);
+	if (bc_tmp)
 		return OCFS2_ET_INVALID_BIT;
-	}
 
-	list_add(&bc->bc_list, prev);
+	rb_link_node(&bc->bc_node, parent, p);
+	rb_insert_color(&bc->bc_node, &bitmap->b_clusters);
 
-	if (pos != &bitmap->b_clusters) {
-		bc_tmp = list_entry(pos, struct ocfs2_bitmap_cluster,
-				    bc_list);
-		ocfs2_bitmap_merge_cluster(bitmap, bc, bc_tmp);
-	}
+	/* try to merge our new extent with its neighbours in the tree */
 
-	if (prev != &bitmap->b_clusters) {
-		bc_tmp = list_entry(prev, struct ocfs2_bitmap_cluster,
-				    bc_list);
+	node = rb_prev(&bc->bc_node);
+	if (node) {
+		bc_tmp = list_entry(node, struct ocfs2_bitmap_cluster,
+				    bc_node);
 		ocfs2_bitmap_merge_cluster(bitmap, bc_tmp, bc);
+	}
+
+	node = rb_next(&bc->bc_node);
+	if (node != NULL) {
+		bc_tmp = list_entry(node, struct ocfs2_bitmap_cluster,
+				    bc_node);
+		ocfs2_bitmap_merge_cluster(bitmap, bc, bc_tmp);
 	}
 
 	return 0;
@@ -347,81 +376,57 @@ errcode_t ocfs2_bitmap_insert_cluster(ocfs2_bitmap *bitmap,
 errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap, uint64_t bitno,
 				   int *oldval)
 {
-	int old_tmp;
-	struct list_head *pos;
 	struct ocfs2_bitmap_cluster *bc;
+	int old_tmp;
+	
+	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL);
+	if (!bc)
+		return OCFS2_ET_INVALID_BIT;
 
-	list_for_each(pos, &bitmap->b_clusters) {
-		bc = list_entry(pos, struct ocfs2_bitmap_cluster,
-				bc_list);
-		if (bitno < bc->bc_start_bit)
-			break;
-		if (bitno >= (bc->bc_start_bit + bc->bc_total_bits))
-			continue;
+	old_tmp = __test_and_set_bit(bitno - bc->bc_start_bit,
+				     (unsigned long *)(bc->bc_bitmap));
+	if (oldval)
+		*oldval = old_tmp;
 
-		old_tmp = __test_and_set_bit(bitno - bc->bc_start_bit,
-					     (unsigned long *)(bc->bc_bitmap));
-		if (oldval)
-			*oldval = old_tmp;
+	if (!old_tmp)
+		bc->bc_set_bits++;
 
-		if (!old_tmp)
-			bc->bc_set_bits++;
-
-		return 0;
-	}
-
-	return OCFS2_ET_INVALID_BIT;
+	return 0;
 }
 
 errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 				     uint64_t bitno, int *oldval)
 {
-	int old_tmp;
-	struct list_head *pos;
 	struct ocfs2_bitmap_cluster *bc;
+	int old_tmp;
+	
+	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL);
+	if (!bc)
+		return OCFS2_ET_INVALID_BIT;
 
-	list_for_each(pos, &bitmap->b_clusters) {
-		bc = list_entry(pos, struct ocfs2_bitmap_cluster,
-				bc_list);
-		if (bitno < bc->bc_start_bit)
-			break;
-		if (bitno > (bc->bc_start_bit + bc->bc_total_bits))
-			continue;
+	old_tmp = __test_and_clear_bit(bitno - bc->bc_start_bit,
+				       (unsigned long *)bc->bc_bitmap);
+	if (oldval)
+		*oldval = old_tmp;
 
-		old_tmp = __test_and_clear_bit(bitno - bc->bc_start_bit,
-					       (unsigned long *)bc->bc_bitmap);
-		if (oldval)
-			*oldval = old_tmp;
+	if (old_tmp)
+		bc->bc_set_bits--;
 
-		if (old_tmp)
-			bc->bc_set_bits--;
-
-		return 0;
-	}
-
-	return OCFS2_ET_INVALID_BIT;
+	return 0;
 }
 
 errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 				    uint64_t bitno, int *val)
 {
-	struct list_head *pos;
 	struct ocfs2_bitmap_cluster *bc;
+	
+	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL);
+	if (!bc)
+		return OCFS2_ET_INVALID_BIT;
 
-	list_for_each(pos, &bitmap->b_clusters) {
-		bc = list_entry(pos, struct ocfs2_bitmap_cluster,
-				bc_list);
-		if (bitno < bc->bc_start_bit)
-			break;
-		if (bitno >= (bc->bc_start_bit + bc->bc_total_bits))
-			continue;
-
-		*val = test_bit(bitno - bc->bc_start_bit,
-				(unsigned long *)bc->bc_bitmap) ? 1 : 0;
-		return 0;
-	}
-
-	return OCFS2_ET_INVALID_BIT;
+	*val = test_bit(bitno - bc->bc_start_bit,
+			(unsigned long *)bc->bc_bitmap) ? 1 : 0;
+	return 0;
 }
 
 
@@ -589,15 +594,16 @@ extern char *optarg;
 
 static void dump_clusters(ocfs2_bitmap *bitmap)
 {
-	struct list_head *pos;
 	struct ocfs2_bitmap_cluster *bc;
+	struct rb_node *node;
 
 	fprintf(stdout, "Bitmap \"%s\": total = %"PRIu64", set = %"PRIu64"\n",
 		bitmap->b_description, bitmap->b_total_bits,
 		bitmap->b_set_bits);
-	list_for_each(pos, &bitmap->b_clusters) {
-		bc = list_entry(pos, struct ocfs2_bitmap_cluster,
-				bc_list);
+
+	for (node = rb_first(&bitmap->b_clusters);node; node = rb_next(node)) {
+		bc = rb_entry(node, struct ocfs2_bitmap_cluster, bc_node);
+
 		fprintf(stdout,
 			"(start: %"PRIu64", n: %d, set: %d, cpos: %"PRIu32")\n",
 			bc->bc_start_bit, bc->bc_total_bits,
