@@ -511,7 +511,7 @@ def cluster_configurator(parent=None):
 
     if not os.access(os.path.join(CONFIG_FS_PATH, CLUSTER_NAME), os.F_OK):
         online_args = ('online', CLUSTER_NAME),
-        o2cb_init = Process(online_args, 'Starting OCFS2 cluster...', parent)
+        o2cb_init = O2CBInit(online_args, 'Starting OCFS2 cluster...', parent)
         success, output, k = o2cb_init.reap()
 
         if not success:
