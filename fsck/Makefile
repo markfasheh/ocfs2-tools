@@ -4,7 +4,7 @@ include $(TOPDIR)/Preamble.make
 
 MANS = fsck.ocfs.8
 
-SBIN_PROGRAMS = fsck.ocfs
+SBIN_PROGRAMS = fsck.ocfs blked.ocfs
 DIST_FILES = mkgetconst fsck.h classes.h  defaults.h fsck_print.h layout.h sig.h verify.h mkgetconst classes.c parse fsck.ocfs.8.in
 
 ifdef OCFS_DEBUG
@@ -39,10 +39,10 @@ ifdef OCFS_DEBUG
   DEFINES += -DDEBUG
 endif
 
-GLIB_OBJS = verify.o fsck_io.o class_print.o class_rw.o fsck_print.o sig.o layout.o defaults.o
+GLIB_OBJS = verify.o fsck_io.o class_print.o class_rw.o fsck_print.o sig.o layout.o defaults.o utils.o
 
 ## FIXME: make real later
-VERSION_FILES = fsck.c verify.c fsck_io.c class_print.c class_rw.c fsck_print.c sig.c layout.c defaults.c ver.c parse.c
+VERSION_FILES = fsck.c verify.c fsck_io.c class_print.c class_rw.c fsck_print.c sig.c layout.c defaults.c ver.c parse.c utils.c blked.c
 VERSION_SRC = ver.c
 VERSION_PREFIX = FSCK
 
@@ -58,10 +58,16 @@ classes.o: classes.c
 fsck.o: fsck.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(GLIB_CFLAGS) $(DEFINES) -DUSE_MALLOC_ALIGNED $(VERMAGIC) -o $@ -c $<
 
+blked.o: blked.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(GLIB_CFLAGS) $(DEFINES) -DUSE_MALLOC_ALIGNED $(VERMAGIC) -o $@ -c $<
+
 $(GLIB_OBJS): %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(GLIB_CFLAGS) $(DEFINES) -DUSE_MALLOC_ALIGNED $(VERMAGIC) -o $@ -c $<
 
 fsck.ocfs: classes.o fsck.o $(GLIB_OBJS) ver.o
+	$(LINK) $(GLIB_LIBS) $(LIBOCFS_LIBS)
+
+blked.ocfs: classes.o blked.o $(GLIB_OBJS) ver.o
 	$(LINK) $(GLIB_LIBS) $(LIBOCFS_LIBS)
 
 include $(TOPDIR)/Postamble.make

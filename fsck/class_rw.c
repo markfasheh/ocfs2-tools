@@ -724,7 +724,8 @@ int _fileflag_valid(void *top, typeinfo *info)
 				  FLAG_FILE_UPDATE_OIN|FLAG_FILE_RELEASE_MASTER|
 				  FLAG_FILE_RELEASE_CACHE|FLAG_FILE_CREATE_CDSL|
 				  FLAG_FILE_DELETE_CDSL|FLAG_FILE_CHANGE_TO_CDSL|
-				  FLAG_FILE_TRUNCATE)))
+				  FLAG_FILE_TRUNCATE|FLAG_FILE_ACQUIRE_LOCK|
+				  FLAG_FILE_RELEASE_LOCK)))
 		return -1;
 	return 0;
 }
@@ -770,6 +771,10 @@ int _fileflag_to_string_u32(GString **retval, void *top, typeinfo *info)
 		g_string_append(*retval, "FLAG_FILE_CHANGE_TO_CDSL ");
 	if (flag & FLAG_FILE_TRUNCATE)
 		g_string_append(*retval, "FLAG_FILE_TRUNCATE ");
+	if (flag & FLAG_FILE_ACQUIRE_LOCK)
+		g_string_append(*retval, "FLAG_FILE_ACQUIRE_LOCK");
+	if (flag & FLAG_FILE_RELEASE_LOCK)
+		g_string_append(*retval, "FLAG_FILE_RELEASE_LOCK");
 	if ((*retval)->len > 0)
 		g_string_truncate(*retval, (*retval)->len - 1);
 
@@ -813,6 +818,10 @@ int _string_to_fileflag_u32(char *newval, void *top, typeinfo *info)
 			flag |= FLAG_FILE_CHANGE_TO_CDSL;
 		else if (strcasecmp(*arr, "FLAG_FILE_TRUNCATE")==0)
 			flag |= FLAG_FILE_TRUNCATE;
+		else if (strcasecmp(*arr, "FLAG_FILE_ACQUIRE_LOCK")==0)
+			flag |= FLAG_FILE_ACQUIRE_LOCK;
+		else if (strcasecmp(*arr, "FLAG_FILE_RELEASE_LOCK")==0)
+			flag |= FLAG_FILE_RELEASE_LOCK;
 		arr++;
 	}
 	G_STRUCT_MEMBER(__u32, top, info->off) = flag;
@@ -828,7 +837,8 @@ char * _get_fileflag_helptext(typeinfo *info)
 		      "FLAG_FILE_CREATE_DIR FLAG_FILE_UPDATE_OIN "
 		      "FLAG_FILE_RELEASE_MASTER FLAG_FILE_RELEASE_CACHE "
 		      "FLAG_FILE_CREATE_CDSL FLAG_FILE_DELETE_CDSL "
-		      "FLAG_FILE_CHANGE_TO_CDSL FLAG_FILE_TRUNCATE");
+		      "FLAG_FILE_CHANGE_TO_CDSL FLAG_FILE_TRUNCATE "
+		      "FLAG_FILE_ACQUIRE_LOCK FLAG_FILE_RELEASE_LOCK");
 }
 
 // GID: __u32

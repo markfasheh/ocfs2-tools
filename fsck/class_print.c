@@ -60,10 +60,11 @@ int _print_class(char *buf, ocfs_class *cl, FILE *out, bool num, GHashTable *ht)
 	fprintf(out, "\n%s\n=================================\n", cl->name);
 	for (i=0; i<cl->num_members; i++)
 	{
-		bool fail;
+		bool fail = false;
 		ocfs_class_member *mbr = &(cl->members[i]);
 
-		fail = (g_hash_table_lookup(ht, GINT_TO_POINTER(i)) != NULL);
+		if (ht)
+			fail = (g_hash_table_lookup(ht, GINT_TO_POINTER(i)) != NULL);
 		if (num)
 			fprintf(out, "%3d. ", i+1);
 

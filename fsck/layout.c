@@ -31,7 +31,8 @@ ocfs_disk_structure dirnode_t = {
        	&ocfs_dir_node_class,
        	dir_node_sig_match,
        	read_dir_node,
-	write_dir_node,
+//	write_dir_node,
+	write_one_sector,
        	verify_dir_node,
        	print_dir_node,
        	get_dir_node_defaults

@@ -60,6 +60,10 @@ extern bool int_err;
 extern int  cnt_err;
 extern int cnt_wrn;
 
+
+#define MAX_EXTENTS	2048
+#define OCFS_HBT_WAIT	10
+
 #define MAX_NODES			OCFS_MAXIMUM_NODES
 #define MAX_SYSTEM_FILES		(CLEANUP_FILE_BASE_ID + OCFS_MAXIMUM_NODES) /* 193? */
 #define DIR_NODE_SIZE			(1024 * 128)
@@ -156,9 +160,9 @@ typedef struct _filedata
 
 
 void usage(void);
+void handle_signal(int sig);
+void init_global_context(void);
 int parse_fsck_cmdline(int argc, char **argv);
-int edit_structure(ocfs_disk_structure *s, char *buf, int idx, int *changed,
-		   char *option);
 int confirm_changes(__u64 off, ocfs_disk_structure *s, char *buf, int idx,
 		    GHashTable *bad);
 int read_print_struct(ocfs_disk_structure *s, char *buf, __u64 off, int idx,
@@ -247,6 +251,7 @@ typedef struct _ocfsck_context
 	__u32 dir_bm_sz[OCFS_MAXIMUM_NODES];
 	__u32 ext_bm_sz[OCFS_MAXIMUM_NODES];
 	__u64 device_size;
+	__u64 offset;
 	int cluster_size_bits;
 	GArray *vol_bm_data;
 	GArray *dir_bm_data;
