@@ -199,7 +199,15 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	char *chr = dirent->name;
 	int len = dirent->name_len, fix = 0, ret_flags = 0;
 
-	for(; len-- && (*chr == '/' || *chr == '\0'); chr++) {
+	if (len == 0) {
+		if (should_fix(ost, FIX_DEFYES, "Directory entry has a "
+				"zero-length name, clear it?")) {
+			dirent->inode = 0;
+			ret_flags = OCFS2_DIRENT_CHANGED;
+		}
+	}
+
+	for(; len-- > 0 && (*chr == '/' || *chr == '\0'); chr++) {
 		/* XXX in %s parent name */
 		if (!fix) {
 			fix = should_fix(ost, FIX_DEFYES, "Entry '%.*s' "
@@ -214,6 +222,44 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	}
 
 	return ret_flags;
+}
+
+/* XXX might go somewhere else*/
+static int inode_out_of_range(ocfs2_filesys *fs, uint64_t blkno)
+{
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return 1;
+	return 0;
+}
+
+static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+				struct ocfs2_dir_entry *dirent, int offset)
+{
+	int was_set;
+
+	if (inode_out_of_range(ost->ost_fs, dirent->inode)) {
+		if (should_fix(ost, FIX_DEFYES, "Entry '%.*s' refers to inode "
+				"number %"PRIu64" which is out of range, "
+				"clear it?", dirent->name_len, dirent->name, 
+				dirent->inode)) {
+			dirent->inode = 0;
+			return OCFS2_DIRENT_CHANGED;
+		}
+	}
+
+	/* XXX Do I care about possible bitmap_test errors here? */
+	ocfs2_bitmap_test(ost->ost_used_inodes, dirent->inode, &was_set);
+	if (!was_set) {
+		if (should_fix(ost, FIX_DEFYES, "Entry '%.*s' refers to inode "
+				"number %"PRIu64" which is unused, clear it?", 
+				dirent->name_len, dirent->name, 
+				dirent->inode)) {
+			dirent->inode = 0;
+			return OCFS2_DIRENT_CHANGED;
+		}
+	}
+	return 0;
 }
 
 #define type_entry(type) [type] = #type
@@ -371,6 +417,8 @@ static int fix_dirent_dups(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	return 0;
 }
 
+
+
 /* this could certainly be more clever to issue reads in groups */
 static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe, 
 					void *priv_data) 
@@ -413,31 +461,50 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		/* XXX I wonder if we should be checking that the padding
 		 * is 0 */
 
-		/* XXX hmm, this isn't quite right.  sometimes when we
-		 * change we re-examine the current entry, other times
-		 * we move on past it. */
 
+		/* first verify that we can trust the dirent's lengths
+		 * to navigate to the next in the block.  doing so can
+		 * modify the one we're checking in place */
 		this_flags = fix_dirent_lengths(dd->ost, dbe, dirent, offset, 
 						 dd->fs->fs_blocksize - offset,
 						 prev);
-
 		ret_flags |= this_flags;
-
-		/* dirtying might have swapped in a new dirent in place
-		 * of the one we just checked. */
 		if (this_flags & OCFS2_DIRENT_CHANGED)
 			continue;
 
+		/* 
+		 * In general, these calls mark ->inode as 0 when they want it
+		 * to be seen as deleted; ignored by fsck and reclaimed by the
+		 * kernel.  The dots are a special case, of course.  This
+		 * pass makes sure that they are the first two entries in
+		 * the directory and pass3 fixes ".."'s ->inode.
+		 *
+		 * XXX should verify that ocfs2 reclaims entries like that.
+		 */
 		ret_flags |= fix_dirent_dots(dd->ost, dbe, dirent, offset, 
 					     dd->fs->fs_blocksize - offset);
+		if (dirent->inode == 0)
+			goto next;
+
 		ret_flags |= fix_dirent_name(dd->ost, dbe, dirent, offset);
-		/* XXX we need to check dirent->inode before calling into here
-		 * as it'll try and read it and assert if that fails */
+		if (dirent->inode == 0)
+			goto next;
+
+		ret_flags |= fix_dirent_inode(dd->ost, dbe, dirent, offset);
+		if (dirent->inode == 0)
+			goto next;
+
 		ret_flags |= fix_dirent_filetype(dd->ost, dbe, dirent, offset);
+		if (dirent->inode == 0)
+			goto next;
+
 		ret_flags |= fix_dirent_linkage(dd->ost, dbe, dirent, offset);
+		if (dirent->inode == 0)
+			goto next;
+
 		ret_flags |= fix_dirent_dups(dd->ost, dbe, dirent, &strings,
 					     &dups_in_block);
-
+next:
 		offset += dirent->rec_len;
 		prev = dirent;
 	}
