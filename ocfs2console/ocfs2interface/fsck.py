@@ -105,7 +105,7 @@ def fsck_command(device, check):
 
     command.append(device)
 
-    realcommand = '%s; sleep 60' % ' '.join(command)
+    realcommand = '%s; sleep 1' % ' '.join(command)
 
     return ['/bin/sh', '-c', realcommand]
 
