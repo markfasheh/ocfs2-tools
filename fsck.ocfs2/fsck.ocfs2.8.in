@@ -2,7 +2,7 @@
 .SH "NAME"
 fsck.ocfs2 \- Check an OCFS2 file system.
 .SH "SYNOPSIS"
-\fBfsck.ocfs2\fR [ \fB\-fGnpuvy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
+\fBfsck.ocfs2\fR [ \fB\-fGnuvVy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
 \fBfsck.ocfs2\fR is used to check an OCFS2 file system.
@@ -38,10 +38,6 @@ Give the 'no' answer to all questions that fsck will ask.  This guarantees
 that the file system will not be modified and the device will be opened
 read-only.  The output of \fBfsck.ocfs2\fR with this option can be redirected
 to produce a record of a file system's faults.
-
-.TP
-\fB\-p\fR
-Automatically repair ("preen") the file system without asking any questions.  This is currently identical to giving the \fB\-y\fR option.
 
 .TP
 \fB\-y\fR 

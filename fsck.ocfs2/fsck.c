@@ -73,7 +73,7 @@ static char *whoami = "fsck.ocfs2";
 static void print_usage(void)
 {
 	fprintf(stderr,
-		"Usage: fsck.ocfs2 [ -fGnpuvy ] [ -b superblock block ]\n"
+		"Usage: fsck.ocfs2 [ -fGnuvVy ] [ -b superblock block ]\n"
 		"		    [ -B block size ] device\n"
 		"\n"
 		"Critical flags for emergency repair:\n" 
@@ -87,6 +87,7 @@ static void print_usage(void)
 		" -G		Ask to fix mismatched inode generations\n"
 		" -u		Access the device with buffering\n"
 		" -V		Output fsck.ocfs2's version\n"
+		" -v		Provide verbose debugging output\n"
 		);
 }
 
@@ -429,7 +430,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:fGnpuvVy")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:fGnuvVy")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -468,12 +469,6 @@ int main(int argc, char **argv)
 				ost->ost_answer = 0;
 				open_flags &= ~OCFS2_FLAG_RW;
 				open_flags |= OCFS2_FLAG_RO;
-				break;
-
-			/* "preen" don't ask and force fixing */
-			case 'p':
-				ost->ost_ask = 0;
-				ost->ost_answer = 1;
 				break;
 
 			case 'y':
