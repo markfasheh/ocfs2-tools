@@ -8,4 +8,5 @@ libocfs2.a
 unix_io
 openfs
 inode
+extents
 ocfs2_err.et

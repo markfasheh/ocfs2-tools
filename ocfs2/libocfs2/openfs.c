@@ -38,6 +38,11 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+/* I hate glibc and gcc ... this is a hack that will go away anyway */
+#ifndef LLONG_MAX
+# define LLONG_MAX 9223372036854775807LL
+#endif
+
 #include <linux/types.h>
 
 #include <et/com_err.h>
@@ -221,6 +226,10 @@ errcode_t ocfs2_open(const char *name, int flags, int superblock,
 		1 << OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 
 	/* FIXME: Read the system dir */
+	
+	/* FIXME: This hack will be replaced by a read of the global
+	 * bitmap inode */
+	fs->fs_blocks = LLONG_MAX;
 
 	*ret_fs = fs;
 	return 0;

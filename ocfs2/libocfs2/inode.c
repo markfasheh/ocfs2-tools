@@ -54,18 +54,14 @@
 
 
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
-			   ocfs2_dinode *inode)
+			   char *inode_buf)
 {
 	errcode_t ret;
 	char *blk;
 	ocfs2_dinode *di;
 
 	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
-#if 0
 	    (blkno > fs->fs_blocks))
-#else
-	    0)
-#endif
 		return OCFS2_ET_BAD_BLKNO;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &blk);
@@ -85,7 +81,7 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 
 	/* FIXME swap inode */
 
-	memcpy((char *)inode, blk, io_get_blksize(fs->fs_io));
+	memcpy(inode_buf, blk, fs->fs_blocksize);
 
 	ret = 0;
 out:
@@ -95,7 +91,7 @@ out:
 }
 
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
-			    ocfs2_dinode *inode)
+			    char *inode_buf)
 {
 	errcode_t ret;
 	char *blk;
@@ -104,11 +100,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 		return OCFS2_ET_RO_FILESYS;
 
 	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
-#if 0
 	    (blkno > fs->fs_blocks))
-#else
-	    0)
-#endif
 		return OCFS2_ET_BAD_BLKNO;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &blk);
@@ -116,7 +108,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 		return ret;
 
 	/* FIXME Swap inode */
-	memcpy(blk, inode, io_get_blksize(fs->fs_io));
+	memcpy(blk, inode_buf, fs->fs_blocksize);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)
@@ -197,14 +189,15 @@ int main(int argc, char *argv[])
 		goto out_close;
 	}
 
-	di = (ocfs2_dinode *)buf;
 
-	ret = ocfs2_read_inode(fs, blkno, di);
+	ret = ocfs2_read_inode(fs, blkno, buf);
 	if (ret) {
 		com_err(argv[0], ret,
 			"while reading inode %llu", blkno);
 		goto out_free;
 	}
+
+	di = (ocfs2_dinode *)buf;
 
 	fprintf(stdout, "OCFS2 inode %llu on \"%s\"\n", blkno,
 		filename);

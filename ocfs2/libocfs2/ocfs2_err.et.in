@@ -56,4 +56,16 @@ ec	OCFS2_ET_RO_FILESYS,
 ec	OCFS2_ET_JOURNAL_TOO_SMALL,
 	"Journal must be at least 1024 blocks"
 
+ec	OCFS2_ET_INODE_NOT_VALID,
+	"Inode is not valid (active)"
+
+ec	OCFS2_ET_INODE_CANNOT_BE_ITERATED,
+	"Inode type does not contain extents"
+
+ec	OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC,
+	"Bad magic number in extent block"
+
+ec	OCFS2_ET_CORRUPT_EXTENT_BLOCK,
+	"Extent block is corrupt"
+
 	end
