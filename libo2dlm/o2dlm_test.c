@@ -183,10 +183,8 @@ again:
 		return -1;
 
 	next = strtok(cbuf, " \n");
-	if (!next) {
-		fprintf(stderr, "invalid input!\n");
+	if (!next)
 		goto again;
-	}
 
 	if (decode_type(command, next)) {
 		fprintf(stderr, "Invalid command type \"%s\"\n", next);
@@ -278,6 +276,8 @@ int main(int argc, char **argv)
 		printf("please provide a path to an ocfs2_dlmfs mount\n");
 		return 0;
 	}
+
+	initialize_o2dl_error_table();
 
 	dlmfs_path = argv[1];
 	printf("Using fs at %s\n", dlmfs_path);
