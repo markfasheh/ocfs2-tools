@@ -45,8 +45,14 @@ ec	O2DLM_ET_NAME_TOO_LONG,
 ec	O2DLM_ET_STATFS,
 	"Could not stat user_dlmfs mountpoint"
 
+ec	O2DLM_ET_NO_FS_DIR,
+	"Dlmfs path specified is not a directory."
+
 ec	O2DLM_ET_NO_FS,
 	"ocfs2_dlmfs file system was not found"
+
+ec	O2DLM_ET_OPEN_DLM_DIR,
+	"Could not open dlm directory"
 
 ec	O2DLM_ET_NO_DOMAIN_DIR,
 	"No directory for domain was found"

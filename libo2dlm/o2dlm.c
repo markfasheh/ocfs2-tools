@@ -41,6 +41,11 @@
 
 #define USER_DLMFS_MAGIC	0x76a9f425
 
+static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
+				     const char *lockid,
+				     int lockflags,
+				     enum o2dlm_lock_level level);
+
 static errcode_t o2dlm_generate_random_value(int64_t *value)
 {
 	int randfd = 0;
@@ -111,14 +116,34 @@ static void o2dlm_free_ctxt(struct o2dlm_ctxt *ctxt)
 
 static errcode_t o2dlm_check_user_dlmfs(const char *dlmfs_path)
 {
-	struct statfs stat;
-	int ret;
+	struct statfs statfs_buf;
+	struct stat stat_buf;
+	int ret, fd;
 
-	ret = statfs(dlmfs_path, &stat);
-	if (ret)
+	fd = open(dlmfs_path, O_RDONLY);
+	if (fd < 0)
+		return O2DLM_ET_OPEN_DLM_DIR;
+
+	ret = fstat(fd, &stat_buf);
+	if (ret) {
+		close(fd);
 		return O2DLM_ET_STATFS;
+	}
 
-	if (stat.f_type != USER_DLMFS_MAGIC)
+	if (!S_ISDIR(stat_buf.st_mode)) {
+		close(fd);
+		return O2DLM_ET_NO_FS_DIR;
+	}
+
+	ret = fstatfs(fd, &statfs_buf);
+	if (ret) {
+		close(fd);
+		return O2DLM_ET_STATFS;
+	}
+
+	close(fd);
+
+	if (statfs_buf.f_type != USER_DLMFS_MAGIC)
 		return O2DLM_ET_NO_FS;
 
 	return 0;
@@ -214,7 +239,8 @@ errcode_t o2dlm_initialize(const char *dlmfs_path,
 	 * open for the duration of this context. This way if another
 	 * process won't be able to shut down this domain underneath
 	 * us. */
-	ret = o2dlm_lock(ctxt, ctxt->ct_ctxt_lock_name, 0, O2DLM_LEVEL_PRMODE);
+	ret = o2dlm_lock_nochecks(ctxt, ctxt->ct_ctxt_lock_name, 0,
+				  O2DLM_LEVEL_PRMODE);
 	if (ret) {
 		if (dir_created)
 			o2dlm_delete_domain_dir(ctxt); /* best effort
@@ -301,21 +327,15 @@ static struct o2dlm_lock_res *o2dlm_new_lock_res(const char *id,
 
 #define O2DLM_OPEN_MODE         0664
 
-errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
-		     const char *lockid,
-		     int lockflags,
-		     enum o2dlm_lock_level level)
+/* Use this internally to avoid the check for a reserved name */
+static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
+				     const char *lockid,
+				     int lockflags,
+				     enum o2dlm_lock_level level)
 {
 	int ret, flags, fd;
 	char *path;
 	struct o2dlm_lock_res *lockres;
-
-	if (!ctxt || !lockid)
-		return O2DLM_ET_INVALID_ARGS;
-
-	/* names starting with '.' are reserved. */
-	if (lockid[0] == '.')
-		return O2DLM_ET_INVALID_LOCK_NAME;
 
 	if (strlen(lockid) >= O2DLM_LOCK_ID_MAX_LEN)
 		return O2DLM_ET_INVALID_LOCK_NAME;
@@ -361,6 +381,21 @@ errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
 	free(path);
 
 	return 0;
+}
+
+errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
+		     const char *lockid,
+		     int lockflags,
+		     enum o2dlm_lock_level level)
+{
+	if (!ctxt || !lockid)
+		return O2DLM_ET_INVALID_ARGS;
+
+	/* names starting with '.' are reserved. */
+	if (lockid[0] == '.')
+		return O2DLM_ET_INVALID_LOCK_NAME;
+
+	return o2dlm_lock_nochecks(ctxt, lockid, lockflags, level);
 }
 
 static errcode_t o2dlm_unlock_lock_res(struct o2dlm_ctxt *ctxt,
