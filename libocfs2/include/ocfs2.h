@@ -127,6 +127,7 @@
 /* Directory iterator flags */
 #define OCFS2_DIRENT_FLAG_INCLUDE_EMPTY		0x01
 #define OCFS2_DIRENT_FLAG_INCLUDE_REMOVED	0x02
+#define OCFS2_DIRENT_FLAG_EXCLUDE_DOTS		0x04
 
 /* Return flags for the chain iterator functions */
 #define OCFS2_CHAIN_CHANGED	0x01

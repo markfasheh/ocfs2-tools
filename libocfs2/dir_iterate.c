@@ -137,6 +137,21 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 				  xlate_func, &xl);
 }
 
+/* make this a helper.. */
+static int is_dots(char *name, unsigned int len)
+{
+	if (len == 0)
+		return 0;
+
+	if (name[0] == '.') {
+		if (len == 1)
+			return 1;
+		if (len == 2 && name[1] == '.')
+			return 1;
+	}
+
+	return 0;
+}
 
 /*
  * Helper function which is private to this module.  Used by
@@ -177,6 +192,9 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 		}
 		if (!dirent->inode &&
 		    !(ctx->flags & OCFS2_DIRENT_FLAG_INCLUDE_EMPTY))
+			goto next;
+		if (is_dots(dirent->name, dirent->name_len) && 
+		    (ctx->flags & OCFS2_DIRENT_FLAG_EXCLUDE_DOTS))
 			goto next;
 
 		ret = (ctx->func)(ctx->dir,
