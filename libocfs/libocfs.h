@@ -290,7 +290,7 @@ void free_aligned(void *ptr);
 
 /* atomic_t stuff */
 
-#if !defined(_ASM_IA64_ATOMIC_H) && !defined(__ARCH_X86_64_ATOMIC__) && !defined(__ARCH_I386_ATOMIC__)
+#if !defined(_ASM_IA64_ATOMIC_H) && !defined(__ARCH_X86_64_ATOMIC__) && !defined(__ARCH_I386_ATOMIC__) && !defined(_PPC_BITOPS_H) /* yes bitops is right. RH sucks and uses stub headers which still define _ASM_PPC_ATOMIC_H_ */
 typedef struct { volatile int counter; } atomic_t;
 #endif
 
