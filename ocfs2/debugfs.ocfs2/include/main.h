@@ -52,6 +52,11 @@
 
 #define safefree(_p)	do {if (_p) { free(_p); (_p) = NULL; } } while (0)
 
+static inline void null_term(char *_s, __u32 _l)
+{
+	*(_s + _l) = '\0';
+}
+
 #define DBGFS_FATAL(fmt, arg...)	({ fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \
 						   __FILE__, __LINE__, ##arg);  \
 					   exit(1); \

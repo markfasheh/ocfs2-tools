@@ -29,6 +29,8 @@
 #include <readfs.h>
 #include <utils.h>
 
+extern char *superblk;
+
 /*
  * dump_super_block()
  *
@@ -77,10 +79,14 @@ void dump_inode(ocfs2_dinode *in)
 	struct passwd *pw;
 	struct group *gr;
 	char *str;
-	ocfs2_disk_lock *dl;
+	ocfs2_disk_lock *dl = &(in->i_disk_lock);
+	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
 	int i;
+	int j;
+	int k;
 	__u16 mode;
 	GString *flags = NULL;
+	__u32 node_map;
 
 /*
 Inode: 32001   Type: directory    Mode:  0755   Flags: 0x0   Generation: 721849
@@ -161,13 +167,19 @@ TOTAL: 247
 
 	printf("Links: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
-	dl = &(in->i_disk_lock);
 	printf("Lock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
 	       dl->dl_master, dl->dl_level, dl->dl_seq_num);
-	printf("Lock Node Map:");
-	for (i = 0; i < 8; ++i)
-		printf(" 0x%08x", dl->dl_node_map[i]);
-	printf("\n");
+
+	printf("Lock Node Map: ");
+	for (i = 0, j = 0; i < 8 && j < sb->s_max_nodes; ++i) {
+		if (i)
+			printf("               ");
+		node_map = dl->dl_node_map[i];
+		for (k = 0; k < 32 && j < sb->s_max_nodes; k++, j++)
+			printf ("%d%c", ((node_map & (1 << k)) ? 1 : 0),
+				(((k + 1) % 8) ? '\0' : ' '));
+		printf ("\n");
+	}
 
 	str = ctime((time_t*)&in->i_ctime);
 	printf("ctime: 0x%llx -- %s", in->i_ctime, str);
@@ -180,7 +192,7 @@ TOTAL: 247
 
 	printf("Last Extblk: %llu\n", in->i_last_eb_blk);
 	printf("Sub Alloc Node: %u   Sub Alloc Blknum: %llu\n",
-	       in->i_suballoc_node, in->i_suballoc_blkno); /* ?? */
+	       in->i_suballoc_node, in->i_suballoc_blkno);
 
 	if (flags)
 		g_string_free (flags, 1);
@@ -247,9 +259,9 @@ void dump_dir_entry (struct ocfs2_dir_entry *dir)
 		rec = (struct ocfs2_dir_entry *)p;
 		if (!rec->inode)
 			break;
-		printf("%-15llu  %-6u  %-7u  %-4u  %*s\n", rec->inode,
-		       rec->rec_len, rec->name_len, rec->file_type,
-		       rec->name_len, rec->name);
+		null_term (rec->name, rec->name_len);
+		printf("%-15llu  %-6u  %-7u  %-4u  %s\n", rec->inode,
+		       rec->rec_len, rec->name_len, rec->file_type, rec->name);
 		p += rec->rec_len;
 	}
 
