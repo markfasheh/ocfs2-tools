@@ -85,62 +85,6 @@ static int read_a_char(int fd)
 	return c;
 }
 
-/* this had better be null terminated */
-static void print_wrapped(char *str)
-{
-	size_t left = strlen(str);
-	size_t target, width = 80; /* XXX do like e2fsck */
-	int i, j;
-
-	target = width;
-
-	while (left > 0) {
-		/* skip leading space in a line */
-		for(;*str && isspace(*str); left--, str++)
-			; 
-
-		if (left == 0)
-			break;
-
-		/* just dump it if there isn't enough left */
-		if (left <= target) {
-			printf("%s", str);
-			break;
-		}
-
-		/* back up if we break mid-word */
-		for (i = target - 1; i > 0 && !isspace(str[i]); i--)
-			;
-
-		/* see how enormous this broken word is */
-		for (j = target - 1; j < left && !isspace(str[j]); j++)
-			;
-
-		j = j - i + 1; /* from offset to len */
-
-		/* just include the word if it itself is longer than a line */
-		if (j > target)
-			i += j;
-
-		i++; /* from offset to len */
-
-		printf("%.*s", i, str);
-
-		left -= i;
-		str += i;
-
-		/* only add a newline if we cleanly wrapped on a small word.
-		 * otherwise where we start will depend on where we finished
-		 * this crazy long line */
-		target = width;
-		if (i < target) 
-			printf("\n");
-		else
-			target -= (i % width);
-	}
-	fflush(stdout);
-}
-
 /* 
  * this checks the user's intent.  someday soon it will check command line flags
  * and have a notion of grouping, as well.  The caller is expected to provide
@@ -152,58 +96,27 @@ int prompt_input(o2fsck_state *ost, unsigned flags, struct prompt_code code,
 	va_list ap;
 	int c, ans = 0;
 	static char yes[] = " <y> ", no[] = " <n> ";
-	char *output;
-	size_t len, part;
 
 	/* paranoia for jokers that claim to default to both */
 	if((flags & PY) && (flags & PN))
 		flags &= ~PY;
 
-	va_start(ap, fmt);
-	len = vsnprintf(NULL, 0, fmt, ap);
-	va_end(ap);
-	if (len < 0) {
-		perror("vsnprintf failed when trying to bulid an output "
-		       "buffer");
-		exit(FSCK_ERROR);
-	}
-
-	if (flags & (PY|PN))
-		len += sizeof(yes) + 80; /* W. includes code and null */
-
-	output = malloc(len);
-	if (output == NULL) {
-		perror("malloc failed when trying to bulid an output buffer");
-		exit(FSCK_ERROR);
-	}
-
-	part = snprintf(output, len, "[%s] ", code.str);
-	if (part < 0) {
-		perror("vsnprintf failed when trying to bulid an output "
-		       "buffer");
-		exit(FSCK_ERROR);
-	}
+	printf("[%s] ", code.str);
 
 	va_start(ap, fmt);
-	part = vsnprintf(output + part, len - part, fmt, ap);
+	vprintf(fmt, ap);
 	va_end(ap);
-	if (part < 0) {
-		perror("vsnprintf failed when trying to bulid an output "
-		       "buffer");
-		exit(FSCK_ERROR);
-	}
 
 	if (!ost->ost_ask) {
 		ans = ost->ost_answer ? 'y' : 'n';
 	} else {
 		if (flags & PY)
-			strcat(output, yes);
+			printf(yes);
 		else if (flags & PN)
-			strcat(output, no);
+			printf(no);
 	}
 
-	print_wrapped(output);
-	free(output);
+	fflush(stdout);
 
 	/* no curses, no nothin.  overly regressive? */
 	while (!ans && (c = read_a_char(fileno(stdin))) != EOF) {
