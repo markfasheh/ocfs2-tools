@@ -16,6 +16,8 @@ HFILES = include/main.h include/commands.h include/dump.h include/readfs.h inclu
 
 OBJS = $(subst .c,.o,$(CFILES))
 
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+
 VERSION_FILES = $(CFILES) $(HFILES)
 VERSION_SRC = $(CFILES)
 VERSION_PREFIX = OCFS2
@@ -30,6 +32,6 @@ dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 debugfs.ocfs2: $(OBJS)
-	$(LINK) $(GLIB_LIBS) -lreadline -lncurses
+	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) -lreadline -lncurses
 
 include $(TOPDIR)/Postamble.make

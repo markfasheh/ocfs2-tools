@@ -41,9 +41,8 @@
 #include <netinet/in.h>
 #include <inttypes.h>
 
-#include <asm/bitops.h>
-
 #include "ocfs2.h"
+#include "bitops.h"
 
 /* jfs_compat.h defines these */
 #undef cpu_to_be32
@@ -912,7 +911,7 @@ find_clear_bits(AllocBitmap *bitmap, uint32_t num_bits, uint32_t offset)
 	off = offset;
 
 	while ((size - off + count >= num_bits) &&
-	       (next_zero = find_next_zero_bit(buf, size, off)) != size) {
+	       (next_zero = ocfs2_find_next_bit_clear(buf, size, off)) != size) {
 		if (next_zero >= bitmap->valid_bits)
 			break;
 
@@ -982,7 +981,7 @@ alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 	bitmap->bm_record->bi.used_bits += num_bits;
 
 	while (num_bits--) {
-		set_bit(start_bit, bitmap->buf);
+		ocfs2_set_bit(start_bit, bitmap->buf);
 		start_bit++;
 	}
 
