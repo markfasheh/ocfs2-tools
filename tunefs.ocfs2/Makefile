@@ -21,16 +21,7 @@ SBIN_PROGRAMS = tunefs.ocfs2
 INCLUDES = -I$(TOPDIR)/libocfs2/include $(GLIB_CFLAGS)
 DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-ifeq ($(OCFS_PROCESSOR),x86_64)
-  CFLAGS += -m64
-endif
-ifeq ($(OCFS_PROCESSOR),ia64)
-endif
-ifeq ($(OCFS_PROCESSOR),i686)
-  DEFINES += -D__ILP32__
-endif
-
-#MANS = fsck.ocfs2.8
+#MANS = tunefs.ocfs2.8
 
 CFILES = tunefs.c
 OBJS = $(subst .c,.o,$(CFILES))

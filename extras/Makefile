@@ -17,15 +17,6 @@ INCLUDES = -I../libocfs2/include
 
 OPTIMIZE = -O2
 
-ifeq ($(OCFS_PROCESSOR),x86_64)
-  CFLAGS += -m64
-endif
-ifeq ($(OCFS_PROCESSOR),ia64)
-endif
-ifeq ($(OCFS_PROCESSOR),i686)
-  DEFINES += -D__ILP32__
-endif
-
 DEFINES += -DOCFS2_FLAT_INCLUDES
 
 CFLAGS += $(OPTIMIZE)

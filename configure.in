@@ -29,8 +29,6 @@ AC_SUBST(RPM_VERSION)
 
 AC_CANONICAL_HOST
 
-OCFS_PROCESSOR=
-
 case "$host" in
   *-*-linux*)
     ;;
@@ -39,43 +37,20 @@ case "$host" in
     ;;
 esac
 
-case "$host_cpu" in
-  powerpc64)
-    OCFS_PROCESSOR="ppc64"
-    ;;
-  ia64)
-    OCFS_PROCESSOR="ia64"
-    ;;
-  x86_64)
-    OCFS_PROCESSOR="x86_64"
-    ;;
-  i386|i486|i586|i686|i786|k6|k7)
-    OCFS_PROCESSOR="i686"
-    ;;
-  s390x)
-    OCFS_PROCESSOR="s390x"
-    ;;
-  *)
-    AC_MSG_ERROR([not configured for "$host_cpu"])
-    ;;
-esac
-
-AC_SUBST(OCFS_PROCESSOR)
-
 if test -z "$TOOLSARCH"; then
     case "$host_cpu" in
-    x86_64|i386|ppc|ia64|s390x)
+    x86_64|ppc|ia64|s390x)
         TOOLSARCH="$host_cpu"
         ;;
-    i486|i586|i686|i786|k6|k7)
+    i386|i486|i586|i686|i786|k6|k7)
         TOOLSARCH="i386"
         ;;
-    powerpc64)
+    ppc64|ppciseries|ppcpseries|ppc64iseries|ppc64pseries|powerpc|powerpc64)
         TOOLSARCH="ppc"
         ;;
     *)
         AC_MSG_RESULT([not found])
-        AC_MSG_ERROR([invalid or unsupported CPU type])
+        AC_MSG_WARN([invalid or unsupported CPU type, things may break])
         ;;
     esac
 fi
