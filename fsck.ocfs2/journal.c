@@ -63,6 +63,9 @@ struct journal_info {
 
 	unsigned		ji_set_final_seq:1;
 	uint32_t		ji_final_seq;
+
+	/* we keep our own bitmap for detecting overlapping journal blocks */
+	ocfs2_bitmap		*ji_used_blocks;
 };
 
 struct revoke_entry {
@@ -233,23 +236,31 @@ static errcode_t lookup_journal_block(o2fsck_state *ost,
 				      uint64_t *blkno,
 				      int check_dup)
 {
-	errcode_t err;
+	errcode_t ret;
 	int contig;
+	int was_set;
 
-	err = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff, 1, blkno,
+	ret = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff, 1, blkno,
 					  &contig);
-	if (err) 
-		com_err(whoami, err, "while looking up logical block "
+	if (ret) {
+		com_err(whoami, ret, "while looking up logical block "
 			"%"PRIu64" in node %d's journal", blkoff, ji->ji_node);
-
-	if (check_dup && o2fsck_mark_block_used(ost, *blkno)) {
-		printf("Logical block %"PRIu64" in node %d's journal maps to "
-		       "block %"PRIu64" which has already been used in "
-		       "another journal.\n", blkoff, ji->ji_node, *blkno);
-		err = OCFS2_ET_DUPLICATE_BLOCK;
+		goto out;
 	}
 
-	return err;
+	if (check_dup) {
+		ocfs2_bitmap_set(ji->ji_used_blocks, *blkno, &was_set);
+		if (was_set)  {
+			printf("Logical block %"PRIu64" in node %d's journal "
+			       "maps to block %"PRIu64" which has already "
+			       "been used in another journal.\n", blkoff,
+			       ji->ji_node, *blkno);
+			ret = OCFS2_ET_DUPLICATE_BLOCK;
+		}
+	}
+
+out:
+	return ret;
 }
 
 static errcode_t read_journal_block(o2fsck_state *ost, 
@@ -517,8 +528,16 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 	char *buf = NULL, *dlm_buf = NULL;
 	int i, max_nodes, buflen, journal_trouble = 0;
 	uint64_t dlm_ino;
+	ocfs2_bitmap *used_blocks = NULL;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+
+	ret = ocfs2_block_bitmap_new(ost->ost_fs, "journal blocks",
+				     &used_blocks);
+	if (ret) {
+		com_err(whoami, ret, "while allocating journal block bitmap"); 
+		goto out;
+	}
 
 	ret = ocfs2_malloc_blocks(ost->ost_fs->fs_io, 1, &buf);
 	if (ret) {
@@ -555,8 +574,8 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 			continue;
 		}
 		ji->ji_replay = 1;
+		ji->ji_used_blocks = used_blocks;
 
-		/* check mounted bits in the publish doo-dah. */
 		err = prep_journal_info(ost, i, ji);
 		if (err == 0)
 			err = walk_journal(ost, i, ji, buf, 0);
@@ -633,6 +652,8 @@ out:
 		ocfs2_free(&buf);
 	if (dlm_buf)
 		ocfs2_free(&dlm_buf);
+	if (used_blocks)
+		ocfs2_bitmap_free(used_blocks);
 
 	return ret;
 }

@@ -44,6 +44,8 @@
 } while (0)
 
 void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di);
+int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno);
+int o2fsck_test_block_used(o2fsck_state *ost, uint64_t blkno);
 
 #endif /* __O2FSCK_UTIL_H__ */
 

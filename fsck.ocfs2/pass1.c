@@ -37,6 +37,12 @@
  *  - bitmap of which inodes are directories or regular files
  *  - directory blocks that it finds off of directory inodes
  *
+ * The end of Pass 1 is when the found block bitmap should contain all the
+ * blocks in the system that are in use.  This is used to derive the set of
+ * clusters that should be allocated.  The cluster chain allocator is loaded
+ * and synced up with this set and potentially written back.  After that point
+ * fsck can use libocfs2 to allocate and free clusters as usual.
+ *
  * XXX
  * 	check many, many, more i_ fields for each inode type
  * 	make sure the inode's dtime/count/valid match in update_inode_alloc
@@ -58,19 +64,6 @@
 #include "util.h"
 
 static const char *whoami = "pass1";
-
-/* XXX need to, you know, do things with this. */
-int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
-{
-	int was_set;
-
-	ocfs2_bitmap_set(ost->ost_found_blocks, blkno, &was_set);
-
-	if (was_set) /* XX can go away one all callers handle this */
-		verbosef("!! duplicate block %"PRIu64"\n", blkno);
-
-	return was_set;
-}
 
 void o2fsck_free_inode_allocs(o2fsck_state *ost)
 {
@@ -124,6 +117,10 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 					node);
 			continue;
 		}
+
+		/* hmm, de hmm.  it would be kind of nice if the bitmaps
+		 * didn't use 'int' but rather some real boolean construct */
+		oldval = !!oldval;
 
 		/* this node covers the inode.  see if we've changed the 
 		 * bitmap and if the user wants us to keep tracking it and
@@ -367,7 +364,7 @@ static int verify_block(ocfs2_filesys *fs,
 
 	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) || (blkno > fs->fs_blocks)) {
 		vb->vb_errors++;
-#if 0 /* ext2 does this by returning a value to libext2 which clears the 
+#if 0 /* XXX ext2 does this by returning a value to libext2 which clears the 
 	 block from the inode's allocation */
 		if (prompt(ost, PY, "inode %"PRIu64" references bad physical "
 			   "block %"PRIu64" at logical block %"PRIu64", "
@@ -387,6 +384,8 @@ static int verify_block(ocfs2_filesys *fs,
 		}
 	}
 
+	o2fsck_mark_block_used(ost, blkno);
+
 	if (S_ISDIR(di->i_mode)) {
 		verbosef("adding dir block %"PRIu64"\n", blkno);
 		o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno, blkno,
@@ -401,13 +400,17 @@ static int verify_block(ocfs2_filesys *fs,
 	return 0;
 }
 
+/* XXX this is only really building up the vb data so that the caller can
+ * verify the chain allocator inode's fields.  I wonder if we shouldn't have
+ * already done that in pass 0. */
 static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
 			   void *priv_data)
 {
 	struct verifying_blocks *vb = priv_data;
 	verbosef("found gd block %"PRIu64"\n", gd_blkno);
+	/* XXX should arguably be verifying that pass 0 marked the group desc
+	 * blocks found */
 	/* don't have bcount */
-	o2fsck_mark_block_used(vb->vb_ost, gd_blkno);
 	vb_saw_block(vb, vb->vb_num_blocks);
 	return 0;
 }
@@ -505,6 +508,149 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	}
 }
 
+/* once we've iterated all the inodes we should have the current working
+ * set of which blocks we think are in use.  we use this to derive the set
+ * of clusters that should be allocated in the cluster chain allocators.  we
+ * don't iterate over all clusters like we do inodes.. */
+static void write_cluster_alloc(o2fsck_state *ost)
+{
+	ocfs2_cached_inode *ci = NULL;
+	errcode_t ret;
+	uint64_t blkno, last_cbit, cbit, cbit_found;
+	struct ocfs2_cluster_group_sizes cgs;
+
+	ocfs2_calc_cluster_groups(ost->ost_fs->fs_clusters,
+				  ost->ost_fs->fs_blocksize, &cgs);
+
+	/* first load the cluster chain alloc so we can compare */
+	ret = ocfs2_lookup_system_inode(ost->ost_fs,
+					GLOBAL_BITMAP_SYSTEM_INODE, 0, &blkno);
+	if (ret) {
+		com_err(whoami, ret, "while looking up the cluster bitmap "
+			"allocator inode");
+		goto out;
+	}
+
+	/* load in the cluster chain allocator */
+	ret = ocfs2_read_cached_inode(ost->ost_fs, blkno, &ci);
+	if (ret) {
+		com_err(whoami, ret, "while reading the cluster bitmap "
+			"allocator inode from block %"PRIu64, blkno);
+		goto out;
+	}
+
+	ret = ocfs2_load_chain_allocator(ost->ost_fs, ci);
+	if (ret) {
+		com_err(whoami, ret, "while loading the cluster bitmap "
+			"allocator from block %"PRIu64, blkno);
+		goto out;
+	}
+
+	/* we walk our found blocks bitmap to find clusters that we think
+	 * are in use.  each time we find a block in a cluster we skip ahead
+	 * to the first block of the next cluster when looking for the next.
+	 *
+	 * once we have a cluster we think is allocated we walk the cluster
+	 * chain alloc bitmaps from the last cluster we thought was allocated
+	 * to make sure that all the bits are cleared on the way.
+	 *
+	 * we special case the number of clusters as the cluster offset which
+	 * indicates that the rest of the bits to the end of the bitmap
+	 * should be clear.
+	 */
+	last_cbit = 0;
+	blkno = 0;
+	cbit = 0;
+	for ( ; cbit < ost->ost_fs->fs_clusters; 
+	        blkno = ocfs2_clusters_to_blocks(ost->ost_fs, cbit + 1),
+		last_cbit = cbit + 1) {
+
+		verbosef("starting with blkno %"PRIu64"\n", blkno);
+
+		ret = ocfs2_bitmap_find_next_set(ost->ost_found_blocks, blkno,
+						 &blkno);
+
+		/* clear to the end */
+		if (ret == OCFS2_ET_BIT_NOT_FOUND)
+			cbit = ost->ost_fs->fs_clusters;
+		else {
+			uint64_t cgroup, cluster;
+			/* the libocfs2 bitmap interfaces names bit ranges
+			 * by the block the desc starts on.  so to find
+			 * a bit number for a given cluster we find the 
+			 * block offset of the start of the cluster group
+			 * and add the offset of the cluster in its cluster
+			 * group */
+			cluster = ocfs2_blocks_to_clusters(ost->ost_fs, blkno);
+			cgroup = cluster - (cluster % cgs.cgs_cpg);
+			cbit = ocfs2_clusters_to_blocks(ost->ost_fs, cgroup);
+
+			cbit += cluster % cgs.cgs_cpg;
+		}
+
+		ret = ocfs2_bitmap_find_next_set(ci->ci_chains, last_cbit, 
+						 &cbit_found);
+		if (ret == OCFS2_ET_BIT_NOT_FOUND)
+			cbit_found = ost->ost_fs->fs_clusters;
+
+		verbosef("blkno %"PRIu64" cbit %"PRIu64" last_cbit %"PRIu64" "
+			 "cbit_found %"PRIu64"\n", blkno, cbit, last_cbit,
+			 cbit_found);
+
+		if (cbit_found == cbit)
+			continue;
+
+		if (!ost->ost_write_cluster_alloc_asked) {
+			int yn;
+			yn = prompt(ost, PY, "The cluster bitmap doesn't "
+				    "match what fsck thinks should be in use "
+				    "and freed.  Update the bitmap on disk?");
+			ost->ost_write_cluster_alloc_asked = 1;
+			ost->ost_write_cluster_alloc = !!yn;
+			if (!ost->ost_write_cluster_alloc)
+				goto out;
+		}
+
+		/* clear set bits that should have been clear up to cbit */
+		while (cbit_found < cbit) {
+			ret = ocfs2_chain_force_val(ost->ost_fs, ci,
+						    cbit_found, 0, NULL);
+			if (ret) {
+				com_err(whoami, ret, "while trying to clear "
+					"bit %"PRIu64" in the cluster bitmap.",
+					cbit_found);
+				goto out;
+			}
+			cbit_found++;
+			ret = ocfs2_bitmap_find_next_set(ci->ci_chains, cbit, 
+							 &cbit_found);
+			if (ret == OCFS2_ET_BIT_NOT_FOUND)
+				cbit_found = ost->ost_fs->fs_clusters;
+		}
+
+		/* make sure cbit is set before moving on */
+		if (cbit_found != cbit && cbit != ost->ost_fs->fs_clusters) {
+			ret = ocfs2_chain_force_val(ost->ost_fs, ci, cbit, 1,
+						    NULL);
+			if (ret) {
+				com_err(whoami, ret, "while trying to set bit "
+					"%"PRIu64" in the cluster bitmap.",
+					cbit);
+				goto out;
+			}
+		}
+	}
+
+	ret = ocfs2_write_chain_allocator(ost->ost_fs, ci);
+	if (ret)
+		com_err(whoami, ret, "while trying to write back the cluster "
+			"bitmap allocator");
+
+out:
+	if (ci)
+		ocfs2_free_cached_inode(ost->ost_fs, ci);
+}
+
 static void write_inode_alloc(o2fsck_state *ost)
 {
 	int max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
@@ -579,6 +725,8 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 		valid = 0;
 
+		o2fsck_mark_block_used(ost, blkno);
+
 		/* scanners have to skip over uninitialized inodes */
 		if (!memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		    strlen(OCFS2_INODE_SIGNATURE)) &&
@@ -600,6 +748,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "duplicate blocks "
 				"found, need to learn to fix.");
 
+	write_cluster_alloc(ost);
 	write_inode_alloc(ost);
 
 out_close_scan:

@@ -6,6 +6,7 @@ SBIN_PROGRAMS = fsck.ocfs2
 
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 ifdef OCFS_DEBUG
 OPTS += -ggdb
@@ -54,7 +55,7 @@ DIST_RULES = dist-subdircreate
 dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
-fsck.ocfs2: $(OBJS)
+fsck.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make

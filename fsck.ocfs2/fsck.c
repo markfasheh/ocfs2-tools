@@ -330,6 +330,10 @@ int main(int argc, char **argv)
 
 	exit_if_skipping(ost);
 
+	o2fsck_mark_block_used(ost, 0);
+	o2fsck_mark_block_used(ost, 1);
+	o2fsck_mark_block_used(ost, OCFS2_SUPER_BLOCK_BLKNO);
+
 	/* XXX we don't use the bad blocks inode, do we? */
 
 	printf("Checking OCFS2 filesystem in %s:\n", filename);

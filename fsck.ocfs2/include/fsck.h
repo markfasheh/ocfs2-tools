@@ -59,7 +59,9 @@ typedef struct _o2fsck_state {
 			ost_force:1,	/* -f supplied; force check */
 			ost_write_inode_alloc_asked:1,
 			ost_write_inode_alloc:1,
-			ost_write_error:1;
+			ost_write_error:1,
+			ost_write_cluster_alloc_asked:1,
+			ost_write_cluster_alloc:1;
 } o2fsck_state;
 
 /* The idea is to let someone off-site run fsck and have it give us 

@@ -67,10 +67,9 @@ struct chain_state {
 	uint32_t	cs_chain_no;
 };
 
-/* returns 0 if the group desc is valid */
-static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
-			    struct chain_state *cs, ocfs2_group_desc *bg,
-			    uint64_t blkno)
+static errcode_t check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
+				  struct chain_state *cs, ocfs2_group_desc *bg,
+				  uint64_t blkno)
 {
 	int changed = 0;
 
@@ -158,6 +157,92 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	return 0;
 }
 
+struct chain_block_res {
+	unsigned	cb_new_next_blkno:1;
+	uint64_t	cb_next_blkno;
+	errcode_t	cb_err;
+};
+
+static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
+		       struct chain_state *cs, uint64_t blkno,
+		       ocfs2_group_desc *bg, ocfs2_bitmap *allowed,
+		       struct chain_block_res *cbr)
+{
+	int was_set;
+	errcode_t ret;
+
+	memset(cbr, 0, sizeof(*cbr));
+
+	if (ocfs2_block_out_of_range(ost->ost_fs, blkno)) {
+		if (prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
+			   "points to block %"PRIu64" which is out of range. "
+			   "Truncate this chain by deleting this invalid "
+			   "block reference?", cs->cs_chain_no, di->i_blkno,
+			   blkno))  {
+			cbr->cb_new_next_blkno = 1;
+			cbr->cb_next_blkno = 0;
+		} else {
+			cbr->cb_err = OCFS2_ET_BAD_BLKNO;
+		}
+
+		goto out;
+	}
+
+	if (o2fsck_test_block_used(ost, blkno) &&
+	    prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
+			   "points to block %"PRIu64" which has already been "
+			   "used by another part of the file system. "
+			   "Truncate this chain by deleting this invalid "
+			   "block reference?", cs->cs_chain_no, di->i_blkno,
+			   blkno))  {
+		cbr->cb_new_next_blkno = 1;
+		cbr->cb_next_blkno = 0;
+	}
+
+	if (allowed) {
+		ocfs2_bitmap_test(allowed, blkno, &was_set);
+		if (!was_set &&
+		    prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
+			   "points to block %"PRIu64" which should not be "
+			   "found in the allocator.  Truncate this chain by "
+			   "deleting this invalid block reference?",
+			   cs->cs_chain_no, di->i_blkno, blkno))  {
+			cbr->cb_new_next_blkno = 1;
+			/* will set next after reading */
+		} 
+	}
+
+	ret = ocfs2_read_group_desc(ost->ost_fs, blkno, (char *)bg);
+	if (ret) {
+		com_err(whoami, ret, "while reading a group descriptor from "
+			"block %"PRIu64" as pointed to by chain %d in "
+			"allocator at inode %"PRIu64, blkno, 
+			cs->cs_chain_no, di->i_blkno);
+		cbr->cb_err = ret;
+		goto out;
+	}
+
+	if (cbr->cb_new_next_blkno) {
+		cbr->cb_next_blkno = bg->bg_next_group;
+		goto out;
+	}
+
+	ret = check_group_desc(ost, di, cs, bg, blkno);
+	if (ret) {
+		if (prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
+			   "refers to an invalid descriptor block at "
+			   "%"PRIu64".  Truncate the chain by removing this "
+			   "reference?", cs->cs_chain_no, di->i_blkno,
+			   blkno)) {
+			cbr->cb_new_next_blkno = 1;
+			cbr->cb_next_blkno = 0;
+		}
+	}
+
+out:
+	return;
+}
+
 /*
  * this function is pretty hairy.  for dynamic chain allocators
  * it is just walking the chains to verify the group descs
@@ -178,8 +263,8 @@ static int check_chain(o2fsck_state *ost, ocfs2_dinode *di,
 	ocfs2_group_desc *bg2 = (ocfs2_group_desc *)buf2;
 	uint64_t blkno;
 	errcode_t ret;
-	int rc, changed = 0, remove = 0;
-	int was_set;
+	int changed = 0;
+	struct chain_block_res cbr;
 
 	verbosef("free %u total %u blkno %"PRIu64"\n", chain->c_free,
 		 chain->c_total, chain->c_blkno);
@@ -190,135 +275,54 @@ new_head:
 	if (blkno == 0)
 		goto out;
 
-	if (ocfs2_block_out_of_range(ost->ost_fs, blkno)) {
-		if (prompt(ost, PY, "Chain record %d in group allocator inode "
-			    "%"PRIu64" points to block %"PRIu64" which is out "
- 			    "of range.  Empty this chain by deleting this "
-			    "invalid block reference?", cs->cs_chain_no,
-			    di->i_blkno, blkno))  {
-			chain->c_blkno = 0;
-			changed = 1;
-		}
-
+	read_chain_block(ost, di, cs, blkno, bg1, allowed, &cbr);
+	if (cbr.cb_err) {
+		ret = cbr.cb_err;
 		goto out;
 	}
 
-	if (allowed) {
-		ocfs2_bitmap_test(allowed, blkno, &was_set);
-		if (!was_set &&
-		    prompt(ost, PY, "Chain record %d in chain allocator inode "
-			   "%"PRIu64" points to group descriptor block "
-			   "%"PRIu64" which should not be found in the "
-			   "allocator.  Remove this group descriptor block?",
-			   cs->cs_chain_no, di->i_blkno, blkno))  {
-			remove = 1;
-		}
-	}
-
-	ret = ocfs2_read_group_desc(ost->ost_fs, blkno, buf1);
-	if (ret) {
-		com_err(whoami, ret, "while reading a group descriptor from "
-			"block %"PRIu64" as pointed to by chain record %d in "
-			"group allocator inode %"PRIu64, blkno, 
-			cs->cs_chain_no, di->i_blkno);
-		goto out;
-	}
-
-	if (remove) {
-		chain->c_blkno = bg1->bg_next_group;
+	if (cbr.cb_new_next_blkno) {
+		chain->c_blkno = cbr.cb_new_next_blkno;
 		changed = 1;
-		remove = 0;
 		goto new_head;
-	}
-
-	ret = check_group_desc(ost, di, cs, bg1, blkno);
-	if (ret) {
-		if (prompt(ost, PY, "Chain %d in group allocator inode "
-			   "%"PRIu64" points to an invalid descriptor block "
-			   "at %"PRIu64".  Delete the chain?",
-			   cs->cs_chain_no, di->i_blkno, blkno)) {
-			chain->c_blkno = 0;
-			changed = 1;
-		}
-		goto out;
 	}
 
 	if (allowed)
 		ocfs2_bitmap_clear(allowed, chain->c_blkno, NULL);
+	o2fsck_mark_block_used(ost, chain->c_blkno);
 
 	/* read in each group desc and check it.  In this loop bg1 is 
 	 * verified and in the chain.  it's bg2 that is considered.  if
 	 * bg2 is found lacking we overwrite bg1's next_group and check
 	 * again */
 	while (bg1->bg_next_group) {
-		int write = 0;
-		/* see if we're about to reference a block that we shouldn't */
-		if (allowed) {
-			ocfs2_bitmap_test(allowed, bg1->bg_next_group, 
-					  &was_set);
-			if (!was_set &&
-			    prompt(ost, PY, "Chain %d in chain allocator "
-				   "inode %"PRIu64" points to group "
-				   "descriptor block %"PRIu64" which should "
-				   "not be found in the allocator.  Remove "
-				   "this group descriptor block?",
-				   cs->cs_chain_no, di->i_blkno, blkno))  {
-				remove = 1;
-			}
-		}
-		/* read the next desc in either to verify it or just to
-		 * grab the reference to the desc after it */
-		ret = ocfs2_read_group_desc(ost->ost_fs, bg1->bg_next_group,
-					    buf2);
-		if (ret) {
-			com_err(whoami, ret, "while reading a group descriptor "
-				    "from block %"PRIu64" as pointed to by "
-				    "chain record %d in group allocator inode "
-				    "%"PRIu64, bg1->bg_next_group, 
-				    cs->cs_chain_no, di->i_blkno);
+
+		read_chain_block(ost, di, cs, bg1->bg_next_group, bg2, allowed,
+				 &cbr);
+		if (cbr.cb_err) {
+			ret = cbr.cb_err;
 			goto out;
-		} 
-
-		/* skip over this desc that we've been told to remove it */
-		if (remove) {
-			bg1->bg_next_group = bg2->bg_next_group;
-			write = 1;
-			remove = 0;
-			goto write_bg1;
 		}
 
-		rc = check_group_desc(ost, di, cs, bg2, bg1->bg_next_group);
-		if (rc == 0) {
+		if (!cbr.cb_new_next_blkno) {
 			if (allowed)
 				ocfs2_bitmap_clear(allowed, bg2->bg_blkno,
 						   NULL);
+			o2fsck_mark_block_used(ost, bg2->bg_blkno);
 			memcpy(buf1, buf2, ost->ost_fs->fs_blocksize);
 			continue;
 		}
 
-		if (prompt(ost, PY, "Chain %d in group allocator inode "
-			   "%"PRIu64" contains an invalid descriptor block "
-			   "at %"PRIu64".  Truncate the chain to the last "
-			   "valid descriptor block?", cs->cs_chain_no,
-			   di->i_blkno, bg1->bg_next_group)) {
-			bg1->bg_next_group = 0;
-			write = 1;
-		}
+		bg1->bg_next_group = cbr.cb_new_next_blkno;
 
-write_bg1:
-		if (write) {
-			ret = ocfs2_write_group_desc(ost->ost_fs, 
-						     bg1->bg_blkno,
-						     (char *)bg1);
-			if (ret) {
-				com_err(whoami, ret, "while writing a group "
-					"descriptor to block %"PRIu64" "
-					"somewhere in chain %d in group "
-					"allocator inode %"PRIu64, 
-					bg1->bg_blkno, cs->cs_chain_no,
-					di->i_blkno);
-				ost->ost_write_error = 1;
-			}
+		ret = ocfs2_write_group_desc(ost->ost_fs, bg1->bg_blkno,
+					     (char *)bg1);
+		if (ret) {
+			com_err(whoami, ret, "while writing a group "
+				"descriptor to block %"PRIu64" somewhere in "
+				"chain %d in group allocator inode %"PRIu64, 
+				bg1->bg_blkno, cs->cs_chain_no, di->i_blkno);
+			ost->ost_write_error = 1;
 		}
 	}
 
