@@ -312,6 +312,119 @@ static inline int atomic_dec_and_test(atomic_t *v)
 #endif
 
 
+#if !defined(smp_mb__before_clear_bit)
+
+#if defined(__powerpc__) && !defined(__powerpc64__)
+
+static __inline__ void set_bit(int nr, volatile void * addr)
+{
+	unsigned long old;
+	unsigned long mask = 1 << (nr & 0x1f);
+	unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
+
+	__asm__ __volatile__("\n\
+1:	lwarx   %0,0,%3 \n\
+        or      %0,%0,%2 \n\
+	stwcx.  %0,0,%3 \n\
+	bne-    1b"
+	: "=&r" (old), "=m" (*p)
+	: "r" (mask), "r" (p), "m" (*p)
+	: "cc" );
+}
+
+static __inline__ void clear_bit(int nr, volatile void *addr)
+{
+	unsigned long old;
+	unsigned long mask = 1 << (nr & 0x1f);
+	unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
+
+	__asm__ __volatile__("\n\
+1:	lwarx   %0,0,%3 \n\
+	andc    %0,%0,%2 \n\
+	stwcx.  %0,0,%3 \n\
+	bne-    1b"
+	: "=&r" (old), "=m" (*p)
+	: "r" (mask), "r" (p), "m" (*p)
+	: "cc");
+}
+
+static __inline__ int __test_and_clear_bit(int nr, volatile void *addr)
+{
+	unsigned long mask = 1 << (nr & 0x1f);
+	unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
+	unsigned long old = *p;
+
+	*p = old & ~mask;
+	return (old & mask) != 0;
+}
+
+static __inline__ int test_bit(int nr, __const__ volatile void *addr)
+{
+	__const__ unsigned int *p = (__const__ unsigned int *) addr;
+
+	return ((p[nr >> 5] >> (nr & 0x1f)) & 1) != 0;
+}
+
+static __inline__ int __ilog2(unsigned int x)
+{
+	int lz;
+
+	asm ("cntlzw %0,%1" : "=r" (lz) : "r" (x));
+	return 31 - lz;
+}
+
+static __inline__ int ffz(unsigned int x)
+{
+	if ((x = ~x) == 0)
+		return 32;
+	return __ilog2(x & -x);
+}
+
+static __inline__ unsigned long find_next_zero_bit(void * addr,
+	unsigned long size, unsigned long offset)
+{
+	unsigned int * p = ((unsigned int *) addr) + (offset >> 5);
+	unsigned int result = offset & ~31UL;
+	unsigned int tmp;
+
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset &= 31UL;
+	if (offset) {
+		tmp = *p++;
+		tmp |= ~0UL >> (32-offset);
+		if (size < 32)
+			goto found_first;
+		if (tmp != ~0U)
+			goto found_middle;
+		size -= 32;
+		result += 32;
+	}
+	while (size >= 32) {
+		if ((tmp = *p++) != ~0U)
+			goto found_middle;
+		result += 32;
+		size -= 32;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
+found_first:
+	tmp |= ~0UL << size;
+	if (tmp == ~0UL)        /* Are any bits zero? */
+		return result + size; /* Nope. */
+found_middle:
+	return result + ffz(tmp);
+}
+
+#else /* !ppc32 */
+#error "Your platform doesn't provide the functions required in <asm/bitopts.h>"
+#endif
+
+#endif /* !smp_mb__before_clear_bit */
+
+
 /* include all the rest from ocfs.h */
 #include <ocfsbool.h>
 #include <ocfscom.h>
