@@ -32,7 +32,7 @@
 
 #include <string.h>
 
-#include "filesys.h"
+#include "ocfs2.h"
 
 
 errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir)

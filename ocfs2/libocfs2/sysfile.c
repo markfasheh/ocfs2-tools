@@ -29,7 +29,7 @@
 
 #include <string.h>
 
-#include "filesys.h"
+#include "ocfs2.h"
 
 errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
 				    int node_num, uint64_t *blkno)

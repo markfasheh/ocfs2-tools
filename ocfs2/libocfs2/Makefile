@@ -91,7 +91,7 @@ HFILES =				\
 	include/memory.h		\
 	include/unix_io.h		\
 	include/byteorder.h		\
-	include/filesys.h		\
+	include/ocfs2.h		\
 	include/dir_iterate.h
 
 HFILES_GEN =		\

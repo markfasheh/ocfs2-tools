@@ -32,7 +32,7 @@
 
 #include <stdlib.h>
 
-#include "filesys.h"
+#include "ocfs2.h"
 
 
 void ocfs2_freefs(ocfs2_filesys *fs)

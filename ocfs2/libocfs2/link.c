@@ -32,7 +32,7 @@
 
 #include <string.h>
 
-#include "filesys.h"
+#include "ocfs2.h"
 
 
 struct link_struct  {

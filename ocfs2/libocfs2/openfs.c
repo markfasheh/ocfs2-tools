@@ -37,7 +37,7 @@
 # define ULLONG_MAX 18446744073709551615ULL
 #endif
 
-#include "filesys.h"
+#include "ocfs2.h"
 
 #include "ocfs1_fs_compat.h"
 

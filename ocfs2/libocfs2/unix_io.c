@@ -42,7 +42,7 @@
 #include <sys/utsname.h>
 #endif
 
-#include "filesys.h"
+#include "ocfs2.h"
 
 
 struct _io_channel {

@@ -30,7 +30,7 @@
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
 #define _LARGEFILE64_SOURCE
 
-#include "filesys.h"
+#include "ocfs2.h"
 
 
 errcode_t ocfs2_flush(ocfs2_filesys *fs)
