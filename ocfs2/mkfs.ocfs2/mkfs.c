@@ -203,6 +203,7 @@ struct _State {
 
 
 static State *get_state (int argc, char **argv);
+static int get_number(char *arg, uint64_t *res);
 static void usage(const char *progname);
 static void version(const char *progname);
 static void fill_defaults(State *s);
@@ -241,6 +242,7 @@ static int initial_nodes_for_volume(uint64_t size);
 static void generate_uuid(State *s);
 static void write_autoconfig_header(State *s, SystemFileDiskRecord *rec);
 static void init_record(State *s, SystemFileDiskRecord *rec, int type, int dir);
+static void print_state(State *s);
 
 
 extern char *optarg;
@@ -289,6 +291,8 @@ main(int argc, char **argv)
 	adjust_volume_size(s);
 
 	generate_uuid (s);
+
+	print_state (s);
 
 	init_record(s, &global_alloc_rec, SFI_OTHER, 0);
 	global_alloc_rec.extent_off = 0;
@@ -456,6 +460,8 @@ get_state(int argc, char **argv)
 	int verbose = 0, quiet = 0;
 	int show_version = 0;
 	char *device_name;
+	int ret;
+	uint64_t val;
 
 	static struct option long_state[] = {
 		{ "blocksize", 1, 0, 'b' },
@@ -482,11 +488,11 @@ get_state(int argc, char **argv)
 
 		switch (c) {
 		case 'b':
-			blocksize = strtoul(optarg, &dummy, 0);
+			ret = get_number(optarg, &val);
 
-			if (blocksize < OCFS2_MIN_BLOCKSIZE ||
-			    blocksize > OCFS2_MAX_BLOCKSIZE ||
-			    *dummy != '\0') {
+			if (ret ||
+			    val < OCFS2_MIN_BLOCKSIZE ||
+			    val > OCFS2_MAX_BLOCKSIZE) {
 				com_err(progname, 0,
 					"Invalid blocksize %s: "
 					"must be between %d and %d",
@@ -496,17 +502,19 @@ get_state(int argc, char **argv)
 				exit(1);
 			}
 
+			blocksize = (unsigned int) val;
 			break;
 
 		case 'c':
-			cluster_size = strtoul(optarg, &dummy, 0);
+			ret = get_number(optarg, &val);
 
-			if (*dummy != '\0') {
+			if (ret) {
 				com_err(progname, 0,
 					"Invalid cluster size %s", optarg);
 				exit(1);
 			}
 
+			cluster_size = (unsigned int) val;
 			break;
 
 		case 'L':
@@ -607,6 +615,49 @@ get_state(int argc, char **argv)
 	return s;
 }
 
+static int
+get_number(char *arg, uint64_t *res)
+{
+	char *ptr = NULL;
+	uint64_t num;
+
+	num = strtoull(arg, &ptr, 0);
+
+	if ((ptr == arg) || (num == UINT64_MAX))
+		return(-EINVAL);
+
+	switch (*ptr) {
+	case '\0':
+		break;
+
+	case 'g':
+	case 'G':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'm':
+	case 'M':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'k':
+	case 'K':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'b':
+	case 'B':
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	*res = num;
+
+	return 0;
+}
+
 static void
 usage(const char *progname)
 {
@@ -641,8 +692,7 @@ fill_defaults(State *s)
 	s->pagesize_bits = get_bits(s, pagesize);
 
 	if (!s->blocksize) {
-		//s->blocksize = 1024;
-		s->blocksize = 512;
+		s->blocksize = 1024;
 	}
 
 	s->blocksize_bits = get_bits(s, s->blocksize);
@@ -1176,9 +1226,9 @@ replacement_journal_create(State *s, uint64_t journal_off)
 	else
 		sb->s_first = htonl(1);
 
-	sb->s_start     = htonl(1);
-	sb->s_sequence  = htonl(1);
-	sb->s_errno     = htonl(0);
+	sb->s_start    = htonl(1);
+	sb->s_sequence = htonl(1);
+	sb->s_errno    = htonl(0);
 
 	do_pwrite(s, buf, OCFS2_DEFAULT_JOURNAL_SIZE, journal_off);
 	free(buf);
@@ -1298,4 +1348,19 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int dir)
 	case SFI_OTHER:
 		break;
 	}
+}
+
+static void
+print_state(State *s)
+{
+	if (s->quiet)
+		return;
+
+	printf("Filesystem label=%s\n", s->vol_label);
+	printf("Block size=%u (bits=%u)\n", s->blocksize, s->blocksize_bits);
+	printf("Cluster size=%u (bits=%u)\n", s->cluster_size, s->cluster_size_bits);
+	printf("Volume size=%llu (%u clusters)\n",
+	       (unsigned long long) s->volume_size_in_bytes,
+	       s->volume_size_in_clusters);
+	printf("Initial number of nodes: %u\n", s->initial_nodes);
 }
