@@ -66,7 +66,6 @@ static int expected_dots(o2fsck_dirblock_entry *dbe, int offset)
 	return 0;
 }
 
-/* XXX this needs much stronger messages */
 static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 			   struct ocfs2_dir_entry *dirent, int offset, 
 			   int left)
@@ -79,18 +78,20 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	if (!expect_dots) {
 	       	if (!dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
 			return 0;
-		if (should_fix(ost, FIX_DEFYES, 
-			       "Duplicate '%.*s' directory found, remove?",
-			       dirent->name_len, dirent->name)) {
-			/* XXX I don't understand the inode = 0 clearing */
+		if (prompt(ost, PY, "Duplicate '%.*s' directory entry found, "
+			   "remove it?", dirent->name_len, dirent->name)) {
 			dirent->inode = 0;
 			return OCFS2_DIRENT_CHANGED;
 		}
 	}
 
 	if (!dirent_has_dots(dirent, expect_dots) &&
-	    should_fix(ost, FIX_DEFYES, 
-		       "didn't find dots when expecting them")) {
+	    prompt(ost, PY, "The %s directory entry in directory inode "
+		   "%"PRIu64" is '%.*s' instead of '%.*s'.  Clobber the "
+		   "current name with the expected dot name?", 
+		   expect_dots == 1 ? "first" : "second", dbe->e_ino, 
+		   dirent->name_len, dirent->name, expect_dots, "..")) {
+
 		dirent->name_len = expect_dots;
 		memset(dirent->name, '.', expect_dots);
 		changed_len = 1;
@@ -114,7 +115,9 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	}
 
 	if ((dirent->inode != dbe->e_ino) &&
-            should_fix(ost, FIX_DEFYES, "invalid . directory, replace?")) {
+            prompt(ost, PY, "The '.' entry in directory inode %"PRIu64" "
+		   "points to inode %"PRIu64" instead of itself.  Fix "
+		   "the '.' entry?", dbe->e_ino, dirent->inode)) {
 		dirent->inode = dbe->e_ino;
 		ret_flags = OCFS2_DIRENT_CHANGED;
 	}
@@ -126,8 +129,10 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	 */
 	new_len = OCFS2_DIR_REC_LEN(dirent->name_len) - dirent->rec_len;
 	if (new_len && (changed_len || 
-			should_fix(ost, FIX_DEFNO,
-				   "'.' entry is too big, split?"))) {
+			prompt(ost, PY, "The '.' entry in directory inode "
+			       "%"PRIu64" is too long.  Try to create another "
+			       "directory entry from the excess?", 
+			       dbe->e_ino))) {
 		dirent->rec_len = OCFS2_DIR_REC_LEN(dirent->name_len);
 
 		next = (struct ocfs2_dir_entry *)((char *)dirent + 
@@ -152,10 +157,10 @@ static int fix_dirent_lengths(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	    (OCFS2_DIR_REC_LEN(dirent->name_len) <= dirent->rec_len))
 		return 0;
 
-	if (!should_fix(ost, FIX_DEFYES, 
-			"Directory inode %"PRIu64" corrupted in logical "
-			"block %"PRIu64" physical block %"PRIu64" offset %d",
-			dbe->e_ino, dbe->e_blkcount, dbe->e_blkno, offset))
+	if (!prompt(ost, PY, "Directory inode %"PRIu64" corrupted in logical "
+		    "block %"PRIu64" physical block %"PRIu64" offset %d. "
+		    "Attempt to repair this block's directory entries?",
+		    dbe->e_ino, dbe->e_blkcount, dbe->e_blkno, offset))
 		fatal_error(OCFS2_ET_DIR_CORRUPTED, "in pass2");
 
 	/* special casing an empty dirent that doesn't include the
@@ -200,8 +205,8 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	int len = dirent->name_len, fix = 0, ret_flags = 0;
 
 	if (len == 0) {
-		if (should_fix(ost, FIX_DEFYES, "Directory entry has a "
-				"zero-length name, clear it?")) {
+		if (prompt(ost, PY, "Directory entry has a zero-length name, "
+				    "clear it?")) {
 			dirent->inode = 0;
 			ret_flags = OCFS2_DIRENT_CHANGED;
 		}
@@ -210,10 +215,10 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	for(; len-- > 0 && (*chr == '/' || *chr == '\0'); chr++) {
 		/* XXX in %s parent name */
 		if (!fix) {
-			fix = should_fix(ost, FIX_DEFYES, "Entry '%.*s' "
-					"contains invalid characters, replace "
-					"with dots?", dirent->name_len, 
-					dirent->name);
+			fix = prompt(ost, PY, "Directory entry '%.*s' "
+				     "contains invalid characters, replace "
+				     "them with dots?", dirent->name_len, 
+				     dirent->name);
 			if (!fix)
 				return 0;
 		}
@@ -239,10 +244,10 @@ static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	int was_set;
 
 	if (inode_out_of_range(ost->ost_fs, dirent->inode)) {
-		if (should_fix(ost, FIX_DEFYES, "Entry '%.*s' refers to inode "
-				"number %"PRIu64" which is out of range, "
-				"clear it?", dirent->name_len, dirent->name, 
-				dirent->inode)) {
+		if (prompt(ost, PY, "Directory entry '%.*s' refers to inode "
+			   "number %"PRIu64" which is out of range, "
+			   "clear the entry?", dirent->name_len, dirent->name, 
+			   dirent->inode)) {
 			dirent->inode = 0;
 			return OCFS2_DIRENT_CHANGED;
 		}
@@ -251,10 +256,10 @@ static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	/* XXX Do I care about possible bitmap_test errors here? */
 	ocfs2_bitmap_test(ost->ost_used_inodes, dirent->inode, &was_set);
 	if (!was_set) {
-		if (should_fix(ost, FIX_DEFYES, "Entry '%.*s' refers to inode "
-				"number %"PRIu64" which is unused, clear it?", 
-				dirent->name_len, dirent->name, 
-				dirent->inode)) {
+		if (prompt(ost, PY, "Directory entry '%.*s' refers to inode "
+			   "number %"PRIu64" which is unused, clear the "
+			   "entry?", dirent->name_len, dirent->name, 
+			   dirent->inode)) {
 			dirent->inode = 0;
 			return OCFS2_DIRENT_CHANGED;
 		}
@@ -327,11 +332,10 @@ static int fix_dirent_filetype(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	ocfs2_free(&buf);
 
 check:
-	/* XXX do we care to have expected 0 -> lead to "set" rather than
-	 * "fix" language? */
 	if ((dirent->file_type != expected_type) &&
-	    should_fix(ost, FIX_DEFYES, "entry %.*s contains file type %s (%u) "
-		"but its inode %"PRIu64" leads to type %s (%u)",
+	    prompt(ost, PY, "Directory entry %.*s contains file type %s (%u) "
+		"but its inode %"PRIu64" leads to type %s (%u).  Reset the "
+		"entry's type to match the inode's?",
 		dirent->name_len, dirent->name, 
 		file_type_string(dirent->file_type), dirent->file_type,
 		dirent->inode,
@@ -378,11 +382,11 @@ static int fix_dirent_linkage(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		return 0;
 	}
 
-	if (should_fix(ost, 0, "directory inode %"PRIu64" is not the first to "
-		"claim to be the parent of subdir '%.*s' (%"PRIu64").  Forget "
-		"this linkage and leave the previous parent of '%.*s' intact?",
-		dbe->e_ino, dirent->name_len, dirent->name, dirent->inode,
-		dirent->name_len, dirent->name)) {
+	if (prompt(ost, 0, "Directory inode %"PRIu64" is not the first to "
+		"claim to be the parent of subdir '%.*s' (inode %"PRIu64"). "
+		"Clear this directory entry and leave the previous parent of "
+		"the subdir's inode intact?", dbe->e_ino, 
+		dirent->name_len, dirent->name, dirent->inode)) {
 
 		dirent->inode = 0;
 		return OCFS2_DIRENT_CHANGED;

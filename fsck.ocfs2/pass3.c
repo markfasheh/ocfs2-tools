@@ -52,8 +52,8 @@ static void check_root(o2fsck_state *ost)
 		return;
 	}
 
-	if (!should_fix(ost, FIX_DEFYES, "The root inode doesn't exist. "
-			"Should it be created?  If not, fsck will exit.")) {
+	if (!prompt(ost, PY, "The root inode %"PRIu64" doesn't exist. "
+			"Should it be created?", ost->ost_fs->fs_root_blkno)) {
 		printf("Aborting.\n");
 		exit(FSCK_ERROR);
 	}
@@ -181,9 +181,9 @@ static void connect_directory(o2fsck_state *ost, o2fsck_dir_parent *dir)
 		/* ok, we hit an orphan subtree with no parent or are at 
 		 * the dir in a subtree that is the first to try to reference
 		 * a dir in its children */
-		fix = should_fix(ost, FIX_DEFYES, "directory inode %"PRIu64" "
-				"isn't connected to the filesystem.  Move it "
-				"to lost+found?", dp->dp_ino);
+		fix = prompt(ost, PY, "Directory inode %"PRIu64" isn't "
+			     "connected to the filesystem.  Move it to "
+			     "lost+found?", dp->dp_ino);
 		if (fix)
 			o2fsck_reconnect_file(ost, dp->dp_ino);
 
@@ -191,13 +191,12 @@ static void connect_directory(o2fsck_state *ost, o2fsck_dir_parent *dir)
 	}
 
 	if (dir->dp_dirent != dir->dp_dot_dot) {
-		fix = should_fix(ost, FIX_DEFYES, "directory inode %"PRIu64" "
-				"is referenced by a dirent in directory "
-				"%"PRIu64" but its '..' entry points to "
-				"inode %"PRIu64".  Fix the '..' entry to "
-				"reference %"PRIu64"?", dir->dp_ino,
-				dir->dp_dirent, dir->dp_dot_dot, 
-				dir->dp_dirent);
+		fix = prompt(ost, PY, "Directory inode %"PRIu64" is "
+			     "referenced by a dirent in directory %"PRIu64" "
+			     "but its '..' entry points to inode %"PRIu64". "
+			     "Fix the '..' entry to reference %"PRIu64"?", 
+			     dir->dp_ino, dir->dp_dirent, dir->dp_dot_dot, 
+			     dir->dp_dirent);
 		if (fix)
 			fix_dot_dot(ost, dir);
 	}

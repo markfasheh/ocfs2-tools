@@ -24,12 +24,16 @@
 #ifndef __O2FSCK_PROBLEM_H__
 #define __O2FSCK_PROBLEM_H__
 
-#define FIX_DEFYES (1 << 0)
-#define FIX_DEFNO  (1 << 1)
+/* prompt flags. */
+#define PY (1 << 0) /* default to yes when asked and no answer forced */
+#define PN  (1 << 1) /* default to no when asked and no answer forced */
 
 #include "fsck.h"
 
-int should_fix(o2fsck_state *ost, unsigned flags, const char *fmt, ...);
+/* returns non-zero for yes and zero for no.  The caller is expected to
+ * provide a thorough description of the state and the action that will
+ * be taken depending on the answer.  Without \n termination. */
+int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...);
 
 #endif /* __O2FSCK_PROBLEM_H__ */
 

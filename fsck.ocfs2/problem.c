@@ -28,25 +28,36 @@
 #include <string.h>
 #include <stdarg.h>
 #include <termios.h>
+#include <ctype.h>
+#include <signal.h>
 
 #include "ocfs2.h"
 
 #include "problem.h"
 #include "util.h"
 
+/* XXX more of fsck will want this.. */
+static sig_atomic_t interrupted = 0;
+static void handle_sigint(int sig)
+{
+	interrupted = 1;
+}
+
 /* 
  * when a caller cares why read() failed we can bother to communicate
  * the error.  
- *
- * XXX I wonder this termios junk is really the best way.  I bet we want
- * to at least make a passing attempt to not be killed while we have
- * the terminal all messed up.
  */
 static int read_a_char(int fd)
 {
 	struct termios orig, new;
 	char c;
 	ssize_t ret;
+	struct sigaction sa;
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_handler = handle_sigint;
+	sa.sa_flags = SA_ONESHOT; /* !SA_RESTART */
+	sigaction(SIGINT, &sa, NULL);
 
 	/* turn off buffering and echoing and encourage single character
 	 * reads */
@@ -61,6 +72,9 @@ static int read_a_char(int fd)
 
 	tcsetattr (0, TCSANOW, &orig);
 
+	if (interrupted)
+		return 3;
+
 	if (ret != sizeof(c))
 		return EOF;
 
@@ -69,65 +83,73 @@ static int read_a_char(int fd)
 
 /* 
  * this checks the user's intent.  someday soon it will check command line flags
- * and have a notion of grouping, as well
+ * and have a notion of grouping, as well.  The caller is expected to provide
+ * a fully formed question that isn't terminated with a newline.
  */
-int should_fix(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
+int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 {
 	va_list ap;
-	int c;
+	int c, ans = 0;
 
 	/* paranoia for jokers that claim to default to both */
-	if((flags & FIX_DEFYES) && (flags & FIX_DEFNO))
-		flags &= ~(FIX_DEFYES|FIX_DEFNO);
+	if((flags & PY) && (flags & PN))
+		flags &= ~(PY|PN);
 
 	va_start(ap, fmt);
 	vprintf(fmt, ap);
 	va_end(ap);
 
 	if (!ost->ost_ask) {
-		if (ost->ost_answer)
-			printf("  Fixing.\n");
-		else
-			printf("  Ignoring\n");
-		return ost->ost_answer;
+		ans = ost->ost_answer ? 'y' : 'n';
+	} else {
+		if (flags & PY)
+			printf(" <y> ");
+		else if (flags & PN)
+			printf(" <n> ");
+		fflush(stdout);
 	}
 
-	printf(" Fix? ");
-	if (flags & FIX_DEFYES)
-		printf(" <y> ");
-	else if (flags & FIX_DEFNO)
-		printf(" <n> ");
-
-	fflush(stdout);
-
 	/* no curses, no nothin.  overly regressive? */
-	while ((c = read_a_char(fileno(stdin))) != EOF) {
+	while (!ans && (c = read_a_char(fileno(stdin))) != EOF) {
 
-		/* XXX control-c, we're done? */
 		if (c == 3) {
-			printf("cancelled!\n");
+			printf("ctl-c pressed, aborting.\n");
 			exit(FSCK_ERROR);
 		}
 
-		/* straight answers */
-		if (c == 'y' || c == 'Y')
-			return 1;
-		if (c == 'n' || c == 'N')
-			return 0;
+		if (c == 27) {
+			printf("ESC pressed, aborting.\n");
+			exit(FSCK_ERROR);
+		}
+
+		c = tolower(c);
 
 		/* space or CR lead to applying the optional default */
 		if (c == ' ' || c == '\n') {
-			if (flags & FIX_DEFYES)
-				return 1;
-			if (flags & FIX_DEFNO)
-				return 0;
+			if (flags & PY)
+				c = 'y';
+			else if (flags & PN)
+				c = 'n';
+		}
+
+		if (c == 'y' || c == 'n') {
+			ans = c;
+			break;
 		}
 
 		/* otherwise keep asking */
 	}
 
-	printf("input failed?\n");
-	exit(FSCK_ERROR);
+	if (!ans) {
+		printf("input failed, aborting.\n");
+		exit(FSCK_ERROR);
+	}
 
-	return 0;
+	/* this is totally silly. */
+	if (!ost->ost_ask) 
+		printf(" %c\n", ans);
+	else
+		printf("%c\n", ans);
+
+	return ans == 'y';
 }

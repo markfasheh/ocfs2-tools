@@ -7,7 +7,8 @@ SBIN_PROGRAMS = fsck.ocfs2
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 
-CFLAGS := -g -Wall -Wstrict-prototypes -Wmissing-prototypes \
+# -O2 to get uninitialized warnings from gcc.
+CFLAGS := -O2 -g -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
 DEFINES = -DOCFS2_FLAT_INCLUDES

@@ -80,7 +80,8 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	/* offer to clear a non-directory root inode so that 
 	 * pass3:check_root() can re-create it */
 	if ((di->i_blkno == fs->fs_root_blkno) && !S_ISDIR(di->i_mode) && 
-	    should_fix(ost, FIX_DEFYES, "Root inode isn't a directory.")) {
+	    prompt(ost, PY, "Root inode isn't a directory.  Clear it in "
+		   "preparation for fixing it?")) {
 		di->i_dtime = 0ULL;
 		di->i_links_count = 0ULL;
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
@@ -89,14 +90,11 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		o2fsck_write_inode(fs, blkno, di);
 	}
 
-	if (di->i_dtime) {
-		if (should_fix(ost, FIX_DEFYES, 
-		    "Inode %llu is in use but has a non-zero dtime.", 
-		    di->i_blkno)) {
-
-			di->i_dtime = 0ULL;
-			o2fsck_write_inode(fs, blkno, di);
-		}
+	if (di->i_dtime && prompt(ost, PY, "Inode %"PRIu64" is in use but has "
+				  "a non-zero dtime.  Reset the dtime to 0?",  
+				   di->i_blkno)) {
+		di->i_dtime = 0ULL;
+		o2fsck_write_inode(fs, blkno, di);
 	}
 
 	ocfs2_bitmap_set(ost->ost_used_inodes, blkno, &was_set);
@@ -159,11 +157,10 @@ static int verify_block(ocfs2_filesys *fs,
 		vb->vb_errors++;
 #if 0 /* ext2 does this by returning a value to libext2 which clears the 
 	 block from the inode's allocation */
-		if (should_fix(ost, FIX_DEFYES, 
-				"inode %"PRIu64" references bad physical block"
-			       	" %"PRIu64" at logical block %"PRIu64
-				", should it be cleared?",
-			di->i_blkno, bklno, bcount)) {
+		if (prompt(ost, PY, "inode %"PRIu64" references bad physical "
+			   "block %"PRIu64" at logical block %"PRIu64", "
+			   "should it be cleared?", di->i_blkno, bklno, 
+			   bcount)) {
 		}
 #endif
 	}
@@ -171,9 +168,8 @@ static int verify_block(ocfs2_filesys *fs,
 	/* XXX this logic should be more sophisticated.  It's not really clear
 	 * what ext2 is trying to do in theirs. */
 	if (vb->vb_errors == 12) {
-		if (should_fix(ost, FIX_DEFYES, 
-			"inode %"PRIu64" has seen many errors, should it "
-			"be cleared?", di->i_blkno)) {
+		if (prompt(ost, PY, "inode %"PRIu64" has seen many errors, "
+			   "should it be cleared?", di->i_blkno)) {
 			vb->vb_clear = 1;
 			return OCFS2_BLOCK_ABORT;
 		}
@@ -258,9 +254,8 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	}
 
 	if (S_ISDIR(di->i_mode) && vb.vb_num_blocks == 0) {
-		if (should_fix(ost, FIX_DEFYES, 
-			"inode %"PRIu64" is a zero length directory, "
-			"clear it?", di->i_blkno)) {
+		if (prompt(ost, PY, "Inode %"PRIu64" is a zero length "
+			   "directory, clear it?", di->i_blkno)) {
 			vb.vb_clear = 1;
 		}
 	}
@@ -286,10 +281,9 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	/* i_size is checked for symlinks elsewhere */
 	if (!S_ISLNK(di->i_mode) && di->i_size > expected &&
-	    should_fix(ost, FIX_DEFYES, "inode %"PRIu64" has a size of "
-		       "%"PRIu64" but has %"PRIu64" bytes of actual data. "
-		       " Correct the file size?", di->i_blkno, di->i_size,
-		       expected)) {
+	    prompt(ost, PY, "Inode %"PRIu64" has a size of %"PRIu64" but has "
+		    "%"PRIu64" bytes of actual data. Correct the file size?",
+		    di->i_blkno, di->i_size, expected)) {
 		di->i_size = expected;
 		o2fsck_write_inode(fs, blkno, di);
 	}
@@ -299,10 +293,9 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		expected = clusters_holding_blocks(fs, vb.vb_last_block + 1);
 
 	if (di->i_clusters < expected &&
-	    should_fix(ost, FIX_DEFYES, "inode %"PRIu64" has %"PRIu64" "
-		       "clusters but its blocks fit in %"PRIu64" clusters. "
-		       " Correct the number of clusters?", di->i_blkno, 
-		       di->i_clusters, expected)) {
+	    prompt(ost, PY, "inode %"PRIu64" has %"PRIu64" clusters but its "
+		   "blocks fit in %"PRIu64" clusters.  Correct the number of "
+		   "clusters?", di->i_blkno, di->i_clusters, expected)) {
 		di->i_clusters = expected;
 		o2fsck_write_inode(fs, blkno, di);
 	}

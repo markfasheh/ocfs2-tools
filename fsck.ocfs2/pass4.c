@@ -60,9 +60,9 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 
 		if (refs == 0) {
 			/* XXX offer to remove files/dirs with no data? */
-			if (should_fix(ost, FIX_DEFYES, "Inode %"PRIu64" "
-					"isn't referenced by any directory "
-					"entries.  Move it to lost+found?")) {
+			if (prompt(ost, PY, "Inode %"PRIu64" isn't referenced "
+				   "by any directory entries.  Move it to "
+				   "lost+found?")) {
 				o2fsck_reconnect_file(ost, ino);
 				refs = o2fsck_icount_get(ost->ost_icount_refs,
 						ino);
@@ -94,11 +94,10 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 				    "%"PRIu16, ino, in_inode, 
 				    di->i_links_count);
 
-		if (should_fix(ost, FIX_DEFYES, "Inode %"PRIu64" has a link "
-				"count of %"PRIu16" on disk but directory "
-				"entry references come to %"PRIu16", update "
-				"the count on disk to match?", ino, 
-				in_inode, refs)) {
+		if (prompt(ost, PY, "Inode %"PRIu64" has a link count of "
+			   "%"PRIu16" on disk but directory entry references "
+			   "come to %"PRIu16". Update the count on disk to "
+			   "match?", ino, in_inode, refs)) {
 			di->i_links_count = refs;
 			o2fsck_icount_set(ost->ost_icount_in_inodes, ino, 
 					refs);
