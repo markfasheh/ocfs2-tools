@@ -207,7 +207,7 @@ static errcode_t lookup_journal_block(o2fsck_state *ost,
 	errcode_t err;
 	int contig;
 
-	err = ocfs2_extent_map_get_blocks(ji->ji_cinode->ci_map, blkoff,
+	err = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff,
 					  1, blkno, &contig);
 	if (err) 
 		com_err(whoami, err, "while looking up logical block "
@@ -419,8 +419,7 @@ static errcode_t prep_journal_info(o2fsck_state *ost, int node,
 		goto out;
 	}
 
-	err = ocfs2_extent_map_new(ost->ost_fs, ji->ji_cinode, 
-				   &ji->ji_cinode->ci_map);
+	err = ocfs2_extent_map_init(ost->ost_fs, ji->ji_cinode);
 	if (err) {
 		com_err(whoami, err, "while initializing extent map");
 		goto out;
@@ -504,7 +503,8 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 			jsb->s_sequence = ji->ji_final_seq + 1;
 
 			err = ocfs2_write_journal_superblock(ost->ost_fs,
-					ji->ji_jsb_block, ji->ji_jsb);
+					ji->ji_jsb_block,
+					(char *)ji->ji_jsb);
 			if (err)
 				ret = err;
 		}
