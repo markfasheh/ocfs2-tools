@@ -65,7 +65,8 @@ CFILES = 		\
 	kernel-rbtree.c	\
 	bitops.c	\
 	expanddir.c	\
-	newdir.c
+	newdir.c	\
+	extend_file.c
 
 HFILES =				\
 	include/jfs_user.h		\

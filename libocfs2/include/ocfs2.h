@@ -451,6 +451,11 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs, ocfs2_group_desc *gd,
 errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 			      uint64_t parent_ino, char **block);
 
+errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
+			      uint64_t c_blkno, uint32_t clusters);
+errcode_t ocfs2_extent_allocation(ocfs2_filesys *fs, uint64_t ino,
+				  uint32_t new_clusters);
+
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
  * returns the cluster that contains a block, not the number of clusters

@@ -21,8 +21,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
- *
  *  This code is a port of e2fsprogs/lib/ext2fs/expanddir.c
  *  Copyright (C) 1993, 1999 Theodore Ts'o.
  */
@@ -71,6 +69,8 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 		goto bail;
 
 	inode = cinode->ci_inode;
+	/* This relies on the fact that i_size of a directory is a
+	 * multiple of blocksize */
 	used_blks = inode->i_size >>
 	       			OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 	totl_blks = ocfs2_clusters_to_blocks(fs, inode->i_clusters);
