@@ -1119,8 +1119,8 @@ int main(int argc, char **argv)
 	alloc_from_bitmap (1, global_bm, &root_dir_rec.extent_off, &root_dir_rec.extent_len);
 	root_dir_rec.fe_off = alloc_inode(1);
 	root_dir->record = &root_dir_rec;
-	add_entry_to_directory(root_dir, ".", root_dir_rec.extent_off, OCFS2_FT_DIR);
-	add_entry_to_directory(root_dir, "..", root_dir_rec.extent_off, OCFS2_FT_DIR);
+	add_entry_to_directory(root_dir, ".", root_dir_rec.fe_off, OCFS2_FT_DIR);
+	add_entry_to_directory(root_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
 
 
 	/* system directory */	
