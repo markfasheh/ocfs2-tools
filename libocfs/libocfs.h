@@ -94,6 +94,17 @@ extern long TIME_ZERO;
 #include <sys/time.h>
 #include <sys/mman.h>
 
+/* Special case, cause of twisty nested includes */
+#ifndef _LINUX_LIST_H
+#define INIT_LIST_HEAD(a)	do { } while(0)
+#define list_add_tail(a,b)	do { } while(0)
+#define list_del(a)		do { } while(0)
+struct list_head
+{
+    struct list_head *next, *prev;
+};
+#endif
+
 /* reqd by ocfsformat */
 #undef WNOHANG
 #undef WUNTRACED
@@ -110,9 +121,6 @@ extern long TIME_ZERO;
 
 
 /* it sucks, but i have to fake a few types to get by */
-#define INIT_LIST_HEAD(a)	do { } while(0)
-#define list_add_tail(a,b)	do { } while(0)
-#define list_del(a)		do { } while(0)
 #define spin_lock_init(lock)    do { } while(0)
 #define spin_lock(lock)         (void)(lock) /* Not "unused variable". */
 #define spin_is_locked(lock)    (0)
@@ -225,10 +233,6 @@ struct super_block
 struct semaphore
 {
     int semid;
-};
-struct list_head
-{
-    int a;
 };
 struct inode
 {

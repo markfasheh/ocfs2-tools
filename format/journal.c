@@ -1,3 +1,6 @@
+/* MUST BE BEFORE format.h */
+#include "kernel-list.h"
+
 #include <format.h>
 #include <signal.h>
 #include <libgen.h>
