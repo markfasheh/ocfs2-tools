@@ -124,3 +124,185 @@ out_free:
 	return ctx.errcode;
 }
 
+#ifdef DEBUG_EXE
+#include <stdlib.h>
+#include <getopt.h>
+#include <unistd.h>
+#include <errno.h>
+
+static uint64_t read_number(const char *num)
+{
+	uint64_t val;
+	char *ptr;
+
+	val = strtoull(num, &ptr, 0);
+	if (!ptr || *ptr)
+		return 0;
+
+	return val;
+}
+
+static void print_usage(void)
+{
+	fprintf(stderr,
+		"Usage: debug_fileio [-i <start_blkno>] <filename> <path_to_find>\n");
+}
+
+
+static void dump_filebuf(const char *buf, int len)
+{
+	int rc, offset;
+
+	offset = 0;
+	while (offset < len) {
+		rc = write(STDOUT_FILENO, buf + offset, len - offset);
+		if (rc < 0) {
+			fprintf(stderr, "Write error: %s\n",
+				strerror(errno));
+			return;
+		} else if (rc) {
+			offset += rc;
+		} else {
+			fprintf(stderr, "Wha?  Unexpected EOF\n");
+			return;
+		}
+	}
+	return;
+}
+
+extern int opterr, optind;
+extern char *optarg;
+
+int main(int argc, char *argv[])
+{
+	errcode_t ret;
+	uint64_t blkno, result_blkno;
+	int c, len;
+	char *filename, *lookup_path, *buf;
+	char *filebuf;
+	char *p;
+	char lookup_name[256];
+	ocfs2_filesys *fs;
+
+	blkno = 0;
+
+	initialize_ocfs_error_table();
+
+	while ((c = getopt(argc, argv, "i:")) != EOF) {
+		switch (c) {
+			case 'i':
+				blkno = read_number(optarg);
+				if (blkno <= OCFS2_SUPER_BLOCK_BLKNO) {
+					fprintf(stderr,
+						"Invalid inode block: %s\n",
+						optarg);
+					print_usage();
+					return 1;
+				}
+				break;
+
+			default:
+				print_usage();
+				return 1;
+				break;
+		}
+	}
+
+	if (optind >= argc) {
+		fprintf(stderr, "Missing filename\n");
+		print_usage();
+		return 1;
+	}
+	filename = argv[optind];
+	optind++;
+
+	if (optind >= argc) {
+		fprintf(stdout, "Missing path to lookup\n");
+		print_usage();
+		return 1;
+	}
+	lookup_path = argv[optind];
+
+	ret = ocfs2_open(filename, OCFS2_FLAG_RO, 0, 0, &fs);
+	if (ret) {
+		com_err(argv[0], ret,
+			"while opening file \"%s\"", filename);
+		goto out;
+	}
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		com_err(argv[0], ret,
+			"while allocating inode buffer");
+		goto out_close;
+	}
+
+	if (!blkno)
+		blkno = OCFS2_RAW_SB(fs->fs_super)->s_root_blkno;
+
+	for (p = lookup_path; *p == '/'; p++);
+
+	lookup_path = p;
+
+	for (p = lookup_path; ; p++) {
+		if (*p && *p != '/')
+			continue;
+
+		memcpy(lookup_name, lookup_path, p - lookup_path);
+		lookup_name[p - lookup_path] = '\0';
+		ret = ocfs2_lookup(fs, blkno, lookup_name,
+				   strlen(lookup_name), NULL,
+				   &result_blkno);
+		if (ret) {
+			com_err(argv[0], ret,
+				"while looking up \"%s\" in inode %llu on \"%s\"\n",
+				lookup_name, blkno, filename);
+			goto out_free;
+		}
+
+		blkno = result_blkno;
+
+		for (; *p == '/'; p++);
+
+		lookup_path = p;
+
+		if (!*p)
+			break;
+	}
+
+	if (ocfs2_check_directory(fs, blkno) != OCFS2_ET_NO_DIRECTORY) {
+		com_err(argv[0], ret, "\"%s\" is not a file", filename);
+		goto out_free;
+	}
+
+	ret = ocfs2_read_whole_file(fs, blkno, &filebuf, &len);
+	if (ret) {
+		com_err(argv[0], ret,
+			"while reading file \"%s\" -- read %d bytes",
+			filename, len);
+		goto out_free_filebuf;
+	}
+	if (!len)
+		fprintf(stderr, "boo!\n");
+
+	dump_filebuf(filebuf, len);
+
+out_free_filebuf:
+	if (len)
+		ocfs2_free(&filebuf);
+
+out_free:
+	ocfs2_free(&buf);
+
+out_close:
+	ret = ocfs2_close(fs);
+	if (ret) {
+		com_err(argv[0], ret,
+			"while closing file \"%s\"", filename);
+	}
+
+out:
+	return 0;
+}
+#endif  /* DEBUG_EXE */
+
