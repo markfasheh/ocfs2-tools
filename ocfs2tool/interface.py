@@ -15,8 +15,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
-import sys
-
 import gtk
 
 import ocfs2
@@ -24,6 +22,7 @@ import ocfs2
 from guiutil import set_props, error_box, query_text
 
 from menu import Menu
+from toolbar import Toolbar
 from about import about
 from process import Process
 from format import format_partition
@@ -193,28 +192,6 @@ def update_notebook(pv, device):
         frame.add(info(device, pv.advanced).widget)
         frame.show_all()
 
-def create_action_area(pv):
-    vbbox = gtk.VButtonBox()
-    set_props(vbbox, layout_style=gtk.BUTTONBOX_START,
-                     spacing=5,
-                     border_width=5)
-
-    button = gtk.Button('Mount')
-    vbbox.add(button)
-    button.connect('clicked', mount, pv)
-    pv.mount_button = button
-
-    button = gtk.Button('Unmount')
-    vbbox.add(button)
-    button.connect('clicked', unmount, pv)
-    pv.unmount_button = button
-
-    button = gtk.Button('Refresh')
-    vbbox.add(button)
-    button.connect('clicked', refresh, pv)
-
-    return vbbox
-
 def format(pv):
     format_partition(pv.toplevel, pv.get_device(), pv.advanced)
     pv.refresh_partitions()
@@ -247,26 +224,23 @@ def create_window():
     menubar = menu.get_widget(window, pv)
     vbox.pack_start(menubar, expand=False, fill=False)
 
+    toolbar = Toolbar(mount=mount, unmount=unmount, refresh=refresh)
+
+    tb, buttons = toolbar.get_widgets(pv)
+    vbox.pack_start(tb, expand=False, fill=False)
+
+    for k, v in buttons.iteritems():
+        setattr(pv, k + '_button', v)
+ 
     vpaned = gtk.VPaned()
     vpaned.set_border_width(4)
     vbox.pack_start(vpaned, expand=True, fill=True)
 
-    hbox = gtk.HBox(spacing=4)
-    vpaned.pack1(hbox)
-
     scrl_win = gtk.ScrolledWindow()
     set_props(scrl_win, hscrollbar_policy=gtk.POLICY_AUTOMATIC,
-                        vscrollbar_policy=gtk.POLICY_AUTOMATIC,
-                        parent=hbox)
-
+                        vscrollbar_policy=gtk.POLICY_AUTOMATIC)
     scrl_win.add(pv)
-
-    frame = gtk.Frame()
-    frame.set_shadow_type(gtk.SHADOW_IN)
-    hbox.pack_end(frame, expand=False, fill=False)
-
-    vbbox = create_action_area(pv)
-    frame.add(vbbox)
+    vpaned.pack1(scrl_win)
 
     notebook = gtk.Notebook()
     notebook.set_tab_pos(gtk.POS_TOP)
