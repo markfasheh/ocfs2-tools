@@ -37,6 +37,7 @@
 #include <errno.h>
 #include <malloc.h>
 #include <time.h>
+#include <libgen.h>
 #include <netinet/in.h>
 
 #include <asm/bitops.h>
@@ -203,7 +204,7 @@ struct _State {
 };
 
 
-static State *get_state (int argc, char **argv);
+static State *get_state(int argc, char **argv);
 static int get_number(char *arg, uint64_t *res);
 static void usage(const char *progname);
 static void version(const char *progname);
@@ -480,7 +481,7 @@ main(int argc, char **argv)
 static State *
 get_state(int argc, char **argv)
 {
-	char *progname = "mkfs.ocfs2";
+	char *progname;
 	unsigned int blocksize = 0;
 	unsigned int cluster_size = 0;
 	char *vol_label = NULL;
@@ -494,7 +495,7 @@ get_state(int argc, char **argv)
 	int ret;
 	uint64_t val;
 
-	static struct option long_state[] = {
+	static struct option long_options[] = {
 		{ "blocksize", 1, 0, 'b' },
 		{ "clustersize", 1, 0, 'c' },
 		{ "label", 1, 0, 'L' },
@@ -505,14 +506,13 @@ get_state(int argc, char **argv)
 		{ 0, 0, 0, 0}
 	};
 
-	if (argc && *argv) {
-		char *cp;
-		cp = strrchr(argv[0], '/');
-		progname = cp ? cp + 1 : argv[0];
-	}
+	if (argc && *argv)
+		progname = basename(argv[0]);
+	else
+		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:c:L:n:vqV", long_state, NULL);
+		c = getopt_long(argc, argv, "b:c:L:n:vqV", long_options, NULL);
 
 		if (c == -1)
 			break;
@@ -627,7 +627,7 @@ get_state(int argc, char **argv)
 	s = malloc(sizeof(State));
 	memset(s, 0, sizeof(State));
 
-	s->progname      = strdup(progname);
+	s->progname      = progname;
 
 	s->verbose       = verbose;
 	s->quiet         = quiet;

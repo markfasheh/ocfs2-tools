@@ -11,7 +11,7 @@ endif
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
 
-SBIN_PROGRAMS = mkfs.ocfs2 mkfs.ocfs2.kurt
+SBIN_PROGRAMS = mkfs.ocfs2
 
 LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
@@ -41,12 +41,9 @@ VERSION_PREFIX = OCFS2
 
 MANS = mkfs.ocfs2.8
 
-DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs2.c mkfs.ocfs2.8.in
+DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs.ocfs2.8.in
 
 mkfs.ocfs2: mkfs.o
-	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
-
-mkfs.ocfs2.kurt: mkfs2.o
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 readdir: readdir.o
