@@ -1,0 +1,14 @@
+
+The following files have been copied from util-linux-2.12a/mount:
+	fstab.c/h
+	get_label_uuid.c/h
+	mntent.c/h
+	mount_constants.h
+	linux_fs.h
+	realpath.c/h
+	sundries.c/h
+
+The following files have code which has been copied from one or more files
+in util-linux-2.12a/mount: 
+	opts.c/h
+	nls.h
