@@ -344,12 +344,9 @@ static int block_iterate_func(ocfs2_filesys *fs,
 	struct block_context *ctxt = priv_data;
 	uint64_t blkno, bcount, bend;
 	int iret = 0;
-	int c_to_b_bits =
-		(OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
-		 OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
 
-	bcount = (uint64_t)ccount << c_to_b_bits;
-	bend = bcount + ((uint64_t)rec->e_clusters << c_to_b_bits);
+	bcount = ocfs2_clusters_to_blocks(fs, ccount);
+	bend = bcount + ocfs2_clusters_to_blocks(fs, rec->e_clusters);
 
 	for (blkno = rec->e_blkno; bcount < bend; blkno++, bcount++) {
 		if (((bcount * fs->fs_blocksize) >= ctxt->inode->i_size) &&

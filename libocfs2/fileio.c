@@ -71,9 +71,6 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs,
 	errcode_t			retval;
 	char *inode_buf;
 	ocfs2_dinode *di;
-	int c_to_b_bits = 
-		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
-		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 
 	/* So the caller can see nothing was read */
 	*len = 0;
@@ -95,7 +92,7 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs,
 		goto out_free;
 
 	retval = ocfs2_malloc_blocks(fs->fs_io,
-				     di->i_clusters << c_to_b_bits,
+				     ocfs2_clusters_to_blocks(fs, di->i_clusters),
 				     buf);
 	if (retval)
 		goto out_free;

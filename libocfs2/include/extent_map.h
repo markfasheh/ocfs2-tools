@@ -27,17 +27,18 @@
 #ifndef _EXTENT_MAP_H
 #define _EXTENT_MAP_H
 
-#include "kernel-list.h"
+#include "kernel-rbtree.h"
 
 typedef struct _ocfs2_extent_map_entry ocfs2_extent_map_entry;
 
 struct _ocfs2_extent_map {
 	ocfs2_cached_inode *em_cinode;
-	struct list_head em_extents;
+	struct rb_root em_extents;
 };
 
 struct _ocfs2_extent_map_entry {
-	struct list_head e_list;
+	struct rb_node e_node;
+	int e_tree_depth;
 	ocfs2_extent_rec e_rec;
 };
 

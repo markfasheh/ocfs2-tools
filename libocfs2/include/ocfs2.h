@@ -246,14 +246,30 @@ errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
 errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode);
 
+errcode_t ocfs2_extent_map_new(ocfs2_filesys *fs,
+			       ocfs2_cached_inode *cinode,
+			       ocfs2_extent_map **ret_em);
+void ocfs2_extent_map_free(ocfs2_extent_map *em);
+errcode_t ocfs2_extent_map_insert(ocfs2_extent_map *em,
+				  ocfs2_extent_rec *rec,
+				  int tree_depth);
+errcode_t ocfs2_extent_map_trunc(ocfs2_extent_map *em,
+				 uint32_t new_clusters);
+errcode_t ocfs2_extent_map_get_rec(ocfs2_extent_map *em,
+				   uint32_t cpos,
+				   ocfs2_extent_rec **rec);
+errcode_t ocfs2_extent_map_get_clusters(ocfs2_extent_map *em,
+					uint32_t v_cpos, int count,
+					uint32_t *p_cpos,
+					int *ret_count);
+errcode_t ocfs2_extent_map_get_blocks(ocfs2_extent_map *em,
+				      uint64_t v_blkno, int count,
+				      uint64_t *p_blkno,
+				      int *ret_count);
 errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
-errcode_t ocfs2_free_extent_map(ocfs2_filesys *fs,
+errcode_t ocfs2_drop_extent_map(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
-errcode_t ocfs2_extent_map_add(ocfs2_cached_inode *cinode,
-			       ocfs2_extent_rec *rec);
-errcode_t ocfs2_extent_map_clear(ocfs2_cached_inode *cinode,
-				 uint32_t cpos, uint32_t clusters);
 
 errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 					  uint32_t size, int flags,
@@ -379,5 +395,26 @@ errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
 					  int chain_num,
 					  void *priv_data),
 			      void *priv_data);
+
+static inline uint64_t ocfs2_clusters_to_blocks(ocfs2_filesys *fs,
+						uint32_t clusters)
+{
+	int c_to_b_bits =
+		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
+		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+
+	return (uint64_t)clusters << c_to_b_bits;
+}
+
+static inline uint32_t ocfs2_blocks_to_clusters(ocfs2_filesys *fs,
+						uint64_t blocks)
+{
+	int b_to_c_bits =
+		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
+		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+
+	return (uint32_t)(blocks >> b_to_c_bits);
+}
+
 
 #endif  /* _FILESYS_H */

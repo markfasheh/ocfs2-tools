@@ -95,4 +95,10 @@ ec	OCFS2_ET_CORRUPT_GROUP_DESC,
 ec	OCFS2_ET_CORRUPT_CHAIN,
 	"Chain allocator is corrupt"
 
+ec	OCFS2_ET_INVALID_EXTENT_LOOKUP,
+	"Invalid range passed to extent map lookup"
+
+ec	OCFS2_ET_EXTENT_NOT_FOUND,
+	"No mapping exists for the given extent range"
+
 	end

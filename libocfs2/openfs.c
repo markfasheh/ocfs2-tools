@@ -78,9 +78,6 @@ static errcode_t ocfs2_get_fs_blocks(ocfs2_filesys *fs)
 	errcode_t ret;
 	char *buf;
 	ocfs2_dinode *inode;
-	int c_to_b_bits =
-		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
-		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 
 	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
 					0, &fs->fs_bm_blkno);
@@ -98,7 +95,7 @@ static errcode_t ocfs2_get_fs_blocks(ocfs2_filesys *fs)
 	inode = (ocfs2_dinode *)buf;
 
 	fs->fs_clusters = inode->id1.bitmap1.i_total;
-	fs->fs_blocks = (uint64_t)fs->fs_clusters << c_to_b_bits;
+	fs->fs_blocks = ocfs2_clusters_to_blocks(fs, fs->fs_clusters);
 
 out_free:
 	ocfs2_free(&buf);

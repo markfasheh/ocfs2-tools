@@ -76,7 +76,7 @@ errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 		return OCFS2_ET_INVALID_ARGUMENT;
 	
 	if (cinode->ci_map)
-		ocfs2_free_extent_map(fs, cinode);
+		ocfs2_drop_extent_map(fs, cinode);
 
 	if (cinode->ci_inode)
 		ocfs2_free(&cinode->ci_inode);

@@ -56,7 +56,6 @@ struct _ocfs2_inode_scan {
 	int blocks_in_buffer;
 	unsigned int blocks_left;
 	uint64_t bpos;
-	int c_to_b_bits;
 };
 
 
@@ -268,9 +267,6 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 		return ret;
 
 	scan->fs = fs;
-	scan->c_to_b_bits =
-		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
-		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 
 	/* One inode alloc per node, one global inode alloc */
 	scan->num_inode_alloc =
@@ -288,7 +284,9 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 			((8 * fs->fs_blocksize) +
 			 (fs->fs_clustersize - 1)) /
 			fs->fs_clustersize;
-		scan->buffer_blocks <<= scan->c_to_b_bits;
+		scan->buffer_blocks =
+			ocfs2_clusters_to_blocks(fs,
+						 scan->buffer_blocks);
 	}
 
 	ret = ocfs2_malloc(sizeof(char) * scan->buffer_blocks *
