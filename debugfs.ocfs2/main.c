@@ -131,7 +131,8 @@ static char * get_line (FILE *stream)
 				break;
 		}
 	} else {
-		line = readline (PROMPT);
+		fprintf(stderr, "%s", PROMPT);
+		line = readline (NULL);
 
 		if (line && *line) {
 			g_strchug(line);
@@ -196,7 +197,7 @@ int main (int argc, char **argv)
 
 		if (line) {
 			if (!gbls.interactive)
-				fprintf (stdout, "%s%s\n", PROMPT, line);
+				fprintf (stderr, "%s%s\n", PROMPT, line);
 			do_command (line);
 			if (gbls.interactive)
 				free (line);

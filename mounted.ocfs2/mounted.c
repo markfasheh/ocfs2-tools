@@ -75,7 +75,6 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 	char **node_names = NULL;
 	char **cluster_names = NULL;
 	char *nodes[OCFS2_MAX_NODES];
-	char value[10];
 	int i = 0;
 	uint16_t num;
 
