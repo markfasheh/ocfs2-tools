@@ -23,7 +23,7 @@ from partitionview import PartitionView
 from menu import Menu
 from toolbar import Toolbar
 from about import about, process_gui_args
-from process import Process
+from mount import mount, unmount
 from format import format_partition
 from tune import tune_label, tune_nodes
 from general import General
@@ -115,40 +115,11 @@ class Console(gtk.Window):
 
     def mount(self):
         device, mountpoint = self.pv.get_sel_values()
-
-        mountpoint = query_text(self, 'Mountpoint')
-        if not mountpoint:
-            return
-
-        command = ('mount', '-t', 'ocfs2', device, mountpoint)
-
-        p = Process(command, 'Mount', 'Mounting...', self, spin_now=False)
-        success, output, killed = p.reap()
-
-        if not success:
-            if killed:
-                error_box(self, 'mount died unexpectedly! Your system is '
-                                'probably in an inconsistent state. You '
-                                'should reboot at the earliest opportunity')
-            else:
-                error_box(self, '%s: Could not mount %s' % (output, device))
+        mount(self, device)
 
     def unmount(self):
         device, mountpoint = self.pv.get_sel_values()
-
-        command = ('umount', mountpoint)
-
-        p = Process(command, 'Unmount', 'Unmounting...', self, spin_now=False)
-        success, output, killed = p.reap()
-
-        if not success:
-            if killed:
-                error_box(self, 'umount died unexpectedly! Your system is '
-                                'probably in an inconsistent state. You '
-                                'should reboot at the earliest opportunity')
-            else:
-                error_box(self, '%s: Could not unmount %s mounted on %s' %
-                                (output, device, mountpoint))
+        unmount(self, device, mountpoint)
 
     def format(self):
         format_partition(self, self.pv.get_device())
