@@ -385,9 +385,9 @@ errcode_t o2cb_create_heartbeat_region_disk(const char *cluster_name,
 	errcode_t err;
 
 	if (!cluster_name) {
-		ret = _fake_default_cluster(_fake_cluster_name);
-		if (ret)
-			return ret;
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
 		cluster_name = _fake_cluster_name;
 	}
 
@@ -513,6 +513,62 @@ out_close:
 out_rmdir:
 	if (err)
 		rmdir(region_path);
+
+out:
+	return err;
+}
+
+errcode_t o2cb_remove_heartbeat_region_disk(const char *cluster_name,
+					    const char *region_name)
+{
+	char _fake_cluster_name[NAME_MAX];
+	char region_path[PATH_MAX];
+	int ret;
+	errcode_t err = 0;
+
+	if (!cluster_name) {
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
+		cluster_name = _fake_cluster_name;
+	}
+
+	ret = snprintf(region_path, PATH_MAX - 1,
+		       O2CB_FORMAT_HEARTBEAT_REGION,
+		       cluster_name, region_name);
+	if (ret <= 0 || ret == PATH_MAX - 1) {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	ret = rmdir(region_path);
+	if (ret) {
+		switch (errno) {
+			case EACCES:
+			case EPERM:
+			case EROFS:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			case ENOMEM:
+				err = O2CB_ET_NO_MEMORY;
+				break;
+
+			case ENOTDIR:
+			case ENOENT:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			case ENOTEMPTY:
+			case EBUSY:
+				err = O2CB_ET_REGION_IN_USE;
+				break;
+
+			default:
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+		}
+	}
 
 out:
 	return err;

@@ -62,6 +62,8 @@ errcode_t o2cb_create_heartbeat_region_disk(const char *cluster_name,
 					    int block_bytes,
 					    uint64_t start_block,
 					    uint64_t blocks);
+errcode_t o2cb_remove_heartbeat_region_disk(const char *cluster_name,
+					    const char *region_name);
 
 
 #endif  /* _O2CB_H */
