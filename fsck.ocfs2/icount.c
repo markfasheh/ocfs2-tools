@@ -34,6 +34,7 @@
 
 #include "fsck.h"
 #include "icount.h"
+#include "util.h"
 
 typedef struct _icount_node {
 	struct rb_node	in_node;
@@ -83,7 +84,7 @@ static icount_node *icount_search(o2fsck_icount *icount, uint64_t blkno)
 	return NULL;
 }
 
-errcode_t o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno, 
+void o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno, 
 				uint16_t count)
 {
 	icount_node *in;
@@ -105,13 +106,13 @@ errcode_t o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno,
 	} else if (count > 2){
 		in = calloc(1, sizeof(*in));
 		if (in == NULL)
-			return OCFS2_ET_NO_MEMORY;
+			fatal_error(OCFS2_ET_NO_MEMORY, 
+				    "while allocating to track icount");
 
 		in->in_blkno = blkno;
 		in->in_icount = count;
 		icount_insert(icount, in);
 	}
-	return 0;
 }
 
 errcode_t o2fsck_icount_new(ocfs2_filesys *fs, o2fsck_icount **ret)

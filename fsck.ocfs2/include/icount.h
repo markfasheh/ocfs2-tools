@@ -31,7 +31,7 @@ typedef struct _o2fsck_icount {
 	struct rb_root	ic_multiple_tree;
 } o2fsck_icount;
 
-errcode_t o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno, 
+void o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno, 
 				uint16_t count);
 errcode_t o2fsck_icount_new(ocfs2_filesys *fs, o2fsck_icount **ret);
 void o2fsck_icount_free(o2fsck_icount *icount);
