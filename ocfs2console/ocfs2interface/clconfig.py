@@ -31,7 +31,7 @@ from process import Process
 from ipwidget import IPEditor, IPMissing, IPError
 
 CLUSTER_NAME = 'ocfs2'
-CONFIG_FS_PATH = '/usys/cluster'
+CONFIG_FS_PATH = '/config/cluster'
 
 O2CB_INIT = '/etc/init.d/o2cb'
 O2CB_CTL = 'o2cb_ctl'

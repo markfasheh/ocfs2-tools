@@ -43,8 +43,6 @@
 
 #include "o2cb_abi.h"
 
-#define USYSFS_PREFIX "/usys"
-
 errcode_t o2cb_create_cluster(const char *cluster_name)
 {
 	char path[PATH_MAX];
