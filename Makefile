@@ -18,7 +18,7 @@ PYGTK_NAME = pygtk2
 CHKCONFIG_DEP = chkconfig
 endif
 
-TOOLSARCH = $(shell $(TOPDIR)/toolsarch.guess $(TOPDIR))
+TOOLSARCH = $(shell $(TOPDIR)/rpmarch.guess tools $(TOPDIR))
 
 ifeq ($(TOOLSARCH),error)
 $(error could not detect architecture for tools)
@@ -55,7 +55,7 @@ DIST_FILES = \
 	configure.in	\
 	install-sh	\
 	mkinstalldirs	\
-	toolsarch.guess
+	rpmarch.guess
 
 .PHONY: dist dist-bye dist-fresh distclean
 
@@ -76,7 +76,7 @@ srpm: dist
 	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOPDIR)/vendor/common/ocfs2-tools.spec
 
 rpm: srpm
-	$(RPMBUILD) --rebuild --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --target $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
+	$(RPMBUILD) --rebuild --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
 
 def:
 	@echo $(TOOLSARCH)

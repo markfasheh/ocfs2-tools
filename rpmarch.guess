@@ -1,0 +1,69 @@
+#! /bin/sh
+
+mode="$1"
+srcdir="$2"
+
+RPMARCH=
+if test -f /etc/redhat-release ; then
+  QUERYFILE=/etc/redhat-release
+elif test -f /etc/SuSE-release ; then
+  QUERYFILE=/etc/SuSE-release
+elif test -f /etc/UnitedLinux-release ; then
+  QUERYFILE=/etc/UnitedLinux-release
+fi
+
+host_cpu="`rpm -qf $QUERYFILE --queryformat \"%{ARCH}\"`"
+if test -z "$host_cpu" -o "$host_cpu" = "noarch" ; then
+  host_alias=`$srcdir/config.guess`
+  host=`$srcdir/config.sub $host_alias`
+  host_cpu=`echo $host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
+fi
+
+case "$host_cpu" in
+  x86_64|ppc|ia64|s390x)
+    TOOLSARCH=""
+    ;;
+  i386|i486|i586|i686|i786|k6|k7)
+    TOOLSARCH="i386"
+    ;;
+  ppc64|ppciseries|ppcpseries|ppc64iseries|ppc64pseries|powerpc|powerpc64)
+    TOOLSARCH="ppc"
+    ;;
+  *)
+    echo "rpmarch.guess: Warning: unknown RPM CPU architecture: $host_cpu" >&2
+    TOOLSARCH=""
+    ;;
+esac
+
+# Only a few of these need to be overwritten from RPM's default
+case "$host_cpu" in
+  i586)
+    MODULEARCH="$host_cpu"
+    ;;
+  i386)
+    MODULEARCH="i686"
+    ;;
+  *)
+    MODULEARCH=""
+    ;;
+esac
+
+case "$mode" in
+  module)
+    if [ -n "$MODULEARCH" ] ; then
+      echo "--target $MODULEARCH"
+    fi
+    ;;
+  tools)
+    if [ -n "$TOOLSARCH" ] ; then
+      echo "--target $TOOLSARCH"
+    fi
+    ;;
+  *)
+    echo "rpmarch.guess: Invalid mode: $mode" >&2
+    echo "error"
+    exit 1
+    ;;
+esac
+
+exit 0
