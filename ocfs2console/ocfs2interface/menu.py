@@ -65,6 +65,8 @@ class Menu:
         item_factory = gtk.ItemFactory(gtk.MenuBar, '<main>', accel_group)
         item_factory.create_items(self.items, data)
 
+        window.item_factory = item_factory
+
         return item_factory.get_widget('<main>')
 
 def main():
