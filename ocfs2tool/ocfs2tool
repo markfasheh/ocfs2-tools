@@ -6,5 +6,5 @@
 from about import process_info_args
 process_info_args()
 
-from main import main
+from interface import main
 main()

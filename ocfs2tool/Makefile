@@ -43,14 +43,26 @@ SBIN_EXTRA = ocfs2tool
 
 LIBRARIES = ocfs2module.so
 
-PYLIB = $(LIBRARIES) main.py guiutil.py process.py general.py nodemap.py \
-	bitmap.py browser.py format.py
+PYSRC = \
+	about.py \
+	bitmap.py \
+	browser.py \
+	clconfig.py \
+	format.py \
+	general.py \
+	guiutil.py \
+	interface.py \
+	menu.py \
+	nodemap.py \
+	process.py
+
+PYLIB = $(LIBRARIES) $(PYSRC)
 
 INSTALL_RULES = install-pylib
 
 CLEAN_RULES = gen-clean
 
-DIST_FILES = $(CFILES) $(HFILES) ocfs2tool ocfsmarshal.list \
+DIST_FILES = $(CFILES) $(HFILES) $(PYSRC) ocfs2tool ocfsmarshal.list \
 	cellmap.defs cellmap.override ocfs2tool.8.in
 
 ocfsmarshal.h: ocfsmarshal.list
