@@ -192,7 +192,7 @@ void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
 	fprintf(out, "\tLock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
 	       dl->dl_master, dl->dl_level, dl->dl_seq_num);
 
-	fprintf(out, "\tLock Node Map: ");
+	fprintf(out, "\tLock Map: ");
 	for (i = 0, j = 0; i < 8 && j < sb->s_max_nodes; ++i) {
 		if (i)
 			fprintf(out, "               ");
@@ -288,13 +288,13 @@ void dump_config (FILE *out, char *buf)
 
 	hdr = (ocfs_node_config_hdr *)buf;
 
-	fprintf(out, "\tVersion: %u   Num Nodes: %u   Last Node: %u   SeqNum: %llu\n",
+	fprintf(out, "\tVersion: %u   Num Nodes: %u   Last Node: %u   Seqnum: %llu\n",
 		hdr->version, hdr->num_nodes, hdr->last_node, hdr->cfg_seq_num);
 
 	dump_disk_lock (out, &(hdr->disk_lock));
 
-	fprintf(out, "\t%-4s %-32s %-15s %-6s %s\n",
-		"Node", "Name", "IP Addr", "Port", "UUID");
+	fprintf(out, "\t%-3s %-32s %-15s %-6s %s\n",
+		"###", "Name", "IP Address", "Port", "UUID");
 
 	p = buf + (2 << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
@@ -307,7 +307,7 @@ void dump_config (FILE *out, char *buf)
 		ina.s_addr = node->ipc_config.addr_u.ip_addr4;
 		strcpy (addr, inet_ntoa(ina));
 
-		fprintf(out, "\t%-4u %-32s %-15s %-6u ", i, node->node_name,
+		fprintf(out, "\t%3u %-32s %-15s %-6u ", i, node->node_name,
 			addr, port);
 		for (j = 0; j < OCFS2_GUID_LEN; j++)
 			fprintf(out, "%c", node->guid.guid[j]);
@@ -330,8 +330,8 @@ void dump_publish (FILE *out, char *buf)
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	__u32 i, j;
 
-	fprintf(out, "\t%-2s %-3s %-3s %-3s %-15s %-15s %-15s %-*s %-s\n",
-		"No", "Mnt", "Vot", "Dty", "LockId", "Seq", "Time",
+	fprintf(out, "\t%-3s %-3s %-3s %-3s %-15s %-15s %-15s %-15s %-*s %-s\n",
+		"###", "Mnt", "Vot", "Dty", "LockId", "Seq", "Comm Seq", "Time",
 		sb->s_max_nodes, "Map", "Type");
 
 	p = buf + ((2 + 4 + sb->s_max_nodes) << gbls.blksz_bits);
@@ -341,9 +341,9 @@ void dump_publish (FILE *out, char *buf)
 		pub_flag = g_string_new (NULL);
 		get_publish_flag (pub->vote_type, pub_flag);
 
-		fprintf(out, "\t%-2d  %1u   %1u   %1u  %-15llu %-15llu %-15llu ",
+		fprintf(out, "\t%3d  %1u   %1u   %1u  %-15llu %-15llu %-15llu %-15llu ",
 			i, pub->mounted, pub->vote, pub->dirty, pub->lock_id,
-			pub->publ_seq_num, pub->time);
+			pub->publ_seq_num, pub->comm_seq_num, pub->time);
 
 		for (j = 0; j < sb->s_max_nodes; j++)
 			fprintf (out, "%d",
@@ -372,8 +372,8 @@ void dump_vote (FILE *out, char *buf)
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	__u32 i;
 
-	fprintf(out, "\t%-2s %-2s %-1s %-15s %-15s %-s\n",
-		"No", "NV", "O", "LockId", "Seq", "Type");
+	fprintf(out, "\t%-3s %-2s %-1s %-15s %-15s %-s\n",
+		"###", "NV", "O", "LockId", "Seq", "Type");
 
 	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
@@ -382,7 +382,7 @@ void dump_vote (FILE *out, char *buf)
 		vote_flag = g_string_new (NULL);
 		get_vote_flag (vote->type, vote_flag);
 
-		fprintf(out, "\t%-2u %-2u %-1u %-15llu %-15llu %-s\n", i,
+		fprintf(out, "\t%3u %-2u %-1u %-15llu %-15llu %-s\n", i,
 			vote->node, vote->open_handle, vote->lock_id,
 			vote->vote_seq_num, vote_flag->str);
 
