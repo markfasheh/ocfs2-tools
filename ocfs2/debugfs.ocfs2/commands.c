@@ -413,6 +413,8 @@ static void do_help (char **args)
  */
 static void do_quit (char **args)
 {
+	if (gbls.device)
+		do_close (NULL);
 	exit (0);
 }					/* do_quit */
 

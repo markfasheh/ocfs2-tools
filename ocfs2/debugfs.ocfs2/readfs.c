@@ -299,6 +299,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	__u64 newlen = 0;
 	char *inode_buf = NULL;
 	__u64 buflen = 0;
+	__u64 rndup = 0;
 	int ret = -1;
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
@@ -340,9 +341,15 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 
 		while (len) {
 			buflen = min (newlen, len);
+			/* rndup is reqd because source is read o_direct */
+			rndup = buflen % 512;
+			rndup = (rndup ? 512 - rndup : 0);
+			buflen += rndup;
 
 			if ((pread64(fd, p, buflen, off)) == -1)
 				DBGFS_FATAL("%s", strerror(errno));
+
+			buflen -= rndup;
 
 			if (fdo != -1) {
 				if (!(write (fdo, p, buflen)))

@@ -143,6 +143,7 @@ int main (int argc, char **argv)
 			free (line);
 		} else {
 			printf ("\n");
+			raise (SIGTERM);
 			exit (0);
 		}
 	}

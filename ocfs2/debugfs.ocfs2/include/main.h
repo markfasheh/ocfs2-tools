@@ -86,6 +86,7 @@ void *memalign(size_t boundary, size_t size);
 
 #define DBGFS_FATAL(fmt, arg...)	({ fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \
 						   __FILE__, __LINE__, ##arg);  \
+					   raise (SIGTERM);	\
 					   exit(1); \
 					 })
 
