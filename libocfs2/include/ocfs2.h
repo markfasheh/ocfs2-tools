@@ -39,6 +39,8 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include <limits.h>
+
 #include <linux/types.h>
 
 #include <et/com_err.h>
@@ -57,6 +59,8 @@
 
 #include <ocfs2/ocfs2_fs.h>
 #endif
+
+#include <o2dlm.h>
 
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		OCFS2_FEATURE_INCOMPAT_SUPP
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP
@@ -190,6 +194,8 @@ struct _ocfs2_filesys {
 	ocfs2_cached_inode **fs_eb_allocs;
 	ocfs2_cached_inode *fs_system_eb_alloc;
 
+	struct o2dlm_ctxt *fs_dlm_ctxt;
+
 	/* Reserved for the use of the calling application. */
 	void *fs_private;
 };
@@ -217,9 +223,10 @@ struct _ocfs2_devices {
 	uint8_t label[64];
 	uint8_t uuid[16];
 	int mount_flags;
-	int fs_type;		/* 0=unknown, 1=ocfs, 2=ocfs2 */
+	int fs_type;			/* 0=unknown, 1=ocfs, 2=ocfs2 */
 	uint32_t maj_num;		/* major number of the device */
 	uint32_t min_num;		/* minor number of the device */
+	errcode_t errcode;		/* error encountered reading device */
 	void *private;
 	struct list_head node_list;
 };
@@ -428,12 +435,10 @@ errcode_t ocfs2_check_mount_point(const char *device, int *mount_flags,
 errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs, uint64_t blkno,
 				char **buf, int *len);
 
-errcode_t ocfs2_check_heartbeat(char *device, int quick_detect,
-			       	int *mount_flags, struct list_head *nodes_list,
-                                ocfs2_chb_notify notify, void *user_data);
+errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
+				struct list_head *nodes_list);
 
-errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int quick_detect,
-				 ocfs2_chb_notify notify, void *user_data);
+errcode_t ocfs2_check_heartbeats(struct list_head *dev_list);
 
 errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
 				uint8_t *uuid, uint16_t uuid_len);
@@ -531,6 +536,23 @@ errcode_t ocfs2_follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 
 errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			  uint64_t offset, uint32_t *got);
+
+errcode_t ocfs2_lock_down_cluster(ocfs2_filesys *fs);
+
+errcode_t ocfs2_release_cluster(ocfs2_filesys *fs);
+
+errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs);
+
+errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs);
+
+errcode_t ocfs2_super_lock(ocfs2_filesys *fs);
+
+errcode_t ocfs2_super_unlock(ocfs2_filesys *fs);
+
+errcode_t ocfs2_meta_lock(ocfs2_filesys *fs, ocfs2_cached_inode *inode,
+			  enum o2dlm_lock_level level, int flags);
+
+errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs, ocfs2_cached_inode *ci);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will

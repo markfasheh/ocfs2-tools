@@ -11,12 +11,15 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -Iinclude
+INCLUDES = -Iinclude -I$(TOPDIR)/libo2dlm/include
 
 LIBRARIES = libocfs2.a
 
+LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
+LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
+
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
-CPPFLAGS += -DOCFS2_FLAT_INCLUDES
+CPPFLAGS += -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
@@ -31,8 +34,8 @@ debug_%.o : %.c
 		$(INCLUDES) $(DEFINES) \
 		-DDEBUG_EXE -o $@ -c $<
 
-debug_%: debug_%.o libocfs2.a
-	$(LINK) $(COM_ERR_LIBS)
+debug_%: debug_%.o libocfs2.a $(LIBO2DLM_DEPS)
+	$(LINK) $(COM_ERR_LIBS) $(LIBO2DLM_LIBS)
 
 endif
 
@@ -68,7 +71,8 @@ CFILES = 		\
 	newdir.c	\
 	extend_file.c	\
 	namei.c		\
-	truncate.c
+	truncate.c	\
+	dlm.c
 
 HFILES =				\
 	include/jfs_user.h		\
@@ -102,7 +106,7 @@ include/ocfs2_err.h: ocfs2_err.h
 ocfs2_err.c ocfs2_err.h: ocfs2_err.et
 	compile_et ocfs2_err.et
 
-libocfs2.a: $(OBJS)
+libocfs2.a: $(OBJS) $(LIBO2DLM_DEPS)
 	rm -f $@
 	$(AR) r $@ $^
 	$(RANLIB) $@
