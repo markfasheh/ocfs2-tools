@@ -110,8 +110,12 @@ struct _ocfs2_filesys {
 	ocfs2_dinode *fs_orig_super;
 	unsigned int fs_blocksize;
 	unsigned int fs_clustersize;
+	uint32_t fs_clusters;
 	uint64_t fs_blocks;
 	uint32_t fs_umask;
+	uint64_t fs_root_blkno;
+	uint64_t fs_sysdir_blkno;
+	uint64_t fs_bm_blkno;
 
 	/* Reserved for the use of the calling application. */
 	void *fs_private;
@@ -192,5 +196,7 @@ errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir,
 		       const char *name, int namelen, char *buf,
 		       uint64_t *inode);
 
+errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
+				    int node_num, uint64_t *blkno);
 #endif  /* _FILESYS_H */
 

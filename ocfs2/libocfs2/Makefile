@@ -74,7 +74,8 @@ CFILES = 		\
 	extents.c	\
 	dirblock.c	\
 	dir_iterate.c	\
-	lookup.c
+	lookup.c	\
+	sysfile.c
 
 HFILES =				\
 	include/jfs_user.h		\

@@ -39,8 +39,8 @@
 #include <errno.h>
 
 /* I hate glibc and gcc ... this is a hack that will go away anyway */
-#ifndef LLONG_MAX
-# define LLONG_MAX 9223372036854775807LL
+#ifndef ULLONG_MAX
+# define ULLONG_MAX 18446744073709551615ULL
 #endif
 
 #include <linux/types.h>
@@ -84,6 +84,39 @@ static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)
 
 out:
 	ocfs2_free(&blk);
+
+	return ret;
+}
+
+static errcode_t ocfs2_get_fs_blocks(ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	char *buf;
+	ocfs2_dinode *inode;
+	int c_to_b_bits =
+		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
+		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+
+	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+					0, &fs->fs_bm_blkno);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_inode(fs, fs->fs_bm_blkno, buf);
+	if (ret)
+		goto out_free;
+
+	inode = (ocfs2_dinode *)buf;
+
+	fs->fs_clusters = inode->id1.bitmap1.i_total;
+	fs->fs_blocks = (uint64_t)fs->fs_clusters << c_to_b_bits;
+
+out_free:
+	ocfs2_free(&buf);
 
 	return ret;
 }
@@ -228,9 +261,15 @@ errcode_t ocfs2_open(const char *name, int flags,
 
 	/* FIXME: Read the system dir */
 	
-	/* FIXME: This hack will be replaced by a read of the global
-	 * bitmap inode */
-	fs->fs_blocks = LLONG_MAX;
+	fs->fs_root_blkno =
+		OCFS2_RAW_SB(fs->fs_super)->s_root_blkno;
+	fs->fs_sysdir_blkno =
+		OCFS2_RAW_SB(fs->fs_super)->s_system_dir_blkno;
+
+	fs->fs_blocks = ULLONG_MAX;
+	ret = ocfs2_get_fs_blocks(fs);
+	if (ret)
+		goto out;
 
 	*ret_fs = fs;
 	return 0;
@@ -336,9 +375,13 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "OCFS2 filesystem on \"%s\":\n", filename);
 	fprintf(stdout,
 		"\tblocksize = %d\n"
- 		"\tclustersize = %d\n",
+ 		"\tclustersize = %d\n"
+		"\tclusters = %u\n"
+		"\tblocks = %llu\n",
  		fs->fs_blocksize,
-		fs->fs_clustersize);
+		fs->fs_clustersize,
+		fs->fs_clusters,
+		fs->fs_blocks);
 
 	ret = ocfs2_close(fs);
 	if (ret) {
