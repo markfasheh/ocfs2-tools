@@ -807,7 +807,7 @@ int main(int argc, char **argv)
 
 	ret = add_me_to_group(hbuuid, mo.dev);
 	if (ret < 0) {
-		fprintf(stderr, "%s: Error '%d' while adding to group\n", progname, ret);
+		fprintf(stderr, "%s: Error '%d' while adding to group\n", progname, (int)ret);
 		goto bail;
 	}
 
