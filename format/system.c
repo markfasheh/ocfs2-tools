@@ -8,6 +8,8 @@ extern int bm_size;
 extern int major_version;
 extern int minor_version;
 
+static int ocfs_create_root_file_entry(int file, ocfs_vol_disk_hdr *volhdr);
+static int ocfs_create_bitmap_file_entry(int file, ocfs_vol_disk_hdr *volhdr);
 
 typedef struct _ocfs_file_entry_v2
 {
@@ -38,7 +40,14 @@ typedef struct _ocfs_file_entry_v2
 	__u16 dev_major;                  // NUMBER RANGE(0,65535)   
 	__u16 dev_minor;                  // NUMBER RANGE(0,65535)
         __u8 fe_reserved1[4];		  // UNUSED
-	__u64 child_dirnode;		  // NUMBER RANGE(0,ULONG_LONG_MAX)
+	union {
+		__u64 fe_private;
+		__u64 child_dirnode;		  // NUMBER RANGE(0,ULONG_LONG_MAX)
+		struct _bitinfo {
+			__u32 used_bits;
+			__u32 total_bits;
+		} bitinfo;
+	} u;
 /* sizeof(fe) = 496 bytes */
 } ocfs_file_entry_v2;
 
@@ -63,24 +72,41 @@ int ocfs_init_global_alloc_bm (__u32 num_bits, int file, ocfs_vol_disk_hdr *volh
 	return ret;
 }
 
+/* in version 1, this is a ocfs_bitmap_lock.
+   in version 2, this is an ocfs_file_entry which uses
+   alloc_size for total bits, and file_size for used bits. */
 int ocfs_update_bm_lock_stats(int file)
 {
 	int status = 0;
-	ocfs_bitmap_lock *bm_lock = NULL;
+	void *buf = NULL;
 
-	bm_lock = (ocfs_bitmap_lock *) MemAlloc(512);
-	if (bm_lock == NULL)
-		return 0;
+	buf = MemAlloc(OCFS_SECTOR_SIZE);
+	if (buf == NULL)
+		goto bail;
 	
-	memset((char *)bm_lock, 0, OCFS_SECTOR_SIZE);
-        bm_lock->used_bits = ocfs_count_bits(&global_bm);
-	if (SetSeek(file, OCFS_BITMAP_LOCK_OFFSET))
-		if (Write(file, OCFS_SECTOR_SIZE, (void *) bm_lock)) {
+	if (!SetSeek(file, OCFS_BITMAP_LOCK_OFFSET))
+		goto bail;
+
+	if (!Read(file, OCFS_SECTOR_SIZE, buf))
+		goto bail;
+
+	if (major_version == OCFS_MAJOR_VERSION) {
+		ocfs_bitmap_lock *bm_lock = (ocfs_bitmap_lock *) buf;
+		memset(buf, 0, OCFS_SECTOR_SIZE);  // why?
+        	bm_lock->used_bits = ocfs_count_bits(&global_bm);
+	} else if (major_version == OCFS2_MAJOR_VERSION) {
+		ocfs_file_entry_v2 *fe = (ocfs_file_entry_v2 *) buf;
+		fe->u.bitinfo.used_bits = ocfs_count_bits(&global_bm);
+	}
+
+	if (SetSeek(file, OCFS_BITMAP_LOCK_OFFSET)) {
+		if (Write(file, OCFS_SECTOR_SIZE, buf)) {
 			status = 1;
     			fsync(file);
 		}
-	
-	safefree(bm_lock);
+	}
+bail:	
+	safefree(buf);
 	return status;
 }
 
@@ -97,7 +123,6 @@ __u32 ocfs_alloc_from_global_bitmap (__u64 file_size, ocfs_vol_disk_hdr *volhdr)
 	return startbit;
 }
 
-static int ocfs_create_root_file_entry(int file, ocfs_vol_disk_hdr *volhdr);
 
 int ocfs_create_root_directory (int file, ocfs_vol_disk_hdr * volhdr)
 {
@@ -178,6 +203,8 @@ int ocfs_create_root_directory (int file, ocfs_vol_disk_hdr * volhdr)
 	if (major_version == OCFS2_MAJOR_VERSION) {
 		if (!ocfs_create_root_file_entry(file, volhdr))
 			goto bail;
+		if (!ocfs_create_bitmap_file_entry(file, volhdr))
+			goto bail;
 	}
 	
 	status = 1;
@@ -208,18 +235,16 @@ static int ocfs_create_root_file_entry(int file, ocfs_vol_disk_hdr *volhdr)
 	SET_VALID_BIT (fe->sync_flags);
 	fe->sync_flags &= ~(OCFS_SYNC_FLAG_CHANGE);
 	fe->last_ext_ptr = 0;
+        fe->next_del = INVALID_DIR_NODE_INDEX;
 	fe->this_sector = OCFS_ROOT_FILE_ENTRY_OFF;
 	fe->alloc_size = 0ULL;
 	fe->file_size = 0ULL;
-	//fe->extents[0].disk_off = volhdr->root_off;
-	//fe->extents[0].file_off = 0ULL;
-	//fe->extents[0].num_bytes = OCFS_DEFAULT_DIR_NODE_SIZE;
 	fe->next_free_ext = 0;
 	fe->uid = volhdr->uid;
 	fe->gid = volhdr->gid;
 	fe->prot_bits = volhdr->prot_bits;
         fe->attribs = OCFS_ATTRIB_DIRECTORY;
-	fe->child_dirnode = volhdr->root_off;
+	fe->u.child_dirnode = volhdr->root_off;
 
 	if (!SetSeek(file, OCFS_ROOT_FILE_ENTRY_OFF))
 		goto bail;
@@ -231,6 +256,47 @@ bail:
 	safefree (fe);
 	return ret;
 }
+
+static int ocfs_create_bitmap_file_entry(int file, ocfs_vol_disk_hdr *volhdr)
+{
+	int ret = 0;
+	ocfs_file_entry_v2 *fe;
+
+	fe = MemAlloc(OCFS_SECTOR_SIZE);
+	if (fe == NULL)
+		goto bail;
+	
+	memset(fe, 0, OCFS_SECTOR_SIZE);
+	strcpy(&fe->filename[0], "global-bitmap");
+	fe->filename_len = strlen(fe->filename);
+	fe->local_ext = true;
+	fe->granularity = -1;
+	strcpy (fe->signature, OCFS_FILE_ENTRY_SIGNATURE);
+	SET_VALID_BIT (fe->sync_flags);
+	fe->sync_flags &= ~(OCFS_SYNC_FLAG_CHANGE);
+	fe->last_ext_ptr = 0;
+        fe->next_del = INVALID_DIR_NODE_INDEX;
+	fe->this_sector = OCFS_BITMAP_LOCK_OFFSET;
+	fe->alloc_size = OCFS_MAX_BITMAP_SIZE;		// max possible bytes in bitmap
+	fe->file_size = (volhdr->num_clusters + 7) / 8;	// valid bytes in actual bitmap
+	fe->next_free_ext = 0;
+	fe->uid = volhdr->uid;
+	fe->gid = volhdr->gid;
+	fe->prot_bits = volhdr->prot_bits;
+	fe->u.bitinfo.used_bits = 0;			// used bits in bitmap
+	fe->u.bitinfo.total_bits = volhdr->num_clusters;// total valid bits in bitmap
+
+	if (!SetSeek(file, OCFS_BITMAP_LOCK_OFFSET))
+		goto bail;
+	if (!Write(file, OCFS_SECTOR_SIZE, (void *) fe))
+		goto bail;
+	fsync(file);
+	ret = 1;
+bail:
+	safefree (fe);
+	return ret;
+}
+
 
 void ocfs_init_dirnode(ocfs_dir_node *dir, __u64 disk_off, __u32 bit_off)
 {
@@ -300,12 +366,13 @@ int ocfs_init_sysfile (int file, ocfs_vol_disk_hdr *volhdr, __u32 file_id,
 		goto do_write;
 	} else if ((file_id >= OCFS_ORPHAN_DIR) &&
 		   (file_id < (OCFS_ORPHAN_DIR + 32))) {
+		// hackery
+		ocfs_file_entry_v2 *fev2 = (ocfs_file_entry_v2 *)fe;
+
 		sprintf(filename, "%s%d", OCFS_ORPHAN_DIR_FILENAME, file_id);
-	        fe->attribs = OCFS_ATTRIB_DIRECTORY;
-	        fe->alloc_size = OCFS_DEFAULT_DIR_NODE_SIZE;
-	        fe->file_size = OCFS_DEFAULT_DIR_NODE_SIZE;
-	        fe->next_del = INVALID_DIR_NODE_INDEX;
-	        fe->extents[0].disk_off = data;
+	        fev2->attribs = OCFS_ATTRIB_DIRECTORY;
+	        fev2->next_del = INVALID_DIR_NODE_INDEX;
+	        fev2->u.child_dirnode = data;
 
 		orphan_dir = (ocfs_dir_node *) MemAlloc(OCFS_DEFAULT_DIR_NODE_SIZE);
 		if (orphan_dir == NULL)
