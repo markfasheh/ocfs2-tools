@@ -47,7 +47,6 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 {
 	errcode_t ret = 0;
 	ocfs2_cached_inode *cinode = NULL;
-	ocfs2_dinode *inode;
 	uint64_t used_blks;
 	uint64_t totl_blks;
 	uint64_t new_blk;
@@ -67,12 +66,11 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	if (ret)
 		goto bail;
 
-	inode = cinode->ci_inode;
 	/* This relies on the fact that i_size of a directory is a
 	 * multiple of blocksize */
-	used_blks = inode->i_size >>
+	used_blks = cinode->ci_inode->i_size >>
 	       			OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-	totl_blks = ocfs2_clusters_to_blocks(fs, inode->i_clusters);
+	totl_blks = ocfs2_clusters_to_blocks(fs, cinode->ci_inode->i_clusters);
 
 	if (used_blks >= totl_blks) {
 		ocfs2_free_cached_inode(fs, cinode);
@@ -124,7 +122,7 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	}
 
 	/* increase the size */
-	inode->i_size += fs->fs_blocksize;
+	cinode->ci_inode->i_size += fs->fs_blocksize;
 
 	/* update the size of the inode */
 	ret = ocfs2_write_cached_inode(fs, cinode);
