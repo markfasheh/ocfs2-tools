@@ -31,6 +31,6 @@ void dump_local_alloc (ocfs2_local_alloc *loc);
 void dump_inode (ocfs2_dinode *in);
 void dump_extent_list (ocfs2_extent_list *ext);
 void dump_extent_block (ocfs2_extent_block *blk);
-void dump_dir_entry(struct ocfs2_dir_entry *dir, int len);
+void dump_dir_entry (GArray *arr);
 
 #endif		/* __DUMP_H__ */

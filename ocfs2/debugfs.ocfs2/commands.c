@@ -246,13 +246,10 @@ static void do_ls (char **args)
 {
 	char *opts = args[1];
 	ocfs2_dinode *inode;
-	ocfs2_extent_rec *rec;
 	__u32 blknum;
 	char *buf = NULL;
-	int i;
-	GArray *arr = NULL;
+	GArray *dirarr = NULL;
 	__u32 len;
-	__u64 off, foff;
 
 	len = 1 << blksz_bits;
 	if (!(buf = malloc(len)))
@@ -274,31 +271,17 @@ static void do_ls (char **args)
 		goto bail;
 	}
 
-	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
+	dirarr = g_array_new(0, 1, sizeof(struct ocfs2_dir_entry));
 
-	traverse_extents (dev_fd, &(inode->id2.i_list), arr, 0);
+	read_dir (dev_fd, &(inode->id2.i_list), inode->i_size, dirarr);
 
-	safefree (buf);
-
-	for (i = 0; i < arr->len; ++i) {
-		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
-		off = rec->e_blkno << blksz_bits;
-                foff = rec->e_cpos << clstrsz_bits;
-		len = rec->e_clusters << clstrsz_bits;
-                if ((foff + len) > inode->i_size)
-                    len = inode->i_size - foff;
-		if (!(buf = malloc (len)))
-			DBGFS_FATAL("%s", strerror(errno));
-		if ((pread64(dev_fd, buf, len, off)) == -1)
-			DBGFS_FATAL("%s", strerror(errno));
-		dump_dir_entry ((struct ocfs2_dir_entry *)buf, len);
-		safefree (buf);
-	}
+	dump_dir_entry (dirarr);
 
 bail:
 	safefree (buf);
-	if (arr)
-		g_array_free (arr, 1);
+
+	if (dirarr)
+		g_array_free (dirarr, 1);
 	return ;
 
 }					/* do_ls */

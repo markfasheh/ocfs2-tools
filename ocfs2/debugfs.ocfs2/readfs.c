@@ -161,10 +161,10 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump)
 }				/* traverse_extents */
 
 /*
- * read_dir()
+ * read_dir_block()
  *
  */
-void read_dir (struct ocfs2_dir_entry *dir, int len, GArray *arr)
+void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr)
 {
 	char *p;
 	struct ocfs2_dir_entry *rec;
@@ -177,6 +177,50 @@ void read_dir (struct ocfs2_dir_entry *dir, int len, GArray *arr)
 			add_dir_rec (arr, rec);
 		p += rec->rec_len;
 	}
+
+	return ;
+}				/* read_dir_block */
+
+/*
+ * read_dir()
+ *
+ */
+void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
+{
+	ocfs2_extent_rec *rec;
+	GArray *arr = NULL;
+	int i = 0;
+	char *buf = NULL;
+	__u32 len;
+	__u64 off;
+	__u64 foff;
+
+	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
+
+	traverse_extents (fd, ext, arr, 0);
+
+	for (i = 0; i < arr->len; ++i) {
+		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
+
+		off = rec->e_blkno << blksz_bits;
+                foff = rec->e_cpos << clstrsz_bits;
+		len = rec->e_clusters << clstrsz_bits;
+                if ((foff + len) > size)
+                    len = size - foff;
+
+		if (!(buf = malloc (len)))
+			DBGFS_FATAL("%s", strerror(errno));
+
+		if ((pread64(fd, buf, len, off)) == -1)
+			DBGFS_FATAL("%s", strerror(errno));
+
+		read_dir_block ((struct ocfs2_dir_entry *)buf, len, dirarr);
+
+		safefree (buf);
+	}
+
+	if (arr)
+		g_array_free (arr, 1);
 
 	return ;
 }				/* read_dir */

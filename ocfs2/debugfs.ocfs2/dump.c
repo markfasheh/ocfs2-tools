@@ -242,26 +242,19 @@ void dump_extent_block (ocfs2_extent_block *blk)
  * dump_dir_entry()
  *
  */
-void dump_dir_entry(struct ocfs2_dir_entry *dir, int len)
+void dump_dir_entry (GArray *arr)
 {
 	struct ocfs2_dir_entry *rec;
-	GArray *arr = NULL;
 	int i;
-
-	arr = g_array_new (0, 1, sizeof(struct ocfs2_dir_entry));
 
 	printf("%-20s %-4s %-4s %-2s %-4s\n",
 	       "Inode", "Rlen", "Nlen", "Ty", "Name");
 
-	read_dir (dir, len, arr);
-
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, struct ocfs2_dir_entry, i));
-		printf("%-15llu  %-6u  %-7u  %-4u  %s\n", rec->inode,
+		printf("%-20llu %-4u %-4u %-2u %s\n", rec->inode,
 		       rec->rec_len, rec->name_len, rec->file_type, rec->name);
 	}
 
-	if (arr)
-		g_array_free (arr, 1);
 	return ;
 }				/* dump_dir_entry */
