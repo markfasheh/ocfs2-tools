@@ -248,7 +248,6 @@ static int start_heartbeat(char *hbuuid, char *device)
 	int ret;
 	char *cluster = NULL;
 	errcode_t err;
-
 	uint32_t block_bits, cluster_bits, num_clusters;
 	uint64_t start_block, num_blocks;
 
@@ -278,129 +277,6 @@ static int start_heartbeat(char *hbuuid, char *device)
 		return -EINVAL;
 	}
 
-#if 0
-	int ret;
-	uint8_t my_nodenum, groupnum;
-	uint32_t pre_nodemap[] = {0, 0, 0, 0, 0, 0, 0, 0};
-	uint32_t post_nodemap[] = {0, 0, 0, 0, 0, 0, 0, 0};
-	int start, next, i;
-	uint32_t block_bits, cluster_bits, num_clusters;
-	uint64_t start_block, num_blocks;
-
-	/* either create the group or find that it already exists */
-	ret = get_my_nodenum(&my_nodenum);
-	if (ret < 0)
-		return ret;
-
-	ret = get_ocfs2_disk_hb_params(groupdev, &block_bits, &cluster_bits, 
-				       &start_block, &num_clusters);
-	if (ret < 0)
-		return ret;
-
-	num_blocks = num_clusters << cluster_bits;
-	num_blocks >>= block_bits;
-	
-	ret = create_group(groupname, &groupnum);
-	if (ret != -EEXIST && ret != 0)
-		return ret;
-
-	ret = activate_group(groupname, groupdev, groupnum, block_bits, num_blocks, start_block);
-	if (ret < 0)
-		return ret;
-
-	ret = add_to_local_group(groupname, groupnum, my_nodenum);
-	if (ret != -EEXIST && ret != 0)
-		return ret;
-
-	/* at this point my node is heartbeating, so any other nodes 
-	 * joining right now must communicate with me */
-
-	while (1) {
-		ret = get_node_map(groupnum, (char *)pre_nodemap);
-		if (ret < 0)
-			return ret;
-		if (ocfs2_test_bit(my_nodenum, (char *)pre_nodemap)) {
-			if (verbose)
-				printf("found myself (%u) in nodemap! continuing...\n", my_nodenum);
-			break;
-		} else {
-			if (verbose)
-				printf("have not yet found myself (%u) in nodemap...\n", my_nodenum);
-		}
-		/* TODO: set this to the default hb interval. 2 seconds right now */
-		sleep(2);
-	}
-
-	/* now that we see ourself heartbeating, take a look
-	 * at ALL of the nodes that seem to be heartbeating 
-	 * on this device.  add them here and have them add
-	 * me there... */
-	ret = get_raw_node_map(groupnum, groupdev, block_bits, num_blocks, start_block, (char *)pre_nodemap);
-	if (ret < 0)
-		return ret;
-
-again:
-	/* go create this group and add this node on every other node I see */	
-	start = 0;
-	while (1) {
-		next = ocfs2_find_next_bit_set((unsigned long *)pre_nodemap, NM_MAX_NODES, start);
-		if (next >= NM_MAX_NODES) {
-			break;
-		}
-		if (next != my_nodenum) {
-			/* add remote node here... */
-			ret = add_to_local_group(groupname, groupnum, next);
-			if (ret != -EEXIST && ret != 0)
-				return ret;
-
-			/* ...and add this node there */
-			ret = create_remote_group(groupname, next);
-			if (ret != 0 && ret != -EEXIST) {
-				com_err(progname, ret, "unable to create remote group");
-				break;
-			}
-		}
-		start = next + 1;
-	}
-	if (ret != 0 && ret != -EEXIST)
-		return ret;
-
-	if (verbose)
-		printf("done creating remote groups\n");
-
-	/* grab the nodemap again and look for changes */
-	ret = get_raw_node_map(groupnum, groupdev, block_bits, num_blocks, start_block, (char *)post_nodemap);
-	if (ret < 0)
-		return ret;
-
-	if (verbose)	
-		printf("checking raw node map again.....\n");
-
-	if (memcmp(pre_nodemap, post_nodemap, sizeof(pre_nodemap)) == 0) {
-		/* nothing changed.  we are DONE! */
-		if (verbose)
-			printf("woot. nothing changed. all done\n");
-		return 0;
-	}
-	
-	if (verbose)	
-		printf("something changed\n");
-		
-	/* something changed */
-	for (i=0; i<8; i++) {
-		post_nodemap[i] &= ~pre_nodemap[i];
-		pre_nodemap[i] = post_nodemap[i];
-		post_nodemap[i] = 0;
-	}
-
-	/* keep going while there are still nodes to contact */
-	if (ocfs2_find_next_bit_set((unsigned long *)pre_nodemap, NM_MAX_NODES, 0) < NM_MAX_NODES)
-		goto again;
-
-	if (verbose)
-		printf("ah nothing left to care about ... leaving\n");
-
-#endif
 	return 0;
 }
 
