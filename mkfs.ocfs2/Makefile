@@ -6,7 +6,9 @@ WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
 ifdef OCFS_DEBUG
-OPTS = -g
+OPTS = -ggdb -O0
+else
+OPTS = -O2
 endif
 
 CFLAGS = $(OPTS) $(WARNINGS) 
@@ -19,10 +21,6 @@ LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 INCLUDES = $(LIBOCFS2_CFLAGS) -I.
 DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
-
-OPTIMIZE = -O2
-
-CFLAGS += $(OPTIMIZE)
 
 CFILES = mkfs.c
 OBJS = $(subst .c,.o,$(CFILES))
