@@ -556,7 +556,7 @@ case "$1" in
         ;;
 
     *)
-        echo "Usage: $0 {start|stop|restart|enable|disable|load|unload|status}"
+        echo "Usage: $0 {start|stop|restart|enable|disable|configure|load|unload|online|status}"
         exit 1
         ;;
 esac
