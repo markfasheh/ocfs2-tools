@@ -102,7 +102,7 @@ typedef unsigned short kdev_t;
 
 enum {
 	SFI_JOURNAL,
-	SFI_BITMAP,
+	SFI_CLUSTER,
 	SFI_LOCAL_ALLOC,
 	SFI_DLM,
 	SFI_CHAIN,
@@ -131,6 +131,9 @@ struct _AllocGroup {
 	char *name;
 	ocfs2_group_desc *gd;
 	SystemFileDiskRecord *alloc_inode;
+	uint32_t chain_free;
+	uint32_t chain_total;
+	struct _AllocGroup *next;
 };
 
 
@@ -145,16 +148,18 @@ struct _SystemFileDiskRecord {
 	AllocGroup *group;
 
 	struct BitInfo bi;
+	struct _AllocBitmap *bitmap;
 
 	int flags;
 	int links;
 	int dir;
+	int cluster_bitmap;
 };
 
 typedef struct _AllocBitmap AllocBitmap;
 
 struct _AllocBitmap {
-	void *buf;
+	AllocGroup **groups;
 
 	uint32_t valid_bits;
 	uint32_t unit;
@@ -166,6 +171,7 @@ struct _AllocBitmap {
 
 	SystemFileDiskRecord *bm_record;
 	SystemFileDiskRecord *alloc_record;
+	int num_chains;
 };
 
 typedef struct _DirData DirData;
@@ -222,6 +228,10 @@ struct _State {
 
 	AllocBitmap *global_bm;
 	AllocGroup *system_group;
+	uint32_t nr_cluster_groups;
+	uint16_t global_cpg;
+	uint16_t tail_group_bits;
+	uint64_t first_cluster_group;
 };
 
 
@@ -232,12 +242,14 @@ static void version(const char *progname);
 static void fill_defaults(State *s);
 static int get_bits(State *s, int num);
 static void *do_malloc(State *s, size_t size);
-static void do_pwrite(State *s, const void *buf, size_t count, uint64_t offset);static AllocBitmap *initialize_bitmap(State *s, uint32_t bits,
+static void do_pwrite(State *s, const void *buf, size_t count, 
+		      uint64_t offset);
+static AllocBitmap *initialize_bitmap(State *s, uint32_t bits,
 				      uint32_t unit_bits, const char *name,
-				      SystemFileDiskRecord *bm_record,
-				      SystemFileDiskRecord *alloc_record);
-static int find_clear_bits(AllocBitmap *bitmap, uint32_t num_bits,
-			   uint32_t offset);
+				      SystemFileDiskRecord *bm_record);
+
+static int
+find_clear_bits(void *buf, unsigned int size, uint32_t num_bits, uint32_t offset);
 static int alloc_bytes_from_bitmap(State *s, uint64_t bytes,
 				   AllocBitmap *bitmap, uint64_t *start,
 				   uint64_t *num);
@@ -249,7 +261,6 @@ static void add_entry_to_directory(State *s, DirData *dir, char *name,
 				   uint64_t byte_off, uint8_t type);
 static uint32_t blocks_needed(State *s);
 static uint32_t system_dir_blocks_needed(State *s);
-static void adjust_volume_size(State *s);
 static void check_32bit_blocks(State *s);
 static void format_superblock(State *s, SystemFileDiskRecord *rec,
 			      SystemFileDiskRecord *root_rec,
@@ -271,7 +282,7 @@ static void init_record(State *s, SystemFileDiskRecord *rec, int type, int dir);
 static void print_state(State *s);
 static int ocfs2_clusters_per_group(int block_size,
 				    int cluster_size_bits);
-static AllocGroup * initialize_alloc_group(State *s, char *name,
+static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   SystemFileDiskRecord *alloc_inode,
 					   uint64_t blkno,
 					   uint16_t chain, uint16_t cpg,
@@ -284,7 +295,7 @@ SystemFileInfo system_files[] = {
 	{ "bad_blocks", SFI_OTHER, 1, 0 },
 	{ "global_inode_alloc", SFI_CHAIN, 1, 0 },
 	{ "dlm", SFI_DLM, 1, 0 },
-	{ "global_bitmap", SFI_BITMAP, 1, 0 },
+	{ "global_bitmap", SFI_CLUSTER, 1, 0 },
 	{ "orphan_dir", SFI_OTHER, 1, 1 },
 	{ "extent_alloc:%04d", SFI_CHAIN, 0, 0 },
 	{ "inode_alloc:%04d", SFI_CHAIN, 0, 0 },
@@ -297,7 +308,6 @@ main(int argc, char **argv)
 {
 	State *s;
 	SystemFileDiskRecord *record[NUM_SYSTEM_INODES];
-	SystemFileDiskRecord global_alloc_rec;
 	SystemFileDiskRecord crap_rec;
 	SystemFileDiskRecord superblock_rec;
 	SystemFileDiskRecord root_dir_rec;
@@ -320,7 +330,7 @@ main(int argc, char **argv)
 
 	fill_defaults(s);  
 
-	adjust_volume_size(s);
+//	adjust_volume_size(s);
 
 	generate_uuid (s);
 
@@ -329,10 +339,6 @@ main(int argc, char **argv)
 	print_state (s);
 
 	check_32bit_blocks (s);
-
-	init_record(s, &global_alloc_rec, SFI_OTHER, 0);
-	global_alloc_rec.extent_off = 0;
-	global_alloc_rec.extent_len = s->volume_size_in_bytes;
 
 	init_record(s, &superblock_rec, SFI_OTHER, 0);
 	init_record(s, &root_dir_rec, SFI_OTHER, 1);
@@ -369,8 +375,7 @@ main(int argc, char **argv)
 
 	s->global_bm = initialize_bitmap (s, s->volume_size_in_clusters,
 					  s->cluster_size_bits,
-					  "global bitmap", tmprec,
-					  &global_alloc_rec);
+					  "global bitmap", tmprec);
 
 	/*
 	 * Set all bits up to and including the superblock.
@@ -497,7 +502,14 @@ main(int argc, char **argv)
 		}
 	}
 
+	/* OHMYGODTHISISTHEWORSTCODEEVER: We write out the bitmap here
+	 * *again* because we did a bunch of allocs above after our
+	 * initial write-out. */
+	tmprec = &(record[GLOBAL_BITMAP_SYSTEM_INODE][0]);
+	format_file(s, tmprec);
+
 	write_bitmap_data(s, s->global_bm);
+
 	write_group_data(s, s->system_group);
 
 	write_directory_data(s, root_dir);
@@ -887,6 +899,27 @@ fill_defaults(State *s)
 	
 	s->reserved_tail_size = 0;
 
+	if (s->volume_size_in_clusters < 
+	    ( 8 * ocfs2_group_bitmap_size(s->blocksize))) {
+		/* small volume, only one cluster group. */
+		s->global_cpg = s->volume_size_in_clusters;
+		s->nr_cluster_groups = 1;
+		s->tail_group_bits = s->volume_size_in_clusters;
+	} else {
+		s->global_cpg = 8 * ocfs2_group_bitmap_size(s->blocksize);
+		s->nr_cluster_groups = s->volume_size_in_clusters / s->global_cpg;
+		if (s->volume_size_in_clusters % s->global_cpg) {
+			s->tail_group_bits = s->volume_size_in_clusters % s->global_cpg;
+			s->nr_cluster_groups++;
+		} else
+			s->tail_group_bits = s->global_cpg;
+	}
+#if 0
+	printf("volume_size_in_clusters = %u\n", s->volume_size_in_clusters);
+	printf("global_cpg = %u\n", s->global_cpg);
+	printf("nr_cluster_groups = %u\n", s->nr_cluster_groups);
+	printf("tail_group_bits = %u\n", s->tail_group_bits);
+#endif
 	if (!s->initial_nodes) {
 		s->initial_nodes =
 			initial_nodes_for_volume(s->volume_size_in_bytes);
@@ -950,7 +983,7 @@ do_pwrite(State *s, const void *buf, size_t count, uint64_t offset)
 }
 
 static AllocGroup *
-initialize_alloc_group(State *s, char *name,
+initialize_alloc_group(State *s, const char *name,
 		       SystemFileDiskRecord *alloc_inode,
 		       uint64_t blkno, uint16_t chain,
 		       uint16_t cpg, uint16_t bpc)
@@ -975,9 +1008,8 @@ initialize_alloc_group(State *s, char *name,
 	ocfs2_set_bit(0, group->gd->bg_bitmap);
 	group->gd->bg_free_bits_count = group->gd->bg_bits - 1;
 
-	alloc_inode->bi.total_bits = group->gd->bg_bits;
-	alloc_inode->bi.used_bits = alloc_inode->bi.total_bits -
-		group->gd->bg_free_bits_count;
+	alloc_inode->bi.total_bits += group->gd->bg_bits;
+	alloc_inode->bi.used_bits++;
 	group->alloc_inode = alloc_inode;
 
 	group->name = strdup(name);
@@ -987,34 +1019,91 @@ initialize_alloc_group(State *s, char *name,
 
 static AllocBitmap *
 initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
-		  const char *name, SystemFileDiskRecord *bm_record,
-		  SystemFileDiskRecord *alloc_record)
+		  const char *name, SystemFileDiskRecord *bm_record)
 {
 	AllocBitmap *bitmap;
-	uint64_t bitmap_len = bm_record->extent_len;
+	uint64_t blkno;
+	int i, j, cpg, chain;
+	int recs_per_inode = ocfs2_chain_recs_per_inode(s->blocksize);
+	int wrapped = 0;
 
 	bitmap = do_malloc(s, sizeof(AllocBitmap));
 	memset(bitmap, 0, sizeof(AllocBitmap));
-
-	bitmap->buf = memalign(s->blocksize, bitmap_len);
-	memset(bitmap->buf, 0, bitmap_len);
 
 	bitmap->valid_bits = bits;
 	bitmap->unit_bits = unit_bits;
 	bitmap->unit = 1 << unit_bits;
 	bitmap->name = strdup(name);
 
-	bm_record->file_size = bitmap_len;
+	bm_record->file_size = s->volume_size_in_bytes;
 	bm_record->fe_off = 0ULL;
 
 	bm_record->bi.used_bits = 0;
-	bm_record->bi.total_bits = bits;
 
-	alloc_record->file_size = bits << unit_bits;
-	alloc_record->fe_off = 0ULL;
+	/* this will be set as we add groups. */
+	bm_record->bi.total_bits = 0;
+
+	bm_record->bitmap = bitmap;
 
 	bitmap->bm_record = bm_record;
-	bitmap->alloc_record = alloc_record;
+
+	bitmap->groups = do_malloc(s, s->nr_cluster_groups * 
+				   sizeof(AllocGroup *));
+	memset(bitmap->groups, 0, s->nr_cluster_groups * 
+	       sizeof(AllocGroup *));
+
+	s->first_cluster_group = OCFS2_SUPER_BLOCK_BLKNO + 1;
+	bitmap->groups[0] = initialize_alloc_group(s, "stupid", bm_record,
+						   s->first_cluster_group,
+						   0, s->global_cpg, 1);
+	/* we'll set his bit later when we initialize for the super
+	 * block and friends, so totally munge these values for
+	 * now. */
+	ocfs2_clear_bit(0, bitmap->groups[0]->gd->bg_bitmap);
+	bitmap->groups[0]->gd->bg_free_bits_count++;
+	bm_record->bi.used_bits--;
+	bitmap->groups[0]->chain_total = s->global_cpg;
+	bitmap->groups[0]->chain_free = s->global_cpg;
+
+	chain = 1;
+	blkno = (uint64_t) s->global_cpg << (s->cluster_size_bits - s->blocksize_bits);
+	cpg = s->global_cpg;
+	for(i = 1; i < s->nr_cluster_groups; i++) {
+		if (i == (s->nr_cluster_groups - 1))
+			cpg = s->tail_group_bits;
+		bitmap->groups[i] = initialize_alloc_group(s, "stupid",
+							   bm_record, blkno,
+							   chain, cpg, 1);
+		if (wrapped) {
+			/* link the previous group to this guy. */
+			j = i - recs_per_inode;
+			bitmap->groups[j]->gd->bg_next_group = blkno;
+			bitmap->groups[j]->next = bitmap->groups[i];
+		}
+
+		bitmap->groups[chain]->chain_total += 
+			bitmap->groups[i]->gd->bg_bits;
+		bitmap->groups[chain]->chain_free += 
+			bitmap->groups[i]->gd->bg_free_bits_count;
+
+		blkno += (uint64_t) s->global_cpg << (s->cluster_size_bits - s->blocksize_bits);
+		chain++;
+		if (chain >= recs_per_inode) {
+			bitmap->num_chains = recs_per_inode;
+			chain = 0;
+			wrapped = 1;
+		}
+	}
+	if (!wrapped)
+		bitmap->num_chains = chain;
+
+	/* by now, this should be accurate. */
+	if (bm_record->bi.total_bits != s->volume_size_in_clusters) {
+		fprintf(stderr, "bitmap total and num clusters don't "
+			"match! %u, %u\n", bm_record->bi.total_bits,
+			s->volume_size_in_clusters);
+		exit(1);
+	}
 
 	return bitmap;
 }
@@ -1029,18 +1118,15 @@ destroy_bitmap(AllocBitmap *bitmap)
 #endif
 
 static int
-find_clear_bits(AllocBitmap *bitmap, uint32_t num_bits, uint32_t offset)
+find_clear_bits(void *buf, unsigned int size, uint32_t num_bits, uint32_t offset)
 {
-	uint32_t next_zero, off, count = 0, size, first_zero = -1;
-	void *buf;
+	uint32_t next_zero, off, count = 0, first_zero = -1;
 
-	buf = bitmap->buf;
-	size = bitmap->valid_bits;
 	off = offset;
 
 	while ((size - off + count >= num_bits) &&
 	       (next_zero = ocfs2_find_next_bit_clear(buf, size, off)) != size) {
-		if (next_zero >= bitmap->valid_bits)
+		if (next_zero >= size)
 			break;
 
 		if (next_zero != off) {
@@ -1062,9 +1148,9 @@ find_clear_bits(AllocBitmap *bitmap, uint32_t num_bits, uint32_t offset)
 	first_zero = -1;
 
 bail:
-	if (first_zero != (uint32_t)-1 && first_zero > bitmap->valid_bits) {
+	if (first_zero != (uint32_t)-1 && first_zero > size) {
 		fprintf(stderr, "erf... first_zero > bitmap->valid_bits "
-				"(%d > %d)", first_zero, bitmap->valid_bits);
+				"(%d > %d)", first_zero, size);
 		first_zero = -1;
 	}
 
@@ -1086,10 +1172,30 @@ static int
 alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 		  uint64_t *start, uint64_t *num)
 {
-	uint32_t start_bit = 0;
-	void *buf;
+	uint32_t start_bit = (uint32_t) - 1;
+	void *buf = NULL;
+	int i, found, chain;
+	AllocGroup *group;
+	ocfs2_group_desc *gd = NULL;
+	unsigned int size;
 
-	start_bit = find_clear_bits(bitmap, num_bits, 0);
+	found = 0;
+	for(i = 0; i < bitmap->num_chains && !found; i++) {
+		group = bitmap->groups[i];
+		do {
+			gd = group->gd;
+			if (le16_to_cpu(gd->bg_free_bits_count) >=
+			    num_bits) {
+				buf = gd->bg_bitmap;
+				size = le16_to_cpu(gd->bg_bits);
+				start_bit = find_clear_bits(buf, size,
+							    num_bits, 0);
+				found = 1;
+				break;
+			}
+			group = group->next;
+		} while (group);
+	}
 
 	if (start_bit == (uint32_t)-1) {
 		com_err(s->progname, 0,
@@ -1098,22 +1204,28 @@ alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 		exit(1);
 	}
 
-	*start = ((uint64_t)start_bit) << bitmap->unit_bits;
+	if (gd->bg_blkno == s->first_cluster_group)
+		*start = (uint64_t) start_bit;
+	else
+		*start = (uint64_t) start_bit + gd->bg_blkno;
+	*start = *start << bitmap->unit_bits;
 	*num = ((uint64_t)num_bits) << bitmap->unit_bits;
-
-	buf = do_malloc(s, *num);
-	memset(buf, 0, *num);
-
-	do_pwrite(s, buf, *num, *start);
+	gd->bg_free_bits_count -= num_bits;
+	chain = gd->bg_chain;
+	bitmap->groups[chain]->chain_free -= num_bits;
 
 	bitmap->bm_record->bi.used_bits += num_bits;
 
+#if 0
+	printf("alloc requested %"PRIu64" bits, given len = %"PRIu64", at "
+	       "start = %"PRIu64". used_bits = %u\n", num_bits, *num, *start,
+	       bitmap->bm_record->bi.used_bits);
+#endif
+
 	while (num_bits--) {
-		ocfs2_set_bit(start_bit, bitmap->buf);
+		ocfs2_set_bit(start_bit, buf);
 		start_bit++;
 	}
-
-	free(buf);
 
 	return 0;
 }
@@ -1281,6 +1393,12 @@ system_dir_blocks_needed(State *s)
 	return (bytes_needed + s->cluster_size - 1) >> s->cluster_size_bits;
 }
 
+#if 0
+/* This breaks stuff that depends on volume_size_in_clusters and
+ * volume_size_in_blocks, and I'm not even sure it's necessary. If
+ * needed, this sort of calculation should be done before
+ * fill_defaults where we calculate a bunch of other things based on
+ * #blocks and #clusters. */
 static void
 adjust_volume_size(State *s)
 {
@@ -1299,7 +1417,7 @@ adjust_volume_size(State *s)
 	s->reserved_tail_size = s->volume_size_in_bytes - vsize;
 	s->volume_size_in_bytes = vsize;
 }
-
+#endif
 /* this will go away once we have patches to jbd to support 64bit blocks.
  * ocfs2 will only fail mounts when it finds itself asked to mount a large
  * device in a kernel that doesn't have a smarter jbd. */
@@ -1353,6 +1471,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_blocksize_bits = cpu_to_le32(s->blocksize_bits);
 	di->id2.i_super.s_clustersize_bits = cpu_to_le32(s->cluster_size_bits);
 	di->id2.i_super.s_max_nodes = cpu_to_le32(s->initial_nodes);
+	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group);
 
 	strcpy(di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
@@ -1387,8 +1506,9 @@ static void
 format_file(State *s, SystemFileDiskRecord *rec)
 {
 	ocfs2_dinode *di;
-	int mode;
+	int mode, i;
 	uint32_t clusters;
+	AllocBitmap *bitmap;
 
 	mode = rec->dir ? 0755 | S_IFDIR : 0644 | S_IFREG;
 
@@ -1423,9 +1543,34 @@ format_file(State *s, SystemFileDiskRecord *rec)
 		di->id1.bitmap1.i_total = cpu_to_le32(rec->bi.total_bits);
 	}
 
+	if (rec->cluster_bitmap) {
+		di->id2.i_chain.cl_count = 
+			cpu_to_le16(ocfs2_chain_recs_per_inode(s->blocksize));
+		di->id2.i_chain.cl_cpg = cpu_to_le16(s->global_cpg);
+		di->id2.i_chain.cl_bpc = cpu_to_le16(1);
+		if (s->nr_cluster_groups > 
+		    ocfs2_chain_recs_per_inode(s->blocksize)) {
+			di->id2.i_chain.cl_next_free_rec = di->id2.i_chain.cl_count;
+		} else
+			di->id2.i_chain.cl_next_free_rec = 
+				cpu_to_le16(s->nr_cluster_groups);
+		di->i_clusters = cpu_to_le32(s->volume_size_in_clusters);
+
+		bitmap = rec->bitmap;
+		for(i = 0; i < bitmap->num_chains; i++) {
+			di->id2.i_chain.cl_recs[i].c_blkno = 
+				bitmap->groups[i]->gd->bg_blkno;
+			di->id2.i_chain.cl_recs[i].c_free = 
+				bitmap->groups[i]->chain_free;
+			di->id2.i_chain.cl_recs[i].c_total = 
+				bitmap->groups[i]->chain_total;
+		}
+		goto write_out;
+	}
 	if (rec->flags & OCFS2_CHAIN_FL) {
 		di->id2.i_chain.cl_count = 
 			cpu_to_le16(ocfs2_chain_recs_per_inode(s->blocksize));
+
 		di->id2.i_chain.cl_cpg = 
 			cpu_to_le16(ocfs2_clusters_per_group(s->blocksize, 
 						 s->cluster_size_bits));
@@ -1488,7 +1633,23 @@ write_metadata(State *s, SystemFileDiskRecord *rec, void *src)
 static void
 write_bitmap_data(State *s, AllocBitmap *bitmap)
 {
-	write_metadata(s, bitmap->bm_record, bitmap->buf);
+	int i;
+	uint64_t parent_blkno;
+	ocfs2_group_desc *gd;
+
+	parent_blkno = bitmap->bm_record->fe_off;
+	for(i = 0; i < s->nr_cluster_groups; i++) {
+		gd = bitmap->groups[i]->gd;
+		if (strcmp(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE)) {
+			fprintf(stderr, "bad group descriptor!\n");
+			exit(1);
+		}
+		/* Ok, we didn't get a chance to fill in the parent
+		 * blkno until now. */
+		gd->bg_parent_dinode = cpu_to_le64(parent_blkno);
+		do_pwrite(s, gd, s->blocksize,
+			  gd->bg_blkno << s->blocksize_bits);
+	}
 }
 
 static void
@@ -1685,15 +1846,14 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int dir)
 	case SFI_JOURNAL:
 		rec->flags |= OCFS2_JOURNAL_FL;
 		break;
-	case SFI_BITMAP:
-		rec->flags |= OCFS2_BITMAP_FL;
-		break;
 	case SFI_LOCAL_ALLOC:
 		rec->flags |= OCFS2_LOCAL_ALLOC_FL;
 		break;
 	case SFI_DLM:
 		rec->flags |= OCFS2_DLM_FL;
 		break;
+	case SFI_CLUSTER:
+		rec->cluster_bitmap = 1;
 	case SFI_CHAIN:
 		rec->flags |= (OCFS2_BITMAP_FL|OCFS2_CHAIN_FL);
 		break;
@@ -1714,5 +1874,8 @@ print_state(State *s)
 	printf("Volume size=%llu (%u clusters) (%"PRIu64" blocks)\n",
 	       (unsigned long long) s->volume_size_in_bytes,
 	       s->volume_size_in_clusters, s->volume_size_in_blocks);
+	printf("%u cluster groups (tail covers %u clusters, rest cover %u "
+	       "clusters)\n", s->nr_cluster_groups, s->tail_group_bits,
+	       s->global_cpg);
 	printf("Initial number of nodes: %u\n", s->initial_nodes);
 }

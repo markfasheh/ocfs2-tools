@@ -55,10 +55,14 @@ void dump_super_block(FILE *out, ocfs2_super_block *sb)
 		sb->s_root_blkno,
 		sb->s_system_dir_blkno);
 
+	fprintf(out, "\tFirst Cluster Group Blknum: %"PRIu64"\n",
+		sb->s_first_cluster_group);
+
 	fprintf(out, "\tBlock Size Bits: %u   Cluster Size Bits: %u\n",
 	       sb->s_blocksize_bits, sb->s_clustersize_bits);
 
 	fprintf(out, "\tMax Nodes: %u\n", sb->s_max_nodes);
+
 	fprintf(out, "\tLabel: %s\n", sb->s_label);
 	fprintf(out, "\tUUID: ");
 	for (i = 0; i < 16; i++)

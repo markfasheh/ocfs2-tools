@@ -321,7 +321,8 @@ typedef struct _ocfs2_super_block {
 					   tunefs required */
 	__u16 s_reserved1;
 	__u32 s_reserved2;
-	__u64 s_reserved3;
+	__u64 s_first_cluster_group;	/* Block offset of 1st cluster
+					 * group header */
 /*50*/	__u8  s_label[64];		/* Label for mounting, etc. */
 /*90*/	__u8  s_uuid[16];		/* Was vol_id */
 /*A0*/
