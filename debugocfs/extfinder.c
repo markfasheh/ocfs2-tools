@@ -116,7 +116,7 @@ void print_global_bitmap_runs(int fd, void *buf)
 	run.start = -1;
 	run.size = 0;
 	for (i = 0; i < non_sysfile; i++) {
-		if (!test_bit(i, bmbuf)) {
+		if (!test_bit(i, (unsigned long *)bmbuf)) {
 			run.size++;
 			if (run.start==-1)
 				run.start = i;

@@ -110,7 +110,7 @@ void print_bitmap(char *bmbuf, int bmsize, bit2off_func func, void *data)
     for (i=0; i<bmsize; i++)
     {
         off = func(i, data);
-        if (test_bit(i, bmbuf))
+        if (test_bit(i, (unsigned long *)bmbuf))
         {
             printf("\t\t%llu (%d)\n", off, i);
         }
@@ -119,7 +119,7 @@ void print_bitmap(char *bmbuf, int bmsize, bit2off_func func, void *data)
     for (i=0; i<bmsize; i++)
     {
         off = func(i, data);
-        if (!test_bit(i, bmbuf))
+        if (!test_bit(i, (unsigned long *)bmbuf))
         {
             printf("\t\t%llu (%d)\n", off, i);
         }
