@@ -27,6 +27,8 @@
 
 static State *get_state(int argc, char **argv);
 static int get_number(char *arg, uint64_t *res);
+static void parse_journal_opts(char *progname, const char *opts,
+			       uint64_t *journal_size_in_bytes);
 static void usage(const char *progname);
 static void version(const char *progname);
 static void fill_defaults(State *s);
@@ -121,13 +123,15 @@ main(int argc, char **argv)
 
 	/* bail if volume already mounted on cluster, etc. */
 	if (ocfs2_check_volume(s))
-		goto bail;
+		return 1;
 
 	/* Abort? */
-	fprintf(stdout, "Proceed (y/N): ");
-	if (toupper(getchar()) != 'Y') {
-		printf("Aborting operation.\n");
-		goto bail;
+	if (s->prompt) {
+		fprintf(stdout, "Proceed (y/N): ");
+		if (toupper(getchar()) != 'Y') {
+			printf("Aborting operation.\n");
+			return 1;
+		}
 	}
 
 	open_device(s);
@@ -337,7 +341,6 @@ main(int argc, char **argv)
 	if (!s->quiet)
 		printf("%s successful\n\n", s->progname);
 
-bail:
 	return 0;
 }
 
@@ -352,24 +355,23 @@ get_state(int argc, char **argv)
 	char *dummy;
 	State *s;
 	int c;
-	int verbose = 0, quiet = 0, force = 0;
+	int verbose = 0, quiet = 0, force = 0, xtool = 0;
 	int show_version = 0;
 	char *device_name;
 	int ret;
 	uint64_t val;
 	uint64_t journal_size_in_bytes = 0;
-	uint64_t max_journal_size = 500 * ONE_MEGA_BYTE;
 
 	static struct option long_options[] = {
-		{ "blocksize", 1, 0, 'b' },
-		{ "clustersize", 1, 0, 'c' },
+		{ "block-size", 1, 0, 'b' },
+		{ "cluster-size", 1, 0, 'C' },
 		{ "label", 1, 0, 'L' },
-		{ "nodes", 1, 0, 'n' },
+		{ "nodes", 1, 0, 'N' },
 		{ "verbose", 0, 0, 'v' },
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
-		{ "journalsize", 0, 0, 'j'},
-		{ "force", 0, 0, 'f'},
+		{ "journal-options", 0, 0, 'J'},
+		{ "force", 0, 0, 'F'},
 		{ 0, 0, 0, 0}
 	};
 
@@ -379,7 +381,7 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:c:L:n:j:vqVf", long_options, 
+		c = getopt_long(argc, argv, "b:C:L:N:J:vqVFx", long_options, 
 				NULL);
 
 		if (c == -1)
@@ -404,7 +406,7 @@ get_state(int argc, char **argv)
 			blocksize = (unsigned int) val;
 			break;
 
-		case 'c':
+		case 'C':
 			ret = get_number(optarg, &val);
 
 			if (ret ||
@@ -435,7 +437,7 @@ get_state(int argc, char **argv)
 
 			break;
 
-		case 'n':
+		case 'N':
 			initial_nodes = strtoul(optarg, &dummy, 0);
 
 			if (initial_nodes > OCFS2_MAX_NODES || *dummy != '\0') {
@@ -451,23 +453,9 @@ get_state(int argc, char **argv)
 
 			break;
 
-		case 'j':
-			ret = get_number(optarg, &val);
-
-			if (ret || 
-			    val < OCFS2_MIN_JOURNAL_SIZE ||
-			    val > max_journal_size) {
-				com_err(progname, 0,
-					"Invalid journal size %s: must be "
-					"between %d and %"PRIu64" bytes",
-					optarg,
-					OCFS2_MIN_JOURNAL_SIZE,
-					max_journal_size);
-				exit(1);
-			}
-
-			journal_size_in_bytes = val;
-
+		case 'J':
+			parse_journal_opts(progname, optarg,
+					   &journal_size_in_bytes);
 			break;
 
 		case 'v':
@@ -482,8 +470,12 @@ get_state(int argc, char **argv)
 			show_version = 1;
 			break;
 
-		case 'f':
+		case 'F':
 			force = 1;
+			break;
+
+		case 'x':
+			xtool = 1;
 			break;
 
 		default:
@@ -528,6 +520,8 @@ get_state(int argc, char **argv)
 	s->verbose       = verbose;
 	s->quiet         = quiet;
 	s->force         = force;
+
+	s->prompt        = xtool ? 0 : 1;
 
 	s->blocksize     = blocksize;
 	s->cluster_size  = cluster_size;
@@ -588,11 +582,75 @@ get_number(char *arg, uint64_t *res)
 	return 0;
 }
 
+/* derived from e2fsprogs */
+static void
+parse_journal_opts(char *progname, const char *opts,
+		   uint64_t *journal_size_in_bytes)
+{
+	char *options, *token, *next, *p, *arg;
+	int ret, journal_usage = 0;
+	uint64_t val;
+	uint64_t max_journal_size = 500 * ONE_MEGA_BYTE;
+
+	options = strdup(opts);
+
+	for (token = options; token && *token; token = next) {
+		p = strchr(token, ',');
+		next = NULL;
+
+		if (p) {
+			*p = '\0';
+			next = p + 1;
+		}
+
+		arg = strchr(token, '=');
+
+		if (arg) {
+			*arg = '\0';
+			arg++;
+		}
+
+		if (strcmp(token, "size") == 0) {
+			if (!arg) {
+				journal_usage++;
+				continue;
+			}
+
+			ret = get_number(arg, &val);
+
+			if (ret ||
+			    val < OCFS2_MIN_JOURNAL_SIZE ||
+			    val > max_journal_size) {
+				com_err(progname, 0,
+					"Invalid journal size: %s\nSize must "
+					"be between %d and %"PRIu64" bytes",
+					arg,
+					OCFS2_MIN_JOURNAL_SIZE,
+					max_journal_size);
+				exit(1);
+			}
+
+			*journal_size_in_bytes = val;
+		} else
+			journal_usage++;
+	}
+
+	if (journal_usage) {
+		com_err(progname, 0,
+			"Bad journal options specified. Valid journal "
+			"options are:\n"
+			"\tsize=<journal size>\n");
+		exit(1);
+	}
+
+	free(options);
+}
+
 static void
 usage(const char *progname)
 {
-	fprintf(stderr, "Usage: %s [-b blocksize] [-c cluster-size] [-L volume-label]\n"
-			"\t[-n number-of-nodes] [-j journal-size] [-fqvV] device [blocks-count]\n",
+	fprintf(stderr, "Usage: %s [-b block-size] [-C cluster-size] [-L volume-label]\n"
+			"\t[-N number-of-nodes] [-J journal-options] [-FqvV] device [blocks-count]\n",
 			progname);
 	exit(0);
 }
@@ -1722,9 +1780,10 @@ print_state(State *s)
 	printf("Filesystem label=%s\n", s->vol_label);
 	printf("Block size=%u (bits=%u)\n", s->blocksize, s->blocksize_bits);
 	printf("Cluster size=%u (bits=%u)\n", s->cluster_size, s->cluster_size_bits);
-	printf("Volume size=%llu (%u clusters) (%"PRIu64" blocks)\n",
-	       (unsigned long long) s->volume_size_in_bytes,
-	       s->volume_size_in_clusters, s->volume_size_in_blocks);
+	printf("Volume size=%"PRIu64" (%u clusters) (%"PRIu64" blocks)\n",
+	       s->volume_size_in_bytes, s->volume_size_in_clusters,
+	       s->volume_size_in_blocks);
+	printf("Journal size=%"PRIu64"\n", s->journal_size_in_bytes);
 	printf("%u cluster groups (tail covers %u clusters, rest cover %u "
 	       "clusters)\n", s->nr_cluster_groups, s->tail_group_bits,
 	       s->global_cpg);

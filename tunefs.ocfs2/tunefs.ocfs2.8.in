@@ -2,7 +2,7 @@
 .SH "NAME"
 tunefs.ocfs2 \- Change OCFS2 partition parameters.
 .SH "SYNOPSIS"
-\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-n\fR \fInumber-of-nodes\fR] [\fB\-j\fR \fIjournal-size\fR] [\fB\-S\fR \fIvolume-size\fR] [\fB\-qvV\fR] \fIdevice\fR
+\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-nodes\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-S\fR \fIvolume-size\fR] [\fB\-qvV\fR] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
 \fBtunefs.ocfs2\fR is used to adjust OCFS2 file system parameters on disk. In order to prevent data loss, \fBtunefs.ocfs2\fR will not perform any action to a specified device if any node has it mounted. 
@@ -12,12 +12,18 @@ tunefs.ocfs2 \- Change OCFS2 partition parameters.
 \fIvolume\-label\fR specifiy the new label name of a device. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
 
 .TP
-\fB\-n\fR \fInumber\-of\-nodes\fR
+\fB\-N\fR \fInumber\-of\-nodes\fR
 \fInumber\-of\-nodes\fR specify the number of nodes that will be sharing a specific OCFS2 partition. The maximum value allowed for \fInumber\-of\-nodes\fR is 255. Note that one can increase the number of nodes, but not decrease it. Future versions may allow decrease of the number of nodes.
 
 .TP
-\fB\-j\fR \fIjournal\-size\fR
-\fIjournal\-size\fR specify the size of the OCFS2 journal used by the partition. Valid size values range from 4Mb to 500Mb. Note that one can increase the size of the OCFS2 journal, but not decrease it. Future versions may allow decrease of the OCFS2 journal size.
+\fB\-J\fR \fIjournal\-options\fR
+Modify the journal using options specified on the command\-line. Journal options are comma separated, and may take an argument using the equals ('=') sign.
+The following journal options are supported:
+.RS 1.2i
+.TP
+\fBsize\fR=\fIjournal\-size\fR
+Create a journal of size \fIjournal\-size\fR. Valid sizes range from 4Mb to 500Mb.
+.RE
 
 .TP
 \fB\-S\fR \fIvolume\-size\fR 

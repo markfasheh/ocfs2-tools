@@ -193,6 +193,7 @@ struct _State {
 	int verbose;
 	int quiet;
 	int force;
+	int prompt;
 
 	uint32_t blocksize;
 	uint32_t blocksize_bits;

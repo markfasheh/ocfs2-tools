@@ -2,17 +2,17 @@
 .SH "NAME"
 mkfs.ocfs2 \- Build an OCFS2 file system.
 .SH "SYNOPSIS"
-\fBmkfs.ocfs2\fR [ \fB\-b\fR \fIblocksize\fR ] [ \fB\-c\fR \fIcluster\-size\fR ] [ \fB\-L\fR \fIvolume\-label\fR ] [ \fB\-n\fR \fInumber\-of\-nodes\fR ] [ \fB\-j\fR \fIjournal\-size\fR ] [ \fB\-f\fR ] [ \fB\-q\fR ] [ \fB\-v\fR ] [ \fB\-V\fR ] \fIdevice\fR
+\fBmkfs.ocfs2\fR [ \fB\-b\fR \fIblock\-size\fR ] [ \fB\-C\fR \fIcluster\-size\fR ] [ \fB\-L\fR \fIvolume\-label\fR ] [ \fB\-N\fR \fInumber\-of\-nodes\fR ] [ \fB\-J\fR \fIjournal\-options\fR ] [ \fB\-F\fR ] [ \fB\-q\fR ] [ \fB\-v\fR ] [ \fB\-V\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
 \fBmkfs.ocfs2\fR is used to build an OCFS2 file system on a \fIdevice\fR, usually a partition in a shared disk. In order to prevent data loss, \fBmkfs.ocfs2\fR will not format a specified device if a node has it mounted. Different than OCFS, there is no need to mount the partition exclusively after formatting it.
 .SH "OPTIONS"
 .TP
-\fB\-b\fR \fIblocksize\fR
-\fIBlocksize\fR can be specified in bytes or kbytes. The value of the /fIblocksize\fR can range from 512 to 4096 bytes (512-4k).
+\fB\-b\fR \fIblock\-size\fR
+\fIBlock size\fR can be specified in bytes or kbytes. The value of the /fIblock\-size\fR can range from 512 to 4096 bytes (512-4k).
 
 .TP
-\fB\-c\fR \fIcluster\-size\fR
+\fB\-C\fR \fIcluster\-size\fR
 \fIcluster\-size\fR are specified in kbytes and range from 4k to 1M. The size of the \fIcluster\-size\fR will determine the maximum filesystem size possible for the OCFS2 (32Gb\-8Tb). For database files, 128k \fIcluster\-size\fR is still recommended. For use as a generic filesystem, 4k \fIcluster\-size\fR is recommended.
 
 .TP
@@ -20,15 +20,21 @@ mkfs.ocfs2 \- Build an OCFS2 file system.
 \fIVolume\-label\fR is usefull when the \fILABEL\fR option is used to mount the partitions. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
 
 .TP
-\fB\-n\fR \fInumber\-of\-nodes\fR 
+\fB\-N\fR \fInumber\-of\-nodes\fR 
 \fInumber\-of\-nodes\fR specify the max number of nodes where the partition will be mounted. The maximum \fInumber\-of\-nodes\fR allowed is 255. That will allow a better control of allocated space and make OCFS2 more efficient.
 
 .TP
-\fB\-j\fR \fIjournal\-size\fR 
-\fIjournal\-size\fR specify the size of the journal that will be created. Valid sizes range from 4Mb to 500Mb.
+\fB\-J\fR \fIjournal\-options\fR 
+Create the journal using options specified on the command\-line. Journal options are comma separated, and may take an argument using the equals ('=') sign.
+The following journal options are supported:
+.RS 1.2i
+.TP
+\fBsize\fR=\fIjournal\-size\fR
+Create a journal of size \fIjournal\-size\fR. Valid sizes range from 4Mb to 500Mb.
+.RE
 
 .TP
-\fB\-f\fR 
+\fB\-F\fR 
 Force the execution of \fBmkfs.ocfs2\fR. This parameter should be used if the partition was previously used by OCFS2 or when the OCFS2 cluster service is not running.
 
 .TP

@@ -61,6 +61,7 @@ typedef struct _ocfs2_tune_opts {
 	char *device;
 	int verbose;
 	int quiet;
+	int prompt;
 	time_t tune_time;
 	int fd;
 } ocfs2_tune_opts;
@@ -73,8 +74,9 @@ ocfs2_tune_opts opts;
  */
 static void usage(const char *progname)
 {
-	fprintf(stderr, "usage: %s [-L volume-label] [-n number-of-nodes]\n"
-			"\t\t[-j journal-size] [-S volume-size] [-qvV] device\n",
+	fprintf(stderr, "usage: %s [-L volume-label] [-N number-of-nodes]\n"
+			"\t[-J journal-options] [-S volume-size] [-qvV] "
+			"device\n",
 			progname);
 	exit(0);
 }
@@ -134,6 +136,70 @@ static int get_number(char *arg, uint64_t *res)
 	return 0;
 }
 
+/* derived from e2fsprogs */
+static void
+parse_journal_opts(char *progname, const char *opts,
+		   uint64_t *journal_size_in_bytes)
+{
+	char *options, *token, *next, *p, *arg;
+	int ret, journal_usage = 0;
+	uint64_t val;
+	uint64_t max_journal_size = 500 * ONE_MEGA_BYTE;
+
+	options = strdup(opts);
+
+	for (token = options; token && *token; token = next) {
+		p = strchr(token, ',');
+		next = NULL;
+
+		if (p) {
+			*p = '\0';
+			next = p + 1;
+		}
+
+		arg = strchr(token, '=');
+
+		if (arg) {
+			*arg = '\0';
+			arg++;
+		}
+
+		if (strcmp(token, "size") == 0) {
+			if (!arg) {
+				journal_usage++;
+				continue;
+			}
+
+			ret = get_number(arg, &val);
+
+			if (ret ||
+			    val < OCFS2_MIN_JOURNAL_SIZE ||
+			    val > max_journal_size) {
+				com_err(progname, 0,
+					"Invalid journal size: %s\nSize must "
+					"be between %d and %"PRIu64" bytes",
+					arg,
+					OCFS2_MIN_JOURNAL_SIZE,
+					max_journal_size);
+				exit(1);
+			}
+
+			*journal_size_in_bytes = val;
+		} else
+			journal_usage++;
+	}
+
+	if (journal_usage) {
+		com_err(progname, 0,
+			"Bad journal options specified. Valid journal "
+			"options are:\n"
+			"\tsize=<journal size>\n");
+		exit(1);
+	}
+
+	free(options);
+}
+
 /*
  * get_options()
  *
@@ -145,16 +211,15 @@ static void get_options(int argc, char **argv)
 	int ret;
 	char *dummy;
 	uint64_t val;
-	uint64_t max_journal_size = 500 * ONE_MEGA_BYTE;
 
 	static struct option long_options[] = {
 		{ "label", 1, 0, 'L' },
-		{ "nodes", 1, 0, 'n' },
+		{ "nodes", 1, 0, 'N' },
 		{ "verbose", 0, 0, 'v' },
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
-		{ "journalsize", 0, 0, 'j'},
-		{ "volumesize", 0, 0, 'S'},
+		{ "journal-options", 0, 0, 'J'},
+		{ "volume-size", 0, 0, 'S'},
 		{ 0, 0, 0, 0}
 	};
 
@@ -163,8 +228,10 @@ static void get_options(int argc, char **argv)
 	else
 		opts.progname = strdup("tunefs.ocfs2");
 
+	opts.prompt = 1;
+
 	while (1) {
-		c = getopt_long(argc, argv, "L:n:j:S:vqV", long_options, 
+		c = getopt_long(argc, argv, "L:N:J:S:vqV", long_options, 
 				NULL);
 
 		if (c == -1)
@@ -183,7 +250,7 @@ static void get_options(int argc, char **argv)
 			}
 			break;
 
-		case 'n':
+		case 'N':
 			opts.num_nodes = strtoul(optarg, &dummy, 0);
 
 			if (opts.num_nodes > OCFS2_MAX_NODES ||
@@ -199,22 +266,9 @@ static void get_options(int argc, char **argv)
 			}
 			break;
 
-		case 'j':
-			ret = get_number(optarg, &val);
-
-			if (ret || 
-			    val < OCFS2_MIN_JOURNAL_SIZE ||
-			    val > max_journal_size) {
-				com_err(opts.progname, 0,
-					"Invalid journal size %s: must be "
-					"between %d and %"PRIu64" bytes",
-					optarg,
-					OCFS2_MIN_JOURNAL_SIZE,
-					max_journal_size);
-				exit(1);
-			}
-
-			opts.jrnl_size = val;
+		case 'J':
+			parse_journal_opts(opts.progname, optarg,
+					   &opts.jrnl_size);
 			break;
 
 		case 'S':
@@ -234,6 +288,10 @@ static void get_options(int argc, char **argv)
 
 		case 'V':
 			show_version = 1;
+			break;
+
+		case 'x':
+			opts.prompt = 0;
 			break;
 
 		default:
@@ -585,10 +643,12 @@ int main(int argc, char **argv)
 	}
 
 	/* Abort? */
-	printf("Proceed (y/N): ");
-	if (toupper(getchar()) != 'Y') {
-		printf("Aborting operation.\n");
-		goto unlock;
+	if (opts.prompt) {
+		printf("Proceed (y/N): ");
+		if (toupper(getchar()) != 'Y') {
+			printf("Aborting operation.\n");
+			goto unlock;
+		}
 	}
 
 	/* update volume label */
