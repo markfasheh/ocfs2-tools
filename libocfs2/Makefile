@@ -74,6 +74,7 @@ HFILES =				\
 	include/jfs_compat.h		\
 	include/kernel-jbd.h		\
 	include/kernel-list.h		\
+	include/kernel-rbtree.h		\
 	include/ocfs2_fs.h		\
 	include/ocfs2_disk_dlm.h	\
 	include/ocfs1_fs_compat.h	\
