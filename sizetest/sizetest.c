@@ -27,229 +27,231 @@
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
 
-#ifdef USE_HEX
-# define NUMFORMAT  "0x%x"
-#else
-#define NUMFORMAT  "%d"
-# endif
 
-#define SHOW_SIZEOF(x,y)  printf("sizeof("#x") = "NUMFORMAT"\n", sizeof(y))
+#undef offsetof
+#define offsetof(TYPE, MEMBER) ((unsigned int) &((TYPE *)0)->MEMBER)
+#define ssizeof(TYPE, MEMBER) ((unsigned int) sizeof(((TYPE *)0)->MEMBER))
 
-#define SHOW_OFFSET(x,y)  printf("\t"#x" = "NUMFORMAT" (%d)\n", \
-				(void *)&(y.x)-(void *)&y, sizeof(y.x))
+#define START_TYPE(TYPE) do { \
+    printf("[off]\t%- 20s\t[size]\n", #TYPE); \
+} while (0)
+
+#define SHOW_OFFSET(TYPE, MEMBER) do { \
+    printf("0x%03X\t%- 20s\t+0x%02X\n", offsetof(TYPE, MEMBER), #MEMBER, ssizeof(TYPE, MEMBER)); \
+} while (0)
+
+#define END_TYPE(TYPE) do {\
+    printf("\t%- 20s\t0x%03X\n", "Total", sizeof(*((TYPE *)0))); \
+} while (0)
 
 static void print_ocfs2_extent_rec(void)
 {
-	ocfs2_extent_rec rec;
+	START_TYPE(ocfs2_extent_rec);
 
-	SHOW_SIZEOF (ocfs2_extent_rec, rec);
+	SHOW_OFFSET(ocfs2_extent_rec, e_cpos);
+	SHOW_OFFSET(ocfs2_extent_rec, e_clusters);
+	SHOW_OFFSET(ocfs2_extent_rec, e_blkno);
 
-	SHOW_OFFSET (e_cpos, rec);
-	SHOW_OFFSET (e_clusters, rec);
-	SHOW_OFFSET (e_blkno, rec);
+	END_TYPE(ocfs2_extent_rec);
 	printf("\n");
 }
 
 static void print_ocfs2_chain_rec(void)
 {
-	ocfs2_chain_rec rec;
+	START_TYPE(ocfs2_chain_rec);
 
-	SHOW_SIZEOF (ocfs2_chain_rec, rec);
-
-	SHOW_OFFSET (c_free, rec);
-	SHOW_OFFSET (c_total, rec);
-	SHOW_OFFSET (c_blkno, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_chain_rec, c_free);
+	SHOW_OFFSET(ocfs2_chain_rec, c_total);
+	SHOW_OFFSET(ocfs2_chain_rec, c_blkno);
+	
+        END_TYPE(ocfs2_chain_rec);
+        printf("\n");
 }
 
 static void print_ocfs2_extent_list(void)
 {
-	ocfs2_extent_list rec;
+	START_TYPE(ocfs2_extent_list);
 
-	SHOW_SIZEOF (ocfs2_extent_list, rec);
-
-	SHOW_OFFSET (l_tree_depth, rec);
-	SHOW_OFFSET (l_count, rec);
-	SHOW_OFFSET (l_next_free_rec, rec);
-	SHOW_OFFSET (l_reserved1, rec);
-	SHOW_OFFSET (l_reserved2, rec);
-	SHOW_OFFSET (l_recs, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_extent_list, l_tree_depth);
+	SHOW_OFFSET(ocfs2_extent_list, l_count);
+	SHOW_OFFSET(ocfs2_extent_list, l_next_free_rec);
+	SHOW_OFFSET(ocfs2_extent_list, l_reserved1);
+	SHOW_OFFSET(ocfs2_extent_list, l_reserved2);
+	SHOW_OFFSET(ocfs2_extent_list, l_recs);
+	
+        END_TYPE(ocfs2_extent_list);
+        printf("\n");
 }
 
 static void print_ocfs2_chain_list(void)
 {
 	ocfs2_chain_list rec;
 
-	SHOW_SIZEOF (ocfs2_chain_list, rec);
+	START_TYPE(ocfs2_chain_list);
 
-	SHOW_OFFSET (cl_cpg, rec);
-	SHOW_OFFSET (cl_bpc, rec);
-	SHOW_OFFSET (cl_count, rec);
-	SHOW_OFFSET (cl_next_free_rec, rec);
-	SHOW_OFFSET (cl_reserved1, rec);
-	SHOW_OFFSET (cl_recs, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_chain_list, cl_cpg);
+	SHOW_OFFSET(ocfs2_chain_list, cl_bpc);
+	SHOW_OFFSET(ocfs2_chain_list, cl_count);
+	SHOW_OFFSET(ocfs2_chain_list, cl_next_free_rec);
+	SHOW_OFFSET(ocfs2_chain_list, cl_reserved1);
+	SHOW_OFFSET(ocfs2_chain_list, cl_recs);
+	
+        END_TYPE(ocfs2_chain_list);
+        printf("\n");
 }
 
 static void print_ocfs2_extent_block(void)
 {
-	ocfs2_extent_block rec;
+	START_TYPE(ocfs2_extent_block);
 
-	SHOW_SIZEOF (ocfs2_extent_block, rec);
-
-	SHOW_OFFSET (h_signature, rec);
-	SHOW_OFFSET (h_reserved1, rec);
-	SHOW_OFFSET (h_suballoc_node, rec);
-	SHOW_OFFSET (h_suballoc_bit, rec);
-	SHOW_OFFSET (h_fs_generation, rec);
-	SHOW_OFFSET (h_blkno, rec);
-	SHOW_OFFSET (h_reserved3, rec);
-	SHOW_OFFSET (h_next_leaf_blk, rec);
-	SHOW_OFFSET (h_list, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_extent_block, h_signature);
+	SHOW_OFFSET(ocfs2_extent_block, h_reserved1);
+	SHOW_OFFSET(ocfs2_extent_block, h_suballoc_node);
+	SHOW_OFFSET(ocfs2_extent_block, h_suballoc_bit);
+	SHOW_OFFSET(ocfs2_extent_block, h_fs_generation);
+	SHOW_OFFSET(ocfs2_extent_block, h_blkno);
+	SHOW_OFFSET(ocfs2_extent_block, h_reserved3);
+	SHOW_OFFSET(ocfs2_extent_block, h_next_leaf_blk);
+	SHOW_OFFSET(ocfs2_extent_block, h_list);
+	
+        END_TYPE(ocfs2_extent_block);
+        printf("\n");
 }
 
 static void print_ocfs2_super_block(void)
 {
-	ocfs2_super_block rec;
+	START_TYPE(ocfs2_super_block);
 
-	SHOW_SIZEOF (ocfs2_super_block, rec);
-
-	SHOW_OFFSET (s_major_rev_level, rec);
-	SHOW_OFFSET (s_minor_rev_level, rec);
-	SHOW_OFFSET (s_mnt_count, rec);
-	SHOW_OFFSET (s_max_mnt_count, rec);
-	SHOW_OFFSET (s_state, rec);
-	SHOW_OFFSET (s_errors, rec);
-	SHOW_OFFSET (s_checkinterval, rec);
-	SHOW_OFFSET (s_lastcheck, rec);
-	SHOW_OFFSET (s_creator_os, rec);
-	SHOW_OFFSET (s_feature_compat, rec);
-	SHOW_OFFSET (s_feature_incompat, rec);
-	SHOW_OFFSET (s_feature_ro_compat, rec);
-	SHOW_OFFSET (s_root_blkno, rec);
-	SHOW_OFFSET (s_system_dir_blkno, rec);
-	SHOW_OFFSET (s_blocksize_bits, rec);
-	SHOW_OFFSET (s_clustersize_bits, rec);
-	SHOW_OFFSET (s_max_nodes, rec);
-	SHOW_OFFSET (s_reserved1, rec);
-	SHOW_OFFSET (s_reserved2, rec);
-	SHOW_OFFSET (s_first_cluster_group, rec);
-	SHOW_OFFSET (s_label, rec);
-	SHOW_OFFSET (s_uuid, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_super_block, s_major_rev_level);
+	SHOW_OFFSET(ocfs2_super_block, s_minor_rev_level);
+	SHOW_OFFSET(ocfs2_super_block, s_mnt_count);
+	SHOW_OFFSET(ocfs2_super_block, s_max_mnt_count);
+	SHOW_OFFSET(ocfs2_super_block, s_state);
+	SHOW_OFFSET(ocfs2_super_block, s_errors);
+	SHOW_OFFSET(ocfs2_super_block, s_checkinterval);
+	SHOW_OFFSET(ocfs2_super_block, s_lastcheck);
+	SHOW_OFFSET(ocfs2_super_block, s_creator_os);
+	SHOW_OFFSET(ocfs2_super_block, s_feature_compat);
+	SHOW_OFFSET(ocfs2_super_block, s_feature_incompat);
+	SHOW_OFFSET(ocfs2_super_block, s_feature_ro_compat);
+	SHOW_OFFSET(ocfs2_super_block, s_root_blkno);
+	SHOW_OFFSET(ocfs2_super_block, s_system_dir_blkno);
+	SHOW_OFFSET(ocfs2_super_block, s_blocksize_bits);
+	SHOW_OFFSET(ocfs2_super_block, s_clustersize_bits);
+	SHOW_OFFSET(ocfs2_super_block, s_max_nodes);
+	SHOW_OFFSET(ocfs2_super_block, s_reserved1);
+	SHOW_OFFSET(ocfs2_super_block, s_reserved2);
+	SHOW_OFFSET(ocfs2_super_block, s_first_cluster_group);
+	SHOW_OFFSET(ocfs2_super_block, s_label);
+	SHOW_OFFSET(ocfs2_super_block, s_uuid);
+	
+        END_TYPE(ocfs2_super_block);
+        printf("\n");
 }
 
 static void print_ocfs2_local_alloc(void)
 {
-	ocfs2_local_alloc rec;
+	START_TYPE(ocfs2_local_alloc);
 
-	SHOW_SIZEOF (ocfs2_local_alloc, rec);
-
-	SHOW_OFFSET (la_bm_off, rec);
-	SHOW_OFFSET (la_size, rec);
-	SHOW_OFFSET (la_reserved1, rec);
-	SHOW_OFFSET (la_reserved2, rec);
-	SHOW_OFFSET (la_bitmap, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_local_alloc, la_bm_off);
+	SHOW_OFFSET(ocfs2_local_alloc, la_size);
+	SHOW_OFFSET(ocfs2_local_alloc, la_reserved1);
+	SHOW_OFFSET(ocfs2_local_alloc, la_reserved2);
+	SHOW_OFFSET(ocfs2_local_alloc, la_bitmap);
+	
+        END_TYPE(ocfs2_local_alloc);
+        printf("\n");
 }
 
 static void print_ocfs2_dinode(void)
 {
-	ocfs2_dinode rec;
+	START_TYPE(ocfs2_dinode);
 
-	SHOW_SIZEOF (ocfs2_dinode, rec);
+	SHOW_OFFSET(ocfs2_dinode, i_signature);
+	SHOW_OFFSET(ocfs2_dinode, i_generation);
+	SHOW_OFFSET(ocfs2_dinode, i_suballoc_node);
+	SHOW_OFFSET(ocfs2_dinode, i_suballoc_bit);
+	SHOW_OFFSET(ocfs2_dinode, i_reserved0);
+	SHOW_OFFSET(ocfs2_dinode, i_clusters);
+	SHOW_OFFSET(ocfs2_dinode, i_uid);
+	SHOW_OFFSET(ocfs2_dinode, i_gid);
+	SHOW_OFFSET(ocfs2_dinode, i_size);
+	SHOW_OFFSET(ocfs2_dinode, i_mode);
+	SHOW_OFFSET(ocfs2_dinode, i_links_count);
+	SHOW_OFFSET(ocfs2_dinode, i_flags);
+	SHOW_OFFSET(ocfs2_dinode, i_atime);
+	SHOW_OFFSET(ocfs2_dinode, i_ctime);
+	SHOW_OFFSET(ocfs2_dinode, i_mtime);
+	SHOW_OFFSET(ocfs2_dinode, i_dtime);
+	SHOW_OFFSET(ocfs2_dinode, i_blkno);
+	SHOW_OFFSET(ocfs2_dinode, i_last_eb_blk);
+	SHOW_OFFSET(ocfs2_dinode, i_fs_generation);
+	SHOW_OFFSET(ocfs2_dinode, i_reserved1);
+	SHOW_OFFSET(ocfs2_dinode, i_reserved2);
 
-	SHOW_OFFSET (i_signature, rec);
-	SHOW_OFFSET (i_generation, rec);
-	SHOW_OFFSET (i_suballoc_node, rec);
-	SHOW_OFFSET (i_suballoc_bit, rec);
-	SHOW_OFFSET (i_reserved0, rec);
-	SHOW_OFFSET (i_clusters, rec);
-	SHOW_OFFSET (i_uid, rec);
-	SHOW_OFFSET (i_gid, rec);
-	SHOW_OFFSET (i_size, rec);
-	SHOW_OFFSET (i_mode, rec);
-	SHOW_OFFSET (i_links_count, rec);
-	SHOW_OFFSET (i_flags, rec);
-	SHOW_OFFSET (i_atime, rec);
-	SHOW_OFFSET (i_ctime, rec);
-	SHOW_OFFSET (i_mtime, rec);
-	SHOW_OFFSET (i_dtime, rec);
-	SHOW_OFFSET (i_blkno, rec);
-	SHOW_OFFSET (i_last_eb_blk, rec);
-	SHOW_OFFSET (i_fs_generation, rec);
-	SHOW_OFFSET (i_reserved1, rec);
-	SHOW_OFFSET (i_reserved2, rec);
+	SHOW_OFFSET(ocfs2_dinode, id1.i_pad1);
+	SHOW_OFFSET(ocfs2_dinode, id1.dev1.i_rdev);
+	SHOW_OFFSET(ocfs2_dinode, id1.bitmap1.i_used);
+	SHOW_OFFSET(ocfs2_dinode, id1.bitmap1.i_total);
+	SHOW_OFFSET(ocfs2_dinode, id1.journal1.ij_flags);
+	SHOW_OFFSET(ocfs2_dinode, id1.journal1.ij_pad);
 
-	SHOW_OFFSET (id1.i_pad1, rec);
-	SHOW_OFFSET (id1.dev1.i_rdev, rec);
-	SHOW_OFFSET (id1.bitmap1.i_used, rec);
-	SHOW_OFFSET (id1.bitmap1.i_total, rec);
-	SHOW_OFFSET (id1.journal1.ij_flags, rec);
-	SHOW_OFFSET (id1.journal1.ij_pad, rec);
-
-	SHOW_OFFSET (id2.i_super, rec);
-	SHOW_OFFSET (id2.i_lab, rec);
-	SHOW_OFFSET (id2.i_chain, rec);
-	SHOW_OFFSET (id2.i_list, rec);
-	SHOW_OFFSET (id2.i_symlink, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_dinode, id2.i_super);
+	SHOW_OFFSET(ocfs2_dinode, id2.i_lab);
+	SHOW_OFFSET(ocfs2_dinode, id2.i_chain);
+	SHOW_OFFSET(ocfs2_dinode, id2.i_list);
+	SHOW_OFFSET(ocfs2_dinode, id2.i_symlink);
+	
+        END_TYPE(ocfs2_dinode);
+        printf("\n");
 }
 
 static void print_ocfs2_dir_entry(void)
 {
-	struct ocfs2_dir_entry rec;
+	START_TYPE(struct ocfs2_dir_entry);
 
-	SHOW_SIZEOF(struct ocfs2_dir_entry, rec);
-
-	SHOW_OFFSET (inode, rec);
-	SHOW_OFFSET (rec_len, rec);
-	SHOW_OFFSET (name_len, rec);
-	SHOW_OFFSET (file_type, rec);
-	SHOW_OFFSET (name, rec);
-	printf("\n");
+	SHOW_OFFSET(struct ocfs2_dir_entry, inode);
+	SHOW_OFFSET(struct ocfs2_dir_entry, rec_len);
+	SHOW_OFFSET(struct ocfs2_dir_entry, name_len);
+	SHOW_OFFSET(struct ocfs2_dir_entry, file_type);
+	SHOW_OFFSET(struct ocfs2_dir_entry, name);
+	
+        END_TYPE(struct ocfs2_dir_entry);
+        printf("\n");
 }
 
 static void print_ocfs2_group_desc(void)
 {
-	ocfs2_group_desc rec;
+	START_TYPE(ocfs2_group_desc);
 
-	SHOW_SIZEOF (ocfs2_group_desc, rec);
-
-	SHOW_OFFSET (bg_signature, rec);
-	SHOW_OFFSET (bg_size, rec);
-	SHOW_OFFSET (bg_bits, rec);
-	SHOW_OFFSET (bg_free_bits_count, rec);
-	SHOW_OFFSET (bg_chain, rec);
-	SHOW_OFFSET (bg_generation, rec);
-	SHOW_OFFSET (bg_reserved1, rec);
-	SHOW_OFFSET (bg_next_group, rec);
-	SHOW_OFFSET (bg_parent_dinode, rec);
-	SHOW_OFFSET (bg_blkno, rec);
-	SHOW_OFFSET (bg_reserved2, rec);
-	SHOW_OFFSET (bg_bitmap, rec);
-	printf("\n");
+	SHOW_OFFSET(ocfs2_group_desc, bg_signature);
+	SHOW_OFFSET(ocfs2_group_desc, bg_size);
+	SHOW_OFFSET(ocfs2_group_desc, bg_bits);
+	SHOW_OFFSET(ocfs2_group_desc, bg_free_bits_count);
+	SHOW_OFFSET(ocfs2_group_desc, bg_chain);
+	SHOW_OFFSET(ocfs2_group_desc, bg_generation);
+	SHOW_OFFSET(ocfs2_group_desc, bg_reserved1);
+	SHOW_OFFSET(ocfs2_group_desc, bg_next_group);
+	SHOW_OFFSET(ocfs2_group_desc, bg_parent_dinode);
+	SHOW_OFFSET(ocfs2_group_desc, bg_blkno);
+	SHOW_OFFSET(ocfs2_group_desc, bg_reserved2);
+	SHOW_OFFSET(ocfs2_group_desc, bg_bitmap);
+	
+        END_TYPE(ocfs2_group_desc);
+        printf("\n");
 }
 
 int main()
 {
 	print_ocfs2_extent_rec();
 	print_ocfs2_chain_rec();
-
 	print_ocfs2_extent_list();
 	print_ocfs2_chain_list();
-
 	print_ocfs2_extent_block();
 	print_ocfs2_super_block();
-
 	print_ocfs2_local_alloc();
-
 	print_ocfs2_dinode();
-
 	print_ocfs2_dir_entry();
-
 	print_ocfs2_group_desc();
 
 	return 0;
