@@ -28,7 +28,7 @@
 
 int read_super_block (int fd, char **buf);
 int read_inode (int fd, __u64 blknum, char *buf, int buflen);
-int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump);
+int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump, FILE *out);
 void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr);
 void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr);
 void read_sysdir (int fd, char *sysdir);

@@ -36,7 +36,7 @@ extern dbgfs_gbls gbls;
  * read_journal()
  *
  */
-void read_journal (char *buf, __u64 buflen)
+void read_journal (char *buf, __u64 buflen, FILE *out)
 {
 	char *block;
 	int blocknum;
@@ -55,16 +55,16 @@ void read_journal (char *buf, __u64 buflen)
 		block = p;
 		header = (journal_header_t *) block;
 		if (blocknum == 0) {
-			printf("block %d: ", blocknum);
-			print_super_block((journal_superblock_t *) block);
+			fprintf(out, "block %d: ", blocknum);
+			print_super_block((journal_superblock_t *) block, out);
 		} else if (header->h_magic == ntohl(JFS_MAGIC_NUMBER)) {
 			if (last_metadata > 0) {
 				print_metadata_blocks(last_metadata, 
-						      blocknum - 1);
+						      blocknum - 1, out);
 				last_metadata = 0;
 			}
-			printf("block %d: ", blocknum);
-			print_jbd_block(header);
+			fprintf(out, "block %d: ", blocknum);
+			print_jbd_block(header, out);
 		} else {
 			if (last_metadata == 0)
 				last_metadata = blocknum;
@@ -76,42 +76,42 @@ void read_journal (char *buf, __u64 buflen)
 	}
 
 	if (last_metadata > 0)
-		print_metadata_blocks(last_metadata, blocknum);
+		print_metadata_blocks(last_metadata, blocknum, out);
 
 	return ;
 }				/* read_journal */
 
-#define PRINT_FIELD(name, size, field)   printf("\t" #field ":\t\t" size \
-					 "\n", ntohl(name->field))
+#define PRINT_FIELD(name, size, field, out)   fprintf(out, "\t" #field ":\t\t" size \
+						      "\n", ntohl(name->field))
 
 /*
  * print_header()
  *
  */
-void print_header (journal_header_t *header, char *hdr)
+void print_header (journal_header_t *header, char *hdr, FILE *out)
 {
-	printf("\t%s->h_magic:\t\t0x%x\n", hdr, ntohl(header->h_magic));
-	printf("\t%s->h_blocktype:\t\t%u ", hdr, ntohl(header->h_blocktype));
+	fprintf(out, "\t%s->h_magic:\t\t0x%x\n", hdr, ntohl(header->h_magic));
+	fprintf(out, "\t%s->h_blocktype:\t\t%u ", hdr, ntohl(header->h_blocktype));
 
 	switch (ntohl(header->h_blocktype)) {
 	case JFS_DESCRIPTOR_BLOCK:
-		printf("(JFS_DESCRIPTOR_BLOCK)");
+		fprintf(out, "(JFS_DESCRIPTOR_BLOCK)");
 		break;
 	case JFS_COMMIT_BLOCK:
-		printf("(JFS_COMMIT_BLOCK)");
+		fprintf(out, "(JFS_COMMIT_BLOCK)");
 		break;
 	case JFS_SUPERBLOCK_V1:
-		printf("(JFS_SUPERBLOCK_V1)");
+		fprintf(out, "(JFS_SUPERBLOCK_V1)");
 		break;
 	case JFS_SUPERBLOCK_V2:
-		printf("(JFS_SUPERBLOCK_V2)");
+		fprintf(out, "(JFS_SUPERBLOCK_V2)");
 		break;
 	case JFS_REVOKE_BLOCK:
-		printf("(JFS_REVOKE_BLOCK)");
+		fprintf(out, "(JFS_REVOKE_BLOCK)");
 		break;
 	}
-	printf("\n");
-	printf("\t%s->h_sequence:\t\t%u\n", hdr, ntohl(header->h_sequence));
+	fprintf(out, "\n");
+	fprintf(out, "\t%s->h_sequence:\t\t%u\n", hdr, ntohl(header->h_sequence));
 	return;
 }				/* print_header */
 
@@ -119,34 +119,33 @@ void print_header (journal_header_t *header, char *hdr)
  * print_super_block()
  *
  */
-void print_super_block (journal_superblock_t *sb) 
+void print_super_block (journal_superblock_t *sb, FILE *out) 
 {
 	int i;
 
-	printf("Journal Superblock\n");
+	fprintf(out, "Journal Superblock\n");
 
-	print_header(&(sb->s_header), "s_header");
+	print_header(&(sb->s_header), "s_header", out);
 
-	PRINT_FIELD(sb, "%u", s_blocksize);
-	PRINT_FIELD(sb, "%u", s_maxlen);
-	PRINT_FIELD(sb, "%u", s_first);
-	PRINT_FIELD(sb, "%u", s_sequence);
-	PRINT_FIELD(sb, "%u", s_start);
-	PRINT_FIELD(sb, "%d", s_errno);
-	PRINT_FIELD(sb, "%u", s_feature_compat);
-	PRINT_FIELD(sb, "%u", s_feature_incompat);
-	PRINT_FIELD(sb, "%u", s_feature_ro_compat);
+	PRINT_FIELD(sb, "%u", s_blocksize, out);
+	PRINT_FIELD(sb, "%u", s_maxlen, out);
+	PRINT_FIELD(sb, "%u", s_first, out);
+	PRINT_FIELD(sb, "%u", s_sequence, out);
+	PRINT_FIELD(sb, "%u", s_start, out);
+	PRINT_FIELD(sb, "%d", s_errno, out);
+	PRINT_FIELD(sb, "%u", s_feature_compat, out);
+	PRINT_FIELD(sb, "%u", s_feature_incompat, out);
+	PRINT_FIELD(sb, "%u", s_feature_ro_compat, out);
 
-	printf("\ts_uuid[16]:\t\t");
+	fprintf(out, "\ts_uuid[16]:\t\t");
 	for(i = 0; i < 16; i++)
-		printf("%x ", sb->s_uuid[i]);
-	printf("\n");
+		fprintf(out, "%x ", sb->s_uuid[i]);
+	fprintf(out, "\n");
 
-
-	PRINT_FIELD(sb, "%u", s_nr_users);
-	PRINT_FIELD(sb, "%u", s_dynsuper);
-	PRINT_FIELD(sb, "%u", s_max_transaction);
-	PRINT_FIELD(sb, "%u", s_max_trans_data);
+	PRINT_FIELD(sb, "%u", s_nr_users, out);
+	PRINT_FIELD(sb, "%u", s_dynsuper, out);
+	PRINT_FIELD(sb, "%u", s_max_transaction, out);
+	PRINT_FIELD(sb, "%u", s_max_trans_data, out);
 
 	return;
 }				/* print_super_block */
@@ -156,13 +155,13 @@ void print_super_block (journal_superblock_t *sb)
  * print_metadata_blocks()
  *
  */
-void print_metadata_blocks (int start, int end)
+void print_metadata_blocks (int start, int end, FILE *out)
 {
 	if (start == end)
-		printf("block %d: ", start);
+		fprintf(out, "block %d: ", start);
 	else
-		printf("block %d --> block %d: ", start, end);
-	printf("Filesystem Metadata\n\n");
+		fprintf(out, "block %d --> block %d: ", start, end);
+	fprintf(out, "Filesystem Metadata\n\n");
 	return;
 }				/* print_metadata_blocks */
 
@@ -170,21 +169,21 @@ void print_metadata_blocks (int start, int end)
  * print_tag_flag()
  *
  */
-void print_tag_flag (__u32 flags)
+void print_tag_flag (__u32 flags, FILE *out)
 {
 
 	if (flags == 0) {
-		printf("(none)");
+		fprintf(out, "(none)");
 		goto done;
 	}
 	if (flags & JFS_FLAG_ESCAPE)
-		printf("JFS_FLAG_ESCAPE ");
+		fprintf(out, "JFS_FLAG_ESCAPE ");
 	if (flags & JFS_FLAG_SAME_UUID)
-		printf("JFS_FLAG_SAME_UUID ");
+		fprintf(out, "JFS_FLAG_SAME_UUID ");
 	if (flags & JFS_FLAG_DELETED)
-		printf("JFS_FLAG_DELETED ");
+		fprintf(out, "JFS_FLAG_DELETED ");
 	if (flags & JFS_FLAG_LAST_TAG)
-		printf("JFS_FLAG_LAST_TAG");
+		fprintf(out, "JFS_FLAG_LAST_TAG");
 done:
 	return;
 }				/* print_tag_flag */
@@ -193,7 +192,7 @@ done:
  * print_jbd_block()
  *
  */
-void print_jbd_block (journal_header_t *header)
+void print_jbd_block (journal_header_t *header, FILE *out)
 {
 	int i;
 	int j;
@@ -207,26 +206,26 @@ void print_jbd_block (journal_header_t *header)
 
 	switch(ntohl(header->h_blocktype)) {
 	case JFS_DESCRIPTOR_BLOCK:
-		printf("Journal Descriptor\n");
-		print_header(header, "hdr");
+		fprintf(out, "Journal Descriptor\n");
+		print_header(header, "hdr", out);
 		for(i = sizeof(journal_header_t); i < (1 << gbls.blksz_bits);
 		    i+=sizeof(journal_block_tag_t)) {
 			tag = (journal_block_tag_t *) &blk[i];
-			printf("\ttag[%d]->t_blocknr:\t\t%u\n", count,
+			fprintf(out, "\ttag[%d]->t_blocknr:\t\t%u\n", count,
 			       ntohl(tag->t_blocknr));
-			printf("\ttag[%d]->t_flags:\t\t", count);
-			print_tag_flag(ntohl(tag->t_flags));
-			printf("\n");
+			fprintf(out, "\ttag[%d]->t_flags:\t\t", count);
+			print_tag_flag(ntohl(tag->t_flags), out);
+			fprintf(out, "\n");
 			if (tag->t_flags & htonl(JFS_FLAG_LAST_TAG))
 				break;
 
 			/* skip the uuid. */
 			if (!(tag->t_flags & htonl(JFS_FLAG_SAME_UUID))) {
 				uuid = &blk[i + sizeof(journal_block_tag_t)];
-				printf("\ttag[%d] uuid:\t\t", count);
+				fprintf(out, "\ttag[%d] uuid:\t\t", count);
 				for(j = 0; j < 16; j++)
-					printf("%x ", uuid[j]);
-				printf("\n");
+					fprintf(out, "%x ", uuid[j]);
+				fprintf(out, "\n");
 				i += 16;
 			}
 			count++;
@@ -234,24 +233,24 @@ void print_jbd_block (journal_header_t *header)
 		break;
 
 	case JFS_COMMIT_BLOCK:
-		printf("Journal Commit Block\n");
-		print_header(header, "hdr");
+		fprintf(out, "Journal Commit Block\n");
+		print_header(header, "hdr", out);
 		break;
 
 	case JFS_REVOKE_BLOCK:
-		printf("Journal Revoke Block\n");
-		print_header(header, "r_header");
+		fprintf(out, "Journal Revoke Block\n");
+		print_header(header, "r_header", out);
 		revoke = (journal_revoke_header_t *) blk;
-		printf("\tr_count:\t\t%d\n", ntohl(revoke->r_count));
+		fprintf(out, "\tr_count:\t\t%d\n", ntohl(revoke->r_count));
 		count = (ntohl(revoke->r_count) - 
 			 sizeof(journal_revoke_header_t)) / sizeof(__u32);
 		blocknr = (__u32 *) &blk[sizeof(journal_revoke_header_t)];
 		for(i = 0; i < count; i++)
-			printf("\trevoke[%d]:\t\t%u\n", i, ntohl(blocknr[i]));
+			fprintf(out, "\trevoke[%d]:\t\t%u\n", i, ntohl(blocknr[i]));
 		break;
 
 	default:
-		printf("Unknown block type\n");
+		fprintf(out, "Unknown block type\n");
 		break;
 	}
 

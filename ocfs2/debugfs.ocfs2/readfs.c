@@ -120,7 +120,7 @@ int read_inode (int fd, __u64 blknum, char *buf, int buflen)
  * traverse_extents()
  *
  */
-int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump)
+int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump, FILE *out)
 {
 	ocfs2_extent_block *blk;
 	ocfs2_extent_rec *rec;
@@ -131,7 +131,7 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump)
 	int i;
 
 	if (dump)
-		dump_extent_list (ext);
+		dump_extent_list (out, ext);
 
 	for (i = 0; i < ext->l_next_free_rec; ++i) {
 		rec = &(ext->l_recs[i]);
@@ -149,9 +149,9 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump)
 			blk = (ocfs2_extent_block *)buf;
 
 			if (dump)
-				dump_extent_block (blk);
+				dump_extent_block (out, blk);
 
-			traverse_extents (fd, &(blk->h_list), arr, dump);
+			traverse_extents (fd, &(blk->h_list), arr, dump, out);
 		}
 	}
 
@@ -196,7 +196,7 @@ void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
 
-	traverse_extents (fd, ext, arr, 0);
+	traverse_extents (fd, ext, arr, 0, stdout);
 
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
@@ -291,7 +291,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	}
 	inode = (ocfs2_dinode *)inode_buf;
 
-	traverse_extents (fd, &(inode->id2.i_list), arr, 0);
+	traverse_extents (fd, &(inode->id2.i_list), arr, 0, stdout);
 
 	if (fdo == -1) {
 		newlen = inode->i_size;

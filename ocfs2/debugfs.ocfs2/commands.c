@@ -275,6 +275,7 @@ static void do_ls (char **args)
 	char *buf = NULL;
 	GArray *dirarr = NULL;
 	__u32 len;
+	FILE *out;
 
 	if (gbls.dev_fd == -1) {
 		printf ("device not open\n");
@@ -305,8 +306,10 @@ static void do_ls (char **args)
 
 	read_dir (gbls.dev_fd, &(inode->id2.i_list), inode->i_size, dirarr);
 
-	dump_dir_entry (dirarr);
-
+	out = open_pager ();
+	dump_dir_entry (out, dirarr);
+	close_pager (out);
+	
 bail:
 	safefree (buf);
 
@@ -438,18 +441,23 @@ static void do_super (char **args)
 	char *opts = args[1];
 	ocfs2_dinode *in;
 	ocfs2_super_block *sb;
+	FILE *out;
 
 	if (gbls.dev_fd == -1) {
 		printf ("device not open\n");
 		goto bail;
 	}
 
+	out = open_pager ();
+
 	in = gbls.superblk;
 	sb = &(in->id2.i_super);
-	dump_super_block(sb);
+	dump_super_block(out, sb);
 
 	if (!opts || strncmp(opts, "-h", 2))
-		dump_inode(in);
+		dump_inode(out, in);
+
+	close_pager (out);
 
 bail:
 	return ;
@@ -466,6 +474,7 @@ static void do_inode (char **args)
 	__u32 blknum;
 	char *buf = NULL;
 	__u32 buflen;
+	FILE *out;
 
 	if (gbls.dev_fd == -1) {
 		printf ("device not open\n");
@@ -487,12 +496,15 @@ static void do_inode (char **args)
 		inode = gbls.rootin;
 	}
 
-	dump_inode(inode);
+	out = open_pager();
+	dump_inode(out, inode);
 
 	if ((inode->i_flags & OCFS2_LOCAL_ALLOC_FL))
-		dump_local_alloc(&(inode->id2.i_lab));
+		dump_local_alloc(out, &(inode->id2.i_lab));
 	else
-		traverse_extents(gbls.dev_fd, &(inode->id2.i_list), NULL, 1);
+		traverse_extents(gbls.dev_fd, &(inode->id2.i_list), NULL, 1, out);
+
+	close_pager (out);
 
 bail:
 	safefree (buf);
@@ -506,13 +518,16 @@ bail:
 static void do_config (char **args)
 {
 	char *dlmbuf = NULL;
+	FILE *out;
 
 	if (gbls.dev_fd == -1)
 		printf ("device not open\n");
 	else {
 		if (read_file (gbls.dev_fd, gbls.dlm_blkno, -1, &dlmbuf) == -1)
 			goto bail;
-		dump_config (dlmbuf);
+		out = open_pager ();
+		dump_config (out, dlmbuf);
+		close_pager (out);
 	}
 
 bail:
@@ -527,13 +542,16 @@ bail:
 static void do_publish (char **args)
 {
 	char *dlmbuf = NULL;
+	FILE *out;
 
 	if (gbls.dev_fd == -1)
 		printf ("device not open\n");
 	else {
 		if (read_file (gbls.dev_fd, gbls.dlm_blkno, -1, &dlmbuf) == -1)
 			goto bail;
-		dump_publish (dlmbuf);
+		out = open_pager ();
+		dump_publish (out, dlmbuf);
+		close_pager (out);
 	}
 
 bail:
@@ -548,13 +566,16 @@ bail:
 static void do_vote (char **args)
 {
 	char *dlmbuf = NULL;
+	FILE *out;
 	
 	if (gbls.dev_fd == -1)
 		printf ("device not open\n");
 	else {
 		if (read_file (gbls.dev_fd, gbls.dlm_blkno, -1, &dlmbuf) == -1)
 			goto bail;
-		dump_vote (dlmbuf);
+		out = open_pager ();
+		dump_vote (out, dlmbuf);
+		close_pager (out);
 	}
 
 bail:
@@ -618,6 +639,7 @@ static void do_journal (char **args)
 	char *logbuf = NULL;
 	__u64 blknum = 0;
 	__s32 len = 0;
+	FILE *out;
 
 	if (args[1])
 		blknum = strtoull (args[1], NULL, 0);
@@ -629,7 +651,9 @@ static void do_journal (char **args)
 	else {
 		if ((len = read_file (gbls.dev_fd, blknum, -1, &logbuf)) == -1)
 			goto bail;
-		read_journal (logbuf, (__u64)len);
+		out = open_pager ();
+		read_journal (logbuf, (__u64)len, out);
+		close_pager (out);
 	}
 
 bail:

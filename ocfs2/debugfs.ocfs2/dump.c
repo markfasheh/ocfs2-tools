@@ -36,37 +36,37 @@ extern dbgfs_gbls gbls;
  * dump_super_block()
  *
  */
-void dump_super_block(ocfs2_super_block *sb)
+void dump_super_block(FILE *out, ocfs2_super_block *sb)
 {
 	int i;
 	char *str;
 
-	printf("Revision: %u.%u\n", sb->s_major_rev_level, sb->s_minor_rev_level);
-	printf("Mount Count: %u   Max Mount Count: %u\n", sb->s_mnt_count,
+	fprintf(out, "Revision: %u.%u\n", sb->s_major_rev_level, sb->s_minor_rev_level);
+	fprintf(out, "Mount Count: %u   Max Mount Count: %u\n", sb->s_mnt_count,
 	       sb->s_max_mnt_count);
 
-	printf("State: %u   Errors: %u\n", sb->s_state, sb->s_errors);
+	fprintf(out, "State: %u   Errors: %u\n", sb->s_state, sb->s_errors);
 
 	str = ctime((time_t*)&sb->s_lastcheck);
-	printf("Check Interval: %u   Last Check: %s", sb->s_checkinterval, str);
+	fprintf(out, "Check Interval: %u   Last Check: %s", sb->s_checkinterval, str);
 
-	printf("Creator OS: %u\n", sb->s_creator_os);
-	printf("Feature Compat: %u   Incompat: %u   RO Compat: %u\n",
+	fprintf(out, "Creator OS: %u\n", sb->s_creator_os);
+	fprintf(out, "Feature Compat: %u   Incompat: %u   RO Compat: %u\n",
 	       sb->s_feature_compat, sb->s_feature_incompat,
 	       sb->s_feature_ro_compat);
 
-	printf("Root Blknum: %llu   System Dir Blknum: %llu\n",
+	fprintf(out, "Root Blknum: %llu   System Dir Blknum: %llu\n",
 	       sb->s_root_blkno, sb->s_system_dir_blkno);
 
-	printf("Block Size Bits: %u   Cluster Size Bits: %u\n",
+	fprintf(out, "Block Size Bits: %u   Cluster Size Bits: %u\n",
 	       sb->s_blocksize_bits, sb->s_clustersize_bits);
 
-	printf("Max Nodes: %u\n", sb->s_max_nodes);
-	printf("Label: %s\n", sb->s_label);
-	printf("UUID: ");
+	fprintf(out, "Max Nodes: %u\n", sb->s_max_nodes);
+	fprintf(out, "Label: %s\n", sb->s_label);
+	fprintf(out, "UUID: ");
 	for (i = 0; i < 16; i++)
-		printf("%02X", sb->s_uuid[i]);
-	printf("\n");
+		fprintf(out, "%02X", sb->s_uuid[i]);
+	fprintf(out, "\n");
 
 	return ;
 }				/* dump_super_block */
@@ -75,12 +75,12 @@ void dump_super_block(ocfs2_super_block *sb)
  * dump_local_alloc()
  *
  */
-void dump_local_alloc (ocfs2_local_alloc *loc)
+void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc)
 {
-	printf("Local Bitmap Offset: %u   Size: %u\n",
+	fprintf(out, "Local Bitmap Offset: %u   Size: %u\n",
 	       loc->la_bm_off, loc->la_size);
 
-	printf("\tTotal: %u   Used: %u   Clear: %u\n",
+	fprintf(out, "\tTotal: %u   Used: %u   Clear: %u\n",
 	       loc->la_bm_bits, loc->la_bits_set,
 	       (loc->la_bm_bits - loc->la_bits_set));
 
@@ -91,7 +91,7 @@ void dump_local_alloc (ocfs2_local_alloc *loc)
  * dump_inode()
  *
  */
-void dump_inode(ocfs2_dinode *in)
+void dump_inode(FILE *out, ocfs2_dinode *in)
 {
 	struct passwd *pw;
 	struct group *gr;
@@ -140,37 +140,37 @@ void dump_inode(ocfs2_dinode *in)
 	if (in->i_flags & OCFS2_DLM_FL)
 		g_string_append (flags, "dlm ");
 
-	printf("Inode: %llu   Mode: 0%0o   Generation: %u\n",
+	fprintf(out, "Inode: %llu   Mode: 0%0o   Generation: %u\n",
 	       in->i_blkno, mode, in->i_generation);
 
-	printf("Type: %s   Flags: %s\n", str, flags->str);
+	fprintf(out, "Type: %s   Flags: %s\n", str, flags->str);
 
 	pw = getpwuid(in->i_uid);
 	gr = getgrgid(in->i_gid);
-	printf("User: %d (%s)   Group: %d (%s)   Size: %llu\n",
+	fprintf(out, "User: %d (%s)   Group: %d (%s)   Size: %llu\n",
 	       in->i_uid, (pw ? pw->pw_name : "unknown"),
 	       in->i_gid, (gr ? gr->gr_name : "unknown"),
 	       in->i_size);
 
-	printf("Links: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
+	fprintf(out, "Links: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
-	dump_disk_lock (&(in->i_disk_lock));
+	dump_disk_lock (out, &(in->i_disk_lock));
 
 	str = ctime((time_t*)&in->i_ctime);
-	printf("ctime: 0x%llx -- %s", in->i_ctime, str);
+	fprintf(out, "ctime: 0x%llx -- %s", in->i_ctime, str);
 	str = ctime((time_t*)&in->i_atime);
-	printf("atime: 0x%llx -- %s", in->i_atime, str);
+	fprintf(out, "atime: 0x%llx -- %s", in->i_atime, str);
 	str = ctime((time_t*)&in->i_mtime);
-	printf("mtime: 0x%llx -- %s", in->i_mtime, str);
+	fprintf(out, "mtime: 0x%llx -- %s", in->i_mtime, str);
 	str = ctime((time_t*)&in->i_dtime);
-	printf("dtime: 0x%llx -- %s", in->i_dtime, str);
+	fprintf(out, "dtime: 0x%llx -- %s", in->i_dtime, str);
 
-	printf("Last Extblk: %llu\n", in->i_last_eb_blk);
-	printf("Sub Alloc Node: %u   Sub Alloc Blknum: %llu\n",
+	fprintf(out, "Last Extblk: %llu\n", in->i_last_eb_blk);
+	fprintf(out, "Sub Alloc Node: %u   Sub Alloc Blknum: %llu\n",
 	       in->i_suballoc_node, in->i_suballoc_blkno);
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
-		printf("Bitmap Total: %u   Used: %u   Clear: %u\n",
+		fprintf(out, "Bitmap Total: %u   Used: %u   Clear: %u\n",
 		       in->id1.bitmap1.i_total, in->id1.bitmap1.i_used,
 		       (in->id1.bitmap1.i_total - in->id1.bitmap1.i_used));
 
@@ -183,24 +183,26 @@ void dump_inode(ocfs2_dinode *in)
  * dump_disk_lock()
  *
  */
-void dump_disk_lock (ocfs2_disk_lock *dl)
+void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
 {
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	int i, j, k;
 	__u32 node_map;
 
-	printf("Lock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
+	fprintf(out, "Lock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
 	       dl->dl_master, dl->dl_level, dl->dl_seq_num);
 
-	printf("Lock Node Map: ");
+	fprintf(out, "Lock Node Map: ");
 	for (i = 0, j = 0; i < 8 && j < sb->s_max_nodes; ++i) {
 		if (i)
-			printf("               ");
+			fprintf(out, "               ");
 		node_map = dl->dl_node_map[i];
-		for (k = 0; k < 32 && j < sb->s_max_nodes; k++, j++)
-			printf ("%d%c", ((node_map & (1 << k)) ? 1 : 0),
-				(((k + 1) % 8) ? '\0' : ' '));
-		printf ("\n");
+		for (k = 0; k < 32 && j < sb->s_max_nodes; k++, j++) {
+			fprintf (out, "%d", ((node_map & (1 << k)) ? 1 : 0));
+			if (!((k + 1) % 8))
+				fprintf (out, " ");
+		}
+		fprintf (out, "\n");
 	}
 
 	return ;
@@ -210,23 +212,23 @@ void dump_disk_lock (ocfs2_disk_lock *dl)
  * dump_extent_list()
  *
  */
-void dump_extent_list (ocfs2_extent_list *ext)
+void dump_extent_list (FILE *out, ocfs2_extent_list *ext)
 {
 	ocfs2_extent_rec *rec;
 	int i;
 
-	printf("Tree Depth: %u   Count: %u   Next Free Rec: %u\n",
-	       ext->l_tree_depth, ext->l_count, ext->l_next_free_rec);
+	fprintf(out, "Tree Depth: %u   Count: %u   Next Free Rec: %u\n",
+		ext->l_tree_depth, ext->l_count, ext->l_next_free_rec);
 
 	if (!ext->l_next_free_rec)
 		goto bail;
 
-	printf("## File Offset   Num Clusters   Disk Offset\n");
+	fprintf(out, "## File Offset   Num Clusters   Disk Offset\n");
 
 	for (i = 0; i < ext->l_next_free_rec; ++i) {
 		rec = &(ext->l_recs[i]);
-		printf("%-2d %-11u   %-12u   %llu\n", i, rec->e_cpos,
-		       rec->e_clusters, rec->e_blkno);
+		fprintf(out, "%-2d %-11u   %-12u   %llu\n", i, rec->e_cpos,
+			rec->e_clusters, rec->e_blkno);
 	}
 
 bail:
@@ -237,13 +239,13 @@ bail:
  * dump_extent_block()
  *
  */
-void dump_extent_block (ocfs2_extent_block *blk)
+void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 {
-	printf ("SubAlloc Blknum: %llu   SubAlloc Node: %u\n",
-	       	blk->h_suballoc_blkno, blk->h_suballoc_node);
+	fprintf (out, "SubAlloc Blknum: %llu   SubAlloc Node: %u\n",
+		 blk->h_suballoc_blkno, blk->h_suballoc_node);
 
-	printf ("Blknum: %llu   Parent: %llu   Next Leaf: %llu\n",
-		blk->h_blkno, blk->h_parent_blk, blk->h_next_leaf_blk);
+	fprintf (out, "Blknum: %llu   Parent: %llu   Next Leaf: %llu\n",
+		 blk->h_blkno, blk->h_parent_blk, blk->h_next_leaf_blk);
 
 	return ;
 }				/* dump_extent_block */
@@ -252,18 +254,18 @@ void dump_extent_block (ocfs2_extent_block *blk)
  * dump_dir_entry()
  *
  */
-void dump_dir_entry (GArray *arr)
+void dump_dir_entry (FILE *out, GArray *arr)
 {
 	struct ocfs2_dir_entry *rec;
 	int i;
 
-	printf("%-20s %-4s %-4s %-2s %-4s\n",
-	       "Inode", "Rlen", "Nlen", "Ty", "Name");
+	fprintf(out, "%-20s %-4s %-4s %-2s %-4s\n",
+		"Inode", "Rlen", "Nlen", "Ty", "Name");
 
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, struct ocfs2_dir_entry, i));
-		printf("%-20llu %-4u %-4u %-2u %s\n", rec->inode,
-		       rec->rec_len, rec->name_len, rec->file_type, rec->name);
+		fprintf(out, "%-20llu %-4u %-4u %-2u %s\n", rec->inode,
+			rec->rec_len, rec->name_len, rec->file_type, rec->name);
 	}
 
 	return ;
@@ -273,7 +275,7 @@ void dump_dir_entry (GArray *arr)
  * dump_config()
  *
  */
-void dump_config (char *buf)
+void dump_config (FILE *out, char *buf)
 {
 	char *p;
 	ocfs_node_config_hdr *hdr;
@@ -286,13 +288,13 @@ void dump_config (char *buf)
 
 	hdr = (ocfs_node_config_hdr *)buf;
 
-	printf("Version: %u   Num Nodes: %u   Last Node: %u   SeqNum: %llu\n",
-	       hdr->version, hdr->num_nodes, hdr->last_node, hdr->cfg_seq_num);
+	fprintf(out, "Version: %u   Num Nodes: %u   Last Node: %u   SeqNum: %llu\n",
+		hdr->version, hdr->num_nodes, hdr->last_node, hdr->cfg_seq_num);
 
-	dump_disk_lock (&(hdr->disk_lock));
+	dump_disk_lock (out, &(hdr->disk_lock));
 
-	printf("%-4s %-32s %-15s %-6s %s\n",
-	       "Node", "Name", "IP Addr", "Port", "UUID");
+	fprintf(out, "%-4s %-32s %-15s %-6s %s\n",
+		"Node", "Name", "IP Addr", "Port", "UUID");
 
 	p = buf + (2 << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
@@ -305,10 +307,11 @@ void dump_config (char *buf)
 		ina.s_addr = node->ipc_config.addr_u.ip_addr4;
 		strcpy (addr, inet_ntoa(ina));
 
-		printf("%-4u %-32s %-15s %-6u ", i, node->node_name, addr, port);
+		fprintf(out, "%-4u %-32s %-15s %-6u ", i, node->node_name,
+			addr, port);
 		for (j = 0; j < OCFS2_GUID_LEN; j++)
-			printf("%c", node->guid.guid[j]);
-		printf("\n");
+			fprintf(out, "%c", node->guid.guid[j]);
+		fprintf(out, "\n");
 		p += (1 << gbls.blksz_bits);
 	}
 
@@ -319,7 +322,7 @@ void dump_config (char *buf)
  * dump_publish()
  *
  */
-void dump_publish (char *buf)
+void dump_publish (FILE *out, char *buf)
 {
 	ocfs_publish *pub;
 	char *p;
@@ -327,9 +330,9 @@ void dump_publish (char *buf)
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	__u32 i, j;
 
-	printf("%-2s %-3s %-3s %-3s %-15s %-15s %-15s %-*s %-s\n",
-	       "No", "Mnt", "Vot", "Dty", "LockId", "Seq", "Time", sb->s_max_nodes,
-	       "Map", "Type");
+	fprintf(out, "%-2s %-3s %-3s %-3s %-15s %-15s %-15s %-*s %-s\n",
+		"No", "Mnt", "Vot", "Dty", "LockId", "Seq", "Time",
+		sb->s_max_nodes, "Map", "Type");
 
 	p = buf + ((2 + 4 + sb->s_max_nodes) << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
@@ -338,14 +341,16 @@ void dump_publish (char *buf)
 		pub_flag = g_string_new (NULL);
 		get_publish_flag (pub->vote_type, pub_flag);
 
-		printf("%-2d  %1u   %1u   %1u  %-15llu %-15llu %-15llu ",
-		       i, pub->mounted, pub->vote, pub->dirty, pub->lock_id,
-		       pub->publ_seq_num, pub->time);
+		fprintf(out, "%-2d  %1u   %1u   %1u  %-15llu %-15llu %-15llu ",
+			i, pub->mounted, pub->vote, pub->dirty, pub->lock_id,
+			pub->publ_seq_num, pub->time);
 
 		for (j = 0; j < sb->s_max_nodes; j++)
-			printf ("%d", ((pub->vote_map[j / sizeof(pub->vote_map[0])] & (1 << (j % sizeof(pub->vote_map[0])))) ? 1 : 0));
+			fprintf (out, "%d",
+				 ((pub->vote_map[j / sizeof(pub->vote_map[0])] &
+				   (1 << (j % sizeof(pub->vote_map[0])))) ? 1 : 0));
 
-		printf(" %-s\n", pub_flag->str);
+		fprintf(out, " %-s\n", pub_flag->str);
 
 		g_string_free (pub_flag, 1);
 
@@ -359,7 +364,7 @@ void dump_publish (char *buf)
  * dump_vote()
  *
  */
-void dump_vote (char *buf)
+void dump_vote (FILE *out, char *buf)
 {
 	ocfs_vote *vote;
 	char *p;
@@ -367,8 +372,8 @@ void dump_vote (char *buf)
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	__u32 i;
 
-	printf("%-2s %-2s %-1s %-15s %-15s %-s\n",
-	       "No", "NV", "O", "LockId", "Seq", "Type");
+	fprintf(out, "%-2s %-2s %-1s %-15s %-15s %-s\n",
+		"No", "NV", "O", "LockId", "Seq", "Type");
 
 	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
@@ -377,9 +382,9 @@ void dump_vote (char *buf)
 		vote_flag = g_string_new (NULL);
 		get_vote_flag (vote->type, vote_flag);
 
-		printf("%-2u %-2u %-1u %-15llu %-15llu %-s\n", i,
-		       vote->node, vote->open_handle, vote->lock_id,
-		       vote->vote_seq_num, vote_flag->str);
+		fprintf(out, "%-2u %-2u %-1u %-15llu %-15llu %-s\n", i,
+			vote->node, vote->open_handle, vote->lock_id,
+			vote->vote_seq_num, vote_flag->str);
 
 		g_string_free (vote_flag, 1);
 		p += (1 << gbls.blksz_bits);

@@ -28,11 +28,11 @@
 
 #include <jbd.h>
 
-void read_journal (char *buf, __u64 buflen);
-void print_header (journal_header_t *header, char *hdr);
-void print_super_block (journal_superblock_t *sb);
-void print_metadata_blocks (int start, int end);
-void print_tag_flag (__u32 flags);
-void print_jbd_block (journal_header_t *header);
+void read_journal (char *buf, __u64 buflen, FILE *out);
+void print_header (journal_header_t *header, char *hdr, FILE *out);
+void print_super_block (journal_superblock_t *sb, FILE *out);
+void print_metadata_blocks (int start, int end, FILE *out);
+void print_tag_flag (__u32 flags, FILE *out);
+void print_jbd_block (journal_header_t *header, FILE *out);
 
 #endif		/* _JOURNAL_H_ */

@@ -195,3 +195,39 @@ void get_publish_flag (__u32 flag, GString *str)
 
 	return ;
 }				/* get_publish_flag */
+
+/*
+ * open_pager() -- copied from e2fsprogs-1.32/debugfs/util.c
+ * 
+ * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
+ * redistributed under the terms of the GNU Public License.
+ *
+ */
+FILE *open_pager(void)
+{
+	FILE *outfile;
+	const char *pager = getenv("PAGER");
+
+	signal(SIGPIPE, SIG_IGN);
+	if (pager) {
+		if (strcmp(pager, "__none__") == 0) {
+			return stdout;
+		}
+	} else
+		pager = "more";
+
+	outfile = popen(pager, "w");
+
+	return (outfile ? outfile : stdout);
+}				/* open_pager */
+
+/*
+ * close_pager() -- copied from e2fsprogs-1.32/debugfs/util.c
+ * 
+ * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
+ * redistributed under the terms of the GNU Public License.
+ */
+void close_pager(FILE *stream)
+{
+	if (stream && stream != stdout) pclose(stream);
+}				/* close_pager */
