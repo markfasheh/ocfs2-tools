@@ -8,8 +8,6 @@ OPTS += -O2
 
 INCLUDES = -I..
 
-LIBRARIES = libblkid-internal.a
-
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
 CPPFLAGS = -DHAVE_UNISTD_H=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 \
 	-DHAVE_ERRNO_H=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_LINUX_FD_H=1 \
@@ -35,12 +33,18 @@ HFILES = 		\
 	list.h		\
 	probe.h
 
+ifndef HAVE_BLKID
+
+LIBRARIES = libblkid-internal.a
+
 OBJS = $(subst .c,.o,$(CFILES))
 
 libblkid-internal.a: $(OBJS)
 	rm -f $@
 	$(AR) r $@ $^
 	$(RANLIB) $@
+
+endif
 
 DIST_FILES = $(CFILES) $(HFILES) ChangeLog
 
