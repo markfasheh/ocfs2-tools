@@ -133,7 +133,7 @@ static Command commands[] =
  */
 static Command * find_command (char *cmd)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < sizeof (commands) / sizeof (commands[0]); i++)
 		if (strcmp (cmd, commands[i].cmd) == 0)

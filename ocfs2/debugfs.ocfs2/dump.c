@@ -343,7 +343,7 @@ void dump_publish (char *buf)
 		       pub->publ_seq_num, pub->time);
 
 		for (j = 0; j < sb->s_max_nodes; j++)
-			printf ("%d", ((pub->vote_map & (1 << j)) ? 1 : 0));
+			printf ("%d", ((pub->vote_map[j / sizeof(pub->vote_map[0])] & (1 << (j % sizeof(pub->vote_map[0])))) ? 1 : 0));
 
 		printf(" %-s\n", pub_flag->str);
 

@@ -278,7 +278,7 @@ static int64_t read_number(const char *num)
 
 static void dump_u32(uint32_t *val)
 {
-	int i;
+	unsigned int i;
 	uint8_t *bytes = (uint8_t *)val;
 
 	for (i = 0; i < sizeof(uint32_t); i++)
@@ -287,7 +287,7 @@ static void dump_u32(uint32_t *val)
 
 static void dump_block(int64_t blkno, int blksize, char *buf)
 {
-	int i;
+	unsigned int i;
 	uint32_t *vals = (uint32_t *)buf;
 
 	fprintf(stdout, "Dumping block %lld (%d bytes):\n", blkno,

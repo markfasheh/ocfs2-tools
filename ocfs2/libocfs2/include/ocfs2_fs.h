@@ -252,7 +252,7 @@ typedef struct _ocfs2_extent_block
 /*00*/	__u8 h_signature[8];		/* Signature for verification */
 	__u64 h_suballoc_blkno;		/* Node suballocator offset,
 					   in blocks */
-/*10*/	__u16 h_suballoc_node;		/* Node suballocator this
+/*10*/	__s16 h_suballoc_node;		/* Node suballocator this
 					   extent_header belongs to */
 	__u16 h_reserved1;
 	__u32 h_reserved2;
@@ -272,9 +272,10 @@ typedef struct _ocfs2_extent_block
  */
 typedef struct _ocfs2_disk_lock
 {
-/*00*/	__u32 dl_master;	/* Node number of current master */
+/*00*/	__s16 dl_master;	/* Node number of current master */
+	__u16 dl_reserved1;
 	__u8 dl_level;		/* Lock level */
-	__u8 dl_reserved1[3];	/* Pad to u64 */
+	__u8 dl_reserved2[3];	/* Pad to u64 */
 	__u64 dl_seq_num;	/* Lock transaction seqnum */
 /*10*/	__u32 dl_node_map[8];	/* Bitmap of interested nodes,
 				   was __u32 */ 
@@ -305,10 +306,11 @@ typedef struct _ocfs2_super_block {
 					   directory dinode */
 	__u32 s_blocksize_bits;		/* Blocksize for this fs */
 	__u32 s_clustersize_bits;	/* Clustersize for this fs */
-/*40*/	__u32 s_max_nodes;		/* Max nodes in this cluster before
+/*40*/	__u16 s_max_nodes;		/* Max nodes in this cluster before
 					   tunefs required */
-	__u32 s_reserved1;
-	__u64 s_reserved2;
+	__u16 s_reserved1;
+	__u32 s_reserved2;
+	__u64 s_reserved3;
 /*50*/	__u8  s_label[64];		/* Label for mounting, etc. */
 /*90*/	__u8  s_uuid[16];		/* Was vol_id */
 /*A0*/
@@ -338,7 +340,7 @@ typedef struct _ocfs2_dinode {
 /*00*/	__u8 i_signature[8];		/* Signature for validation */
 	__u32 i_generation;		/* Generation number */
 	__u16 i_reserved1;
-	__u16 i_suballoc_node;		/* Node suballocater this inode
+	__s16 i_suballoc_node;		/* Node suballocater this inode
 					   belongs to */
 /*10*/	__u64 i_suballoc_blkno;		/* Node suballocator offset,
        					   in blocks */

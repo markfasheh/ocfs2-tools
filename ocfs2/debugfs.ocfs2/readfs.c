@@ -188,7 +188,7 @@ void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
 {
 	ocfs2_extent_rec *rec;
 	GArray *arr = NULL;
-	int i = 0;
+	unsigned int i = 0;
 	char *buf = NULL;
 	__u32 len;
 	__u64 off;
@@ -234,7 +234,7 @@ void read_sysdir (int fd, char *sysdir)
 	struct ocfs2_dir_entry *rec;
 	GArray *dirarr = NULL;
 	char *dlm = ocfs2_system_inode_names[DLM_SYSTEM_INODE];
-	int i;
+	unsigned int i;
 
 	inode = (ocfs2_dinode *)sysdir;
 
@@ -272,7 +272,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	ocfs2_extent_rec *rec;
 	char *p = NULL;
 	__u64 off, foff, len;
-	int i;
+	unsigned int i;
 	char *newbuf = NULL;
 	__u64 newlen = 0;
 	char *inode_buf = NULL;

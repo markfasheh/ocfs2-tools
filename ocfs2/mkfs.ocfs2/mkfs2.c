@@ -314,7 +314,7 @@ int find_clear_bits (alloc_bm * bitmap, __u32 numBits, __u32 offset)
 	first_zero = -1;
 
       bail:
-	if (first_zero != -1 && first_zero > bitmap->valid_bits) {
+	if (first_zero != (__u32)-1 && first_zero > bitmap->valid_bits) {
 		fprintf(stderr, "um... first_zero>bitmap->valid_bits (%d > %d)",
 			       first_zero, bitmap->valid_bits);
 		first_zero = -1;
@@ -780,7 +780,7 @@ void init_globals(void)
 	pagesize = getpagesize();
 	pagesize_bits = 0;
 	for (i=32; i>=0; i--) {
-		if ((1 << i) == pagesize)
+		if (pagesize == (1U << i))
 			pagesize_bits = i;
 	}
 	if (!pagesize_bits)
@@ -795,7 +795,7 @@ void init_globals(void)
 	}
 	blocksize_bits = 0;
 	for (i=32; i>=0; i--) {
-		if ((1 << i) == blocksize)
+		if ((1U << i) == blocksize)
 			blocksize_bits = i;
 	}
 	if (!blocksize_bits)
@@ -803,7 +803,7 @@ void init_globals(void)
 
 	cluster_size_bits = 0;
 	for (i=32; i>=0; i--) {
-		if ((1 << i) == cluster_size)
+		if ((1U << i) == cluster_size)
 			cluster_size_bits = i;
 	}
 	if (!cluster_size_bits)
@@ -1112,7 +1112,7 @@ int main(int argc, char **argv)
 
 	/* superblock */
 	superblock_rec.fe_off = alloc_inode(SUPERBLOCK_BLOCKS);
-	if (superblock_rec.fe_off != MAGIC_SUPERBLOCK_BLOCK_NUMBER << blocksize_bits)
+	if (superblock_rec.fe_off != (__u64)MAGIC_SUPERBLOCK_BLOCK_NUMBER << blocksize_bits)
 		MKFS_FATAL("superblock starts at byte %llu, must start at %llu\n", 
 			   superblock_rec.fe_off, MAGIC_SUPERBLOCK_BLOCK_NUMBER << blocksize_bits);
 

@@ -123,8 +123,9 @@ out_blk:
 	return ret;
 }
 
-errcode_t ocfs2_open(const char *name, int flags, int superblock,
-		     unsigned int block_size, ocfs2_filesys **ret_fs)
+errcode_t ocfs2_open(const char *name, int flags,
+		     unsigned int superblock, unsigned int block_size,
+		     ocfs2_filesys **ret_fs)
 {
 	ocfs2_filesys *fs;
 	errcode_t ret;
@@ -219,7 +220,7 @@ errcode_t ocfs2_open(const char *name, int flags, int superblock,
 
 	ret = OCFS2_ET_UNEXPECTED_BLOCK_SIZE;
 	if (block_size !=
-	    (1 << OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits))
+	    (1U << OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits))
 		goto out;
 
 	fs->fs_clustersize =

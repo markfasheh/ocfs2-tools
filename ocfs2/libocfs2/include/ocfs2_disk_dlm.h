@@ -90,7 +90,8 @@ typedef struct _ocfs_node_config_hdr
 /*00*/	ocfs2_disk_lock disk_lock;
 /*30*/	__u8 signature[OCFS2_NODE_CONFIG_SIGN_LEN];
 	__u32 version;
-	__u32 num_nodes;
+	__u16 num_nodes;
+	__u16 reserved1;
 /*40*/	__u32 last_node;
 	__u32 onch_pad;
 	__u64 cfg_seq_num;
@@ -107,8 +108,8 @@ typedef struct _ocfs_publish
 	__u32 dirty;		/* Is the node in a clean state */
 /*10*/	__u32 vote_type;	/* Type required */
 	__u32 mounted;		/* Does the publisher have it mounted */
-/*18*/	__u32 reserved1[8];
-/*38*/	__u64 vote_map;		/* Who needs to vote */
+/*18*/	__u32 vote_map[8];	/* Who needs to vote */
+/*38*/	__u64 reserved1;
 /*50*/	__u64 publ_seq_num;	/* Sequence for vote */
 	__u64 lock_id;		/* Lock vote is requested for */
 	/* last seq num used in comm voting */

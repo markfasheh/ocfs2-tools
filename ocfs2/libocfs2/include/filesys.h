@@ -102,8 +102,9 @@ struct _ocfs2_filesys {
 };
 
 
-errcode_t ocfs2_open(const char *name, int flags, int superblock,
-		     unsigned int blksize, ocfs2_filesys **ret_fs);
+errcode_t ocfs2_open(const char *name, int flags,
+		     unsigned int superblock, unsigned int blksize,
+		     ocfs2_filesys **ret_fs);
 errcode_t ocfs2_flush(ocfs2_filesys *fs);
 errcode_t ocfs2_close(ocfs2_filesys *fs);
 void ocfs2_freefs(ocfs2_filesys *fs);
