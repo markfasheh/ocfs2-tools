@@ -477,8 +477,10 @@ static gint parse_options(gint argc, gchar *argv[], O2CBContext *ctxt)
 
 static gint load_config(O2CBContext *ctxt)
 {
-    ctxt->oc_config = o2cb_config_load(O2CB_CONFIG_FILE);
-    if (!ctxt->oc_config)
+    gint rc;
+
+    rc = o2cb_config_load(O2CB_CONFIG_FILE, &ctxt->oc_config);
+    if (rc)
     {
         fprintf(stderr,
                 PROGNAME ": Unable to load cluster configuration file \"%s\"\n",

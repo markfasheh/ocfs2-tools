@@ -219,48 +219,61 @@ out_error:
     return rc;
 }
 
-O2CBConfig *o2cb_config_load(const char *filename)
+gint o2cb_config_load(const gchar *filename, O2CBConfig **config)
 {
     gint rc;
     JConfigCtxt *ctxt;
     JConfig *cf;
-    O2CBConfig *config;
+    struct stat stat_buf;
 
-    ctxt = j_config_new_context();
-    if (!ctxt)
-        return NULL;
-    j_config_context_set_verbose(ctxt, FALSE);
-
-    cf = j_config_parse_file_with_context(ctxt, filename);
-    if (j_config_context_get_error(ctxt))
+    rc = stat(filename, &stat_buf);
+    if (rc)
     {
-        if (cf)
-        {
-            j_config_free(cf);
-            cf = NULL;
-        }
+        rc = -errno;
+        if (rc != -ENOENT)
+            return rc;
+        cf = j_config_parse_memory("", strlen(""));
+        if (!cf)
+            return -ENOMEM;
     }
-    j_config_context_free(ctxt);
-
-    if (!cf)
-        return NULL;
-
-    config = o2cb_config_initialize();
-    if (config)
+    else
     {
-        rc = o2cb_config_fill(config, cf);
+        ctxt = j_config_new_context();
+        if (!ctxt)
+            return -ENOMEM;
+        j_config_context_set_verbose(ctxt, FALSE);
+
+        cf = j_config_parse_file_with_context(ctxt, filename);
+        if (j_config_context_get_error(ctxt))
+        {
+            if (cf)
+            {
+                j_config_free(cf);
+                cf = NULL;
+            }
+        }
+        j_config_context_free(ctxt);
+
+        if (!cf)
+            return -EIO;
+    }
+
+    *config = o2cb_config_initialize();
+    if (*config)
+    {
+        rc = o2cb_config_fill(*config, cf);
         if (rc)
         {
-            o2cb_config_free(config);
-            config = NULL;
+            o2cb_config_free(*config);
+            *config = NULL;
         }
         else
-            config->co_valid = TRUE;
+            (*config)->co_valid = TRUE;
     }
 
     j_config_free(cf);
 
-    return config;
+    return 0;
 }  /* o2cb_config_load() */
 
 static gint o2cb_node_store(JConfig *cf, O2CBCluster *cluster,
@@ -350,7 +363,14 @@ gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
 
     if (!rc)
     {
-        if (!j_config_dump_file(cf, filename))
+        rc = mkdir("/etc/ocfs2", 0644);
+        if (rc)
+        {
+            rc = -errno;
+            if (rc == -EEXIST)
+                rc = 0;
+        }
+        if (!rc && !j_config_dump_file(cf, filename))
             rc = -EIO;
     }
 

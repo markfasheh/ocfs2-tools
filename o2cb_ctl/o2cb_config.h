@@ -30,7 +30,7 @@ typedef struct _O2CBCluster	O2CBCluster;
 typedef struct _O2CBNode	O2CBNode;
 
 O2CBConfig *o2cb_config_initialize(void);
-O2CBConfig *o2cb_config_load(const gchar *filename);
+gint o2cb_config_load(const gchar *filename, O2CBConfig **config);
 gint o2cb_config_store(O2CBConfig *config, const gchar *filename);
 void o2cb_config_free(O2CBConfig *config);
 
