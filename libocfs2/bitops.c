@@ -81,3 +81,157 @@ int ocfs2_test_bit(int nr, const void * addr)
 
 #endif	/* !_OCFS2_HAVE_ASM_BITOPS_ */
 
+#if !defined(_OCFS2_HAVE_ASM_FINDBIT_)
+#include <strings.h>
+
+int ocfs2_find_first_bit_set(void *addr, int size)
+{
+	unsigned char	*cp = (unsigned char *) addr;
+	unsigned int 	res = 0;
+	int		d0;
+	unsigned char	tilde = ~0;
+	unsigned int	mask = 0U | tilde;
+
+	if (!size)
+		return 0;
+
+	while ((size > res) && (*cp == 0)) {
+		cp++;
+		res += 8;
+	}
+	if (res >= size)
+		return size;
+	if ((res + 8) > size)
+		mask >>= 8 - (size - res);
+	d0 = ffs(*cp & mask);
+	if (d0 == 0)
+		return size;
+	
+	return res + d0 - 1;
+}
+
+int ocfs2_find_first_bit_clear(void *addr, int size)
+{
+	unsigned char	*cp = (unsigned char *) addr;
+	unsigned int	res = 0;
+	int		d0;
+	unsigned char	tilde = ~0;
+	unsigned int	mask = 0U | tilde;
+
+	if (!size)
+		return 0;
+
+	while ((size > res) && (*cp == tilde)) {
+		cp++;
+		res += 8;
+	}
+	if (res >= size)
+		return size;
+	if ((res + 8) > size)
+		mask >>= 8 - (size - res);
+	d0 = ffs(~(*cp & mask));
+	if (d0 == 0)
+		return size;
+	
+	return res + d0 - 1;
+}
+
+int ocfs2_find_next_bit_set(void *addr, int size, int offset)
+{
+	unsigned char * p;
+	int set = 0, d0;
+	unsigned int	bit = offset & 7, res = 0;
+	unsigned char	tilde = ~0;
+	unsigned int	mask = 0U | tilde;
+	
+	res = offset >> 3;
+	p = ((unsigned char *) addr) + res;
+	res <<= 3;
+	
+	if (bit) {
+		set = ffs(*p & ~((1 << bit) - 1));
+		if (set)
+			return (offset & ~7) + set - 1;
+		p++;
+		res += 8;
+	}
+	while ((size > res) && (*p == 0)) {
+		p++;
+		res += 8;
+	}
+	if (res >= size)
+		return size;
+	if ((res + 8) > size)
+		mask >>= 8 - (size - res);
+	d0 = ffs(*p & mask);
+	if (d0 == 0)
+		return size;
+
+	return (res + d0 - 1);
+}
+
+int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
+{
+	unsigned char * p;
+	int set = 0, d0;
+	unsigned int	bit = offset & 7, res = 0;
+	unsigned char tilde = ~0;
+	unsigned int	mask = 0U | tilde;
+	
+	res = offset >> 3;
+	p = ((unsigned char *) addr) + res;
+	res <<= 3;
+	
+	if (bit) {
+		set = ffs(~*p & ~((1 << bit) - 1) & mask);
+		if (set)
+			return (offset & ~7) + set - 1;
+		p++;
+		res += 8;
+	}
+	while ((size > res) && (*p == tilde)) {
+		p++;
+		res += 8;
+	}
+	if (res >= size)
+		return size;
+	if ((res + 8) > size)
+		mask >>= 8 - (size - res);
+	d0 = ffs(~(*p & mask));
+	if (d0 == 0)
+		return size;
+
+	return (res + d0 - 1);
+}
+#endif	
+
+
+#ifdef DEBUG_EXE
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char *argv[])
+{
+	char bitmap[8 * sizeof(unsigned long)];
+	int ret;
+	int size = sizeof(bitmap) * 8;
+
+	/* Test an arbitrary size (not byte bounded) */
+	memset(bitmap, 0, sizeof(bitmap));
+	ocfs2_set_bit(size - 1, bitmap);
+	ret = ocfs2_find_first_bit_set(bitmap, size - 3);
+	fprintf(stdout, "Pass1: first set %d (%s)\n", ret,
+		(ret == (size - 3)) ? "correct" : "incorrect");
+
+	memset(bitmap, 0xFF, sizeof(bitmap));
+	ocfs2_clear_bit(size - 1, bitmap);
+	ret = ocfs2_find_first_bit_clear(bitmap, size - 3);
+	fprintf(stdout, "Pass1: first clear %d (%s)\n", ret,
+		(ret == (size - 3)) ? "correct" : "incorrect");
+
+	/* XXX add more tests */
+	return 0;
+}
+#endif
+

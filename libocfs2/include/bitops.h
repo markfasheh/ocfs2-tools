@@ -261,59 +261,16 @@ static inline int ocfs2_test_bit(int nr, const void * addr)
 
 #endif /* __sparc__ */
 
-#if !defined(_OCFS2_HAVE_ASM_FINDBIT_)
-#include <strings.h>
-
-static inline int ocfs2_find_first_bit_set(void * addr, unsigned size)
-{
-	char	*cp = (unsigned char *) addr;
-	int 	res = 0, d0;
-
-	if (!size)
-		return 0;
-
-	while ((size > res) && (*cp == 0)) {
-		cp++;
-		res += 8;
-	}
-	d0 = ffs(*cp);
-	if (d0 == 0)
-		return size;
-	
-	return res + d0 - 1;
-}
-
-static inline int ocfs2_find_next_bit_set (void * addr, int size, int offset)
-{
-	unsigned char * p;
-	int set = 0, bit = offset & 7, res = 0, d0;
-	
-	res = offset >> 3;
-	p = ((unsigned char *) addr) + res;
-	
-	if (bit) {
-		set = ffs(*p & ~((1 << bit) - 1));
-		if (set)
-			return (offset & ~7) + set - 1;
-		p++;
-		res += 8;
-	}
-	while ((size > res) && (*p == 0)) {
-		p++;
-		res += 8;
-	}
-	d0 = ffs(*p);
-	if (d0 == 0)
-		return size;
-
-	return (res + d0 - 1);
-}
-#endif	
-
 #ifndef _OCFS2_HAVE_ASM_BITOPS_
 extern int ocfs2_set_bit(int nr,void * addr);
 extern int ocfs2_clear_bit(int nr, void * addr);
 extern int ocfs2_test_bit(int nr, const void * addr);
 #endif
 
+#if !defined(_OCFS2_HAVE_ASM_FINDBIT_)
+extern int ocfs2_find_first_bit_set(void *addr, int size);
+extern int ocfs2_find_first_bit_clear(void *addr, int size);
+extern int ocfs2_find_next_bit_set(void *addr, int size, int offset);
+extern int ocfs2_find_next_bit_clear(void *addr, int size, int offset);
+#endif	
 
