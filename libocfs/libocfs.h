@@ -106,6 +106,8 @@ extern long TIME_ZERO;
 #include <sys/ipc.h>
 #include <sys/sem.h>
 
+#include <asm/bitops.h>
+
 
 /* it sucks, but i have to fake a few types to get by */
 #define INIT_LIST_HEAD(a)	do { } while(0)
@@ -306,92 +308,6 @@ static inline int atomic_dec_and_test(atomic_t *v)
 {
     v->counter--;
     return v->counter != 0;
-}
-#endif
-
-#ifndef smp_mb__before_clear_bit
-/* bitops (taken from asm-generic) */
-
-static inline void set_bit(int nr, void *addr)
-{
-    unsigned long mask = 1UL << (nr & 0x1f);
-    unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
-
-    *p |= mask;
-}
-
-static inline void clear_bit(int nr, void *addr)
-{
-    unsigned long mask = 1UL << (nr & 0x1f);
-    unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
-
-    *p &= ~mask;
-}
-
-static inline int test_bit(int nr, const void *addr)
-{
-    return (1 & (((const unsigned int *) addr)[nr >> 5] >> (nr & 31))) != 0;
-}
-
-static inline int __test_and_clear_bit(int nr, volatile void *addr)
-{
-    unsigned long mask = 1UL << (nr & 0x1f);
-    unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
-    unsigned long old = *p;
-
-    *p = old & ~mask;
-    return (old & mask) != 0;
-}
-
-static inline unsigned long ffz(unsigned long word)
-{
-    unsigned long result = 0;
-                                                                                
-    while(word & 1) {
-            result++;
-            word >>= 1;
-    }
-    return result;
-}
-
-/* FIXME: This is a really really crappy quick and dirty thing */
-static inline unsigned long find_next_zero_bit(void *addr, unsigned long size, unsigned long offset)
-{
-    unsigned long bits = sizeof(unsigned long) * 8;
-    unsigned long bits1 =  bits - 1;
-    unsigned long * p = ((unsigned long *) addr) + (offset >> 6);
-    unsigned long result = offset & ~bits1;
-    unsigned long tmp;
-
-    if (offset >= size)
-        return size;
-    size -= result;
-    offset &= bits1;
-    if (offset) {
-        tmp = *(p++);
-        tmp |= ~0UL >> (bits-offset);
-        if (size < bits)
-            goto found_first;
-        if (~tmp)
-            goto found_middle;
-        size -= bits;
-        result += bits;
-    }
-    while (size & ~bits1) {
-        if (~(tmp = *(p++)))
-            goto found_middle;
-        result += bits;
-        size -= bits;
-    }
-    if (!size)
-        return result;
-    tmp = *p;
-found_first:
-    tmp |= ~0UL << size;
-    if (tmp == ~0UL)        /* Are any bits zero? */
-        return result + size; /* Nope. */
-found_middle:
-    return result + ffz(tmp);
 }
 #endif
 
