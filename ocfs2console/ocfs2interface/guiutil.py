@@ -67,6 +67,7 @@ def query_text(parent, prompt):
     table.attach(label, 0, 1, 0, 1)
 
     entry = gtk.Entry()
+    entry.set_activates_default(True)
     table.attach(entry, 1, 2, 0, 1)
 
     dialog.show_all()
@@ -79,7 +80,6 @@ def query_text(parent, prompt):
     dialog.destroy()
 
     return text
-
 
 def make_callback(obj, callback, sub_callback):
     cb = getattr(obj, callback)
