@@ -67,6 +67,8 @@
 
 int verbose = 0;
 
+static char *whoami = "fsck.ocfs2";
+
 static void print_usage(void)
 {
 	fprintf(stderr,
@@ -102,8 +104,7 @@ static uint64_t read_number(const char *num)
 extern int opterr, optind;
 extern char *optarg;
 
-static errcode_t o2fsck_state_init(ocfs2_filesys *fs, const char *whoami, 
-				    o2fsck_state *ost)
+static errcode_t o2fsck_state_init(ocfs2_filesys *fs, o2fsck_state *ost)
 {
 	errcode_t ret;
 
@@ -156,7 +157,6 @@ static errcode_t check_superblock(o2fsck_state *ost)
 	ocfs2_dinode *di = ost->ost_fs->fs_super;
 	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 	errcode_t ret = 0;
-	const char *whoami = __FUNCTION__;
 
 	if (sb->s_max_nodes == 0) {
 		printf("The superblock max_nodes field is set to 0.\n");
@@ -341,17 +341,19 @@ static errcode_t open_and_check(o2fsck_state *ost, char *filename,
 				uint64_t blksize)
 {
 	errcode_t ret;
-	const char *whoami = __FUNCTION__;
 
 	ret = ocfs2_open(filename, open_flags, blkno, blksize, &ost->ost_fs);
 	if (ret) {
-		com_err(whoami, ret, "while opening file \"%s\"", filename);
+		com_err(whoami, ret, "while opening \"%s\"", filename);
 		goto out;
 	}
 
 	ret = check_superblock(ost);
-	if (ret)
+	if (ret) {
+		printf("fsck saw unrecoverable errors in the super block and "
+		       "will not continue.\n");
 		goto out;
+	}
 
 out:
 	return ret;
@@ -363,7 +365,6 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 {	
 	int replayed = 0, should = 0;
 	errcode_t ret = 0;
-	const char *whoami = __FUNCTION__;
 
 	ret = o2fsck_should_replay_journals(ost->ost_fs, &should);
 	if (ret)
@@ -401,12 +402,6 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 	}
 
 	ret = open_and_check(ost, filename, open_flags, blkno, blksize);
-	if (ret) {
-		printf("fsck saw unrecoverable errors while "
-		       "re-opening the super block and will not "
-		       "continue.\n");
-		goto out;
-	}
 out:
 	return ret;
 }
@@ -524,8 +519,6 @@ int main(int argc, char **argv)
 
 	ret = open_and_check(ost, filename, open_flags, blkno, blksize);
 	if (ret) {
-		printf("fsck saw unrecoverable errors in the super block and "
-		       "will not continue.\n");
 		fsck_mask |= FSCK_ERROR;
 		goto out;
 	}
@@ -552,7 +545,7 @@ int main(int argc, char **argv)
 
 	/* allocate all this junk after we've replayed the journal and the
 	 * sb should be stable */
-	if (o2fsck_state_init(ost->ost_fs, argv[0], ost)) {
+	if (o2fsck_state_init(ost->ost_fs, ost)) {
 		fprintf(stderr, "error allocating run-time state, exiting..\n");
 		fsck_mask |= FSCK_ERROR;
 		goto out;
@@ -577,31 +570,31 @@ int main(int argc, char **argv)
 	 * are fatal.  these can be fixed over time. */
 	ret = o2fsck_pass0(ost);
 	if (ret) {
-		com_err(argv[0], ret, "while performing pass 0");
+		com_err(whoami, ret, "while performing pass 0");
 		goto done;
 	}
 
 	ret = o2fsck_pass1(ost);
 	if (ret) {
-		com_err(argv[0], ret, "while performing pass 1");
+		com_err(whoami, ret, "while performing pass 1");
 		goto done;
 	}
 
 	ret = o2fsck_pass2(ost);
 	if (ret) {
-		com_err(argv[0], ret, "while performing pass 2");
+		com_err(whoami, ret, "while performing pass 2");
 		goto done;
 	}
 
 	ret = o2fsck_pass3(ost);
 	if (ret) {
-		com_err(argv[0], ret, "while performing pass 3");
+		com_err(whoami, ret, "while performing pass 3");
 		goto done;
 	}
 
 	ret = o2fsck_pass4(ost);
 	if (ret) {
-		com_err(argv[0], ret, "while performing pass 4");
+		com_err(whoami, ret, "while performing pass 4");
 		goto done;
 	}
 
@@ -616,13 +609,13 @@ done:
 	if (ost->ost_fs->fs_flags & OCFS2_FLAG_RW) {
 		ret = write_out_superblock(ost);
 		if (ret)
-			com_err(argv[0], ret, "while writing back the "
+			com_err(whoami, ret, "while writing back the "
 				"superblock");
 	}
 
 	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {
-		com_err(argv[0], ret, "while closing file \"%s\"", filename);
+		com_err(whoami, ret, "while closing file \"%s\"", filename);
 		/* XXX I wonder about this error.. */
 		fsck_mask |= FSCK_ERROR;
 	} 

@@ -103,10 +103,13 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 		chan->io_flags |= O_DIRECT;
 	chan->io_error = 0;
 
-	ret = OCFS2_ET_IO;
 	chan->io_fd = open64(name, chan->io_flags);
 	if (chan->io_fd < 0) {
-		chan->io_error = errno;
+		/* chan will be freed, don't bother with chan->io_error */
+		if (errno == ENOENT)
+			ret = OCFS2_ET_NAMED_DEVICE_NOT_FOUND;
+		else
+			ret = OCFS2_ET_IO;
 		goto out_name;
 	}
 

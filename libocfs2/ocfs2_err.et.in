@@ -24,6 +24,9 @@
 ec	OCFS2_ET_BASE,
 	"OCFS2 Library version @VERSION@"
 
+ec	OCFS2_ET_NAMED_DEVICE_NOT_FOUND,
+	"Device name specified was not found"
+
 ec	OCFS2_ET_BAD_DEVICE_NAME,
 	"Illegal or malformed device name"
 
