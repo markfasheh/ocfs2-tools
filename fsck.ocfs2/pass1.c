@@ -39,21 +39,18 @@
 
 static const char *whoami = "pass1";
 
-/*
- * for now we're just building up info, we're not actually
- * writing to disk.
- *
- * for each inode:
- * - verify that i_mode is legal
- *
- * We collect the following for future passes:
- *
- * - a bitmap of inodes which are in use
- * - a bitmap of inodes which have bad fields
- * - a bitmap of data blocks on inodes
- * - a bitmap of data blocks duplicated between inodes
- */
+static void mark_block_used(o2fsck_state *ost, uint64_t blkno)
+{
+	int was_set;
+	ocfs2_bitmap_set(ost->ost_found_blocks, blkno, &was_set);
+	if (was_set) {
+		verbosef("duplicate block %"PRIu64"\n", blkno);
+		ocfs2_bitmap_set(ost->ost_dup_blocks, blkno, NULL);
+	}
+}
 
+/* XXX should walk down all the i_fields to make sure we're veryfying
+ * those that we can this early */
 static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost, 
 				       uint64_t blkno, ocfs2_dinode *di)
 {
@@ -73,6 +70,8 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		   strlen(OCFS2_INODE_SIGNATURE))) {
 		goto bad;
 	}
+	if (di->i_flags & OCFS2_SUPER_BLOCK_FL)
+		goto bad;
 
 	if (di->i_links_count)
 		o2fsck_icount_update(ost->ost_icount_in_inodes, di->i_blkno,
@@ -107,7 +106,6 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	}
 
 	if (S_ISDIR(di->i_mode)) {
-		/* XXX record dir for dir block walk */
 		ocfs2_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
 		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0);
 	} else if (S_ISREG(di->i_mode)) {
@@ -138,6 +136,14 @@ struct verifying_blocks {
        ocfs2_dinode	*vb_di;
 };
 
+/* last_block and num_blocks would be different in a sparse file */
+static void vb_saw_block(struct verifying_blocks *vb, uint64_t bcount)
+{
+	vb->vb_num_blocks++;
+	if (bcount > vb->vb_last_block)
+		vb->vb_last_block = bcount;
+}
+
 static int verify_block(ocfs2_filesys *fs,
 			    uint64_t blkno,
 			    uint64_t bcount,
@@ -146,7 +152,6 @@ static int verify_block(ocfs2_filesys *fs,
 	struct verifying_blocks *vb = priv_data;
 	ocfs2_dinode *di = vb->vb_di;
 	o2fsck_state *ost = vb->vb_ost;
-	int was_set;
 	
 	/* someday we may want to worry about holes in files here */
 
@@ -174,19 +179,13 @@ static int verify_block(ocfs2_filesys *fs,
 		}
 	}
 
-	ocfs2_bitmap_set(ost->ost_found_blocks, blkno, &was_set);
-	if (was_set) {
-		fprintf(stderr, "duplicate block %"PRIu64"?\n", blkno);
-		ocfs2_bitmap_set(ost->ost_dup_blocks, blkno, NULL);
-	}
-
-	if (S_ISDIR(di->i_mode))
+	if (S_ISDIR(di->i_mode)) {
+		verbosef("adding dir block %"PRIu64"\n", blkno);
 		o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno, blkno,
 					bcount);
+	}
 
-	vb->vb_num_blocks++;
-	if (bcount > vb->vb_last_block)
-		vb->vb_last_block = bcount;
+	vb_saw_block(vb, bcount);
 
 	return 0;
 }
@@ -198,6 +197,32 @@ static uint64_t clusters_holding_blocks(ocfs2_filesys *fs, uint64_t num_blocks)
 		          OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 
 	return (num_blocks + ((1 << c_to_b_bits) - 1)) >> c_to_b_bits;
+}
+
+static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
+			   void *priv_data)
+{
+	struct verifying_blocks *vb = priv_data;
+	verbosef("found gd block %"PRIu64"\n", gd_blkno);
+	/* don't have bcount */
+	mark_block_used(vb->vb_ost, gd_blkno);
+	vb_saw_block(vb, vb->vb_num_blocks);
+	return 0;
+}
+
+static int check_extent_blocks(ocfs2_filesys *fs, ocfs2_extent_rec *rec,
+				int tree_depth, uint32_t ccount,
+				uint64_t ref_blkno, int ref_recno,
+				void *priv_data)
+{
+	struct verifying_blocks *vb = priv_data;
+
+	if (tree_depth > 0) {
+		verbosef("found extent block %"PRIu64"\n", rec->e_blkno);
+		mark_block_used(vb->vb_ost, rec->e_blkno);
+	}
+
+	return 0;
 }
 
 static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
@@ -214,12 +239,19 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	 * metadata blocks in the extents as used and otherwise validate them
 	 * while we're at it. */
 
-	ret = ocfs2_block_iterate(fs, blkno, 0, verify_block, &vb);
-	if (ret == OCFS2_ET_INODE_CANNOT_BE_ITERATED) {
-		/* XXX I don't understand this.   just check the inode
-		 * fields as though there were no blocks? */
-		ret = 0;
+
+	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
+		ret = 0; /* nothing to iterate over in this case */
+	else if (di->i_flags & OCFS2_CHAIN_FL)
+		ret = ocfs2_chain_iterate(fs, blkno, check_gd_block, &vb);
+	else {
+		ret = ocfs2_extent_iterate(fs, blkno, 0, NULL,
+					   check_extent_blocks, &vb);
+		if (ret == 0)
+			ret = ocfs2_block_iterate(fs, blkno, 0,
+    					   verify_block, &vb);
 	}
+
 	if (ret) {
 		fatal_error(ret, "while iterating over the blocks for inode "
 			         "%"PRIu64, di->i_blkno);	
@@ -248,11 +280,12 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		/* XXX clear valid flag and stuff? */
 	}
 
+#if 0 /* boy, this is just broken */
 	if (vb.vb_num_blocks > 0)
 		expected = (vb.vb_last_block + 1) * fs->fs_blocksize;
 
 	/* i_size is checked for symlinks elsewhere */
-	if (!S_ISLNK(di->i_mode) && di->i_size != expected &&
+	if (!S_ISLNK(di->i_mode) && di->i_size > expected &&
 	    should_fix(ost, FIX_DEFYES, "inode %"PRIu64" has a size of "
 		       "%"PRIu64" but has %"PRIu64" bytes of actual data. "
 		       " Correct the file size?", di->i_blkno, di->i_size,
@@ -260,6 +293,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		di->i_size = expected;
 		o2fsck_write_inode(fs, blkno, di);
 	}
+#endif
 
 	if (vb.vb_num_blocks > 0)
 		expected = clusters_holding_blocks(fs, vb.vb_last_block + 1);
@@ -324,6 +358,10 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 		o2fsck_check_blocks(fs, ost, blkno, di);
 	}
+
+	if (ocfs2_bitmap_get_set_bits(ost->ost_dup_blocks))
+		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "duplicate blocks "
+				"found, need to learn to fix.");
 
 out_close_scan:
 	ocfs2_close_inode_scan(scan);

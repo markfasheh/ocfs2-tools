@@ -53,9 +53,6 @@ void o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino, uint64_t blkno,
 	dbe->e_blkno = blkno;
 	dbe->e_blkcount = blkcount;
 
-	printf("inserting %"PRIu64" %"PRIu64" %"PRIu64"\n", dbe->e_ino, 
-			dbe->e_blkno, dbe->e_blkcount);
-
 	while (*p)
 	{
 		parent = *p;

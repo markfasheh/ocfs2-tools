@@ -53,5 +53,13 @@ typedef struct _o2fsck_state {
 			ost_force:1;	/* -f supplied; force check */
 } o2fsck_state;
 
+/* The idea is to let someone off-site run fsck and have it give us 
+ * enough information to diagnose problems with */
+extern int verbose;
+#define verbosef(fmt, args...) do {					\
+	if (verbose)							\
+		printf("%s:%d | " fmt, __FUNCTION__, __LINE__, args);\
+} while (0)
+
 #endif /* __O2FSCK_FSCK_H__ */
 

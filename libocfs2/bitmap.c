@@ -118,6 +118,10 @@ errcode_t ocfs2_bitmap_test(ocfs2_bitmap *bitmap, uint64_t bitno,
 	return ret;
 }
 
+uint64_t ocfs2_bitmap_get_set_bits(ocfs2_bitmap *bitmap)
+{
+	return bitmap->b_set_bits;
+}
 
 /*
  * The remaining functions are private to the library.

@@ -405,11 +405,17 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	while (offset < dd->fs->fs_blocksize) {
 		dirent = (struct ocfs2_dir_entry *)(dd->buf + offset);
 
-		/* I wonder if we should be checking that the padding
+		verbosef("checking dirent offset %d, ino %"PRIu64" rec_len "
+			"%"PRIu16" name_len %"PRIu8" file_type %"PRIu8"\n",
+			offset, dirent->inode, dirent->rec_len, 
+			dirent->name_len, dirent->file_type);
+
+		/* XXX I wonder if we should be checking that the padding
 		 * is 0 */
 
-		printf("dir entry %u %.*s\n", dirent->rec_len, dirent->name_len,
-						dirent->name);
+		/* XXX hmm, this isn't quite right.  sometimes when we
+		 * change we re-examine the current entry, other times
+		 * we move on past it. */
 
 		this_flags = fix_dirent_lengths(dd->ost, dbe, dirent, offset, 
 						 dd->fs->fs_blocksize - offset,
@@ -425,6 +431,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		ret_flags |= fix_dirent_dots(dd->ost, dbe, dirent, offset, 
 					     dd->fs->fs_blocksize - offset);
 		ret_flags |= fix_dirent_name(dd->ost, dbe, dirent, offset);
+		/* XXX we need to check dirent->inode before calling into here
+		 * as it'll try and read it and assert if that fails */
 		ret_flags |= fix_dirent_filetype(dd->ost, dbe, dirent, offset);
 		ret_flags |= fix_dirent_linkage(dd->ost, dbe, dirent, offset);
 		ret_flags |= fix_dirent_dups(dd->ost, dbe, dirent, &strings,

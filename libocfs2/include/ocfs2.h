@@ -344,6 +344,7 @@ errcode_t ocfs2_bitmap_clear(ocfs2_bitmap *bitmap, uint64_t bitno,
 			     int *oldval);
 errcode_t ocfs2_bitmap_test(ocfs2_bitmap *bitmap, uint64_t bitno,
 			    int *val);
+uint64_t ocfs2_bitmap_get_set_bits(ocfs2_bitmap *bitmap);
 
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 				uint32_t *retblocks);

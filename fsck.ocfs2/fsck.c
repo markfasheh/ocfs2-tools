@@ -38,6 +38,8 @@
 #include "pass2.h"
 #include "util.h"
 
+int verbose = 0;
+
 static void print_usage(void)
 {
 	fprintf(stderr,
@@ -157,7 +159,7 @@ int main(int argc, char **argv)
 
 	initialize_ocfs_error_table();
 
-	while((c = getopt(argc, argv, "b:B:np")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:npv")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -195,6 +197,10 @@ int main(int argc, char **argv)
 			case 'p':
 				ost->ost_ask = 0;
 				ost->ost_answer = 1;
+				break;
+
+			case 'v':
+				verbose = 1;
 				break;
 
 			default:
