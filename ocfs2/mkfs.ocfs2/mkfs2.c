@@ -708,7 +708,10 @@ void replacement_journal_create(__u64 journal_off)
 	sb->s_header.h_blocktype = htonl(JFS_SUPERBLOCK_V2);
 	sb->s_blocksize	= htonl(blocksize);
 	sb->s_maxlen	= htonl(OCFS2_DEFAULT_JOURNAL_SIZE >> blocksize_bits);
-	sb->s_first	= htonl(1);
+	if (blocksize == 512)
+		sb->s_first	= htonl(2);
+	else
+		sb->s_first	= htonl(1);
 	sb->s_start     = htonl(1);
 	sb->s_sequence  = htonl(1);
 	sb->s_errno     = htonl(0);
