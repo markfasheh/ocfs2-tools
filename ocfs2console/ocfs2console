@@ -14,5 +14,5 @@ except RuntimeError:
 Make sure a proper setup for your display environment exists.\n'''
     sys.exit(1)
 
-from ocfs2interface.main import main
+from ocfs2interface.console import main
 main()
