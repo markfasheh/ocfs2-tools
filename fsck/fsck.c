@@ -423,7 +423,7 @@ int get_device_size(int fd)
 		int ret;
 
 		junk = malloc_aligned(512);
-		hi = 0xfffffffffffffd00;
+		hi = 0xfffffffffffffd00ULL;
 		lo = 0ULL;
 		new = hi >> 1;
 
@@ -438,13 +438,13 @@ int get_device_size(int fd)
 				lo = new;
 				delta = (hi - lo) >> 1;
 				new = hi - delta;
-				new &= 0xfffffffffffffd00;
+				new &= 0xfffffffffffffd00ULL;
 			} else {
 				// go lower
 				hi = new;
 				delta = (hi - lo) >> 1;
 				new = lo + delta;
-				new &= 0xfffffffffffffd00;
+				new &= 0xfffffffffffffd00ULL;
 			}
 			
 			if (last == new || hi <= lo)
