@@ -64,7 +64,7 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 			/* XXX offer to remove files/dirs with no data? */
 			if (prompt(ost, PY, "Inode %"PRIu64" isn't referenced "
 				   "by any directory entries.  Move it to "
-				   "lost+found?")) {
+				   "lost+found?", ino)) {
 				o2fsck_reconnect_file(ost, ino);
 				refs = o2fsck_icount_get(ost->ost_icount_refs,
 						ino);

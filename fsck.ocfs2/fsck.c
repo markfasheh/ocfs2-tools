@@ -25,14 +25,6 @@
  * Roughly o2fsck performs the following operations.  Each pass' file has
  * more details.
  * 
- * - replay the journals if needed
- * 	- walk the journal extents looking for simple inconsistencies
- * 		- loops, doubly referenced blocks
- * 		- need this code later anyway for verifying files
- * 		  and i_clusters/i_size
- * 	- prompt to proceed if errors (mention backup superblock)
- * 		- ignore entirely or partially replay?
- *
  * - pass0: clean up the inode allocators
  * 	- kill loops, chains can't share groups
  * 	- move local allocs back to the global or something?
