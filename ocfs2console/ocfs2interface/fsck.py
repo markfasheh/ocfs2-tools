@@ -75,8 +75,8 @@ def fsck_volume(parent, device, check=False):
         if dialog.finished:
             break
 
-        msg = ('File system %s is still running. You should not shut close '
-               'this window until it is finished' % check_str)
+        msg = ('File system %s is still running. You should not close this '
+               'window until it is finished' % check_str)
 
         info = gtk.MessageDialog(parent=dialog,
                                  flags=gtk.DIALOG_DESTROY_WITH_PARENT,
