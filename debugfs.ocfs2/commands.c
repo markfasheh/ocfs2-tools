@@ -58,7 +58,7 @@ static void do_lcd (char **args);
 static void do_curdev (char **args);
 static void do_super (char **args);
 static void do_inode (char **args);
-static void do_dlm (char **args);
+static void do_hb (char **args);
 static void do_journal (char **args);
 static void do_group (char **args);
 static void do_extent (char **args);
@@ -101,9 +101,9 @@ static Command commands[] =
   { "show_inode_info", do_inode },
   { "stat", do_inode },
 
-  { "nodes", do_dlm },
-  { "publish", do_dlm },
-  { "vote", do_dlm },
+  { "nodes", do_hb },
+  { "publish", do_hb },
+  { "vote", do_hb },
 
   { "logdump", do_journal },
 
@@ -336,13 +336,13 @@ static void do_open (char **args)
 		free(gbls.curdir);
 	gbls.curdir = strdup("/");
 
-	/* lookup dlm file */
+	/* lookup heartbeat file */
 	snprintf (sysfile, sizeof(sysfile),
-		  sysfile_info[DLM_SYSTEM_INODE].name);
+		  sysfile_info[HEARTBEAT_SYSTEM_INODE].name);
 	ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
-			   strlen(sysfile), NULL, &gbls.dlm_blkno);
+			   strlen(sysfile), NULL, &gbls.hb_blkno);
 	if (ret)
-		gbls.dlm_blkno = 0;
+		gbls.hb_blkno = 0;
 
 	/* lookup journal files */
 	for (i = 0; i < sb->s_max_nodes; ++i) {
@@ -639,12 +639,12 @@ bail:
 }					/* do_inode */
 
 /*
- * do_dlm()
+ * do_hb()
  *
  */
-static void do_dlm (char **args)
+static void do_hb (char **args)
 {
-	char *dlmbuf = NULL;
+	char *hbbuf = NULL;
 	FILE *out;
 	int len;
 	errcode_t ret;
@@ -664,22 +664,22 @@ static void do_dlm (char **args)
 	else
 		DBGFS_FATAL("internal");
 
-	ret = ocfs2_read_whole_file(gbls.fs, gbls.dlm_blkno, &dlmbuf, &len);
+	ret = ocfs2_read_whole_file(gbls.fs, gbls.hb_blkno, &hbbuf, &len);
 	if (ret) {
-		com_err(gbls.progname, ret, "while reading dlm file");
+		com_err(gbls.progname, ret, "while reading hb file");
 		goto bail;
 	}
 
 	out = open_pager();
-	dump_func(out, dlmbuf);
+	dump_func(out, hbbuf);
 	close_pager(out);
 
 bail:
-	if (dlmbuf)
-		ocfs2_free(&dlmbuf);
+	if (hbbuf)
+		ocfs2_free(&hbbuf);
 
 	return ;
-}					/* do_dlm */
+}					/* do_hb */
 
 /*
  * do_dump()

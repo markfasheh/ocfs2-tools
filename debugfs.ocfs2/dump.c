@@ -134,8 +134,8 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		g_string_append (flags, "Allocbitmap ");
 	if (in->i_flags & OCFS2_JOURNAL_FL)
 		g_string_append (flags, "Journal ");
-	if (in->i_flags & OCFS2_DLM_FL)
-		g_string_append (flags, "DLM ");
+	if (in->i_flags & OCFS2_HEARTBEAT_FL)
+		g_string_append (flags, "Heartbeat ");
 	if (in->i_flags & OCFS2_CHAIN_FL)
 		g_string_append (flags, "Chain ");
 

@@ -44,7 +44,7 @@
 typedef struct _ocfs2_fs {
 	ocfs2_filesys *fs;
 	char *dev_name;
-	uint64_t dlm_blkno;
+	uint64_t hb_blkno;
 	uint64_t *pub_times;
 	int *live_node;
 	struct list_head list;
@@ -352,7 +352,7 @@ errcode_t ocfs2_gather_times_v2(ocfs2_fs *fs_blk, struct list_head *node_list,
 			       	int first_time)
 {
 	ocfs2_filesys *fs = fs_blk->fs;
-	char *dlm = sysfile_info[DLM_SYSTEM_INODE].name;
+	char *hb = sysfile_info[HEARTBEAT_SYSTEM_INODE].name;
 	char *buf = NULL;
 	int buflen = 0;
 	errcode_t ret = 0;
@@ -363,16 +363,16 @@ errcode_t ocfs2_gather_times_v2(ocfs2_fs *fs_blk, struct list_head *node_list,
 	ocfs2_nodes *node_blk;
 	int i;
 
-	/* get the dlm blkno */
-	if (!fs_blk->dlm_blkno) {
-		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, dlm, strlen(dlm),
-				   NULL, &(fs_blk->dlm_blkno));
+	/* get the hb blkno */
+	if (!fs_blk->hb_blkno) {
+		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, hb, strlen(hb),
+				   NULL, &(fs_blk->hb_blkno));
 		if (ret)
 			goto bail;
 	}
 
-	/* read dlm file */
-	ret = ocfs2_read_whole_file(fs, fs_blk->dlm_blkno, &buf, &buflen);
+	/* read hb file */
+	ret = ocfs2_read_whole_file(fs, fs_blk->hb_blkno, &buf, &buflen);
 	if (ret)
 		goto bail;
 

@@ -721,7 +721,7 @@ int get_ocfs2_disk_hb_params(char *group_dev, __u32 *block_bits, __u32 *cluster_
 	if (ret)
 		return status;
 
-	heartbeat_filename = sysfile_info[DLM_SYSTEM_INODE].name;
+	heartbeat_filename = sysfile_info[HEARTBEAT_SYSTEM_INODE].name;
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, heartbeat_filename,
 			   strlen(heartbeat_filename),  NULL, &blkno);
 	if (ret)

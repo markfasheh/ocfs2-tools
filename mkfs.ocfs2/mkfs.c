@@ -99,7 +99,7 @@ enum {
 	SFI_JOURNAL,
 	SFI_CLUSTER,
 	SFI_LOCAL_ALLOC,
-	SFI_DLM,
+	SFI_HEARTBEAT,
 	SFI_CHAIN,
 	SFI_OTHER
 };
@@ -276,7 +276,6 @@ static void close_device(State *s);
 static int initial_nodes_for_volume(uint64_t size);
 static void generate_uuid(State *s);
 static void create_generation(State *s);
-static void write_autoconfig_header(State *s, SystemFileDiskRecord *rec);
 static void init_record(State *s, SystemFileDiskRecord *rec, int type, int dir);
 static void print_state(State *s);
 static int ocfs2_clusters_per_group(int block_size,
@@ -294,7 +293,7 @@ SystemFileInfo system_files[] = {
 	{ "bad_blocks", SFI_OTHER, 1, 0 },
 	{ "global_inode_alloc", SFI_CHAIN, 1, 0 },
 	{ "slot_map", SFI_OTHER, 1, 0 },
-	{ "dlm", SFI_DLM, 1, 0 },
+	{ "heartbeat", SFI_HEARTBEAT, 1, 0 },
 	{ "global_bitmap", SFI_CLUSTER, 1, 0 },
 	{ "orphan_dir", SFI_OTHER, 1, 1 },
 	{ "extent_alloc:%04d", SFI_CHAIN, 0, 0 },
@@ -444,7 +443,7 @@ main(int argc, char **argv)
 	s->system_group->gd->bg_parent_dinode = 
 		cpu_to_le64(tmprec->fe_off >> s->blocksize_bits);
 
-	tmprec = &(record[DLM_SYSTEM_INODE][0]);
+	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
 	need = (OCFS2_MAX_NODES + 1) << s->blocksize_bits;
 
 	alloc_bytes_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
@@ -506,13 +505,8 @@ main(int argc, char **argv)
 	write_directory_data(s, system_dir);
 	write_directory_data(s, orphan_dir);
 
-	if (!s->quiet)
-		printf("done\n");
-
-	if (!s->quiet)
-		printf("Writing autoconfig header: ");
-
-	write_autoconfig_header(s, &record[DLM_SYSTEM_INODE][0]);
+	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
+	write_metadata(s, tmprec, NULL);
 
 	if (!s->quiet)
 		printf("done\n");
@@ -1648,7 +1642,8 @@ write_metadata(State *s, SystemFileDiskRecord *rec, void *src)
 	buf = do_malloc(s, rec->extent_len);
 	memset(buf, 0, rec->extent_len);
 
-	memcpy(buf, src, rec->file_size);
+	if (src)
+		memcpy(buf, src, rec->file_size);
 
 	do_pwrite(s, buf, rec->extent_len, rec->extent_off);
 
@@ -1865,24 +1860,6 @@ static void create_generation(State *s)
 }
 
 static void
-write_autoconfig_header(State *s, SystemFileDiskRecord *rec)
-{
-	ocfs_node_config_hdr *hdr;
-
-	hdr = do_malloc(s, s->blocksize);
-	memset(hdr, 0, s->blocksize);
-
-	strcpy(hdr->signature, OCFS2_NODE_CONFIG_HDR_SIGN);
-	hdr->version = OCFS2_NODE_CONFIG_VER;
-	hdr->num_nodes = 0;
-	hdr->disk_lock.dl_master = -1;
-	hdr->last_node = 0;
-
-	do_pwrite(s, hdr, s->blocksize, rec->extent_off);
-	free(hdr);
-}
-
-static void
 init_record(State *s, SystemFileDiskRecord *rec, int type, int dir)
 {
 	memset(rec, 0, sizeof(SystemFileDiskRecord));
@@ -1902,8 +1879,8 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int dir)
 	case SFI_LOCAL_ALLOC:
 		rec->flags |= (OCFS2_BITMAP_FL|OCFS2_LOCAL_ALLOC_FL);
 		break;
-	case SFI_DLM:
-		rec->flags |= OCFS2_DLM_FL;
+	case SFI_HEARTBEAT:
+		rec->flags |= OCFS2_HEARTBEAT_FL;
 		break;
 	case SFI_CLUSTER:
 		rec->cluster_bitmap = 1;

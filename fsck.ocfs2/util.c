@@ -105,8 +105,8 @@ out:
 errcode_t o2fsck_read_publish(o2fsck_state *ost)
 {
 	uint16_t i, max_nodes;
-	char *dlm_buf = NULL;
-	uint64_t dlm_ino;
+	char *hb_buf = NULL;
+	uint64_t hb_ino;
 	errcode_t ret;
 	int buflen;
 	char *whoami = "read_publish";
@@ -124,14 +124,14 @@ errcode_t o2fsck_read_publish(o2fsck_state *ost)
 		goto out;
 	}
 
-	ret = ocfs2_lookup_system_inode(ost->ost_fs, DLM_SYSTEM_INODE,
-					0, &dlm_ino);
+	ret = ocfs2_lookup_system_inode(ost->ost_fs, HEARTBEAT_SYSTEM_INODE,
+					0, &hb_ino);
 	if (ret) {
 		com_err(whoami, ret, "while looking up the dlm system inode");
 		goto out;
 	}
 
-	ret = ocfs2_read_whole_file(ost->ost_fs, dlm_ino, &dlm_buf, &buflen);
+	ret = ocfs2_read_whole_file(ost->ost_fs, hb_ino, &hb_buf, &buflen);
 	if (ret) {
 		com_err(whoami, ret, "while reading dlm file");
 		goto out;
@@ -142,7 +142,7 @@ errcode_t o2fsck_read_publish(o2fsck_state *ost)
 		int b_bits = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_blocksize_bits;
 
 		memcpy(&ost->ost_publish[i],
-		       dlm_buf + ((2 + 4 + max_nodes + i) << b_bits),
+		       hb_buf + ((2 + 4 + max_nodes + i) << b_bits),
 		       sizeof(ocfs_publish));
 		if (ost->ost_publish[i].mounted)
 			ost->ost_stale_mounts = 1;
@@ -150,7 +150,7 @@ errcode_t o2fsck_read_publish(o2fsck_state *ost)
 out:
 	if (ret && ost->ost_publish)
 		ocfs2_free(&ost->ost_publish);
-	if (dlm_buf)
-		ocfs2_free(&dlm_buf);
+	if (hb_buf)
+		ocfs2_free(&hb_buf);
 	return ret;
 }

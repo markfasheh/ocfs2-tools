@@ -264,7 +264,7 @@ void read_sysdir (int fd, char *sysdir)
 	ocfs2_dinode *inode;
 	struct ocfs2_dir_entry *rec;
 	GArray *dirarr = NULL;
-	char *dlm = sysfile_info[DLM_SYSTEM_INODE].name;
+	char *hb = sysfile_info[HEARTBEAT_SYSTEM_INODE].name;
 	char *gblbm = sysfile_info[GLOBAL_BITMAP_SYSTEM_INODE].name;
 	unsigned int i, j;
 	char *journal[256];
@@ -292,8 +292,8 @@ void read_sysdir (int fd, char *sysdir)
 
 	for (i = 0; i < dirarr->len; ++i) {
 		rec = &(g_array_index(dirarr, struct ocfs2_dir_entry, i));
-		if (!strncmp (rec->name, dlm, strlen(dlm))) {
-			gbls.dlm_blkno = rec->inode;
+		if (!strncmp (rec->name, hb, strlen(hb))) {
+			gbls.hb_blkno = rec->inode;
 			continue;
 		}
 		if (!strncmp (rec->name, gblbm, strlen(gblbm))) {

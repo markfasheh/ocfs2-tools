@@ -93,7 +93,7 @@
 #define OCFS2_LOCAL_ALLOC_FL	(0x00000040)	/* Node local alloc bitmap */
 #define OCFS2_BITMAP_FL		(0x00000080)	/* Allocation bitmap */
 #define OCFS2_JOURNAL_FL	(0x00000100)	/* Node journal */
-#define OCFS2_DLM_FL		(0x00000200)	/* DLM area */
+#define OCFS2_HEARTBEAT_FL	(0x00000200)	/* Heartbeat area */
 #define OCFS2_CHAIN_FL		(0x00000400)	/* Chain allocator */
 
 /*
@@ -133,7 +133,7 @@ enum {
 	GLOBAL_INODE_ALLOC_SYSTEM_INODE,
 	SLOT_MAP_SYSTEM_INODE,
 #define OCFS2_FIRST_ONLINE_SYSTEM_INODE SLOT_MAP_SYSTEM_INODE
-	DLM_SYSTEM_INODE,
+	HEARTBEAT_SYSTEM_INODE,
 	GLOBAL_BITMAP_SYSTEM_INODE,
 	ORPHAN_DIR_SYSTEM_INODE,
 #define OCFS2_LAST_GLOBAL_SYSTEM_INODE ORPHAN_DIR_SYSTEM_INODE
@@ -152,7 +152,7 @@ static ocfs2_sysfile_info sysfile_info[NUM_SYSTEM_INODES] = {
 
 	/* These are used by the running filesystem */
 	[SLOT_MAP_SYSTEM_INODE]			{ "slot_map", 0, 0 },
-	[DLM_SYSTEM_INODE]			{ "dlm", OCFS2_DLM_FL, 0 },
+	[HEARTBEAT_SYSTEM_INODE]		{ "heartbeat", OCFS2_HEARTBEAT_FL, 0 },
 	[GLOBAL_BITMAP_SYSTEM_INODE]		{ "global_bitmap", 0, 0 },
 	[ORPHAN_DIR_SYSTEM_INODE]		{ "orphan_dir", 0, 1 },
 
