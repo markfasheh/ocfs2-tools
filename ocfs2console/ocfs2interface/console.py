@@ -35,7 +35,7 @@ from fsck import fsck_volume
 info_items = (
     ('General',          General),
     ('File Listing',     Browser),
-    ('Configured Nodes', NodeMap),
+#    ('Configured Nodes', NodeMap),
 )
 
 class Console(gtk.Window):

@@ -27,7 +27,9 @@ fields = (
     ('UUID', 's_uuid'),
     ('Maximum Nodes', 's_max_nodes'),
     ('Cluster Size', 's_clustersize_bits'),
-    ('Block Size', 's_blocksize_bits')
+    ('Block Size', 's_blocksize_bits'),
+    ('Free Space', 'freebits'),
+    ('Total Space', 'numbits'),
 )
 
 class General:
@@ -39,10 +41,15 @@ class General:
                                border_width=4)
 
         super = None
+        numbits = 0
 
         if device:
             try:
                 super = ocfs2.get_super(device)
+                numbits, freebits = ocfs2.get_space_usage(device)
+
+                clustersize = 1L << super.s_clustersize_bits
+                blocksize = 1L << super.s_blocksize_bits
             except ocfs2.error:
                 pass
 
@@ -55,6 +62,13 @@ class General:
                 elif member == 's_label':
                     val = super.s_label
                     if not val:
+                        val = 'N/A'
+                elif member == 'numbits' or member == 'freebits':
+                    if numbits:
+                        blocks = (vars()[member] * 
+                                  (clustersize >> super.s_blocksize_bits))
+                        val = format_bytes(blocks * blocksize)
+                    else:
                         val = 'N/A'
                 else:
                     val = getattr(super, member)

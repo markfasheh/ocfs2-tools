@@ -19,8 +19,7 @@ import gtk
 
 import ocfs2
 
-COLUMN_DEVICE = 0
-COLUMN_MOUNTPOINT = 1
+COLUMN_DEVICE, COLUMN_MOUNTPOINT = range(2)
 
 class PartitionView(gtk.TreeView):
     def __init__(self, info_frames=()):
@@ -170,6 +169,7 @@ def main():
     window.connect('delete_event', dummy)
 
     scrl_win = gtk.ScrolledWindow()
+    scrl_win.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
     window.add(scrl_win)
 
     pv = PartitionView()

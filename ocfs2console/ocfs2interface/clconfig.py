@@ -19,6 +19,13 @@ import gtk
 
 from guiutil import set_props, error_box
 
+COLUMN_NAME, COLUMN_NODE_NUM, COLUMN_IP_ADDR, COLUMN_IP_PORT = range(4)
+
+def cluster_store():
+    store = gtk.ListStore(str, int, str, int)
+
+    store.set_sort_column_id(COLUMN_NODE_NUM, gtk.SORT_ASCENDING)
+
 def cluster_configurator(parent):
     dialog = gtk.Dialog(parent=parent, title='Cluster Configurator',
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
@@ -28,7 +35,22 @@ def cluster_configurator(parent):
     hbox.set_border_width(4)
     dialog.vbox.add(hbox)
 
+    store = cluster_store()
+
     tv = gtk.TreeView()
+
+    tv.insert_column_with_attributes(-1, 'Node Name',
+                                     gtk.CellRendererText(),
+                                     text=COLUMN_NAME)
+    tv.insert_column_with_attributes(-1, 'Node Number',
+                                     gtk.CellRendererText(),
+                                     text=COLUMN_NODE_NUM)
+    tv.insert_column_with_attributes(-1, 'IP Address',
+                                     gtk.CellRendererText(),
+                                     text=COLUMN_IP_ADDR)
+    tv.insert_column_with_attributes(-1, 'IP Port',
+                                     gtk.CellRendererText(),
+                                     text=COLUMN_IP_PORT)
 
     scrl_win = gtk.ScrolledWindow()     
     set_props(scrl_win, hscrollbar_policy=gtk.POLICY_AUTOMATIC,
@@ -37,15 +59,12 @@ def cluster_configurator(parent):
 
     scrl_win.add(tv)
 
-    frame = gtk.Frame()
-    frame.set_shadow_type(gtk.SHADOW_IN)
-    hbox.pack_end(frame, expand=False, fill=False)
-
     vbbox = gtk.VButtonBox()
     set_props(vbbox, layout_style=gtk.BUTTONBOX_START,
                      spacing=5,
                      border_width=5,
                      parent=frame)
+    hbox.pack_end(vbbox, expand=False, fill=False)
 
     button = gtk.Button(stock=gtk.STOCK_ADD)
     vbbox.add(button)

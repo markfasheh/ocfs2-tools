@@ -231,9 +231,62 @@ get_super (PyObject *self,
   return v;
 }
 
+static PyObject *
+get_space_usage (PyObject *self,
+		 PyObject *args)
+{
+  gchar              *device;
+  errcode_t           ret;
+  PyObject           *v = NULL;
+  ocfs2_filesys      *fs = NULL;
+  uint64_t            blkno;
+  ocfs2_cached_inode *cinode = NULL;
+  ocfs2_dinode       *bm;
+  uint32_t            numbits, freebits;
+
+  if (!PyArg_ParseTuple (args, "s:get_super", &device))
+    return NULL;
+
+#define CHECK_ERROR(call)			G_STMT_START {	\
+  ret = call;							\
+  if (ret)							\
+    {								\
+      PyErr_SetString (ocfs2_error, error_message (ret));	\
+      goto bail;						\
+    }								\
+} G_STMT_END
+  
+  CHECK_ERROR (ocfs2_open (device, OCFS2_FLAG_RO, 0, 0, &fs));
+  CHECK_ERROR (ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE, -1,
+					 &blkno));
+  CHECK_ERROR (ocfs2_read_cached_inode(fs, blkno, &cinode));
+
+#undef CHECK_ERROR
+
+  bm = cinode->ci_inode;
+
+  numbits = le32_to_cpu (bm->id1.bitmap1.i_total);
+  freebits = numbits - le32_to_cpu (bm->id1.bitmap1.i_used);
+
+  v = PyTuple_New (2);
+
+  PyTuple_SetItem(v, 0, PyInt_FromLong (numbits));
+  PyTuple_SetItem(v, 1, PyInt_FromLong (freebits));
+
+bail:
+  if (cinode)
+    ocfs2_free_cached_inode(fs, cinode);
+
+  if (fs)
+    ocfs2_close (fs);
+
+  return v;
+}
+
 static PyMethodDef ocfs2_methods[] = {
   {"partition_list", (PyCFunction)partition_list, METH_VARARGS | METH_KEYWORDS},
   {"get_super", (PyCFunction)get_super, METH_VARARGS},
+  {"get_space_usage", (PyCFunction)get_space_usage, METH_VARARGS},
   {NULL,       NULL}    /* sentinel */
 };
 
