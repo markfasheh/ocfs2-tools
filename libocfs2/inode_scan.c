@@ -287,8 +287,8 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 						 scan->buffer_blocks);
 	}
 
-	ret = ocfs2_malloc(sizeof(char) * scan->buffer_blocks *
-			   fs->fs_blocksize, &scan->group_buffer);
+	ret = ocfs2_malloc_blocks(fs->fs_io, scan->buffer_blocks,
+				  &scan->group_buffer);
 	if (ret)
 		goto out_inode_files;
 
