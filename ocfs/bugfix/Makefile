@@ -15,7 +15,7 @@ DIST_FILES = bug3123542.c bug3016598.c bug3123542-README.txt bug3016598-README.t
 
 SBIN_PROGRAMS = bug3016598 bug3123542
 
-INCLUDES = -I$(TOPDIR)/libocfs/Common/inc -I$(TOPDIR)/libocfs/Linux/inc -Iinc -I$(TOPDIR)/libocfs
+INCLUDES = -I$(TOPDIR)/ocfs/libocfs/Common/inc -I$(TOPDIR)/ocfs/libocfs/Linux/inc -Iinc -I$(TOPDIR)/ocfs/libocfs
 DEFINES = -DLINUX -DUSERSPACE_TOOL
 
 OPTIMIZE = -O2
@@ -50,10 +50,10 @@ VERSION_PREFIX = BUGFIX
 DIST_RULES = dist-incdir
 
 bug3016598: bug3016598.o ver.o generic.o
-	$(LINK) -L$(TOPDIR)/libocfs -locfs
+	$(LINK) -L$(TOPDIR)/ocfs/libocfs -locfs
 
 bug3123542: bug3123542.o ver.o generic.o
-	$(LINK) -L$(TOPDIR)/libocfs -locfs
+	$(LINK) -L$(TOPDIR)/ocfs/libocfs -locfs
 
 dist-incdir:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/inc

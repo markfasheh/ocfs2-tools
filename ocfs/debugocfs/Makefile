@@ -59,7 +59,7 @@ ocfsextfinder: extfinder.o ../libocfs/libocfs.a
 	$(LINK) $(GLIB_LIBS) -lglib 
 
 debugocfs: print.o debugocfs.o io.o main.o ../libocfs/libocfs.a
-	$(LINK) -pthread -L$(TOPDIR)/libocfs -locfs
+	$(LINK) -pthread -L$(TOPDIR)/ocfs/libocfs -locfs
 
 dbg.o: debugocfs.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(GTK_CFLAGS) -DLIBDEBUGOCFS $(DEFINES) -o $@ -c $<
