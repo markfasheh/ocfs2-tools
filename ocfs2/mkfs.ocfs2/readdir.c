@@ -156,7 +156,7 @@ int load_extents(int fd, bunchathingies *bleh, ocfs2_dinode *fe)
 	bleh->alloc_size = fe->i_clusters * 4096;
 	bleh->total_size = 0;
 	
-	if (fe->id2.i_list.l_tree_depth == -1)
+	if (fe->id2.i_list.l_tree_depth == 0)
 		ret = load_local_extents(fd, bleh, fe);
 	else
 		ret = -1;
@@ -231,7 +231,7 @@ int fe_main(int argc, char **argv)
 	printf("dtime: %s", ctime(&fe->i_dtime));
 	printf("blkno: %llu\n", fe->i_blkno);
 	printf("clusters: %lu\n", fe->i_clusters);
-	printf("tree_depth: %d\n", fe->id2.i_list.l_tree_depth);
+	printf("tree_depth: %u\n", fe->id2.i_list.l_tree_depth);
 	printf("next_free_ext: %u\n", fe->id2.i_list.l_next_free_rec);
 	printf("extent count: %u\n", fe->id2.i_list.l_count);
 	//printf("last_ext_ptr: %llu\n", fe->last_ext_ptr);

@@ -650,7 +650,7 @@ void format_file(system_file_disk_record *rec)
 
 	di->id2.i_list.l_count = cpu_to_le16(ocfs2_extent_recs_per_inode(blocksize));
 	di->id2.i_list.l_next_free_rec = cpu_to_le16(0);
-	di->id2.i_list.l_tree_depth = cpu_to_le16(-1);
+	di->id2.i_list.l_tree_depth = cpu_to_le16(0);
 
 	if (rec->extent_len) {
 		di->id2.i_list.l_next_free_rec = cpu_to_le16(1);

@@ -215,7 +215,7 @@ void dump_extent_list (ocfs2_extent_list *ext)
 	ocfs2_extent_rec *rec;
 	int i;
 
-	printf("Tree Depth: %d   Count: %u   Next Free Rec: %u\n",
+	printf("Tree Depth: %u   Count: %u   Next Free Rec: %u\n",
 	       ext->l_tree_depth, ext->l_count, ext->l_next_free_rec);
 
 	if (!ext->l_next_free_rec)

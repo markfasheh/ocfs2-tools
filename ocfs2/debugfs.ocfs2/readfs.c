@@ -138,7 +138,7 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump)
 
 	for (i = 0; i < ext->l_next_free_rec; ++i) {
 		rec = &(ext->l_recs[i]);
-		if (ext->l_tree_depth == -1)
+		if (ext->l_tree_depth == 0)
 			add_extent_rec (arr, rec);
 		else {
 			buflen = 1 << blksz_bits;
