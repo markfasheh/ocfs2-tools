@@ -35,7 +35,8 @@
 #define  ONE_MILLI_SEC           (10 * 1000)         /* 100 nanosec unit */
 #define  ONE_MEGA_BYTE           (1 * 1024 * 1024)   /* in bytes */
 
-#define  MISS_COUNT_VALUE        20
+#define  MISS_COUNT_VALUE        40
+#define  MIN_MISS_COUNT_VALUE    5
 
 #define  OCFS_DEFAULT_DIR_NODE_SIZE  (1024 * 128)
 #define  OCFS_DEFAULT_FILE_NODE_SIZE (512)
@@ -242,6 +243,7 @@ ocfs_rw_mode;
 
 #define OCFS_NM_HEARTBEAT_TIME		500	/* in ms */
 #define OCFS_HEARTBEAT_INIT             10      /* number of NM iterations to stabilize the publish map */
+#define OCFS_HB_TIMEOUT			30000	/* in ms */
 
 #ifndef O_DIRECT
 #define O_DIRECT        040000

@@ -217,13 +217,7 @@ int ocfs_find_update_res (ocfs_super * osb, __u64 lock_id,
 			goto finally;
 		}
 
-		if (lock_id != (*lockres)->sector_num) {
-			LOG_ERROR_ARGS ("lockid=%u.%u != secnum=%u.%u\n",
-					HILO(lock_id),
-					HILO((*lockres)->sector_num));
-			status = -EFAIL;
-			goto finally;
-		}
+		OCFS_ASSERT (lock_id == (*lockres)->sector_num);
 
 		status = ocfs_check_for_stale_lock(osb, *lockres, fe, lock_id);
 		if (status < 0) {
@@ -248,13 +242,7 @@ int ocfs_find_update_res (ocfs_super * osb, __u64 lock_id,
 		}
 	}
 
-	if (lock_id != (*lockres)->sector_num) {
-		LOG_ERROR_ARGS ("lockid=%u.%u != secnum=%u.%u",
-				HILO(lock_id),
-				HILO((*lockres)->sector_num));
-		status = -EFAIL;
-		goto finally;
-	}
+	OCFS_ASSERT (lock_id == (*lockres)->sector_num);
 
 	if ((*lockres)->master_node_num != osb->node_num) {
 		status = ocfs_disk_update_resource (osb, *lockres, fe, timeout);
@@ -335,7 +323,9 @@ struct inode * ocfs_get_inode_from_offset(ocfs_super * osb, __u64 fileoff)
 			       (find_inode_t) ocfs_find_inode,
 			       (void *) (&args));
                 if (inode != NULL && is_bad_inode (inode)) {
+#ifndef USERSPACE_TOOL
 		        iput (inode);
+#endif
 		        inode = NULL;
                 }
 		ocfs_release_file_entry (fe);
@@ -416,9 +406,8 @@ int ocfs_process_vote (ocfs_super * osb, ocfs_publish * publish, __u32 node_num)
 
 	LOG_ENTRY_ARGS ("(0x%p, 0x%p, %u)\n", osb, publish, node_num);
 
-	LOG_TRACE_ARGS ("node=%u, id=%u.%u, seq=%u.%u\n", node_num,
-		HI(publish->dir_ent), LO(publish->dir_ent),
-		HI(publish->publ_seq_num), LO(publish->publ_seq_num));
+	LOG_TRACE_ARGS ("pv node=%u, id=%u.%u, seq=%u.%u\n", node_num,
+		       	HILO (publish->dir_ent), HILO (publish->publ_seq_num));
 
 	num_nodes = OCFS_MAXIMUM_NODES;
 	flags = publish->vote_type;
@@ -431,9 +420,16 @@ int ocfs_process_vote (ocfs_super * osb, ocfs_publish * publish, __u32 node_num)
 		goto finito;
 	}
 
+	/* if invalid lockid */
+	if (ocfs_validate_lockid (osb, publish->dir_ent)) {
+		vote->vote[node_num] = FLAG_VOTE_UPDATE_RETRY;
+		vote->open_handle = false;
+		goto finito;
+	}
+
 	/* Exclusive vote for */
 	status = ocfs_find_update_res (osb, publish->dir_ent, &lockres, NULL,
-				       NULL, (OCFS_NM_HEARTBEAT_TIME/2));
+				       NULL, (OCFS_NM_HEARTBEAT_TIME));
 	if (status < 0) {
 		if (status == -ETIMEDOUT)
 			goto finito;
@@ -452,7 +448,7 @@ int ocfs_process_vote (ocfs_super * osb, ocfs_publish * publish, __u32 node_num)
 		goto finito;
 	}
 
-	status = ocfs_acquire_lockres_ex (lockres, (OCFS_NM_HEARTBEAT_TIME/2));
+	status = ocfs_acquire_lockres_ex (lockres, (OCFS_NM_HEARTBEAT_TIME));
 	if (status < 0) {
 		LOG_TRACE_ARGS ("Timedout locking lockres for id: %u.%u\n",
 			       	HILO (lockres->sector_num));
@@ -707,14 +703,19 @@ int ocfs_common_del_ren (ocfs_super * osb, __u64 lock_id, __u32 flags,
 	__u32 retry_cnt = 0;
 	bool acq_oin = false;
 	ocfs_file_entry *fe = NULL;
-	bool rls_oin = true;
 	ocfs_inode *oin = NULL;
 	ocfs_sem *oin_sem = NULL;
+	struct inode *inode = NULL;
 
 	LOG_ENTRY ();
 
+/* The macro below takes into account the pre RELEASE/ACQUIRE_LOCK flag days */
+/* Allows for rolling upgrade */
+#define IS_RELEASE_LOCK(_f)	(((_f) & FLAG_FILE_RELEASE_LOCK) ||	\
+				 !((_f) & (FLAG_FILE_ACQUIRE_LOCK | FLAG_FILE_RELEASE_LOCK)))
+
 	oin = (*lockres)->oin;
-	if (oin) {
+	if (oin && !IS_RELEASE_LOCK(flags)) {
 		ocfs_down_sem (&oin->main_res, true);
 		oin->needs_verification = true;
 		status = ocfs_verify_update_oin(osb, oin);
@@ -752,11 +753,6 @@ int ocfs_common_del_ren (ocfs_super * osb, __u64 lock_id, __u32 flags,
 			}
 		}
 
-/* The macro below takes into account the pre RELEASE/ACQUIRE_LOCK flag days */
-/* Allows for rolling upgrade */
-#define IS_RELEASE_LOCK(_f)	(((_f) & FLAG_FILE_RELEASE_LOCK) ||	\
-				 !((_f) & (FLAG_FILE_ACQUIRE_LOCK | FLAG_FILE_RELEASE_LOCK)))
-
 		if (((*lockres)->oin->open_hndl_cnt == 0) &&
 		    (!(oin->oin_flags & OCFS_OIN_IN_USE))) {
 			if (!(oin->oin_flags & OCFS_OIN_IN_TEARDOWN) &&
@@ -765,8 +761,6 @@ int ocfs_common_del_ren (ocfs_super * osb, __u64 lock_id, __u32 flags,
 					ocfs_up_sem (oin_sem);
 					acq_oin = false;
 				}
-
-				rls_oin = false;
 
 				if (!acq_oin) {
 					ocfs_down_sem (oin_sem, true);
@@ -784,28 +778,19 @@ int ocfs_common_del_ren (ocfs_super * osb, __u64 lock_id, __u32 flags,
 				ocfs_release_lockres (*lockres);
 
 				if (oin && oin->inode) {
-					struct inode *inode = oin->inode;
+					inode = oin->inode;
+					if (inode) {
+						oin->inode = NULL;
+#ifndef USERSPACE_TOOL
+						iput(inode);
+#endif
+					}
+					ocfs_down_sem (&(oin->paging_io_res), true);
+					ocfs_purge_cache_section (oin, NULL, 0);
+					ocfs_up_sem (&(oin->paging_io_res));
 					inode->i_nlink = 0;
 					d_prune_aliases (inode);
 				}
-
-				if (rls_oin) {
-					ocfs_release_cached_oin (osb, oin);
-					ocfs_release_oin (oin, true);
-				} else {
-					ocfs_down_sem (&(oin->paging_io_res),
-						       true);
-					ocfs_purge_cache_section (oin, NULL, 0);
-					ocfs_up_sem (&(oin->paging_io_res));
-				}
-
-				if (oin && oin->inode) {
-#ifndef USERSPACE_TOOL
-					iput (oin->inode);
-#endif
-					oin->inode = NULL;
-				}
-				*lockres = NULL;
 			}
 			*vote = FLAG_VOTE_NODE;
 			goto finito;
@@ -815,7 +800,6 @@ int ocfs_common_del_ren (ocfs_super * osb, __u64 lock_id, __u32 flags,
 		}
 	} else {
 #ifndef USERSPACE_TOOL
-                struct inode *inode = NULL;
                 if (flags & FLAG_FILE_DELETE && IS_RELEASE_LOCK(flags)) {
                         inode = ocfs_get_inode_from_offset(osb, lock_id);
                         if (inode) {

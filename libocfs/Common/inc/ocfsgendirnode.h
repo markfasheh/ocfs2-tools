@@ -77,9 +77,36 @@ int ocfs_insert_dir_node (ocfs_super * osb,
 int ocfs_del_file_entry (ocfs_super * osb,
 	      ocfs_file_entry * EntryToDel, ocfs_dir_node * LockNode);
 
-int ocfs_insert_file (ocfs_super * osb,
-	    ocfs_dir_node * DirNode,
-	    ocfs_file_entry * InsertEntry,
-	    ocfs_dir_node * LockNode, ocfs_lock_res * LockResource);
+int ocfs_insert_file (ocfs_super * osb, ocfs_dir_node * DirNode,
+		      ocfs_file_entry * InsertEntry, ocfs_dir_node * LockNode,
+		      ocfs_lock_res * LockResource, bool invalid_dirnode);
+
+int ocfs_validate_dir_index (ocfs_super *osb, ocfs_dir_node *dirnode);
+
+int ocfs_validate_num_del (ocfs_super *osb, ocfs_dir_node *dirnode);
+
+static inline int ocfs_validate_dirnode (ocfs_super *osb, ocfs_dir_node *dirn)
+{
+	int ret = 0;
+
+	if (!IS_VALID_DIR_NODE (dirn))
+		ret = -EFAIL;
+
+	if (ret == 0)
+		ret = ocfs_validate_dir_index (osb, dirn);
+	if (ret == 0)
+		ret = ocfs_validate_num_del (osb, dirn);
+
+	return ret;
+}
+
+static inline void ocfs_update_hden (ocfs_dir_node *lockn, ocfs_dir_node *dirn,
+				     __u64 off)
+{
+	if (lockn->node_disk_off != dirn->node_disk_off)
+		lockn->head_del_ent_node = off;
+	else
+		dirn->head_del_ent_node = off;
+}
 
 #endif				/* _OCFSGENDIRNODE_H_ */

@@ -70,7 +70,7 @@ int ocfs_verify_update_oin (ocfs_super * osb, ocfs_inode * oin)
 		/* Add checks as needed */
 		if (IS_FE_DELETED(fe->sync_flags) ||
 		    (!(fe->sync_flags & OCFS_SYNC_FLAG_VALID))) {
-			LOG_TRACE_ARGS ("Invalid file: %*s, syncflg=0x%X",
+			LOG_TRACE_ARGS ("Invalid file: %*s, syncflg=0x%X\n",
 				       	fe->filename_len, fe->filename,
 				       	fe->sync_flags);
 			OCFS_SET_FLAG (oin->oin_flags, OCFS_OIN_INVALID);
@@ -82,7 +82,7 @@ int ocfs_verify_update_oin (ocfs_super * osb, ocfs_inode * oin)
                 disk_len = strlen(fe->filename);
 		inode = oin->inode;
 		if (inode == NULL) {
-			LOG_TRACE_ARGS ("oin has no matching inode: %*s",
+			LOG_TRACE_ARGS ("oin has no matching inode: %*s\n",
 				       	fe->filename_len, fe->filename);
 			OCFS_SET_FLAG (oin->oin_flags, OCFS_OIN_INVALID);
 			status = -ENOENT;
@@ -101,7 +101,7 @@ int ocfs_verify_update_oin (ocfs_super * osb, ocfs_inode * oin)
                         }
                 }
 		if (status < 0) {
-			LOG_TRACE_ARGS ("name did not match inode: %*s, %d",
+			LOG_TRACE_ARGS ("name did not match inode: %*s\n",
 				       	fe->filename_len, fe->filename);
 			OCFS_SET_FLAG (oin->oin_flags, OCFS_OIN_INVALID);
 			goto leave;
@@ -984,6 +984,7 @@ ocfs_del_file (ocfs_super * osb, __u64 parent_off, __u32 flags, __u64 file_off)
 	ocfs_log_record *pOcfsLogRec;
 	__u64 lockId = 0;
 	__u32 log_node_num = OCFS_INVALID_NODE_NUM;
+	bool empty = false;
 
 	LOG_ENTRY_ARGS ("(osb=0x%p, poff=%u.%u, fl=%u, foff=%u.%u)\n",
 			osb, HILO(parent_off), flags, HILO(file_off));
@@ -1010,7 +1011,7 @@ ocfs_del_file (ocfs_super * osb, __u64 parent_off, __u32 flags, __u64 file_off)
 	status = ocfs_acquire_lock (osb, lockId, OCFS_DLM_EXCLUSIVE_LOCK,
 			lockFlags, &pLockResource, (ocfs_file_entry *) pLockNode);
 	if (status < 0) {
-		if (status != -EINTR)
+		if (status != -EINTR && status != -EBUSY)
 			LOG_ERROR_STATUS (status);
 		goto leave;
 	}
@@ -1054,7 +1055,13 @@ ocfs_del_file (ocfs_super * osb, __u64 parent_off, __u32 flags, __u64 file_off)
 	/* Ask for a lock on the file to ensure there are no open oin's */
 	/* on the file on any node */
 	if (fe->attribs & OCFS_ATTRIB_DIRECTORY) {
-		if ((pLockNode->num_ent_used > 0) && !(flags & FLAG_DEL_NAME)) {
+		status = ocfs_is_dir_empty (osb, pLockNode, &empty);
+		if (status < 0) {
+			LOG_ERROR_STATUS (status);
+			goto leave;
+		}
+
+		if ((!empty) && !(flags & FLAG_DEL_NAME)) {
 			status = -ENOTEMPTY;
 			goto leave;
 		}
@@ -1417,16 +1424,20 @@ int ocfs_change_file_size (ocfs_super * osb,
  *
  */
 int ocfs_get_dirnode(ocfs_super *osb, ocfs_dir_node *lockn, __u64 lockn_off,
-		     ocfs_dir_node *dirn)
+		     ocfs_dir_node *dirn, bool *invalid_dirnode)
 {
 	int status = 0;
 	__u64 node_off;
+	bool hden = false;
 
 	LOG_ENTRY_ARGS ("(lockn_off=%u.%u)\n", HILO (lockn_off));
 
-	if (lockn->head_del_ent_node != INVALID_NODE_POINTER)
+	*invalid_dirnode = false;
+
+	if (lockn->head_del_ent_node != INVALID_NODE_POINTER) {
 		node_off = lockn->head_del_ent_node;
-	else {
+		hden = true;
+	} else {
     		if (lockn->free_node_ptr == INVALID_NODE_POINTER)
 			node_off = lockn_off;
 		else
@@ -1439,36 +1450,54 @@ int ocfs_get_dirnode(ocfs_super *osb, ocfs_dir_node *lockn, __u64 lockn_off,
 		goto leave;
 	}
 
-	if (dirn->node_disk_off != lockn->head_del_ent_node)
-		goto leave;
+	status = ocfs_validate_dirnode (osb, dirn);
+	if (status >= 0) {
+		if (dirn->node_disk_off != lockn->head_del_ent_node)
+			goto leave;
 
-	if (dirn->num_ent_used < osb->max_dir_node_ent)
+		if (dirn->num_ent_used < osb->max_dir_node_ent)
+			goto leave;
+	} else if (status != -EBADSLT) {
+		LOG_ERROR_STATUS (status);
 		goto leave;
+	} else {
+		*invalid_dirnode = true;
+		status = 0;
+	}
 
 	/* dirn with no free slots and pointed to by head_del_ent_node */
 	node_off = lockn_off;
 	while (1) {
+		*invalid_dirnode = false;
+
 		status = ocfs_read_dir_node (osb, dirn, node_off);
 		if (status < 0) {
 			LOG_ERROR_STATUS (status);
 			goto leave;
 		}
 
-		if (dirn->num_ent_used < osb->max_dir_node_ent) {
-			if (lockn->node_disk_off != dirn->node_disk_off)
-				lockn->head_del_ent_node = dirn->node_disk_off;
-			else
-				dirn->head_del_ent_node = dirn->node_disk_off;
+		status = ocfs_validate_dirnode (osb, dirn);
+		if (status >= 0) {
+			if (dirn->num_ent_used < osb->max_dir_node_ent) {
+				if (hden)
+					ocfs_update_hden (lockn, dirn,
+							  dirn->node_disk_off);
+				goto leave;
+			}
+		} else if (status != -EBADSLT) {
+			LOG_ERROR_STATUS (status);
 			goto leave;
+		} else {
+			*invalid_dirnode = true;
+			status = 0;
 		}
 
 		node_off = dirn->next_node_ptr;
 
 		if (node_off == INVALID_NODE_POINTER) {
-			if (lockn->node_disk_off != dirn->node_disk_off)
-				lockn->head_del_ent_node = INVALID_NODE_POINTER;
-			else
-				dirn->head_del_ent_node = INVALID_NODE_POINTER;
+			if (hden && !*invalid_dirnode)
+				ocfs_update_hden (lockn, dirn,
+						  INVALID_NODE_POINTER);
 			goto leave;
 		}
 	}
@@ -1497,6 +1526,7 @@ int ocfs_create_directory (ocfs_super * osb, __u64 parent_off, ocfs_file_entry *
 	ocfs_lock_res *pLockResource = NULL;
 	__u32 lockFlags = 0;
 	bool bAcquiredLock = false;
+	bool invalid_dirnode = false;
 
 	LOG_ENTRY ();
 
@@ -1583,7 +1613,8 @@ int ocfs_create_directory (ocfs_super * osb, __u64 parent_off, ocfs_file_entry *
 		}
 	}
 
-	status = ocfs_get_dirnode(osb, pLockNode, parent_off, PDirNode);
+	status = ocfs_get_dirnode(osb, pLockNode, parent_off, PDirNode,
+				  &invalid_dirnode);
 	if (status < 0) {
 		LOG_ERROR_STATUS (status);
 		goto leave;
@@ -1599,7 +1630,7 @@ int ocfs_create_directory (ocfs_super * osb, __u64 parent_off, ocfs_file_entry *
 	DISK_LOCK_READER_NODE (fileEntry) = osb->node_num;
 
 	status = ocfs_insert_file (osb, PDirNode, fileEntry, pLockNode,
-				   pLockResource);
+				   pLockResource, invalid_dirnode);
 	if (status < 0) {
 		LOG_ERROR_STATUS (status);
 		goto leave;
@@ -1636,6 +1667,7 @@ int ocfs_create_file (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 	ocfs_lock_res *pLockResource = NULL;
 	__u32 lockFlags = 0;
 	bool bAcquiredLock = false;
+	bool invalid_dirnode = false;
 
 	LOG_ENTRY_ARGS ("(osb=0x%p, poff=%u.%u, fe=0x%p)\n", osb,
 		       	HILO(parent_off), fe);
@@ -1672,7 +1704,8 @@ int ocfs_create_file (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 		goto leave;
 	}
 
-	status = ocfs_get_dirnode(osb, pLockNode, parent_off, PDirNode);
+	status = ocfs_get_dirnode(osb, pLockNode, parent_off, PDirNode,
+				  &invalid_dirnode);
 	if (status < 0) {
 		LOG_ERROR_STATUS (status);
 		goto leave;
@@ -1684,8 +1717,10 @@ int ocfs_create_file (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 	DISK_LOCK_WRITER_NODE (fileEntry) = osb->node_num;
 	DISK_LOCK_READER_NODE (fileEntry) = osb->node_num;
 
+	fileEntry->next_del = INVALID_DIR_NODE_INDEX;
+
 	status = ocfs_insert_file (osb, PDirNode, fileEntry, pLockNode,
-				   pLockResource);
+				   pLockResource, invalid_dirnode);
 	if (status < 0) {
 		LOG_ERROR_STATUS (status);
 		goto leave;
@@ -1748,7 +1783,8 @@ ocfs_create_modify_file (ocfs_super * osb,
 	    case FLAG_FILE_DELETE:
 		    status = ocfs_del_file (osb, parent_off, 0, *file_off);
 		    if (status < 0) {
-			    if (status != -EINTR && status != -ENOTEMPTY)
+			    if (status != -EINTR && status != -ENOTEMPTY &&
+			       	status != -EBUSY)
 				    LOG_ERROR_STATUS (status);
 			    goto leave;
 		    }
@@ -2022,8 +2058,7 @@ int ocfs_create_delete_cdsl (struct inode *inode, struct file *filp,
 			DISK_LOCK_READER_NODE (fe) = OCFS_INVALID_NODE_NUM;
 			DISK_LOCK_WRITER_NODE (fe) = OCFS_INVALID_NODE_NUM;
 
-			OcfsQuerySystemTime (&fe->modify_time);
-
+			fe->modify_time = CURRENT_TIME;
 			fe->create_time = fe->modify_time;
 
 			status = ocfs_create_modify_file (osb, parent_off, NULL,
@@ -2084,8 +2119,7 @@ int ocfs_create_delete_cdsl (struct inode *inode, struct file *filp,
 		DISK_LOCK_READER_NODE (fe) = OCFS_INVALID_NODE_NUM;
 		DISK_LOCK_WRITER_NODE (fe) = OCFS_INVALID_NODE_NUM;
 
-		OcfsQuerySystemTime (&fe->modify_time);
-
+		fe->modify_time = CURRENT_TIME;
 		fe->create_time = fe->modify_time;
 
 		status = ocfs_create_modify_file (osb, parent_off, NULL, NULL,
@@ -2661,6 +2695,7 @@ int ocfs_create_cdsl (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 	__u32 lockFlags = 0;
 	bool bAcquiredLock = false;
 	__u8 *buffer = NULL;
+	bool invalid_dirnode = false;
 
 	LOG_ENTRY ();
 
@@ -2736,7 +2771,8 @@ int ocfs_create_cdsl (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 		goto leave;
 	}
 
-	status = ocfs_get_dirnode(osb, pLockNode, parent_off, PDirNode);
+	status = ocfs_get_dirnode(osb, pLockNode, parent_off, PDirNode,
+				  &invalid_dirnode);
 	if (status < 0) {
 		LOG_ERROR_STATUS (status);
 		goto leave;
@@ -2748,7 +2784,7 @@ int ocfs_create_cdsl (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe)
 	DISK_LOCK_READER_NODE (fileEntry) = osb->node_num;
 
 	status = ocfs_insert_file (osb, PDirNode, fileEntry, pLockNode,
-				   pLockResource);
+				   pLockResource, invalid_dirnode);
 	if (status < 0) {
 		LOG_ERROR_STATUS(status);
 		goto leave;
@@ -2860,7 +2896,7 @@ int ocfs_truncate_file (ocfs_super * osb, __u64 file_off, __u64 file_size, ocfs_
 	DISK_LOCK_SEQNUM (fe) = changeSeqNum;
 	SET_VALID_BIT (fe->sync_flags);
 	fe->sync_flags &= ~(OCFS_SYNC_FLAG_CHANGE);
-	OcfsQuerySystemTime (&fe->modify_time);
+	fe->modify_time = CURRENT_TIME;
 
 	status = ocfs_write_file_entry (osb, fe, fe->this_sector);
 	if (status < 0) {

@@ -223,13 +223,15 @@ void ocfs_daemonize (char *name, int len)
 #ifdef HAVE_NPTL
         spin_lock_irq (&current->sighand->siglock);
         tmpsig = current->blocked;
-        siginitsetinv (&current->blocked, SHUTDOWN_SIGS);
+//        siginitsetinv (&current->blocked, SHUTDOWN_SIGS);
+        siginitsetinv (&current->blocked, sigmask(SIGINT));
         recalc_sigpending ();
         spin_unlock_irq (&current->sighand->siglock);
 #else
 	spin_lock_irq (&current->sigmask_lock);
 	tmpsig = current->blocked;
-	siginitsetinv (&current->blocked, SHUTDOWN_SIGS);
+//	siginitsetinv (&current->blocked, SHUTDOWN_SIGS);
+	siginitsetinv (&current->blocked, sigmask(SIGINT));
 	recalc_sigpending (current);
 	spin_unlock_irq (&current->sigmask_lock);
 #endif
@@ -434,12 +436,10 @@ bool ocfs_linux_get_inode_offset (struct inode * inode, __u64 * off, ocfs_inode 
 	if (inode_data_is_oin (inode)) {
 		ocfs_inode *f = ((ocfs_inode *)inode->u.generic_ip);
 
-		if (f == NULL) {
-			LOG_ERROR_STR ("bad inode oin");
+		if (!f || !IS_VALID_OIN(f)) {
 			*off = -1;
 			return false;
 		} else {
-			OCFS_ASSERT(IS_VALID_OIN(f));
 			if (oin != NULL)
 				*oin = f;
 			if (S_ISDIR (inode->i_mode))
@@ -558,7 +558,6 @@ void ocfs_extent_map_destroy (ocfs_extent_map * map)
 	
 	if (map->initialized) {
                 spin_lock(&(map->lock));
-		#warning RACE! need to retest map->initialized here!
 		map->capacity = 0;
 		map->count = 0;
 		ocfs_safefree (map->buf);
@@ -582,7 +581,6 @@ __u32 ocfs_extent_map_get_count (ocfs_extent_map * map)
 	LOG_ENTRY ();
 
 	OCFS_ASSERT (map != NULL);
-	#warning this locking almost has to be a bug
 	spin_lock(&(map->lock));
 	ret = map->count;
 	spin_unlock(&(map->lock));
@@ -650,10 +648,7 @@ static bool OcfsCoalesceExtentMapEntry (ocfs_extent_map * map,
 
 	LOG_ENTRY ();
 
-	if (!map->initialized) {
-		LOG_ERROR_STR ("ExtentMap is not initialized");
-		goto bail;
-	}
+	OCFS_ASSERT(map != NULL && map->initialized == true);
 
 	/* attempt to coalesce this into an existing entry */
 
@@ -779,12 +774,8 @@ bool ocfs_extent_map_add (ocfs_extent_map * map, __s64 virtual, __s64 physical,
 
 	LOG_ENTRY ();
 
-	OCFS_ASSERT (map != NULL);
+	OCFS_ASSERT(map != NULL && map->initialized == true);
 
-	if (!map->initialized) {
-		LOG_ERROR_STATUS (-EFAIL);
-		goto bail;
-	}
 	spin_lock(&(map->lock));
 
 	if ((ret =
@@ -828,7 +819,6 @@ bool ocfs_extent_map_add (ocfs_extent_map * map, __s64 virtual, __s64 physical,
 release_spinlock:
 	spin_unlock(&(map->lock));
 
-bail:
 	LOG_EXIT_ULONG (ret);
 	return ret;
 }				/* ocfs_extent_map_add */
@@ -898,12 +888,8 @@ bool ocfs_extent_map_lookup (ocfs_extent_map *map, __s64 virtual, __s64 *physica
 
 	LOG_ENTRY ();
 
-	OCFS_ASSERT (map != NULL);
+	OCFS_ASSERT(map != NULL && map->initialized == true);
 
-	if (!map->initialized) {
-		LOG_ERROR_STR ("BUG! Uninitialized ExtentMap!");
-		goto bail;
-	}
 	spin_lock(&(map->lock));
 
 	for (idx = 0; idx < map->count; idx++) {
@@ -925,7 +911,6 @@ bool ocfs_extent_map_lookup (ocfs_extent_map *map, __s64 virtual, __s64 *physica
 	}
 	spin_unlock(&(map->lock));
 
-bail:
 	*index = idx;
 
 	LOG_EXIT_ULONG (ret);
@@ -944,10 +929,8 @@ bool ocfs_extent_map_next_entry (ocfs_extent_map *map, __u32 runindex,
 
 	LOG_ENTRY ();
 
-	OCFS_ASSERT (map != NULL);
+	OCFS_ASSERT(map != NULL && map->initialized == true);
 
-	if (!map->initialized)
-		goto bail;
 	spin_lock(&(map->lock));
 	if (runindex >= map->count)
 		goto release_spinlock;
@@ -959,7 +942,6 @@ bool ocfs_extent_map_next_entry (ocfs_extent_map *map, __u32 runindex,
 
 release_spinlock:
 	spin_unlock(&(map->lock));
-bail:
 
 	LOG_EXIT_ULONG (ret);
 	return ret;

@@ -411,6 +411,7 @@ int ocfs_dismount_volume (struct super_block *sb)
 	__u32 nodemap;
 	__u32 tempmap;
 	int i;
+	bool nm_killed = false;
 
 	LOG_ENTRY_ARGS ("(0x%p)\n", sb);
 
@@ -467,6 +468,7 @@ int ocfs_dismount_volume (struct super_block *sb)
 		wait_for_completion (&(osb->complete));
 #endif
 		osb->dlm_task = NULL;
+		nm_killed = true;
 	}
 
 	/* create map of all active nodes except self */
@@ -476,23 +478,27 @@ int ocfs_dismount_volume (struct super_block *sb)
 
 #ifndef USERSPACE_TOOL
 	/* send dismount msg to all */
-	status = ocfs_send_dismount_msg (osb, (__u64)nodemap);
-	if (status < 0)
-		LOG_ERROR_STATUS (status);
+	if (nm_killed && OcfsIpcCtxt.task) {
+		status = ocfs_send_dismount_msg (osb, (__u64)nodemap);
+		if (status < 0)
+			LOG_ERROR_STATUS (status);
+	}
 
 	/* decrement mount count */
-	spin_lock (&mount_cnt_lock);
-	mount_cnt--;
-	if (mount_cnt == 0) {
-		/* Shutdown ocfslsnr */
-		if (OcfsIpcCtxt.task) {
-			LOG_TRACE_STR ("Waiting for ocfslsnr to exit....");
-			send_sig (SIGINT, OcfsIpcCtxt.task, 0);
-			wait_for_completion (&(OcfsIpcCtxt.complete));
-			OcfsIpcCtxt.task = NULL;
+	if (nm_killed) {
+		spin_lock (&mount_cnt_lock);
+		mount_cnt--;
+		if (mount_cnt == 0) {
+			/* Shutdown ocfslsnr */
+			if (OcfsIpcCtxt.task) {
+				LOG_TRACE_STR ("Waiting for ocfslsnr to exit....");
+				send_sig (SIGINT, OcfsIpcCtxt.task, 0);
+				wait_for_completion (&(OcfsIpcCtxt.complete));
+				OcfsIpcCtxt.task = NULL;
+			}
 		}
+		spin_unlock (&mount_cnt_lock);
 	}
-	spin_unlock (&mount_cnt_lock);
 #endif
 
 	ocfs_down_sem (&(OcfsGlobalCtxt.res), true);
@@ -505,8 +511,11 @@ int ocfs_dismount_volume (struct super_block *sb)
 		AcquiredOSB = false;
 	}
 
-	printk ("ocfs: Unmounting device (%s) on %s (node %d)\n", osb->dev_str,
-		osb->node_cfg_info[osb->node_num]->node_name, osb->node_num);
+	if (nm_killed && osb->node_num != OCFS_INVALID_NODE_NUM)
+		printk ("ocfs: Unmounting device (%s) on %s (node %d)\n",
+		       	osb->dev_str,
+		       	osb->node_cfg_info[osb->node_num]->node_name,
+		       	osb->node_num);
 
 	/* Free all nodecfgs */
 	for (i = 0; i < OCFS_MAXIMUM_NODES; ++i) {

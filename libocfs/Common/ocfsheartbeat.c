@@ -246,8 +246,13 @@ int ocfs_nm_thread (ocfs_super * mount_osb)
 		if (publish->vote)
 			publish->vote = 0;
 
+#if defined(DISK_VOTE_INLINE) || defined(USERSPACE_TOOL)
 		ocfs_process_vote (osb, publish_to_vote, vote_node);
 		osb->last_disk_seq = curr_publ_seq;
+#else
+		if (!ocfs_schedule_vote (osb, publish_to_vote, vote_node))
+			osb->last_disk_seq = curr_publ_seq;
+#endif
 	}
 	osb->hbt = 50 + jiffies;
 
@@ -318,11 +323,11 @@ void ocfs_update_publish_map (ocfs_super * osb, void *buffer, bool first_time)
 		if (node_map->time[i] == publish->time) {
 			if (IS_NODE_ALIVE(osb->publ_map, i, num_nodes)) {
 				if (atomic_read (&(node_map->dismount[i]))) {
-					node_map->miss_cnt[i] = MISS_COUNT_VALUE;
+					node_map->miss_cnt[i] = osb->max_miss_cnt /*MISS_COUNT_VALUE*/;
 					atomic_set (&(node_map->dismount[i]), 0);
 				} else
 					(node_map->miss_cnt[i])++;
-				if (node_map->miss_cnt[i] > MISS_COUNT_VALUE) {
+				if (node_map->miss_cnt[i] > osb->max_miss_cnt /*MISS_COUNT_VALUE*/) {
 #if !defined(USERSPACE_TOOL)
 					printk ("ocfs: Removing %s (node %d) "
 						"from clustered device (%s)\n",
@@ -370,3 +375,65 @@ void ocfs_update_publish_map (ocfs_super * osb, void *buffer, bool first_time)
 	LOG_EXIT ();
 	return;
 }				/* ocfs_update_publish_map */
+
+
+#ifndef USERSPACE_TOOL
+/*
+ * ocfs_schedule_vote()
+ *
+ */
+int ocfs_schedule_vote (ocfs_super * osb, ocfs_publish * publish, __u32 node_num)
+{
+	ocfs_sched_vote *sv = NULL;
+	int status = 0;
+
+	LOG_ENTRY ();
+
+	sv = ocfs_malloc (sizeof (ocfs_sched_vote));
+	if (sv == NULL) {
+		LOG_ERROR_STATUS (status = -ENOMEM);
+		goto bail;
+	}
+	memset (sv, 0, sizeof (ocfs_sched_vote));
+
+	sv->osb = osb;
+	sv->node_num = node_num;
+	memcpy (&sv->publish_sect, publish, OCFS_SECTOR_SIZE);
+
+	INIT_TQUEUE (&sv->sv_tq, ocfs_process_vote_worker, sv);
+
+	schedule_task (&sv->sv_tq);
+
+bail:
+	if (status < 0)
+		ocfs_safefree (sv);
+
+	LOG_EXIT_STATUS (status);
+	return status;
+}				/* ocfs_schedule_vote */
+
+
+/*
+ * ocfs_process_vote_worker()
+ *
+ */
+void ocfs_process_vote_worker (void * val)
+{
+	ocfs_sched_vote *sv = (ocfs_sched_vote *)val;
+	ocfs_publish *publish = NULL;
+
+	LOG_ENTRY ();
+
+	if (sv) {
+		publish = (ocfs_publish *) &sv->publish_sect;
+		if (!IS_VALID_OSB (sv->osb) || !publish)
+			goto bail;
+		ocfs_process_vote (sv->osb, publish, sv->node_num);
+		ocfs_safefree (sv);
+	}
+
+bail:
+	LOG_EXIT ();
+	return ;
+}				/* ocfs_process_vote_worker */
+#endif

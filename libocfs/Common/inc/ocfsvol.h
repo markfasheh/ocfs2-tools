@@ -84,6 +84,10 @@ typedef struct _ocfs_vol_disk_hdr		// CLASS
 	__u32 uid;				// UID
 	__u32 gid;				// GID
 	__s32 excl_mount;			// NODENUM
+	/* disk heartbeat time in ms */
+	__u32 disk_hb;				// NUMBER RANGE(0, ULONG_MAX)
+	/* node timeout in ms */
+	__u32 hb_timeo;				// NUMBER RANGE(0, ULONG_MAX)
 }
 ocfs_vol_disk_hdr;				// END CLASS
 

@@ -64,7 +64,7 @@ int ocfs_change_file_size (ocfs_super * osb,
 		    __u64 file_size, __u64 * file_off, struct iattr *attr);
 
 int ocfs_get_dirnode(ocfs_super *osb, ocfs_dir_node *lockn, __u64 lockn_off,
-		     ocfs_dir_node *dirn);
+		     ocfs_dir_node *dirn, bool *invalid_dirnode);
 
 int ocfs_create_directory (ocfs_super * osb, __u64 parent_off, ocfs_file_entry * fe);
 

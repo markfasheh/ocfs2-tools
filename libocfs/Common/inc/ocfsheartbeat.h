@@ -27,10 +27,23 @@
 #ifndef _OCFSHEARTBEAT_H_
 #define _OCFSHEARTBEAT_H_
 
+typedef struct _ocfs_sched_vote
+{
+	ocfs_super * osb;
+	__u32 node_num;
+	struct tq_struct sv_tq;
+	__u8 publish_sect[OCFS_SECTOR_SIZE];
+}
+ocfs_sched_vote;
+
 void ocfs_update_publish_map (ocfs_super * osb, void *buffer, bool first_time);
 
 int ocfs_nm_thread (ocfs_super * mount_osb);
 
 int ocfs_nm_heart_beat (ocfs_super * osb, __u32 flag, bool read_publish);
+
+int ocfs_schedule_vote (ocfs_super * osb, ocfs_publish * publish, __u32 node_num);
+
+void ocfs_process_vote_worker (void * val);
 
 #endif				/* _OCFSHEARTBEAT_H_ */

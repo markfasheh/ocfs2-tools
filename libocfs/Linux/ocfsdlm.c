@@ -31,7 +31,6 @@
 #include <libocfs.h>
 #endif
 
-
 /* Tracing */
 #define OCFS_DEBUG_CONTEXT OCFS_DEBUG_CONTEXT_NM
 
@@ -175,6 +174,7 @@ int  ocfs_volume_thread (void *arg)
 	char proc[16];
 	int status = 0;
 	int flush_counter = 0;
+	__u32 disk_hb = 0;
 
 	LOG_ENTRY ();
 
@@ -189,6 +189,8 @@ int  ocfs_volume_thread (void *arg)
 	osb->dlm_task = current;
 #endif
 
+	disk_hb = osb->vol_layout.disk_hb;
+
 	/* The delay changes based on multiplier */
 	while (!(OcfsGlobalCtxt.flags & OCFS_FLAG_SHUTDOWN_VOL_THREAD) &&
 	       !(osb->osb_flags & OCFS_OSB_FLAGS_BEING_DISMOUNTED)) {
@@ -196,7 +198,7 @@ int  ocfs_volume_thread (void *arg)
 		if (OcfsGlobalCtxt.hbm == 0)
 			OcfsGlobalCtxt.hbm = DISK_HBEAT_NO_COMM;
 
-		ocfs_sleep (OCFS_NM_HEARTBEAT_TIME);
+		ocfs_sleep (disk_hb);
 
 		if ((OcfsGlobalCtxt.flags & OCFS_FLAG_SHUTDOWN_VOL_THREAD) ||
 		    (osb->osb_flags & OCFS_OSB_FLAGS_BEING_DISMOUNTED))

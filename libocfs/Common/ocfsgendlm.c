@@ -31,7 +31,6 @@ extern __u32 comm_voting;
 #include <libocfs.h>
 #endif
 
-
 #define WAIT_FOR_VOTE_INCREMENT  200
 
 /* Tracing */
@@ -158,6 +157,7 @@ int ocfs_disk_request_vote (ocfs_super * osb, __u64 lock_id, __u32 lock_type,
 	__u8 *p;
 	__u32 wait;
 	bool publish_flag = false;
+	__u32 disk_hb = osb->vol_layout.disk_hb;
 
 	LOG_ENTRY_ARGS ("(osb=0x%p, id=%u.%u, ty=%u, fl=%u, vm=0x%08x)\n", osb,
 		 HI(lock_id), LO(lock_id), lock_type, flags, LO(vote_map));
@@ -195,7 +195,7 @@ int ocfs_disk_request_vote (ocfs_super * osb, __u64 lock_id, __u32 lock_type,
 			} else {
 				get_random_bytes(&wait, sizeof(wait));
 				wait %= 200;
-				wait += OCFS_NM_HEARTBEAT_TIME;
+				wait += disk_hb;
 				LOG_TRACE_ARGS ("wait: %d\n", wait);
 				ocfs_sleep (wait);
 			}
@@ -564,20 +564,17 @@ int ocfs_wait_for_vote (ocfs_super * osb, __u64 lock_id, __u32 lock_type, __u32 
 	__u64 gotvotemap = 0;
 	__u64 fileopenmap = 0;
 
-	LOG_ENTRY_ARGS ("(osb=0x%p, id=%u.%u, ty=%u, fl=%u, vm=0x%08x, "
-		"sq:%u.%u)\n", osb, HI (lock_id), LO (lock_id), lock_type,
-		flags, LO (vote_map), HI(lock_seq_num), LO(lock_seq_num));
+	LOG_ENTRY_ARGS ("(osb=0x%p, id=%u.%u, type=%u, flg=%u, map=0x%x, "
+		       	"seq=%u.%u)\n", osb, HILO (lock_id), lock_type,
+		       	flags, LO (vote_map), HILO (lock_seq_num));
 
 	while (time_to_wait > timewaited) {
 		ocfs_sleep (WAIT_FOR_VOTE_INCREMENT);
 
 		if (!atomic_read (&osb->node_req_vote)) {
-			LOG_TRACE_ARGS ("wait EAGAIN\n");
 			status = -EAGAIN;
 			goto bail;
 		}
-
-		gotvotemap |= (1 << osb->node_num);
 
 		status = ocfs_get_vote_on_disk (osb, lock_id, lock_type, flags,
 				&gotvotemap, vote_map, lock_seq_num, &fileopenmap);
@@ -587,12 +584,6 @@ int ocfs_wait_for_vote (ocfs_super * osb, __u64 lock_id, __u32 lock_type, __u32 
 			goto bail;
 		}
 
-		if (!(gotvotemap & (1 << osb->node_num))) {
-			status = -EAGAIN;
-			goto bail;
-		}
-
-		vote_map |= (1 << osb->node_num);
 		if (vote_map == gotvotemap) {
 			if ((flags & FLAG_FILE_EXTEND) || (flags & FLAG_FILE_UPDATE))
 				lockres->oin_openmap = fileopenmap;
@@ -608,10 +599,11 @@ int ocfs_wait_for_vote (ocfs_super * osb, __u64 lock_id, __u32 lock_type, __u32 
 	ocfs_compute_dlm_stats ((timewaited >= time_to_wait ? -ETIMEDOUT : 0),
 			       	status, &(osb->dsk_reqst_stats));
 
-	LOG_TRACE_ARGS ("disk vote id=%u.%u, seq=%u.%u, map=0x%08x, "
-		       	"flags=0x%08x, type=0x%08x, status=%d\n",
+	LOG_TRACE_ARGS ("disk vote id=%u.%u, seq=%u.%u, map=0x%x, "
+		       	"flags=0x%x, type=0x%x, status=%d, timeo=%d\n",
 		       	HILO(lock_id), HILO(lock_seq_num), LO(vote_map),
-		       	flags, lock_type, status);
+		       	flags, lock_type, status,
+			(timewaited >= time_to_wait ? -ETIMEDOUT : 0));
 
 	LOG_EXIT_STATUS (status);
 	return status;
@@ -721,7 +713,7 @@ int ocfs_send_dlm_request_msg (ocfs_super * osb, __u64 lock_id, __u32 lock_type,
 
 	ocfs_send_bcast (osb, vote_map, dlm_msg);
 	status = ocfs_wait (lockres->voted_event,
-			    atomic_read (&lockres->voted_event_woken), 1000);
+			    atomic_read (&lockres->voted_event_woken), 3000);
 	atomic_set (&lockres->voted_event_woken, 0);
  
 	if (status == -ETIMEDOUT) {
@@ -997,6 +989,23 @@ int ocfs_update_disk_lock (ocfs_super * osb, ocfs_lock_res * lockres,
 	return status;
 }				/* ocfs_update_disk_lock */
 
+
+#define ACQUIRE_WITH_FLAG(lock, flag)			\
+	do {						\
+		if (!(flag)) {				\
+			ocfs_acquire_lockres(lock);	\
+			(flag) = true;			\
+		}					\
+	} while (0)
+
+#define RELEASE_WITH_FLAG(lock, flag)			\
+	do {						\
+		if (flag) {				\
+			ocfs_release_lockres(lock);	\
+			(flag) = false;			\
+		}					\
+	} while (0)
+
 /*
  * ocfs_update_master_on_open()
  *
@@ -1005,25 +1014,26 @@ int ocfs_update_master_on_open (ocfs_super * osb, ocfs_lock_res * lockres)
 {
 	int status = -EAGAIN;
 	bool disk_vote = false;
+	bool lock_acq = false;
 
 	LOG_ENTRY ();
+
+	ocfs_get_lockres(lockres);
 
 	while (status == -EAGAIN) {
 		if (!IS_NODE_ALIVE (osb->publ_map, lockres->master_node_num,
 				    OCFS_MAXIMUM_NODES)) {
 			LOG_TRACE_ARGS ("Master (%u) dead, lockid %u.%u\n",
-				lockres->master_node_num,
-				HI (lockres->sector_num), LO (lockres->sector_num));
+				lockres->master_node_num, HILO (lockres->sector_num));
 			status = 0;
 			goto bail;
 		}
 
-		ocfs_acquire_lockres (lockres);
+		ACQUIRE_WITH_FLAG(lockres, lock_acq);
 
 		if (lockres->master_node_num == osb->node_num) {
 			LOG_TRACE_ARGS ("Added node to map 0x%08x, lockid %u.%u\n",
-			     LO (lockres->oin_openmap), HI (lockres->sector_num),
-			     LO (lockres->sector_num));
+			     LO (lockres->oin_openmap), HILO (lockres->sector_num));
 
 			lockres->oin_openmap |= (1 << osb->node_num);
 			status = ocfs_update_disk_lock (osb, lockres,
@@ -1032,14 +1042,13 @@ int ocfs_update_master_on_open (ocfs_super * osb, ocfs_lock_res * lockres)
 				LOG_ERROR_STATUS (status);
 				goto bail;
 			}
-			ocfs_release_lockres (lockres);
 		} else {
 			status = ocfs_update_lock_state (osb, lockres,
 						 FLAG_ADD_OIN_MAP, &disk_vote);
 			if (status < 0) {
 				if (status != -EAGAIN)
 					LOG_ERROR_STATUS (status);
-				ocfs_release_lockres (lockres);
+				RELEASE_WITH_FLAG(lockres, lock_acq);
 				if (status == -EAGAIN) {
 					ocfs_sleep (500);
 					if (ocfs_task_interruptible (osb)) {
@@ -1053,11 +1062,12 @@ int ocfs_update_master_on_open (ocfs_super * osb, ocfs_lock_res * lockres)
 				}
 				goto bail;
 			}
-			ocfs_release_lockres (lockres);
 		}
 	}
 
       bail:
+	RELEASE_WITH_FLAG(lockres, lock_acq);
+	ocfs_put_lockres(lockres);
 	LOG_EXIT_STATUS (status);
 	return status;
 }				/* ocfs_update_master_on_open */
@@ -1274,7 +1284,8 @@ int ocfs_get_x_for_del (ocfs_super * osb, __u64 lock_id, __u32 lock_type, __u32 
 			continue;
 		} else {
 			ocfs_release_lockres (lockres);
-			LOG_ERROR_STATUS (status);
+			if (status != -EBUSY)
+				LOG_ERROR_STATUS (status);
 			goto finally;
 		}
 	}
@@ -1284,21 +1295,6 @@ int ocfs_get_x_for_del (ocfs_super * osb, __u64 lock_id, __u32 lock_type, __u32 
 	return status;
 }				/* ocfs_get_x_for_del */
 
-#define ACQUIRE_WITH_FLAG(lock, flag)			\
-	do {						\
-		if (!(flag)) {				\
-			ocfs_acquire_lockres(lock);	\
-			(flag) = true;			\
-		}					\
-	} while (0)
-
-#define RELEASE_WITH_FLAG(lock, flag)			\
-	do {						\
-		if (flag) {				\
-			ocfs_release_lockres(lock);	\
-			(flag) = false;			\
-		}					\
-	} while (0)
 
 /*
  * ocfs_try_exclusive_lock()
@@ -1483,7 +1479,7 @@ int ocfs_try_exclusive_lock(ocfs_super *osb, ocfs_lock_res *lockres, __u32 flags
 						     flags, lockres, fe);
                         RELEASE_WITH_FLAG(lockres, lockres_acq); 
 			if (status < 0) {
-				if (status != -EINTR)
+				if (status != -EINTR && status != -EBUSY)
 					LOG_ERROR_STATUS (status);
 			}
                         goto finally;
@@ -1635,7 +1631,7 @@ int ocfs_acquire_lock (ocfs_super * osb, __u64 lock_id, __u32 lock_type, __u32 f
 						     updated, disklock, lock_id,
 						     lock_type);
 		    if (status < 0) {
-			if (status != -EINTR)
+			if (status != -EINTR && status != -EBUSY)
 				LOG_ERROR_STATUS (status);
 			goto finally;
 		    }
@@ -1929,7 +1925,6 @@ int ocfs_init_dlm (void)
 	LOG_ENTRY ();
 
 	OcfsIpcCtxt.init = false;
-	OcfsIpcCtxt.re_init = false;
 
 	LOG_EXIT_STATUS (0);
 	return 0;

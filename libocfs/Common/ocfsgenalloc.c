@@ -2057,7 +2057,7 @@ int ocfs_lookup_file_allocation (ocfs_super * osb, ocfs_inode * oin, __s64 Vbo,
 	/* special case: just one byte - also happens to be the *only* 
 	 * way in which this func is currently called */
 	if (ByteCount == 1) {
-		status = -EFAIL;
+		status = -ESPIPE;
 		/* return the blocknum directly, no need to alloc ioruns */
 		if (ocfs_lookup_extent_map_entry (osb, &oin->map, Vbo, Lbo, 
 						  &length, &Runs)) {
@@ -2099,10 +2099,11 @@ int ocfs_lookup_file_allocation (ocfs_super * osb, ocfs_inode * oin, __s64 Vbo,
 	}
 
 	if (Vbo >= (__s64) FileEntry->alloc_size) {
-		LOG_ERROR_ARGS ("fe=%u.%u, vbo=%u.%u, fe->alloc_sz=%u.%u, oin->alloc_size=%u.%u",
+		LOG_TRACE_ARGS ("fe=%u.%u, vbo=%u.%u, fe->alloc_sz=%u.%u, "
+			       	"oin->alloc_size=%u.%u\n",
 			       	HILO (FileEntry->this_sector), HILO (Vbo),
 			       	HILO (FileEntry->alloc_size), HILO (oin->alloc_size));
-		status = -EFAIL;
+		status = -ESPIPE;
 		goto finally;
 	}
 
@@ -2149,7 +2150,7 @@ int ocfs_lookup_file_allocation (ocfs_super * osb, ocfs_inode * oin, __s64 Vbo,
 						"oin->alloc_size=%u.%u, thisext=%u.%u",
 						HILO(localVbo), HILO(oin->alloc_size),
 						HILO(OcfsExtent->this_ext));
-					status = -EFAIL;
+					status = -ESPIPE;
 					goto finally;
 				}
 
@@ -2167,7 +2168,7 @@ int ocfs_lookup_file_allocation (ocfs_super * osb, ocfs_inode * oin, __s64 Vbo,
 	}
 
 	if (ByteCount == 1) {
-		status = -EFAIL;
+		status = -ESPIPE;
 		if (ocfs_lookup_extent_map_entry (osb, &oin->map, Vbo, Lbo, 
 						  &length, &Runs)) {
 			status = 0;
@@ -2189,7 +2190,7 @@ finally:
 		*(Lbo) = IoRuns[0].disk_off;
 	}
 
-no_iorun_exit:	
+no_iorun_exit:
 	/* Should send a null for IoRuns in case of onl 1 extent */
 	LOG_TRACE_ARGS ("Num of Runs is: %d\n", Runs);
 

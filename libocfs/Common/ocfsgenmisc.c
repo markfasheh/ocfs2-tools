@@ -30,6 +30,7 @@
 #include <libocfs.h>
 #endif
 
+__u32 disk_timeo = 0;
 
 /* Tracing */
 #define OCFS_DEBUG_CONTEXT    OCFS_DEBUG_CONTEXT_MISC
@@ -37,6 +38,8 @@
 /*  Global Sequence number for error log. */
 
 __u32 OcfsErrorLogSequence = 0;
+
+extern spinlock_t ocfs_inode_lock;
 
 /*
  * ocfs_create_meta_log_files()
@@ -480,18 +483,18 @@ void ocfs_delete_all_extent_maps (ocfs_inode * oin)
  * ocfs_release_oin()
  *
  */
-void ocfs_release_oin (ocfs_inode * oin, bool FreeMemory)
+void ocfs_release_oin (ocfs_inode * oin, bool need_lock)
 {
 	ocfs_lock_res *lockres = NULL;
-	ocfs_super *osb = NULL;
 	struct inode *inode;
+	__u64 savedOffset = 0;
 
-	LOG_ENTRY_ARGS ("oin = %p, free = %s\n", oin, FreeMemory? "yes" : "no");
+	LOG_ENTRY_ARGS ("oin=%p, lock=%s\n", oin, need_lock? "yes" : "no");
 
 	if (!oin || !oin->osb)
 		goto bail;
 
-	osb = oin->osb;
+	OCFS_ASSERT(IS_VALID_OIN(oin));
 
 	lockres = oin->lock_res;
 
@@ -506,15 +509,25 @@ void ocfs_release_oin (ocfs_inode * oin, bool FreeMemory)
 	inode = (struct inode *) oin->inode;
 
 	if (inode) {
-		__u64 savedOffset = oin->file_disk_off;
-
+		savedOffset = oin->file_disk_off;
 		SET_INODE_OIN (inode, NULL);
 		SET_INODE_OFFSET (inode, savedOffset);
 		LOG_TRACE_ARGS ("inode oin cleared / flags: %d / offset: %u.%u\n",
 			inode->i_flags, savedOffset);
 	}
 
+	if (inode) {
+		if (need_lock)
+			spin_lock (&ocfs_inode_lock);
+		oin->inode = NULL;
+		if (atomic_read(&inode->i_count) > 1)
+			atomic_dec(&inode->i_count);
+		if (need_lock)
+			spin_unlock (&ocfs_inode_lock);
+	}
+
 	ocfs_extent_map_destroy (&oin->map);
+	ocfs_extent_map_init (&oin->map);
 
 	/*  Delete the ocfs_sem objects */
 	if (oin->oin_flags & OCFS_INITIALIZED_MAIN_RESOURCE) {
@@ -527,15 +540,14 @@ void ocfs_release_oin (ocfs_inode * oin, bool FreeMemory)
 			       OCFS_INITIALIZED_PAGING_IO_RESOURCE);
 	}
 
-	if (FreeMemory) {
+	memset (oin, 0, sizeof(ocfs_inode));
 #ifdef OCFS_MEM_DBG
-		ocfs_dbg_slab_free (OcfsGlobalCtxt.oin_cache, oin);
+	ocfs_dbg_slab_free (OcfsGlobalCtxt.oin_cache, oin);
 #else
-		kmem_cache_free (OcfsGlobalCtxt.oin_cache, oin);
+	kmem_cache_free (OcfsGlobalCtxt.oin_cache, oin);
 #endif
-		oin = NULL;
-		ocfs_put_lockres (lockres);
-	}
+	oin = NULL;
+	ocfs_put_lockres (lockres);
 
 	ocfs_put_lockres (lockres);
 bail:
@@ -576,16 +588,6 @@ int ocfs_initialize_osb (ocfs_super * osb, ocfs_vol_disk_hdr * vdh,
 	snprintf(osb->dev_str, sizeof(osb->dev_str), "%u,%u",
 		 MAJOR(osb->sb->s_dev), MINOR(osb->sb->s_dev));
 
-#ifdef __LP64__
-#define HASHBITS	11
-#else
-#define HASHBITS	12
-#endif
-	if (!ocfs_hash_create (&(osb->root_sect_node), HASHBITS)) {
-		LOG_ERROR_STATUS (status = -ENOMEM);
-		goto bail;
-	}
-
 	ocfs_init_sem (&(osb->osb_res));
 	ocfs_init_sem (&(osb->map_lock));
 	ocfs_init_sem (&(osb->log_lock));
@@ -600,14 +602,22 @@ int ocfs_initialize_osb (ocfs_super * osb, ocfs_vol_disk_hdr * vdh,
 	init_MUTEX (&(osb->comm_lock));
 	init_MUTEX (&(osb->trans_lock));
 
-	osb->node_recovering = OCFS_INVALID_NODE_NUM;
+#ifdef __LP64__
+#define HASHBITS	11
+#else
+#define HASHBITS	12
+#endif
+	if (!ocfs_hash_create (&(osb->root_sect_node), HASHBITS)) {
+		LOG_ERROR_STATUS (status = -ENOMEM);
+		goto bail;
+	}
 
+	osb->node_recovering = OCFS_INVALID_NODE_NUM;
 	osb->needs_flush = false;
 	osb->commit_cache_exec = false;
 	osb->log_disk_off = 0;
 	osb->log_meta_disk_off = 0;
 	osb->trans_in_progress = false;
-
 	osb->last_disk_seq = ULONGLONG_MAX;
 
 	init_MUTEX (&(osb->publish_lock));
@@ -648,6 +658,22 @@ int ocfs_initialize_osb (ocfs_super * osb, ocfs_vol_disk_hdr * vdh,
 	vol_layout->prot_bits = vdh->prot_bits;
 	vol_layout->uid = vdh->uid;
 	vol_layout->gid = vdh->gid;
+
+	if (disk_timeo) {
+		vol_layout->disk_hb = vdh->disk_hb;
+		vol_layout->hb_timeo = vdh->hb_timeo;
+	}
+
+	if (!IS_VALID_DISKHB(vol_layout->disk_hb))
+		vol_layout->disk_hb = OCFS_NM_HEARTBEAT_TIME;
+
+	if (!IS_VALID_HBTIMEO(vol_layout->hb_timeo))
+		vol_layout->hb_timeo = OCFS_HB_TIMEOUT;
+
+	if (disk_timeo)
+		osb->max_miss_cnt = (vdh->hb_timeo / vdh->disk_hb) + 1;
+	else
+		osb->max_miss_cnt = MISS_COUNT_VALUE;
 
 	memcpy (vol_layout->vol_id, vol_label->vol_id, MAX_VOL_ID_LENGTH);
 
@@ -990,3 +1016,58 @@ int ocfs_commit_cache (ocfs_super * osb, bool Flag)
 	LOG_EXIT_STATUS (status);
 	return status;
 }				/* ocfs_commit_cache */
+
+/*
+ * ocfs_is_dir_empty()
+ * 
+ */
+int ocfs_is_dir_empty (ocfs_super * osb, ocfs_dir_node * dirnode, bool * empty)
+{
+	ocfs_dir_node *dn = NULL;
+	__u64 offset;
+	int status = 0;
+
+	LOG_ENTRY ();
+
+	*empty = true;
+
+	if (dirnode->num_ent_used != 0) {
+		*empty = false;
+		goto bail;
+	}
+
+	offset = dirnode->next_node_ptr;
+	if (offset == INVALID_NODE_POINTER)
+		goto bail;
+
+	dn = ocfs_malloc (OCFS_SECTOR_SIZE);
+	if (dn == NULL) {
+		LOG_ERROR_STATUS (status = -ENOMEM);
+		goto bail;
+	}
+
+	while (1) {
+		status = ocfs_read_sector (osb, dn, offset);
+		if (status < 0) {
+			LOG_ERROR_STATUS (status);
+			goto bail;
+		}
+
+		if (dn->num_ent_used != 0) {
+			*empty = false;
+			goto bail;
+		}
+
+		offset = dn->next_node_ptr;
+		if (offset == INVALID_NODE_POINTER)
+			goto bail;
+	}
+
+bail:
+	LOG_TRACE_ARGS("status=%d, dir=%u.%u is %s\n", status,
+		       HILO(dirnode->node_disk_off),
+		       (*empty ? "empty" : "not empty"));
+	ocfs_safefree (dn);
+	LOG_EXIT_STATUS (status);
+	return status;
+}				/* ocfs _is_dir_empty */

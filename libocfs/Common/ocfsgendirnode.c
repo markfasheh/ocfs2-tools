@@ -833,6 +833,7 @@ int ocfs_write_dir_node (ocfs_super * osb, ocfs_dir_node * DirNode, __s32 IndexF
 			if (status < 0) {
 				LOG_ERROR_STATUS (status);
 			}
+#if 0
 			if (!bCacheWrite) {
 				status =
 				    ocfs_write_disk (osb, buffer, size, offset);
@@ -840,6 +841,7 @@ int ocfs_write_dir_node (ocfs_super * osb, ocfs_dir_node * DirNode, __s32 IndexF
 					LOG_ERROR_STATUS (status);
 				}
 			}
+#endif
 		} else {
 			status = ocfs_write_disk (osb, buffer, size, offset);
 			if (status < 0) {
@@ -1376,6 +1378,7 @@ int ocfs_del_file_entry (ocfs_super * osb, ocfs_file_entry * EntryToDel,
 	ocfs_lock_res *dir_lres = NULL;
 	__u64 dir_off;
 	bool lock_acq = false;
+	bool lock_rls = false;
 	int index = 0;
 	int length = 0;
 
@@ -1447,6 +1450,20 @@ int ocfs_del_file_entry (ocfs_super * osb, ocfs_file_entry * EntryToDel,
 					PDirNode->head_del_ent_node = PDirNode->node_disk_off;
 			}
 
+			/* clear the lock on disk */
+			if (DISK_LOCK_FILE_LOCK (PDirNode) != OCFS_DLM_ENABLE_CACHE_LOCK) {
+				ocfs_acquire_lockres (dir_lres);
+				dir_lres->lock_type = OCFS_DLM_NO_LOCK;
+				ocfs_release_lockres (dir_lres);
+
+				lock_rls = true;
+
+				if (LockNode->node_disk_off == PDirNode->node_disk_off)
+					DISK_LOCK_FILE_LOCK (PDirNode) = OCFS_DLM_NO_LOCK;
+				else
+					DISK_LOCK_FILE_LOCK (LockNode) = OCFS_DLM_NO_LOCK;
+			}
+
 			status = ocfs_write_dir_node (osb, PDirNode, offset);
 			if (status < 0) {
 				LOG_ERROR_STATUS (status);
@@ -1475,6 +1492,8 @@ int ocfs_del_file_entry (ocfs_super * osb, ocfs_file_entry * EntryToDel,
 					goto leave;
 				}
 			}
+			if (lock_rls)
+				lock_acq = false;
 			goto leave;
 		}
 	}
@@ -1487,6 +1506,7 @@ int ocfs_del_file_entry (ocfs_super * osb, ocfs_file_entry * EntryToDel,
 			LOG_ERROR_STATUS (tmpstat);
 	}
 
+	ocfs_put_lockres (dir_lres);
 	ocfs_release_dirnode (PDirNode);
 	LOG_EXIT_STATUS (status);
 	return status;
@@ -1498,7 +1518,7 @@ int ocfs_del_file_entry (ocfs_super * osb, ocfs_file_entry * EntryToDel,
  */
 int ocfs_insert_file (ocfs_super * osb, ocfs_dir_node * DirNode,
 		      ocfs_file_entry * InsertEntry, ocfs_dir_node * LockNode,
-		      ocfs_lock_res * LockResource)
+		      ocfs_lock_res * LockResource, bool invalid_dirnode)
 {
 	int status = 0;
 	__u64 bitmapOffset = 0;
@@ -1519,7 +1539,7 @@ int ocfs_insert_file (ocfs_super * osb, ocfs_dir_node * DirNode,
 	/* and insert in that. */
 
 	/* We should not find this entry already inserted */
-	if (DirNode->num_ent_used < osb->max_dir_node_ent) {
+	if (!invalid_dirnode && DirNode->num_ent_used < osb->max_dir_node_ent) {
 		status = ocfs_insert_dir_node (osb, DirNode, InsertEntry, LockNode,
 					&indexOffset);
 		if (status < 0) {
@@ -1582,7 +1602,6 @@ int ocfs_insert_file (ocfs_super * osb, ocfs_dir_node * DirNode,
 		/* Insert in this dirnode and setup the pointers */
 		DirNode->next_node_ptr = pNewDirNode->node_disk_off;
 
-		/* Create the btree now... */
 		status = ocfs_write_dir_node (osb, pNewDirNode, indexOffset);
 		if (status < 0) {
 			LOG_ERROR_STATUS (status);
@@ -1591,17 +1610,22 @@ int ocfs_insert_file (ocfs_super * osb, ocfs_dir_node * DirNode,
 		indexOffset = -1;
 	}
 
-	if (DISK_LOCK_FILE_LOCK (DirNode) != OCFS_DLM_ENABLE_CACHE_LOCK) {
-		/* This is an optimization... */
-		ocfs_acquire_lockres (LockResource);
-		LockResource->lock_type = OCFS_DLM_NO_LOCK;
-		ocfs_release_lockres (LockResource);
-
-		if (LockNode->node_disk_off == DirNode->node_disk_off)
+	if (LockNode->node_disk_off == DirNode->node_disk_off) {
+		if (DISK_LOCK_FILE_LOCK (DirNode) != OCFS_DLM_ENABLE_CACHE_LOCK) {
+			ocfs_acquire_lockres (LockResource);
+			LockResource->lock_type = OCFS_DLM_NO_LOCK;
+			ocfs_release_lockres (LockResource);
 			/* Reset the lock on the disk */
 			DISK_LOCK_FILE_LOCK (DirNode) = OCFS_DLM_NO_LOCK;
-		else
+		}
+	} else {
+		if (DISK_LOCK_FILE_LOCK (LockNode) != OCFS_DLM_ENABLE_CACHE_LOCK) {
+			ocfs_acquire_lockres (LockResource);
+			LockResource->lock_type = OCFS_DLM_NO_LOCK;
+			ocfs_release_lockres (LockResource);
+			/* Reset the lock on the disk */
 			DISK_LOCK_FILE_LOCK (LockNode) = OCFS_DLM_NO_LOCK;
+		}
 	}
 
 	status = ocfs_write_dir_node (osb, DirNode, indexOffset);
@@ -1633,3 +1657,133 @@ int ocfs_insert_file (ocfs_super * osb, ocfs_dir_node * DirNode,
 	LOG_EXIT_STATUS (status);
 	return status;
 }				/* ocfs_insert_file */
+
+
+/*
+ * ocfs_validate_dir_index()
+ *
+ */
+int ocfs_validate_dir_index (ocfs_super *osb, ocfs_dir_node *dirnode)
+{
+	ocfs_file_entry *fe = NULL;
+	int status = 0;
+	__u8 i;
+	__u8 offset;
+	__u8 *ind = NULL;
+
+	LOG_ENTRY_ARGS ("(osb=0x%p, dn=0x%p)\n", osb, dirnode);
+
+	if ((ind = (__u8 *)ocfs_malloc (256)) == NULL) {
+		LOG_ERROR_STATUS (status = -ENOMEM);
+		goto bail;
+	}
+
+	memset(ind, 0, 256);
+
+	for (i = 0; i < dirnode->num_ent_used; ++i) {
+		offset = dirnode->index[i];
+		if (offset > 253 || ind[offset]) {
+			status = -EBADSLT;
+			break;
+		} else
+			ind[offset] = 1;
+
+		fe = (ocfs_file_entry *) (FIRST_FILE_ENTRY (dirnode) +
+					  (offset * OCFS_SECTOR_SIZE));
+
+		if (!fe->sync_flags) {
+			status = -EBADSLT;
+			break;
+		}
+	}
+
+	if (status == -EBADSLT)
+		LOG_ERROR_ARGS ("corrupted index in dirnode=%u.%u",
+			       	HILO(dirnode->node_disk_off));
+
+bail:
+	ocfs_safefree (ind);
+	LOG_EXIT_STATUS (status);
+	return status;
+}				/* ocfs_validate_dir_index */
+
+
+/*
+ * ocfs_validate_num_del()
+ *
+ */
+int ocfs_validate_num_del (ocfs_super *osb, ocfs_dir_node *dirnode)
+{
+	ocfs_file_entry *fe = NULL;
+	int i;
+	int j;
+	int status = 0;
+	__u8 offset;
+	__u8 *ind = NULL;
+	char tmpstr[3];
+	__u64 tmpoff;
+
+	LOG_ENTRY_ARGS ("(osb=0x%p, dn=0x%p)\n", osb, dirnode);
+
+	if (!dirnode->num_del)
+		goto bail;
+
+	if ((ind = (__u8 *)ocfs_malloc (256)) == NULL) {
+		LOG_ERROR_STATUS (status = -ENOMEM);
+		goto bail;
+	}
+
+	memset(ind, 0, 256);
+
+	offset = dirnode->first_del;
+	for (i = 0; i < dirnode->num_del; ++i) {
+		if (offset > 253) {
+			status = -EBADSLT;
+			break;
+		}
+
+		/* check if offset is in index and hence invalid */
+		for (j = 0; j < dirnode->num_ent_used; ++j) {
+			if (dirnode->index[j] == offset) {
+				status = -EBADSLT;
+				break;
+			}
+		}
+
+		/* check for circular list */
+		if (ind[offset]) {
+			status = -EBADSLT;
+			break;
+		} else
+			ind[offset] = 1;
+
+		fe = (ocfs_file_entry *) (FIRST_FILE_ENTRY (dirnode) +
+					  (offset * OCFS_SECTOR_SIZE));
+
+		/* file has to be deleted to be in the list */
+		if (fe->sync_flags) {
+			status = -EBADSLT;
+			break;
+		}
+
+		offset = (__u8)fe->next_del;
+	}
+
+	if (status == -EBADSLT) {
+		if (i) {
+			strncpy (tmpstr, "fe", sizeof(tmpstr));
+			tmpoff = fe->this_sector;
+		} else {
+			strncpy (tmpstr, "dn", sizeof(tmpstr));
+			tmpoff = dirnode->node_disk_off;
+		}
+
+		LOG_ERROR_ARGS ("bad offset=%u in %s=%u.%u", offset, tmpstr,
+			       	HILO(tmpoff));
+	}
+
+bail:
+	ocfs_safefree (ind);
+	LOG_EXIT_STATUS (status);
+	return status;
+}				/* ocfs_validate_num_del */

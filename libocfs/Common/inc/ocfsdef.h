@@ -52,6 +52,9 @@
 
 #define  IS_VALID_OSB(_osb)	((_osb)->obj_id.type == OCFS_TYPE_OSB)
 
+#define  IS_VALID_DISKHB(_hb)	((_hb) >= 500 && (_hb) <= 5000)
+#define  IS_VALID_HBTIMEO(_to)	((_to) >= 10000 && (_to) <= 60000)
+
 #define  OCFS_GET_EXTENT(vbo, extent, k)                            \
               do {                                                  \
                 for ((k) = 0; (k) < OCFS_MAX_DATA_EXTENTS; (k)++) { \
@@ -335,6 +338,7 @@ struct _ocfs_super
 	__u32 num_cfg_nodes;
 	__u32 node_num;
 	bool reclaim_id;                /* reclaim the original node number*/
+	__u32 max_miss_cnt;
 	__u8 hbm;
 	unsigned long hbt;
 	__u64 log_disk_off;
@@ -475,7 +479,6 @@ typedef struct _ocfs_ipc_ctxt
 	__u32 dlm_msg_size;
 	__u16 version;
 	bool init;
-	bool re_init;
 	struct socket *send_sock;
 	struct socket *recv_sock;
 	struct completion complete;

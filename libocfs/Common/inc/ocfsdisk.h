@@ -200,6 +200,8 @@ typedef struct _ocfs_vol_layout
 	__u32 prot_bits;
 	__u32 uid;
 	__u32 gid;
+	__u32 disk_hb;
+	__u32 hb_timeo;
 }
 ocfs_vol_layout;
 

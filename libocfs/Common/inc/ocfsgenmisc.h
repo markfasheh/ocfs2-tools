@@ -39,7 +39,7 @@ int ocfs_create_root_oin (ocfs_super * osb);
 
 void ocfs_delete_all_extent_maps (ocfs_inode * oin);
 
-void ocfs_release_oin (ocfs_inode * oin, bool FreeMemory);
+void ocfs_release_oin (ocfs_inode * oin, bool need_lock);
 
 int ocfs_initialize_osb (ocfs_super * osb,
 		   ocfs_vol_disk_hdr * VolDiskHdr,
@@ -55,6 +55,7 @@ void ocfs_delete_osb (ocfs_super * osb);
 
 int ocfs_commit_cache (ocfs_super * osb, bool Flag);
 
+int ocfs_is_dir_empty (ocfs_super * osb, ocfs_dir_node * dirnode, bool * empty);
 
 /* sorry about all the macros, but file and line are important */
 

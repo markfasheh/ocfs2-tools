@@ -27,6 +27,16 @@
 #ifndef _OCFSGENNM_H_
 #define _OCFSGENNM_H_
 
+static inline int ocfs_validate_lockid (ocfs_super *osb, __u64 lockid) {
+	if (!lockid)
+		return -1;
+	if (osb->vol_layout.size < lockid)
+		return -1;
+	if (lockid % OCFS_SECTOR_SIZE)
+		return -1;
+	return 0;
+}
+
 int ocfs_flush_data (ocfs_inode * oin);
 
 int ocfs_disk_update_resource (ocfs_super * osb, ocfs_lock_res * lockres,
