@@ -50,7 +50,10 @@ DLM.  The basic steps in startup are as follows:
 6) Mount an OCFS2 filesystem.
 
 The /etc/init.d/o2cb program is responsible for handling steps 1-3
-during the boot of a machine.
+during the boot of a machine.  If you are running from the source
+tree, the script is located at vendor/common/o2cb.init.  Also, the
+o2cb_ctl program needs to be in your path.  It lives at
+clusterbo/o2cb_ctl in the source tree.
 
 To enable steps 1 and 2 on boot:
 
