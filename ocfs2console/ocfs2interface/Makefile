@@ -71,7 +71,7 @@ INSTALL_RULES = install-pylib
 
 DIST_FILES = $(CFILES) $(HFILES) $(PYSRC)
 
-ocfs2module.so: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS)
+ocfs2module.so: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(BLKID_DEPS)
 	$(LINK) -shared $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(BLKID_LIBS) $(COM_ERR_LIBS) $(GLIB_LIBS)
 
 install-pylib:
