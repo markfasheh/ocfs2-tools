@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * pass3.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +17,16 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * --
+ * Pass 3 makes sure that all directories are connected to the file system
+ * tree and that their are no cycles in the tree.  It starts by marking
+ * the root and system directories in the filesystem as connected.  It then
+ * iterates through the directories found in pass 1.  For each directory
+ * it ascends to the root of the file system via the chain of parent dir
+ * entries as built up by pass 2.  If a directory is found which doesn't have
+ * a parent it is connected to lost+found.  connect_directory() is careful
+ * to stop before following a parent that it has already seen.  This lets it
+ * connect to lost+found instead and break cycles.
  */
 #include <inttypes.h>
 #include <string.h>

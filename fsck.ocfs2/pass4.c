@@ -17,6 +17,13 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
+ * --
+ *
+ * Pass 4 walks all the active inodes and makes sure that they are reachable
+ * via directory entries, just like pass 3 did for directories.  It also 
+ * makes sure each inode's link_count reflects the number of entries that
+ * refer to it.  Inodes that aren't referred to by any entries are moved
+ * to lost+found.
  */
 #include <inttypes.h>
 

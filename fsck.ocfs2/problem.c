@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * problem.c
- *
- * These routines serve the same purpose as e2fsck's "fix_problem()"
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +17,15 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * --
+ *
+ * prompt() asks the user whether a given problem should be fixed or not.
+ * "problem.c" is derived from the baroque e2fsck origins for this concept.
+ *
+ * XXX
+ * 	The significant gap here is in persistent answers.  Often one wants
+ * 	to tell fsck to stop asking the same freaking question over and over
+ * 	until a different question is asked.
  */
 #include <unistd.h>
 #include <stdlib.h>

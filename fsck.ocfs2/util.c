@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * util.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +17,13 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * --
+ *
+ * Little helpers that are used by all passes.
+ *
+ * XXX
+ * 	pull more in here.. look in include/pass?.h for incongruities
+ *
  */
 #include <inttypes.h>
 #include "ocfs2.h"

@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * pass0.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -20,6 +16,8 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
+ *
+ * --
  *
  * Pass 0 verifies that the inode suballocators can be iterated over by later
  * passes without risk of running into corruption.  This is so the passes can

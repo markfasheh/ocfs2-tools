@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * fsck.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -24,34 +20,24 @@
  * --
  * Roughly o2fsck performs the following operations.  Each pass' file has
  * more details.
- * 
- * - pass0: clean up the inode allocators
- * 	- kill loops, chains can't share groups
- * 	- move local allocs back to the global or something?
- * 	- verify just enough of the fields to make iterating work
  *
- * - pass1: walk inodes
- * 	- record all valid clusters that inodes point to
- * 	- make sure extent trees in inodes are consistent
- * 	- inconsistencies mark inodes for deletion
- * 	- update cluster bitmap
- * 		- have bits reflect our set of referenced clusters
- * 		- again, how to resolve local/global?
- * 		* from this point on the library can trust the cluster bitmap
+ * journal.c: try and replay the journal for each node
+ * pass0.c: make sure the inode allocators are consistent
+ * pass1.c: walk allocated inodes and verify them
+ *          reflect valid inodes in the inode allocator bitmaps
+ * pass2.c: verify directory entries, record some linkage metadata
+ * pass3.c: make sure all dirs are reachable
+ * pass4.c: resolve inode's link counts, move disconnected inodes to lost+found
  *
- * 	- update the inode allocators
- * 		- make sure our set of valid inodes matches the bits
- * 		- make sure all the bit totals add up
- * 		* from this point on the library can trust the inode allocators
+ * When hacking on this keep the following in mind:
  *
- * This makes it so only these early passes need to have global 
- * allocation goo in memory.  The rest can use the library as 
- * usual.
- *
- * so what do we do about the extent metadata allocators?  track them in
- * the same way we track inodes in the inode suballocators, I guess.  store
- * with whatever key they have.  do the suballocators only allocate extent
- * list blocks that are only owned by a tree?  that'd make it pretty easy.
+ * - fsck -n is a good read-only on-site diagnostic tool.  This means that fsck
+ *   _should not_ write to the file system unless it has asked prompt() to do
+ *   so.  It should also not exit if prompt() returns 0.  prompt() shold give
+ *   as much detail as possible as it becomes an error log.
+ * - to make life simpler, memory allocation is a fatal error.  We shouldn't
+ *   have unreasonable memory demands in relation to the size of the fs.
+ * - I'm still of mixed opinions about IO errors.  thoughts?
  */
 #include <getopt.h>
 #include <limits.h>
@@ -159,24 +145,27 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 	return 0;
 }
 
-static void check_superblock(char *whoami, o2fsck_state *ost)
+static errcode_t check_superblock(char *whoami, o2fsck_state *ost)
 {
 	ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+	errcode_t ret = 0;
 
 	if (sb->s_max_nodes == 0) {
-		printf("The superblock max_nodes field is set to 0.  fsck "
-		       "doesn't know how to repair this.\n");
-		exit(FSCK_ERROR);
+		printf("The superblock max_nodes field is set to 0.\n");
+		ret = OCFS2_ET_CORRUPT_SUPERBLOCK;
 	}
 
 	/* ocfs2_open() already checked _incompat and _ro_compat */
 	if (sb->s_feature_compat & ~OCFS2_FEATURE_COMPAT_SUPP) {
-		com_err(whoami, OCFS2_ET_UNSUPP_FEATURE,
-		        "while checking _compat flags");
-		exit(FSCK_ERROR);
+		if (ret == 0)
+			ret = OCFS2_ET_UNSUPP_FEATURE;
+		com_err(whoami, ret, "while checking the super block's compat "
+			"flags");
 	}
 
 	/* XXX do we want checking for different revisions of ocfs2? */
+
+	return ret;
 }
 
 static void exit_if_skipping(o2fsck_state *ost)
@@ -325,15 +314,6 @@ int main(int argc, char **argv)
 
 	filename = argv[optind];
 
-#if 0 /* irritating, and e2fsck doesn't do it.  what do others think? */
-	struct stat st;
-	if (stat(filename, &st) == 0 && !S_ISBLK(st.st_mode) &&
-	    !prompt(ost, PY, "%s isn't a special block device.  Proceed "
-		    "anyway?", filename)) {
-		exit(FSCK_ERROR);
-	}
-#endif
-
 	/* XXX we'll decide on a policy for using o_direct in the future.
 	 * for now we want to test against loopback files in ext3, say. */
 	ret = ocfs2_open(filename, rw | OCFS2_FLAG_BUFFERED, blkno,
@@ -349,8 +329,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-
-	check_superblock(argv[0], ost);
+	ret = check_superblock(argv[0], ost);
+	if (ret) {
+		printf("fsck saw unrecoverable errors in the super block and "
+		       "will not continue.\n");
+		exit(FSCK_ERROR);
+	}
 
 	exit_if_skipping(ost);
 

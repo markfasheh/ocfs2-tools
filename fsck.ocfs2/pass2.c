@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * pass2.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -21,7 +17,22 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * --
+ * Pass 2 iterates through the directory blocks that pass 1 found under 
+ * directory inodes.  The basic dirent structures are made consistent
+ * in each block.  Directory entries much point to active inodes.  "dot dot"
+ * must be in the first blocks of the dir and nowhere else.  Duplicate entries
+ * are detected but little more.  Slashes and nulls in names are replaced
+ * with dots.  The file type in the entry is synced with the type found in
+ * the inode it points to.  Throughout this invalid entries are cleared 
+ * by simply setting their inode field to 0 so that the fs will reuse them.
+ *
+ * Pass 2 builds up the parent dir linkage as it scans the directory entries
+ * so that pass 3 can walk the directory trees to find disconnected inodes.
+ *
+ * XXX
+ * 	do something about duplicate entries?
+ *
  */
 #include <string.h>
 #include <inttypes.h>

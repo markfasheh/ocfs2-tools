@@ -1,12 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * dirparents.c
- *
- * As always, we let e2fsck lead the way.  A bitmap for
- * inodes with a single i_count (the vast majority), and a
- * tree of inode numbers with a greater count. 
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -23,7 +17,12 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * --
+ *
+ * An rbtree to record a directory's parent information.  _dirent records
+ * the inode who had a directory entry that points to the directory in
+ * question.  _dot_dot records the inode that the directory's ".." points to;
+ * who it thinks its parent is.
  */
 #include <unistd.h>
 #include <stdlib.h>

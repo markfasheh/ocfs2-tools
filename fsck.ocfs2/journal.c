@@ -1,10 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * journal.c
- *
- * file system checker for OCFS2
- *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -610,7 +606,6 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		printf("Node %d's journal replayed successfully.\n", i);
 	}
 
-	/* XXX make sure we maintain journal_trouble in all cases */
 	if (journal_trouble && 
 	    !prompt(ost, PN, "There were problems replaying journals.  This "
 		    "means that the file system is almost certainly badly "

@@ -17,8 +17,31 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
+ * --
+ *
+ * Pass 1 is arguably where the greatest concentration of special rules
+ * in fsck live.  It walks through all the inodes that it can get its hands
+ * on and verifies them.  For now it only walks the inode allocator groups
+ * that pass 0 was able to verify.  One can imagine it getting other potential
+ * inodes from other places.
+ *
+ * The complexity comes in deciding that inodes are valid.  There are different
+ * critera for system inodes, allocator inodes, and the usual different 
+ * unix inode file types.
+ *
+ * Pass 1 build up in-memory copies of the inode allocators that are written
+ * back as the real inode allocators if inconsistencies are found between
+ * the bitmaps and the inodes.  It also builds up many inode-dependent data
+ * structures that are used by future passes:
+ *  - icount map of inodes to what their current on-disk i_link_count is
+ *  - bitmap of which inodes are directories or regular files
+ *  - directory blocks that it finds off of directory inodes
+ *
  * XXX
+ * 	check many, many, more i_ fields for each inode type
  * 	make sure the inode's dtime/count/valid match in update_inode_alloc
+ * 	clean up the extent records that hang off inodes
+ * 	more carefully track cluster use in conjunction with pass 0
  */
 #include <string.h>
 #include <inttypes.h>
@@ -152,10 +175,7 @@ out:
 
 /* Check the basics of the ocfs2_dinode itself.  If we find problems
  * we clear the VALID flag and the caller will see that and update
- * inode allocations and write the inode to disk.
- *
- * XXX should walk down all the i_fields to make sure we're veryfying
- * those that we can this early */
+ * inode allocations and write the inode to disk. */
 static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost, 
 				       uint64_t blkno, ocfs2_dinode *di)
 {
