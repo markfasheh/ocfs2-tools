@@ -315,7 +315,7 @@ int main(int argc, char **argv)
     while (1)
     {
 	int off = 0;
-	int c = getopt(argc, argv, "Nhgl2v:p:d:D:f:F:a:A:b:B:b:r:c:L:M:s:n:X");
+	int c = getopt(argc, argv, "NhHgl2v:p:d:D:f:F:a:A:b:B:b:r:c:L:M:s:n:X");
 
 	if (c == -1)
 	    break;
@@ -323,6 +323,9 @@ int main(int argc, char **argv)
 	{
 	    case 'h':		/* header */
 		args.showHeader = true;
+		break;
+	    case 'H':		/* update header */
+		args.updHeader = true;
 		break;
 	    case 'g':		/* global bitmap */
 		args.showBitmap = true;
@@ -429,21 +432,27 @@ int main(int argc, char **argv)
     if (!(args.showHeader || args.showPublish || args.showVote ||
 	  args.showListing || args.showDirent || args.showFileent ||
 	  args.showFileext || args.showSystemFiles || args.showBitmap ||
-	  args.showDirentAll))
+	  args.showDirentAll || args.updHeader))
     {
 	usage();
 	exit(1);
     }
 
-    if (!args.no_rawbind) {
+    if (args.updHeader) {
     	if (get_device_size(argv[optind], &device_size) == -1)
 		    goto bail;
+    }
+
+    if (!args.no_rawbind) {
 	    if (bind_raw(argv[optind], &rawminor, rawdev, sizeof(rawdev)) == -1)
 		    goto bail;
     } else
 	    strncpy(rawdev, argv[optind], sizeof(rawdev));
 
-    flags = O_RDWR | O_LARGEFILE;
+    if (args.updHeader)
+    	flags = O_RDWR | O_LARGEFILE;
+    else
+    	flags = O_RDONLY | O_LARGEFILE;
     fd = open(rawdev, flags);
     if (fd == -1)
     {
@@ -451,22 +460,34 @@ int main(int argc, char **argv)
 	goto bail;
     }
 
-    read_vol_disk_header(fd, diskHeader);
-    if (strncmp(diskHeader->signature, OCFS_VOLUME_SIGNATURE, MAX_VOL_SIGNATURE_LEN)) {
-	    printf("ERROR: volume header appears to be corrupted.\nContinuing with standard values.\n");
-	    if (get_default_vol_hdr(fd, diskHeader, device_size) == -1)
-		    goto bail;
-	    while (1) {
+    if (args.updHeader) {
+	if (get_default_vol_hdr(fd, diskHeader, device_size) == -1)
+		goto bail;
+	printf("diskheader:\n");
+	print_vol_disk_header(diskHeader);
+	while (1) {
 		printf("Do you want to write the new volume header to disk (y/N)? ");
 		fgets(input, sizeof(input), stdin);
 		if (toupper(*input) == 'Y') {
-	    		if (write_vol_disk_header(fd, diskHeader) != OCFS_SECTOR_SIZE)
-		    		goto bail;
+			if (write_vol_disk_header(fd, diskHeader) != OCFS_SECTOR_SIZE) {
+				printf("ERROR updating volume header.\n");
+				goto bail;
+			}
 			printf("Volume header successfully updated.\n");
 			break;
-		} else
+		} else {
+			printf("Volume header not updated.\n");
 			break;
-	    }
+		}
+	}
+	goto bail;
+    }
+
+    read_vol_disk_header(fd, diskHeader);
+    if (strncmp(diskHeader->signature, OCFS_VOLUME_SIGNATURE, MAX_VOL_SIGNATURE_LEN)) {
+	    printf("ERROR: Volume header appears to be corrupted.\nRerun with -H.\n");
+	    if (!args.showHeader)
+		    goto bail;
     }
 
     read_vol_label(fd, volLabel);

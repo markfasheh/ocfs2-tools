@@ -64,6 +64,7 @@ typedef struct _user_args
 {
     int nodenum;
     int showHeader;
+    int updHeader;
     int showBitmap;
     int showPublish;
     int showVote;
