@@ -312,7 +312,7 @@ bail:
 static errcode_t get_default_journal_size(ocfs2_filesys *fs, uint64_t *jrnl_size)
 {
 	errcode_t ret;
-	char jrnl_node0[40];
+	char jrnl_node0[SYSTEM_FILE_NAME_MAX];
 	uint64_t blkno;
 	char *buf = NULL;
 	ocfs2_dinode *di;
@@ -416,6 +416,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		if (num_clusters <= di->i_clusters)
 			continue;
 
+		printf("Extending %s...  ", jrnl_file);
 		ret = ocfs2_extend_allocation(fs, blkno,
 					      (num_clusters - di->i_clusters));
 		if (ret)
@@ -428,15 +429,18 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		di = (ocfs2_dinode *)buf;
 		di->i_size = di->i_clusters <<
 				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+		di->i_mtime = time(NULL);
 
 		ret = ocfs2_write_inode(fs, blkno, buf);
 		if (ret)
 			goto bail;
-
-		break;
+		printf("\r                                                     \r");
 	}
 
 bail:
+	if (ret)
+		printf("\n");
+
 	if (buf)
 		ocfs2_free(&buf);
 
@@ -491,6 +495,11 @@ int main(int argc, char **argv)
 
 //	check_32bit_blocks (s);
 
+	/* get journal size of node 0 */
+	ret = get_default_journal_size(fs, &def_jrnl_size);
+	if (ret)
+		goto bail;
+
 	/* validate volume label */
 	if (opts.vol_label) {
 		printf("Changing volume label from %s to %s\n",
@@ -508,14 +517,13 @@ int main(int argc, char **argv)
 			       "configured nodes (%d)\n", opts.num_nodes, tmp);
 			goto bail;
 		}
+
+		if (!opts.jrnl_size)
+			opts.jrnl_size = def_jrnl_size;
 	}
 
 	/* validate journal size */
 	if (opts.jrnl_size) {
-		ret = get_default_journal_size(fs, &def_jrnl_size);
-		if (ret)
-			goto bail;
-
 		num_clusters = (opts.jrnl_size + fs->fs_clustersize - 1) >>
 				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 
@@ -526,9 +534,11 @@ int main(int argc, char **argv)
 			printf("Changing journal size %"PRIu64" to %"PRIu64"\n",
 			       def_jrnl_size, opts.jrnl_size);
 		else {
-			printf("ERROR: Journal size %"PRIu64" has to be larger "
-			       "than %"PRIu64"\n", opts.jrnl_size, def_jrnl_size);
-			goto bail;
+			if (!opts.num_nodes) {
+				printf("ERROR: Journal size %"PRIu64" has to be larger "
+				       "than %"PRIu64"\n", opts.jrnl_size, def_jrnl_size);
+				goto bail;
+			}
 		}
 	}
 
@@ -592,7 +602,6 @@ int main(int argc, char **argv)
 		if (upd_vsize)
 			printf("Resized volume\n");
 	}
-
 
 	/* write superblock */
 	if (upd_label || upd_nodes || upd_vsize) {
