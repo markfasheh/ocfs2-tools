@@ -29,7 +29,7 @@
  * get_vote_flag()
  *
  */
-void get_vote_flag (__u32 flag, GString *str)
+void get_vote_flag (uint32_t flag, GString *str)
 {
 	if (flag & FLAG_VOTE_NODE)
 		g_string_append (str, "ok ");
@@ -61,7 +61,7 @@ void get_vote_flag (__u32 flag, GString *str)
  * get_publish_flag()
  *
  */
-void get_publish_flag (__u32 flag, GString *str)
+void get_publish_flag (uint32_t flag, GString *str)
 {
 	if (flag & FLAG_FILE_CREATE)
 		g_string_append (str, "create ");
@@ -147,7 +147,7 @@ void get_publish_flag (__u32 flag, GString *str)
  * get_journal_blktyp()
  *
  */
-void get_journal_blktyp (__u32 jtype, GString *str)
+void get_journal_blktyp (uint32_t jtype, GString *str)
 {
 	switch (jtype) {
 	case JFS_DESCRIPTOR_BLOCK:
@@ -177,7 +177,7 @@ void get_journal_blktyp (__u32 jtype, GString *str)
  * get_tag_flag()
  *
  */
-void get_tag_flag (__u32 flags, GString *str)
+void get_tag_flag (uint32_t flags, GString *str)
 {
 	if (flags == 0) {
 		g_string_append (str, "none");

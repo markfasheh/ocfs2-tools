@@ -44,9 +44,9 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 		     char *buf, void *priv_data);
 void dump_jbd_header (FILE *out, journal_header_t *header);
 void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb);
-void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum);
-void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum);
-void dump_jbd_unknown (FILE *out, __u64 start, __u64 end);
+void dump_jbd_block (FILE *out, journal_header_t *header, uint64_t blknum);
+void dump_jbd_metadata (FILE *out, int type, char *buf, uint64_t blknum);
+void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end);
 void dump_slots (FILE *out, char *buf, uint32_t len);
 void dump_fast_symlink (FILE *out, char *link);
 

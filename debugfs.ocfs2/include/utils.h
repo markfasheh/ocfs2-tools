@@ -33,10 +33,10 @@ typedef struct _rdump_opts {
 	int verbose;
 } rdump_opts;
 
-void get_vote_flag (__u32 flag, GString *str);
-void get_publish_flag (__u32 flag, GString *str);
-void get_journal_blktyp (__u32 jtype, GString *str);
-void get_tag_flag (__u32 flags, GString *str);
+void get_vote_flag (uint32_t flag, GString *str);
+void get_publish_flag (uint32_t flag, GString *str);
+void get_journal_blktyp (uint32_t jtype, GString *str);
+void get_tag_flag (uint32_t flags, GString *str);
 FILE *open_pager(int interactive);
 void close_pager(FILE *stream);
 int inodestr_to_inode(char *str, uint64_t *blkno);

@@ -31,15 +31,15 @@ extern dbgfs_gbls gbls;
  * read_journal()
  *
  */
-void read_journal (FILE *out, char *buf, __u64 buflen)
+void read_journal (FILE *out, char *buf, uint64_t buflen)
 {
 	char *block;
-	__u64 blocknum;
+	uint64_t blocknum;
 	journal_header_t *header;
 	__u32 blksize = 1 << OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits;
-	__u64 len;
+	uint64_t len;
 	char *p;
-	__u64 last_unknown = 0;
+	uint64_t last_unknown = 0;
 	int type;
 
 	dump_jbd_superblock (out, (journal_superblock_t *) buf);

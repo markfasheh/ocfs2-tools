@@ -27,12 +27,12 @@
 #define __READFS_H__
 
 int read_super_block (int fd, char **buf);
-int read_inode (int fd, __u64 blknum, char *buf, int buflen);
-int read_group (int fd, __u64 blknum, char *buf, int buflen);
+int read_inode (int fd, uint64_t blknum, char *buf, int buflen);
+int read_group (int fd, uint64_t blknum, char *buf, int buflen);
 int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump, FILE *out);
 void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr);
-void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr);
+void read_dir (int fd, ocfs2_extent_list *ext, uint64_t size, GArray *dirarr);
 void read_sysdir (int fd, char *sysdir);
-int read_file (int fd, __u64 blknum, int fdo, char **buf);
+int read_file (int fd, uint64_t blknum, int fdo, char **buf);
 
 #endif		/* __READFS_H__ */

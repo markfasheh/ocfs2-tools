@@ -28,7 +28,7 @@
 
 #include <jbd.h>
 
-void read_journal (FILE *out, char *buf, __u64 buflen);
+void read_journal (FILE *out, char *buf, uint64_t buflen);
 int detect_block (char *buf);
 
 #endif		/* _JOURNAL_H_ */

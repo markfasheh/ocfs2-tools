@@ -35,11 +35,11 @@ extern dbgfs_gbls gbls;
 int read_super_block (int fd, char **buf)
 {
 	int ret = -1;
-	__u64 off;
+	uint64_t off;
 	ocfs1_vol_disk_hdr *hdr;
 	ocfs2_dinode *di;
-	__u32 bits = 9;
-	__u32 buflen;
+	uint32_t bits = 9;
+	uint32_t buflen;
 
 	for (bits = 9; bits < 13; bits++) {
 		buflen = 1 << bits;
@@ -103,7 +103,7 @@ bail:
  * read_inode()
  *
  */
-int read_inode (int fd, __u64 blknum, char *buf, int buflen)
+int read_inode (int fd, uint64_t blknum, char *buf, int buflen)
 {
 	uint64_t off;
 	ocfs2_dinode *inode;
@@ -127,7 +127,7 @@ int read_inode (int fd, __u64 blknum, char *buf, int buflen)
  * read_group()
  *
  */
-int read_group (int fd, __u64 blknum, char *buf, int buflen)
+int read_group (int fd, uint64_t blknum, char *buf, int buflen)
 {
 	uint64_t off;
 	ocfs2_group_desc *bg;
@@ -156,9 +156,9 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump, FIL
 	ocfs2_extent_block *blk;
 	ocfs2_extent_rec *rec;
 	int ret = 0;
-	__u64 off;
+	uint64_t off;
 	char *buf = NULL;
-	__u32 buflen;
+	uint32_t buflen;
 	int i;
 
 	if (dump)
@@ -173,7 +173,7 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump, FIL
 			if (!(buf = memalign(buflen, buflen)))
 				DBGFS_FATAL("%s", strerror(errno));
 
-			off = (__u64)rec->e_blkno << gbls.blksz_bits;
+			off = (uint64_t)rec->e_blkno << gbls.blksz_bits;
 			if ((pread64 (fd, buf, buflen, off)) == -1)
 				DBGFS_FATAL("%s", strerror(errno));
 
@@ -215,15 +215,15 @@ void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr)
  * read_dir()
  *
  */
-void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
+void read_dir (int fd, ocfs2_extent_list *ext, uint64_t size, GArray *dirarr)
 {
 	ocfs2_extent_rec *rec;
 	GArray *arr = NULL;
 	unsigned int i = 0;
 	char *buf = NULL;
-	__u32 len;
-	__u64 off;
-	__u64 foff;
+	uint32_t len;
+	uint64_t off;
+	uint64_t foff;
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
 
@@ -322,19 +322,19 @@ bail:
  * read_file()
  *
  */
-int read_file (int fd, __u64 blknum, int fdo, char **buf)
+int read_file (int fd, uint64_t blknum, int fdo, char **buf)
 {
 	ocfs2_dinode *inode = NULL;
 	GArray *arr = NULL;
 	ocfs2_extent_rec *rec;
 	char *p = NULL;
-	__u64 off, foff, len;
+	uint64_t off, foff, len;
 	unsigned int i;
 	char *newbuf = NULL;
-	__u64 newlen = 0;
+	uint64_t newlen = 0;
 	char *inode_buf = NULL;
-	__u64 buflen = 0;
-	__u64 rndup = 0;
+	uint64_t buflen = 0;
+	uint64_t rndup = 0;
 	int ret = -1;
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));

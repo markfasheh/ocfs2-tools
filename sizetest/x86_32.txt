@@ -1,123 +1,133 @@
-sizeof(ocfs2_extent_rec) = 16
-	e_cpos = 0 (4)
-	e_clusters = 4 (4)
-	e_blkno = 8 (8)
+[off]	ocfs2_extent_rec    	[size]
+0x000	e_cpos              	+0x04
+0x004	e_clusters          	+0x04
+0x008	e_blkno             	+0x08
+	Total               	0x010
 
-sizeof(ocfs2_chain_rec) = 16
-	c_free = 0 (4)
-	c_total = 4 (4)
-	c_blkno = 8 (8)
+[off]	ocfs2_chain_rec     	[size]
+0x000	c_free              	+0x04
+0x004	c_total             	+0x04
+0x008	c_blkno             	+0x08
+	Total               	0x010
 
-sizeof(ocfs2_extent_list) = 16
-	l_tree_depth = 0 (2)
-	l_count = 2 (2)
-	l_next_free_rec = 4 (2)
-	l_reserved1 = 6 (2)
-	l_reserved2 = 8 (8)
-	l_recs = 16 (0)
+[off]	ocfs2_extent_list   	[size]
+0x000	l_tree_depth        	+0x02
+0x002	l_count             	+0x02
+0x004	l_next_free_rec     	+0x02
+0x006	l_reserved1         	+0x02
+0x008	l_reserved2         	+0x08
+0x010	l_recs              	+0x00
+	Total               	0x010
 
-sizeof(ocfs2_chain_list) = 16
-	cl_cpg = 0 (2)
-	cl_bpc = 2 (2)
-	cl_count = 4 (2)
-	cl_next_free_rec = 6 (2)
-	cl_reserved1 = 8 (8)
-	cl_recs = 16 (0)
+[off]	ocfs2_chain_list    	[size]
+0x000	cl_cpg              	+0x02
+0x002	cl_bpc              	+0x02
+0x004	cl_count            	+0x02
+0x006	cl_next_free_rec    	+0x02
+0x008	cl_reserved1        	+0x08
+0x010	cl_recs             	+0x00
+	Total               	0x010
 
-sizeof(ocfs2_extent_block) = 64
-	h_signature = 0 (8)
-	h_reserved1 = 8 (8)
-	h_suballoc_node = 16 (2)
-	h_suballoc_bit = 18 (2)
-	h_fs_generation = 20 (4)
-	h_blkno = 24 (8)
-	h_reserved3 = 32 (8)
-	h_next_leaf_blk = 40 (8)
-	h_list = 48 (16)
+[off]	ocfs2_extent_block  	[size]
+0x000	h_signature         	+0x08
+0x008	h_reserved1         	+0x08
+0x010	h_suballoc_node     	+0x02
+0x012	h_suballoc_bit      	+0x02
+0x014	h_fs_generation     	+0x04
+0x018	h_blkno             	+0x08
+0x020	h_reserved3         	+0x08
+0x028	h_next_leaf_blk     	+0x08
+0x030	h_list              	+0x10
+	Total               	0x040
 
-sizeof(ocfs2_super_block) = 160
-	s_major_rev_level = 0 (2)
-	s_minor_rev_level = 2 (2)
-	s_mnt_count = 4 (2)
-	s_max_mnt_count = 6 (2)
-	s_state = 8 (2)
-	s_errors = 10 (2)
-	s_checkinterval = 12 (4)
-	s_lastcheck = 16 (8)
-	s_creator_os = 24 (4)
-	s_feature_compat = 28 (4)
-	s_feature_incompat = 32 (4)
-	s_feature_ro_compat = 36 (4)
-	s_root_blkno = 40 (8)
-	s_system_dir_blkno = 48 (8)
-	s_blocksize_bits = 56 (4)
-	s_clustersize_bits = 60 (4)
-	s_max_nodes = 64 (2)
-	s_reserved1 = 66 (2)
-	s_reserved2 = 68 (4)
-	s_first_cluster_group = 72 (8)
-	s_label = 80 (64)
-	s_uuid = 144 (16)
+[off]	ocfs2_super_block   	[size]
+0x000	s_major_rev_level   	+0x02
+0x002	s_minor_rev_level   	+0x02
+0x004	s_mnt_count         	+0x02
+0x006	s_max_mnt_count     	+0x02
+0x008	s_state             	+0x02
+0x00A	s_errors            	+0x02
+0x00C	s_checkinterval     	+0x04
+0x010	s_lastcheck         	+0x08
+0x018	s_creator_os        	+0x04
+0x01C	s_feature_compat    	+0x04
+0x020	s_feature_incompat  	+0x04
+0x024	s_feature_ro_compat 	+0x04
+0x028	s_root_blkno        	+0x08
+0x030	s_system_dir_blkno  	+0x08
+0x038	s_blocksize_bits    	+0x04
+0x03C	s_clustersize_bits  	+0x04
+0x040	s_max_nodes         	+0x02
+0x042	s_reserved1         	+0x02
+0x044	s_reserved2         	+0x04
+0x048	s_first_cluster_group	+0x08
+0x050	s_label             	+0x40
+0x090	s_uuid              	+0x10
+	Total               	0x0A0
 
-sizeof(ocfs2_local_alloc) = 16
-	la_bm_off = 0 (4)
-	la_size = 4 (2)
-	la_reserved1 = 6 (2)
-	la_reserved2 = 8 (8)
-	la_bitmap = 16 (0)
+[off]	ocfs2_local_alloc   	[size]
+0x000	la_bm_off           	+0x04
+0x004	la_size             	+0x02
+0x006	la_reserved1        	+0x02
+0x008	la_reserved2        	+0x08
+0x010	la_bitmap           	+0x00
+	Total               	0x010
 
-sizeof(ocfs2_dinode) = 352
-	i_signature = 0 (8)
-	i_generation = 8 (4)
-	i_suballoc_node = 12 (2)
-	i_suballoc_bit = 14 (2)
-	i_reserved0 = 16 (4)
-	i_clusters = 20 (4)
-	i_uid = 24 (4)
-	i_gid = 28 (4)
-	i_size = 32 (8)
-	i_mode = 40 (2)
-	i_links_count = 42 (2)
-	i_flags = 44 (4)
-	i_atime = 48 (8)
-	i_ctime = 56 (8)
-	i_mtime = 64 (8)
-	i_dtime = 72 (8)
-	i_blkno = 80 (8)
-	i_last_eb_blk = 88 (8)
-	i_fs_generation = 96 (4)
-	i_reserved1 = 100 (4)
-	i_reserved2 = 104 (80)
-	id1.i_pad1 = 184 (8)
-	id1.dev1.i_rdev = 184 (8)
-	id1.bitmap1.i_used = 184 (4)
-	id1.bitmap1.i_total = 188 (4)
-	id1.journal1.ij_flags = 184 (4)
-	id1.journal1.ij_pad = 188 (4)
-	id2.i_super = 192 (160)
-	id2.i_lab = 192 (16)
-	id2.i_chain = 192 (16)
-	id2.i_list = 192 (16)
-	id2.i_symlink = 192 (0)
+[off]	ocfs2_dinode        	[size]
+0x000	i_signature         	+0x08
+0x008	i_generation        	+0x04
+0x00C	i_suballoc_node     	+0x02
+0x00E	i_suballoc_bit      	+0x02
+0x010	i_reserved0         	+0x04
+0x014	i_clusters          	+0x04
+0x018	i_uid               	+0x04
+0x01C	i_gid               	+0x04
+0x020	i_size              	+0x08
+0x028	i_mode              	+0x02
+0x02A	i_links_count       	+0x02
+0x02C	i_flags             	+0x04
+0x030	i_atime             	+0x08
+0x038	i_ctime             	+0x08
+0x040	i_mtime             	+0x08
+0x048	i_dtime             	+0x08
+0x050	i_blkno             	+0x08
+0x058	i_last_eb_blk       	+0x08
+0x060	i_fs_generation     	+0x04
+0x064	i_reserved1         	+0x04
+0x068	i_reserved2         	+0x50
+0x0B8	id1.i_pad1          	+0x08
+0x0B8	id1.dev1.i_rdev     	+0x08
+0x0B8	id1.bitmap1.i_used  	+0x04
+0x0BC	id1.bitmap1.i_total 	+0x04
+0x0B8	id1.journal1.ij_flags	+0x04
+0x0BC	id1.journal1.ij_pad 	+0x04
+0x0C0	id2.i_super         	+0xA0
+0x0C0	id2.i_lab           	+0x10
+0x0C0	id2.i_chain         	+0x10
+0x0C0	id2.i_list          	+0x10
+0x0C0	id2.i_symlink       	+0x00
+	Total               	0x160
 
-sizeof(struct ocfs2_dir_entry) = 268
-	inode = 0 (8)
-	rec_len = 8 (2)
-	name_len = 10 (1)
-	file_type = 11 (1)
-	name = 12 (255)
+[off]	struct ocfs2_dir_entry	[size]
+0x000	inode               	+0x08
+0x008	rec_len             	+0x02
+0x00A	name_len            	+0x01
+0x00B	file_type           	+0x01
+0x00C	name                	+0xFF
+	Total               	0x10C
 
-sizeof(ocfs2_group_desc) = 64
-	bg_signature = 0 (8)
-	bg_size = 8 (2)
-	bg_bits = 10 (2)
-	bg_free_bits_count = 12 (2)
-	bg_chain = 14 (2)
-	bg_generation = 16 (4)
-	bg_reserved1 = 20 (4)
-	bg_next_group = 24 (8)
-	bg_parent_dinode = 32 (8)
-	bg_blkno = 40 (8)
-	bg_reserved2 = 48 (16)
-	bg_bitmap = 64 (0)
+[off]	ocfs2_group_desc    	[size]
+0x000	bg_signature        	+0x08
+0x008	bg_size             	+0x02
+0x00A	bg_bits             	+0x02
+0x00C	bg_free_bits_count  	+0x02
+0x00E	bg_chain            	+0x02
+0x010	bg_generation       	+0x04
+0x014	bg_reserved1        	+0x04
+0x018	bg_next_group       	+0x08
+0x020	bg_parent_dinode    	+0x08
+0x028	bg_blkno            	+0x08
+0x030	bg_reserved2        	+0x10
+0x040	bg_bitmap           	+0x00
+	Total               	0x040
 
