@@ -3,3 +3,4 @@ tunefs.ocfs2
 .*.sw?
 stamp-md5
 *.d
+tunefs.ocfs2.8

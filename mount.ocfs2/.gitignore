@@ -2,3 +2,4 @@
 mount.ocfs2
 *.d
 cscope.*
+ocfs2_hb_ctl

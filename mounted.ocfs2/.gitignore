@@ -3,3 +3,4 @@ stamp-md5
 .*.sw?
 cscope.*
 *.d
+mounted.ocfs2.8

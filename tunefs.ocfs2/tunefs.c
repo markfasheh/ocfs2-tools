@@ -220,6 +220,7 @@ static void get_options(int argc, char **argv)
 		{ "version", 0, 0, 'V' },
 		{ "journal-options", 0, 0, 'J'},
 		{ "volume-size", 0, 0, 'S'},
+		{ "noprompt", 0, 0, 'x' },
 		{ 0, 0, 0, 0}
 	};
 
@@ -231,7 +232,7 @@ static void get_options(int argc, char **argv)
 	opts.prompt = 1;
 
 	while (1) {
-		c = getopt_long(argc, argv, "L:N:J:S:vqV", long_options, 
+		c = getopt_long(argc, argv, "L:N:J:S:vqVx", long_options, 
 				NULL);
 
 		if (c == -1)

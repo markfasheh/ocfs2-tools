@@ -181,13 +181,14 @@ static int process_options(struct mount_options *mo)
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
-	struct mount_options mo = { NULL, NULL, NULL };
+	struct mount_options mo;
 	char hbuuid[33];
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
 
+	memset(&mo, 0, sizeof(mo));
 	read_options (argc, argv, &mo);
 
 	ret = process_options(&mo);
@@ -209,14 +210,14 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
-	ret = mount(mo.dev, mo.dir, "ocfs2", mo.flags, mo.xtra_opts);
+	ret = mount(mo.dev, mo.dir, "ocfs2", mo.flags & ~MS_NOSYS, mo.xtra_opts);
 	if (ret) {
 		fprintf(stderr, "error %d while mounting %s on %s", errno, 
 			mo.dev, mo.dir);
 		goto bail;
 	}
 
-	update_mtab_entry(mo.dev, mo.dir, "ocfs2", mo.xtra_opts, mo.flags, 0, 0);
+	update_mtab_entry(mo.dev, mo.dir, "ocfs2", mo.opts, mo.flags, 0, 0);
 
 bail:
 	free(mo.dev);
