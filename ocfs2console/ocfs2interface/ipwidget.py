@@ -71,6 +71,7 @@ class IPEditor(gtk.HBox):
 	    self.entrys[name] = gtk.Entry(3)
 	    self.entrys[name].set_size_request(50,-1)
 	    self.entrys[name].set_max_length(3)
+	    self.entrys[name].set_activates_default(True)
 
 	for i in range(0, len(ip_fields)):
 	    name = ip_fields[i]
@@ -142,6 +143,7 @@ class IPEditor(gtk.HBox):
             entry.emit_stop_by_name ("insert_text")
 
     get_text = dehydrate
+    set_text = hydrate
 
 
 
