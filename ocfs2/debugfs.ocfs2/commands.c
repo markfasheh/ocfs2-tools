@@ -25,10 +25,10 @@
 
 #include <main.h>
 #include <commands.h>
-#include <dump.h>
 #include <readfs.h>
 #include <utils.h>
 #include <journal.h>
+#include <dump.h>
 
 typedef void (*PrintFunc) (void *buf);
 typedef gboolean (*WriteFunc) (char **data, void *buf);
@@ -663,7 +663,7 @@ static void do_journal (char **args)
 		if ((len = read_file (gbls.dev_fd, blknum, -1, &logbuf)) == -1)
 			goto bail;
 		out = open_pager ();
-		read_journal (logbuf, (__u64)len, out);
+		read_journal (out, logbuf, (__u64)len);
 		close_pager (out);
 	}
 

@@ -36,5 +36,10 @@ void dump_dir_entry (FILE *out, GArray *arr);
 void dump_config (FILE *out, char *buf);
 void dump_publish (FILE *out, char *buf);
 void dump_vote (FILE *out, char *buf);
+void dump_jbd_header (FILE *out, journal_header_t *header);
+void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb);
+void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum);
+void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum);
+void dump_jbd_unknown (FILE *out, __u64 start, __u64 end);
 
 #endif		/* __DUMP_H__ */

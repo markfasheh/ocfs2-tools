@@ -28,13 +28,7 @@
 
 #include <jbd.h>
 
-void read_journal (char *buf, __u64 buflen, FILE *out);
-void dump_metadata (int type, char *buf, __u64 buflen, FILE *out);
+void read_journal (FILE *out, char *buf, __u64 buflen);
 int detect_block (char *buf);
-void dump_unknown (__u64 start, __u64 end, FILE *out);
-void print_header (journal_header_t *header, FILE *out);
-void print_super_block (journal_superblock_t *sb, FILE *out);
-void print_tag_flag (__u32 flags, FILE *out);
-void print_jbd_block (journal_header_t *header, FILE *out);
 
 #endif		/* _JOURNAL_H_ */
