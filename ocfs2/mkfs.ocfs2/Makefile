@@ -11,10 +11,13 @@ endif
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
 
-SBIN_PROGRAMS = mkfs.ocfs2
+SBIN_PROGRAMS = mkfs.ocfs2 mkfs.ocfs2.test
 
-INCLUDES = -I$(TOPDIR)/ocfs2/libocfs2/include
-DEFINES = -DLINUX -DUSERSPACE_TOOL -DFORMAT_OCFS
+LIBOCFS2_CFLAGS = -I$(TOPDIR)/ocfs2/libocfs2/include
+LIBOCFS2_LIBS = -L$(TOPDIR)/ocfs2/libocfs2 -locfs2
+
+INCLUDES = $(LIBOCFS2_CFLAGS)
+DEFINES = -DLINUX -DUSERSPACE_TOOL -DFORMAT_OCFS -DOCFS2_FLAT_INCLUDES
 
 OPTIMIZE = -O2
 
@@ -62,7 +65,10 @@ INSTALL_RULES = install-sbin-links install-man-links
 DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) #mkfs.ocfs2.8.in
 
 mkfs.ocfs2: mkfs2.o
-	$(LINK) 
+	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+
+mkfs.ocfs2.test: mkfs.o
+	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 readdir: readdir.o
 	$(LINK) 
