@@ -53,12 +53,12 @@ PYSRC = \
 	about.py \
 	browser.py \
 	clconfig.py \
+	console.py \
 	format.py \
 	fsck.py \
 	fswidgets.py \
 	general.py \
 	guiutil.py \
-	main.py \
 	menu.py \
 	nodemap.py \
 	process.py \
