@@ -42,7 +42,7 @@ void add_extent_rec (GArray *arr, ocfs2_extent_rec *rec)
 		return ;
 
 	if (!(new = malloc(sizeof(ocfs2_extent_rec))))
-		DBGFS_FATAL();
+		DBGFS_FATAL("%s", strerror(errno));
 
 	memcpy(new, rec, sizeof(ocfs2_extent_rec));
 	g_array_append_vals(arr, new, 1);
