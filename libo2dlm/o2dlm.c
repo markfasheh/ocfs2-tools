@@ -370,6 +370,9 @@ static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
 	if (fd < 0) {
 		free(path);
 		free(lockres);
+		if ((lockflags & O2DLM_TRYLOCK) &&
+		    (errno == ETXTBSY))
+			return O2DLM_ET_TRYLOCK_FAILED;
 		return O2DLM_ET_LOCKING;
 	}
 

@@ -99,4 +99,7 @@ ec	O2DLM_ET_FAILED_UNLOCKS,
 ec	O2DLM_ET_INVALID_ARGS,
 	"Invalid arguments passed to function"
 
+ec	O2DLM_ET_TRYLOCK_FAILED,
+	"Trylock failed"
+
 	end
