@@ -36,15 +36,19 @@
 #include <limits.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/utsname.h>
+#include <sys/sysmacros.h>
 
 #include <glib.h>
 
 
 #define OCFS_MAGIC 0xa156f7eb
 
-#define CDSL_BASE ".cluster"
+#define CDSL_BASE  ".cluster"
+
+#define PROC_OCFS2 "/proc/fs/ocfs2"
 
 
 typedef enum {
@@ -82,6 +86,7 @@ static char *get_ocfs2_root(const char *path);
 static char *cdsl_path_expand(State *s);
 static char *cdsl_target(State *s, const char *path);
 static void delete(State *s, const char *path);
+static char *get_node_num(State *s);
 
 
 extern char *optarg;
@@ -104,8 +109,8 @@ main(int argc, char **argv)
 	s = get_state(argc, argv);
 
 	if (statfs(s->dirname, &sbuf) != 0) {
-		fprintf(stderr, "%s: %s: %s\n", s->progname, s->filename,
-			g_strerror(errno));
+		fprintf(stderr, "%s: couldn't statfs %s: %s\n",
+			s->progname, s->dirname, g_strerror(errno));
 		exit(1);
 	}
 
@@ -138,11 +143,17 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (exists && !s->copy && !s->force) {
-		fprintf(stderr, "%s: %s already exists, but copy (-c) or "
-				"force (-f) not given\n",
-			s->progname, s->fullname);
-		exit(1);
+	if (exists && !s->copy) {
+		if (s->force) {
+			delete(s, s->fullname);
+			exists = FALSE;
+		}
+		else {
+			fprintf(stderr, "%s: %s already exists, but copy (-c) "
+					"or force (-f) not given\n",
+				s->progname, s->fullname);
+			exit(1);
+		}
 	}
 
 	path = s->dirname + strlen(fsroot) + 1;
@@ -174,7 +185,7 @@ main(int argc, char **argv)
 			if (s->force)
 				delete(s, cdsl_full);
 			else {
-				fprintf(stderr, "%s: CDSL already exists "
+				fprintf(stderr, "%s: CDSL already exists. "
 						"To replace, use the force "
 						"(-f) option\n",
 					s->progname);
@@ -379,7 +390,6 @@ get_ocfs2_root(const char *path)
 	g_free(found_type);
 	g_free(found);
 
-	ret = g_strdup("/tmp/ocfs2");
 	return ret;
 }
 
@@ -406,7 +416,7 @@ cdsl_path_expand(State *s)
 		break;
 	case CDSL_TYPE_NODENUM:
 		prefix = "nodenum";
-		val = "0";
+		val = get_node_num(s);
 		break;
 	default:
 		g_assert_not_reached();
@@ -484,4 +494,56 @@ delete(State *s, const char *path)
 	}
 
 	g_free(cmd);
+}
+
+static char *
+get_node_num(State *s)
+{
+	struct stat sbuf;
+	char *dev, *path, buf[20];
+	FILE *f;
+	int i;
+
+	if (stat(s->dirname, &sbuf) != 0) {
+		fprintf(stderr, "%s: couldn't stat %s: %s\n",
+			s->progname, s->dirname, g_strerror(errno));
+		exit(1);
+	}
+
+	dev = g_strdup_printf("%u_%u", major(sbuf.st_dev), minor(sbuf.st_dev));
+	path = g_build_filename(PROC_OCFS2, dev, "nodenum", NULL);
+	g_free(dev);
+
+	f = fopen(path, "r");
+
+	if (f == NULL) {
+		fprintf(stderr, "%s: could not open %s: %s\n",
+			s->progname, path, g_strerror(errno));
+		exit(1);
+	}
+
+	if (fgets(buf, sizeof(buf), f) == NULL) {
+		fprintf(stderr, "%s: could not read node number: %s\n",
+			s->progname, g_strerror(errno));
+		exit(1);
+	}
+
+	fclose(f);
+
+	g_free(path);
+
+	for (i = 0; i < sizeof(buf); i++) {
+		if (buf[i] < '0' || buf[i] > '9') {
+		    	buf[i] = '\0';
+			break;
+		}
+	}
+
+	if (buf[0] == '\0') {
+		fprintf(stderr, "%s: invalid node number: %s\n",
+			s->progname, g_strerror(errno));
+		exit(1);
+	}
+
+	return g_strdup(buf);
 }
