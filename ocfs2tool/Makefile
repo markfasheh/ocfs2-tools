@@ -49,7 +49,8 @@ PYSRC = \
 	interface.py \
 	menu.py \
 	nodemap.py \
-	process.py
+	process.py \
+	toolbar.py
 
 PYLIB = $(LIBRARIES) $(PYSRC)
 
