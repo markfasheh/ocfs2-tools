@@ -67,6 +67,20 @@ static void chainalloc_destroy_notify(ocfs2_bitmap *bitmap)
 	ocfs2_free(&bitmap->b_private);
 }
 
+static uint64_t chainalloc_scale_start_bit(ocfs2_filesys *fs,
+					   uint64_t blkno,
+					   int bpc)
+{
+	int bitsize = fs->fs_clustersize / bpc;
+
+	if (bitsize == fs->fs_blocksize)
+		return blkno;
+	if (bitsize < fs->fs_blocksize)
+		return blkno * (fs->fs_blocksize / bitsize);
+	else
+		return blkno / (bitsize / fs->fs_blocksize);
+}
+
 static int chainalloc_process_group(ocfs2_filesys *fs,
 				    uint64_t gd_blkno,
 				    int chain_num,
@@ -76,6 +90,7 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 	struct ocfs2_bitmap_region *br;
 	struct chainalloc_bitmap_private *cb = bitmap->b_private;
 	struct chainalloc_region_private *cr;
+	uint64_t start_bit;
 	char *gd_buf;
 
 	cb->cb_errcode = ocfs2_malloc_block(fs->fs_io, &gd_buf);
@@ -101,8 +116,10 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 	if (gd_blkno == OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group)
 		gd_blkno = 0;
 
+	start_bit = chainalloc_scale_start_bit(fs, gd_blkno,
+					       cb->cb_cinode->ci_inode->id2.i_chain.cl_bpc);
 	cb->cb_errcode = ocfs2_bitmap_alloc_region(bitmap,
-						   gd_blkno,
+						   start_bit,
 						   cr->cr_ag->bg_bits,
 						   &br);
 	if (cb->cb_errcode)
@@ -243,6 +260,7 @@ static struct ocfs2_bitmap_operations chainalloc_bitmap_ops = {
 
 static errcode_t ocfs2_chainalloc_bitmap_new(ocfs2_filesys *fs,
 					     const char *description,
+					     uint64_t total_bits,
 					     ocfs2_bitmap **ret_bitmap)
 {
 	errcode_t ret;
@@ -255,7 +273,7 @@ static errcode_t ocfs2_chainalloc_bitmap_new(ocfs2_filesys *fs,
 		return ret;
 
 	ret = ocfs2_bitmap_new(fs,
-			       fs->fs_blocks,
+			       total_bits,
 			       description ? description :
 			       "Generic chain allocator bitmap",
 			       &chainalloc_bitmap_ops,
@@ -281,14 +299,19 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 				     ocfs2_cached_inode *cinode)
 {
 	errcode_t ret;
+	uint64_t total_bits;
 	char name[256];
 
 	if (cinode->ci_chains)
 		ocfs2_bitmap_free(cinode->ci_chains);
 
+	total_bits = fs->fs_clusters *
+		cinode->ci_inode->id2.i_chain.cl_bpc;
+
 	snprintf(name, sizeof(name),
 		 "Chain allocator inode %"PRIu64, cinode->ci_blkno);
-	ret = ocfs2_chainalloc_bitmap_new(fs, name, &cinode->ci_chains);
+	ret = ocfs2_chainalloc_bitmap_new(fs, name, total_bits,
+					  &cinode->ci_chains);
 	if (ret)
 		return ret;
 
