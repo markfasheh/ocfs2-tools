@@ -77,7 +77,8 @@ HFILES =				\
 	include/byteorder.h		\
 	include/ocfs2.h			\
 	include/dir_iterate.h		\
-	include/extent_map.h
+	include/extent_map.h		\
+	include/bitmap.h
 
 HFILES_GEN =		\
 	include/ocfs2_err.h
