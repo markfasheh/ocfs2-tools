@@ -3,15 +3,16 @@
 # XXX: for production
 #!/usr/bin/python -W ignore::DeprecationWarning
 
-from ocfs2console.about import process_info_args
+from ocfs2interface.about import process_info_args
 process_info_args()
 
 try:
     import gtk
 except RuntimeError:
     import sys
-    print >>sys.stderr, 'ocfs2console needs an X11 display'
+    print >>sys.stderr, '''ERROR: ocfs2console needs an X11 display.
+Make sure a proper setup for your display environment exists.\n'''
     sys.exit(1)
 
-from ocfs2console.interface import main
+from ocfs2interface.main import main
 main()
