@@ -33,4 +33,7 @@ dist-subdircreate:
 mount.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
+group: group.o $(LIBOCFS2_DEPS)
+	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+
 include $(TOPDIR)/Postamble.make
