@@ -44,6 +44,7 @@ class Console(gtk.Window):
                         default_width=520,
                         default_height=420,
                         border_width=0)
+
         self.connect('delete_event', self.cleanup)
 
         notebook = gtk.Notebook()
