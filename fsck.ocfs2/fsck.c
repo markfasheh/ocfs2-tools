@@ -35,6 +35,7 @@
 #include "fsck.h"
 #include "icount.h"
 #include "journal.h"
+#include "pass0.h"
 #include "pass1.h"
 #include "pass2.h"
 #include "pass3.h"
@@ -292,6 +293,11 @@ int main(int argc, char **argv)
 		       "the journals and will not continue\n");
 		exit(FSCK_ERROR);
 	}
+
+	/* XXX think harder about these error cases. */
+	ret = o2fsck_pass0(ost);
+	if (ret)
+		com_err(argv[0], ret, "pass0 failed");
 
 	ret = o2fsck_pass1(ost);
 	if (ret)

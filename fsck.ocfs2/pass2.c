@@ -229,21 +229,12 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	return ret_flags;
 }
 
-/* XXX might go somewhere else*/
-static int inode_out_of_range(ocfs2_filesys *fs, uint64_t blkno)
-{
-	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
-	    (blkno > fs->fs_blocks))
-		return 1;
-	return 0;
-}
-
 static int fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 				struct ocfs2_dir_entry *dirent, int offset)
 {
 	int was_set;
 
-	if (inode_out_of_range(ost->ost_fs, dirent->inode)) {
+	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode)) {
 		if (prompt(ost, PY, "Directory entry '%.*s' refers to inode "
 			   "number %"PRIu64" which is out of range, "
 			   "clear the entry?", dirent->name_len, dirent->name, 

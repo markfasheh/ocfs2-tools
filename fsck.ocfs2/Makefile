@@ -18,6 +18,7 @@ CFILES =	fsck.c		\
 		dirparents.c 	\
 		icount.c 	\
 		journal.c 	\
+		pass0.c 	\
 		pass1.c 	\
 		pass2.c 	\
 		pass3.c 	\
@@ -31,6 +32,7 @@ HFILES = 	include/fsck.h		\
 		include/dirparents.h	\
 		include/icount.h	\
 		include/journal.h	\
+		include/pass0.h		\
 		include/pass1.h		\
 		include/pass2.h		\
 		include/pass3.h		\

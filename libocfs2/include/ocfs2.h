@@ -423,5 +423,10 @@ static inline uint32_t ocfs2_blocks_to_clusters(ocfs2_filesys *fs,
 	return (uint32_t)(blocks >> b_to_c_bits);
 }
 
+static inline int ocfs2_block_out_of_range(ocfs2_filesys *fs, uint64_t block)
+{
+	return (block < OCFS2_SUPER_BLOCK_BLKNO) || (block > fs->fs_blocks);
+}
+
 
 #endif  /* _FILESYS_H */
