@@ -277,26 +277,30 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 	errcode_t ret = 0;
 	uint16_t old_num = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
 	char fname[SYSTEM_FILE_NAME_MAX];
-	uint64_t inode_num;
+	uint64_t blkno;
+	int mode;
 	int i, j;
 
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
 		for (j = old_num; j < opts.num_nodes; ++j) {
-			sprintf(fname, ocfs2_system_inode_names[i], j);
+			sprintf(fname, sysfile_info[i].name, j);
 			printf("Adding %s...  ", fname);
-			inode_num = 1000;
-			ret =  ocfs2_new_system_inode(fs, &inode_num,
-						      0644 | S_IFREG);
+
+			/* create inode for system file */
+			mode = sysfile_info[i].dir ? 0755 | S_IFDIR : 0644 | S_IFREG;
+			ret =  ocfs2_new_system_inode(fs, &blkno, mode, sysfile_info[i].flags);
 			if (ret)
 				goto bail;
+
+			/* Add the inode to the system dir */
 			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname,
-					 inode_num, S_IFREG);
+					 blkno, S_IFREG);
 			if (ret) {
 				if (ret == OCFS2_ET_DIR_NO_SPACE) {
 					ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno);
 					if (!ret)
 						ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
-								 fname, inode_num, S_IFREG);
+								 fname, blkno, S_IFREG);
 				}
 				if (ret)
 					goto bail;

@@ -264,8 +264,8 @@ void read_sysdir (int fd, char *sysdir)
 	ocfs2_dinode *inode;
 	struct ocfs2_dir_entry *rec;
 	GArray *dirarr = NULL;
-	char *dlm = ocfs2_system_inode_names[DLM_SYSTEM_INODE];
-	char *gblbm = ocfs2_system_inode_names[GLOBAL_BITMAP_SYSTEM_INODE];
+	char *dlm = sysfile_info[DLM_SYSTEM_INODE].name;
+	char *gblbm = sysfile_info[GLOBAL_BITMAP_SYSTEM_INODE].name;
 	unsigned int i, j;
 	char *journal[256];
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
@@ -285,7 +285,7 @@ void read_sysdir (int fd, char *sysdir)
 	/* generate journal sysfile names */
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		snprintf (tmpstr, sizeof(tmpstr),
-			  ocfs2_system_inode_names[JOURNAL_SYSTEM_INODE], i);
+			  sysfile_info[JOURNAL_SYSTEM_INODE].name, i);
 		journal[i] = strdup (tmpstr);
 		gbls.journal_blkno[i] = 0;
 	}

@@ -107,8 +107,7 @@ int main(int argc, char *argv[])
 	uint64_t blkno, sys_blkno;
 	int c;
 	char *filename, *buf;
-	const char *bitmap_name = 
-		ocfs2_system_inode_names[GLOBAL_BITMAP_SYSTEM_INODE];
+	const char *bitmap_name = sysfile_info[GLOBAL_BITMAP_SYSTEM_INODE].name;
 	ocfs2_filesys *fs;
 	ocfs2_dinode *di;
 	struct walk_block wb;

@@ -352,7 +352,7 @@ errcode_t ocfs2_gather_times_v2(ocfs2_fs *fs_blk, struct list_head *node_list,
 			       	int first_time)
 {
 	ocfs2_filesys *fs = fs_blk->fs;
-	char *dlm = ocfs2_system_inode_names[DLM_SYSTEM_INODE];
+	char *dlm = sysfile_info[DLM_SYSTEM_INODE].name;
 	char *buf = NULL;
 	int buflen = 0;
 	errcode_t ret = 0;

@@ -101,7 +101,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di,
 {
 	ocfs2_extent_list *fel;
 
-	di->i_generation = 0; /* FIXME */
+	di->i_generation = fs->fs_super->i_generation;
 	di->i_blkno = blkno;
 	di->i_suballoc_node = 0;
 	di->i_suballoc_bit = (uint16_t)(blkno - gd_blkno);
@@ -112,7 +112,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di,
 		di->i_links_count = 1;
 	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
 	di->i_flags |= OCFS2_VALID_FL;
-	di->i_atime = di->i_ctime = di->i_mtime = 0;  /* FIXME */
+	di->i_atime = di->i_ctime = di->i_mtime = time(NULL);
 	di->i_dtime = 0;
 
 	fel = &di->id2.i_list;
@@ -166,7 +166,7 @@ out:
 }
 
 errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
-				 int mode)
+				 int mode, int flags)
 {
 	errcode_t ret;
 	char *buf;
@@ -190,9 +190,9 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
 	memset(buf, 0, fs->fs_blocksize);
 	di = (ocfs2_dinode *)buf;
 	di->i_mode = mode;
+	di->i_flags = flags;
 	ocfs2_init_inode(fs, di, gd_blkno, *ino);
 	di->i_flags |= OCFS2_SYSTEM_FL;
-	di->i_generation = fs->fs_super->i_generation;
 
 	ret = ocfs2_write_inode(fs, *ino, buf);
 

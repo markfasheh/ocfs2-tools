@@ -111,6 +111,12 @@
 #define OCFS2_DEFAULT_JOURNAL_SIZE	(8 * ONE_MEGA_BYTE)
 #define OCFS2_MIN_JOURNAL_SIZE		(4 * ONE_MEGA_BYTE)
 
+typedef struct _ocfs2_sysfile_info {
+	char *name;
+	int flags;
+	int dir;
+} ocfs2_sysfile_info;
+
 /* System file index */
 enum {
 	BAD_BLOCK_SYSTEM_INODE = 0,
@@ -127,22 +133,22 @@ enum {
 	NUM_SYSTEM_INODES
 };
 
-static char *ocfs2_system_inode_names[NUM_SYSTEM_INODES] = {
+static ocfs2_sysfile_info sysfile_info[NUM_SYSTEM_INODES] = {
 	/* Global system inodes (single copy) */
 	/* The first two are only used from userspace mfks/tunefs */
-	[BAD_BLOCK_SYSTEM_INODE]		"bad_blocks",
-	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	"global_inode_alloc",
+	[BAD_BLOCK_SYSTEM_INODE]		{ "bad_blocks", 0, 0 },
+	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	{ "global_inode_alloc", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, 0 },
 
 	/* These are used by the running filesystem */
-	[DLM_SYSTEM_INODE]			"dlm",
-	[GLOBAL_BITMAP_SYSTEM_INODE]		"global_bitmap",
-	[ORPHAN_DIR_SYSTEM_INODE]		"orphan_dir",
+	[DLM_SYSTEM_INODE]			{ "dlm", OCFS2_DLM_FL, 0 },
+	[GLOBAL_BITMAP_SYSTEM_INODE]		{ "global_bitmap", 0, 0 },
+	[ORPHAN_DIR_SYSTEM_INODE]		{ "orphan_dir", 0, 1 },
 
 	/* Node-specific system inodes (one copy per node) */
-	[EXTENT_ALLOC_SYSTEM_INODE]		"extent_alloc:%04d",
-	[INODE_ALLOC_SYSTEM_INODE]		"inode_alloc:%04d",
-	[JOURNAL_SYSTEM_INODE]			"journal:%04d",
-	[LOCAL_ALLOC_SYSTEM_INODE]		"local_alloc:%04d"
+	[EXTENT_ALLOC_SYSTEM_INODE]		{ "extent_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, 0 },
+	[INODE_ALLOC_SYSTEM_INODE]		{ "inode_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, 0 },
+	[JOURNAL_SYSTEM_INODE]			{ "journal:%04d", OCFS2_JOURNAL_FL, 0 },
+	[LOCAL_ALLOC_SYSTEM_INODE]		{ "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, 0 }
 };
 
 
@@ -542,11 +548,9 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
          * list has a copy per node.
          */
 	if (type <= OCFS2_LAST_GLOBAL_SYSTEM_INODE)
-		chars = snprintf(buf, len,
-				 ocfs2_system_inode_names[type]);
+		chars = snprintf(buf, len, sysfile_info[type].name);
 	else
-		chars = snprintf(buf, len,
-				 ocfs2_system_inode_names[type], node);
+		chars = snprintf(buf, len, sysfile_info[type].name, node);
 
 	return chars;
 }
