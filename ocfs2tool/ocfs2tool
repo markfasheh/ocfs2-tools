@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
-from main import main
+# XXX: for production
+#!/usr/bin/python -W ignore::DeprecationWarning
 
-if __name__ == '__main__':
-    main()
+from about import process_info_args
+process_info_args()
+
+from main import main
+main()

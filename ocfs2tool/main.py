@@ -1,4 +1,19 @@
-#!/usr/bin/python
+# OCFS2Tool - GUI frontend for OCFS2 management and debugging
+# Copyright (C) 2002, 2005 Oracle.  All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
 import sys
 
@@ -7,36 +22,27 @@ import gtk
 import ocfs2
 
 from guiutil import set_props, error_box, query_text
+
+from menu import Menu
+from about import about
 from process import Process
 from format import format_partition
 from general import General
 from nodemap import NodeMap
-from bitmap import Bitmap
 from browser import Browser
-
-OCFS2TOOL_VERSION = '0.0.1'
+from clconfig import cluster_configurator
 
 COLUMN_DEVICE = 0
 COLUMN_MOUNTPOINT = 1
-
-MODE_BASIC = 0
-MODE_ADVANCED = 1
 
 notebook_items = (
     ('general', 'General',          General),
     ('browser', 'File Listing',     Browser),
     ('nodemap', 'Configured Nodes', NodeMap),
-    ('bitmap',  'Bitmap View',      Bitmap),
 )
 
 def cleanup(*args):
     gtk.main_quit()
-
-def usage(name):
-    print '''Usage: %s [OPTION]...
-Options:
-  -V, --version  print version information and exit
-      --help     display this help and exit''' % name
 
 class PartitionView(gtk.TreeView):
     def __init__(self, toplevel):
@@ -91,7 +97,7 @@ class PartitionView(gtk.TreeView):
             if row[COLUMN_DEVICE] == device:
                sel = self.get_selection()
                sel.select_iter(row.iter)
-                
+
     def refresh_partitions(self):
         def list_compare(store, a, b):
             d1, m1 = store[a]
@@ -128,7 +134,7 @@ class PartitionView(gtk.TreeView):
         if len(store) and not selected:
             sel.select_iter(store.get_iter_first())
 
-def mount(button, pv):
+def mount(pv):
     device, mountpoint = pv.get_sel_values()
 
     mountpoint = query_text(pv.toplevel, 'Mountpoint')
@@ -151,7 +157,7 @@ def mount(button, pv):
 
     pv.refresh_partitions()
 
-def unmount(button, pv):
+def unmount(pv):
     device, mountpoint = pv.get_sel_values()
 
     command = ('umount', mountpoint)
@@ -173,7 +179,7 @@ def unmount(button, pv):
                       '%s: Could not unmount %s mounted on %s' %
                       (output, device, mountpoint))
 
-def refresh(button, pv):
+def refresh(pv):
     pv.refresh_partitions()
 
     if len(pv.get_model()) == 0:
@@ -192,66 +198,35 @@ def create_action_area(pv):
     set_props(vbbox, layout_style=gtk.BUTTONBOX_START,
                      spacing=5,
                      border_width=5)
-   
-    button = gtk.Button("Mount")
+
+    button = gtk.Button('Mount')
     vbbox.add(button)
     button.connect('clicked', mount, pv)
     pv.mount_button = button
-   
-    button = gtk.Button("Unmount")
+
+    button = gtk.Button('Unmount')
     vbbox.add(button)
     button.connect('clicked', unmount, pv)
     pv.unmount_button = button
 
-    button = gtk.Button("Refresh")
+    button = gtk.Button('Refresh')
     vbbox.add(button)
     button.connect('clicked', refresh, pv)
 
     return vbbox
 
-def format(pv, action, w):
+def format(pv):
     format_partition(pv.toplevel, pv.get_device(), pv.advanced)
     pv.refresh_partitions()
 
-def genconfig(pv, action, w):
+def check(pv):
     pass
 
-def level(pv, action, w):
-    if action == MODE_ADVANCED:
-        advanced = True
-    else:
-        advanced = False
+def repair(pv):
+    pass
 
-    if pv.advanced == advanced:
-        return
-
-    pv.advanced = advanced
-
-def about(pv, a, w):
-    dialog = gtk.MessageDialog(parent=pv.toplevel,
-                               flags=gtk.DIALOG_DESTROY_WITH_PARENT,
-                               buttons=gtk.BUTTONS_CLOSE)
-    dialog.label.set_text('''OCFS2 Tool
-Version %s
-Copyright (C) Oracle Corporation 2002, 2004
-All Rights Reserved''' % OCFS2TOOL_VERSION)
-
-    dialog.run()
-    dialog.destroy()
-
-menu_items = (
-    ('/_File',                     None,         None,      0, '<Branch>'),
-    ('/File/_Quit',                None,         cleanup,   0, '<StockItem>', gtk.STOCK_QUIT),
-    ('/_Tasks',                    None,         None,      0, '<Branch>'),
-    ('/Tasks/_Format...',          '<control>F', format,    0),
-    #('/Tasks/---',                 None,         None,      0, '<Separator>'),
-    #('/Tasks/_Generate Config...', '<control>G', genconfig, 0),
-    ('/_Preferences',              None,         None,      0, '<Branch>'),
-    ('/Preferences/_Basic',        '<control>B', level,     MODE_BASIC, '<RadioItem>'),
-    ('/Preferences/_Advanced',     '<control>A', level,     MODE_ADVANCED, '/Preferences/Basic'),
-    ('/_Help',                     None,         None,      0, '<Branch>'),
-    ('/Help/_About',               None,         about,     0)
-)
+def clconfig(pv):
+    cluster_configurator(pv.toplevel, pv.advanced)
 
 def create_window():
     window = gtk.Window()
@@ -263,24 +238,20 @@ def create_window():
 
     pv = PartitionView(window)
 
-    accel_group = gtk.AccelGroup()
-    window.add_accel_group(accel_group)
-
-    item_factory = gtk.ItemFactory(gtk.MenuBar, '<main>', accel_group)
-    item_factory.create_items(menu_items, pv)
-    window.item_factory = item_factory
-
     vbox = gtk.VBox()
     window.add(vbox)
 
-    menubar = item_factory.get_widget('<main>')
+    menu = Menu(cleanup=cleanup, format=format, check=check, repair=repair,
+                clconfig=clconfig, about=about)
+
+    menubar = menu.get_widget(window, pv)
     vbox.pack_start(menubar, expand=False, fill=False)
 
     vpaned = gtk.VPaned()
     vpaned.set_border_width(4)
     vbox.pack_start(vpaned, expand=True, fill=True)
 
-    hbox = gtk.HBox()
+    hbox = gtk.HBox(spacing=4)
     vpaned.pack1(hbox)
 
     scrl_win = gtk.ScrolledWindow()
@@ -319,19 +290,7 @@ def create_window():
     window.show_all()
 
 def main():
-    for arg in sys.argv[1:]:
-        if arg == '--version' or arg == '-V':
-            print 'OCFS2Tool version %s' % OCFS2TOOL_VERSION
-            sys.exit(0)
-        elif arg == '--help':
-            usage(sys.argv[0])
-            sys.exit(0)
-        else:
-            usage(sys.argv[0])
-            sys.exit(1)
-
     create_window()
-
     gtk.main()
 
 if __name__ == '__main__':

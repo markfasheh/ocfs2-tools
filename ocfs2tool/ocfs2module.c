@@ -3,7 +3,7 @@
  *
  * OCFS2 python binding.
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2005 Oracle.  All rights reserved.
  *
  * Author: Manish Singh <manish.singh@oracle.com>
  *
