@@ -45,8 +45,25 @@ class Toolbar:
             items[i[2]] = toolbar.append_item(i[0], i[0], None, icon,
                                               make_cb(), data)
 
+        toolbar.append_space()
+
+        filter_box, entry = self.get_filter_box()
+        toolbar.append_widget(filter_box, 'Partition name filter', None)
+
+        items['filter'] = entry
+
         return toolbar, items
 
+    def get_filter_box(self):
+        hbox = gtk.HBox(False, 4)
+
+        label = gtk.Label('Filter:')
+        hbox.pack_start(label, expand=False, fill=False)
+
+        entry = gtk.Entry()
+        hbox.pack_end(entry)
+
+        return hbox, entry
 
 def main():
     def dummy(*args):

@@ -26,9 +26,8 @@ COLUMN_PORT = 3
 COLUMN_UUID = 4
 
 class NodeMap:
-    def __init__(self, device=None, advanced=False):
+    def __init__(self, device=None):
         self.device = device
-        self.advanced = advanced
 
         info = self.info()
 
@@ -59,11 +58,9 @@ class NodeMap:
         tv.insert_column_with_attributes(-1, 'Port',
                                          gtk.CellRendererText(),
                                          text=COLUMN_PORT)
-
-        if self.advanced:
-            tv.insert_column_with_attributes(-1, 'UUID',
-                                             gtk.CellRendererText(),
-                                             text=COLUMN_UUID)
+        tv.insert_column_with_attributes(-1, 'UUID',
+                                         gtk.CellRendererText(),
+                                         text=COLUMN_UUID)
 
         return tv
 

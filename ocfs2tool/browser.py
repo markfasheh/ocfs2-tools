@@ -27,7 +27,7 @@ fields = ('Perms', '# Links', 'Owner', 'Group', 'Size', 'Alloc Size',
 sample = ('-rw-r--r--', '1', 'manish', 'manish', '133194', '262144', 'Sep 29 12:46', 'closobo.c')
 
 class Browser:
-     def __init__(self, device=None, advanced=False):
+     def __init__(self, device=None):
          self.widget = gtk.VBox(spacing=4)
 
          scrl_win = gtk.ScrolledWindow()

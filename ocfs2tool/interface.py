@@ -50,7 +50,6 @@ class PartitionView(gtk.TreeView):
         gtk.TreeView.__init__(self, store)
 
         self.toplevel = toplevel
-        self.advanced = False
 
         self.insert_column_with_attributes(-1, 'Device',
                                            gtk.CellRendererText(),
@@ -186,14 +185,14 @@ def refresh(pv):
 
 def update_notebook(pv, device):
     for tag, d, info in notebook_items:
-        frame = getattr(pv, tag + '-frame')
+        frame = getattr(pv, tag + '_frame')
         frame.child.destroy()
 
-        frame.add(info(device, pv.advanced).widget)
+        frame.add(info(device).widget)
         frame.show_all()
 
 def format(pv):
-    format_partition(pv.toplevel, pv.get_device(), pv.advanced)
+    format_partition(pv.toplevel, pv.get_device())
     pv.refresh_partitions()
 
 def check(pv):
@@ -203,7 +202,7 @@ def repair(pv):
     pass
 
 def clconfig(pv):
-    cluster_configurator(pv.toplevel, pv.advanced)
+    cluster_configurator(pv.toplevel)
 
 def create_window():
     window = gtk.Window()
@@ -251,7 +250,7 @@ def create_window():
         set_props(frame, shadow=gtk.SHADOW_NONE,
                          border_width=0)
 
-        tag = tag + '-frame'
+        tag = tag + '_frame'
         setattr(pv, tag, frame)
 
         frame.add(info().widget)

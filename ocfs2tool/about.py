@@ -67,7 +67,7 @@ Boston, MA 02111-1307, USA.
 '''
         blurb = 'GUI frontend for OCFS2 management and debugging'
 
-        logo = gtk.gdk.pixbuf_new_from_file('logo.png')
+        #logo = gtk.gdk.pixbuf_new_from_file('logo.png')
 
         dialog = gtk.AboutDialog()
         dialog.set_transient_for(pv.toplevel)
@@ -79,6 +79,7 @@ Boston, MA 02111-1307, USA.
                           license=license,
                           website='http://oss.oracle.com',
                           comments=blurb)
+                          #logo=logo)
 
     else:
         dialog = gtk.MessageDialog(parent=pv.toplevel,

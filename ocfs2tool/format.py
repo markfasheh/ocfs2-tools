@@ -22,26 +22,65 @@ import ocfs2
 from guiutil import set_props, error_box, format_bytes
 from process import Process
 
-class BaseCombo(gtk.Combo):
-    def __init__(self):
-        gtk.Combo.__init__(self)
-        self.entry.set_editable(False)
+if hasattr(gtk, 'ComboBox'):
+    class BaseCombo(gtk.ComboBox):
+        def __init__(self):
+            self.store = gtk.ListStore(str)
+            gtk.ComboBox.__init__(self, model=self.store)
+
+            cell = gtk.CellRendererText()
+            self.pack_start(cell)
+            self.set_attributes(cell, text=0)
+
+        def get_choice(self):
+            return self.store[self.get_active_iter()][0]
+
+        def set_choices(self, choices):
+            selected = False
+
+            for choice, select in choices:
+                iter = self.store.append((choice,))
+
+                if select:
+                    self.set_active_iter(iter)
+                    selected = True
+
+            if not selected:
+                self.set_active(0)
+
+else:
+    class BaseCombo(gtk.Combo):
+        def __init__(self):
+            gtk.Combo.__init__(self)
+            self.entry.set_editable(False)
+
+        def get_choice(self):
+            return self.entry.get_text()
+
+        def set_choices(self, choices):
+            for choice, select in choices:
+                item = gtk.ListItem(choice)
+                item.show()
+                self.list.add(item)
+
+                if select:
+                    item.select()
 
 class ValueCombo(BaseCombo):
     def __init__(self, minimum, maximum):
         BaseCombo.__init__(self)
 
-        choices = ['Auto']
+        choices = [('Auto', False)]
 
         size = minimum
         while size <= maximum:
-            choices.append(format_bytes(size))
+            choices.append((format_bytes(size), False))
             size = size << 1
 
-        self.set_popdown_strings(choices)
+        self.set_choices(choices)
 
     def get_arg(self):
-        text = self.entry.get_text()
+        text = self.get_choice()
 
         if text != 'Auto':
             s = text.replace(' ', '')
@@ -54,7 +93,7 @@ class ValueCombo(BaseCombo):
 class NumNodes(gtk.SpinButton):
     def __init__(self):
         adjustment = gtk.Adjustment(4, 2, ocfs2.MAX_NODES, 1, 10)
-        gtk.SpinButton.__init__(self, adjustment=adjustment, )
+        gtk.SpinButton.__init__(self, adjustment=adjustment)
 
     def get_arg(self):
         s = self.get_text()
@@ -66,16 +105,10 @@ class NumNodes(gtk.SpinButton):
 
 class Device(BaseCombo):
     def fill(self, partitions, device):
-        for partition in partitions:
-            item = gtk.ListItem(partition)
-            item.show()
-            self.list.add(item)
-
-            if partition == device:
-                item.select()
+        self.set_choices([(p, p == device) for p in partitions])
 
     def get_device(self):
-        return self.entry.get_text()
+        return self.get_choice()
 
 class VolumeLabel(gtk.Entry):
     def __init__(self):
@@ -103,30 +136,25 @@ class BlockSize(ValueCombo):
         self.arg = '-b'
 
 entries = (
-    ('Device', Device, False),
-    ('Volume Label', VolumeLabel, False),
-    ('Cluster Size', ClusterSize, False),
-    ('Number of Nodes', NumNodes, False),
-    ('Block Size', BlockSize, True)
+    ('Device', Device),
+    ('Volume Label', VolumeLabel),
+    ('Cluster Size', ClusterSize),
+    ('Number of Nodes', NumNodes),
+    ('Block Size', BlockSize)
 )
 
-def format_partition(parent, device, advanced):
+def format_partition(parent, device):
     partitions = ocfs2.partition_list(True)
 
     if not partitions:
         error_box(parent, 'No unmounted partitions')
         return False
 
-    if advanced:
-        rows = 5
-    else:
-        rows = 4
-
     dialog = gtk.Dialog(parent=parent, title='Format',
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                  gtk.STOCK_OK,     gtk.RESPONSE_OK))
 
-    table = gtk.Table(rows=rows, columns=2)
+    table = gtk.Table(rows=5, columns=2)
     set_props(table, row_spacing=4,
                      column_spacing=4,
                      border_width=4,
@@ -137,10 +165,7 @@ def format_partition(parent, device, advanced):
     widgets = []
     row = 0
 
-    for desc, widget_type, advanced_only in entries:
-        if advanced_only and not advanced:
-            continue
-
+    for desc, widget_type in entries:
         label = gtk.Label(desc + ':')
         set_props(label, xalign=1.0)
         table.attach(label, 0, 1, row, row + 1)
@@ -197,7 +222,7 @@ def format_partition(parent, device, advanced):
     return True
 
 def main():
-    format(None, None, True)
+    format_partition(None, None)
 
 if __name__ == '__main__':
     main()

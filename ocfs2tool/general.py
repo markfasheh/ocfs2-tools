@@ -31,7 +31,7 @@ fields = (
 )
 
 class General:
-    def __init__(self, device=None, advanced=False):
+    def __init__(self, device=None):
         self.widget = gtk.Table(rows=5, columns=2)
 
         set_props(self.widget, row_spacing=4,

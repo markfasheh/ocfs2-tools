@@ -19,7 +19,7 @@ import gtk
 
 from guiutil import set_props, error_box
 
-def cluster_configurator(parent, advanced):
+def cluster_configurator(parent):
     dialog = gtk.Dialog(parent=parent, title='Cluster Configurator',
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                  gtk.STOCK_OK,     gtk.RESPONSE_OK))
