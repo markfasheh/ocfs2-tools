@@ -427,6 +427,7 @@ int main(int argc, char **argv)
 	blkno = 0;
 
 	initialize_ocfs_error_table();
+	initialize_o2dl_error_table();
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
@@ -519,6 +520,20 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
+	if (open_flags & OCFS2_FLAG_RW) {
+		ret = ocfs2_initialize_dlm(ost->ost_fs);
+		if (ret) {
+			com_err(whoami, ret, " ");
+			goto close;
+		}
+
+		ret = ocfs2_lock_down_cluster(ost->ost_fs);
+		if (ret) {
+			com_err(whoami, ret, " ");
+			goto close;
+		}
+	}
+
 	printf("Checking OCFS2 filesystem in %s:\n", filename);
 	printf("  label:              ");
 	print_label(ost);
@@ -536,7 +551,7 @@ int main(int argc, char **argv)
 		printf("fsck encountered unrecoverable errors while "
 		       "replaying the journals and will not continue\n");
 		fsck_mask |= FSCK_ERROR;
-		goto out;
+		goto unlock;
 	}
 
 	/* allocate all this junk after we've replayed the journal and the
@@ -544,12 +559,12 @@ int main(int argc, char **argv)
 	if (o2fsck_state_init(ost->ost_fs, ost)) {
 		fprintf(stderr, "error allocating run-time state, exiting..\n");
 		fsck_mask |= FSCK_ERROR;
-		goto out;
+		goto unlock;
 	}
 
 	if (fs_is_clean(ost, filename)) {
 		fsck_mask = FSCK_OK;
-		goto out;
+		goto unlock;
 	}
 
 #if 0
@@ -608,6 +623,14 @@ done:
 			com_err(whoami, ret, "while writing back the "
 				"superblock");
 	}
+
+unlock:
+	if (ost->ost_fs->fs_dlm_ctxt)
+		ocfs2_release_cluster(ost->ost_fs);
+
+close:
+	if (ost->ost_fs->fs_dlm_ctxt)
+		ocfs2_shutdown_dlm(ost->ost_fs);
 
 	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {

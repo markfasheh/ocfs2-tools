@@ -7,6 +7,8 @@ SBIN_PROGRAMS = fsck.ocfs2
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
+LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
+LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 
 ifdef OCFS_DEBUG
 OPTS += -ggdb
@@ -59,8 +61,8 @@ DIST_RULES = dist-subdircreate
 dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
-fsck.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
-	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+fsck.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS)
+	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(COM_ERR_LIBS)
 
 $(OBJS): prompt-codes.h
 
