@@ -40,6 +40,9 @@
 #include "ocfsplist.h"
 
 
+#define RAW_PARTITION_FSTYPE "partition table"
+#define UNKNOWN_FSTYPE       "unknown"
+
 #define FILL_ASYNC_ITERATIONS 20
 #define WALK_ASYNC_ITERATIONS 10
 
@@ -63,6 +66,8 @@ struct _WalkData
 };
 
 
+static gboolean  is_partition_data   (const gchar  *device);
+static gboolean  used_unmounted      (const gchar  *fstype);
 static gchar    *fstype_check        (const gchar  *device,
 				      WalkData     *wdata);
 static gchar    *get_device_fstype   (const gchar  *device,
@@ -88,9 +93,36 @@ async_loop_run (gboolean     async,
     }
 }
 
+static gboolean
+is_partition_data (const gchar *device)
+{
+  guchar buf[512];
+  gint   fd;
+  gssize count;
+  
+  fd = open (device, O_RDWR);
+  if (fd == -1)
+    return FALSE;
+
+  count = read (fd, buf, 512);
+  close (fd);
+  
+  if (count != 512)
+    return FALSE;
+
+  return (buf[510] == 0x55) && (buf[511] == 0xaa);
+}
+
+static gboolean
+used_unmounted (const gchar *fstype)
+{
+  return (strcmp (fstype, "oracleasm") == 0) ||
+         (strcmp (fstype, RAW_PARTITION_FSTYPE) == 0);
+}
+
 static gchar *
 fstype_check (const gchar *device,
-	    WalkData    *wdata)
+	      WalkData    *wdata)
 {
   blkid_dev  dev;
   gchar     *fstype = NULL;
@@ -121,7 +153,12 @@ fstype_check (const gchar *device,
     }
 
   if (fstype == NULL && wdata->fstype == NULL)
-    fstype = g_strdup ("unknown");
+    {
+      if (device && is_partition_data (device))
+	fstype = g_strdup (RAW_PARTITION_FSTYPE);
+      else
+	fstype = g_strdup (UNKNOWN_FSTYPE);
+    }
 
   return fstype;
 }
@@ -279,8 +316,7 @@ partition_walk (gpointer key,
 
 	  if (wdata->unmounted)
 	    {
-	      if ((info.mountpoint == NULL) &&
-		  (strcmp (info.fstype, "oracleasm") != 0))
+	      if ((info.mountpoint == NULL) && !used_unmounted (info.fstype))
 		wdata->func (&info, wdata->data);
 	    }
 	  else
@@ -366,14 +402,11 @@ int
 main (int    argc,
       char **argv)
 {
-  GList             *plist, *list;
-  OcfsPartitionInfo *info;
-
   g_print ("All:\n");
-  ocfs_partition_list (list_func, NULL, NULL, FALSE, FALSE);
+  ocfs_partition_list (list_func, NULL, "ocfs2", NULL, FALSE, FALSE);
   
   g_print ("Unmounted:\n");
-  plist = ocfs_partition_list (list_func, NULL, NULL, TRUE, FALSE);
+  ocfs_partition_list (list_func, NULL, NULL, NULL, TRUE, FALSE);
 
   return 0;
 }
