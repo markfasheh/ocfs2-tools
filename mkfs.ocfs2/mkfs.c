@@ -1064,7 +1064,8 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 		bm_record->bi.used_bits++;
 	}
 	bitmap->groups[0]->chain_total = s->global_cpg;
-	bitmap->groups[0]->chain_free = s->global_cpg;
+	bitmap->groups[0]->chain_free = 
+		bitmap->groups[0]->gd->bg_free_bits_count;
 
 	chain = 1;
 	blkno = (uint64_t) s->global_cpg << (s->cluster_size_bits - s->blocksize_bits);
