@@ -482,7 +482,7 @@ gint o2cb_cluster_set_name(O2CBCluster *cluster, const gchar *name)
 
 guint o2cb_cluster_get_node_count(O2CBCluster *cluster)
 {
-    g_return_val_if_fail(cluster != NULL, NULL);
+    g_return_val_if_fail(cluster != NULL, 0);
 
     return cluster->c_num_nodes;
 }
