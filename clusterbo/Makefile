@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SBIN_PROGRAMS = clusterbo # o2cb_ctl
+SBIN_PROGRAMS = clusterbo o2cb_ctl
 
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libo2cb/include
@@ -44,6 +44,7 @@ clusterbo: $(CLUSTERBO_OBJS) $(LIBO2CB_DEBS) $(LIBOCFS2_DEPS)
 jconfig_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 jiterator_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 o2cb_config_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
+o2cb_ctl_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 o2cb_ctl: $(O2CB_CTL_OBJS) $(LIBOCFS2_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
