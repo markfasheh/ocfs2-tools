@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SBIN_PROGRAMS = clusterbo o2cb_ctl
+SBIN_PROGRAMS = o2cb_ctl
 
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libo2cb/include
@@ -23,23 +23,17 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 
 DEFINES = -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-CLUSTERBO_CFILES = clusterbo.c
-CLUSTERBO_OBJS = $(subst .c,.o,$(CLUSTERBO_CFILES))
-
 O2CB_CTL_CFILES = o2cb_ctl.c o2cb_config.c \
 	jconfig.c jiterator.c
 
 O2CB_CTL_OBJS = $(subst .c,.o,$(O2CB_CTL_CFILES))
 
-HEADERS = jconfig.h jiterator.h
+HEADERS = o2cb_config.h jconfig.h jiterator.h
 
 CFILES = $(CLUSTERBO_CFILES) $(O2CB_CTL_CFILES)
 
 DIST_FILES = $(CFILES) $(HEADERS)
 DIST_RULES = dist-subdircreate
-
-clusterbo: $(CLUSTERBO_OBJS) $(LIBO2CB_DEBS) $(LIBOCFS2_DEPS)
-	$(LINK) $(LIBO2CB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 jconfig_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 jiterator_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
