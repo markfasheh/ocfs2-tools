@@ -765,12 +765,13 @@ static void sync_local_bitmap(o2fsck_state *ost, ocfs2_dinode *di,
 static void write_local_allocs(o2fsck_state *ost)
 {
 	uint16_t node, max_nodes;
-	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
 	char *buf = NULL;
 	errcode_t ret;
 	uint64_t blkno, start, end;
 	ocfs2_dinode *di;
 	ocfs2_local_alloc *la = &di->id2.i_lab;
+
+	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
 
 	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
 	if (ret) {
