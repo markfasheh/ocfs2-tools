@@ -50,7 +50,7 @@ partition_list (PyObject *self,
   PyObject          *ret, *val;
   OcfsPartitionInfo *info;
 
-  static gchar *kwlist[] = { "filter", "unmounted" };
+  static gchar *kwlist[] = { "filter", "unmounted", NULL };
 
   if (!PyArg_ParseTupleAndKeywords (args, kwargs,
 				    "|si:partition_list", kwlist,
