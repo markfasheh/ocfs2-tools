@@ -22,7 +22,7 @@ ifeq ($(TOOLSARCH),error)
 $(error could not detect architecture for tools)
 endif
 
-SUBDIRS = libocfs2 libo2cb fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 clusterbo mount.ocfs2 listuuid sizetest extras patches
+SUBDIRS = libocfs2 libo2cb libo2dlm fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 clusterbo mount.ocfs2 listuuid sizetest extras patches
 
 ifdef BUILD_OCFS2CDSL
 SUBDIRS += ocfs2cdsl

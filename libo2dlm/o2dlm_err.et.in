@@ -1,0 +1,93 @@
+#
+# o2dlm_err.et.in
+#
+# Error codes for the O2DLM library.
+#
+# Copyright (C) 2005 Oracle.  All rights reserved.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public
+# License, version 2,  as published by the Free Software Foundation.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public
+# License along with this program; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 021110-1307, USA.
+#
+	error_table o2dl
+
+ec	O2DLM_ET_BASE,
+	"O2DLM Library version @VERSION@"
+
+ec	O2DLM_ET_NO_MEMORY,
+	"Memory allocation failed"
+
+ec	O2DLM_ET_SERVICE_UNAVAILABLE,
+	"Unable to access cluster service"
+
+ec	O2DLM_ET_INVALID_LOCK_NAME,
+	"Invalid name for a lock"
+
+ec	O2DLM_ET_INVALID_LOCK_LEVEL,
+	"Invalid locking level"
+
+ec	O2DLM_ET_INTERNAL_FAILURE,
+	"Internal logic failure"
+
+ec	O2DLM_ET_NAME_TOO_LONG,
+	"Name too long"
+
+ec	O2DLM_ET_STATFS,
+	"Could not stat user_dlmfs mountpoint"
+
+ec	O2DLM_ET_NO_FS,
+	"ocfs2_dlmfs file system was not found"
+
+ec	O2DLM_ET_NO_DOMAIN_DIR,
+	"No directory for domain was found"
+
+ec	O2DLM_ET_BAD_DOMAIN_DIR,
+	"Could not stat domain directory"
+
+ec	O2DLM_ET_BUSY_DOMAIN_DIR,
+	"Domain directory has active locks"
+
+ec	O2DLM_ET_DOMAIN_DIR,
+	"Could not read domain dir"
+
+ec	O2DLM_ET_DOMAIN_DESTROY,
+	"Could not destroy domain"
+
+ec	O2DLM_ET_DOMAIN_CREATE,
+	"Could not create domain"
+
+ec	O2DLM_ET_RANDOM,
+	"Could not generate random value"
+
+ec	O2DLM_ET_BUSY_LOCK,
+	"Lock resource is in use by another process"
+
+ec	O2DLM_ET_OUTPUT_ERROR,
+	"Output Error"
+
+ec	O2DLM_ET_UNLINK,
+	"Error unlinking lock resource"
+
+ec	O2DLM_ET_UNKNOWN_LOCK,
+	"Could not find lock resource"
+
+ec	O2DLM_ET_RECURSIVE_LOCK,
+	"Already have a lock on this resource"
+
+ec	O2DLM_ET_LOCKING,
+	"Could not take lock"
+
+ec	O2DLM_ET_FAILED_UNLOCKS,
+	"Could not drop all locks"
+
+	end
