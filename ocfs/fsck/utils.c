@@ -1038,7 +1038,8 @@ void check_file_entry(int fd, ocfs_file_entry *fe, __u64 offset, int slot,
 		break;
 
 	case 3:
-		add_str_data(ctxt.filenames, ++fs_num, path);
+		add_str_data(ctxt.filenames, fs_num, path);
+		fs_num++;
 
 		if (ctxt.verbose) {
 			safefree(path);
