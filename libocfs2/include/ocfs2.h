@@ -131,6 +131,11 @@
 #define OCFS2_MF_ISROOT          2
 #define OCFS2_MF_READONLY        4
 #define OCFS2_MF_SWAP            8
+#define OCFS2_MF_MOUNTED_CLUSTER 16
+
+/* Some constants used in heartbeat */
+#define OCFS2_NODE_MAP_MAX_NODES	256
+#define OCFS2_HBT_WAIT			10
 
 typedef struct _ocfs2_filesys ocfs2_filesys;
 typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
@@ -314,6 +319,16 @@ errcode_t ocfs2_check_mount_point(const char *device, int *mount_flags,
 
 errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs, uint64_t blkno,
 				char **buf, int *len);
+
+errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
+				char **node_names);
+
+void ocfs2_detect_live_nodes(ocfs2_filesys *fs, char *pub_buf,
+			     uint64_t *pub_times, int *node_stats,
+			     int first_time);
+
+void ocfs2_live_node_names(ocfs2_filesys *fs, char *node_buf, int *node_stats,
+			   char **node_names);
 
 #endif  /* _FILESYS_H */
 
