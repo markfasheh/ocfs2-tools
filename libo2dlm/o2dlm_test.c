@@ -148,13 +148,13 @@ static int decode_level(struct command_s *c, char *buf)
 	return -1;
 }
 
-static void print_command(struct command_s *c)
+static void print_command(struct command_s *c, const char *str)
 {
 	printf("Command: %s ", command_strings[c->c_type]);
 	switch (c->c_type) {
 	case REGISTER:
 	case UNREGISTER:
-		printf("\"%s\"\n", c->c_domain);
+		printf("\"%s\" %s\n", c->c_domain, str);
 		break;
 	case LOCK:
 	case TRYLOCK:
@@ -164,10 +164,10 @@ static void print_command(struct command_s *c)
 			printf("O2DLM_LEVEL_EXMODE ");
 		/* fall through */
 	case UNLOCK:
-		printf("\"%s\"\n", c->c_id);
+		printf("\"%s\" %s\n", c->c_id, str);
 		break;
 	case HELP:
-		printf("\n");
+		printf("%s\n", str);
 		break;
 	default:
 		printf("wha?!?!?\n");
@@ -234,9 +234,9 @@ again:
 	return 0;
 }
 
-static void exec_command(struct command_s *c)
+static errcode_t exec_command(struct command_s *c)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 
 	switch (c->c_type) {
 	case REGISTER:
@@ -256,18 +256,16 @@ static void exec_command(struct command_s *c)
 		ret = o2dlm_lock(dlm_ctxt, c->c_id, O2DLM_TRYLOCK, c->c_level);
 		break;
 	case HELP:
-		print_commands();
-		return;
 	default:
-		return;
+		print_commands();
 	}
 
-	if (ret)
-		com_err(prog, ret, "while executing command");
+	return ret;
 }
 
 int main(int argc, char **argv)
 {
+	errcode_t error;
 	struct command_s c;
 
 	prog = argv[0];
@@ -283,8 +281,13 @@ int main(int argc, char **argv)
 	printf("Using fs at %s\n", dlmfs_path);
 
 	while (!get_command(&c)) {
-		print_command(&c);
-		exec_command(&c);
+		error = exec_command(&c);
+
+		if (error) {
+			print_command(&c, "failed!");
+			com_err(prog, error, "returned\n");
+		} else
+			print_command(&c, "succeeded!\n");
 	}
 	return 0;
 }
