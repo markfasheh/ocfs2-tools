@@ -695,108 +695,12 @@ out:
 	return ret;
 }
 
-static void sync_local_bitmap(o2fsck_state *ost, ocfs2_dinode *di,
-			      ocfs2_local_alloc *la, uint64_t start,
-			      uint64_t end)
-{
-	uint64_t pos, alloc;
-	errcode_t ret;
-	int bmap, last_bmap, changed = 0;
-	uint16_t used = 0;
-
-	/* it's pretty lame that we dup this and the loop in 
-	 * write_cluster_alloc but they're pretty different bitmaps.. */
-
-	for(last_bmap = 0, pos = start ; pos < end;
-	    last_bmap = bmap + 1, pos = alloc + 1) {
-
-		ret = ocfs2_bitmap_find_next_set(ost->ost_allocated_clusters,
-						 pos, &alloc);
-		if (ret == OCFS2_ET_BIT_NOT_FOUND)
-			alloc = end;
-
-		bmap = ocfs2_find_next_bit_set(la->la_bitmap,
-					      di->id1.bitmap1.i_total,
-					      last_bmap);
-
-		verbosef("last_bmap %u pos %"PRIu64" -> bmap %u alloc "
-			 "%"PRIu64"\n", last_bmap, pos, bmap, alloc);
-
-		if (bmap == alloc - la->la_bm_off) {
-			if (alloc != end)
-				used++;
-			continue;
-		}
-
-		/* XXX specifically for each bit? */
-		if (!changed &&
-		    !prompt(ost, PY, PR_LALLOC_REPAIR,
-			    "Local alloc inode %"PRIu64" has bits "
-			    "in its bitmap which don't match what is used in "
-			    "the file system.  Sync its bitmap up with what "
-			    "is in use?", di->i_blkno))
-			break;
-
-		changed = 1;
-
-		/* the local bitmap is missing something that is in use */
-		if (bmap > alloc - la->la_bm_off) {
-			bmap = alloc - la->la_bm_off;
-			ocfs2_set_bit(bmap, la->la_bitmap);
-			used++;
-		}
-
-		/* the local bitmap has some set that aren't in use */
-		for ( ; bmap < alloc - la->la_bm_off; bmap++)
-			ocfs2_clear_bit(bmap, la->la_bitmap);
-
-	}
-
-	if (di->id1.bitmap1.i_used != used) {
-		if (prompt(ost, PY, PR_LALLOC_USED,
-			   "Local alloc inode %"PRIu64" now has "
-			   "%u bits set in its bitmap but it thinks there are "
-			   "%u set.  Fix the record of set bits to match "
-			   "how many are really set in the bitmap?",
-			   di->i_blkno, used, di->id1.bitmap1.i_used)) {
-
-			di->id1.bitmap1.i_used = used;
-			changed = 1;
-		}
-	}
-
-	if (changed) {
-		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
-		if (ret) {
-			com_err(whoami, ret, "while writing local alloc inode "
-				    "%"PRIu64, di->i_blkno);
-			ost->ost_write_error = 1;
-			ret = 0;
-		}
-	}
-
-	/* the kernel is going to trust this local alloc so we need to 
-	 * make sure that its space is reserved in the cluster bitmap */
-	for(pos = start ; pos < end; pos = alloc + 1) {
-		ret = ocfs2_bitmap_find_next_set(ost->ost_allocated_clusters,
-						 pos, &alloc);
-		if (ret == OCFS2_ET_BIT_NOT_FOUND)
-			alloc = end;
-		for ( ; pos < alloc; pos++) {
-			verbosef("reserving bit %"PRIu64" in the global "
-				 "bitmap for local alloc %"PRIu64"\n",
-				 pos, di->i_blkno);
-			ocfs2_bitmap_set(ost->ost_allocated_clusters, pos,
-					 NULL);
-		}
-	}
-}
-
-/* if we have valid local allocs we have two jobs: 
- *  - make sure the bitmap in the local alloc reflects what is used on disk
- *  - make sure the cluster bitmap has all the bits in the local alloc set
+/* 
+ * we just make sure that the bits that are clear in the local
+ * alloc are still reserved in the global bitmap.  We leave
+ * cleaning of the local windows to recovery in the file system.
  */
-static void write_local_allocs(o2fsck_state *ost)
+static void mark_local_allocs(o2fsck_state *ost)
 {
 	uint16_t node, max_nodes;
 	char *buf = NULL;
@@ -804,6 +708,7 @@ static void write_local_allocs(o2fsck_state *ost)
 	uint64_t blkno, start, end;
 	ocfs2_dinode *di;
 	ocfs2_local_alloc *la = &di->id2.i_lab;
+	int bit;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
 
@@ -835,10 +740,10 @@ static void write_local_allocs(o2fsck_state *ost)
 			goto out;
 		}
 
+		la = &di->id2.i_lab;
+
 		if (di->id1.bitmap1.i_total == 0)
 			continue;
-
-		la = &di->id2.i_lab;
 
 		/* make sure we don't try to work with a crazy bitmap.  It
 		 * can only be this crazy if the user wouldn't let us fix
@@ -857,7 +762,25 @@ static void write_local_allocs(o2fsck_state *ost)
 		    end > ost->ost_fs->fs_clusters)
 			continue;
 
-		sync_local_bitmap(ost, di, la, start, end);
+		/* bits that are clear in the local alloc haven't been 
+		 * used by the node yet, they must still be set in the
+		 * main bitmap.  bits that are set might have been used
+		 * and already freed in the main bitmap. */
+		for(bit = 0; bit < di->id1.bitmap1.i_total; bit++) {
+			bit = ocfs2_find_next_bit_clear(la->la_bitmap,
+							di->id1.bitmap1.i_total,
+							bit);
+
+			if (bit < di->id1.bitmap1.i_total) {
+				verbosef("bit %u is clear, reserving "
+					 "cluster %u\n", bit,
+					 bit + la->la_bm_off);
+
+				o2fsck_mark_cluster_allocated(ost,
+							      bit + 
+							      la->la_bm_off);
+			}
+		}
 	}
 out:
 	return;
@@ -1084,7 +1007,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		update_inode_alloc(ost, di, blkno, valid);
 	}
 
-	write_local_allocs(ost);
+	mark_local_allocs(ost);
 	write_cluster_alloc(ost);
 	write_inode_alloc(ost);
 
