@@ -318,7 +318,7 @@ main(int argc, char **argv)
 	DirData *orphan_dir;
 	DirData *root_dir;
 	DirData *system_dir;
-	uint32_t need;
+	uint64_t need;
 	SystemFileDiskRecord *tmprec;
 	char fname[SYSTEM_FILE_NAME_MAX];
 
@@ -379,17 +379,15 @@ main(int argc, char **argv)
 					  "global bitmap", tmprec);
 
 	/*
-	 * Set all bits up to and including the superblock.
+	 * Set all bits up to and including the first group descriptor
+	 * which we currently have fixed as the block after the super block.
+	 * initialize_bitmap has cleared the bit that initialize_alloc_group
+	 * usually sets for the group desc so this alloc is sure to start
+	 * at cluster 0.
 	 */
-	alloc_bytes_from_bitmap(s, (OCFS2_SUPER_BLOCK_BLKNO + 1) << s->blocksize_bits,
+	alloc_bytes_from_bitmap(s, (s->first_cluster_group + 1) << s->blocksize_bits,
 				s->global_bm, &(crap_rec.extent_off),
 				&(crap_rec.extent_len));
-
-	/*
-	 * Alloc a placeholder for the future global chain allocator
-	 */
-	alloc_from_bitmap(s, 1, s->global_bm, &(crap_rec.extent_off),
-                          &(crap_rec.extent_len));
 
 	/*
 	 * Now allocate the global inode alloc group
@@ -431,8 +429,10 @@ main(int argc, char **argv)
 	add_entry_to_directory(s, root_dir, ".", root_dir_rec.fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, root_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
 
-	need = system_dir_blocks_needed(s);
-	alloc_from_bitmap (s, need, s->global_bm, &system_dir_rec.extent_off, &system_dir_rec.extent_len);
+	need = system_dir_blocks_needed(s) << s->blocksize_bits;
+	alloc_bytes_from_bitmap(s, need, s->global_bm,
+				&system_dir_rec.extent_off,
+				&system_dir_rec.extent_len);
 	system_dir_rec.fe_off = alloc_inode(s, &system_dir_rec.suballoc_bit);
 	system_dir->record = &system_dir_rec;
 	add_entry_to_directory(s, system_dir, ".", system_dir_rec.fe_off, OCFS2_FT_DIR);
@@ -460,9 +460,9 @@ main(int argc, char **argv)
 	tmprec = &(record[DLM_SYSTEM_INODE][0]);
 	need = (AUTOCONF_BLOCKS(s->initial_nodes, 32) +
 		PUBLISH_BLOCKS(s->initial_nodes, 32) +
-		VOTE_BLOCKS(s->initial_nodes, 32));
-	alloc_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
-	tmprec->file_size = need << s->blocksize_bits;
+		VOTE_BLOCKS(s->initial_nodes, 32)) << s->blocksize_bits;
+	alloc_bytes_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
+	tmprec->file_size = need;
 
 	tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][0];
 	orphan_dir->record = tmprec;
