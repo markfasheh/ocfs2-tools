@@ -80,6 +80,22 @@ def query_text(parent, prompt):
 
     return text
 
+
+def make_callback(obj, callback, sub_callback):
+    cb = getattr(obj, callback)
+
+    if sub_callback:
+        sub_cb = getattr(obj, sub_callback)
+
+        def cb_func(*args):
+            cb()
+            sub_cb()
+    else:
+        def cb_func(*args):
+            cb()
+
+    return cb_func
+
 if hasattr(gtk.Dialog, 'set_alternative_button_order'):
     Dialog = gtk.Dialog
 else:

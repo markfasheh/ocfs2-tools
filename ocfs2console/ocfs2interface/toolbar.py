@@ -17,6 +17,8 @@
 
 import gtk
 
+from guiutil import make_callback
+
 toolbar_data = (
     ('Mount',   gtk.STOCK_EXECUTE, 'mount',   'refresh'),
     ('Unmount', gtk.STOCK_STOP,    'unmount', 'refresh'),
@@ -34,25 +36,11 @@ class Toolbar:
         for data in toolbar_data:
             label, stock_id, callback, sub_callback = data
 
-            def make_cb():
-                cb = getattr(self.window, callback)
-
-                if sub_callback:
-                    sub_cb = getattr(self.window, sub_callback)
-
-                    def cb_func(w):
-                        cb()
-                        sub_cb()
-                else:
-                    def cb_func(w):
-                        cb()
-
-                return cb_func
+            cb = make_callback(self.window, callback, sub_callback)
 
             icon = gtk.Image()
             icon.set_from_stock(stock_id, gtk.ICON_SIZE_BUTTON)
-            items[callback] = toolbar.append_item(label, label, None, icon,
-                                                  make_cb())
+            items[callback] = toolbar.append_item(label, label, None, icon, cb)
 
         toolbar.append_space()
 

@@ -17,6 +17,8 @@
 
 import gtk
 
+from guiutil import make_callback
+
 from fsck import fsck_ok
 
 UNMOUNTED_ONLY = 42
@@ -87,24 +89,10 @@ class Menu:
                 del item[4:]
 
             if callback:
-                def make_cb():
-                    cb = getattr(window, callback)
+                if sub_callback:
+                    del item[3:]
 
-                    if sub_callback:
-                        del item[3:]
-
-                        sub_cb = getattr(window, sub_callback)
-
-                        def cb_func(a, w):
-                            cb()
-                            sub_cb()
-                    else:
-                        def cb_func(a, w):
-                            cb()
-
-                    return cb_func
-
-                item[2] = make_cb()
+                item[2] = make_callback(window, callback, sub_callback)
 
             self.items.append(tuple(item))
 
