@@ -28,9 +28,6 @@
 
 #include <glib.h>
 
-#include <pygobject.h>
-#include <pygtk/pygtk.h>
-
 #include "ocfs2.h"
 
 #include "ocfsplist.h"
@@ -38,10 +35,6 @@
 
 #define MAX_CLUSTER_SIZE       1048576
 #define MIN_CLUSTER_SIZE       4096
-
-
-void cellmap_register_classes (PyObject *d);
-extern PyMethodDef cellmap_functions[];
 
 
 static PyObject *ocfs2_error;
@@ -206,10 +199,7 @@ static PyMethodDef ocfs2_methods[] = {
 void
 initocfs2 (void)
 {
-  PyObject *m, *d;
-
-  init_pygobject ();
-  init_pygtk ();
+  PyObject *m;
 
   initialize_ocfs_error_table ();
 
@@ -235,10 +225,6 @@ initocfs2 (void)
 
   PyModule_AddIntConstant (m, "MIN_CLUSTER_SIZE", MIN_CLUSTER_SIZE);
   PyModule_AddIntConstant (m, "MAX_CLUSTER_SIZE", MAX_CLUSTER_SIZE);
-
-  d = PyModule_GetDict (m);
-
-  cellmap_register_classes (d);
 
   if (PyErr_Occurred ())
     Py_FatalError ("can't initialise module ocfs2");
