@@ -46,8 +46,8 @@
  * XXX
  * 	check many, many, more i_ fields for each inode type
  * 	make sure the inode's dtime/count/valid match in update_inode_alloc
- * 	clean up the extent records that hang off inodes
  * 	more carefully track cluster use in conjunction with pass 0
+ * 	handle local alloc inodes for realsies
  */
 #include <string.h>
 #include <inttypes.h>
@@ -57,6 +57,7 @@
 
 #include "dirblocks.h"
 #include "dirparents.h"
+#include "extent.h"
 #include "icount.h"
 #include "fsck.h"
 #include "pass1.h"
@@ -92,8 +93,6 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		return;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
-
-	verbosef("updating inode %"PRIu64" alloc to %d\n", blkno, val);
 
 	for (node = ~0; node != max_nodes; node++, 
 					   ret = OCFS2_ET_INTERNAL_FAILURE) {
@@ -384,8 +383,6 @@ static int verify_block(ocfs2_filesys *fs,
 		}
 	}
 
-	o2fsck_mark_block_used(ost, blkno);
-
 	if (S_ISDIR(di->i_mode)) {
 		verbosef("adding dir block %"PRIu64"\n", blkno);
 		o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno, blkno,
@@ -415,18 +412,13 @@ static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
 	return 0;
 }
 
-static int check_extent_blocks(ocfs2_filesys *fs, ocfs2_extent_rec *rec,
-				int tree_depth, uint32_t ccount,
-				uint64_t ref_blkno, int ref_recno,
-				void *priv_data)
+/* XXX do something with these */
+static errcode_t handle_local_alloc(o2fsck_state *ost, ocfs2_dinode *di)
 {
-	struct verifying_blocks *vb = priv_data;
-
-	if (tree_depth > 0) {
-		verbosef("found extent block %"PRIu64"\n", rec->e_blkno);
-		o2fsck_mark_block_used(vb->vb_ost, rec->e_blkno);
-	}
-
+	ocfs2_local_alloc *lab = &di->id2.i_lab;
+	verbosef("la_bm_off %u size %u total %u used %u\n", lab->la_bm_off,
+		 lab->la_size, di->id1.bitmap1.i_total,
+		 di->id1.bitmap1.i_used);
 	return 0;
 }
 
@@ -441,15 +433,14 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	vb.vb_di = di;
 
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
-		ret = 0; /* nothing to iterate over in this case */
+		ret = handle_local_alloc(ost, di);
 	else if (di->i_flags & OCFS2_CHAIN_FL)
 		ret = ocfs2_chain_iterate(fs, blkno, check_gd_block, &vb);
 	else {
-		ret = ocfs2_extent_iterate(fs, blkno, 0, NULL,
-					   check_extent_blocks, &vb);
+		ret = o2fsck_check_extents(ost, di);
 		if (ret == 0)
-			ret = ocfs2_block_iterate(fs, blkno, 0,
-    					   verify_block, &vb);
+			ret = ocfs2_block_iterate(fs, blkno, 0, verify_block,
+						  &vb);
 	}
 
 	if (ret) {
@@ -558,44 +549,24 @@ static void write_cluster_alloc(o2fsck_state *ost)
 	 * indicates that the rest of the bits to the end of the bitmap
 	 * should be clear.
 	 */
-	last_cbit = 0;
-	blkno = 0;
-	cbit = 0;
-	for ( ; cbit < ost->ost_fs->fs_clusters; 
-	        blkno = ocfs2_clusters_to_blocks(ost->ost_fs, cbit + 1),
-		last_cbit = cbit + 1) {
+	for (last_cbit = 0, cbit = 0;
+	     cbit < ost->ost_fs->fs_clusters; 
+	     cbit++, last_cbit = cbit) {
 
-		verbosef("starting with blkno %"PRIu64"\n", blkno);
-
-		ret = ocfs2_bitmap_find_next_set(ost->ost_found_blocks, blkno,
-						 &blkno);
+		ret = ocfs2_bitmap_find_next_set(ost->ost_allocated_clusters,
+						 cbit, &cbit);
 
 		/* clear to the end */
 		if (ret == OCFS2_ET_BIT_NOT_FOUND)
 			cbit = ost->ost_fs->fs_clusters;
-		else {
-			uint64_t cgroup, cluster;
-			/* the libocfs2 bitmap interfaces names bit ranges
-			 * by the block the desc starts on.  so to find
-			 * a bit number for a given cluster we find the 
-			 * block offset of the start of the cluster group
-			 * and add the offset of the cluster in its cluster
-			 * group */
-			cluster = ocfs2_blocks_to_clusters(ost->ost_fs, blkno);
-			cgroup = cluster - (cluster % cgs.cgs_cpg);
-			cbit = ocfs2_clusters_to_blocks(ost->ost_fs, cgroup);
-
-			cbit += cluster % cgs.cgs_cpg;
-		}
 
 		ret = ocfs2_bitmap_find_next_set(ci->ci_chains, last_cbit, 
 						 &cbit_found);
 		if (ret == OCFS2_ET_BIT_NOT_FOUND)
 			cbit_found = ost->ost_fs->fs_clusters;
 
-		verbosef("blkno %"PRIu64" cbit %"PRIu64" last_cbit %"PRIu64" "
-			 "cbit_found %"PRIu64"\n", blkno, cbit, last_cbit,
-			 cbit_found);
+		verbosef("cbit %"PRIu64" last_cbit %"PRIu64" cbit_found "
+			 "%"PRIu64"\n", cbit, last_cbit, cbit_found);
 
 		if (cbit_found == cbit)
 			continue;
@@ -725,8 +696,6 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 		valid = 0;
 
-		o2fsck_mark_block_used(ost, blkno);
-
 		/* scanners have to skip over uninitialized inodes */
 		if (!memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		    strlen(OCFS2_INODE_SIGNATURE)) &&
@@ -739,14 +708,8 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 			valid = di->i_flags & OCFS2_VALID_FL;
 		}
 
-		verbosef("blkno %"PRIu64" ino %"PRIu64"\n", blkno,
-				di->i_blkno);
 		update_inode_alloc(ost, di, blkno, valid);
 	}
-
-	if (ocfs2_bitmap_get_set_bits(ost->ost_dup_blocks))
-		fatal_error(OCFS2_ET_INTERNAL_FAILURE, "duplicate blocks "
-				"found, need to learn to fix.");
 
 	write_cluster_alloc(ost);
 	write_inode_alloc(ost);

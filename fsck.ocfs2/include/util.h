@@ -44,8 +44,8 @@
 } while (0)
 
 void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di);
-int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno);
-int o2fsck_test_block_used(o2fsck_state *ost, uint64_t blkno);
+void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster);
+void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,
+				    uint32_t num);
 
 #endif /* __O2FSCK_UTIL_H__ */
-

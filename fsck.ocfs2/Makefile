@@ -22,6 +22,7 @@ DEFINES = -DOCFS2_FLAT_INCLUDES
 CFILES =	fsck.c		\
 		dirblocks.c 	\
 		dirparents.c 	\
+		extent.c 	\
 		icount.c 	\
 		journal.c 	\
 		pass0.c 	\
@@ -36,6 +37,7 @@ CFILES =	fsck.c		\
 HFILES = 	include/fsck.h		\
 		include/dirblocks.h	\
 		include/dirparents.h	\
+		include/extent.h	\
 		include/icount.h	\
 		include/journal.h	\
 		include/pass0.h		\

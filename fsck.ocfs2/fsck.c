@@ -22,9 +22,10 @@
  * more details.
  *
  * journal.c: try and replay the journal for each node
- * pass0.c: make sure the inode allocators are consistent
- * pass1.c: walk allocated inodes and verify them
- *          reflect valid inodes in the inode allocator bitmaps
+ * pass0.c: make sure all the chain allocators are consistent
+ * pass1.c: walk allocated inodes and verify them, including their extents
+ *          reflect valid inodes in the inode chain allocators
+ *          reflect allocated clusters in the cluster chain allocator
  * pass2.c: verify directory entries, record some linkage metadata
  * pass3.c: make sure all dirs are reachable
  * pass4.c: resolve inode's link counts, move disconnected inodes to lost+found
@@ -35,8 +36,8 @@
  *   _should not_ write to the file system unless it has asked prompt() to do
  *   so.  It should also not exit if prompt() returns 0.  prompt() should give
  *   as much detail as possible as it becomes an error log.
- * - to make life simpler, memory allocation is a fatal error.  We shouldn't
- *   have unreasonable memory demands in relation to the size of the fs.
+ * - to make life simpler, memory allocation is a fatal error.  We should
+ *   have reasonable memory demands in relation to the size of the fs.
  * - I'm still of mixed opinions about IO errors.  thoughts?
  */
 #include <getopt.h>
@@ -121,17 +122,11 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 		return ret;
 	}
 
-	ret = ocfs2_block_bitmap_new(fs, "blocks off inodes",
-				     &ost->ost_found_blocks);
+	ret = ocfs2_block_bitmap_new(fs, "allocated clusters",
+				     &ost->ost_allocated_clusters);
 	if (ret) {
-		com_err(whoami, ret, "while allocating found blocks bitmap");
-		return ret;
-	}
-
-	ret = ocfs2_block_bitmap_new(fs, "duplicate blocks",
-				     &ost->ost_dup_blocks);
-	if (ret) {
-		com_err(whoami, ret, "while allocating duplicate block bitmap");
+		com_err(whoami, ret, "while allocating a bitmap to track "
+			"allocated clusters");
 		return ret;
 	}
 
@@ -204,6 +199,17 @@ static void print_uuid(o2fsck_state *ost)
 		printf("%02x ", uuid[i]);
 
 	printf("\n");
+}
+
+static void mark_magical_clusters(o2fsck_state *ost)
+{
+	uint32_t cluster;
+
+	cluster = ocfs2_blocks_to_clusters(ost->ost_fs, 
+					   ost->ost_fs->fs_first_cg_blkno);
+
+	if (cluster != 0) 
+		o2fsck_mark_clusters_allocated(ost, 0, cluster);
 }
 
 int main(int argc, char **argv)
@@ -330,9 +336,12 @@ int main(int argc, char **argv)
 
 	exit_if_skipping(ost);
 
+#if 0
 	o2fsck_mark_block_used(ost, 0);
 	o2fsck_mark_block_used(ost, 1);
 	o2fsck_mark_block_used(ost, OCFS2_SUPER_BLOCK_BLKNO);
+#endif
+	mark_magical_clusters(ost);
 
 	/* XXX we don't use the bad blocks inode, do we? */
 

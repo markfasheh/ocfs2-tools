@@ -51,22 +51,20 @@ void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di)
 	}
 }
 
-int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
+void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster)
 {
 	int was_set;
 
-	ocfs2_bitmap_set(ost->ost_found_blocks, blkno, &was_set);
+	ocfs2_bitmap_set(ost->ost_allocated_clusters, cluster, &was_set);
 
 	if (was_set) /* XX can go away one all callers handle this */
 		com_err(__FUNCTION__, OCFS2_ET_INTERNAL_FAILURE,
-			"!! duplicate block %"PRIu64, blkno);
-
-	return was_set;
+			"!! duplicate cluster %"PRIu32, cluster);
 }
 
-int o2fsck_test_block_used(o2fsck_state *ost, uint64_t blkno)
+void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,
+				    uint32_t num)
 {
-	int was_set;
-	ocfs2_bitmap_test(ost->ost_found_blocks, blkno, &was_set);
-	return was_set;
+	while(num--)
+		o2fsck_mark_cluster_allocated(ost, cluster++);
 }

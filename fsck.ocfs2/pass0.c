@@ -65,6 +65,7 @@ struct chain_state {
 	uint32_t	cs_free_bits;
 	uint32_t	cs_total_bits;
 	uint32_t	cs_chain_no;
+	uint16_t	cs_cpg;
 };
 
 static errcode_t check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
@@ -188,6 +189,7 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 		goto out;
 	}
 
+#if 0 /* XXX plausible + used test */
 	if (o2fsck_test_block_used(ost, blkno) &&
 	    prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
 			   "points to block %"PRIu64" which has already been "
@@ -198,6 +200,7 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 		cbr->cb_new_next_blkno = 1;
 		cbr->cb_next_blkno = 0;
 	}
+#endif
 
 	if (allowed) {
 		ocfs2_bitmap_test(allowed, blkno, &was_set);
@@ -241,6 +244,22 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 
 out:
 	return;
+}
+
+static void mark_group_used(o2fsck_state *ost, struct chain_state *cs,
+			    ocfs2_group_desc *bg, ocfs2_bitmap *allowed)
+{
+	uint16_t clusters = cs->cs_cpg;
+
+	if (allowed) {
+		ocfs2_bitmap_clear(allowed, bg->bg_blkno, NULL);
+		/* only mark the desc cluster as in use */
+		clusters = 1;
+	}
+
+	o2fsck_mark_clusters_allocated(ost, 
+		ocfs2_blocks_to_clusters(ost->ost_fs, bg->bg_blkno),
+		clusters);
 }
 
 /*
@@ -287,9 +306,7 @@ new_head:
 		goto new_head;
 	}
 
-	if (allowed)
-		ocfs2_bitmap_clear(allowed, chain->c_blkno, NULL);
-	o2fsck_mark_block_used(ost, chain->c_blkno);
+	mark_group_used(ost, cs, bg1, allowed);
 
 	/* read in each group desc and check it.  In this loop bg1 is 
 	 * verified and in the chain.  it's bg2 that is considered.  if
@@ -305,10 +322,7 @@ new_head:
 		}
 
 		if (!cbr.cb_new_next_blkno) {
-			if (allowed)
-				ocfs2_bitmap_clear(allowed, bg2->bg_blkno,
-						   NULL);
-			o2fsck_mark_block_used(ost, bg2->bg_blkno);
+			mark_group_used(ost, cs, bg2, allowed);
 			memcpy(buf1, buf2, ost->ost_fs->fs_blocksize);
 			continue;
 		}
@@ -427,6 +441,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		/* reset for each run */
 		cs = (struct chain_state) {
 			.cs_chain_no = i,
+			.cs_cpg = cl->cl_cpg,
 		};
 		changed |= check_chain(ost, di, &cs, cr, buf1, buf2, allowed);
 
@@ -520,13 +535,12 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 
 	max_recs = ocfs2_chain_recs_per_inode(ost->ost_fs->fs_blocksize);
 
-	for (i = 0; i < cgs.cgs_cluster_groups; i++) {
-		if (i == 0)
-			blkno = OCFS2_SUPER_BLOCK_BLKNO + 1;
-		else
-			blkno = i * cgs.cgs_cpg * 
-				(ost->ost_fs->fs_clustersize /
-				 ost->ost_fs->fs_blocksize);
+	/* the first groups desc is specified in the super block, the 
+	 * rest are in the first cluster/block of the group */
+	for (i = 0, blkno = ost->ost_fs->fs_first_cg_blkno;
+	     i < cgs.cgs_cluster_groups; 
+	     i++, blkno = i * ocfs2_clusters_to_blocks(ost->ost_fs,
+						       cgs.cgs_cpg)) {
 
 		verbosef("looking for cluster bitmap desc at %"PRIu64"\n",
 			 blkno);
@@ -585,7 +599,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 
 	/* find the blocks that we think should have been in the chains
 	 * but which weren't found */
-	for (blkno = OCFS2_SUPER_BLOCK_BLKNO + 1;
+	for (blkno = ost->ost_fs->fs_first_cg_blkno;
 	     !ocfs2_bitmap_find_next_set(bitmap_descs, blkno, &blkno);
 	     blkno++) {
 
@@ -756,6 +770,37 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 			*ci = NULL;
 			goto out;
 		}
+	}
+
+	printf("Pass 0c: Checking extent block allocation chains\n");
+
+	for (i = 0; i < max_nodes; i++) {
+		ret = ocfs2_lookup_system_inode(fs, EXTENT_ALLOC_SYSTEM_INODE,
+						i, &blkno);
+		if (ret) {
+			com_err(whoami, ret, "while looking up the extent "
+				"allocator type %d for node %d\n", type, i);
+			goto out;
+		}
+
+		ret = ocfs2_read_inode(ost->ost_fs, blkno, (char *)di);
+		if (ret) {
+			com_err(whoami, ret, "reading inode alloc inode "
+				"%"PRIu64" for verification", blkno);
+			goto out;
+		}
+
+		verbosef("found extent alloc %"PRIu64" at block %"PRIu64"\n",
+			 di->i_blkno, blkno);
+
+		ret = verify_chain_alloc(ost, di,
+					 blocks + ost->ost_fs->fs_blocksize,
+					 blocks + 
+					 (ost->ost_fs->fs_blocksize * 2), NULL);
+
+		/* XXX maybe helped by the alternate super block */
+		if (ret)
+			goto out;
 	}
 
 out:

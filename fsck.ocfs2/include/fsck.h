@@ -37,8 +37,7 @@ typedef struct _o2fsck_state {
 	ocfs2_bitmap	*ost_dir_inodes;
 	ocfs2_bitmap	*ost_reg_inodes;
 
-	ocfs2_bitmap	*ost_found_blocks;
-	ocfs2_bitmap	*ost_dup_blocks;
+	ocfs2_bitmap	*ost_allocated_clusters;
 
 	ocfs2_bitmap	*ost_rebuild_dirs;
 
