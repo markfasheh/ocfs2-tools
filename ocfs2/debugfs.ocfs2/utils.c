@@ -29,6 +29,7 @@
 #include <utils.h>
 #include <journal.h>
 #include <dump.h>
+#include <bindraw.h>
 
 /*
  * add_extent_rec()

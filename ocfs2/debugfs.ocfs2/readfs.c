@@ -29,6 +29,7 @@
 #include <utils.h>
 #include <journal.h>
 #include <dump.h>
+#include <bindraw.h>
 
 extern dbgfs_gbls gbls;
 
@@ -46,7 +47,7 @@ int read_super_block (int fd, char **buf)
 	__u32 buflen;
 
 	buflen = 1 << bits;
-	if (!(*buf = malloc(buflen)))
+	if (!(*buf = memalign(512, buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if ((pread64(fd, *buf, buflen, 0)) == -1)
@@ -68,7 +69,7 @@ int read_super_block (int fd, char **buf)
 	for (bits = 9; bits < 13; bits++) {
 		if (!*buf) {
 			buflen = 1 << bits;
-			if (!(*buf = malloc(buflen)))
+			if (!(*buf = memalign(512, buflen)))
 				DBGFS_FATAL("%s", strerror(errno));
 		}
 
@@ -139,7 +140,7 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump, FIL
 			add_extent_rec (arr, rec);
 		else {
 			buflen = 1 << gbls.blksz_bits;
-			if (!(buf = malloc(buflen)))
+			if (!(buf = memalign(512, buflen)))
 				DBGFS_FATAL("%s", strerror(errno));
 
 			off = (__u64)rec->e_blkno << gbls.blksz_bits;
@@ -207,7 +208,7 @@ void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
                 if ((foff + len) > size)
                     len = size - foff;
 
-		if (!(buf = malloc (len)))
+		if (!(buf = memalign(512, len)))
 			DBGFS_FATAL("%s", strerror(errno));
 
 		if ((pread64(fd, buf, len, off)) == -1)
@@ -303,7 +304,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
 
 	buflen = 1 << gbls.blksz_bits;
-	if (!(inode_buf = malloc(buflen)))
+	if (!(inode_buf = memalign(512, buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if ((read_inode (fd, blknum, inode_buf, buflen)) == -1) {
@@ -324,7 +325,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 		}
 	}
 
-	if (!(newbuf = malloc (newlen)))
+	if (!(newbuf = memalign(512, newlen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	p = newbuf;

@@ -29,6 +29,7 @@
 #include <utils.h>
 #include <journal.h>
 #include <dump.h>
+#include <bindraw.h>
 
 #define PROMPT "debugfs: "
 
@@ -89,6 +90,19 @@ int main (int argc, char **argv)
 	char *arg;
 	gboolean seen_device = FALSE;
 
+#define INSTALL_SIGNAL(sig)					\
+	do {							\
+		if (signal(sig, handle_signal) == SIG_ERR) {	\
+		    printf("Could not set " #sig "\n");		\
+		    goto bail;					\
+		}						\
+	} while (0)
+
+	INSTALL_SIGNAL(SIGTERM);
+	INSTALL_SIGNAL(SIGINT);
+
+	init_raw_cleanup_message();
+
 	for (i = 1; i < argc; i++) {
 		arg = argv[i];
 		if ((strcmp (arg, "--write") == 0) ||
@@ -133,5 +147,6 @@ int main (int argc, char **argv)
 		}
 	}
 
+bail:
 	return 0;
 }					/* main */

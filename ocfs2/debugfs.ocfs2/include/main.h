@@ -44,6 +44,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <signal.h>
+#include <sys/raw.h>
+#include <linux/kdev_t.h>
 
 #include <glib.h>
 
@@ -64,7 +66,8 @@ enum {
 
 typedef struct _dbgfs_glbs {
 	char *device;
-	int   dev_fd;
+	int raw_minor;
+	int dev_fd;
 	__u32 blksz_bits;
 	__u32 clstrsz_bits;
 	__u64 root_blkno;
@@ -76,6 +79,8 @@ typedef struct _dbgfs_glbs {
 	ocfs2_dinode *rootin;
 	ocfs2_dinode *sysdirin;
 } dbgfs_gbls;
+
+void *memalign(size_t boundary, size_t size);
 
 #define safefree(_p)	do {if (_p) { free(_p); (_p) = NULL; } } while (0)
 

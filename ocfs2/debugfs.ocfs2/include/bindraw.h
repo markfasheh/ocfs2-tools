@@ -1,9 +1,10 @@
+
 /*
- * commands.h
+ * bindraw.h
  *
- * Function prototypes, macros, etc. for related 'C' files
+ * Declarations, prototypes, etc.
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -23,10 +24,11 @@
  * Authors: Sunil Mushran
  */
 
-#ifndef __COMMANDS_H__
-#define __COMMANDS_H__
+#ifndef _BINDRAW_H_
+#define _BINDRAW_H_
 
-void  do_command (char *cmd);
-void handle_signal (int sig);
+int bind_raw(char *blk_dev, int *raw_minor, char *raw_dev, int rdlen);
+void unbind_raw(int raw_minor);
+void init_raw_cleanup_message(void);
 
-#endif /* __COMMANDS_H__ */
+#endif

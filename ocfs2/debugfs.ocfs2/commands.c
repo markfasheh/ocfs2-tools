@@ -29,6 +29,7 @@
 #include <utils.h>
 #include <journal.h>
 #include <dump.h>
+#include <bindraw.h>
 
 typedef void (*PrintFunc) (void *buf);
 typedef gboolean (*WriteFunc) (char **data, void *buf);
@@ -72,6 +73,7 @@ extern gboolean allow_write;
 
 dbgfs_gbls gbls = {
 	.device = NULL,
+	.raw_minor = 0,
 	.dev_fd = -1,
 	.blksz_bits = 0,
 	.clstrsz_bits = 0,
@@ -175,6 +177,7 @@ static void do_open (char **args)
 	char *dev = args[1];
 	ocfs2_super_block *sb;
 	__u32 len;
+	char raw_dev[255];
 
 	if (gbls.device)
 		do_close (NULL);
@@ -184,13 +187,18 @@ static void do_open (char **args)
 		goto bail;
 	}
 
-	gbls.dev_fd = open (dev, allow_write ? O_RDONLY : O_RDWR);
+	if (bind_raw (dev, &gbls.raw_minor, raw_dev, sizeof(raw_dev)))
+		goto bail;
+
+	printf ("Bound %s to %s\n", dev, raw_dev);
+
+	gbls.dev_fd = open (raw_dev, allow_write ? O_RDONLY : O_RDWR);
 	if (gbls.dev_fd == -1) {
 		printf ("could not open device %s\n", dev);
 		goto bail;
 	}
 
-	gbls.device = g_strdup (dev);
+	gbls.device = g_strdup (raw_dev);
 
 	if (read_super_block (gbls.dev_fd, (char **)&gbls.superblk) != -1)
 		gbls.curdir = g_strdup ("/");
@@ -209,7 +217,7 @@ static void do_open (char **args)
 
 	/* read root inode */
 	len = 1 << gbls.blksz_bits;
-	if (!(gbls.rootin = malloc(len)))
+	if (!(gbls.rootin = memalign(512, len)))
 		DBGFS_FATAL("%s", strerror(errno));
 	if ((pread64(gbls.dev_fd, (char *)gbls.rootin, len,
 		     (gbls.root_blkno << gbls.blksz_bits))) == -1)
@@ -217,7 +225,7 @@ static void do_open (char **args)
 
 	/* read sysdir inode */
 	len = 1 << gbls.blksz_bits;
-	if (!(gbls.sysdirin = malloc(len)))
+	if (!(gbls.sysdirin = memalign(512, len)))
 		DBGFS_FATAL("%s", strerror(errno));
 	if ((pread64(gbls.dev_fd, (char *)gbls.sysdirin, len,
 		     (gbls.sysdir_blkno << gbls.blksz_bits))) == -1)
@@ -241,6 +249,9 @@ static void do_close (char **args)
 		gbls.device = NULL;
 		close (gbls.dev_fd);
 		gbls.dev_fd = -1;
+
+		unbind_raw(gbls.raw_minor);
+		gbls.raw_minor = 0;
 
 		g_free (gbls.curdir);
 		gbls.curdir = NULL;
@@ -283,7 +294,7 @@ static void do_ls (char **args)
 	}
 
 	len = 1 << gbls.blksz_bits;
-	if (!(buf = malloc(len)))
+	if (!(buf = memalign(512, len)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if (opts) {
@@ -482,7 +493,7 @@ static void do_inode (char **args)
 	}
 
 	buflen = 1 << gbls.blksz_bits;
-	if (!(buf = malloc(buflen)))
+	if (!(buf = memalign(512, buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if (opts) {
@@ -671,3 +682,22 @@ bail:
 	safefree (logbuf);
 	return ;
 }					/* do_journal */
+
+
+/*
+ * handle_signal()
+ *
+ */
+void handle_signal (int sig)
+{
+	switch (sig) {
+	case SIGTERM:
+	case SIGINT:
+		if (gbls.device)
+			do_close (NULL);
+		exit(1);
+	}
+
+	return ;
+}					/* handle_signal */
+
