@@ -94,6 +94,13 @@ typedef unsigned short kdev_t;
 
 #define ONE_GB_SHIFT           30
 
+#define BITMAP_WARNING_LEN     1572864
+#define BITMAP_AUTO_MAX        786432
+
+#define MAX_CLUSTER_SIZE       1048576
+#define MIN_CLUSTER_SIZE       4096
+#define AUTO_CLUSTER_SIZE      65536
+
 
 enum {
 	SFI_JOURNAL,
@@ -321,11 +328,16 @@ main(int argc, char **argv)
 	system_dir = alloc_directory(s);
 	orphan_dir = alloc_directory(s);
 
-	if (!s->quiet)
-		printf("Creating bitmaps: ");
-
 	need = (s->volume_size_in_clusters + 7) >> 3;
 	need = ((need + s->cluster_size - 1) >> s->cluster_size_bits) << s->cluster_size_bits;
+
+	if (need > BITMAP_WARNING_LEN)
+		fprintf(stderr, "WARNING: bitmap is very large, consider using "
+				"a larger cluster size and/or\na smaller "
+				"volume\n");
+
+	if (!s->quiet)
+		printf("Creating bitmaps: ");
 
 	tmprec = &(record[GLOBAL_BITMAP_SYSTEM_INODE][0]);
 	tmprec->extent_off = 0;
@@ -526,7 +538,7 @@ get_state(int argc, char **argv)
 			    val > OCFS2_MAX_BLOCKSIZE) {
 				com_err(progname, 0,
 					"Invalid blocksize %s: "
-					"must be between %d and %d",
+					"must be between %d and %d bytes",
 					optarg,
 					OCFS2_MIN_BLOCKSIZE,
 					OCFS2_MAX_BLOCKSIZE);
@@ -539,9 +551,15 @@ get_state(int argc, char **argv)
 		case 'c':
 			ret = get_number(optarg, &val);
 
-			if (ret) {
+			if (ret ||
+			    val < MIN_CLUSTER_SIZE ||
+			    val > MAX_CLUSTER_SIZE) {
 				com_err(progname, 0,
-					"Invalid cluster size %s", optarg);
+					"Invalid cluster size %s: "
+					"must be between %d and %d bytes",
+					optarg,
+					MIN_CLUSTER_SIZE,
+					MAX_CLUSTER_SIZE);
 				exit(1);
 			}
 
@@ -708,8 +726,6 @@ version(const char *progname)
 static void
 fill_defaults(State *s)
 {
-	/* XXX: Basics, needs to be redone */
-
 	size_t pagesize;
 	errcode_t err;
 	uint32_t ret;
@@ -718,17 +734,8 @@ fill_defaults(State *s)
 
 	s->pagesize_bits = get_bits(s, pagesize);
 
-	if (!s->blocksize) {
+	if (!s->blocksize)
 		s->blocksize = 4096;
-	}
-
-	s->blocksize_bits = get_bits(s, s->blocksize);
-
-	if (!s->cluster_size) {
-		s->cluster_size = 4096;
-	}
-
-	s->cluster_size_bits = get_bits(s, s->cluster_size);
 
 	if (!s->volume_size_in_blocks) {
 		err = ocfs2_get_device_size(s->device_name, s->blocksize, &ret);
@@ -736,6 +743,54 @@ fill_defaults(State *s)
 	}
 
 	s->volume_size_in_bytes = s->volume_size_in_blocks * s->blocksize;
+
+	if (!s->blocksize) {
+		if (s->volume_size_in_bytes <= 1024 * 1024 * 3) {
+			s->blocksize = 512;
+		} else {
+			int shift = 30;
+
+			while (s->blocksize > 1024) {
+				if (s->volume_size_in_bytes >= 1U << shift)
+					break;
+				s->blocksize >>= 1;
+				shift--;
+			}
+		}
+
+		err = ocfs2_get_device_size(s->device_name, s->blocksize, &ret);
+		s->volume_size_in_blocks = ret;
+
+		s->volume_size_in_bytes =
+			s->volume_size_in_blocks * s->blocksize;
+	}
+
+	s->blocksize_bits = get_bits(s, s->blocksize);
+
+	if (!s->cluster_size) {
+		uint32_t volume_size, cluster_size, cluster_size_bits, need;
+
+		for (cluster_size = MIN_CLUSTER_SIZE;
+		     cluster_size < AUTO_CLUSTER_SIZE;
+		     cluster_size <<= 1) {
+			cluster_size_bits = get_bits(s, cluster_size);
+
+			volume_size =
+				s->volume_size_in_bytes >> cluster_size_bits;
+
+			need = (volume_size + 7) >> 3;
+			need = ((need + cluster_size - 1) >>
+				cluster_size_bits) << cluster_size_bits;
+
+			if (need <= BITMAP_AUTO_MAX) 
+				break;
+		}
+
+		s->cluster_size = cluster_size;
+	}
+
+	s->cluster_size_bits = get_bits(s, s->cluster_size);
+
 	s->volume_size_in_clusters = s->volume_size_in_bytes >> s->cluster_size_bits;
 	s->volume_size_in_blocks = (s->volume_size_in_clusters << s->cluster_size_bits) >> s->blocksize_bits;
 	
