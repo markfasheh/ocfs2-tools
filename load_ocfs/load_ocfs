@@ -74,7 +74,8 @@ VALID_PARMS="$COMMON_PARMS:ip_port:ip_port_v2"
 REQUIRED_PARMS="node_name:ip_address:guid"
 
 # Multi-module switch.  The script's argv0 is used to determine the
-# module name.
+# module name.  Do not modify these lines.  Edit MODULE down where it
+# says to.
 MODULE_SCRIPT="`basename $0`"
 MODULE="${MODULE_SCRIPT#load_}"
 case "$MODULE" in
