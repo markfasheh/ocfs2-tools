@@ -44,6 +44,7 @@
 #include <sys/utsname.h>
 #endif
 
+#include <et/com_err.h>
 #include "ocfs2_err.h"
 
 #include "unix_io.h"
