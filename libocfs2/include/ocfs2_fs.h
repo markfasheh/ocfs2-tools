@@ -383,6 +383,7 @@ typedef struct _ocfs2_dinode {
 		ocfs2_local_alloc i_lab;
 		ocfs2_chain_list  i_chain;
 		ocfs2_extent_list i_list;
+		__u8              i_symlink;
 	} id2;
 /* Actual on-disk size is one block */
 } ocfs2_dinode;
@@ -423,6 +424,12 @@ typedef struct _ocfs2_group_desc
 } ocfs2_group_desc;
 
 #ifdef __KERNEL__
+static inline int ocfs2_fast_symlink_chars(struct super_block *sb)
+{
+	return  sb->s_blocksize -
+		 offsetof(struct _ocfs2_dinode, id2.i_symlink);
+}
+
 static inline int ocfs2_extent_recs_per_inode(struct super_block *sb)
 {
 	int size;
@@ -473,6 +480,11 @@ static inline int ocfs2_group_bitmap_size(struct super_block *sb)
 	return size;
 }
 #else
+static inline int ocfs2_fast_symlink_chars(int blocksize)
+{
+	return blocksize - offsetof(struct _ocfs2_dinode, id2.i_symlink);
+}
+
 static inline int ocfs2_extent_recs_per_inode(int blocksize)
 {
 	int size;
