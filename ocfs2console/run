@@ -6,5 +6,12 @@
 from ocfs2console.about import process_info_args
 process_info_args()
 
+try:
+    import gtk
+except RuntimeError:
+    import sys
+    print >>sys.stderr, 'ocfs2console needs an X11 display'
+    sys.exit(1)
+
 from ocfs2console.interface import main
 main()
