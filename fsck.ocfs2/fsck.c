@@ -215,6 +215,27 @@ static void mark_magical_clusters(o2fsck_state *ost)
 		o2fsck_mark_clusters_allocated(ost, 0, cluster);
 }
 
+static void version(void)
+{
+	char url[] = "$URL$";
+       	char rev[] = "$Rev$";
+	char noise[] = "fsck.ocfs2/fsck.c";
+	char *found;
+
+	/* url =~ s/noise// :P */
+	found = strstr(url, noise);
+	if (found) {
+		char *rest = found + strlen(noise);
+		memcpy(found, rest, sizeof(url) - (found - url));
+	}
+
+	printf("fsckb.ocfs2 version information from Subversion:\n"
+	       " %s\n"
+	       " %s\n", url, rev);
+
+	exit(FSCK_USAGE);
+}
+
 int main(int argc, char **argv)
 {
 	char *filename;
@@ -293,8 +314,8 @@ int main(int argc, char **argv)
 				break;
 
 			case 'V':
-				printf("$URL$ $Rev$\n");
-				exit(FSCK_USAGE);
+				version();
+				break;
 
 			default:
 				fsck_mask |= FSCK_USAGE;
