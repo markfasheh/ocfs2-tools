@@ -124,6 +124,11 @@ out_free:
 	return ctx.errcode;
 }
 
+/*
+ * FIXME: port the reset of e2fsprogs/lib/ext2fs/fileio.c
+ */
+
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>
