@@ -505,12 +505,12 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino);
 errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno);
 errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno);
 errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
-				  uint64_t new_clusters);
+				  uint32_t new_clusters);
 errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
 			     uint32_t requested,
 			     uint64_t *start_blkno);
 errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
-			      uint64_t len,
+			      uint32_t len,
 			      uint64_t start_blkno);
 
 /* 

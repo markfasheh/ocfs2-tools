@@ -346,31 +346,142 @@ out_free_buf:
 }
 
 errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
-				  uint64_t new_clusters)
+				  uint32_t new_clusters)
 {
 	errcode_t ret = 0;
-	uint64_t n_clusters = 0;
+	uint32_t n_clusters = 0;
 	uint64_t blkno;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
 
 	while (new_clusters) {
-		/* XXX lalala, for now we can only allocate precicely as
-		 * much as we ask for and we leak allocations.  leaking
-		 * allocations half-way through is a strong theme. */
 		n_clusters = 1;
 		ret = ocfs2_new_clusters(fs, n_clusters, &blkno);
 		if (ret)
-			goto bail;
+			break;
 
 	 	ret = ocfs2_insert_extent(fs, ino, blkno, n_clusters);
-		if (ret)
-			goto bail;
+		if (ret) {
+			/* XXX: We don't wan't to overwrite the error
+			 * from insert_extent().  But we probably need
+			 * to BE LOUDLY UPSET. */
+			ocfs2_free_clusters(fs, n_clusters, blkno);
+			break;
+		}
 
 	 	new_clusters -= n_clusters;
 	}
 
-bail:
 	return ret;
 }
+
+#ifdef DEBUG_EXE
+#include <stdio.h>
+#include <stdlib.h>
+#include <getopt.h>
+#include <inttypes.h>
+
+static void print_usage(void)
+{
+	fprintf(stdout, "debug_extend_file -i <ino> -c <clusters> <device>\n");
+}
+
+static uint64_t read_number(const char *num)
+{
+	uint64_t val;
+	char *ptr;
+
+	val = strtoull(num, &ptr, 0);
+	if (!ptr || *ptr)
+		return 0;
+
+	return val;
+}
+
+extern int opterr, optind;
+extern char *optarg;
+
+int main(int argc, char *argv[])
+{
+	errcode_t ret;
+	char *filename;
+	ocfs2_filesys *fs;
+	uint64_t ino = 0;
+	uint32_t new_clusters = 0;
+	int c;
+
+	initialize_ocfs_error_table();
+
+	while ((c = getopt(argc, argv, "i:c:")) != EOF) {
+		switch (c) {
+			case 'i':
+				ino = read_number(optarg);
+				if (ino <= OCFS2_SUPER_BLOCK_BLKNO) {
+					fprintf(stderr,
+						"Invalid inode block: %s\n",
+						optarg);
+					print_usage();
+					return 1;
+				}
+				break;
+
+			case 'c':
+				new_clusters = read_number(optarg);
+				if (!new_clusters) {
+					fprintf(stderr,
+						"Invalid cluster count: %s\n",
+						optarg);
+					print_usage();
+					return 1;
+				}
+				break;
+
+			default:
+				print_usage();
+				return 1;
+				break;
+		}
+	}
+
+	if (!ino) {
+		fprintf(stderr, "You must specify an inode block\n");
+		print_usage();
+		return 1;
+	}
+
+	if (!new_clusters) {
+		fprintf(stderr, "You must specify how many clusters to extend\n");
+		print_usage();
+		return 1;
+	}
+
+	if (optind >= argc) {
+		fprintf(stderr, "Missing filename\n");
+		print_usage();
+		return 1;
+	}
+	filename = argv[optind];
+
+	ret = ocfs2_open(filename, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		com_err(argv[0], ret,
+			"while opening file \"%s\"", filename);
+		goto out;
+	}
+
+	ret = ocfs2_extend_allocation(fs, ino, new_clusters);
+	if (ret) {
+		com_err(argv[0], ret,
+			"while extending inode %"PRIu64, ino);
+	}
+
+	ret = ocfs2_close(fs);
+	if (ret) {
+		com_err(argv[0], ret,
+			"while closing file \"%s\"", filename);
+	}
+out:
+	return !!ret;
+}
+#endif  /* DEBUG_EXE */

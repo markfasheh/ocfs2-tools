@@ -389,7 +389,7 @@ out:
 }
 
 errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
-			      uint64_t len,
+			      uint32_t len,
 			      uint64_t start_blkno)
 {
 	errcode_t ret;

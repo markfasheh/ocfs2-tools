@@ -26,7 +26,6 @@
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
-#include <inttypes.h>
 
 #include "ocfs2.h"
 
@@ -234,6 +233,7 @@ out_buf:
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>
+#include <inttypes.h>
 
 static uint64_t read_number(const char *num)
 {
