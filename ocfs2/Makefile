@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SUBDIRS = mkfs.ocfs2 libocfs2
+SUBDIRS = libocfs2 mkfs.ocfs2
 
 ifdef DEBUGOCFS2
 SUBDIRS += debugfs.ocfs2
