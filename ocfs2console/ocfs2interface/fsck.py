@@ -16,18 +16,10 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
 import gobject
-import gtk
 
-from guiutil import set_props
+from terminal import TerminalDialog, terminal_ok as fsck_ok
 
 base_command = ('fsck.ocfs2',)
-
-try:
-    import vte
-except ImportError:
-    fsck_ok = False
-else:
-    fsck_ok = True
 
 def fsck_volume(parent, device, check=False):
     if check:
@@ -37,37 +29,14 @@ def fsck_volume(parent, device, check=False):
 
     title = 'File System ' + check_str.capitalize()
 
-    dialog = gtk.Dialog(parent=parent, title=title,
-                        buttons=(gtk.STOCK_CLOSE, gtk.RESPONSE_CLOSE))
-
-    label = gtk.Label(title)
-    label.set_alignment(xalign=0.0, yalign=0.5)
-    dialog.vbox.pack_start(label)
-
-    frame = gtk.Frame()
-    frame.set_shadow_type(gtk.SHADOW_IN)
-    dialog.vbox.pack_end(frame)
-
-    hbox = gtk.HBox()
-    frame.add(hbox)
-
-    terminal = vte.Terminal()
-    terminal.set_scrollback_lines(8192)
-    #terminal.set_font_from_string('monospace 12')
-    hbox.pack_start(terminal)
-
-    scrollbar = gtk.VScrollbar()
-    scrollbar.set_adjustment(terminal.get_adjustment())
-    hbox.pack_end(scrollbar)
+    dialog = TerminalDialog(parent=parent, title=title)
+    terminal = dialog.terminal
 
     dialog.finished = False
     terminal.connect('child-exited', child_exited, dialog)
 
-    dialog.pid = -1
     command = fsck_command(device, check)
     gobject.idle_add(start_command, terminal, command, dialog)
-
-    dialog.show_all()
 
     while 1:
         dialog.run()
@@ -110,7 +79,8 @@ def fsck_command(device, check):
     return ['/bin/sh', '-c', realcommand]
 
 def main():
-    fsck_volume(None, '/dev/sdb1', check=True)
+    import sys
+    fsck_volume(None, sys.argv[1], check=True)
 
 if __name__ == '__main__':
     main()

@@ -68,6 +68,7 @@ PYSRC = \
 	menu.py \
 	partitionview.py \
 	process.py \
+	terminal.py \
 	toolbar.py \
 	tune.py
 
