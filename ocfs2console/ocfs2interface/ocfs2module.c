@@ -265,5 +265,5 @@ initocfs2 (void)
   PyModule_AddIntConstant (m, "MAX_CLUSTER_SIZE", MAX_CLUSTER_SIZE);
 
   if (PyErr_Occurred ())
-    Py_FatalError ("can't initialise module ocfs2");
+    Py_FatalError ("can't initialize module ocfs2");
 }
