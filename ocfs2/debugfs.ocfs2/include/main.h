@@ -70,6 +70,7 @@ typedef struct _dbgfs_glbs {
 	__u64 root_blkno;
 	__u64 sysdir_blkno;
 	__u64 dlm_blkno;
+	__u64 journal_blkno[256];
 	char *curdir;
 	ocfs2_dinode *superblk;
 	ocfs2_dinode *rootin;

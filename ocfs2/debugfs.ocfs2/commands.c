@@ -391,7 +391,7 @@ static void do_help (char **args)
 	printf ("nodes\t\t\t\tList of nodes\n");
 	printf ("publish\t\t\t\tPublish blocks\n");
 	printf ("vote\t\t\t\tVote blocks\n");
-	printf ("logdump <blknum>\t\tPrints journal file\n");
+	printf ("logdump <nodenum>\t\tPrints journal file for the node\n");
 	printf ("help, ?\t\t\t\tThis information\n");
 	printf ("quit, q\t\t\t\tExit the program\n");
 }					/* do_help */
@@ -640,11 +640,22 @@ static void do_journal (char **args)
 	__u64 blknum = 0;
 	__s32 len = 0;
 	FILE *out;
+	__u32 nodenum;
+	ocfs2_super_block *sb = &(gbls.superblk->id2.i_super);
 
 	if (args[1])
-		blknum = strtoull (args[1], NULL, 0);
-	if (!blknum)
+		nodenum = strtoull (args[1], NULL, 0);
+	else {
+		printf ("No node number specified\n");
 		goto bail;
+	}
+
+	if (nodenum >= sb->s_max_nodes) {
+		printf ("Invalid node number specified\n");
+		goto bail;
+	}
+
+	blknum = gbls.journal_blkno[nodenum];
 
 	if (gbls.dev_fd == -1)
 		printf ("device not open\n");

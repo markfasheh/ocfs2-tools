@@ -234,7 +234,10 @@ void read_sysdir (int fd, char *sysdir)
 	struct ocfs2_dir_entry *rec;
 	GArray *dirarr = NULL;
 	char *dlm = ocfs2_system_inode_names[DLM_SYSTEM_INODE];
-	unsigned int i;
+	unsigned int i, j;
+	char *journal[256];
+	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
+	char tmpstr[40];
 
 	inode = (ocfs2_dinode *)sysdir;
 
@@ -247,16 +250,34 @@ void read_sysdir (int fd, char *sysdir)
 
 	read_dir (fd, &(inode->id2.i_list), inode->i_size, dirarr);
 
+	/* generate journal sysfile names */
+	for (i = 0; i < sb->s_max_nodes; ++i) {
+		snprintf (tmpstr, sizeof(tmpstr),
+			  ocfs2_system_inode_names[JOURNAL_SYSTEM_INODE], i);
+		journal[i] = strdup (tmpstr);
+		gbls.journal_blkno[i] = 0;
+	}
+
 	for (i = 0; i < dirarr->len; ++i) {
 		rec = &(g_array_index(dirarr, struct ocfs2_dir_entry, i));
-		if (!strncmp (rec->name, dlm, strlen(dlm)))
+		if (!strncmp (rec->name, dlm, strlen(dlm))) {
 			gbls.dlm_blkno = rec->inode;
+			continue;
+		}
+		for (j = 0; j < sb->s_max_nodes; ++j) {
+			if (!strncmp (rec->name, journal[j], strlen(journal[j]))) {
+				gbls.journal_blkno[j] = rec->inode;
+				break;
+			}
+		}
 	}
 
 bail:
 	if (dirarr)
 		g_array_free (dirarr, 1);
 
+	for (i = 0; i < sb->s_max_nodes; ++i)
+		safefree (journal[i]);
 
 	return ;
 }				/* read_sysdir */
