@@ -56,6 +56,31 @@
 #define OCFS2_FILE_ENTRY_SIGNATURE	"INODE01"
 #define OCFS2_EXTENT_BLOCK_SIGNATURE	"EXBLK01"
 
+/* Compatibility flags */
+#define OCFS2_HAS_COMPAT_FEATURE(sb,mask)			\
+	( OCFS2_SB(sb)->s_feature_compat & (mask) )
+#define OCFS2_HAS_RO_COMPAT_FEATURE(sb,mask)			\
+	( OCFS2_SB(sb)->s_feature_ro_compat & (mask) )
+#define OCFS2_HAS_INCOMPAT_FEATURE(sb,mask)			\
+	( OCFS2_SB(sb)->s_feature_incompat & (mask) )
+#define OCFS2_SET_COMPAT_FEATURE(sb,mask)			\
+	OCFS2_SB(sb)->s_feature_compat |= (mask)
+#define OCFS2_SET_RO_COMPAT_FEATURE(sb,mask)			\
+	OCFS2_SB(sb)->s_feature_ro_compat |= (mask)
+#define OCFS2_SET_INCOMPAT_FEATURE(sb,mask)			\
+	OCFS2_SB(sb)->s_feature_incompat |= (mask)
+#define OCFS2_CLEAR_COMPAT_FEATURE(sb,mask)			\
+	OCFS2_SB(sb)->s_feature_compat &= ~(mask)
+#define OCFS2_CLEAR_RO_COMPAT_FEATURE(sb,mask)			\
+	OCFS2_SB(sb)->s_feature_ro_compat &= ~(mask)
+#define OCFS2_CLEAR_INCOMPAT_FEATURE(sb,mask)			\
+	OCFS2_SB(sb)->s_feature_incompat &= ~(mask)
+
+#define OCFS2_FEATURE_COMPAT_SUPP	0
+#define OCFS2_FEATURE_INCOMPAT_SUPP	0
+#define OCFS2_FEATURE_RO_COMPAT_SUPP	0
+
+
 /*
  * Flags on ocfs2_dinode.i_flags
  */
@@ -89,13 +114,12 @@
 
 /* System file index */
 enum {
-	GLOBAL_BITMAP_SYSTEM_INODE = 0,
+	BAD_BLOCK_SYSTEM_INODE = 0,
 	GLOBAL_INODE_ALLOC_SYSTEM_INODE,
 	GLOBAL_INODE_ALLOC_BITMAP_SYSTEM_INODE,
-	//AUTOCONFIG_SYSTEM_INODE,
-	//PUBLISH_SYSTEM_INODE,
-	//VOTE_SYSTEM_INODE,
 	DLM_SYSTEM_INODE,
+#define OCFS2_FIRST_ONLINE_SYSTEM_INODE DLM_SYSTEM_INODE
+	GLOBAL_BITMAP_SYSTEM_INODE,
 	ORPHAN_DIR_SYSTEM_INODE,
 #define OCFS2_LAST_GLOBAL_SYSTEM_INODE ORPHAN_DIR_SYSTEM_INODE
 	EXTENT_ALLOC_SYSTEM_INODE,
@@ -109,13 +133,14 @@ enum {
 
 static char *ocfs2_system_inode_names[NUM_SYSTEM_INODES] = {
 	/* Global system inodes (single copy) */
-	[GLOBAL_BITMAP_SYSTEM_INODE]		"global_bitmap",
+	/* The first three are only used from userspace mfks/tunefs */
+	[BAD_BLOCK_SYSTEM_INODE]		"bad_blocks",
 	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	"global_inode_alloc",
 	[GLOBAL_INODE_ALLOC_BITMAP_SYSTEM_INODE]	"global_inode_alloc_bitmap",
-	//[AUTOCONFIG_SYSTEM_INODE]		"autoconfig",
-	//[PUBLISH_SYSTEM_INODE]			"publish",
-	//[VOTE_SYSTEM_INODE]			"vote",
+
+	/* These are used by the running filesystem */
 	[DLM_SYSTEM_INODE]			"dlm",
+	[GLOBAL_BITMAP_SYSTEM_INODE]		"global_bitmap",
 	[ORPHAN_DIR_SYSTEM_INODE]		"orphan_dir",
 
 	/* Node-specific system inodes (one copy per node) */
