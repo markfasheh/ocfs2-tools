@@ -29,6 +29,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <stdlib.h>
+
 #include <kernel-list.h>
 
 #include <et/com_err.h>
