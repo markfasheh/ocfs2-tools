@@ -38,6 +38,8 @@ endif
 
 CFILES = o2dlm.c
 
+TESTING_CFILES = o2dlm_test.c
+
 HFILES = 			\
 	include/kernel-list.h	\
 	include/o2dlm.h 
@@ -49,6 +51,8 @@ $(CFILES): $(HFILES_GEN)
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2dlm_err.o
+
+TESTING_OBJS = $(subst .c,.o,$(TESTING_CFILES))
 
 o2dlm_err.et: o2dlm_err.et.in
 	cd $(TOPDIR) && ./config.status
@@ -64,6 +68,9 @@ libo2dlm.a: $(OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
+o2dlm_test: $(TESTING_OBJS) $(LIBRARIES) $(COM_ERR_LIBS)
+	$(LINK)
+
 DIST_FILES = $(CFILES) $(HFILES) o2dlm_err.et.in
 
 DIST_RULES = dist-subdircreate
@@ -71,9 +78,12 @@ DIST_RULES = dist-subdircreate
 dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
-CLEAN_RULES = clean-err
+CLEAN_RULES = clean-err clean-test
 
 clean-err:
 	rm -f o2dlm_err.c o2dlm_err.h include/o2dlm_err.h
+
+clean-test:
+	rm -f o2dlm_test
 
 include $(TOPDIR)/Postamble.make
