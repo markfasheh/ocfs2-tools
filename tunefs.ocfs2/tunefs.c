@@ -43,7 +43,6 @@
 #include <netinet/in.h>
 #include <inttypes.h>
 #include <ctype.h>
-#include <glib.h>
 
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
@@ -331,7 +330,7 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
 		for (j = old_num; j < opts.num_nodes; ++j) {
 			sprintf(fname, ocfs2_system_inodes[i].si_name, j);
-			display_str = g_strdup_printf("Adding %s...", fname);
+			asprintf(&display_str, "Adding %s...", fname);
 			printf("%s", display_str);
 			fflush(stdout);
 
@@ -342,7 +341,7 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 				goto next_file;
 
 			/* create inode for system file */
-			ret =  ocfs2_new_system_inode(fs, &blkno,
+			ret = ocfs2_new_system_inode(fs, &blkno,
 						      ocfs2_system_inodes[i].si_mode,
 						      ocfs2_system_inodes[i].si_iflags);
 			if (ret)
