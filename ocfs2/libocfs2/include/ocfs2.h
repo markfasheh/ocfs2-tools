@@ -291,6 +291,12 @@ void ocfs2_close_inode_scan(ocfs2_inode_scan *scan);
 errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,
 			       uint64_t *blkno, char *inode);
 
+errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
+				   const char *description,
+				   ocfs2_bitmap **ret_bitmap);
+errcode_t ocfs2_block_bitmap_new(ocfs2_filesys *fs,
+				 const char *description,
+				 ocfs2_bitmap **ret_bitmap);
 void ocfs2_bitmap_free(ocfs2_bitmap *bitmap);
 errcode_t ocfs2_bitmap_set(ocfs2_bitmap *bitmap, uint64_t bitno,
 			   int *oldval);

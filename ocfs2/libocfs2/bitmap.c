@@ -68,15 +68,20 @@ errcode_t ocfs2_bitmap_set(ocfs2_bitmap *bitmap, uint64_t bitno,
 			   int *oldval)
 {
 	errcode_t ret;
+	int old_tmp;
 
 	if (bitno >= bitmap->b_total_bits)
 		return OCFS2_ET_INVALID_BIT;
 
-	ret = (*bitmap->b_ops->set_bit)(bitmap, bitno, oldval);
+	ret = (*bitmap->b_ops->set_bit)(bitmap, bitno, &old_tmp);
 	if (ret)
 		return ret;
 
-	bitmap->b_set_bits++;
+	if (!old_tmp)
+		bitmap->b_set_bits++;
+	if (oldval)
+		*oldval = old_tmp;
+
 	return 0;
 }
 
@@ -84,15 +89,20 @@ errcode_t ocfs2_bitmap_clear(ocfs2_bitmap *bitmap, uint64_t bitno,
 			     int *oldval)
 {
 	errcode_t ret;
+	int old_tmp;
 
 	if (bitno >= bitmap->b_total_bits)
 		return OCFS2_ET_INVALID_BIT;
 
-	ret = (*bitmap->b_ops->clear_bit)(bitmap, bitno, oldval);
+	ret = (*bitmap->b_ops->clear_bit)(bitmap, bitno, &old_tmp);
 	if (ret)
 		return ret;
 
-	bitmap->b_set_bits--;
+	if (old_tmp)
+		bitmap->b_set_bits--;
+	if (oldval)
+		*oldval = old_tmp;
+
 	return 0;
 }
 
@@ -121,7 +131,7 @@ errcode_t ocfs2_bitmap_test(ocfs2_bitmap *bitmap, uint64_t bitno,
  */
 errcode_t ocfs2_bitmap_new(ocfs2_filesys *fs,
 			   uint64_t total_bits,
-			   char *description,
+			   const char *description,
 			   struct ocfs2_bitmap_operations *ops,
 			   void *private_data,
 			   ocfs2_bitmap **ret_bitmap)
@@ -160,6 +170,19 @@ out_free:
 	return ret;
 }
 
+static uint64_t ocfs2_bits_to_clusters(ocfs2_bitmap *bitmap,
+				       int num_bits)
+{
+	uint64_t bpos;
+	int bpc;
+	uint32_t cpos;
+
+	bpc = bitmap->b_fs->fs_clustersize * 8;
+	cpos = ((unsigned int)num_bits + (bpc - 1)) / bpc;
+	bpos = (uint64_t)cpos * bpc;
+
+	return bpos;
+}
 
 errcode_t ocfs2_bitmap_alloc_cluster(ocfs2_bitmap *bitmap,
 				     uint64_t start_bit,
@@ -168,24 +191,24 @@ errcode_t ocfs2_bitmap_alloc_cluster(ocfs2_bitmap *bitmap,
 {
 	errcode_t ret;
 	struct ocfs2_bitmap_cluster *bc;
-	int cl_bits;
-	ocfs2_filesys *fs = bitmap->b_fs;
+	uint64_t real_bits;
 
 	if (total_bits < 0)
+		return OCFS2_ET_INVALID_BIT;
+
+	real_bits = ocfs2_bits_to_clusters(bitmap, total_bits);
+	if (real_bits > INT_MAX)
 		return OCFS2_ET_INVALID_BIT;
 
 	ret = ocfs2_malloc0(sizeof(struct ocfs2_bitmap_cluster), &bc);
 	if (ret)
 		return ret;
 
-	bc->bc_start_bit = start_bit;
-	bc->bc_total_bits = total_bits;
+	start_bit &= ~((bitmap->b_fs->fs_clustersize * 8) - 1);
+	bc->bc_start_bit = ocfs2_bits_to_clusters(bitmap, start_bit);
+	bc->bc_total_bits = real_bits;
 
-	cl_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
-	bc->bc_size = (size_t)(((unsigned int)total_bits + 7) / 8);
-	bc->bc_size = ((bc->bc_size + (fs->fs_clustersize - 1)) >> cl_bits) << cl_bits;
-
-	ret = ocfs2_malloc0(bc->bc_size, &bc->bc_bitmap);
+	ret = ocfs2_malloc0((size_t)real_bits / 8, &bc->bc_bitmap);
 	if (ret)
 		ocfs2_free(&bc);
 	else
@@ -198,7 +221,6 @@ void ocfs2_bitmap_free_cluster(struct ocfs2_bitmap_cluster *bc)
 {
 	if (bc->bc_bitmap)
 		ocfs2_free(&bc->bc_bitmap);
-	
 	ocfs2_free(&bc);
 }
 
@@ -207,26 +229,69 @@ errcode_t ocfs2_bitmap_realloc_cluster(ocfs2_bitmap *bitmap,
 				       int total_bits)
 {
 	errcode_t ret;
-	ocfs2_filesys *fs = bitmap->b_fs;
-	size_t new_size;
-	int cl_bits;
+	uint64_t real_bits;
 
 	if ((bc->bc_start_bit + total_bits) > bitmap->b_total_bits)
 		return OCFS2_ET_INVALID_BIT;
 
-	cl_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
-	new_size = (size_t)(((unsigned int)total_bits + 7) / 8);
-	new_size = ((new_size + (fs->fs_clustersize - 1)) >> cl_bits) << cl_bits;
+	real_bits = ocfs2_bits_to_clusters(bitmap, total_bits);
+	if (real_bits > INT_MAX)
+		return OCFS2_ET_INVALID_BIT;
 
-	if (new_size > bc->bc_size) {
-		ret = ocfs2_realloc0(new_size, &bc->bc_bitmap,
-				     bc->bc_size);
+	if (real_bits > bc->bc_total_bits) {
+		ret = ocfs2_realloc0((size_t)real_bits / 8,
+				     &bc->bc_bitmap,
+				     bc->bc_total_bits / 8);
 		if (ret)
 			return ret;
-		bc->bc_size = new_size;
+		bc->bc_total_bits = (int)real_bits;
 	}
 
-	bc->bc_total_bits = total_bits;
+	return 0;
+}
+
+/*
+ * Attempt to merge two clusters.  If the merge is successful, 0 will
+ * be returned and prev will be the only valid cluster.  Next will
+ * be freed.
+ */
+static errcode_t ocfs2_bitmap_merge_cluster(ocfs2_bitmap *bitmap,
+					    struct ocfs2_bitmap_cluster *prev,
+					    struct ocfs2_bitmap_cluster *next)
+{
+	errcode_t ret;
+	uint64_t new_bits;
+	int prev_bits;
+
+	if ((prev->bc_start_bit + prev->bc_total_bits) !=
+	    next->bc_start_bit)
+		return OCFS2_ET_INVALID_BIT;
+
+	/*
+	 * If at least one cpos is not zero, then these have real disk
+	 * locations, and they better be cpos contig as well.
+	 */
+	if ((prev->bc_cpos || next->bc_cpos) &&
+	    ((prev->bc_cpos +
+	     ((prev->bc_total_bits / 8) /
+	      bitmap->b_fs->fs_clusters)) != next->bc_cpos))
+		return OCFS2_ET_INVALID_BIT;
+
+	new_bits = (uint64_t)(prev->bc_total_bits) +
+		(uint64_t)(next->bc_total_bits);
+	if (new_bits > INT_MAX)
+		return OCFS2_ET_INVALID_BIT;
+
+	prev_bits = prev->bc_total_bits;
+	ret = ocfs2_bitmap_realloc_cluster(bitmap, prev, new_bits);
+	if (ret)
+		return ret;
+
+	memcpy(prev->bc_bitmap + (prev_bits / 8), next->bc_bitmap,
+	       next->bc_total_bits / 8);
+
+	list_del(&next->bc_list);
+	ocfs2_bitmap_free_cluster(next);
 
 	return 0;
 }
@@ -237,8 +302,7 @@ errcode_t ocfs2_bitmap_insert_cluster(ocfs2_bitmap *bitmap,
 	struct list_head *pos, *prev;
 	struct ocfs2_bitmap_cluster *bc_tmp;
 
-	if ((bc->bc_start_bit + bc->bc_total_bits) >
-	    bitmap->b_total_bits)
+	if (bc->bc_start_bit > bitmap->b_total_bits)
 		return OCFS2_ET_INVALID_BIT;
 
 	prev = &bitmap->b_clusters;
@@ -258,6 +322,18 @@ errcode_t ocfs2_bitmap_insert_cluster(ocfs2_bitmap *bitmap,
 	}
 
 	list_add(&bc->bc_list, prev);
+
+	if (pos != &bitmap->b_clusters) {
+		bc_tmp = list_entry(pos, struct ocfs2_bitmap_cluster,
+				    bc_list);
+		ocfs2_bitmap_merge_cluster(bitmap, bc, bc_tmp);
+	}
+
+	if (prev != &bitmap->b_clusters) {
+		bc_tmp = list_entry(prev, struct ocfs2_bitmap_cluster,
+				    bc_list);
+		ocfs2_bitmap_merge_cluster(bitmap, bc_tmp, bc);
+	}
 
 	return 0;
 }
@@ -287,6 +363,9 @@ errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap, uint64_t bitno,
 		if (oldval)
 			*oldval = old_tmp;
 
+		if (!old_tmp)
+			bc->bc_set_bits++;
+
 		return 0;
 	}
 
@@ -312,6 +391,9 @@ errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 					       (unsigned long *)bc->bc_bitmap);
 		if (oldval)
 			*oldval = old_tmp;
+
+		if (old_tmp)
+			bc->bc_set_bits--;
 
 		return 0;
 	}
@@ -341,6 +423,144 @@ errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 	return OCFS2_ET_INVALID_BIT;
 }
 
+
+/*
+ * Helper functions for a bitmap with holes in it.
+ * If a bit doesn't have memory allocated for it, we allocate.
+ */
+errcode_t ocfs2_bitmap_set_holes(ocfs2_bitmap *bitmap,
+				 uint64_t bitno, int *oldval)
+{
+	errcode_t ret;
+	struct ocfs2_bitmap_cluster *bc;
+
+	if (!ocfs2_bitmap_set_generic(bitmap, bitno, oldval))
+		return 0;
+
+	ret = ocfs2_bitmap_alloc_cluster(bitmap, bitno, 1, &bc);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_bitmap_insert_cluster(bitmap, bc);
+	if (ret)
+		return ret;
+
+	return ocfs2_bitmap_set_generic(bitmap, bitno, oldval);
+}
+
+errcode_t ocfs2_bitmap_clear_holes(ocfs2_bitmap *bitmap,
+				   uint64_t bitno, int *oldval)
+{
+	errcode_t ret;
+	struct ocfs2_bitmap_cluster *bc;
+
+	if (!ocfs2_bitmap_clear_generic(bitmap, bitno, oldval))
+		return 0;
+
+	ret = ocfs2_bitmap_alloc_cluster(bitmap, bitno, 1, &bc);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_bitmap_insert_cluster(bitmap, bc);
+
+	return ret;
+}
+
+errcode_t ocfs2_bitmap_test_holes(ocfs2_bitmap *bitmap,
+				  uint64_t bitno, int *val)
+{
+	if (ocfs2_bitmap_test_generic(bitmap, bitno, val))
+		*val = 0;
+
+	return 0;
+}
+
+static struct ocfs2_bitmap_operations global_cluster_ops = {
+	.set_bit	= ocfs2_bitmap_set_generic,
+	.clear_bit	= ocfs2_bitmap_clear_generic,
+	.test_bit	= ocfs2_bitmap_test_generic
+};
+
+errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
+				   const char *description,
+				   ocfs2_bitmap **ret_bitmap)
+{
+	errcode_t ret;
+	ocfs2_bitmap *bitmap;
+	uint64_t max_bits, num_bits, bitoff, alloc_bits;
+	struct ocfs2_bitmap_cluster *bc;
+
+	num_bits = fs->fs_clusters;
+	ret = ocfs2_bitmap_new(fs,
+			       num_bits,
+			       description ? description :
+			       "Generic cluster bitmap",
+			       &global_cluster_ops,
+			       NULL,
+			       &bitmap);
+	if (ret)
+		return ret;
+
+	bitoff = 0;
+	max_bits = INT_MAX - (fs->fs_clustersize - 1);
+	while (bitoff < num_bits) {
+		alloc_bits = ocfs2_bits_to_clusters(bitmap,
+						    num_bits);
+		if (num_bits > max_bits)
+			alloc_bits = max_bits;
+
+		ret = ocfs2_bitmap_alloc_cluster(bitmap, bitoff,
+						 alloc_bits, &bc);
+		if (ret) {
+			ocfs2_bitmap_free(bitmap);
+			return ret;
+		}
+
+		ret = ocfs2_bitmap_insert_cluster(bitmap, bc);
+		if (ret) {
+			ocfs2_bitmap_free_cluster(bc);
+			ocfs2_bitmap_free(bitmap);
+			return ret;
+		}
+
+		bitoff += alloc_bits;
+	}
+
+	*ret_bitmap = bitmap;
+
+	return 0;
+}
+
+
+static struct ocfs2_bitmap_operations global_block_ops = {
+	.set_bit	= ocfs2_bitmap_set_holes,
+	.clear_bit	= ocfs2_bitmap_clear_holes,
+	.test_bit	= ocfs2_bitmap_test_holes
+};
+
+errcode_t ocfs2_block_bitmap_new(ocfs2_filesys *fs,
+				 const char *description,
+				 ocfs2_bitmap **ret_bitmap)
+{
+	errcode_t ret;
+	ocfs2_bitmap *bitmap;
+
+	ret = ocfs2_bitmap_new(fs,
+			       fs->fs_blocks,
+			       description ? description :
+			       "Generic block bitmap",
+			       &global_block_ops,
+			       NULL,
+			       &bitmap);
+	if (ret)
+		return ret;
+
+	*ret_bitmap = bitmap;
+
+	return 0;
+}
+
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>
@@ -366,47 +586,28 @@ static void print_usage(void)
 extern int opterr, optind;
 extern char *optarg;
 
-static struct ocfs2_bitmap_operations generic_ops = {
-	.set_bit	= ocfs2_bitmap_set_generic,
-	.clear_bit	= ocfs2_bitmap_clear_generic,
-	.test_bit	= ocfs2_bitmap_test_generic
-};
-
-static errcode_t create_bitmap(ocfs2_filesys *fs, int num_bits,
-			       ocfs2_bitmap **ret_bitmap)
+static void dump_clusters(ocfs2_bitmap *bitmap)
 {
-	errcode_t ret;
-	ocfs2_bitmap *bitmap;
+	struct list_head *pos;
 	struct ocfs2_bitmap_cluster *bc;
 
-	ret = ocfs2_bitmap_new(fs,
-			       num_bits,
-			       "Test bitmap",
-			       &generic_ops,
-			       NULL,
-			       &bitmap);
-	if (ret)
-		return ret;
-
-	ret = ocfs2_bitmap_alloc_cluster(bitmap, 0, num_bits, &bc);
-	if (ret) {
-		ocfs2_bitmap_free(bitmap);
-		return ret;
+	fprintf(stdout, "Bitmap \"%s\": total = %llu, set = %llu\n",
+		bitmap->b_description, bitmap->b_total_bits,
+		bitmap->b_set_bits);
+	list_for_each(pos, &bitmap->b_clusters) {
+		bc = list_entry(pos, struct ocfs2_bitmap_cluster,
+				bc_list);
+		fprintf(stdout,
+			"(start: %llu, n: %d, set: %d, cpos: %u)\n",
+			bc->bc_start_bit, bc->bc_total_bits,
+			bc->bc_set_bits, bc->bc_cpos);
 	}
-
-	ret = ocfs2_bitmap_insert_cluster(bitmap, bc);
-	if (ret) {
-		ocfs2_bitmap_free_cluster(bc);
-		ocfs2_bitmap_free(bitmap);
-	} else
-		*ret_bitmap = bitmap;
-
-	return ret;
 }
 
 static void print_bitmap(ocfs2_bitmap *bitmap)
 {
-	uint64_t bitno, gap_start;
+	uint64_t bitno;
+	uint64_t gap_start = 0;  /* GCC is dumb */
 	errcode_t ret;
 	int val, gap;
 
@@ -527,6 +728,8 @@ static void run_test(ocfs2_bitmap *bitmap)
 			}
 		} else if (!strcmp(cmd, "print")) {
 			print_bitmap(bitmap);
+		} else if (!strcmp(cmd, "dump")) {
+			dump_clusters(bitmap);
 		} else if (!strcmp(cmd, "quit")) {
 			break;
 		} else {
@@ -541,30 +744,16 @@ int main(int argc, char *argv[])
 	errcode_t ret;
 	int c;
 	int alloc = 0;
-	uint64_t val;
-	int num_bits = 4096;
 	char *filename;
 	ocfs2_filesys *fs;
 	ocfs2_bitmap *bitmap;
 
 	initialize_ocfs_error_table();
 
-	while ((c = getopt(argc, argv, "s:a")) != EOF) {
+	while ((c = getopt(argc, argv, "a")) != EOF) {
 		switch (c) {
 			case 'a':
 				alloc = 1;
-				break;
-
-			case 's':
-				val = read_number(optarg);
-				if (!val || (val > INT_MAX)) {
-					fprintf(stderr,
-						"Invalid size: %s\n",
-						optarg);
-					print_usage();
-					return 1;
-				}
-				num_bits = (int)val;
 				break;
 
 			default:
@@ -588,7 +777,10 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ret = create_bitmap(fs, num_bits, &bitmap);
+	if (alloc)
+		ret = ocfs2_block_bitmap_new(fs, "Testing", &bitmap);
+	else
+		ret = ocfs2_cluster_bitmap_new(fs, "Testing", &bitmap);
 	if (ret) {
 		com_err(argv[0], ret,
 			"while creating bitmap");

@@ -46,7 +46,6 @@ struct _ocfs2_bitmap {
 	ocfs2_filesys *b_fs;
 	uint64_t b_set_bits;
 	uint64_t b_total_bits;
-	size_t b_size;
 	char *b_description;
 	struct ocfs2_bitmap_operations *b_ops;
 	ocfs2_cached_inode *b_cinode;		/* Cached inode this
@@ -69,14 +68,13 @@ struct ocfs2_bitmap_cluster {
 	int bc_set_bits;
 	uint32_t bc_cpos;		/* If this bitmap is stored
 					   on disk, where it lives */
-	size_t bc_size;			/* Allocated bytes */
 	char *bc_bitmap;
 };
 
 
 errcode_t ocfs2_bitmap_new(ocfs2_filesys *fs,
 			   uint64_t total_bits,
-			   char *description,
+			   const char *description,
 			   struct ocfs2_bitmap_operations *ops,
 			   void *private_data,
 			   ocfs2_bitmap **ret_bitmap);
@@ -96,4 +94,10 @@ errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 				     uint64_t bitno, int *oldval);
 errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 				    uint64_t bitno, int *val);
+errcode_t ocfs2_bitmap_set_holes(ocfs2_bitmap *bitmap,
+				 uint64_t bitno, int *oldval);
+errcode_t ocfs2_bitmap_clear_holes(ocfs2_bitmap *bitmap,
+				   uint64_t bitno, int *oldval);
+errcode_t ocfs2_bitmap_test_holes(ocfs2_bitmap *bitmap,
+				  uint64_t bitno, int *val);
 #endif  /* _BITMAP_H */
