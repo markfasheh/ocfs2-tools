@@ -1,0 +1,112 @@
+--- util-linux-2.11y/mount/linux_fs.h.ocfs2	2004-09-15 15:51:45.000000000 -0700
++++ util-linux-2.11y/mount/linux_fs.h	2004-09-15 15:53:25.000000000 -0700
+@@ -231,6 +231,21 @@
+ #define ocfslabellen(o)	assemble2le(o.label_len)
+ #define OCFS_MAGIC	"OracleCFS"
+ 
++struct ocfs2_super_block {
++	u_char  signature[8];
++	u_char  s_dummy1[184];
++	u_char  s_dummy2[80];
++	u_char  s_label[64];
++	u_char  s_uuid[16];
++};
++
++#define OCFS2_MIN_BLOCKSIZE             512
++#define OCFS2_MAX_BLOCKSIZE             4096
++
++#define OCFS2_SUPER_BLOCK_BLKNO         2
++
++#define OCFS2_SUPER_BLOCK_SIGNATURE     "OCFSV2"
++
+ static inline int
+ assemble2le(unsigned char *p) {
+ 	return (p[0] | (p[1] << 8));
+--- util-linux-2.11y/mount/get_label_uuid.c.ocfs2	2004-09-15 15:51:45.000000000 -0700
++++ util-linux-2.11y/mount/get_label_uuid.c	2004-09-15 15:53:25.000000000 -0700
+@@ -90,6 +90,8 @@
+ 	struct jfs_super_block jfssb;
+ 	struct ocfs_volume_header ovh;	/* Oracle */
+ 	struct ocfs_volume_label olbl;
++	struct ocfs2_super_block osb;
++	int blksize, blkoff;
+ 
+ 	fd = open(device, O_RDONLY);
+ 	if (fd < 0)
+@@ -148,6 +150,27 @@
+ 		}
+ 		rv = 0;
+ 	}
++	else {
++		for (blksize = OCFS2_MIN_BLOCKSIZE;
++		     blksize <= OCFS2_MAX_BLOCKSIZE;
++		     blksize <<= 1) {
++			blkoff = blksize * OCFS2_SUPER_BLOCK_BLKNO;
++			if (lseek(fd, blkoff, SEEK_SET) == blkoff
++			    && read(fd, (char *) &osb,
++				    sizeof(osb)) == sizeof(osb)
++			    && (strncmp(osb.signature,
++					OCFS2_SUPER_BLOCK_SIGNATURE,
++					sizeof(OCFS2_SUPER_BLOCK_SIGNATURE))
++			    == 0)) {
++				memcpy(uuid, osb.s_uuid, sizeof(osb.s_uuid));
++				namesize = sizeof(osb.s_label);
++				if ((*label = calloc(namesize, 1)) != NULL)
++					memcpy(*label, osb.s_label, namesize);
++				rv = 0;
++				break;
++			}
++		}
++	}
+ 
+ 	close(fd);
+ 	return rv;
+--- util-linux-2.11y/mount/mount_guess_fstype.c.ocfs2	2002-11-25 03:42:21.000000000 -0800
++++ util-linux-2.11y/mount/mount_guess_fstype.c	2004-09-15 15:53:25.000000000 -0700
+@@ -243,6 +243,7 @@
+ 	struct fat_super_block fatsb;
+ 	struct xfs_super_block xfsb;
+ 	struct cramfs_super_block cramfssb;
++	struct ocfs_volume_header ovh;
+     } xsb;
+     struct ufs_super_block ufssb;
+     union {
+@@ -255,6 +256,7 @@
+     struct hpfs_super_block hpfssb;
+     struct adfs_super_block adfssb;
+     struct sysv_super_block svsb;
++    struct ocfs2_super_block osb;
+     struct stat statbuf;
+ 
+     /* opening and reading an arbitrary unknown path can have
+@@ -284,6 +286,8 @@
+ 	      type = "romfs";
+ 	 else if(!strncmp(xsb.xfsb.s_magic, XFS_SUPER_MAGIC, 4))
+ 	      type = "xfs";
++	 else if(!strncmp(xsb.ovh.signature, OCFS_MAGIC, sizeof(OCFS_MAGIC)))
++	      type = "ocfs";
+ 	 else if(!strncmp(xsb.qnx4fs_magic+4, "QNX4FS", 6))
+ 	      type = "qnx4";
+ 	 else if(xsb.bfs_magic == 0x1badface)
+@@ -457,6 +461,21 @@
+     }
+ 
+     if (!type) {
++	int blksize, blkoff;
++	for (blksize = OCFS2_MIN_BLOCKSIZE;
++	     blksize <= OCFS2_MAX_BLOCKSIZE;
++	     blksize <<= 1) {
++	    blkoff = blksize * OCFS2_SUPER_BLOCK_BLKNO;
++	    if (lseek(fd, blkoff, SEEK_SET) != blkoff
++		|| read(fd, (char *) &osb, sizeof(osb)) != sizeof(osb))
++		goto io_error;
++	    if (strncmp(osb.signature, OCFS2_SUPER_BLOCK_SIGNATURE,
++			sizeof(OCFS2_SUPER_BLOCK_SIGNATURE)) == 0)
++		type = "ocfs2";
++	}
++    }
++
++    if (!type) {
+ 	    /* perhaps the user tries to mount the swap space
+ 	       on a new disk; warn her before she does mke2fs on it */
+ 	    int pagesize = getpagesize();
