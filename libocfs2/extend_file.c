@@ -43,6 +43,10 @@ struct insert_ctxt {
 static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
 				  uint64_t eb_blkno);
 
+/*
+ * Update the leaf pointer from the previous last_eb_blk to the new
+ * last_eb_blk.  Also updates the dinode's ->last_eb_blk.
+ */
 static errcode_t update_last_eb_blk(struct insert_ctxt *ctxt,
 				    ocfs2_extent_block *eb)
 {
@@ -78,6 +82,9 @@ out:
 	return ret;
 }
 
+/*
+ * Add a child extent_block to a non-leaf extent list.
+ */
 static errcode_t append_eb(struct insert_ctxt *ctxt,
 			   ocfs2_extent_list *el)
 {
@@ -126,6 +133,11 @@ out:
 	return ret;
 }
 
+/*
+ * Insert a new extent into an extent list.  If this list is a leaf,
+ * add it where appropriate.  Otherwise, recurse down the appropriate
+ * branch, updating this list on the way back up.
+ */
 static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 			  	  ocfs2_extent_list *el)
 {
@@ -133,9 +145,13 @@ static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 	ocfs2_extent_rec *rec;
 
 	if (!el->l_tree_depth) {
+		/* A leaf extent_list can do one of three things: */
 		if (el->l_next_free_rec) {
+			/* It has at least one valid entry and... */
 			rec = &el->l_recs[el->l_next_free_rec - 1];
 
+			/* (1) That entry is contiguous with the new
+			 *     one, so just enlarge the entry. */
 			if ((rec->e_blkno +
 			     ocfs2_clusters_to_blocks(ctxt->fs, rec->e_clusters)) ==
 			    ctxt->rec.e_blkno) {
@@ -143,6 +159,8 @@ static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 				return 0;
 			}
 
+			/* (2) That entry is zero length, so just fill
+			 *     it in with the new one. */
 			if (!rec->e_clusters) {
 				*rec = ctxt->rec;
 				return 0;
@@ -152,6 +170,8 @@ static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 				return OCFS2_ET_NO_SPACE;
 		}
 
+		/* (3) The new entry can't use an existing slot, so
+		 *     put it in a new slot. */
 		rec = &el->l_recs[el->l_next_free_rec];
 		*rec = ctxt->rec;
 		el->l_next_free_rec++;
@@ -161,6 +181,9 @@ static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 	/* We're a branch node */
 	ret = OCFS2_ET_NO_SPACE;
 	if (el->l_next_free_rec) {
+		/* If there exists a valid record, and it is not an
+		 * empty record (e_blkno points to a valid child),
+		 * try to fill along that branch. */
 		rec = &el->l_recs[el->l_next_free_rec - 1];
 		if (rec->e_blkno)
 			ret = insert_extent_eb(ctxt, rec->e_blkno);
@@ -173,19 +196,34 @@ static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 		    (el->l_recs[el->l_next_free_rec - 1].e_blkno))
 			return OCFS2_ET_NO_SPACE;
 
+		/* If there wasn't an existing child we insert to and
+		 * there are free slots, add a new child. */
 		ret = append_eb(ctxt, el);
 		if (ret)
 			return ret;
 
+		/* append_eb() put a new record here, insert on it.
+		 * If the new child isn't a leaf, this recursion
+		 * will do the append_eb() again, all the way down to
+		 * the leaf. */
+		rec = &el->l_recs[el->l_next_free_rec - 1];
 		ret = insert_extent_eb(ctxt, rec->e_blkno);
 		if (ret)
 			return ret;
 	}
 
+	/* insert_extent_eb() doesn't update e_clusters so that
+	 * all updates are on the path up, not the path down.  Do the
+	 * update now. */
 	rec->e_clusters += ctxt->rec.e_clusters;
 	return 0;
 }
 
+/*
+ * Insert a new extent into this extent_block.  That means
+ * reading the block, calling insert_extent_el() on the contained
+ * extent list, and then writing out the updated block.
+ */
 static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
 				  uint64_t eb_blkno)
 {
@@ -210,6 +248,11 @@ static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
 	return ret;
 }
 
+/*
+ * Change the depth of the tree. That means allocating an extent block,
+ * copying all extent records from the dinode into the extent block,
+ * and then pointing the dinode to the new extent_block.
+ */
 static errcode_t shift_tree_depth(struct insert_ctxt *ctxt)
 {
 	errcode_t ret;
@@ -256,6 +299,12 @@ out:
 	return 0;
 }
 
+/*
+ * Takes a new contiguous extend, defined by (blkno, clusters), and
+ * inserts it into the tree of dinode ino.  This follows the driver's
+ * allocation pattern.  It tries to insert on the existing tree, and
+ * if that tree is completely full, then shifts the tree depth.
+ */
 errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
 			      uint64_t c_blkno, uint32_t clusters)
 {
