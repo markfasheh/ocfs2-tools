@@ -180,8 +180,10 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int quick_detect,
 		if (ret) {
 			if (ret == OCFS2_ET_OCFS_REV)
 				dev->fs_type = 1;
-			else
+			else {
+				ret = 0;
 				continue;
+			}
 		} else
 			dev->fs_type = 2;
 
