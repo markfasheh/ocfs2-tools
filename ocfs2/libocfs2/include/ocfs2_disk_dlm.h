@@ -113,8 +113,7 @@ typedef struct _ocfs_publish
 	__u64 lock_id;		/* Lock vote is requested for */
 	/* last seq num used in comm voting */
 /*60*/	__u64 comm_seq_num;
-	__u64 fe_off;
-/*70*/	
+/*68*/
 } ocfs_publish;
 
 typedef struct _ocfs_vote
