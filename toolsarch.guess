@@ -2,6 +2,15 @@
 
 srcdir=$1
 
+if test -f /etc/redhat-release ; then
+  RPMARCH="`rpm -qf /etc/redhat-release --queryformat \"%{ARCH}\"`"
+
+  if test -n "$RPMARCH" -a "$RPMARCH" != "noarch" ; then
+      echo $RPMARCH
+      exit 0
+  fi
+fi
+
 host_alias=`$srcdir/config.guess`
 host=`$srcdir/config.sub $host_alias`
 host_cpu=`echo $host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
@@ -13,10 +22,12 @@ case "$host_cpu" in
   i486|i586|i686|i786|k6|k7)
     echo "i386"
     ;;
-  powerpc64)
+  ppc64|ppciseries|ppcpseries|ppc64iseries|ppc64pseries|powerpc|powerpc64)
     echo "ppc"
     ;;
   *)
     echo "error"
     ;;
 esac
+
+exit 0
