@@ -38,10 +38,14 @@
 
 
 struct _O2CBConfig {
+    GList *co_clusters;
+    gboolean co_valid;
+};
+
+struct _O2CBCluster {
     gchar *c_name;
     guint c_num_nodes;
     GList *c_nodes;
-    gboolean c_valid;
 };
 
 struct _O2CBNode {
@@ -63,16 +67,14 @@ O2CBConfig *o2cb_config_initialize(void)
     if (!config)
         return NULL;
 
-    config->c_name = NULL;
-    config->c_num_nodes = 0;
-    config->c_nodes = NULL;
-    config->c_valid = FALSE;
+    config->co_clusters = NULL;
+    config->co_valid = FALSE;
 
     return config;
 }  /* o2cb_config_initialize() */
 
-static gint o2cb_config_fill_node(O2CBConfig *config,
-                                  JConfigStanza *cfs)
+static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
+                                   JConfigStanza *cfs)
 {
     O2CBNode *node;
     gchar *num_s, *name, *addr, *port_s;
@@ -82,7 +84,7 @@ static gint o2cb_config_fill_node(O2CBConfig *config,
 
     /* NB: _add_node() gives us a node number, but we're going to
      * override it, because we know better. */
-    node = o2cb_config_add_node(config);
+    node = o2cb_cluster_add_node(cluster);
     if (!node)
         return -ENOMEM;
 
@@ -96,7 +98,7 @@ static gint o2cb_config_fill_node(O2CBConfig *config,
     if (!ptr || *ptr)
         goto out_error;
     rc = -ERANGE;
-    if ((val == ULONG_MAX) || (val >= NM_MAX_NODES))
+    if ((val == ULONG_MAX) || (val >= INT_MAX))
         goto out_error;
     node->n_number = val;
 
@@ -137,25 +139,27 @@ out_error:
     return rc;
 }  /* o2cb_config_fill_node() */
 
-static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
+static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
+                                     JConfigStanza *c_cfs)
 {
     gint rc;
     gulong val;
     gchar *count, *ptr;
+    O2CBCluster *cluster;
     JIterator *iter;
-    JConfigStanza *c_cfs, *n_cfs;
+    JConfigStanza *n_cfs;
     JConfigMatch match = {J_CONFIG_MATCH_VALUE, "cluster", NULL};
-
-    c_cfs = j_config_get_stanza_nth(cf, "cluster", 0);
-    if (!c_cfs)
-        return -ENOENT;
 
     rc = -ENOENT;
     match.value = j_config_get_attribute(c_cfs, "name");
     if (!match.value && !*match.value)
         goto out_error;
 
-    rc = o2cb_config_set_cluster_name(config, match.value);
+    cluster = o2cb_config_add_cluster(config);
+    if (!cluster)
+        goto out_error;
+
+    rc = o2cb_cluster_set_name(cluster, match.value);
     if (rc)
         goto out_error;
 
@@ -168,7 +172,7 @@ static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
     while (j_iterator_has_more(iter))
     {
         n_cfs = (JConfigStanza *)j_iterator_get_next(iter);
-        rc = o2cb_config_fill_node(config, n_cfs);
+        rc = o2cb_cluster_fill_node(cluster, n_cfs);
         if (rc)
             break;
     }
@@ -187,7 +191,7 @@ static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
     rc = -ERANGE;
     if ((val == ULONG_MAX) || (val > UINT_MAX))
         goto out_error;
-    config->c_num_nodes = val;
+    cluster->c_num_nodes = val;
 
     rc = 0;
 
@@ -195,7 +199,32 @@ out_error:
     g_free(match.value);
 
     return rc;
-}  /* o2cb_config_fill() */
+}  /* o2cb_config_fill_cluster() */
+
+static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
+{
+    int rc;
+    JIterator *iter;
+    JConfigStanza *c_cfs;
+
+    rc = -ENOMEM;
+    iter = j_config_get_stanzas(cf, "cluster", NULL, 0);
+    if (!iter)
+        goto out_error;
+
+    rc = 0;
+    while (j_iterator_has_more(iter))
+    {
+        c_cfs = (JConfigStanza *)j_iterator_get_next(iter);
+        rc = o2cb_config_fill_cluster(config, cf, c_cfs);
+        if (rc)
+            break;
+    }
+    j_iterator_free(iter);
+
+out_error:
+    return rc;
+}
 
 O2CBConfig *o2cb_config_load(const char *filename)
 {
@@ -233,7 +262,7 @@ O2CBConfig *o2cb_config_load(const char *filename)
             config = NULL;
         }
         else
-            config->c_valid = TRUE;
+            config->co_valid = TRUE;
     }
 
     j_config_free(cf);
@@ -241,33 +270,17 @@ O2CBConfig *o2cb_config_load(const char *filename)
     return config;
 }  /* o2cb_config_load() */
 
-static gint o2cb_node_store(JConfig *cf, O2CBNode *node)
+static gint o2cb_node_store(JConfig *cf, O2CBCluster *cluster,
+                            O2CBNode *node)
 {
     gchar *val;
     JConfigStanza *cfs;
 
-    cfs = j_config_get_stanza_nth(cf, "cluster", 0);
-    if (!cfs)
-        return -EINVAL;
-
-    val = j_config_get_attribute(cfs, "name");
-    if (!val)
-        return -ENOMEM;
-    if (!*val)
-    {
-        g_free(val);
-        return -EINVAL;
-    }
-
     cfs = j_config_add_stanza(cf, "node");
     if (!cfs)
-    {
-        g_free(val);
         return -ENOMEM;
-    }
 
-    j_config_set_attribute(cfs, "cluster", val);
-    g_free(val);
+    j_config_set_attribute(cfs, "cluster", cluster->c_name);
 
     j_config_set_attribute(cfs, "name", node->n_name);
     j_config_set_attribute(cfs, "ip_address", node->n_addr);
@@ -287,33 +300,55 @@ static gint o2cb_node_store(JConfig *cf, O2CBNode *node)
     return 0;
 }  /* o2cb_node_store() */
 
+static gint o2cb_cluster_store(JConfig *cf, O2CBCluster *cluster)
+{
+    int rc;
+    gchar *count;
+    GList *list;
+    JConfigStanza *cfs;
+    O2CBNode *node;
+
+    cfs = j_config_add_stanza(cf, "cluster");
+
+    j_config_set_attribute(cfs, "name", cluster->c_name);
+
+    count = g_strdup_printf("%u", cluster->c_num_nodes);
+    j_config_set_attribute(cfs, "node_count", count);
+    g_free(count);
+
+    rc = 0;
+    list = cluster->c_nodes;
+    while (list)
+    {
+        node = (O2CBNode *)list->data;
+        rc = o2cb_node_store(cf, cluster, node);
+        if (rc)
+            break;
+
+        list = list->next;
+    }
+
+    return rc;
+}
+
+
 gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
 {
     int rc;
     JConfig *cf;
-    JConfigStanza *cfs;
-    O2CBNode *node;
-    gchar *count;
+    O2CBCluster *cluster;
     GList *list;
 
     cf = j_config_parse_memory("", strlen(""));
     if (!cf)
         return -ENOMEM;
 
-    cfs = j_config_add_stanza(cf, "cluster");
-
-    j_config_set_attribute(cfs, "name", config->c_name);
-
-    count = g_strdup_printf("%u", config->c_num_nodes);
-    j_config_set_attribute(cfs, "node_count", count);
-    g_free(count);
-
     rc = 0;
-    list = config->c_nodes;
+    list = config->co_clusters;
     while (list)
     {
-        node = (O2CBNode *)list->data;
-        rc = o2cb_node_store(cf, node);
+        cluster = (O2CBCluster *)list->data;
+        rc = o2cb_cluster_store(cf, cluster);
         if (rc)
             break;
 
@@ -339,15 +374,15 @@ static void o2cb_node_free(O2CBNode *node)
     g_free(node);
 }  /* o2cb_node_free() */
 
-void o2cb_config_free(O2CBConfig *config)
+static void o2cb_cluster_free(O2CBCluster *cluster)
 {
     GList *list;
     O2CBNode *node;
 
-    while (config->c_nodes)
+    while (cluster->c_nodes)
     {
-        list = config->c_nodes;
-        config->c_nodes = list->next;
+        list = cluster->c_nodes;
+        cluster->c_nodes = list->next;
 
         node = (O2CBNode *)list->data;
         g_list_free(list);
@@ -355,20 +390,85 @@ void o2cb_config_free(O2CBConfig *config)
         o2cb_node_free(node);
     }
 
-    if (config->c_name)
-        g_free(config->c_name);
+    if (cluster->c_name)
+        g_free(cluster->c_name);
+
+    g_free(cluster);
+}  /* o2cb_cluster_free() */
+
+void o2cb_config_free(O2CBConfig *config)
+{
+    GList *list;
+    O2CBCluster *cluster;
+
+    while (config->co_clusters)
+    {
+        list = config->co_clusters;
+        config->co_clusters = list->next;
+
+        cluster = (O2CBCluster *)list->data;
+        g_list_free(list);
+
+        o2cb_cluster_free(cluster);
+    }
 
     g_free(config);
-}  /* o2cb_config_free() */
+}
 
-gchar *o2cb_config_get_cluster_name(O2CBConfig *config)
+O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config)
+{
+    O2CBCluster *cluster;
+
+    g_return_val_if_fail(config != NULL, NULL);
+
+    cluster = g_new(O2CBCluster, 1);
+
+    cluster->c_name = NULL;
+    cluster->c_num_nodes = 0;
+    cluster->c_nodes = NULL;
+
+    config->co_clusters = g_list_append(config->co_clusters, cluster);
+
+    config->co_valid = TRUE;
+
+    return cluster;
+}  /* o2cb_cluster_add_node() */
+
+O2CBCluster *o2cb_config_get_cluster_by_name(O2CBConfig *config,
+                                             const gchar *name)
+{
+    GList *list;
+    O2CBCluster *cluster;
+
+    g_return_val_if_fail(config != NULL, NULL);
+
+    list = config->co_clusters;
+    while (list)
+    {
+        cluster = (O2CBCluster *)list->data;
+        if (!strcmp(cluster->c_name, name))
+            return cluster;
+        list = list->next;
+    }
+
+    return NULL;
+}  /* o2cb_config_get_cluster_by_name() */
+
+JIterator *o2cb_config_get_clusters(O2CBConfig *config)
 {
     g_return_val_if_fail(config != NULL, NULL);
 
-    return g_strdup(config->c_name);
-}  /* o2cb_config_get_cluster_name() */
+    return j_iterator_new_from_list(config->co_clusters);
+}  /* o2cb_config_get_clusters() */
 
-gint o2cb_config_set_cluster_name(O2CBConfig *config, const gchar *name)
+gchar *o2cb_cluster_get_name(O2CBCluster *cluster)
+{
+    g_return_val_if_fail(cluster != NULL, NULL);
+
+    return g_strdup(cluster->c_name);
+}  /* o2cb_cluster_get_name() */
+
+gint o2cb_cluster_set_name(O2CBCluster *cluster, const gchar *name)
 {
     gchar *new_name;
 
@@ -376,29 +476,27 @@ gint o2cb_config_set_cluster_name(O2CBConfig *config, const gchar *name)
     if (!new_name)
         return -ENOMEM;
 
-    g_free(config->c_name);
-    config->c_name = new_name;
-
-    config->c_valid = TRUE;
+    g_free(cluster->c_name);
+    cluster->c_name = new_name;
 
     return 0;
 }  /* o2cb_config_set_cluster_name() */
 
-JIterator *o2cb_config_get_nodes(O2CBConfig *config)
+JIterator *o2cb_cluster_get_nodes(O2CBCluster *cluster)
 {
-    g_return_val_if_fail(config != NULL, NULL);
+    g_return_val_if_fail(cluster != NULL, NULL);
 
-    return j_iterator_new_from_list(config->c_nodes);
-}  /* o2cb_config_get_nodes() */
+    return j_iterator_new_from_list(cluster->c_nodes);
+}  /* o2cb_cluster_get_nodes() */
 
-O2CBNode *o2cb_config_get_node(O2CBConfig *config, guint n)
+O2CBNode *o2cb_cluster_get_node(O2CBCluster *cluster, guint n)
 {
     GList *list;
     O2CBNode *node;
 
-    g_return_val_if_fail(config != NULL, NULL);
+    g_return_val_if_fail(cluster != NULL, NULL);
 
-    list = config->c_nodes;
+    list = cluster->c_nodes;
     while (list)
     {
         node = (O2CBNode *)list->data;
@@ -408,30 +506,50 @@ O2CBNode *o2cb_config_get_node(O2CBConfig *config, guint n)
     }
 
     return NULL;
-}  /* o2cb_config_get_node() */
+}  /* o2cb_cluster_get_node() */
 
-O2CBNode *o2cb_config_add_node(O2CBConfig *config)
+O2CBNode *o2cb_cluster_get_node_by_name(O2CBCluster *cluster,
+                                        const gchar *name)
+{
+    GList *list;
+    O2CBNode *node;
+
+    g_return_val_if_fail(cluster != NULL, NULL);
+
+    list = cluster->c_nodes;
+    while (list)
+    {
+        node = (O2CBNode *)list->data;
+        if (!strcmp(node->n_name, name))
+            return node;
+        list = list->next;
+    }
+
+    return NULL;
+}  /* o2cb_cluster_get_node_by_name() */
+
+O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster)
 {
     O2CBNode *node;
 
-    g_return_val_if_fail(config != NULL, NULL);
+    g_return_val_if_fail(cluster != NULL, NULL);
 
     node = g_new(O2CBNode, 1);
 
     node->n_name = NULL;
     node->n_addr = NULL;
     node->n_port = 0;
-    node->n_number = config->c_num_nodes;
-    config->c_num_nodes++;
+    node->n_number = cluster->c_num_nodes;
+    cluster->c_num_nodes++;
 
-    config->c_nodes = g_list_append(config->c_nodes, node);
+    cluster->c_nodes = g_list_append(cluster->c_nodes, node);
 
     return node;
-}  /* o2cb_config_add_node() */
+}  /* o2cb_cluster_add_node() */
 
-void o2cb_config_delete_node(O2CBConfig *config, O2CBNode *node)
+void o2cb_cluster_delete_node(O2CBCluster *cluster, O2CBNode *node)
 {
-}  /* o2cb_config_delete_node() */
+}  /* o2cb_cluster_delete_node() */
 
 gint o2cb_node_get_number(O2CBNode *node)
 {

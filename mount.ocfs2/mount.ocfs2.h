@@ -55,11 +55,3 @@
 
 #include "bitops.h"
 
-#include "ocfs2_nodemanager.h"
-#include "ocfs2_heartbeat.h"
-#include "ocfs2_tcp.h"
-
-#define CLUSTER_FILE   "/proc/cluster/nm/.cluster"
-#define GROUP_FILE     "/proc/cluster/nm/.group"
-#define NODE_FILE      "/proc/cluster/nm/.node"
-#define HEARTBEAT_DISK_FILE "/proc/cluster/heartbeat/.disk"

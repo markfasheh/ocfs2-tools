@@ -32,7 +32,7 @@
                                                                                                                                                          
 #include "ocfs2.h"
 
-#define DEFAULT_DLMFS_PATH	"/dev/ocfs2/dlm/"
+#define DEFAULT_DLMFS_PATH	"/dlm/"
 #define OCFS2_LOCK_ID_MAX_LEN	32
 #define OCFS2_LOCK_ID_PAD	"000000"
 

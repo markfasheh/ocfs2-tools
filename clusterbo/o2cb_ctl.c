@@ -1,4 +1,6 @@
 /* -*- mode: c; c-basic-offset: 4; -*-
+ *  vim:expandtab:shiftwidth=4:tabstop=4:
+ *
  *
  * o2cb_ctl.c
  *
@@ -62,7 +64,6 @@ struct _O2CBContext
 {
     O2CBOperation oc_op;
     O2CBType oc_type;
-    gchar *oc_manager;
     GList *oc_objects;
     GList *oc_attrs;
     gboolean oc_compact_info;
@@ -89,10 +90,10 @@ static void print_usage(gint rc)
     FILE *output = rc ? stderr : stdout;
 
     fprintf(output,
-            "Usage: " PROGNAME " -C -l <manager> -n <object> -t <type> [-i] [-a <attribute> ] ...\n"
-            "       " PROGNAME " -D -l <manager> -n <object> [-u]\n"
-            "       " PROGNAME " -I [-o|-z] -l <manager> [-n <object>] [-t <type>] [-a <attribute>] ...\n"
-            "       " PROGNAME " -H -l <manager> [-n <object>] [-t <type>] [-a <attribute>] ...\n"
+            "Usage: " PROGNAME " -C -n <object> -t <type> [-i] [-a <attribute> ] ...\n"
+            "       " PROGNAME " -D -n <object> [-u]\n"
+            "       " PROGNAME " -I [-o|-z] [-n <object>] [-t <type>] [-a <attribute>] ...\n"
+            "       " PROGNAME " -H [-n <object>] [-t <type>] [-a <attribute>] ...\n"
             "       " PROGNAME " -h\n"
             "       " PROGNAME " -V\n");
 
@@ -118,6 +119,7 @@ static gboolean valid_attr(O2CBContext *ctxt, OptionAttr *attr)
         {O2CB_TYPE_CLUSTER, "name"},
         {O2CB_TYPE_CLUSTER, "online"},
         {O2CB_TYPE_NODE, "name"},
+        {O2CB_TYPE_NODE, "cluster"},
         {O2CB_TYPE_NODE, "number"},
         {O2CB_TYPE_NODE, "ip_address"},
         {O2CB_TYPE_NODE, "ip_port"},
@@ -302,7 +304,7 @@ static gint parse_options(gint argc, gchar *argv[], O2CBContext *ctxt)
 
     mi = mu = mo = mz = FALSE;
     opterr = 0;
-    while ((c = getopt(argc, argv, ":hVCDIHiuozl:n:t:a:-:")) != EOF)
+    while ((c = getopt(argc, argv, ":hVCDIHiuozn:t:a:-:")) != EOF)
     {
         switch (c)
         {
@@ -365,15 +367,6 @@ static gint parse_options(gint argc, gchar *argv[], O2CBContext *ctxt)
 
             case 'o':
                 mo = TRUE;
-                break;
-
-            case 'l':
-                if (!optarg || !*optarg)
-                {
-                    fprintf(stderr, PROGNAME ": Argument to \'-l\' cannot be \"\"\n");
-                    return -EINVAL;
-                }
-                ctxt->oc_manager = g_strdup(optarg);
                 break;
 
             case 'n':
@@ -445,12 +438,6 @@ static gint parse_options(gint argc, gchar *argv[], O2CBContext *ctxt)
         }
         fprintf(stderr, "\"\n");
         return -E2BIG;
-    }
-
-    if (!ctxt->oc_manager)
-    {
-        fprintf(stderr, PROGNAME ": You must specify a manager device\n");
-        return -EINVAL;
     }
 
     if (mu && (ctxt->oc_op != O2CB_OP_DELETE))
@@ -527,80 +514,99 @@ static gint find_type_for_objects(O2CBContext *ctxt)
     int rc;
     gchar *object, *name;
     gulong num;
-    JIterator *iter;
+    JIterator *c_iter;
     O2CBNode *node;
+    O2CBCluster *cluster;
     
     object = (gchar *)ctxt->oc_objects->data;
 
-    name = o2cb_config_get_cluster_name(ctxt->oc_config);
-    if (!strcmp(name, object))
+    cluster = o2cb_config_get_cluster_by_name(ctxt->oc_config,
+                                              object);
+    if (cluster)
     {
+        rc = 0;
         ctxt->oc_type = O2CB_TYPE_CLUSTER;
-        return 0;
+        goto out;
     }
-    g_free(name);
 
     num = strtoul(object, &name, 10);
-    if (name && !*name && (num < UINT_MAX))
-    {
-        /* The object key is a number, hence a node number.
-         * object == NULL means check num, not object. */
-        g_free(object);
-        object = NULL;
-    }
-
-    iter = o2cb_config_get_nodes(ctxt->oc_config);
-    if (!iter)
-        return -ENOMEM;
+    if (!name || *name || (num == UINT_MAX))
+        num = UINT_MAX;
+    
+    rc = -ENOMEM;
+    c_iter = o2cb_config_get_clusters(ctxt->oc_config);
+    if (!c_iter)
+        goto out;
 
     rc = -ENOENT;
-    while (j_iterator_has_more(iter))
+    while (j_iterator_has_more(c_iter))
     {
-        node = (O2CBNode *)j_iterator_get_next(iter);
-        if (object)
+        cluster = (O2CBCluster *)j_iterator_get_next(c_iter);
+
+        node = o2cb_cluster_get_node_by_name(cluster, object);
+        if (!node && (num < UINT_MAX))
+            node = o2cb_cluster_get_node(cluster, num);
+
+        if (node)
         {
-            name = o2cb_node_get_name(node);
-            rc = strcmp(name, object);
-            g_free(name);
-            if (!rc)
-            {
-                ctxt->oc_type = O2CB_TYPE_NODE;
-                break;
-            }
-        }
-        else
-        {
-            if (num == o2cb_node_get_number(node))
-            {
-                ctxt->oc_type = O2CB_TYPE_NODE;
-                rc = 0;
-                break;
-            }
+            ctxt->oc_type = O2CB_TYPE_NODE;
+            rc = 0;
+            break;
         }
     }
-
-    j_iterator_free(iter);
-
+    j_iterator_free(c_iter);
+    
+out:
     return rc;
 }  /* find_type_for_objects() */
 
-static gint online_cluster(O2CBContext *ctxt)
+static gchar *o2cb_node_is_local(gchar *node_name)
+{
+    int ret;
+    char hostname[PATH_MAX]; /* la la la */
+    gchar *local = NULL;
+
+    ret = gethostname(hostname, sizeof(hostname));
+    if (ret)
+        return NULL;
+
+    /* XXX no g_strcasecmp()? */
+    if (strcasecmp(hostname, node_name) == 0)
+        local = g_strdup("1");
+    else
+        local = g_strdup("0");
+
+    return local;
+}
+
+static gint online_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
 {
     errcode_t ret;
     gint rc;
-    gchar *name, *node_name;
+    gchar *name, *node_name, *node_num, *ip_address, *ip_port, *local;
     JIterator *iter;
-    GList *list = NULL, *l;
     O2CBNode *node;
-    nm_node_info *node_i;
-    struct in_addr addr;
 
     rc = -ENOMEM;
-    name = o2cb_config_get_cluster_name(ctxt->oc_config);
+    name = o2cb_cluster_get_name(cluster);
     if (!name)
         goto out_error;
 
-    iter = o2cb_config_get_nodes(ctxt->oc_config);
+    rc = -EIO;
+    ret = o2cb_create_cluster(name);
+    if (ret)
+    {
+        if (ret != O2CB_ET_CLUSTER_EXISTS)
+        {
+            com_err(PROGNAME, ret, "while setting cluster name");
+            goto out_error;
+        }
+    }
+    else
+        fprintf(stdout, "Cluster %s created\n", name);
+
+    rc = -ENOMEM;
+    iter = o2cb_cluster_get_nodes(cluster);
     if (!iter)
         goto out_error;
 
@@ -608,76 +614,52 @@ static gint online_cluster(O2CBContext *ctxt)
     while (j_iterator_has_more(iter))
     {
         node = (O2CBNode *)j_iterator_get_next(iter);
-        rc = -ENOMEM;
-        node_i = g_new0(nm_node_info, 1);
-        if (!node_i)
-            break;
-        list = g_list_append(list, node_i);
-        node_i->node_num = o2cb_node_get_number(node);
+        node_num = g_strdup_printf("%d", o2cb_node_get_number(node));
         node_name = o2cb_node_get_name(node);
-        if (!node_name)
-            break;
-        /* Ignore truncation */
-        g_strlcpy(node_i->node_name, node_name, NM_MAX_NAME_LEN);
+        ip_port = g_strdup_printf("%d", o2cb_node_get_port(node));
+        ip_address = o2cb_node_get_ip_string(node);
+        local = o2cb_node_is_local(node_name);
+
+        ret = o2cb_add_node(name, node_name, node_num, ip_address,
+                            ip_port, local);
+        if (ret)
+        {
+            if (ret != O2CB_ET_NODE_EXISTS)
+            {
+                com_err(PROGNAME, ret, "while adding node %s\n",
+                        node_name);
+                rc = -EIO;
+            }
+
+            ret = 0;
+        }
+        else
+            fprintf(stdout, "Node %s added\n", node_name);
+
+        g_free(node_num);
         g_free(node_name);
-        node_i->ifaces[0].ip_port = htons(o2cb_node_get_port(node));
-        rc = o2cb_node_get_ipv4(node, &addr);
+        g_free(ip_port);
+        g_free(ip_address);
+        g_free(local);
         if (rc)
             break;
-        node_i->ifaces[0].addr_u.ip_addr4 = addr.s_addr;
-        rc = 0;
     }
     j_iterator_free(iter);
-    if (rc)
-        goto out_error;
-
-    rc = -EIO;
-    ret = o2cb_set_cluster_name(name);
-    if (ret)
-    {
-        com_err(PROGNAME, ret, "while setting cluster name");
-        goto out_error;
-    }
-
-    l = list;
-    while (l)
-    {
-        node_i = (nm_node_info *)l->data;
-        rc = o2cb_add_node(node_i);
-        if (rc)
-            goto out_error;
-        l = l->next;
-    }
-
-    rc = o2cb_activate_cluster();
-    if (rc)
-        goto out_error;
-    rc = o2cb_activate_networking();
-    if (rc)
-        goto out_error;
 
 out_error:
-    g_free(name);
-
-    while (list)
-    {
-        node_i = (nm_node_info *)list->data;
-        list = g_list_delete_link(list, list);
-
-        g_free(node_i);
-    }
 
     return rc;
 }  /* online_cluster() */
 
-static gint offline_cluster(O2CBContext *ctxt)
+static gint offline_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
 {
     fprintf(stderr,
             PROGNAME ": Offline of cluster not supported yet\n");
     return -ENOTSUP;
 }  /* offline_cluster() */
 
-static gint run_change_cluster(O2CBContext *ctxt)
+static gint run_change_cluster_one(O2CBContext *ctxt,
+                                   O2CBCluster *cluster)
 {
     gint rc = 0;
     const gchar *val;
@@ -697,7 +679,7 @@ static gint run_change_cluster(O2CBContext *ctxt)
                     PROGNAME ": Empty name for cluster\n");
             return -EINVAL;
         }
-        rc = o2cb_config_set_cluster_name(ctxt->oc_config, val);
+        rc = o2cb_cluster_set_name(cluster, val);
         if (rc)
             return rc;
     }
@@ -705,13 +687,43 @@ static gint run_change_cluster(O2CBContext *ctxt)
     if (attr_set(ctxt, "online"))
     {
         if (attr_boolean(ctxt, "online", FALSE))
-            rc = online_cluster(ctxt);
+            rc = online_cluster(ctxt, cluster);
         else
-            rc = offline_cluster(ctxt);
+            rc = offline_cluster(ctxt, cluster);
     }
 
     return rc;
-}  /* run_change_cluster() */
+}  /* run_change_cluster_one() */
+
+static gint run_change_clusters(O2CBContext *ctxt)
+{
+    gint rc = 0;
+    O2CBCluster *cluster;
+    GList *list;
+
+    list = ctxt->oc_objects;
+    while (list)
+    {
+        cluster = o2cb_config_get_cluster_by_name(ctxt->oc_config,
+                                                  (gchar *)list->data);
+        if (!cluster)
+        {
+            rc = -ENOENT;
+            fprintf(stderr,
+                    PROGNAME ": Cluster \"%s\" does not exist\n",
+                    (gchar *)list->data);
+            break;
+        }
+
+        rc = run_change_cluster_one(ctxt, cluster);
+        if (rc)
+            break;
+
+        list = list->next;
+    }
+
+    return rc;
+}
 
 static gint run_change(O2CBContext *ctxt)
 {
@@ -754,7 +766,7 @@ static gint run_change(O2CBContext *ctxt)
     }
     else if (ctxt->oc_type == O2CB_TYPE_CLUSTER)
     {
-        rc = run_change_cluster(ctxt);
+        rc = run_change_clusters(ctxt);
         if (rc)
             goto out_error;
     }
@@ -765,7 +777,6 @@ static gint run_change(O2CBContext *ctxt)
                 PROGNAME ": Invalid object type!\n");
         goto out_error;
     }
-
 
     rc = write_config(ctxt);
 

@@ -2,7 +2,7 @@
 # init fragment for O2CB.
 #
 # chkconfig: 2435 29 20
-# description: Load O2CB drivers at system boot.
+# description: Load O2CB cluster services at system boot.
 #
 ### BEGIN INIT INFO
 # Provides: o2cb
@@ -11,7 +11,7 @@
 # Required-Stop:
 # Default-Start: 2 3 5
 # Default-Stop:
-# Description: Load O2CB drivers at system boot.
+# Description: Load O2CB cluster services at system boot.
 ### END INIT INFO
 
 # Force LC_ALL=C
@@ -20,30 +20,12 @@ export LC_ALL=C
 # Source configuration
 [ -f /etc/sysconfig/o2cb ] && . /etc/sysconfig/o2cb
 
-if [ -z "$O2CB_MANAGER" ]
-then
-    O2CB_MANAGER=/proc/cluster
-fi
-
-KVER="`uname -r`"
-MODPATH="/lib/modules/${KVER}/kernel/drivers/addon/o2cb"
-
-#
-# The module list is an ordered list of modules to load and mountpoints
-# to mount.  Each entry is formatted like so:
-#    <module>:<fstype>:<mountpoint>
-#
-# The mountpoint is underneath the O2CB_MANAGER path.  So, an entry of:
-#    ocfs2_heartbeat:hb:heartbeat
-# means to load the ocfs2_heartbeat module, and
-# mount -t hb none ${O2CB_MANAGER}/heartbeat
-#
-# If a module requires no mount, the colons must remain.  eg, 
-#    ocfs2_tcp::
-#
-MODULE_LIST="ocfs2_nodemanager:nm:nm ocfs2_heartbeat:hb:heartbeat ocfs2_tcp::"
-
-
+# XXX some description of what this does
+LOAD_ACTIONS=("load_module usysfs"
+		"mount_fs usysfs /usys"
+		"load_module ocfs2_nodemanager"
+		"load_module ocfs2_dlmfs"
+		"mount_fs ocfs2_dlmfs /dlm")
 
 #
 # if_fail()
@@ -171,38 +153,40 @@ EOF
             ;;
         esac
     done
+
+	# XXX ask about mount point base
 }
 
 
 #
-# dev_create()
+# make_dir()
 #
 # Create $1
 # Returns 0 on success, 1 on error, 2 if it already exists.
 #
-dev_create()
+make_dir()
 {
     if [ "$#" -lt "1" -o -z "$1" ]
     then
-        echo "dev_create(): Requires an argument" >&2
+        echo "make_dir(): Requires an argument" >&2
         return 1
     fi
-    DEV="$1"
-    if [ -e "$DEV" ]
+    DIR="$1"
+    if [ -e "$DIR" ]
     then
-        if [ -d "$DEV" ]
+        if [ -d "$DIR" ]
         then
             return 2
         fi
-        echo "dev_create(): File $DEV is not a directory" >&2
+        echo "make_dir(): File $DIR is not a directory" >&2
         return 1
     fi
 
-    echo -n "Creating $DEV mount point: "
-    mkdir "$DEV" 2>/dev/null
+    echo -n "Creating directory '$DIR': "
+    mkdir -p "$DIR" 2>/dev/null
     if [ $? != 0 ]
     then
-        echo "Unable to create mount point $DEV" >&2
+        echo "Unable to create directory '$DIR'" >&2
         return 1
     fi
     return 0
@@ -287,21 +271,15 @@ unload_module()
 
 
 #
-# mount_device()
-# Mount the a filesystem under the O2CB_MANAGER.
+# mount_fs()
+# Mount a filesystem.
 #
 # 0 is success, 1 is error, 2 is already mounted
 #
-mount_device()
+mount_fs()
 {
-    if [ -z "$O2CB_MANAGER" ]
-    then
-        echo "mount_device(): No manager specified!" >&2
-        return 1
-    fi
     TYPE="$1"
-    MNTPT="$2"
-    FULL_MOUNT="${O2CB_MANAGER}/${MNTPT}"
+    FULL_MOUNT="$2"
     FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
     MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
 
@@ -310,11 +288,17 @@ mount_device()
         return 2
     fi
 
-    echo -n "Mounting ${TYPE} driver filesystem: "
-    mount $OPTS -t ${TYPE} ${TYPE} $FULL_MOUNT
+    # XXX some policy?
+    if [ ! -e "$FULL_MOUNT" ]; then
+        make_dir $FULL_MOUNT
+        if_fail "$?"
+    fi
+	
+    echo -n "Mounting ${TYPE} filesystem at $FULL_MOUNT: "
+    mount -t ${TYPE} ${TYPE} $FULL_MOUNT
     if [ $? != 0 ]
     then
-        echo "Unable to mount ${TYPE} driver filesystem" >&2
+        echo "Unable to mount ${TYPE} filesystem" >&2
         return 1
     fi
 
@@ -323,21 +307,15 @@ mount_device()
 
 
 #
-# unmount_device()
-# Unmount the /dev/oracleasm filesystem
+# unmount_fs()
+# Unmount a filesystem
 #
 # 0 is success, 1 is error, 2 is not mounted
 #
-unmount_device()
+unmount_fs()
 {
-    if [ -z "$O2CB_MANAGER" ]
-    then
-        echo "mount_device(): No device specified!" >&2
-        return 1
-    fi
     TYPE="$1"
-    MNTPT="$2"
-    FULL_MOUNT="${O2CB_MANAGER}/${MNTPT}"
+    FULL_MOUNT="$2"
     FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
     MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
 
@@ -346,34 +324,22 @@ unmount_device()
         return 2
     fi
 
-    echo -n "Unmounting ${TYPE} driver filesystem: "
+    echo -n "Unmounting ${TYPE} filesystem: "
     umount $FULL_MOUNT
     if [ $? != 0 ]
     then
-        echo "Unable to unmount ${TYPE} driver filesystem" >&2
+        echo "Unable to unmount ${TYPE} filesystem" >&2
         return 1
     fi
 
     return 0
 }
 
-
 load()
 {
-    for MODSPEC in $MODULE_LIST
-    do
-        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
-        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
-        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
-
-        load_module "$MODULE_NAME"
+    for i in $(seq 0 $((${#LOAD_ACTIONS[*]} - 1)) ); do
+	eval ${LOAD_ACTIONS[i]}
         if_fail "$?"
-
-        if [ -n "$FSTYPE" -a -n "$MOUNT_POINT" ]
-        then
-            mount_device "$FSTYPE" "$MOUNT_POINT"
-            if_fail "$?"
-        fi
     done
 }
 
@@ -392,7 +358,7 @@ online()
     #
 
     echo -n "Starting cluster ${CLUSTER}: "
-    OUTPUT="`o2cb_ctl -H -l "${O2CB_MANAGER}" -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
+    OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
     if_fail "$?" "$OUTPUT"
 }
 
@@ -409,31 +375,8 @@ start()
 
 unload()
 {
-    # Reverse list for unloading
-    R_MODLIST=""
-    for MODSPEC in $MODULE_LIST
-    do
-        if [ -z "$R_MODLIST" ]
-        then
-            R_MODLIST="$MODSPEC"
-        else
-            R_MODLIST="${MODSPEC} ${R_MODLIST}"
-        fi
-    done
-
-    for MODSPEC in $R_MODLIST
-    do
-        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
-        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
-        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
-
-        if [ -n "$FSTYPE" -a -n "$MOUNT_POINT" ]
-        then
-            unmount_device "$FSTYPE" "$MOUNT_POINT"
-            if_fail "$?"
-        fi
-
-        unload_module "$MODULE_NAME"
+    for i in $(seq $((${#LOAD_ACTIONS[*]} - 1)) -1 0); do
+	eval "un${LOAD_ACTIONS[i]}"
         if_fail "$?"
     done
 }
@@ -452,6 +395,8 @@ configure()
 
 status()
 {
+	echo broken
+	exit
     echo -n "Checking if O2CB is loaded: "
     RC=0
     for MODSPEC in $MODULE_LIST

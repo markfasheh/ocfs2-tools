@@ -39,4 +39,22 @@ ec	O2CB_ET_SERVICE_UNAVAILABLE,
 ec	O2CB_ET_INTERNAL_FAILURE,
 	"Internal logic failure"
 
+ec	O2CB_ET_PERMISSION_DENIED,
+	"Insufficient permissions to access cluster service"
+
+ec	O2CB_ET_CLUSTER_EXISTS,
+	"Cluster already exists"
+
+ec	O2CB_ET_NODE_EXISTS,
+	"Node already exists"
+
+ec	O2CB_ET_REGION_EXISTS,
+	"Heartbeat region already exists"
+
+ec	O2CB_ET_INVALID_BLOCK_SIZE,
+	"Block size is invalid"
+
+ec	O2CB_ET_INVALID_BLOCK_COUNT,
+	"Block count is invalid"
+
 	end

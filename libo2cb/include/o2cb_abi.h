@@ -3,9 +3,9 @@
  *
  * o2cb_abi.c
  *
- * Kernel<->User ABI for modifying cluster configuration.
+ * Layout of usysfs paths for O2CB cluster configuration.
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2005 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -25,10 +25,15 @@
 #ifndef _O2CB_ABI_H
 #define _O2CB_ABI_H
 
-/* Hardcoded paths to the cluster virtual files */
-#define O2CB_CLUSTER_FILE 	"/proc/cluster/nm/.cluster"
-#define O2CB_GROUP_FILE		"/proc/cluster/nm/.group"
-#define O2CB_NODE_FILE		"/proc/cluster/nm/.node"
-#define O2CB_NETWORKING_FILE	"/proc/cluster/net"
+#define USYSFS_PATH "/usys"
+
+#define O2CB_FORMAT_CLUSTER_DIR		USYSFS_PATH "/cluster"
+#define O2CB_FORMAT_CLUSTER		O2CB_FORMAT_CLUSTER_DIR "/%s"
+#define O2CB_FORMAT_NODE_DIR		O2CB_FORMAT_CLUSTER "/nodes"
+#define O2CB_FORMAT_NODE		O2CB_FORMAT_NODE_DIR "/%s"
+#define O2CB_FORMAT_NODE_ATTR		O2CB_FORMAT_NODE "/%s"
+#define O2CB_FORMAT_HEARTBEAT_DIR	O2CB_FORMAT_CLUSTER "/heartbeat"
+#define O2CB_FORMAT_HEARTBEAT_REGION	O2CB_FORMAT_HEARTBEAT_DIR "/%s"
+#define O2CB_FORMAT_HEARTBEAT_REGION_ATTR	O2CB_FORMAT_HEARTBEAT_REGION "/%s"
 
 #endif  /* _O2CB_ABI_H */

@@ -21,6 +21,7 @@
  */
 
 #include "mount.ocfs2.h"
+#include "o2cb.h"
 
 int verbose = 0;
 int mount_quiet = 0;
@@ -186,6 +187,7 @@ static void update_mtab_entry(char *spec, char *node, char *type, char *opts,
 
 static int get_my_nodenum(uint8_t *nodenum)
 {
+#if 0
 	FILE *file;
 	int ret = -EINVAL;
 	int retval=-EINVAL, num;
@@ -212,10 +214,14 @@ static int get_my_nodenum(uint8_t *nodenum)
 done:	
 	fclose(file);
 	return ret;
+#else
+        return 0;
+#endif
 }
 
 static int create_group(char *uuid, uint8_t *group_num)
 {
+#if 0
 	FILE *file;
 	int ret = -EINVAL, retval;
 	int groupnum = NM_INVALID_SLOT_NUM;
@@ -261,11 +267,15 @@ static int create_group(char *uuid, uint8_t *group_num)
 done:	
 	fclose(file);
 	return ret;
+#else
+        return 0;
+#endif
 }
 
 
 static int add_to_local_group(char *uuid, uint8_t group_num, uint8_t node_num)
 {
+#if 0
 	FILE *file;
 	int ret = -EINVAL, retval;
 	nm_op *op = (nm_op *)op_buf;
@@ -311,11 +321,15 @@ static int add_to_local_group(char *uuid, uint8_t group_num, uint8_t node_num)
 done:	
 	fclose(file);
 	return ret;
+#else
+        return 0;
+#endif
 }
 
 static int activate_group(char *group_name, char *group_dev, uint8_t group_num, 
 		   uint32_t block_bits, uint64_t num_blocks, uint64_t start_block)
 {
+#if 0
 	int dev_fd = -1;
 	int ret = -EINVAL, retval;
 	FILE *file;
@@ -357,6 +371,7 @@ done:
 		close(dev_fd);
 
 	fclose(file);
+#endif
 	return 0;
 }
 
@@ -373,25 +388,35 @@ static int get_ocfs2_disk_hb_params(char *group_dev, uint32_t *block_bits, uint3
 	ocfs2_filesys *fs = NULL;
 
 	ret = ocfs2_open(group_dev, OCFS2_FLAG_RO, 0, 0, &fs);
-	if (ret)
+	if (ret) {
+		com_err(progname, ret, "while opening the device.");
 		return status;
+	}
 
 	heartbeat_filename = ocfs2_system_inodes[HEARTBEAT_SYSTEM_INODE].si_name;
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, heartbeat_filename,
 			   strlen(heartbeat_filename),  NULL, &blkno);
-	if (ret)
+	if (ret) {
+		com_err(progname, ret, "while looking up the hb system inode.");
 		goto leave;
+	}
+
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
+	if (ret) {
+		com_err(progname, ret, "while allocating a block for hb.");
 		goto leave;
+	}
 	
 	ret = ocfs2_read_inode(fs, blkno, buf);
-	if (ret)
+	if (ret) {
+		com_err(progname, ret, "while reading hb inode.");
 		goto leave;
+	}
 
 	di = (ocfs2_dinode *)buf;
 	if (di->id2.i_list.l_tree_depth || 
 	    di->id2.i_list.l_next_free_rec != 1) {
+		com_err(progname, 0, "when checking for contiguous hb.");
 		goto leave;
 	}
 	rec = &(di->id2.i_list.l_recs[0]);
@@ -412,6 +437,7 @@ leave:
 
 static int get_node_map(uint8_t group_num, char *bitmap)
 {
+#if 0
 	FILE *file = NULL;
 	hb_op *op;
 	int ret = -EINVAL;
@@ -457,12 +483,16 @@ static int get_node_map(uint8_t group_num, char *bitmap)
 done:
 	fclose(file);
 	return ret;
+#else
+        return 0;
+#endif
 }
 
 static int get_raw_node_map(uint8_t groupnum, char *groupdev,
 			    uint32_t block_bits, uint32_t num_blocks,
 			    uint64_t start_block, char *bitmap)
 {
+#if 0
 	int i;
 	int ret = -EINVAL;
 	char *buf = NULL, *tmpbuf;
@@ -544,10 +574,14 @@ done:
 	if (times)
 		free(times);
 	return ret;
+#else
+        return 0;
+#endif
 }
 
 static int create_remote_group(char *group_name, uint8_t node)
 {
+#if 0
 	int ret, fd = -1, remote_node = -1;
 	gsd_ioc ioc;
 	char fname[100];
@@ -637,15 +671,47 @@ leave:
 	if (remote_node != -1)
 		close(remote_node);
 	return ret;
+#else
+        return 0;
+#endif
 }
 
-/*
- * this will try to add the group (and the node to the group)
- * for every mount.  luckily, there are many shortcut paths
- * along the way, so checking for -EEXIST will save time.
- */
-static int add_me_to_group(char *groupname, char *groupdev)
+static int start_heartbeat(char *hbuuid, char *device)
 {
+	int ret;
+	char *cluster = NULL;
+	errcode_t err;
+
+	uint32_t block_bits, cluster_bits, num_clusters;
+	uint64_t start_block, num_blocks;
+
+	ret = get_ocfs2_disk_hb_params(device, &block_bits, &cluster_bits, 
+				       &start_block, &num_clusters);
+	if (ret < 0) {
+		printf("hb_params failed\n");
+		return ret;
+	}
+
+	num_blocks = num_clusters << cluster_bits;
+	num_blocks >>= block_bits;
+
+	/* clamp to NM_MAX_NODES */
+	if (num_blocks > 254)
+		num_blocks = 254;
+
+        /* XXX: NULL cluster is a hack for right now */
+	err = o2cb_create_heartbeat_region_disk(NULL,
+						hbuuid,
+						device,
+						1 << block_bits,
+						start_block,
+						num_blocks);
+	if (err) {
+		com_err(progname, err, "while creating hb region with o2cb.");
+		return -EINVAL;
+	}
+
+#if 0
 	int ret;
 	uint8_t my_nodenum, groupnum;
 	uint32_t pre_nodemap[] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -767,6 +833,7 @@ again:
 	if (verbose)
 		printf("ah nothing left to care about ... leaving\n");
 
+#endif
 	return 0;
 }
 
@@ -812,24 +879,12 @@ int main(int argc, char **argv)
 	if (verbose)
 		printf("device=%s hbuuid=%s\n", mo.dev, hbuuid);
 
-	ret = add_me_to_group(hbuuid, mo.dev);
+	ret = start_heartbeat(hbuuid, mo.dev);
 	if (ret < 0) {
-		fprintf(stderr, "%s: Error '%d' while adding to group\n", progname, (int)ret);
+		fprintf(stderr, "%s: Error '%d' while starting heartbeat\n",
+			progname, (int)ret);
 		goto bail;
 	}
-
-	mo.xtra_opts = realloc(mo.xtra_opts, (strlen(mo.xtra_opts) +
-					      strlen(hbuuid) +
-					      strlen("group=") + 1));
-	if (!mo.xtra_opts) {
-		com_err(progname, OCFS2_ET_NO_MEMORY, " ");
-		goto bail;
-	}
-
-	if (strlen(mo.xtra_opts))
-		strcat(mo.xtra_opts, ",");
-	strcat(mo.xtra_opts, "group=");
-	strcat(mo.xtra_opts, hbuuid);
 
 	ret = mount(mo.dev, mo.dir, "ocfs2", mo.flags, mo.xtra_opts);
 	if (ret) {

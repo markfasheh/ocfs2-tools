@@ -43,21 +43,25 @@
 
 #if O2CB_FLAT_INCLUDES
 #include "o2cb_err.h"
-
-#include "ocfs2_heartbeat.h"
-#include "ocfs2_nodemanager.h"
-#include "ocfs2_tcp.h"
 #else
 #include <o2cb/o2cb_err.h>
-
-#include <o2cb/ocfs2_heartbeat.h>
-#include <o2cb/ocfs2_nodemanager.h>
-#include <o2cb/ocfs2_tcp.h>
 #endif
 
-errcode_t o2cb_set_cluster_name(const char *cluster_name);
-errcode_t o2cb_add_node(nm_node_info *node);
-errcode_t o2cb_activate_cluster(void);
-errcode_t o2cb_activate_networking(void);
+errcode_t o2cb_create_cluster(const char *cluster_name);
+errcode_t o2cb_add_node(const char *cluster_name,
+			const char *node_name, const char *node_num,
+			const char *ip_address, const char *ip_port,
+			const char *local);
+
+errcode_t o2cb_list_clusters(char ***clusters);
+void o2cb_free_cluster_list(char **clusters);
+
+errcode_t o2cb_create_heartbeat_region_disk(const char *cluster_name,
+					    const char *region_name,
+					    const char *device_name,
+					    int block_bytes,
+					    uint64_t start_block,
+					    uint64_t blocks);
+
 
 #endif  /* _O2CB_H */
