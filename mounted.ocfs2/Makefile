@@ -26,7 +26,9 @@ INCLUDES = -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include
 CFILES = mounted.c
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES)
+MANS = mounted.ocfs2.8
+
+DIST_FILES = $(CFILES) mounted.ocfs2.8.in
 
 mounted.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(COM_ERR_LIBS)

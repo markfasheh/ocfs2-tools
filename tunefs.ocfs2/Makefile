@@ -24,12 +24,12 @@ SBIN_PROGRAMS = tunefs.ocfs2
 INCLUDES = -I$(TOPDIR)/libocfs2/include $(GLIB_CFLAGS) -I$(TOPDIR)/libo2dlm/include
 DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\" -DO2DLM_FLAT_INCLUDES
 
-#MANS = tunefs.ocfs2.8
+MANS = tunefs.ocfs2.8
 
 CFILES = tunefs.c
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES)
+DIST_FILES = $(CFILES) tunefs.ocfs2.8.in
 
 tunefs.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(GLIB_LIBS) $(COM_ERR_LIBS)

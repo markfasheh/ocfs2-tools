@@ -170,9 +170,13 @@ AC_CONFIG_FILES([
 Config.make
 debugfs.ocfs2/debugfs.ocfs2.8
 mkfs.ocfs2/mkfs.ocfs2.8
+mounted.ocfs2/mounted.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.checks.8
+o2cb_ctl/o2cb_ctl.8
+ocfs2cdsl/ocfs2cdsl.8
 ocfs2console/ocfs2console.8
+tunefs.ocfs2/tunefs.ocfs2.8
 vendor/common/ocfs2-tools.spec
 ])
 

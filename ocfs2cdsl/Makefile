@@ -24,9 +24,9 @@ OBJS = $(subst .c,.o,$(CFILES))
 
 DIST_RULES = dist-incdir
 
-#MANS = ocfs2cdsl.8
+MANS = ocfs2cdsl.8
 
-DIST_FILES = $(CFILES) #ocfs2cdsl.8.in
+DIST_FILES = $(CFILES) ocfs2cdsl.8.in
 
 ocfs2cdsl: $(OBJS)
 	$(LINK) $(GLIB_LIBS)
