@@ -63,26 +63,26 @@ static void do_slotmap (char **args);
 dbgfs_gbls gbls;
 
 static Command commands[] = {
-	{ "open",	do_open },
-	{ "close",	do_close },
+	{ "cat",	do_cat },
 	{ "cd",		do_cd },
-	{ "ls",		do_ls },
 	{ "chroot",	do_chroot },
-	{ "lcd",	do_lcd },
+	{ "close",	do_close },
+	{ "curdev",	do_curdev },
+	{ "dump",	do_dump },
+	{ "extent",	do_extent },
+	{ "group",	do_group },
 	{ "help",	do_help },
 	{ "?",		do_help },
+	{ "lcd",	do_lcd },
+	{ "logdump",	do_logdump },
+	{ "ls",		do_ls },
+	{ "open",	do_open },
 	{ "quit",	do_quit },
 	{ "q",		do_quit },
 	{ "rdump",	do_rdump },
-	{ "dump",	do_dump },
-	{ "cat",	do_cat },
-	{ "curdev",	do_curdev },
-	{ "stats",	do_stats },
+	{ "slotmap",	do_slotmap },
 	{ "stat",	do_stat },
-	{ "logdump",	do_logdump },
-	{ "group",	do_group },
-	{ "extent",	do_extent },
-	{ "slotmap",	do_slotmap }
+	{ "stats",	do_stats }
 };
 
 /*
@@ -569,25 +569,24 @@ static void do_ls (char **args)
  */
 static void do_help (char **args)
 {
-	printf ("curdev\t\t\t\t\tShow current device\n");
-	printf ("open <device>\t\t\t\tOpen a device\n");
-	printf ("close\t\t\t\t\tClose a device\n");
-	printf ("stats [-h]\t\t\t\tShow superblock\n");
-	printf ("stat <filespec>\t\t\t\tShow inode\n");
-//	printf ("pwd\t\t\t\tPrint working directory\n");
-	printf ("ls [-l] <filespec>\t\t\tList directory\n");
-	printf ("cd <filespec>\t\t\t\tChange directory\n");
-	printf ("lcd <filespec>\t\t\t\tChange directory on a mounted fs\n");
-	printf ("chroot <filespec>\t\t\tChange root\n");
 	printf ("cat <filespec>\t\t\t\tPrints file on stdout\n");
+	printf ("cd <filespec>\t\t\t\tChange directory\n");
+	printf ("chroot <filespec>\t\t\tChange root\n");
+	printf ("close\t\t\t\t\tClose a device\n");
+	printf ("curdev\t\t\t\t\tShow current device\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
-	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted fs\n");
-	printf ("logdump <node#>\t\t\t\tPrints journal file for the node\n");
-	printf ("extent <inode#>\t\t\t\tShow extent block\n");
-	printf ("group <inode#>\t\t\t\tShow chain group\n");
-	printf ("slotmap\t\t\t\t\tShow slot map\n");
+	printf ("extent <block#>\t\t\t\tShow extent block\n");
+	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
+	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
+	printf ("logdump <node#>\t\t\t\tPrints journal file for the node\n");
+	printf ("ls [-l] <filespec>\t\t\tList directory\n");
+	printf ("open <device>\t\t\t\tOpen a device\n");
 	printf ("quit, q\t\t\t\t\tExit the program\n");
+	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted filesystem\n");
+	printf ("slotmap\t\t\t\t\tShow slot map\n");
+	printf ("stat <filespec>\t\t\t\tShow inode\n");
+	printf ("stats [-h]\t\t\t\tShow superblock\n");
 }
 
 /*

@@ -35,12 +35,11 @@ extern dbgfs_gbls gbls;
  */
 static void usage (char *progname)
 {
-	g_print ("Usage: %s [OPTION]... [DEVICE]\n", progname);
-	g_print ("Options:\n");
-	g_print ("  -f, --file <cmd_file>	Execute commands in cmd_file\n");
-	g_print ("  -V, --version		Display version\n");
-	g_print ("  -?, --help			Display this help\n");
-	g_print ("  -w, --write			Enable writes\n");
+	g_print ("usage: %s [-f cmdfile] [-V] [-w] [-?] [device]\n", progname);
+	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
+	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
+	g_print ("\t-V, --version\t\tShow version\n");
+	g_print ("\t-?, --help\t\tShow this help\n");
 	exit (0);
 }					/* usage */
 
@@ -86,7 +85,8 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 			opts->allow_write = 1;
 			break;
 
-		case 'h':
+		case '?':
+			print_version(gbls.progname);
 			usage(gbls.progname);
 			exit(0);
 			break;

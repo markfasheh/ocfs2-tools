@@ -1,13 +1,20 @@
-.TH "debugfs.ocfs2" "8" "July 2004" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "Dec 2004" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
-\fBdebugfs.ocfs2\fR [\fB\-V\fR] [\fB\-?\fR] [\fB\-w\fR] [\fB\-N\fR] \fIdevice\fR
+\fBdebugfs.ocfs2\fR [\fB\-V\fR] [\fB\-?\fR] [\fB\-w\fR] [\fB\-f cmdfile\fR] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
-The \fBdebugfs.ocfs2\fR is an interactive file system debugger. It can be used to examine the state of an OCFS2 filesystem.
-\fIdevice\fR is the special file corresponding the device containing the OCFS2 filesystem (e.g /dev/hdxx). \fBdebugfs.ocfs2\fR will automatically bind the \fIdevice\fR to a raw device to perform the operations and unbind it when the program is terminated. It is recommended that the system have at least one free raw device (not bound to any block device) defined or \fIdebufs.ocfs2\fR will fail.
+The \fBdebugfs.ocfs2\fR is an interactive file system debugger. It can be used to examine the state of an OCFS2 filesystem. \fIdevice\fR is the special file corresponding the device containing the OCFS2 filesystem (e.g /dev/hdxx).
 .SH "OPTIONS"
+.TP
+\fB\-f cmdfile\fR 
+Causes \fBdebugfs.ocfs2\fR to read in commands from \fIcmdfile\fR and execute them. It exits after all the commands are executed.
+
+.TP
+\fB\-w\fR 
+Specifies that the filesystem should be opened in \fIread-write\fR mode. Without this option, the filesystem is opened in the \fIread-only\fR mode.
+
 .TP
 \fB\-V\fR 
 Print version information and exit.
@@ -16,85 +23,92 @@ Print version information and exit.
 \fB\-?\fR 
 Displays help and exit.
 
-.TP
-\fB\-w\fR 
-Turn on write support.
-
-.TP
-\fB\-N\fR 
-Do not bind \fIdevice\fR to raw.
+.SH "SPECIFYING FILES"
+Many \fBdebugfs.ocfs2\fR commands take a \fIfilespec\fR as an argument to specify an inode (as opposed to a pathname) in the filesystem which is currently opened by \fBdebugfs.ocfs\fR. The \fIfilespec\fR argument may be specified in two forms. The first form is an inode number surrounded by angle brackets, e.g., <32>. The second form is a pathname; if the pathname is prefixed by a forward slash ('/'), then it is interpreted relative to the root of the filesystem which is currently opened by \fBdebugfs.ocfs2\fR. If not, the path is interpreted relative to the current working directory as maintained by \fBdebugfs.ocfs2\fR, which can be modified using the command \fIcd\fR. If the pathname is prefixed by a double forward slash ('//'), then it is interpreted relative to the root of the system directory of the filesystem opened by \fBdebugfs.ocfs2\fR.
 
 .SH "COMMANDS"
 This is a list of the commands which debugfs.ocfs2 supports.
 
 .TP
-\fIcurdev\fR
-Show current working device (raw device).
+\fIcat filespec\fR
+Dump the contents of inode \fIfilespec\fR to stdout.
 
 .TP
-\fIopen\fR <device>
-Open a device
+\fIcd filespec\fR
+Change the current working directory to \fIfilespec\fR.
+
+.TP
+\fIchroot filespec\fR
+Change the root directory to be the directory \fIfilespec\fR.
 
 .TP
 \fIclose\fR
-Close a device
+Close the currently opened filesystem.
 
 .TP
-\fIshow_super_stats, stats\fR \fI[-h]\fR
-Show superblock
+\fIcurdev\fR
+Show the currently open device.
 
 .TP
-\fIshow_inode_info, stat\fR \fI<blknum>\fR 
-Show inode
+\fIdump [-p] filespec outfile\fR
+Dump the contents of the inode \fIfilespec\fR to the output file \fIoutfile\fR. If the \fI-p\fR is given, set the owner, group, timestamps and permissions information on \fIoutfile\fR to match those of \fIfilespec\fR.
 
 .TP
-\fIpwd\fR
-Print working directory
+\fIextent <block#>\fR
+Display the contents of the extent structure at \fI<block#>\fR.
 
 .TP
-\fIls\fR <blknum>
-List directory
-
-.TP
-\fIcat\fR \fI<blknum>\fR \fI[outfile]\fR
-Prints or concatenates file to stdout/outfile
-
-.TP
-\fIdump\fR \fI<blknum>\fR \fI<outfile>\fR
-Dumps file to outfile
-
-.TP
-\fInodes\fR
-List of nodes
-
-.TP
-\fIpublish\fR
-Publish blocks
-
-.TP
-\fIvote\fR
-Vote blocks
-
-.TP
-\fIlogdump\fR \fI<nodenum>\fR
-Prints journal file for the node
+\fIgroup <block#>\fR
+Display the contents of the group structure at \fI<block#>\fR.
 
 .TP
 \fIhelp, ?\fR
-This information
+Print the list of commands understood by \fBdebugfs.ocfs2\fR.
+
+.TP
+\fIlcd directory\fR
+Change the current working directory of the \fBdebugfs.ocfs2\fR process to the \fIdirectory\fR on the native filesystem.
+
+.TP
+\fIlogdump <node#>\fR
+Display the contents of the journal for node \fI<node#>\fR.
+
+.TP
+\fIls [-l] filespec\fR
+Print the listing  of the files in the directory \fIfilespec\fR. The \fI-l\fR flag will list files in the long format.
+
+.TP
+\fIopen device\fR
+Open the filesystem on \fIdevice\fR.
 
 .TP
 \fIquit, q\fR
-Exit the program
+Quit \fBdebugfs.ocfs2\fR.
 
-.SH "BUGS"
-Stuff.
+.TP
+\fIrdump [-v] filespec outdir\fR
+Recursively dump directory \fIfilespec\fR and all its contents (including regular files, symbolic links and other directories) into the \fIoutdir\fR which should be an existing directory on the native filesystem.
+
+.TP
+\fIslotmap\fR
+Display the contents of the \fIslotmap\fR system file.
+
+.TP
+\fIstat filespec\fR
+Display the contents of the inode structure of the inode \fIfilespec\fR.
+
+.TP
+\fIstats\fR
+Display the contents of the super block.
+
+.SH "ACKNOWLEDGEMENT"
+This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 
 .SH "SEE ALSO"
 .BR ocfs(5)
 
-.SH "AUTHORS"
+.SH "AUTHOR"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2004 Oracle
