@@ -476,11 +476,11 @@ static errcode_t o2dlm_unlink_all(struct o2dlm_ctxt *ctxt)
 	while(de) {
 		if ((strlen(de->d_name) == 1) &&
 		    (de->d_name[0] == '.'))
-			continue;
+			goto next;
 		if ((strlen(de->d_name) == 2) &&
 		    (de->d_name[0] == '.') &&
 		    (de->d_name[1] == '.'))
-			continue;
+			goto next;
 
 		ret = o2dlm_full_path(name, ctxt, de->d_name);
 		if (ret)
@@ -493,6 +493,7 @@ static errcode_t o2dlm_unlink_all(struct o2dlm_ctxt *ctxt)
 				goto close_and_free;
 			}
 		}
+next:
 		de = readdir(dir);
 	}
 
