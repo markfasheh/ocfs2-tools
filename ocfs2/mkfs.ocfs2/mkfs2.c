@@ -537,7 +537,7 @@ static inline size_t mmap_len(void)
 	size_t ret;
 
 	ret = initial_nodes * OCFS2_DEFAULT_JOURNAL_SIZE;
-	ret += (10 * ONE_MEGA_BYTE);
+	ret += (40 * ONE_MEGA_BYTE);
 	return ret;
 }
 
