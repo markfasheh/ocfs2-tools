@@ -154,7 +154,8 @@ errcode_t ocfs2_open(const char *name, int flags,
 	fs->fs_flags = flags;
 	fs->fs_umask = 022;
 
-	ret = io_open(name, (flags & (OCFS2_FLAG_RO | OCFS2_FLAG_RW)),
+	ret = io_open(name, (flags & (OCFS2_FLAG_RO | OCFS2_FLAG_RW |
+				      OCFS2_FLAG_BUFFERED)),
 		      &fs->fs_io);
 	if (ret)
 		goto out;

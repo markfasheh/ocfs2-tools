@@ -100,8 +100,8 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 	strcpy(chan->io_name, name);
 	chan->io_blksize = OCFS2_MIN_BLOCKSIZE;
 	chan->io_flags = (flags & OCFS2_FLAG_RW) ? O_RDWR : O_RDONLY;
-	/* FIXME: should do a "check for success, fallback to bindraw */
-	chan->io_flags |= O_DIRECT;
+	if (!(flags & OCFS2_FLAG_BUFFERED))
+		chan->io_flags |= O_DIRECT;
 	chan->io_error = 0;
 
 	ret = OCFS2_ET_IO;
@@ -111,9 +111,11 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 		goto out_name;
 	}
 
-	ret = io_validate_o_direct(chan);
-	if (ret)
-		goto out_close;  /* FIXME: bindraw here */
+	if (!(flags & OCFS2_FLAG_BUFFERED)) {
+		ret = io_validate_o_direct(chan);
+		if (ret)
+			goto out_close;  /* FIXME: bindraw here */
+	}
 
 	/* Workaround from e2fsprogs */
 #ifdef __linux__

@@ -63,6 +63,7 @@
 #define OCFS2_FLAG_CHANGED	0x02
 #define OCFS2_FLAG_DIRTY	0x04
 #define OCFS2_FLAG_SWAP_BYTES	0x08
+#define OCFS2_FLAG_BUFFERED	0x10
 
 /* Return flags for the extent iterator functions */
 #define OCFS2_EXTENT_CHANGED	0x01
