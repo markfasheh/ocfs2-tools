@@ -53,4 +53,7 @@ ec	OCFS2_ET_BAD_BLKNO,
 ec	OCFS2_ET_RO_FILESYS,
 	"Attempt to write to filesystem opened read-only"
 
+ec	OCFS2_ET_JOURNAL_TOO_SMALL,
+	"Journal must be at least 1024 blocks"
+
 	end

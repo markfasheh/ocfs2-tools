@@ -53,9 +53,12 @@ CFILES = 		\
 	memory.c	\
 	openfs.c	\
 	closefs.c	\
-	freefs.c
+	freefs.c	\
+	inode.c		\
+	mkjournal.c
 
 HFILES =				\
+	include/jfs_user.h		\
 	include/kernel-jbd.h		\
 	include/kernel-list.h		\
 	include/ocfs2_fs.h		\

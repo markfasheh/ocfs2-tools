@@ -65,5 +65,9 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 			    ocfs2_dinode *di);
 
+errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
+					  uint32_t size, int flags,
+					  char **ret_jsb);
+
 #endif  /* _FILESYS_H */
 
