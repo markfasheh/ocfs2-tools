@@ -16,77 +16,125 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
 import os
+import types
 
 import gtk
+import pango
 
 from cStringIO import StringIO
 
-from guiutil import set_props, error_box
-
+from guiutil import Dialog, set_props, error_box
 from process import Process
 from ipwidget import IPEditor, IPMissing, IPError
 
-COLUMN_NAME, COLUMN_NODE, COLUMN_IP_ADDR, COLUMN_IP_PORT = range(4)
+CLUSTER_NAME = 'ocfs2'
+CONFIG_FS_PATH = '/usys/cluster'
+
+O2CB_INIT = '/etc/init.d/o2cb'
+O2CB_CTL = 'o2cb_ctl'
+
+PORT_DEFAULT = 7777
+PORT_MINIMUM = 1000
+PORT_MAXIMUM = 30000
+
+(
+    COLUMN_NEW_NODE,
+    COLUMN_NAME,
+    COLUMN_NODE,
+    COLUMN_IP_ADDR,
+    COLUMN_IP_PORT
+) = range(5)
 
 fields = (
-    (COLUMN_NAME,    'Name',       gtk.Entry),
-    (COLUMN_NODE,    'Node',       None),
-    (COLUMN_IP_ADDR, 'IP Address', IPEditor),
-    (COLUMN_IP_PORT, 'IP Port',    gtk.SpinButton)
+    (COLUMN_NEW_NODE, 'Active',     None,           bool),
+    (COLUMN_NAME,     'Name',       gtk.Entry,      str),
+    (COLUMN_NODE,     'Node',       None,           int),
+    (COLUMN_IP_ADDR,  'IP Address', IPEditor,       str),
+    (COLUMN_IP_PORT,  'IP Port',    gtk.SpinButton, str)
 )
 
-class ConfError(Exception):
+class ConfigError(Exception):
     pass
 
-class ClusterConf(gtk.HBox):
-    def __init__(self, toplevel=None):
-        self.toplevel = toplevel
+class ClusterConfig(Dialog):
+    def __init__(self, parent=None):
+        self.new_nodes = 0
 
-        self.get_cluster_state()
+        Dialog.__init__(self, parent=parent, title='Cluster Configurator',
+                        buttons=(gtk.STOCK_APPLY, gtk.RESPONSE_APPLY,
+                                 gtk.STOCK_CLOSE, gtk.RESPONSE_CLOSE))
 
-        gtk.HBox.__init__(self, spacing=4)
-        self.set_border_width(4)
+        frame = gtk.Frame()
+        frame.set_shadow_type(gtk.SHADOW_NONE)
+        self.vbox.add(frame)
 
-        self.tv = gtk.TreeView(self.store)
-        self.tv.set_size_request(350, 200)
+        label = gtk.Label()
+        label.set_text_with_mnemonic('_Nodes:')
+        frame.set_label_widget(label)
 
-        for col, title, widget_type in fields:
-            self.tv.insert_column_with_attributes(-1, title,
-                                                  gtk.CellRendererText(),
-                                                  text=col)
+        hbox = gtk.HBox(spacing=4)
+        hbox.set_border_width(4)
+        frame.add(hbox)
 
         scrl_win = gtk.ScrolledWindow()     
         scrl_win.set_policy(hscrollbar_policy=gtk.POLICY_AUTOMATIC,
                             vscrollbar_policy=gtk.POLICY_AUTOMATIC)
-        self.pack_start(scrl_win)
+        hbox.pack_start(scrl_win)
 
+        self.setup_treeview()
         scrl_win.add(self.tv)
 
         vbbox = gtk.VButtonBox()
         set_props(vbbox, layout_style=gtk.BUTTONBOX_START,
                          spacing=5,
                          border_width=5)
-        self.pack_end(vbbox, expand=False, fill=False)
+        hbox.pack_end(vbbox, expand=False, fill=False)
 
-        button = gtk.Button(stock=gtk.STOCK_ADD)
-        button.connect('clicked', self.add_node)
-        vbbox.add(button)
+        self.add_button = gtk.Button(stock=gtk.STOCK_ADD)
+        self.add_button.connect('clicked', self.add_node)
+        vbbox.add(self.add_button)
 
-        button = gtk.Button(stock=gtk.STOCK_APPLY)
-        button.connect('clicked', self.apply_changes)
-        vbbox.add(button)
+        try:
+            edit_construct_args = {'stock': gtk.STOCK_EDIT}
+        except AttributeError:
+            edit_construct_args = {'label': '_Edit'}
 
-    def get_cluster_state(self):
-        command = 'o2cb_ctl -I -t node -o'
+        self.edit_button = gtk.Button(**edit_construct_args)
+        self.edit_button.connect('clicked', self.edit_node)
+        vbbox.add(self.edit_button)
+        
+        self.remove_button = gtk.Button(stock=gtk.STOCK_REMOVE)
+        self.remove_button.connect('clicked', self.remove_node)
+        vbbox.add(self.remove_button)
 
-        o2cb_ctl = Process(command, 'Cluster Control', 'Querying nodes...',
-                           self.toplevel)
+        self.can_edit(False)
+        self.can_apply(False)
+ 
+        self.sel = self.tv.get_selection()
+        self.sel.connect('changed', self.on_select)
+
+    def load_cluster_state(self):
+        query_args = '-I -t node -o'
+        o2cb_ctl = O2CBCtl(query_args, 'Querying nodes...', self)
         success, output, k = o2cb_ctl.reap()
 
         if not success:
             raise ConfError, output
 
-        self.store = gtk.ListStore(str, str, str, str)
+        self.store = gtk.ListStore(*[f[3] for f in fields])
+
+        def node_compare(store, a, b):
+            n1 = store[a][COLUMN_NODE]
+            n2 = store[b][COLUMN_NODE]
+
+            if n1 < 0 and n2 >= 0:
+                return 1
+            elif n1 >= 0 and n2 < 0:
+                return -1
+            else:
+                return cmp(abs(n1), abs(n2))
+              
+        self.store.set_sort_func(COLUMN_NODE, node_compare)
         self.store.set_sort_column_id(COLUMN_NODE, gtk.SORT_ASCENDING)
 
         buffer = StringIO(output)
@@ -95,20 +143,189 @@ class ClusterConf(gtk.HBox):
             if line.startswith('#'):
                 continue
 
+            data = list((None,) * len(fields))
+
             try:
-                name, cluster, node, ip_addr, ip_port, state = line.split(':')
+                data[COLUMN_NEW_NODE] = False
+
+                (data[COLUMN_NAME],
+                 cluster,
+                 data[COLUMN_NODE],
+                 data[COLUMN_IP_ADDR],
+                 data[COLUMN_IP_PORT],
+                 state) = line.split(':')
+
+                for i in range(0, len(fields)):
+                    data[i] = fields[i][3](data[i])
             except ValueError:
                 continue
 
-            if cluster == 'ocfs2':
-                iter = self.store.append((name, node, ip_addr, ip_port))
+            if cluster == CLUSTER_NAME:
+                self.store.append(data)
 
+        self.new_nodes = 0
+
+        self.tv.set_model(self.store)
+        self.sel.select_iter(self.store.get_iter_first())
+
+    def setup_treeview(self):
+        self.tv = gtk.TreeView()
+        self.tv.set_size_request(350, 200)
+
+        for col, title, widget_type, field_type in fields:
+            if col == COLUMN_NEW_NODE:
+                self.tv.insert_column_with_data_func(-1, title,
+                                                     gtk.CellRendererPixbuf(),
+                                                     self.active_set_func)
+            elif col == COLUMN_NODE:
+                self.tv.insert_column_with_data_func(-1, title,
+                                                     gtk.CellRendererText(),
+                                                     self.node_set_func)
+            else:
+                cell_renderer = gtk.CellRendererText()
+                cell_renderer.set_property('style', pango.STYLE_ITALIC)
+
+                self.tv.insert_column_with_attributes(-1, title,
+                                                      cell_renderer,
+                                                      text=col,
+                                                      style_set=COLUMN_NEW_NODE)
+
+    def active_set_func(self, tree_column, cell, model, iter):
+        if model[iter][COLUMN_NEW_NODE]:
+            stock_id = None
+        else:
+            stock_id = gtk.STOCK_EXECUTE
+
+        cell.set_property('stock_id', stock_id)
+
+    def node_set_func(self, tree_column, cell, model, iter):
+        if model[iter][COLUMN_NEW_NODE]:
+            text = ''
+        else:
+            text = str(model[iter][COLUMN_NODE])
+
+        cell.set_property('text', text)
+
+    def on_select(self, sel):
+        store, iter = sel.get_selected()
+
+        if iter:
+            editable = store[iter][COLUMN_NEW_NODE]
+        else:
+            editable = False
+
+        self.can_edit(editable)
+
+    def can_edit(self, state):
+        self.edit_button.set_sensitive(state)
+        self.remove_button.set_sensitive(state)
+
+    def can_apply(self, state):
+        self.set_response_sensitive(gtk.RESPONSE_APPLY, state)
+            
     def add_node(self, b):
-        toplevel = self.get_toplevel()
+        node_attrs = self.node_query(title='Add Node')
 
-        dialog = gtk.Dialog(parent=toplevel, title='Add Node',
-                            buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                     gtk.STOCK_OK,     gtk.RESPONSE_OK))
+        if node_attrs is None:
+            return
+
+        self.new_nodes += 1
+
+        name, ip_addr, ip_port = node_attrs
+
+        iter = self.store.append((True, name, -self.new_nodes,
+                                  ip_addr, ip_port))
+        self.sel.select_iter(iter)
+
+        self.can_apply(True)
+
+    def edit_node(self, b):
+        store, iter = self.sel.get_selected()
+        attrs = store[iter]
+
+        node_attrs = self.node_query(title='Edit Node', defaults=attrs)
+
+        if node_attrs is None:
+            return
+
+        (attrs[COLUMN_NAME],
+         attrs[COLUMN_IP_ADDR],
+         attrs[COLUMN_IP_PORT]) = node_attrs
+
+    def remove_node(self, b):
+        store, iter = self.sel.get_selected()
+
+        msg = ('Are you sure you want to delete node %s?' %
+               store[iter][COLUMN_NAME])
+
+        ask = gtk.MessageDialog(parent=self,
+                                flags=gtk.DIALOG_DESTROY_WITH_PARENT,
+                                type=gtk.MESSAGE_QUESTION,
+                                buttons=gtk.BUTTONS_YES_NO,
+                                message_format=msg)
+
+        response = ask.run()
+        ask.destroy()
+
+        if response == gtk.RESPONSE_YES:
+            del store[iter]
+            self.new_nodes -= 1
+
+            if self.new_nodes == 0:
+                self.can_apply(False)
+
+            self.sel.select_iter(self.store.get_iter_first())
+
+    def new_node_attrs(self):
+        attrs = []
+
+        for row in self.store:
+            if row[COLUMN_NEW_NODE]:
+                attrs.append((row[COLUMN_NAME],
+                              row[COLUMN_IP_ADDR],
+                              row[COLUMN_IP_PORT]))
+
+        return attrs
+
+    def apply_changes(self):
+        success = False
+
+        for name, ip_addr, ip_port in self.new_node_attrs():
+            add_node_args = ('-C', '-n', name, '-t', 'node',
+                             '-a', 'cluster=%s' % CLUSTER_NAME,
+                             '-a', 'ip_address=%s' % ip_addr,
+                             '-a', 'ip_port=%s' % ip_port,
+                             '-i')
+
+            o2cb_ctl = O2CBCtl(add_node_args, 'Adding node %s...' % name, self)
+            success, output, k = o2cb_ctl.reap()
+
+            if not success:
+                error_box(self, '%s\nCould not add node %s' % (output, name))
+                break
+
+        self.load_cluster_state()
+        return success
+
+    def node_query(self, title='Node Attributes', defaults=None):
+        existing_names = {}
+        existing_ip_addrs = {}
+
+        for row in self.store:
+            name = row[COLUMN_NAME]
+            ip_addr = row[COLUMN_IP_ADDR]
+
+            existing_names[name] = 1
+            existing_ip_addrs[ip_addr] = name
+
+        dialog = Dialog(parent=self, title=title,
+                        buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                                 gtk.STOCK_OK,     gtk.RESPONSE_OK))
+
+        dialog.set_alternative_button_order((gtk.RESPONSE_OK,
+                                             gtk.RESPONSE_CANCEL))
+
+        dialog.set_default_response(gtk.RESPONSE_OK)
 
         table = gtk.Table(rows=4, columns=2)
         set_props(table, row_spacing=4,
@@ -119,7 +336,7 @@ class ClusterConf(gtk.HBox):
         widgets = []
         row = 0
 
-        for col, title, widget_type in fields:
+        for col, title, widget_type, field_type in fields:
             if widget_type is None:
                 widgets.append(None)
                 continue
@@ -134,21 +351,30 @@ class ClusterConf(gtk.HBox):
             if isinstance(widget, gtk.SpinButton):
                 widget.set_numeric(True)
 
-                adjustment = gtk.Adjustment(7777, 1000, 30000, 1, 100) 
-                widget.set_adjustment(adjustment)
+                adjustment = gtk.Adjustment(PORT_DEFAULT,
+                                            PORT_MINIMUM, PORT_MAXIMUM,
+                                            1, 100) 
 
-                widget.set_value(7777)
-        
+                widget.set_adjustment(adjustment)
+                widget.set_value(PORT_DEFAULT)
+
             widgets.append(widget)
 
             row = row + 1
+
+        if defaults:
+            for w, d in zip(widgets, defaults):
+                if w and d:
+                    w.set_text(d)
 
         dialog.show_all()
 
         while 1:
             if dialog.run() != gtk.RESPONSE_OK:
                 dialog.destroy()
-                return
+                return None
+
+            ip_port = widgets[COLUMN_IP_PORT].get_text()
 
             name = widgets[COLUMN_NAME].get_text()
 
@@ -162,46 +388,73 @@ class ClusterConf(gtk.HBox):
                 error_box(dialog, msg[0])
                 continue
 
-            ip_port = widgets[COLUMN_IP_PORT].get_text()
-            break
+            if name in existing_names:
+                error_box(dialog,
+                          'Node %s already exists in the configuration' % name)
+            elif ip_addr in existing_ip_addrs:
+                error_box(dialog,
+                          'IP %s is already assigned to node %s' %
+                          (ip_addr, existing_ip_addrs[ip_addr]))
+            else:
+                break
 
         dialog.destroy()
 
-        command = ('o2cb_ctl', '-C', '-n', name, '-t', 'node',
-                   '-a', 'cluster=ocfs2',
-                   '-a', 'ip_address=%s' % ip_addr,
-                   '-a', 'ip_port=%s' % ip_port,
-                   '-i')
+        return name, ip_addr, ip_port
 
-        o2cb_ctl = Process(command, 'Cluster Control', 'Adding node...',
-                           self.toplevel)
-        success, output, k = o2cb_ctl.reap()
+    def run(self):
+        self.show_all()
 
-        if not success:
-            error_box(self.toplevel,
-                      '%s\nCould not update configuration' % output)
-            return
+        while 1:
+            if Dialog.run(self) == gtk.RESPONSE_APPLY:
+                self.apply_changes()
+            elif len(self.new_node_attrs()):
+                msg = ('New nodes have been created, but they have not been '
+                       'applied to the cluster configuration. Do you want to '
+                       'apply the changes now?')
 
-        self.get_cluster_state()
-        self.tv.set_model(self.store)
+                ask = gtk.MessageDialog(parent=self,
+                                        flags=gtk.DIALOG_DESTROY_WITH_PARENT,
+                                        type=gtk.MESSAGE_QUESTION,
+                                        buttons=gtk.BUTTONS_YES_NO,
+                                        message_format=msg)
 
-    def apply_changes(self, b):
-        pass
+                if ask.run() == gtk.RESPONSE_NO:
+                    break
+                elif self.apply_changes():
+                    break
+            else: 
+                break
 
-def cluster_configurator(parent):
-    if not os.access('/usys/cluster', os.F_OK):
-        command = ('/etc/init.d/o2cb load')
+class O2CBProcess(Process):
+    def __init__(self, args, desc, parent=None):
+        if isinstance(args, types.StringTypes):
+            command = '%s %s' % (self.o2cb_program, args)
+        else:
+            command = (self.o2cb_program,) + tuple(args)
 
-        o2cb = Process(command, 'Cluster Stack', 'Starting cluster stack...',
-                       parent)
-        success, output, k = o2cb.reap()
+        Process.__init__(self, command, self.o2cb_title, desc, parent)
+
+class O2CBCtl(O2CBProcess):
+    o2cb_program = O2CB_CTL
+    o2cb_title = 'Cluster Control'
+
+class O2CBInit(O2CBProcess):
+    o2cb_program = O2CB_INIT
+    o2cb_title = 'Cluster Stack'
+
+def cluster_configurator(parent=None):
+    if not os.access(CONFIG_FS_PATH, os.F_OK):
+        load_args = ('load',)
+        o2cb_init = O2CBInit(load_args, 'Starting cluster stack...', parent)
+        success, output, k = o2cb_init.reap()
 
         if success:
             msg_type = gtk.MESSAGE_INFO
             msg = ('The cluster stack has been started. It needs to be '
                    'running for any clustering functionality to happen. '
-                   'Please run "/etc/init.d/o2cb enable" to have it started '
-                   'upon bootup.')
+                   'Please run "%s enable" to have it started upon bootup.'
+                   % o2cb_init.o2cb_program)
         else:
             msg_type = gtk.MESSAGE_WARNING
             msg = ('Could not start cluster stack. This must be resolved '
@@ -219,42 +472,34 @@ def cluster_configurator(parent):
         if not success:
             return
 
-    command = 'o2cb_ctl -I -t cluster -n ocfs2 -o'
-    o2cb_ctl = Process(command, 'Cluster Control', 'Querying cluster...',
-                       parent)
+    query_args = '-I -t cluster -n %s -o' % CLUSTER_NAME
+    o2cb_ctl = O2CBCtl(query_args, 'Querying cluster...', parent)
     success, output, k = o2cb_ctl.reap()
 
     if not success:
-        command = 'o2cb_ctl -C -n ocfs2 -t cluster -i'
-        o2cb_ctl = Process(command, 'Cluster Control', 'Creating cluster...',
-                           parent)
+        create_args = '-C -n %s -t cluster -i' % CLUSTER_NAME
+        o2cb_ctl = O2CBCtl(query_args, 'Creating cluster...', parent)
         success, output, k = o2cb_ctl.reap()
 
         if not success:
             error_box(parent, '%s\nCould not create cluster' % output)
             return
 
+    conf = ClusterConfig(parent)
+
     try:
-        conf = ClusterConf(parent)
-    except ConfError, e:
+        conf.load_cluster_state()
+    except ConfigError, e:
         error_box(parent, '%s: Could not query cluster configuration' % str(e))
         return
 
-    dialog = gtk.Dialog(parent=parent, title='Cluster Configurator',
-                        buttons=(gtk.STOCK_CLOSE, gtk.RESPONSE_CLOSE))
+    conf.run()
+    conf.destroy()
 
-    dialog.vbox.add(conf)
-    dialog.show_all()
-
-    dialog.run()
-    dialog.destroy()
-
-    if not os.access('/usys/cluster/ocfs2', os.F_OK):
-        command = ('/etc/init.d/o2cb online ocfs2')
-
-        o2cb = Process(command, 'Cluster Stack', 'Starting OCFS2 cluster...',
-                       parent)
-        success, output, k = o2cb.reap()
+    if not os.access(os.path.join(CONFIG_FS_PATH, CLUSTER_NAME), os.F_OK):
+        online_args = ('online', CLUSTER_NAME),
+        o2cb_init = Process(online_args, 'Starting OCFS2 cluster...', parent)
+        success, output, k = o2cb_init.reap()
 
         if not success:
             msg = ('Could not bring OCFS2 cluster online. This must be '
@@ -270,7 +515,7 @@ def cluster_configurator(parent):
             info.destroy()
 
 def main():
-    cluster_configurator(None)
+    cluster_configurator()
 
 if __name__ == '__main__':
     main()
