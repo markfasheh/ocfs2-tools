@@ -27,23 +27,25 @@ class Toolbar:
     def __init__(self, window):
         self.window = window
 
-    def get_widgets(self, data=None):
+    def get_widgets(self):
         toolbar = gtk.Toolbar()
         items = {}
 
-        for i in toolbar_data:
+        for data in toolbar_data:
+            label, stock_id, callback = data
+
             def make_cb():
-                callback = getattr(self.window, i[2])
+                cb = getattr(self.window, callback)
 
-                def cb(w, d=None):
-                    callback(d)
+                def cb_func(w):
+                    cb()
 
-                return cb
+                return cb_func
 
             icon = gtk.Image()
-            icon.set_from_stock(i[1], gtk.ICON_SIZE_BUTTON)
-            items[i[2]] = toolbar.append_item(i[0], i[0], None, icon,
-                                              make_cb(), data)
+            icon.set_from_stock(stock_id, gtk.ICON_SIZE_BUTTON)
+            items[callback] = toolbar.append_item(label, label, None, icon,
+                                                  make_cb())
 
         toolbar.append_space()
 

@@ -65,6 +65,7 @@ PYSRC = \
 	guiutil.py \
 	menu.py \
 	nodemap.py \
+	partitionview.py \
 	process.py \
 	toolbar.py \
 	tune.py

@@ -15,12 +15,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
-import os
-
 import gobject
 import gtk
 
 from guiutil import set_props
+
+base_command = ('fsck.ocfs2',)
 
 try:
     import vte
@@ -52,8 +52,8 @@ def fsck_volume(parent, device, check=False):
     frame.add(hbox)
 
     terminal = vte.Terminal()
-    terminal.set_scrollback_lines(2048)
-    terminal.set_font_from_string('monospace 12')
+    terminal.set_scrollback_lines(8192)
+    #terminal.set_font_from_string('monospace 12')
     hbox.pack_start(terminal)
 
     scrollbar = gtk.VScrollbar()
@@ -96,14 +96,14 @@ def child_exited(terminal, dialog):
     dialog.finished = True
 
 def fsck_command(device, check):
-    command = ['fsck.ocfs2']
+    command = list(base_command)
 
     if check:
         command.append('-n')
     else:
         command.append('-y')
 
-    command.append(device)
+    command.append("'%s'" % device)
 
     realcommand = '%s; sleep 1' % ' '.join(command)
 
