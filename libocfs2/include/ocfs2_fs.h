@@ -374,7 +374,7 @@ typedef struct _ocfs2_dinode {
 		} bitmap1;
 		struct {		/* Info for journal system
 					   inodes */
-			__u32 ij_flags;	/* Mounted, versoin, etc. */
+			__u32 ij_flags;	/* Mounted, version, etc. */
 			__u32 ij_pad;
 		} journal1;
 	} id1;				/* Inode type dependant 1 */
