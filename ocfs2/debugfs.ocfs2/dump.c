@@ -30,8 +30,7 @@
 #include <utils.h>
 #include <journal.h>
 
-extern char *superblk;
-extern __u32 blksz_bits;
+extern dbgfs_gbls gbls;
 
 /*
  * dump_super_block()
@@ -186,7 +185,7 @@ void dump_inode(ocfs2_dinode *in)
  */
 void dump_disk_lock (ocfs2_disk_lock *dl)
 {
-	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	int i, j, k;
 	__u32 node_map;
 
@@ -279,7 +278,7 @@ void dump_config (char *buf)
 	char *p;
 	ocfs_node_config_hdr *hdr;
 	ocfs_node_config_info *node;
-	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	__u16 port;
 	char addr[32];
 	struct in_addr ina;
@@ -295,7 +294,7 @@ void dump_config (char *buf)
 	printf("%-4s %-32s %-15s %-6s %s\n",
 	       "Node", "Name", "IP Addr", "Port", "UUID");
 
-	p = buf + (2 << blksz_bits);
+	p = buf + (2 << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		node = (ocfs_node_config_info *)p;
 		if (!*node->node_name)
@@ -310,7 +309,7 @@ void dump_config (char *buf)
 		for (j = 0; j < OCFS2_GUID_LEN; j++)
 			printf("%c", node->guid.guid[j]);
 		printf("\n");
-		p += (1 << blksz_bits);
+		p += (1 << gbls.blksz_bits);
 	}
 
 	return ;
@@ -325,14 +324,14 @@ void dump_publish (char *buf)
 	ocfs_publish *pub;
 	char *p;
 	GString *pub_flag;
-	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	__u32 i, j;
 
 	printf("%-2s %-3s %-3s %-3s %-15s %-15s %-15s %-*s %-s\n",
 	       "No", "Mnt", "Vot", "Dty", "LockId", "Seq", "Time", sb->s_max_nodes,
 	       "Map", "Type");
 
-	p = buf + ((2 + 4 + sb->s_max_nodes) << blksz_bits);
+	p = buf + ((2 + 4 + sb->s_max_nodes) << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		pub = (ocfs_publish *)p;
 
@@ -350,7 +349,7 @@ void dump_publish (char *buf)
 
 		g_string_free (pub_flag, 1);
 
-		p += (1 << blksz_bits);
+		p += (1 << gbls.blksz_bits);
 	}
 
 	return ;	
@@ -365,13 +364,13 @@ void dump_vote (char *buf)
 	ocfs_vote *vote;
 	char *p;
 	GString *vote_flag;
-	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	__u32 i;
 
 	printf("%-2s %-2s %-1s %-15s %-15s %-s\n",
 	       "No", "NV", "O", "LockId", "Seq", "Type");
 
-	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << blksz_bits);
+	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << gbls.blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		vote = (ocfs_vote *)p;
 
@@ -383,7 +382,7 @@ void dump_vote (char *buf)
 		       vote->vote_seq_num, vote_flag->str);
 
 		g_string_free (vote_flag, 1);
-		p += (1 << blksz_bits);
+		p += (1 << gbls.blksz_bits);
 	}
 
 	return ;

@@ -61,6 +61,20 @@ enum {
 	VOTE
 };
 
+typedef struct _dbgfs_glbs {
+	char *device;
+	int   dev_fd;
+	__u32 blksz_bits;
+	__u32 clstrsz_bits;
+	__u64 root_blkno;
+	__u64 sysdir_blkno;
+	__u64 dlm_blkno;
+	char *curdir;
+	ocfs2_dinode *superblk;
+	ocfs2_dinode *rootin;
+	ocfs2_dinode *sysdirin;
+} dbgfs_gbls;
+
 #define safefree(_p)	do {if (_p) { free(_p); (_p) = NULL; } } while (0)
 
 #define DBGFS_FATAL(fmt, arg...)	({ fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \

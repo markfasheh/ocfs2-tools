@@ -70,18 +70,19 @@ static void do_journal (char **args);
 
 extern gboolean allow_write;
 
-char *device = NULL;
-int   dev_fd = -1;
-__u32 blksz_bits = 0;
-__u32 clstrsz_bits = 0;
-__u64 root_blkno = 0;
-__u64 sysdir_blkno = 0;
-__u64 dlm_blkno = 0;
-char *curdir = NULL;
-char *superblk = NULL;
-char *rootin = NULL;
-char *sysdirin = NULL;
-
+dbgfs_gbls gbls = {
+	.device = NULL,
+	.dev_fd = -1,
+	.blksz_bits = 0,
+	.clstrsz_bits = 0,
+	.root_blkno = 0,
+	.sysdir_blkno = 0,
+	.dlm_blkno = 0,
+	.curdir = NULL,
+	.superblk = NULL,
+	.rootin = NULL,
+	.sysdirin = NULL
+};
 
 static Command commands[] =
 {
@@ -172,11 +173,10 @@ void do_command (char *cmd)
 static void do_open (char **args)
 {
 	char *dev = args[1];
-	ocfs2_dinode *inode;
 	ocfs2_super_block *sb;
 	__u32 len;
 
-	if (device)
+	if (gbls.device)
 		do_close (NULL);
 
 	if (dev == NULL) {
@@ -184,46 +184,47 @@ static void do_open (char **args)
 		goto bail;
 	}
 
-	dev_fd = open (dev, allow_write ? O_RDONLY : O_RDWR);
-	if (dev_fd == -1) {
+	gbls.dev_fd = open (dev, allow_write ? O_RDONLY : O_RDWR);
+	if (gbls.dev_fd == -1) {
 		printf ("could not open device %s\n", dev);
 		goto bail;
 	}
 
-	device = g_strdup (dev);
+	gbls.device = g_strdup (dev);
 
-	if (read_super_block (dev_fd, &superblk) != -1)
-		curdir = g_strdup ("/");
+	if (read_super_block (gbls.dev_fd, (char **)&gbls.superblk) != -1)
+		gbls.curdir = g_strdup ("/");
 	else {
-		close (dev_fd);
-		dev_fd = -1;
+		close (gbls.dev_fd);
+		gbls.dev_fd = -1;
 		goto bail;
 	}
 
-	inode = (ocfs2_dinode *)superblk;
-	sb = &(inode->id2.i_super);
+	sb = &(gbls.superblk->id2.i_super);
 	/* set globals */
-	clstrsz_bits = sb->s_clustersize_bits;
-	blksz_bits = sb->s_blocksize_bits;
-	root_blkno = sb->s_root_blkno;
-	sysdir_blkno = sb->s_system_dir_blkno;
+	gbls.clstrsz_bits = sb->s_clustersize_bits;
+	gbls.blksz_bits = sb->s_blocksize_bits;
+	gbls.root_blkno = sb->s_root_blkno;
+	gbls.sysdir_blkno = sb->s_system_dir_blkno;
 
 	/* read root inode */
-	len = 1 << blksz_bits;
-	if (!(rootin = malloc(len)))
+	len = 1 << gbls.blksz_bits;
+	if (!(gbls.rootin = malloc(len)))
 		DBGFS_FATAL("%s", strerror(errno));
-	if ((pread64(dev_fd, rootin, len, (root_blkno << blksz_bits))) == -1)
+	if ((pread64(gbls.dev_fd, (char *)gbls.rootin, len,
+		     (gbls.root_blkno << gbls.blksz_bits))) == -1)
 		DBGFS_FATAL("%s", strerror(errno));
 
 	/* read sysdir inode */
-	len = 1 << blksz_bits;
-	if (!(sysdirin = malloc(len)))
+	len = 1 << gbls.blksz_bits;
+	if (!(gbls.sysdirin = malloc(len)))
 		DBGFS_FATAL("%s", strerror(errno));
-	if ((pread64(dev_fd, sysdirin, len, (sysdir_blkno << blksz_bits))) == -1)
+	if ((pread64(gbls.dev_fd, (char *)gbls.sysdirin, len,
+		     (gbls.sysdir_blkno << gbls.blksz_bits))) == -1)
 		DBGFS_FATAL("%s", strerror(errno));
 
 	/* load sysfiles blknums */
-	read_sysdir (dev_fd, sysdirin);
+	read_sysdir (gbls.dev_fd, (char *)gbls.sysdirin);
 
 bail:
 	return ;
@@ -235,18 +236,18 @@ bail:
  */
 static void do_close (char **args)
 {
-	if (device) {
-		g_free (device);
-		device = NULL;
-		close (dev_fd);
-		dev_fd = -1;
+	if (gbls.device) {
+		g_free (gbls.device);
+		gbls.device = NULL;
+		close (gbls.dev_fd);
+		gbls.dev_fd = -1;
 
-		g_free (curdir);
-		curdir = NULL;
+		g_free (gbls.curdir);
+		gbls.curdir = NULL;
 
-		safefree (superblk);
-		safefree (rootin);
-		safefree (sysdirin);
+		safefree (gbls.superblk);
+		safefree (gbls.rootin);
+		safefree (gbls.sysdirin);
 	} else
 		printf ("device not open\n");
 
@@ -275,24 +276,24 @@ static void do_ls (char **args)
 	GArray *dirarr = NULL;
 	__u32 len;
 
-	if (dev_fd == -1) {
+	if (gbls.dev_fd == -1) {
 		printf ("device not open\n");
 		goto bail;
 	}
 
-	len = 1 << blksz_bits;
+	len = 1 << gbls.blksz_bits;
 	if (!(buf = malloc(len)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if (opts) {
 		blknum = atoi(opts);
-		if ((read_inode (dev_fd, blknum, buf, len)) == -1) {
+		if ((read_inode (gbls.dev_fd, blknum, buf, len)) == -1) {
 			printf("Not an inode\n");
 			goto bail;
 		}
 		inode = (ocfs2_dinode *)buf;
 	} else {
-		inode = (ocfs2_dinode *)rootin;
+		inode = gbls.rootin;
 	}
 
 	if (!S_ISDIR(inode->i_mode)) {
@@ -302,7 +303,7 @@ static void do_ls (char **args)
 
 	dirarr = g_array_new(0, 1, sizeof(struct ocfs2_dir_entry));
 
-	read_dir (dev_fd, &(inode->id2.i_list), inode->i_size, dirarr);
+	read_dir (gbls.dev_fd, &(inode->id2.i_list), inode->i_size, dirarr);
 
 	dump_dir_entry (dirarr);
 
@@ -321,7 +322,7 @@ bail:
  */
 static void do_pwd (char **args)
 {
-	printf ("%s\n", curdir ? curdir : "No dir");
+	printf ("%s\n", gbls.curdir ? gbls.curdir : "No dir");
 }					/* do_pwd */
 
 /*
@@ -416,7 +417,7 @@ static void do_lcd (char **args)
  */
 static void do_curdev (char **args)
 {
-	printf ("%s\n", device ? device : "No device");
+	printf ("%s\n", gbls.device ? gbls.device : "No device");
 }					/* do_curdev */
 
 /*
@@ -438,12 +439,12 @@ static void do_super (char **args)
 	ocfs2_dinode *in;
 	ocfs2_super_block *sb;
 
-	if (dev_fd == -1) {
+	if (gbls.dev_fd == -1) {
 		printf ("device not open\n");
 		goto bail;
 	}
 
-	in = (ocfs2_dinode *)superblk;
+	in = gbls.superblk;
 	sb = &(in->id2.i_super);
 	dump_super_block(sb);
 
@@ -466,24 +467,24 @@ static void do_inode (char **args)
 	char *buf = NULL;
 	__u32 buflen;
 
-	if (dev_fd == -1) {
+	if (gbls.dev_fd == -1) {
 		printf ("device not open\n");
 		goto bail;
 	}
 
-	buflen = 1 << blksz_bits;
+	buflen = 1 << gbls.blksz_bits;
 	if (!(buf = malloc(buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if (opts) {
 		blknum = atoi(opts);
-		if ((read_inode (dev_fd, blknum, buf, buflen)) == -1) {
+		if ((read_inode (gbls.dev_fd, blknum, buf, buflen)) == -1) {
 			printf("Not an inode\n");
 			goto bail;
 		}
 		inode = (ocfs2_dinode *)buf;
 	} else {
-		inode = (ocfs2_dinode *)rootin;
+		inode = gbls.rootin;
 	}
 
 	dump_inode(inode);
@@ -491,7 +492,7 @@ static void do_inode (char **args)
 	if ((inode->i_flags & OCFS2_LOCAL_ALLOC_FL))
 		dump_local_alloc(&(inode->id2.i_lab));
 	else
-		traverse_extents(dev_fd, &(inode->id2.i_list), NULL, 1);
+		traverse_extents(gbls.dev_fd, &(inode->id2.i_list), NULL, 1);
 
 bail:
 	safefree (buf);
@@ -506,10 +507,10 @@ static void do_config (char **args)
 {
 	char *dlmbuf = NULL;
 
-	if (dev_fd == -1)
+	if (gbls.dev_fd == -1)
 		printf ("device not open\n");
 	else {
-		if (read_file (dev_fd, dlm_blkno, -1, &dlmbuf) == -1)
+		if (read_file (gbls.dev_fd, gbls.dlm_blkno, -1, &dlmbuf) == -1)
 			goto bail;
 		dump_config (dlmbuf);
 	}
@@ -527,10 +528,10 @@ static void do_publish (char **args)
 {
 	char *dlmbuf = NULL;
 
-	if (dev_fd == -1)
+	if (gbls.dev_fd == -1)
 		printf ("device not open\n");
 	else {
-		if (read_file (dev_fd, dlm_blkno, -1, &dlmbuf) == -1)
+		if (read_file (gbls.dev_fd, gbls.dlm_blkno, -1, &dlmbuf) == -1)
 			goto bail;
 		dump_publish (dlmbuf);
 	}
@@ -548,10 +549,10 @@ static void do_vote (char **args)
 {
 	char *dlmbuf = NULL;
 	
-	if (dev_fd == -1)
+	if (gbls.dev_fd == -1)
 		printf ("device not open\n");
 	else {
-		if (read_file (dev_fd, dlm_blkno, -1, &dlmbuf) == -1)
+		if (read_file (gbls.dev_fd, gbls.dlm_blkno, -1, &dlmbuf) == -1)
 			goto bail;
 		dump_vote (dlmbuf);
 	}
@@ -573,7 +574,7 @@ static void do_dump (char **args)
 	int op = 0;  /* 0 = dump, 1 = cat */
 	char *outfile = NULL;
 
-	if (dev_fd == -1) {
+	if (gbls.dev_fd == -1) {
 		printf ("device not open\n");
 		goto bail;
 	}
@@ -599,7 +600,7 @@ static void do_dump (char **args)
 		}
 	}
 
-	read_file (dev_fd, blknum, outfd, NULL);
+	read_file (gbls.dev_fd, blknum, outfd, NULL);
 
 bail:
 	if (outfd > 2)
@@ -623,10 +624,10 @@ static void do_journal (char **args)
 	if (!blknum)
 		goto bail;
 
-	if (dev_fd == -1)
+	if (gbls.dev_fd == -1)
 		printf ("device not open\n");
 	else {
-		if ((len = read_file (dev_fd, blknum, -1, &logbuf)) == -1)
+		if ((len = read_file (gbls.dev_fd, blknum, -1, &logbuf)) == -1)
 			goto bail;
 		read_journal (logbuf, (__u64)len);
 	}
@@ -635,4 +636,3 @@ bail:
 	safefree (logbuf);
 	return ;
 }					/* do_journal */
-

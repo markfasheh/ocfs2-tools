@@ -30,7 +30,7 @@
 #include <utils.h>
 #include <journal.h>
 
-extern __u32 blksz_bits;
+extern dbgfs_gbls gbls;
 
 /*
  * read_journal()
@@ -42,7 +42,7 @@ void read_journal (char *buf, __u64 buflen)
 	int blocknum;
 	journal_header_t *header;
 	int last_metadata = 0;
-	__u32 blksize = 1 << blksz_bits;
+	__u32 blksize = 1 << gbls.blksz_bits;
 	__u64 len;
 	char *p;
 
@@ -209,7 +209,7 @@ void print_jbd_block (journal_header_t *header)
 	case JFS_DESCRIPTOR_BLOCK:
 		printf("Journal Descriptor\n");
 		print_header(header, "hdr");
-		for(i = sizeof(journal_header_t); i < (1 << blksz_bits);
+		for(i = sizeof(journal_header_t); i < (1 << gbls.blksz_bits);
 		    i+=sizeof(journal_block_tag_t)) {
 			tag = (journal_block_tag_t *) &blk[i];
 			printf("\ttag[%d]->t_blocknr:\t\t%u\n", count,

@@ -30,10 +30,7 @@
 #include <utils.h>
 #include <journal.h>
 
-extern __u32 blksz_bits;
-extern __u32 clstrsz_bits;
-extern __u64 dlm_blkno;
-extern char *superblk;
+extern dbgfs_gbls gbls;
 
 /*
  * read_super_block()
@@ -105,7 +102,7 @@ int read_inode (int fd, __u64 blknum, char *buf, int buflen)
 	ocfs2_dinode *inode;
 	int ret = 0;
 
-	off = blknum << blksz_bits;
+	off = blknum << gbls.blksz_bits;
 
 	if ((pread64(fd, buf, buflen, off)) == -1)
 		DBGFS_FATAL("%s", strerror(errno));
@@ -141,11 +138,11 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump)
 		if (ext->l_tree_depth == 0)
 			add_extent_rec (arr, rec);
 		else {
-			buflen = 1 << blksz_bits;
+			buflen = 1 << gbls.blksz_bits;
 			if (!(buf = malloc(buflen)))
 				DBGFS_FATAL("%s", strerror(errno));
 
-			off = (__u64)rec->e_blkno << blksz_bits;
+			off = (__u64)rec->e_blkno << gbls.blksz_bits;
 			if ((pread64 (fd, buf, buflen, off)) == -1)
 				DBGFS_FATAL("%s", strerror(errno));
 
@@ -204,9 +201,9 @@ void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
 
-		off = rec->e_blkno << blksz_bits;
-                foff = rec->e_cpos << clstrsz_bits;
-		len = rec->e_clusters << clstrsz_bits;
+		off = rec->e_blkno << gbls.blksz_bits;
+                foff = rec->e_cpos << gbls.clstrsz_bits;
+		len = rec->e_clusters << gbls.clstrsz_bits;
                 if ((foff + len) > size)
                     len = size - foff;
 
@@ -253,7 +250,7 @@ void read_sysdir (int fd, char *sysdir)
 	for (i = 0; i < dirarr->len; ++i) {
 		rec = &(g_array_index(dirarr, struct ocfs2_dir_entry, i));
 		if (!strncmp (rec->name, dlm, strlen(dlm)))
-			dlm_blkno = rec->inode;
+			gbls.dlm_blkno = rec->inode;
 	}
 
 bail:
@@ -284,7 +281,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
 
-	buflen = 1 << blksz_bits;
+	buflen = 1 << gbls.blksz_bits;
 	if (!(inode_buf = malloc(buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
@@ -313,9 +310,9 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
-		off = rec->e_blkno << blksz_bits;
-		foff = rec->e_cpos << clstrsz_bits;
-		len = rec->e_clusters << clstrsz_bits;
+		off = rec->e_blkno << gbls.blksz_bits;
+		foff = rec->e_cpos << gbls.clstrsz_bits;
+		len = rec->e_clusters << gbls.clstrsz_bits;
 		if ((foff + len) > inode->i_size)
 			len = inode->i_size - foff;
 
