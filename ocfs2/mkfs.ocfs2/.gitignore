@@ -1,3 +1,4 @@
 .*.sw?
 stamp-md5
 mkfs.ocfs2
+cscope*
