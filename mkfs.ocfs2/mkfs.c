@@ -310,10 +310,12 @@ main(int argc, char **argv)
 	SystemFileDiskRecord superblock_rec;
 	SystemFileDiskRecord root_dir_rec;
 	SystemFileDiskRecord system_dir_rec;
+	SystemFileDiskRecord lostfound_dir_rec;
 	int i, j, num;
 	DirData *orphan_dir;
 	DirData *root_dir;
 	DirData *system_dir;
+	DirData *lostfound_dir;
 	uint64_t need;
 	SystemFileDiskRecord *tmprec;
 	char fname[SYSTEM_FILE_NAME_MAX];
@@ -340,6 +342,7 @@ main(int argc, char **argv)
 	init_record(s, &superblock_rec, SFI_OTHER, S_IFREG | 0644);
 	init_record(s, &root_dir_rec, SFI_OTHER, S_IFDIR | 0755);
 	init_record(s, &system_dir_rec, SFI_OTHER, S_IFDIR | 0755);
+	init_record(s, &lostfound_dir_rec, SFI_OTHER, S_IFDIR | 0755);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		num = system_files[i].global ? 1 : s->initial_nodes;
@@ -354,6 +357,7 @@ main(int argc, char **argv)
 	root_dir = alloc_directory(s);
 	system_dir = alloc_directory(s);
 	orphan_dir = alloc_directory(s);
+	lostfound_dir = alloc_directory(s);
 
 	need = (s->volume_size_in_clusters + 7) >> 3;
 	need = ((need + s->cluster_size - 1) >> s->cluster_size_bits) << s->cluster_size_bits;
@@ -414,6 +418,17 @@ main(int argc, char **argv)
 	add_entry_to_directory(s, root_dir, ".", root_dir_rec.fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, root_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
 
+	alloc_from_bitmap (s, 1, s->global_bm,
+			   &lostfound_dir_rec.extent_off,
+			   &lostfound_dir_rec.extent_len);
+
+	lostfound_dir_rec.fe_off = alloc_inode(s, &lostfound_dir_rec.suballoc_bit);
+	lostfound_dir->record = &lostfound_dir_rec;
+
+	add_entry_to_directory(s, lostfound_dir, ".", lostfound_dir_rec.fe_off, OCFS2_FT_DIR);
+	add_entry_to_directory(s, lostfound_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
+	add_entry_to_directory(s, root_dir, "lost+found", lostfound_dir_rec.fe_off, OCFS2_FT_DIR);
+
 	need = system_dir_blocks_needed(s) << s->blocksize_bits;
 	alloc_bytes_from_bitmap(s, need, s->global_bm,
 				&system_dir_rec.extent_off,
@@ -469,6 +484,7 @@ main(int argc, char **argv)
 
 	format_file(s, &root_dir_rec);
 	format_file(s, &system_dir_rec);
+	format_file(s, &lostfound_dir_rec);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		num = system_files[i].global ? 1 : s->initial_nodes;
@@ -503,6 +519,7 @@ main(int argc, char **argv)
 	write_directory_data(s, root_dir);
 	write_directory_data(s, system_dir);
 	write_directory_data(s, orphan_dir);
+	write_directory_data(s, lostfound_dir);
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
 	write_metadata(s, tmprec, NULL);
