@@ -1,3 +1,4 @@
 .*.sw?
 find_hardlinks
 find_dup_extents
+find_inode_paths

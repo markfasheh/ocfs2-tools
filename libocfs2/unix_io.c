@@ -55,6 +55,29 @@ struct _io_channel {
 };
 
 
+static errcode_t io_validate_o_direct(io_channel *channel)
+{
+	errcode_t ret = OCFS2_ET_UNEXPECTED_BLOCK_SIZE;
+	int block_size;
+	char *blk;
+
+	for (block_size = io_get_blksize(channel);
+	     block_size <= OCFS2_MAX_BLOCKSIZE;
+	     block_size <<= 1) {
+		io_set_blksize(channel, block_size);
+		ret = ocfs2_malloc_block(channel, &blk);
+		if (ret)
+			break;
+
+		ret = io_read_block(channel, 0, 1, blk);
+		ocfs2_free(&blk);
+		if (!ret)
+			break;
+	}
+
+	return ret;
+}
+
 errcode_t io_open(const char *name, int flags, io_channel **channel)
 {
 	errcode_t ret;
@@ -87,6 +110,10 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 		chan->io_error = errno;
 		goto out_name;
 	}
+
+	ret = io_validate_o_direct(chan);
+	if (ret)
+		goto out_close;  /* FIXME: bindraw here */
 
 	/* Workaround from e2fsprogs */
 #ifdef __linux__
@@ -126,6 +153,10 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 
 	*channel = chan;
 	return 0;
+
+out_close:
+	/* Ignore the return, leave the original error */
+	close(chan->io_fd);
 
 out_name:
 	ocfs2_free(&chan->io_name);
