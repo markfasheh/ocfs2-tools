@@ -51,7 +51,8 @@ proxy_partition_func (OcfsPartitionInfo *info,
 {
   ProxyData *data = pdata;
 
-  PyObject_CallFunction (data->func, "ss", info->device, info->mountpoint);
+  PyObject_CallFunction (data->func, "sss",
+			 info->device, info->mountpoint, info->fstype);
 }
 
 static void
@@ -60,8 +61,9 @@ proxy_partition_func_data (OcfsPartitionInfo *info,
 {
   ProxyData *data = pdata;
 
-  PyObject_CallFunction (data->func, "ssO",
-			 info->device, info->mountpoint, data->data);
+  PyObject_CallFunction (data->func, "sssO",
+			 info->device, info->mountpoint, info->fstype,
+			 data->data);
 }
 
 static void
@@ -70,7 +72,7 @@ proxy_unmounted_func (OcfsPartitionInfo *info,
 {
   ProxyData *data = pdata;
 
-  PyObject_CallFunction (data->func, "s", info->device);
+  PyObject_CallFunction (data->func, "ss", info->device, info->fstype);
 }
 
 static void
@@ -79,7 +81,8 @@ proxy_unmounted_func_data (OcfsPartitionInfo *info,
 {
   ProxyData *data = pdata;
 
-  PyObject_CallFunction (data->func, "sO", info->device, data->data);
+  PyObject_CallFunction (data->func, "ssO", info->device, info->fstype,
+			 data->data);
 }
 
 
@@ -91,19 +94,19 @@ partition_list (PyObject *self,
   ProxyData              proxy_data;
   OcfsPartitionListFunc  func;
   PyObject              *py_func, *py_data = NULL;
-  gchar                 *filter = NULL, *type = NULL;
+  gchar                 *filter = NULL, *fstype = NULL;
   gboolean               unmounted = FALSE, async = FALSE;
 
   static gchar *kwlist[] = {
     "callback", "data",
-    "filter", "type", "unmounted", "async",
+    "filter", "fstype", "unmounted", "async",
     NULL
   };
 
   if (!PyArg_ParseTupleAndKeywords (args, kwargs,
 				    "O|Ossii:partition_list", kwlist,
 				    &py_func, &py_data,
-				    &filter, &type, &unmounted, &async))
+				    &filter, &fstype, &unmounted, &async))
     return NULL;
 
   if (!PyCallable_Check (py_func))
@@ -131,7 +134,7 @@ partition_list (PyObject *self,
 	func = proxy_partition_func;
     }
 
-  ocfs_partition_list (func, &proxy_data, filter, type, unmounted, async);
+  ocfs_partition_list (func, &proxy_data, filter, fstype, unmounted, async);
 
   Py_INCREF (Py_None);
   return Py_None;

@@ -146,7 +146,7 @@ entries = (
 def format_partition(parent, device):
     partitions = []
 
-    def add_partition(device):
+    def add_partition(device, fstype):
         partitions.append(device)
 
     ocfs2.partition_list(add_partition, unmounted=True)

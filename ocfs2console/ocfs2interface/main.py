@@ -125,12 +125,12 @@ class PartitionView(gtk.TreeView):
         store.set_sort_column_id(COLUMN_DEVICE, gtk.SORT_ASCENDING)
 
         ocfs2.partition_list(self.add_partition, data=old_device,
-                             filter=filter, type='ocfs2', async=True)
+                             filter=filter, fstype='ocfs2', async=True)
 
         if len(store) and not self.selected:
             self.sel.select_iter(store.get_iter_first())
 
-    def add_partition(self, device, mountpoint, old_device):
+    def add_partition(self, device, mountpoint, fstype, old_device):
         iter = self.store.append((device, mountpoint))
 
         if device == old_device:

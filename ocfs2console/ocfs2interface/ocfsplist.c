@@ -1,9 +1,9 @@
 /*
  * ocfsplist.c
  *
- * Create a list of valid partitions
+ * Walk the partition list on a system
  *
- * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
+ * Copyright (C) 2002, 2005 Oracle Corporation.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -23,7 +23,6 @@
  * Author: Manish Singh
  */
 
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,7 +52,7 @@ struct _WalkData
   gpointer               data;
 
   GPatternSpec          *filter;
-  const gchar           *type;
+  const gchar           *fstype;
 
   gboolean               unmounted;
   gboolean               async;
@@ -64,15 +63,15 @@ struct _WalkData
 };
 
 
-static gboolean type_check          (const gchar  *device,
-				     WalkData     *wdata);
-static gboolean valid_device        (const gchar  *device,
-				     WalkData     *wdata);
-static void     partition_info_fill (GHashTable   *info,
-                                     gboolean      async);
-static gboolean partition_walk      (gpointer      key,
-				     gpointer      value,
-				     gpointer      user_data);
+static gchar    *fstype_check        (const gchar  *device,
+				      WalkData     *wdata);
+static gchar    *get_device_fstype   (const gchar  *device,
+				      WalkData     *wdata);
+static void      partition_info_fill (GHashTable   *info,
+				      gboolean      async);
+static gboolean  partition_walk      (gpointer      key,
+				      gpointer      value,
+				      gpointer      user_data);
 
 
 static inline void
@@ -89,15 +88,12 @@ async_loop_run (gboolean     async,
     }
 }
 
-static gboolean
-type_check (const gchar *device,
+static gchar *
+fstype_check (const gchar *device,
 	    WalkData    *wdata)
 {
-  blkid_dev dev;
-  gboolean  found = FALSE;
-
-  if (wdata->type == NULL)
-    return TRUE;
+  blkid_dev  dev;
+  gchar     *fstype = NULL;
 
   dev = blkid_get_dev(wdata->cache, device, BLKID_DEV_NORMAL);
 
@@ -110,22 +106,29 @@ type_check (const gchar *device,
 
       while (blkid_tag_next (iter, &type, &value) == 0)
 	{
-	  if (!strcmp (type, "TYPE") && !strcmp (value, wdata->type))
+	  if (strcmp (type, "TYPE") == 0)
 	    {
-	      found = TRUE;
-	      break;
+	      if ((wdata->fstype == NULL) ||
+		  (strcmp (value, wdata->fstype) == 0))
+		{
+		  fstype = g_strdup (value);
+		  break;
+		}
 	    }
 	}
 
       blkid_tag_iterate_end (iter);
     }
 
-  return found;
+  if (fstype == NULL && wdata->fstype == NULL)
+    fstype = g_strdup ("unknown");
+
+  return fstype;
 }
 
-static gboolean
-valid_device (const gchar  *device,
-              WalkData     *wdata)
+static gchar *
+get_device_fstype (const gchar  *device,
+		   WalkData     *wdata)
 {
   gboolean     is_bad = FALSE;
   struct stat  sbuf;
@@ -134,17 +137,17 @@ valid_device (const gchar  *device,
   gint         i, fd;
 
   if (wdata->filter && !g_pattern_match_string (wdata->filter, device))
-    return FALSE;
+    return NULL;
 
   if ((stat (device, &sbuf) != 0) ||
       (!S_ISBLK (sbuf.st_mode)) ||
       ((sbuf.st_mode & 0222) == 0))
-    return FALSE;
+    return NULL;
 
   if (strncmp ("/dev/hd", device, 7) == 0)
     {
       i = strlen (device) - 1;
-      while (i > 5 && isdigit (device[i]))
+      while (i > 5 && g_ascii_isdigit (device[i]))
 	i--;
 
       d =  g_strndup (device + 5, i + 1);
@@ -162,15 +165,15 @@ valid_device (const gchar  *device,
 	fclose (f);
      
       if (is_bad)
-	return FALSE; 
+	return NULL;
     }
 
   fd = open (device, O_RDWR);
   if (fd == -1)
-    return FALSE;
+    return NULL;
   close (fd);
 
-  return type_check (device, wdata);
+  return fstype_check (device, wdata);
 }
 
 static void
@@ -196,9 +199,9 @@ partition_info_fill (GHashTable *info,
       device = g_strconcat ("/dev/", name, NULL);
 
       i = strlen (device) - 1;
-      if (isdigit (device[i]))
+      if (g_ascii_isdigit (device[i]))
 	{
-	  while (i > 0 && isdigit (device[i]))
+	  while (i > 0 && g_ascii_isdigit (device[i]))
 	    i--;
 
 	  p = g_strndup (device, i + 1);
@@ -256,7 +259,9 @@ partition_walk (gpointer key,
     {
       device = list->data;
 
-      if (valid_device (device, wdata))
+      info.fstype = get_device_fstype (device, wdata);
+
+      if (info.fstype)
 	{
 	  info.device = device;
 
@@ -274,6 +279,8 @@ partition_walk (gpointer key,
 
 	  if (!wdata->unmounted || !info.mountpoint)
 	    wdata->func (&info, wdata->data);
+
+	  g_free (info.fstype);
 	}
 
       last = list;
@@ -309,15 +316,18 @@ void
 ocfs_partition_list (OcfsPartitionListFunc  func,
 		     gpointer               data,
 		     const gchar           *filter,
-		     const gchar           *type,
+		     const gchar           *fstype,
 		     gboolean               unmounted,
 		     gboolean               async)
 {
   GHashTable *info;
-  WalkData    wdata = { func, data, NULL, type, unmounted, async, 0 };
+  WalkData    wdata = { func, data, NULL, fstype, unmounted, async, 0 };
 
   if (blkid_get_cache (&wdata.cache, NULL) < 0)
     return;
+
+  if (fstype && *fstype == '\0')
+    wdata.fstype = NULL;
 
   if (filter && *filter)
     wdata.filter = g_pattern_spec_new (filter);
@@ -354,10 +364,10 @@ main (int    argc,
   OcfsPartitionInfo *info;
 
   g_print ("All:\n");
-  ocfs_partition_list (list_func, NULL, FALSE);
+  ocfs_partition_list (list_func, NULL, NULL, FALSE, FALSE);
   
   g_print ("Unmounted:\n");
-  plist = ocfs_partition_list (list_func, NULL, TRUE);
+  plist = ocfs_partition_list (list_func, NULL, NULL, TRUE, FALSE);
 
   return 0;
 }

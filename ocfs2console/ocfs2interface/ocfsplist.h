@@ -35,6 +35,7 @@ struct _OcfsPartitionInfo
 {
   gchar      *device;
   gchar      *mountpoint;
+  gchar      *fstype;
 };
 
 
@@ -45,7 +46,7 @@ typedef void (*OcfsPartitionListFunc) (OcfsPartitionInfo *info,
 void ocfs_partition_list (OcfsPartitionListFunc  func,
 			  gpointer               data,
 			  const gchar           *filter,
-			  const gchar           *type,
+			  const gchar           *fstype,
 			  gboolean               unmounted,
 			  gboolean               async);
 
