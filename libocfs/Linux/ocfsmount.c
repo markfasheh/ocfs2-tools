@@ -394,7 +394,8 @@ int ocfs_mount_volume (struct super_block *sb, bool reclaim_id)
 static void lockres_hash_free_func (const void *p)
 {
 	/* Force remove the lockres */
-	ocfs_free_lockres((ocfs_lock_res *)p);
+  	if (p)
+		ocfs_free((ocfs_lock_res *)p);
 }
 
 
