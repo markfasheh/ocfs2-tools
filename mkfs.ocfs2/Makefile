@@ -9,7 +9,7 @@ ifdef OCFS_DEBUG
 OPTS = -g
 endif
 
-CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
+CFLAGS = $(OPTS) $(WARNINGS) 
 
 SBIN_PROGRAMS = mkfs.ocfs2
 
@@ -20,18 +20,6 @@ INCLUDES = $(LIBOCFS2_CFLAGS)
 DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 OPTIMIZE = -O2
-
-ifeq ($(OCFS_PROCESSOR),x86_64)
-  CFLAGS += -m64
-endif
-ifeq ($(OCFS_PROCESSOR),ia64)
-endif
-ifeq ($(OCFS_PROCESSOR),i686)
-  DEFINES += -D__ILP32__
-endif
-ifeq ($(OCFS_PROCESSOR),s390x)
-  DEFINES += -D__LP64__
-endif
 
 CFLAGS += $(OPTIMIZE)
 

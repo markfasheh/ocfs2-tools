@@ -4,23 +4,13 @@ include $(TOPDIR)/Preamble.make
 
 SBIN_PROGRAMS = fsck.ocfs2
 
-
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 
 CFLAGS := -g -Wall -Wstrict-prototypes -Wmissing-prototypes \
-           -Wmissing-declarations -fno-strict-aliasing
+           -Wmissing-declarations
 
 DEFINES = -DOCFS2_FLAT_INCLUDES
-
-ifeq ($(OCFS_PROCESSOR),x86_64)
-  CFLAGS += -m64
-endif
-ifeq ($(OCFS_PROCESSOR),ia64)
-endif
-ifeq ($(OCFS_PROCESSOR),i686)
-  DEFINES += -D__ILP32__
-endif
 
 CFILES =	fsck.c		\
 		dirblocks.c 	\

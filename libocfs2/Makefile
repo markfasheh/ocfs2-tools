@@ -13,21 +13,10 @@ INCLUDES = -Iinclude
 
 LIBRARIES = libocfs2.a
 
-CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) -fPIC
+CFLAGS = $(OPTS) $(WARNINGS) -fPIC
 CPPFLAGS += -DOCFS2_FLAT_INCLUDES
 
 OPTIMIZE = -O2
-
-ifeq ($(OCFS_PROCESSOR),ppc64)
-endif
-ifeq ($(OCFS_PROCESSOR),x86_64)
-  CFLAGS += -m64
-endif
-ifeq ($(OCFS_PROCESSOR),ia64)
-endif
-ifeq ($(OCFS_PROCESSOR),i686)
-  DEFINES += -D__ILP32__
-endif
 
 CFLAGS += $(OPTIMIZE)
 
