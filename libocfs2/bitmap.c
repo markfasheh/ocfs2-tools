@@ -353,15 +353,13 @@ errcode_t ocfs2_bitmap_insert_cluster(ocfs2_bitmap *bitmap,
 
 	node = rb_prev(&bc->bc_node);
 	if (node) {
-		bc_tmp = list_entry(node, struct ocfs2_bitmap_cluster,
-				    bc_node);
+		bc_tmp = rb_entry(node, struct ocfs2_bitmap_cluster, bc_node);
 		ocfs2_bitmap_merge_cluster(bitmap, bc_tmp, bc);
 	}
 
 	node = rb_next(&bc->bc_node);
 	if (node != NULL) {
-		bc_tmp = list_entry(node, struct ocfs2_bitmap_cluster,
-				    bc_node);
+		bc_tmp = rb_entry(node, struct ocfs2_bitmap_cluster, bc_node);
 		ocfs2_bitmap_merge_cluster(bitmap, bc, bc_tmp);
 	}
 
