@@ -722,7 +722,7 @@ fill_defaults(State *s)
 	s->pagesize_bits = get_bits(s, pagesize);
 
 	if (!s->blocksize) {
-		s->blocksize = 1024;
+		s->blocksize = 4096;
 	}
 
 	s->blocksize_bits = get_bits(s, s->blocksize);
