@@ -116,4 +116,7 @@ ec	OCFS2_ET_DUPLICATE_BLOCK,
 ec	OCFS2_ET_BIT_NOT_FOUND,
 	"Unable to find available bit"
 
+ec	OCFS2_ET_FREEING_UNALLOCATED_REGION,
+	"Attempting to free unallocated region"
+
 	end

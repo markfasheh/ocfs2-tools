@@ -62,6 +62,7 @@ CFILES = 		\
 	fileio.c	\
 	chain.c		\
 	chainalloc.c	\
+	alloc.c		\
 	checkhb.c	\
 	kernel-rbtree.c	\
 	bitops.c

@@ -229,6 +229,51 @@ errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
 	return ocfs2_bitmap_write(cinode->ci_chains);
 }
 
+/* FIXME: should take a hint, no? */
+/* FIXME: Better name, too */
+errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
+			    ocfs2_cached_inode *cinode,
+			    uint64_t *blkno)
+{
+	errcode_t ret;
+	int oldval;
+
+	if (!cinode->ci_chains)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	ret = ocfs2_bitmap_find_next_clear(cinode->ci_chains, 0, blkno);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_bitmap_set(cinode->ci_chains, *blkno, &oldval);
+	if (ret)
+		return ret;
+	if (oldval)
+		return OCFS2_ET_INTERNAL_FAILURE;
+
+	return 0;
+}
+
+errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
+			   ocfs2_cached_inode *cinode,
+			   uint64_t blkno)
+{
+	errcode_t ret;
+	int oldval;
+
+	if (!cinode->ci_chains)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	ret = ocfs2_bitmap_clear(cinode->ci_chains, blkno, &oldval);
+	if (ret)
+		return ret;
+	if (!oldval)
+		return OCFS2_ET_FREEING_UNALLOCATED_REGION;
+
+	return 0;
+}
+
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>

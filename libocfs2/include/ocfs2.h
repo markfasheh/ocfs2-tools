@@ -178,6 +178,13 @@ struct _ocfs2_filesys {
 	uint64_t fs_sysdir_blkno;
 	uint64_t fs_bm_blkno;
 
+	/* Allocators */
+	ocfs2_cached_inode *fs_cluster_alloc;
+	ocfs2_cached_inode *fs_inode_alloc;
+	ocfs2_cached_inode *fs_system_inode_alloc;
+	ocfs2_cached_inode *fs_eb_alloc;
+	ocfs2_cached_inode *fs_system_eb_alloc;
+
 	/* Reserved for the use of the calling application. */
 	void *fs_private;
 };
@@ -412,6 +419,12 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 				     ocfs2_cached_inode *cinode);
 errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
 				      ocfs2_cached_inode *cinode);
+errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
+			    ocfs2_cached_inode *cinode,
+			    uint64_t *blkno);
+errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
+			   ocfs2_cached_inode *cinode,
+			   uint64_t blkno);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
