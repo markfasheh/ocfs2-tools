@@ -1,0 +1,371 @@
+#!/bin/sh
+# init fragment for O2CB.
+#
+# chkconfig: 2435 29 20
+# description: Load O2CB drivers at system boot.
+#
+### BEGIN INIT INFO
+# Provides: o2cb
+# Required-Start: 
+# Should-Start:
+# Required-Stop:
+# Default-Start: 2 3 5
+# Default-Stop:
+# Description: Load O2CB drivers at system boot.
+### END INIT INFO
+
+# Force LC_ALL=C
+export LC_ALL=C
+
+# Source configuration
+[ -f /etc/sysconfig/o2cb ] && . /etc/sysconfig/o2cb
+
+if [ -z "$O2CB_MANAGER" ]
+then
+    O2CB_MANAGER=/proc/cluster
+fi
+
+KVER="$(uname -r)"
+MODPATH="/lib/modules/${KVER}/kernel/drivers/addon/o2cb"
+
+#
+# The module list is an ordered list of modules to load and mountpoints
+# to mount.  Each entry is formatted like so:
+#    <module>:<fstype>:<mountpoint>
+#
+# The mountpoint is underneath the O2CB_MANAGER path.  So, an entry of:
+#    ocfs2_heartbeat:hb:heartbeat
+# means to load the ocfs2_heartbeat module, and
+# mount -t hb none ${O2CB_MANAGER}/heartbeat
+#
+# If a module requires no mount, the colons must remain.  eg, 
+#    ocfs2_tcp::
+#
+MODULE_LIST="ocfs2_nodemanager:nm:nm ocfs2_heartbeat:hb:heartbeat ocfs2_tcp::"
+
+
+
+#
+# if_fail()
+#
+# Evaluates return codes.  If 0, prints "OK", if 1, prints "Failed"
+# and exits.  If 2, status is "already done" and nothing is printed.
+# The rest of the functions in here all honor this convention.
+#
+if_fail()
+{
+    RC="$1"
+    if [ "$RC" = "0" ]
+    then
+        echo "OK"
+        return
+    elif [ "$RC" = "2" ]
+    then
+        return
+    fi
+    echo "Failed"
+    exit 1
+}
+
+
+#
+# dev_create()
+#
+# Create $1
+# Returns 0 on success, 1 on error, 2 if it already exists.
+#
+dev_create()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "dev_create(): Requires an argument" >&2
+        return 1
+    fi
+    DEV="$1"
+    if [ -e "$DEV" ]
+    then
+        if [ -d "$DEV" ]
+        then
+            return 2
+        fi
+        echo "dev_create(): File $DEV is not a directory" >&2
+        return 1
+    fi
+
+    echo -n "Creating $DEV mount point "
+    mkdir "$DEV" 2>/dev/null
+    if [ $? != 0 ]
+    then
+        echo "Unable to create mount point $DEV" >&2
+        return 1
+    fi
+    return 0
+}
+
+
+#
+# load_module()
+# Load a module
+#
+# 0 is success, 1 is error, 2 is already loaded
+# 
+load_module()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "load_module(): Requires an argument" >&2
+        return 1
+    fi
+    MODNAME="$1"
+
+    MODOUT="`awk '$1 ~ /^'$MODNAME'$/{print $1;exit}' < /proc/modules 2>/dev/null`"
+    if [ -n "$MODOUT" ]
+    then
+        return 2
+    fi
+
+    echo -n "Loading module \"$MODNAME\" "
+    modprobe -s "$MODNAME"
+    if [ "$?" != 0 ]
+    then
+        echo "Unable to load module \"$MODNAME\"" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+
+#
+# unload_module()
+# Unload a module
+#
+# 0 is success, 1 is error, 2 is not loaded
+# 
+unload_module()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "unload_module(): Requires an argument" >&2
+        return 1
+    fi
+    MODNAME="$1"
+
+    MODOUT="`awk '$1 ~ /^'$MODNAME'$/{print $1,$3;exit}' < /proc/modules 2>/dev/null`"
+    if [ -z "$MODOUT" ]
+    then
+        return 2
+    fi
+    case "$MODOUT" in
+    $MODNAME\ 0)
+        ;;
+    $MODNAME\ *)
+        return 2
+        ;;
+    *)
+        echo -n "Invalid module parsing! "
+        return 1
+        ;;
+    esac
+
+    echo -n "Unloading module \"$MODNAME\" "
+    modprobe -rs "$MODNAME"
+    if [ "$?" != 0 ]
+    then
+        echo "Unable to unload module \"$MODNAME\"" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+
+#
+# mount_device()
+# Mount the a filesystem under the O2CB_MANAGER.
+#
+# 0 is success, 1 is error, 2 is already mounted
+#
+mount_device()
+{
+    if [ -z "$O2CB_MANAGER" ]
+    then
+        echo "mount_device(): No manager specified!" >&2
+        return 1
+    fi
+    TYPE="$1"
+    MNTPT="$2"
+    FULL_MOUNT="${O2CB_MANAGER}/${MNTPT}"
+    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
+    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
+
+    if [ -n "$MOUNTOUT" ]
+    then
+        return 2
+    fi
+
+    echo -n "Mounting ${TYPE} driver filesystem "
+    mount $OPTS -t ${TYPE} ${TYPE} $FULL_MOUNT
+    if [ $? != 0 ]
+    then
+        echo "Unable to mount ${TYPE} driver filesystem" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+
+#
+# unmount_device()
+# Unmount the /dev/oracleasm filesystem
+#
+# 0 is success, 1 is error, 2 is not mounted
+#
+unmount_device()
+{
+    if [ -z "$O2CB_MANAGER" ]
+    then
+        echo "mount_device(): No device specified!" >&2
+        return 1
+    fi
+    TYPE="$1"
+    MNTPT="$2"
+    FULL_MOUNT="${O2CB_MANAGER}/${MNTPT}"
+    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
+    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
+
+    if [ -z "$MOUNTOUT" ]
+    then
+        return 2
+    fi
+
+    echo -n "Unmounting ${TYPE} driver filesystem "
+    umount $FULL_MOUNT
+    if [ $? != 0 ]
+    then
+        echo "Unable to unmount ${TYPE} driver filesystem" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+
+start()
+{
+    for MODSPEC in $MODULE_LIST
+    do
+        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
+        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
+        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+
+        load_module "$MODULE_NAME"
+        if_fail "$?"
+
+        if [ -n "$FSTYPE" -a -n "$MOUNT_POINT" ]
+        then
+            mount_device "$FSTYPE" "$MOUNT_POINT"
+            if_fail "$?"
+        fi
+    done
+}
+
+stop()
+{
+    # Reverse list for unloading
+    R_MODLIST=""
+    for MODSPEC in $MODULE_LIST
+    do
+        if [ -z "$R_MODLIST" ]
+        then
+            R_MODLIST="$MODSPEC"
+        else
+            R_MODLIST="${MODSPEC} ${R_MODLIST}"
+        fi
+    done
+
+    for MODSPEC in $R_MODLIST
+    do
+        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
+        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
+        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+
+        if [ -n "$FSTYPE" -a -n "$MOUNT_POINT" ]
+        then
+            unmount_device "$FSTYPE" "$MOUNT_POINT"
+            if_fail "$?"
+        fi
+
+        unload_module "$MODULE_NAME"
+        if_fail "$?"
+    done
+}
+
+status()
+{
+    echo -n "Checking if O2CB is loaded: "
+    RC=2
+    for MODSPEC in $MODULE_LIST
+    do
+        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
+        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
+        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+
+        if grep "^${MODULE_NAME} " /proc/modules >/dev/null 2>&1
+        then
+            echo -n "${MODULE_NAME}"
+        else
+            RC=1
+            break
+        fi
+    done
+    if_fail "$RC"
+
+    echo -n "Checking O2CB mount points: "
+    for MODSPEC in $MODULE_LIST
+    do
+        MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
+        FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
+        MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
+        FULL_MOUNT="${O2CB_MANAGER}/${MOUNT_POINT}"
+
+        FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
+        if grep "^${FSTYPE} ${FULL_MOUNTSEARCH} ${FSTYPE}" /proc/mounts >/dev/null 2>&1
+        then
+            echo -n "${MOUNT_POINT}"
+        else
+            RC=1
+            break
+        fi
+    done
+    if_fail "$RC"
+}
+
+
+
+case "$1" in
+    start)
+        start
+        ;;
+
+    status)
+        status
+        ;;
+
+    stop)
+        stop
+        ;;
+
+    restart)
+        stop
+        start
+        ;;
+
+    *)
+        echo "Usage: $0 {start|stop|restart|enable|disable|status}"
+        exit 1
+        ;;
+esac
+
+exit 0
