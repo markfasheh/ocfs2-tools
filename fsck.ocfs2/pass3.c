@@ -41,7 +41,7 @@
 #include "problem.h"
 #include "util.h"
 
-static char *whoami = "pass3";
+static const char *whoami = "pass3";
 
 static void check_root(o2fsck_state *ost)
 {

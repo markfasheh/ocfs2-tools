@@ -34,7 +34,7 @@
 void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di)
 {
 	errcode_t ret;
-	char *whoami = "o2fsck_write_inode";
+	const char *whoami = __FUNCTION__;
 
 	if (blkno != di->i_blkno) {
 		com_err(whoami, OCFS2_ET_INTERNAL_FAILURE, "when asked to "
@@ -75,7 +75,7 @@ errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 	char *buf = NULL;
 	errcode_t ret;
 	ocfs2_dinode *dinode;
-	char *whoami = __FUNCTION__;
+	const char *whoami = __FUNCTION__;
 
 	*type = 0;
 

@@ -44,7 +44,7 @@
 #include "problem.h"
 #include "util.h"
 
-static char *whoami = "extent.c";
+static const char *whoami = "extent.c";
 
 struct extent_info {
 	uint64_t	ei_max_size;

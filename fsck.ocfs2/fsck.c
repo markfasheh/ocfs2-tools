@@ -102,7 +102,7 @@ static uint64_t read_number(const char *num)
 extern int opterr, optind;
 extern char *optarg;
 
-static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami, 
+static errcode_t o2fsck_state_init(ocfs2_filesys *fs, const char *whoami, 
 				    o2fsck_state *ost)
 {
 	errcode_t ret;
@@ -163,7 +163,7 @@ static errcode_t check_superblock(o2fsck_state *ost)
 	ocfs2_dinode *di = ost->ost_fs->fs_super;
 	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 	errcode_t ret = 0;
-	char *whoami = __FUNCTION__;
+	const char *whoami = __FUNCTION__;
 
 	if (sb->s_max_nodes == 0) {
 		printf("The superblock max_nodes field is set to 0.\n");
@@ -348,7 +348,7 @@ static errcode_t open_and_check(o2fsck_state *ost, char *filename,
 				uint64_t blksize)
 {
 	errcode_t ret;
-	char *whoami = __FUNCTION__;
+	const char *whoami = __FUNCTION__;
 
 	ret = ocfs2_open(filename, open_flags, blkno, blksize, &ost->ost_fs);
 	if (ret) {
@@ -370,7 +370,7 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 {	
 	int replayed = 0, should = 0;
 	errcode_t ret = 0;
-	char *whoami = __FUNCTION__;
+	const char *whoami = __FUNCTION__;
 
 	ret = o2fsck_should_replay_journals(ost->ost_fs, &should);
 	if (ret)
@@ -509,7 +509,7 @@ int main(int argc, char **argv)
 				print_usage();
 				goto out;
 				break;
-		
+		}
 	}
 
 

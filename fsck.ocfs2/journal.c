@@ -47,7 +47,7 @@
 #include "problem.h"
 #include "util.h"
 
-static char *whoami = "journal recovery";
+static const char *whoami = "journal recovery";
 
 struct journal_info {
 	int			ji_node;
