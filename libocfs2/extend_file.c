@@ -50,6 +50,9 @@ static errcode_t update_last_eb_blk(struct insert_ctxt *ctxt,
 	char *buf;
 	ocfs2_extent_block *last_eb;
 
+	if (!ctxt->di->i_last_eb_blk)
+		return OCFS2_ET_INTERNAL_FAILURE;
+
 	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
 	if (ret)
 		return ret;
@@ -166,7 +169,8 @@ static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
 		if (ret != OCFS2_ET_NO_SPACE)
 			return ret;
 		
-		if (el->l_next_free_rec == el->l_count)
+		if ((el->l_next_free_rec == el->l_count) &&
+		    (el->l_recs[el->l_next_free_rec - 1].e_blkno))
 			return OCFS2_ET_NO_SPACE;
 
 		ret = append_eb(ctxt, el);
@@ -280,8 +284,10 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
 			ret = insert_extent_el(&ctxt,
 					       &ctxt.di->id2.i_list);
 	}
-	if (!ret)
+	if (!ret) {
+		ctxt.di->i_clusters += clusters;
 		ret = ocfs2_write_inode(fs, ino, buf);
+	}
 
 out_free_buf:
 	ocfs2_free(&buf);
@@ -295,13 +301,11 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 	/*
 	 * This should be, in essence:
 	 *
-	 * read_inode();
 	 * while (new_clusters) {
 	 * 	n_clusters = ocfs2_new_clusters();
 	 * 	ocfs2_insert_extent(n_clusters);
 	 * 	new_clusters -= n_clusters;
-	 * 	}
-	 * write_inode();
+	 * }
 	 */
 
 	return 0;
