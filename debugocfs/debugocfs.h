@@ -46,6 +46,20 @@ enum
 
 #define DEFAULT_NODE_NUMBER   (0)
 
+#define OCFSCK_BITMAP_OFF           56320LLU    /* block# 110 */
+#define OCFSCK_PUBLISH_OFF          23552LLU    /* block# 46  */
+#define OCFSCK_VOTE_OFF             39936LLU    /* block# 78  */
+#define OCFSCK_AUTOCONF_OFF         4096LLU     /* block# 8 */
+#define OCFSCK_AUTOCONF_SIZE        17408LLU    /* 34 blocks */
+#define OCFSCK_NEW_CFG_OFF          21504LLU    /* block# 42 */
+#define OCFSCK_DATA_START_OFF       1368064LLU  /* block# 2672 */
+#define OCFSCK_INTERNAL_OFF         OCFSCK_DATA_START_OFF
+#define OCFSCK_ROOT_OFF 	    2416640LLU  /* block# 4720 */
+#define OCFSCK_MIN_MOUNT_POINT_LEN  (strlen("/a"))
+#define OCFSCK_END_SECTOR_BYTES     (1022*512)
+#define OCFSCK_NON_DATA_AREA        (OCFSCK_DATA_START_OFF+OCFSCK_END_SECTOR_BYTES)
+#define OCFSCK_MAX_CLUSTERS         (1024*1024*8)  /* maximum 1mb (8megabits) */
+
 typedef struct _user_args
 {
     int nodenum;
@@ -155,5 +169,7 @@ bool ocfs_extent_map_lookup (ocfs_extent_map * map, __s64 virtual, __s64 * physi
 #endif
 
 void usage(void);
+int get_default_vol_hdr(int fd, ocfs_vol_disk_hdr *hdr, __u64 device_size);
+int get_device_size(char *device, __u64 *device_size);
 
 #endif

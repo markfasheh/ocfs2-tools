@@ -96,7 +96,7 @@ int write_publish_sector(int fd, ocfs_publish * ps, __u64 offset)
     void *sector;
 
     sector = malloc_aligned(512);
-    memset(sector, 1, 512);
+    memset(sector, 0, 512);
     memcpy(sector, ps, sizeof(ocfs_publish));
     myseek64(fd, offset, SEEK_SET);
     ret = write(fd, sector, 512);
@@ -117,7 +117,7 @@ int write_vote_sector(int fd, ocfs_vote * vs, __u64 offset)
     void *sector;
 
     sector = malloc_aligned(512);
-    memset(sector, 1, 512);
+    memset(sector, 0, 512);
     memcpy(sector, vs, sizeof(ocfs_vote));
     myseek64(fd, offset, SEEK_SET);
     ret = write(fd, sector, 512);
@@ -142,7 +142,7 @@ int write_system_file(int fd, ocfs_vol_disk_hdr * v, int fileid,
     __u64 diskOffset = (fileid * 512) + v->internal_off;
 
     sector = malloc_aligned(512);
-    memset(sector, 1, 512);
+    memset(sector, 0, 512);
     memcpy(sector, fe, sizeof(ocfs_file_entry));
     myseek64(fd, diskOffset, SEEK_SET);
     ret = write(fd, sector, 512);
@@ -163,7 +163,7 @@ int write_vol_disk_header(int fd, ocfs_vol_disk_hdr * v)
     void *sector;
 
     sector = malloc_aligned(512);
-    memset(sector, 1, 512);
+    memset(sector, 0, 512);
     memcpy(sector, v, sizeof(ocfs_vol_disk_hdr));
     myseek64(fd, 0, SEEK_SET);
     ret = write(fd, sector, 512);
@@ -184,7 +184,7 @@ int write_vol_label(int fd, ocfs_vol_label * v)
     void *sector;
 
     sector = malloc_aligned(512);
-    memset(sector, 1, 512);
+    memset(sector, 0, 512);
     memcpy(sector, v, sizeof(ocfs_vol_label));
     myseek64(fd, 512, SEEK_SET);
     ret = write(fd, sector, 512);
@@ -218,7 +218,7 @@ int write_dir_node_header(int fd, ocfs_dir_node * d, __u64 offset)
     void *sector;
 
     sector = malloc_aligned(512);
-    memset(sector, 1, 512);
+    memset(sector, 0, 512);
     memcpy(sector, d, sizeof(ocfs_dir_node));
     myseek64(fd, offset, SEEK_SET);
     ret = write(fd, sector, 512);
@@ -232,7 +232,7 @@ int write_file_entry(int fd, ocfs_file_entry * f, __u64 offset)
     void *sector;
 
     sector = malloc_aligned(512);
-    memset(sector, 1, 512);
+    memset(sector, 0, 512);
     memcpy(sector, f, sizeof(ocfs_file_entry));
     myseek64(fd, offset, SEEK_SET);
     ret = write(fd, sector, 512);

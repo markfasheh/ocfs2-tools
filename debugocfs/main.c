@@ -278,6 +278,8 @@ int main(int argc, char **argv)
     ocfs_super *vcb = NULL;
     char *env;
     int flags;
+    __u64 device_size = 0;
+    char input[32];
 
 #define INSTALL_SIGNAL(sig)					\
     do {							\
@@ -434,12 +436,14 @@ int main(int argc, char **argv)
     }
 
     if (!args.no_rawbind) {
+    	if (get_device_size(argv[optind], &device_size) == -1)
+		    goto bail;
 	    if (bind_raw(argv[optind], &rawminor, rawdev, sizeof(rawdev)) == -1)
 		    goto bail;
     } else
 	    strncpy(rawdev, argv[optind], sizeof(rawdev));
 
-    flags = O_RDONLY | O_LARGEFILE;
+    flags = O_RDWR | O_LARGEFILE;
     fd = open(rawdev, flags);
     if (fd == -1)
     {
@@ -448,6 +452,23 @@ int main(int argc, char **argv)
     }
 
     read_vol_disk_header(fd, diskHeader);
+    if (strncmp(diskHeader->signature, OCFS_VOLUME_SIGNATURE, MAX_VOL_SIGNATURE_LEN)) {
+	    printf("ERROR: volume header appears to be corrupted.\nContinuing with standard values.\n");
+	    if (get_default_vol_hdr(fd, diskHeader, device_size) == -1)
+		    goto bail;
+	    while (1) {
+		printf("Do you want to write the new volume header to disk (y/N)? ");
+		fgets(input, sizeof(input), stdin);
+		if (toupper(*input) == 'Y') {
+	    		if (write_vol_disk_header(fd, diskHeader) != OCFS_SECTOR_SIZE)
+		    		goto bail;
+			printf("Volume header successfully updated.\n");
+			break;
+		} else
+			break;
+	    }
+    }
+
     read_vol_label(fd, volLabel);
 
     vcb = get_fake_vcb(fd, diskHeader, args.nodenum);
@@ -588,4 +609,106 @@ bail:
     if (rawminor)
 	    unbind_raw(rawminor);
     exit(0);
+}
+
+int get_default_vol_hdr(int fd, ocfs_vol_disk_hdr *hdr, __u64 device_size)
+{
+	__u32 numblks;
+	__u32 blksz;
+	__u32 bitsz;
+	__u64 devsz;
+	char input[64];
+	int valid_vals[] = {4, 8, 16, 32, 64, 128, 256, 512, 1024, 0};
+	int i;
+
+	memset(hdr, 0, 512);
+
+	hdr->minor_version = 2;
+	hdr->major_version = 1;
+	strncpy(hdr->signature, OCFS_VOLUME_SIGNATURE, MAX_VOL_SIGNATURE_LEN);
+	strcpy(hdr->mount_point, "/ocfs");
+	hdr->serial_num = 0;
+	hdr->device_size = device_size;
+	hdr->start_off = 0;
+	hdr->bitmap_off = OCFSCK_BITMAP_OFF;
+	hdr->publ_off = OCFSCK_PUBLISH_OFF;
+	hdr->vote_off = OCFSCK_VOTE_OFF;
+	hdr->root_bitmap_off = 0;
+	hdr->data_start_off = OCFSCK_DATA_START_OFF;
+	hdr->root_bitmap_size = 0;
+	hdr->root_off = OCFSCK_ROOT_OFF;
+	hdr->root_size = 0;
+	hdr->num_nodes = OCFS_MAXIMUM_NODES;
+	hdr->dir_node_size = 0;
+	hdr->file_node_size = 0;
+	hdr->internal_off = OCFSCK_INTERNAL_OFF;
+	hdr->node_cfg_off = OCFSCK_AUTOCONF_OFF;
+	hdr->node_cfg_size = OCFSCK_AUTOCONF_SIZE;
+	hdr->new_cfg_off = OCFSCK_NEW_CFG_OFF;
+	hdr->prot_bits = 0755;
+	hdr->uid = 0;
+	hdr->gid = 0;
+	hdr->excl_mount = -1;
+	hdr->disk_hb = OCFS_MIN_DISKHB;
+	hdr->hb_timeo = OCFS_MIN_HBTIMEO;
+
+	devsz = device_size - OCFSCK_DATA_START_OFF - OCFSCK_END_SECTOR_BYTES;
+
+	while (1) {
+		blksz = 0;
+		printf("What was the block size (in KB) on this device? ");
+		fgets(input, sizeof(input), stdin);
+		blksz = atoi(input);
+
+		for (i = 0; valid_vals[i]; ++i) {
+			if (blksz == valid_vals[i])
+				break;
+		}
+
+		if (!valid_vals[i]) {
+			printf("Invalid block size. Valid values are 4, 8, 16, 32, 64, 128, 256, 512, 1024.\n");
+			continue;
+		}
+
+		printf("Using %uKB block size...\n", blksz);
+		hdr->cluster_size = blksz * 1024;
+
+		hdr->num_clusters = devsz / hdr->cluster_size;
+
+		bitsz = OCFS_ALIGN(((hdr->num_clusters + 7) / 8), OCFS_SECTOR_SIZE);
+		if (bitsz > OCFS_MAX_BITMAP_SIZE) {
+			printf("%dKB block size is too small for this device.\n"
+			       "Please specify a larger value.\n", blksz);
+			continue;
+		} else
+			break;
+	}
+
+	return 0;
+}
+
+int get_device_size(char *device, __u64 *device_size)
+{
+	int fd;
+	__u32 numblks;
+
+	fd = open(device, O_RDONLY | O_LARGEFILE);
+	if (fd == -1) {
+		printf("ERROR: unable to open device %s.\n%s\n", device, strerror(errno));
+		usage();
+		return -1;
+	}
+
+	if (ioctl(fd, BLKGETSIZE, &numblks) == -1) {
+		printf("ERROR: unable to get device size.\n%s\n", strerror(errno));
+		close (fd);
+		return -1;
+	}
+
+	*device_size = numblks;
+	*device_size *= OCFS_SECTOR_SIZE;
+
+	close (fd);
+
+	return 0;
 }
