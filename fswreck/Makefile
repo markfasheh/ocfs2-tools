@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SBIN_PROGRAMS = fswrk
+SBIN_PROGRAMS = fswreck
 
 DEFINES = -DG_DISABLE_DEPRECATED -DLINUX
 DEFINES += -DVERSION=\"$(VERSION)\"
@@ -25,7 +25,7 @@ HFILES = 			\
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-fswrk: $(OBJS)
+fswreck: $(OBJS)
 	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS)
 
 include $(TOPDIR)/Postamble.make
