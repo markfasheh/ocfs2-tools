@@ -30,7 +30,7 @@ menu_data = (
     ('/Tasks/_Format...',          '<control>F', 'format'),
     ('/Tasks/---',                 None,         None,      0, '<Separator>'),
     ('/Tasks/Chec_k...',           '<control>K', 'check'),
-    ('/Tasks/ Chec_k...',          '<control>R', 'repair'),
+    ('/Tasks/_Repair...',          '<control>R', 'repair'),
     ('/Tasks/---',                 None,         None,      0, '<Separator>'),
     ('/Tasks/_Cluster Config...',  '<control>C', 'clconfig'),
     ('/_Help',                     None,         None,      0, '<Branch>'),
