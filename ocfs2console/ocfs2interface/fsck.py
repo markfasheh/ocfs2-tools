@@ -29,7 +29,7 @@ except ImportError:
 else:
     fsck_ok = True
 
-def fsck(parent, device, check=False):
+def fsck_volume(parent, device, check=False):
     if check:
         check_str = 'check'
     else:

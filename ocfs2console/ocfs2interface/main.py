@@ -26,11 +26,12 @@ from toolbar import Toolbar
 from about import about, process_gui_args
 from process import Process
 from format import format_partition
+from tune import tune_label, tune_nodes
 from general import General
 from nodemap import NodeMap
 from browser import Browser
 from clconfig import cluster_configurator
-from fsck import fsck
+from fsck import fsck_volume
 
 COLUMN_DEVICE = 0
 COLUMN_MOUNTPOINT = 1
@@ -200,11 +201,19 @@ def format(pv):
     format_partition(pv.toplevel, pv.get_device())
     pv.refresh_partitions()
 
+def relabel(pv):
+    tune_label(pv.toplevel, pv.get_device())
+    pv.refresh_partitions()
+
+def node_num(pv):
+    tune_nodes(pv.toplevel, pv.get_device())
+    pv.refresh_partitions()
+
 def check(pv):
-    fsck(pv.toplevel, pv.get_device(), check=True)
+    fsck_volume(pv.toplevel, pv.get_device(), check=True)
 
 def repair(pv):
-    fsck(pv.toplevel, pv.get_device(), check=False)
+    fsck_volume(pv.toplevel, pv.get_device(), check=False)
 
 def clconfig(pv):
     cluster_configurator(pv.toplevel)
@@ -225,13 +234,14 @@ def create_window():
     vbox = gtk.VBox()
     window.add(vbox)
 
-    menu = Menu(cleanup=cleanup, format=format, check=check, repair=repair,
-                clconfig=clconfig, about=about)
+    symbols = globals()
+
+    menu = Menu(**symbols)
 
     menubar = menu.get_widget(window, pv)
     vbox.pack_start(menubar, expand=False, fill=False)
 
-    toolbar = Toolbar(mount=mount, unmount=unmount, refresh=refresh)
+    toolbar = Toolbar(**symbols)
 
     tb, buttons, pv.filter_entry = toolbar.get_widgets(pv)
     vbox.pack_start(tb, expand=False, fill=False)

@@ -47,7 +47,7 @@ def cluster_configurator(parent):
                      border_width=5,
                      parent=frame)
 
-    button = gtk.Button('Add')
+    button = gtk.Button(stock=gtk.STOCK_ADD)
     vbbox.add(button)
 
     dialog.show_all()

@@ -38,22 +38,24 @@ help_menu_data = (
 
 if fsck_ok:
     task_menu_fsck_data = (
-        ('/Tasks/---',                 None,         None,      0,
-         '<Separator>'),
-        ('/Tasks/Chec_k...',           '<control>K', 'check'),
-        ('/Tasks/_Repair...',          '<control>R', 'repair'),
+        ('/Tasks/Chec_k...',       '<control>K', 'check'),
+        ('/Tasks/_Repair...',      '<control>R', 'repair'),
+        ('/Tasks/---',             None,         None,      0, '<Separator>')
     )
 else:
     task_menu_fsck_data = ()
 
 task_menu_head_data = (
     ('/_Tasks',                    None,         None,      0, '<Branch>'),
-    ('/Tasks/_Format...',          '<control>F', 'format')
+    ('/Tasks/_Format...',          '<control>F', 'format'),
+    ('/Tasks/---',                 None,         None,      0, '<Separator>')
 )
 
 task_menu_tail_data = (
+    ('/Tasks/Change _Label...',    None,         'relabel'),
+    ('/Tasks/Edit _Node Count...', None,         'node_num'),
     ('/Tasks/---',                 None,         None,      0, '<Separator>'),
-    ('/Tasks/_Cluster Config...',  '<control>C', 'clconfig'),
+    ('/Tasks/_Cluster Config...',  None,         'clconfig')
 )
 
 task_menu_data = task_menu_head_data + task_menu_fsck_data + task_menu_tail_data

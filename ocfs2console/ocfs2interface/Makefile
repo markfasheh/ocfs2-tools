@@ -55,13 +55,15 @@ PYSRC = \
 	clconfig.py \
 	format.py \
 	fsck.py \
+	fswidgets.py \
 	general.py \
 	guiutil.py \
 	main.py \
 	menu.py \
 	nodemap.py \
 	process.py \
-	toolbar.py
+	toolbar.py \
+	tune.py
 
 PYLIB = $(LIBRARIES) $(PYSRC)
 
