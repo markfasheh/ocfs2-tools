@@ -325,8 +325,10 @@ int read_options(int argc, char **argv)
 	int ret = 0;
 	int c;
 
+	progname = argv[0];
+
 	if (argc < 2) {
-		usage(argv[0]);
+		usage(progname);
 		ret = 1;					  
 		goto bail;
 	}
