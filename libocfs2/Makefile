@@ -97,9 +97,6 @@ OBJS = $(subst .c,.o,$(CFILES)) \
 
 $(OBJS): $(HFILES_GEN)
 
-ocfs2_err.et: ocfs2_err.et.in
-	cd $(TOPDIR) && ./config.status
-
 include/ocfs2_err.h: ocfs2_err.h
 	cp $< $@
 

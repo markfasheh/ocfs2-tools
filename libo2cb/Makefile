@@ -54,9 +54,6 @@ OBJS = $(subst .c,.o,$(CFILES)) \
 	
 $(OBJS): $(HFILES_GEN)
 
-o2cb_err.et: o2cb_err.et.in
-	cd $(TOPDIR) && ./config.status
-
 include/o2cb_err.h: o2cb_err.h
 	cp $< $@
 

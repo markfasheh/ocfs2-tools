@@ -54,9 +54,6 @@ $(OBJS): $(HFILES_GEN)
 
 TESTING_OBJS = $(subst .c,.o,$(TESTING_CFILES))
 
-o2dlm_err.et: o2dlm_err.et.in
-	cd $(TOPDIR) && ./config.status
-
 include/o2dlm_err.h: o2dlm_err.h
 	cp $< $@
 

@@ -1,5 +1,5 @@
 #
-# ocfs2_err.et.in
+# ocfs2_err.et
 #
 # Error codes for the OCFS2 userspace library.
 #
@@ -20,9 +20,6 @@
 # Boston, MA 021110-1307, USA.
 #
 	error_table ocfs
-
-ec	OCFS2_ET_BASE,
-	"OCFS2 Library version @VERSION@"
 
 ec	OCFS2_ET_NAMED_DEVICE_NOT_FOUND,
 	"Device name specified was not found"

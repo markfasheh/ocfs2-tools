@@ -1,5 +1,5 @@
 #
-# o2dlm_err.et.in
+# o2dlm_err.et
 #
 # Error codes for the O2DLM library.
 #
@@ -20,9 +20,6 @@
 # Boston, MA 021110-1307, USA.
 #
 	error_table o2dl
-
-ec	O2DLM_ET_BASE,
-	"O2DLM Library version @VERSION@"
 
 ec	O2DLM_ET_NO_MEMORY,
 	"Memory allocation failed"

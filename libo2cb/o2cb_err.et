@@ -1,5 +1,5 @@
 #
-# o2cb_err.et.in
+# o2cb_err.et
 #
 # Error codes for the O2CB library.
 #
@@ -20,9 +20,6 @@
 # Boston, MA 021110-1307, USA.
 #
 	error_table o2cb
-
-ec	O2CB_ET_BASE,
-	"O2CB Library version @VERSION@"
 
 ec	O2CB_ET_INVALID_CLUSTER_NAME,
 	"Invalid name for a cluster"

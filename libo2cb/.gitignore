@@ -3,6 +3,5 @@
 debug_*
 o2cb_err.c
 o2cb_err.h
-o2cb_err.et
 cscope*
 libo2cb.a

@@ -5,6 +5,5 @@ stamp-md5
 ocfs2_err.c
 ocfs2_err.h
 libocfs2.a
-ocfs2_err.et
 debug_*
 *.d

@@ -54,7 +54,7 @@ if test "x$GCC" != "xyes"; then
 fi
 
 AC_MSG_CHECKING(for debugging)
-AC_ARG_ENABLE(debug, [  --enable-debug=[yes/no]         Turn on debugging [default=no]],,enable_debug=no)
+AC_ARG_ENABLE(debug, [  --enable-debug=[yes/no]         Turn on debugging [default=yes]],,enable_debug=yes)
 OCFS_DEBUG=
 if test "x$enable_debug" = "xyes"; then
   OCFS_DEBUG=yes
@@ -168,9 +168,6 @@ AC_SUBST(BUILD_OCFS2CONSOLE)
 
 AC_CONFIG_FILES([
 Config.make
-libocfs2/ocfs2_err.et
-libo2cb/o2cb_err.et
-libo2dlm/o2dlm_err.et
 debugfs.ocfs2/debugfs.ocfs2.8
 mkfs.ocfs2/mkfs.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.8
