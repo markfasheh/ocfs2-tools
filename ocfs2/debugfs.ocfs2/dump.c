@@ -28,6 +28,7 @@
 #include <dump.h>
 #include <readfs.h>
 #include <utils.h>
+#include <journal.h>
 
 extern char *superblk;
 extern __u32 blksz_bits;

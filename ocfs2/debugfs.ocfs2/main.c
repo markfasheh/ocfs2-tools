@@ -28,6 +28,7 @@
 #include <dump.h>
 #include <readfs.h>
 #include <utils.h>
+#include <journal.h>
 
 #define PROMPT "debugfs: "
 

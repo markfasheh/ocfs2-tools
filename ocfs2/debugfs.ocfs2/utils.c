@@ -28,6 +28,7 @@
 #include <dump.h>
 #include <readfs.h>
 #include <utils.h>
+#include <journal.h>
 
 /*
  * add_extent_rec()

@@ -28,6 +28,7 @@
 #include <dump.h>
 #include <readfs.h>
 #include <utils.h>
+#include <journal.h>
 
 extern __u32 blksz_bits;
 extern __u32 clstrsz_bits;
@@ -335,8 +336,10 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	}
 
 	ret = 0;
-	if (buf)
+	if (buf) {
 		*buf = newbuf;
+		ret = newlen;
+	}
 
 bail:
 	safefree (inode_buf);

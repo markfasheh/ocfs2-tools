@@ -28,6 +28,7 @@
 #include <dump.h>
 #include <readfs.h>
 #include <utils.h>
+#include <journal.h>
 
 typedef void (*PrintFunc) (void *buf);
 typedef gboolean (*WriteFunc) (char **data, void *buf);
@@ -65,6 +66,7 @@ static void do_inode (char **args);
 static void do_config (char **args);
 static void do_publish (char **args);
 static void do_vote (char **args);
+static void do_journal (char **args);
 
 extern gboolean allow_write;
 
@@ -117,7 +119,9 @@ static Command commands[] =
 
   { "nodes", do_config },
   { "publish", do_publish },
-  { "vote", do_vote }
+  { "vote", do_vote },
+
+  { "logdump", do_journal }
 
 };
 
@@ -372,24 +376,18 @@ static void do_write (char **args)
 static void do_help (char **args)
 {
 	printf ("curdev\t\t\t\tShow current device\n");
-	printf ("open [device]\t\t\tOpen a device\n");
+	printf ("open <device>\t\t\tOpen a device\n");
 	printf ("close\t\t\t\tClose a device\n");
 	printf ("show_super_stats, stats [-h]\tShow superblock\n");
-	printf ("show_inode_info, stat [blknum]\tShow inode\n");
-//	printf ("cd\t\t\tChange working directory\n");
+	printf ("show_inode_info, stat <blknum>\tShow inode\n");
 	printf ("pwd\t\t\t\tPrint working directory\n");
-	printf ("ls [blknum]\t\t\tList directory\n");
-	printf ("cat [blknum]\t\t\tPrints file on stdout\n");
-//	printf ("rm\t\t\t\tRemove a file\n");
-//	printf ("mkdir\t\t\t\tMake a directory\n");
-//	printf ("rmdir\t\t\t\tRemove a directory\n");
-//	printf ("dump, cat\t\t\tDump contents of a file\n");
-//	printf ("lcd\t\t\t\tChange current local working directory\n");
-//	printf ("read\t\t\t\tRead a low level structure\n");
-//	printf ("write\t\t\t\tWrite a low level structure\n");
+	printf ("ls <blknum>\t\t\tList directory\n");
+	printf ("cat <blknum> [outfile]\t\tPrints or concatenates file to stdout/outfile\n");
+	printf ("dump <blknum> <outfile>\t\tDumps file to outfile\n");
 	printf ("nodes\t\t\t\tList of nodes\n");
 	printf ("publish\t\t\t\tPublish blocks\n");
 	printf ("vote\t\t\t\tVote blocks\n");
+	printf ("logdump <blknum>\t\tPrints journal file\n");
 	printf ("help, ?\t\t\t\tThis information\n");
 	printf ("quit, q\t\t\t\tExit the program\n");
 }					/* do_help */
@@ -609,3 +607,32 @@ bail:
 
 	return ;
 }					/* do_dump */
+
+/*
+ * do_journal()
+ *
+ */
+static void do_journal (char **args)
+{
+	char *logbuf = NULL;
+	__u64 blknum = 0;
+	__s32 len = 0;
+
+	if (args[1])
+		blknum = strtoull (args[1], NULL, 0);
+	if (!blknum)
+		goto bail;
+
+	if (dev_fd == -1)
+		printf ("device not open\n");
+	else {
+		if ((len = read_file (dev_fd, blknum, -1, &logbuf)) == -1)
+			goto bail;
+		read_journal (logbuf, (__u64)len);
+	}
+
+bail:
+	safefree (logbuf);
+	return ;
+}					/* do_journal */
+
