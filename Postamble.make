@@ -54,7 +54,7 @@ $(SUBDIRS):
 	$(MAKE) -C $@
 
 .PHONY: all-rules
-all-rules: subdirs $(LIBRARIES) $(BIN_PROGRAMS) $(SBIN_PROGRAMS) $(MODULES) $(MANS)
+all-rules: subdirs $(LIBRARIES) $(BIN_PROGRAMS) $(SBIN_PROGRAMS) $(UNINST_PROGRAMS) $(MODULES) $(MANS)
 
 
 INSTALL_SUBDIRS = $(addsuffix -install,$(SUBDIRS))
