@@ -697,6 +697,8 @@ static void do_stat (char **args)
 		dump_local_alloc(out, &(inode->id2.i_lab));
 	else if ((inode->i_flags & OCFS2_CHAIN_FL))
 		ret = traverse_chains(gbls.fs, &(inode->id2.i_chain), out);
+	else if (S_ISLNK(inode->i_mode) && !inode->i_clusters)
+		ret = dump_fast_symlink(out, &(inode->id2.i_symlink));
 	else
 		ret = traverse_extents(gbls.fs, &(inode->id2.i_list), out);
 

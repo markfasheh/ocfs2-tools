@@ -84,6 +84,17 @@ void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc)
 }
 
 /*
+ * dump_fast_symlink()
+ *
+ */
+void dump_fast_symlink (FILE *out, char *link)
+{
+	fprintf(out, "\tFast Symlink Destination: %s\n", link);
+
+	return ;
+}
+
+/*
  * dump_inode()
  *
  */
