@@ -229,7 +229,7 @@ class ClusterConfig(Dialog):
         self.set_response_sensitive(gtk.RESPONSE_APPLY, state)
             
     def add_node(self, b):
-        if len(self.store) > ocfs2.MAX_NODES:
+        if len(self.store) == ocfs2.MAX_NODES:
             error_box(self, 'Cannot have more than %d nodes in a cluster' %
                             ocfs2.MAX_NODES)
             return
