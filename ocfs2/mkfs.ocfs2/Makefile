@@ -11,7 +11,7 @@ endif
 
 CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
 
-SBIN_PROGRAMS = mkfs.ocfs2 mkfs.ocfs2.test
+SBIN_PROGRAMS = mkfs.ocfs2 mkfs.ocfs2.kurt
 
 LIBOCFS2_CFLAGS = -I$(TOPDIR)/ocfs2/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/ocfs2/libocfs2 -locfs2
@@ -35,8 +35,8 @@ endif
 
 CFLAGS += $(OPTIMIZE)
 
-VERSION_FILES = mkfs2.c
-VERSION_SRC = mkfs2.c
+VERSION_FILES = mkfs.c
+VERSION_SRC = mkfs.c
 VERSION_PREFIX = OCFS2
 
 DIST_RULES = dist-incdir
@@ -64,10 +64,10 @@ INSTALL_RULES = install-sbin-links install-man-links
 
 DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) #mkfs.ocfs2.8.in
 
-mkfs.ocfs2: mkfs2.o
+mkfs.ocfs2: mkfs.o
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
-mkfs.ocfs2.test: mkfs.o
+mkfs.ocfs2.kurt: mkfs2.o
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 readdir: readdir.o

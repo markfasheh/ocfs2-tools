@@ -1214,6 +1214,10 @@ int main(int argc, char **argv)
 }
 
 
+#define OCFS2_BUILD_VERSION "x"
+#define OCFS2_BUILD_DATE "y"
+#define OCFS2_BUILD_MD5 "z"
+
 void version(char *progname)
 {
 	printf("%s %s %s (build %s)\n", progname,
