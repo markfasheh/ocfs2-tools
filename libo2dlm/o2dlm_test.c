@@ -38,14 +38,14 @@
 
 #define COMMAND_MAX_LEN 4096
 
-char cbuf[COMMAND_MAX_LEN];
+static char cbuf[COMMAND_MAX_LEN];
 
 #define DEFAULT_DLMFS_PATH "/dev/ocfs2/dlm/"
 
-char *dlmfs_path = NULL;
-char *prog;
+static char *dlmfs_path = NULL;
+static char *prog;
 
-struct o2dlm_ctxt *dlm_ctxt = NULL;
+static struct o2dlm_ctxt *dlm_ctxt = NULL;
 
 enum commands
 {
