@@ -33,10 +33,10 @@
 #define NUMFORMAT  "%d"
 # endif
 
-#define SHOW_SIZEOF(x,y)  printf("sizeof("#x") = "NUMFORMAT"\n", sizeof( ##y ))
+#define SHOW_SIZEOF(x,y)  printf("sizeof("#x") = "NUMFORMAT"\n", sizeof(y))
 
 #define SHOW_OFFSET(x,y)  printf("\t"#x" = "NUMFORMAT" (%d)\n", \
-				(void *)&(##y.##x)-(void *)&##y, sizeof(##y.##x))
+				(void *)&(y.x)-(void *)&y, sizeof(y.x))
 
 static void print_ocfs2_extent_rec(void)
 {
