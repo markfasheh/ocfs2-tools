@@ -110,7 +110,7 @@ def fsck_command(device, check):
     return ['/bin/sh', '-c', realcommand]
 
 def main():
-    fsck(None, '/dev/sdb1', check=True)
+    fsck_volume(None, '/dev/sdb1', check=True)
 
 if __name__ == '__main__':
     main()
