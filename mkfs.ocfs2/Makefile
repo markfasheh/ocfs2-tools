@@ -1,4 +1,4 @@
-TOPDIR = ../..
+TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
@@ -13,8 +13,8 @@ CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS)
 
 SBIN_PROGRAMS = mkfs.ocfs2 mkfs.ocfs2.kurt
 
-LIBOCFS2_CFLAGS = -I$(TOPDIR)/ocfs2/libocfs2/include
-LIBOCFS2_LIBS = -L$(TOPDIR)/ocfs2/libocfs2 -locfs2
+LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 
 INCLUDES = $(LIBOCFS2_CFLAGS)
 DEFINES = -DLINUX -DUSERSPACE_TOOL -DFORMAT_OCFS -DOCFS2_FLAT_INCLUDES
@@ -42,23 +42,6 @@ VERSION_PREFIX = OCFS2
 DIST_RULES = dist-incdir
 
 INSTALL_RULES = install-sbin-links install-man-links
-
-##########################
-# WARNING!!!
-# are we still going to do argv[0] tricks?
-##########################
-
-#install-sbin-links: install-sbin-programs
-#	cd $(DESTDIR)$(sbindir) \
-#	&& rm -f mkfs.ocfs2 resizeocfs \
-#	&& $(LN_S) mkfs.ocfs mkfs.ocfs2 \
-#	&& $(LN_S) tuneocfs resizeocfs
-
-#install-man-links: install-mans
-#	cd $(DESTDIR)$(mandir)/man8 \
-#	&& rm -f mkfs.ocfs.8 resizeocfs.8 \
-#	&& $(LN_S) mkfs.ocfs.8 mkfs.ocfs2.8 \
-#	&& $(LN_S) tuneocfs.8 resizeocfs.8
 
 MANS = mkfs.ocfs2.8
 

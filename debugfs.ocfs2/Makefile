@@ -1,4 +1,4 @@
-TOPDIR = ../..
+TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
@@ -6,7 +6,7 @@ SBIN_PROGRAMS = debugfs.ocfs2
 
 DEFINES = -DLINUX -DDEBUGOCFS -DDEBUG -DDEBUGOCFS_VERSION=\"0.0.1\"
 
-INCLUDES = -Iinclude -I../libocfs2/include
+INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
 INCLUDES += $(GLIB_CFLAGS)
 
 CFLAGS += -Wall -O2

@@ -1,0 +1,105 @@
+#
+# Spec file for ocfs-tools
+#
+
+# Macros
+# This one is hardcoded because, well, it belongs there
+%define _prefix /usr
+# Because RPM is dumb
+%define _unpackaged_files_terminate_build 0
+
+Summary: Tools for managing the Oracle Cluster Filesystem
+Name: ocfs2-tools
+Version: @DIST_VERSION@
+Release: @RPM_VERSION@
+Copyright: GPL
+Group: System Environment/Kernel
+Source: ocfs2-tools-@DIST_VERSION@.tar.gz
+URL: http://oss.oracle.com/projects/ocfs2-tools/
+Distribution: Oracle
+Vendor: Oracle Corporation
+Packager: nobody <nobody@oracle.com>
+Exclusiveos: Linux
+Requires: ocfs-support >= @DIST_VERSION@, %{gtk_name} >= 1.2.8
+BuildRequires: %{gtk_name}-devel >= 1.2.8
+
+BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
+
+%description
+Tools to manage OCFS2
+
+
+%package -n ocfs2-support
+Summary: Support programs for OCFS2
+Group: System Environment/Kernel
+Requires: fileutils, sh-utils, net-tools, modutils, %{chkconfig_dep}
+AutoReqProv: No
+
+
+%description -n ocfs2-support
+Support programs for using OCFS2
+
+
+%prep
+%setup -n ocfs2-tools-%{version}
+
+
+%build
+%configure --prefix=/usr --mandir=/usr/share/man
+make
+
+
+%install
+
+mkdir -p $RPM_BUILD_ROOT/etc/init.d
+IVENDOR=redhat
+if [ -r /etc/UnitedLinux-release -o -r /etc/SuSE-release ]
+then
+    IVENDOR=unitedlinux
+fi
+cp -f vendor/$IVENDOR/ocfs.init $RPM_BUILD_ROOT/etc/init.d/ocfs2
+
+for tool in mkfs.ocfs2 debugfs.ocfs2 load_ocfs ocfs_uid_gen
+do
+  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
+done
+
+#for tool in ocfstool
+#do
+#  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
+#done
+
+
+%clean
+rm -rf "$RPM_BUILD_ROOT"
+
+
+%post -n ocfs-2support
+chkconfig ocfs2 on
+IVENDOR=redhat
+if [ -r /etc/UnitedLinux-release -o -r /etc/SuSE-release ]
+then
+    IVENDOR=unitedlinux
+else
+    /etc/init.d/ocfs2 link
+fi
+
+
+%files
+%defattr(-,root,root)
+/usr/sbin
+/usr/share
+
+
+%files -n ocfs-support
+%defattr(-,root,root)
+/sbin/load_ocfs2
+/sbin/mkfs.ocfs2
+/sbin/debugfs.ocfs2
+/sbin/ocfs_uid_gen2
+/etc/init.d/ocfs2
+
+
+%changelog
+* Mon Aug 30 2004 Manish Singh <manish.singh@oracle.com>
+- Initial rpm spec

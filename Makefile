@@ -22,14 +22,10 @@ ifeq ($(TOOLSARCH),error)
 $(error could not detect architecture for tools)
 endif
 
-SUBDIRS = load_ocfs ocfs_uid_gen
+SUBDIRS = libocfs2 mkfs.ocfs2 extras load_ocfs ocfs_uid_gen
 
-ifdef BUILD_OCFS
-SUBDIRS += ocfs
-endif
-
-ifdef BUILD_OCFS2
-SUBDIRS += ocfs2
+ifdef BUILD_DEBUGOCFS2
+SUBDIRS += debugfs.ocfs2
 endif
 
 ifdef BUILD_OCFSTOOL
