@@ -28,11 +28,14 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
 #include "fsck.h"
+#include "icount.h"
 #include "pass1.h"
+#include "util.h"
 
 static void print_usage(void)
 {
@@ -60,6 +63,18 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 				    o2fsck_state *ost)
 {
 	errcode_t ret;
+
+	ret = o2fsck_icount_new(fs, &ost->ost_icount_in_inodes);
+	if (ret) {
+		com_err(whoami, ret, "while allocating inode icount");
+		return ret;
+	}
+
+	ret = o2fsck_icount_new(fs, &ost->ost_icount_refs);
+	if (ret) {
+		com_err(whoami, ret, "while allocating reference icount");
+		return ret;
+	}
 
 	ret = ocfs2_block_bitmap_new(fs, "inodes in use", 
 				     &ost->ost_used_inodes);
@@ -106,7 +121,7 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 	return 0;
 }
 
-void exit_if_skipping(o2fsck_state *ost)
+static void exit_if_skipping(o2fsck_state *ost)
 {
 	if (ost->ost_force)
 		return;
@@ -180,7 +195,7 @@ int main(int argc, char **argv)
 	}
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
-		fprintf(stderr, "Invalid blocksize: %lld\n", blksize);
+		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
 		print_usage();
 		return 1;
 	}
@@ -216,8 +231,8 @@ int main(int argc, char **argv)
 
 	/* ocfs2_open() already checked _incompat and _ro_compat */
 	if (OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_compat &
-	    ~OCFS2_LIB_FEATURE_COMPAT_SUPP) {
-		com_err(argv[0], EXT2_ET_UNSUPP_FEATURE,
+	    ~OCFS2_FEATURE_COMPAT_SUPP) {
+		com_err(argv[0], OCFS2_ET_UNSUPP_FEATURE,
 		        "while checking _compat flags");
 		exit(FSCK_ERROR);
 	}

@@ -22,8 +22,8 @@ ifeq ($(OCFS_PROCESSOR),i686)
   DEFINES += -D__ILP32__
 endif
 
-CFILES = fsck.c pass1.c problem.c util.c
-HFILES = include/fsck.h include/pass1.h include/problem.h include/util.h
+CFILES = fsck.c icount.c pass1.c problem.c util.c
+HFILES = include/fsck.h include/icount.h include/pass1.h include/problem.h include/util.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 

@@ -45,6 +45,7 @@
 #include "byteorder.h"
 
 #include <kernel-list.h>
+#include <kernel-rbtree.h>
 
 #if OCFS2_FLAT_INCLUDES
 #include "ocfs2_err.h"

@@ -24,7 +24,9 @@
 #ifndef __O2FSCK_PASS1_H__
 #define __O2FSCK_PASS1_H__
 
-errcode_t o2fsck_pass1(ocfs2_filesys *fs, o2fsck_state *ost);
+#include "fsck.h"
+
+errcode_t o2fsck_pass1(o2fsck_state *ost);
 
 #endif /* __O2FSCK_PASS1_H__ */
 

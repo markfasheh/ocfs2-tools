@@ -1,5 +1,5 @@
 /*
- * fsck.h
+ * icount.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,30 +21,20 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_FSCK_H__
-#define __O2FSCK_FSCK_H__
+#ifndef __O2FSCK_ICOUNT_H__
+#define __O2FSCK_ICOUNT_H__
 
-#include "icount.h"
+#include "ocfs2.h"
 
-typedef struct _o2fsck_state {
-	ocfs2_filesys 	*ost_fs;
+typedef struct _o2fsck_icount {
+	ocfs2_bitmap	*ic_single_bm;
+	struct rb_root	ic_multiple_tree;
+} o2fsck_icount;
 
-	ocfs2_bitmap	*ost_used_inodes;
-	ocfs2_bitmap	*ost_bad_inodes;
-	ocfs2_bitmap	*ost_dir_inodes;
-	ocfs2_bitmap	*ost_reg_inodes;
+errcode_t o2fsck_icount_update(o2fsck_icount *icount, uint64_t blkno, 
+				uint16_t count);
+errcode_t o2fsck_icount_new(ocfs2_filesys *fs, o2fsck_icount **ret);
+void o2fsck_icount_free(o2fsck_icount *icount);
 
-	ocfs2_bitmap	*ost_found_blocks;
-	ocfs2_bitmap	*ost_dup_blocks;
-
-	o2fsck_icount	*ost_icount_in_inodes;
-	o2fsck_icount	*ost_icount_refs;
-
-	/* flags */
-	unsigned	ost_ask:1,	/* confirm with the user */
-			ost_answer:1,	/* answer if we don't ask the user */
-			ost_force:1;	/* -f supplied; force check */
-} o2fsck_state;
-
-#endif /* __O2FSCK_FSCK_H__ */
+#endif /* __O2FSCK_ICOUNT_H__ */
 

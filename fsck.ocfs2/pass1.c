@@ -24,9 +24,11 @@
  * Authors: Zach Brown
  */
 #include <string.h>
+#include <inttypes.h>
 
 #include "ocfs2.h"
 
+#include "icount.h"
 #include "fsck.h"
 #include "pass1.h"
 #include "problem.h"
@@ -54,9 +56,6 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 {
 	int was_set;
 
-	fprintf(stdout, "inode %llu with size %llu\n",
-		blkno, di->i_size);
-
 	/* do we want to detect and delete corrupt system dir/files here
 	 * so we can recreate them later ? */
 
@@ -69,11 +68,9 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	/* XXX it seems these are expected sometimes? */
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		   strlen(OCFS2_INODE_SIGNATURE))) {
-		printf("inode %llu has invalid signature\n", blkno);
 		goto bad;
 	}
 	if (!(di->i_flags & OCFS2_VALID_FL)) {
-		printf("inode %llu missing valid flag\n", blkno);
 		goto bad;
 	}
 
@@ -83,7 +80,8 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	    should_fix(ost, FIX_DEFYES, "Root inode isn't a directory.")) {
 		di->i_dtime = 0ULL;
 		di->i_links_count = 0ULL;
-		/* icount_store(links_count) */
+		o2fsck_icount_update(ost->ost_icount_in_inodes, di->i_blkno,
+					di->i_links_count);
 		o2fsck_write_inode(fs, blkno, di);
 	}
 
@@ -99,7 +97,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	ocfs2_bitmap_set(ost->ost_used_inodes, blkno, &was_set);
 	if (was_set) {
-		fprintf(stderr, "duplicate inode %llu?\n", blkno);
+		fprintf(stderr, "duplicate inode %"PRIu64"?\n", blkno);
 		goto bad;
 	}
 
@@ -141,7 +139,7 @@ static int verify_block(ocfs2_filesys *fs,
 
 	ocfs2_bitmap_set(vb->vb_ost->ost_found_blocks, blkno, &was_set);
 	if (was_set) {
-		fprintf(stderr, "duplicate block %llu?\n", blkno);
+		fprintf(stderr, "duplicate block %"PRIu64"?\n", blkno);
 		ocfs2_bitmap_set(vb->vb_ost->ost_dup_blocks, blkno, NULL);
 	}
 
@@ -181,7 +179,7 @@ out:
 	return ret;
 }
 
-errcode_t o2fsck_pass1(ocfs2_filesys *fs, o2fsck_state *ost)
+errcode_t o2fsck_pass1(o2fsck_state *ost)
 {
 	errcode_t ret;
 	uint64_t blkno;

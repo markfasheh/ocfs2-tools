@@ -23,6 +23,7 @@
  *
  * Authors: Zach Brown
  */
+#include <inttypes.h>
 #include "ocfs2.h"
 
 #include "util.h"
@@ -32,10 +33,11 @@ void o2fsck_write_inode(ocfs2_filesys *fs, uint64_t blkno, ocfs2_dinode *di)
 	errcode_t ret;
 
 	if (blkno != di->i_blkno)
-		fatal_error(0, "Asked to write inode with i_blkno %llu to "
-				"different block %llu.\n", di->i_blkno, blkno);
+		fatal_error(0, "Asked to write inode with i_blkno %"PRIu64
+				" to different block %"PRIu64".\n", 
+				di->i_blkno, blkno);
 
 	ret = ocfs2_write_inode(fs, blkno, (char *)di);
 	if (ret)
-		fatal_error(ret, "while writing inode %llu", di->i_blkno);
+		fatal_error(ret, "while writing inode %"PRIu64, di->i_blkno);
 }
