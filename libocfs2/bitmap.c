@@ -118,6 +118,12 @@ errcode_t ocfs2_bitmap_test(ocfs2_bitmap *bitmap, uint64_t bitno,
 	return ret;
 }
 
+int ocfs2_bitmap_find_next_set(ocfs2_bitmap *bitmap, uint64_t start, 
+				uint64_t *found)
+{
+	return (*bitmap->b_ops->find_next_set)(bitmap, start, found);
+}
+
 uint64_t ocfs2_bitmap_get_set_bits(ocfs2_bitmap *bitmap)
 {
 	return bitmap->b_set_bits;
@@ -293,18 +299,28 @@ static errcode_t ocfs2_bitmap_merge_cluster(ocfs2_bitmap *bitmap,
 	return 0;
 }
 
-/* Find a bitmap cluster in the tree that intersects the bit region
- * that is passed in.  The rb_node garbage lets insertion share this
- * searching code, most trivial callers will pass in NULLs. */
+/* 
+ * Find a bitmap cluster in the tree that intersects the bit region
+ * that is passed in.  
+ *
+ * _p and _parent are set so that callers can use rb_link_node and 
+ * rb_insert_color to insert a node after finding that their bit
+ * wasn't found.
+ *
+ * _next is only used if a bitmap_cluster isn't found.  it is set
+ * to the next node in the tree greater than the bitmap range
+ * that was searched.
+ */
 static
 struct ocfs2_bitmap_cluster *ocfs2_bitmap_lookup(ocfs2_bitmap *bitmap, 
 						 uint64_t bitno, 
 						 uint64_t total_bits, 
 						 struct rb_node ***ret_p,
-						 struct rb_node **ret_parent)
+						 struct rb_node **ret_parent,
+						 struct rb_node **ret_next)
 {
 	struct rb_node **p = &bitmap->b_clusters.rb_node;
-	struct rb_node *parent = NULL;
+	struct rb_node *parent = NULL, *last_left = NULL;
 	struct ocfs2_bitmap_cluster *bc = NULL;
 
 	while (*p)
@@ -314,6 +330,7 @@ struct ocfs2_bitmap_cluster *ocfs2_bitmap_lookup(ocfs2_bitmap *bitmap,
 
 		if (bitno + total_bits <= bc->bc_start_bit) {
 			p = &(*p)->rb_left;
+			last_left = *p;
 			bc = NULL;
 		} else if (bitno >= (bc->bc_start_bit + bc->bc_total_bits)) {
 			p = &(*p)->rb_right;
@@ -325,6 +342,8 @@ struct ocfs2_bitmap_cluster *ocfs2_bitmap_lookup(ocfs2_bitmap *bitmap,
 		*ret_p = p;
 	if (ret_parent != NULL)
 		*ret_parent = parent;
+	if (bc == NULL && ret_next != NULL)
+		*ret_next = last_left;
 	return bc;
 }
 
@@ -339,7 +358,7 @@ errcode_t ocfs2_bitmap_insert_cluster(ocfs2_bitmap *bitmap,
 
 	/* we shouldn't find an existing cluster that intersects our new one */
 	bc_tmp = ocfs2_bitmap_lookup(bitmap, bc->bc_start_bit, 
-				     bc->bc_total_bits, &p, &parent);
+				     bc->bc_total_bits, &p, &parent, NULL);
 	if (bc_tmp)
 		return OCFS2_ET_INVALID_BIT;
 
@@ -374,7 +393,7 @@ errcode_t ocfs2_bitmap_set_generic(ocfs2_bitmap *bitmap, uint64_t bitno,
 	struct ocfs2_bitmap_cluster *bc;
 	int old_tmp;
 	
-	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL);
+	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL, NULL);
 	if (!bc)
 		return OCFS2_ET_INVALID_BIT;
 
@@ -395,7 +414,7 @@ errcode_t ocfs2_bitmap_clear_generic(ocfs2_bitmap *bitmap,
 	struct ocfs2_bitmap_cluster *bc;
 	int old_tmp;
 	
-	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL);
+	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL, NULL);
 	if (!bc)
 		return OCFS2_ET_INVALID_BIT;
 
@@ -415,7 +434,7 @@ errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 {
 	struct ocfs2_bitmap_cluster *bc;
 	
-	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL);
+	bc = ocfs2_bitmap_lookup(bitmap, bitno, 1, NULL, NULL, NULL);
 	if (!bc)
 		return OCFS2_ET_INVALID_BIT;
 
@@ -424,6 +443,37 @@ errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 	return 0;
 }
 
+static int ocfs2_bitmap_find_next_set_generic(ocfs2_bitmap *bitmap,
+					      uint64_t start, uint64_t *found)
+{
+	struct ocfs2_bitmap_cluster *bc;
+	struct rb_node *node = NULL;
+	int offset, ret;
+
+	/* start from either the node whose's bc contains the bit or 
+	 * the next greatest node in the tree */
+	bc = ocfs2_bitmap_lookup(bitmap, start, 1, NULL, NULL, &node);
+	if (bc)
+		node = &bc->bc_node;
+
+	for (; node != NULL; node = rb_next(node)) {
+		bc = rb_entry(node, struct ocfs2_bitmap_cluster, bc_node);
+
+		if (start > bc->bc_start_bit)
+			offset = start - bc->bc_start_bit;
+		else
+			offset = 0;
+
+		ret = ocfs2_find_next_bit_set(bc->bc_bitmap, bc->bc_total_bits,
+						offset);
+		if (ret != bc->bc_total_bits) {
+			*found = bc->bc_start_bit + ret;
+			return 1;
+		}
+	}
+
+	return 0;
+}
 
 /*
  * Helper functions for a bitmap with holes in it.
@@ -476,10 +526,17 @@ errcode_t ocfs2_bitmap_test_holes(ocfs2_bitmap *bitmap,
 	return 0;
 }
 
+static int ocfs2_bitmap_find_next_set_holes(ocfs2_bitmap *bitmap, 
+					    uint64_t start, uint64_t *found)
+{
+	return ocfs2_bitmap_find_next_set_generic(bitmap, start, found);
+}
+
 static struct ocfs2_bitmap_operations global_cluster_ops = {
 	.set_bit	= ocfs2_bitmap_set_generic,
 	.clear_bit	= ocfs2_bitmap_clear_generic,
-	.test_bit	= ocfs2_bitmap_test_generic
+	.test_bit	= ocfs2_bitmap_test_generic,
+	.find_next_set	= ocfs2_bitmap_find_next_set_generic,
 };
 
 errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
@@ -536,7 +593,8 @@ errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
 static struct ocfs2_bitmap_operations global_block_ops = {
 	.set_bit	= ocfs2_bitmap_set_holes,
 	.clear_bit	= ocfs2_bitmap_clear_holes,
-	.test_bit	= ocfs2_bitmap_test_holes
+	.test_bit	= ocfs2_bitmap_test_holes,
+	.find_next_set	= ocfs2_bitmap_find_next_set_holes,
 };
 
 errcode_t ocfs2_block_bitmap_new(ocfs2_filesys *fs,

@@ -50,6 +50,8 @@ struct ocfs2_bitmap_operations {
 			       int *oldval);
 	errcode_t (*test_bit)(ocfs2_bitmap *bm, uint64_t bit,
 			      int *val);
+	int (*find_next_set)(ocfs2_bitmap *bm, uint64_t start, 
+			     uint64_t *found);
 	errcode_t (*merge_cluster)(ocfs2_bitmap *bm,
 				   struct ocfs2_bitmap_cluster *prev,
 				   struct ocfs2_bitmap_cluster *next);

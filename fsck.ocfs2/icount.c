@@ -116,6 +116,22 @@ void o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno,
 	}
 }
 
+uint16_t o2fsck_icount_get(o2fsck_icount *icount, uint64_t blkno)
+{
+	icount_node *in;
+	int was_set;
+
+	ocfs2_bitmap_test(icount->ic_single_bm, blkno, &was_set);
+	if (was_set)
+		return 1;
+
+	in = icount_search(icount, blkno);
+	if (in)
+		return in->in_icount;
+
+	return 0;
+}
+
 /* again, simple before efficient.  We just find the old value and
  * use _set to make sure that the new value updates both the bitmap
  * and the tree */

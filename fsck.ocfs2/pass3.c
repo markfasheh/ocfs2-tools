@@ -61,6 +61,9 @@ static void check_root(o2fsck_state *ost)
 	/* XXX */
 	printf("I don't actually create anything yet..\n");
 	exit(FSCK_ERROR);
+
+	/* set both icount refs to 2.  add dir info for it.  put it 
+	 * in used, dir bitmaps. */
 }
 
 struct fix_dot_dot_args {
@@ -122,10 +125,22 @@ static void fix_dot_dot(o2fsck_state *ost, o2fsck_dir_parent *dir)
 	dir->dp_dot_dot = dir->dp_dirent;
 }
 
-static int reconnect_file(o2fsck_state *ost, uint64_t inode)
+/* add a directory entry that points to a given inode in lost+found. */
+void o2fsck_reconnect_file(o2fsck_state *ost, uint64_t inode)
 {
+	o2fsck_dir_parent *dp;
 	fatal_error(OCFS2_ET_INTERNAL_FAILURE, "not implemented yet");
-	return 0;
+	/* up the icount ref */
+	dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents,
+				dp->dp_ino);
+	if (dp == NULL)
+		fatal_error(OCFS2_ET_INTERNAL_FAILURE,
+				"no dir parents for reconnected inode "
+				"%"PRIu64, dp->dp_ino);
+	dp->dp_dirent = 1/* XXX lost and found */;
+	fix_dot_dot(ost, dp);
+	/* XXX mark invalid if this fails */
+	return;
 }
 
 static uint64_t loop_no = 0;
@@ -169,20 +184,9 @@ static void connect_directory(o2fsck_state *ost, o2fsck_dir_parent *dir)
 		fix = should_fix(ost, FIX_DEFYES, "directory inode %"PRIu64" "
 				"isn't connected to the filesystem.  Move it "
 				"to lost+found?", dp->dp_ino);
-		if (!fix)
-			break;
-		if (reconnect_file(ost, dp->dp_ino)) {
-			/* XXX mark invalid */
-			break;
-		}
-		dp = o2fsck_dir_parent_lookup(&ost->ost_dir_parents,
-					dp->dp_ino);
-		if (dp == NULL)
-			fatal_error(OCFS2_ET_INTERNAL_FAILURE,
-					"no dir parents for reconnected inode "
-					"%"PRIu64, dp->dp_ino);
-		dp->dp_dirent = 1/* XXX lost and found */;
-		fix_dot_dot(ost, dp);
+		if (fix)
+			o2fsck_reconnect_file(ost, dp->dp_ino);
+
 		break;
 	}
 

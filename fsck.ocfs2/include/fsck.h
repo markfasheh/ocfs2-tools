@@ -40,7 +40,12 @@ typedef struct _o2fsck_state {
 
 	ocfs2_bitmap	*ost_rebuild_dirs;
 
+	/* This is no more than a cache of what we know the i_link_count
+	 * in each inode to currently be.  If an inode is marked in used_inodes
+	 * this had better be up to date. */
 	o2fsck_icount	*ost_icount_in_inodes;
+	/* this records references to each inode from other directory 
+	 * entries, including '.' and '..'. */
 	o2fsck_icount	*ost_icount_refs;
 
 	o2fsck_dirblocks	ost_dirblocks;

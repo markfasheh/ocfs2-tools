@@ -37,6 +37,7 @@
 #include "pass1.h"
 #include "pass2.h"
 #include "pass3.h"
+#include "pass4.h"
 #include "util.h"
 
 int verbose = 0;
@@ -271,6 +272,9 @@ int main(int argc, char **argv)
 	if (ret)
 		com_err(argv[0], ret, "pass3 failed");
 
+	ret = o2fsck_pass4(ost);
+	if (ret)
+		com_err(argv[0], ret, "pass4 failed");
 
 	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {

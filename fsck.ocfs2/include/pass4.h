@@ -1,5 +1,5 @@
 /*
- * pass3.h
+ * pass4.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,13 +21,12 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_PASS3_H__
-#define __O2FSCK_PASS3_H__
+#ifndef __O2FSCK_PASS4_H__
+#define __O2FSCK_PASS4_H__
 
 #include "fsck.h"
 
-errcode_t o2fsck_pass3(o2fsck_state *ost);
-void o2fsck_reconnect_file(o2fsck_state *ost, uint64_t inode);
+errcode_t o2fsck_pass4(o2fsck_state *ost);
 
-#endif /* __O2FSCK_PASS3_H__ */
+#endif /* __O2FSCK_PASS4_H__ */
 
