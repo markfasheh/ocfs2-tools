@@ -108,7 +108,7 @@ libocfs2.a: $(OBJS) $(LIBO2DLM_DEPS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(HFILES) ocfs2_err.et.in
+DIST_FILES = $(CFILES) $(HFILES) ocfs2_err.et
 
 DIST_RULES = dist-subdircreate
 

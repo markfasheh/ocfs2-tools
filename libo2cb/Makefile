@@ -65,7 +65,7 @@ libo2cb.a: $(OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et.in
+DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et
 
 DIST_RULES = dist-subdircreate
 
