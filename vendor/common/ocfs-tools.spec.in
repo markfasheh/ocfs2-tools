@@ -131,6 +131,9 @@ fi
 /sbin/resizeocfs
 /sbin/mounted.ocfs
 /sbin/fsck.ocfs
+/sbin/blked.ocfs
+/sbin/mkfs.ocfs2
+/sbin/debugfs.ocfs2
 /sbin/ocfs_uid_gen
 /etc/init.d/ocfs
 /etc/init.d/ocfs2
