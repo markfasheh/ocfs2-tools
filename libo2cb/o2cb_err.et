@@ -57,4 +57,10 @@ ec	O2CB_ET_INVALID_BLOCK_SIZE,
 ec	O2CB_ET_INVALID_BLOCK_COUNT,
 	"Block count is invalid"
 
+ec	O2CB_ET_HOSTNAME_UNKNOWN,
+	"Could not determine local host name"
+
+ec	O2CB_ET_CONFIGURATION_ERROR,
+	"Configuration error discovered"
+
 	end

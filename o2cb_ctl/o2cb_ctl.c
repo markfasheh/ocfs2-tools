@@ -775,23 +775,35 @@ out_error:
     return rc;
 }  /* run_info() */
 
-static gchar *o2cb_node_is_local(gchar *node_name)
+static errcode_t o2cb_node_is_local(gchar *node_name, gboolean *is_local)
 {
-    int ret;
-    char hostname[PATH_MAX]; /* la la la */
-    gchar *local = NULL;
+    char hostname[PATH_MAX];
+    size_t host_len, node_len = strlen(node_name);
+    gboolean local = 0;
+    errcode_t ret = 0;
 
     ret = gethostname(hostname, sizeof(hostname));
-    if (ret)
-        return NULL;
+    if (ret) {
+        fprintf(stderr, "gethostname() failed: %s", strerror(errno));
+        ret = O2CB_ET_HOSTNAME_UNKNOWN;
+        goto out;
+    }
 
-    /* XXX no g_strcasecmp()? */
-    if (strcasecmp(hostname, node_name) == 0)
-        local = g_strdup("1");
-    else
-        local = g_strdup("0");
+    host_len = strlen(hostname);
+    if (host_len < node_len)
+        goto out;
 
-    return local;
+    /* nodes are only considered local if they match the hostname.  we want
+     * to be sure to catch the node name being "localhost" and the hostname
+     * being "localhost.localdomain".  we consider them equal if the 
+     * configured node name matches the start of the hostname up to a '.' */
+    if (!strncasecmp(node_name, hostname, node_len) &&
+        (hostname[node_len] == '\0' || hostname[node_len] == '.'))
+            local = 1;
+out:
+    *is_local = local;
+
+    return ret;
 }
 
 static gint online_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
@@ -801,6 +813,7 @@ static gint online_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
     gchar *name, *node_name, *node_num, *ip_address, *ip_port, *local;
     JIterator *iter;
     O2CBNode *node;
+    gboolean seen_local = 0, is_local;
 
     rc = -ENOMEM;
     name = o2cb_cluster_get_name(cluster);
@@ -833,7 +846,29 @@ static gint online_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
         node_name = o2cb_node_get_name(node);
         ip_port = g_strdup_printf("%d", o2cb_node_get_port(node));
         ip_address = o2cb_node_get_ip_string(node);
-        local = o2cb_node_is_local(node_name);
+            
+        ret = o2cb_node_is_local(node_name, &is_local);
+        if (ret) {
+                com_err(PROGNAME, ret, "while determining if node %s is local",
+                        node_name);
+                rc = -EINVAL;
+                goto out_error;
+        }
+
+        if (is_local) {
+            if (seen_local) {
+                ret = O2CB_ET_CONFIGURATION_ERROR;
+                com_err(PROGNAME, ret, "while adding node %s.  It is "
+                        "considered local but another node was already marked "
+                        "as local.  Do multiple node names in the config "
+                        "match this machine's host name?", node_name);
+                rc = -EINVAL;
+                goto out_error;
+            }
+            local = g_strdup("1");
+            seen_local = 1;
+        } else
+            local = g_strdup("0");
 
         ret = o2cb_add_node(name, node_name, node_num, ip_address,
                             ip_port, local);
@@ -860,6 +895,18 @@ static gint online_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
             break;
     }
     j_iterator_free(iter);
+    if (rc)
+        goto out_error;
+
+    if (!seen_local) {
+        ret = O2CB_ET_CONFIGURATION_ERROR;
+        com_err(PROGNAME, ret, "while populating cluster %s.  None of its "
+                "nodes were considered local.  A node is considered local "
+                "when its node name in the configuration maches this "
+                "machine's host name.", name);
+        rc = -EINVAL;
+        goto out_error;
+    }
 
 out_error:
 
@@ -1064,6 +1111,7 @@ static gint run_create_nodes(O2CBContext *ctxt)
     gchar *ptr;
     gchar *name, *number, *local;
     const gchar *cluster_name, *ip_address, *ip_port;
+    gboolean is_local;
 
     rc = -EINVAL;
 
@@ -1187,7 +1235,19 @@ static gint run_create_nodes(O2CBContext *ctxt)
 
     if (ctxt->oc_modify_running)
     {
-        local = o2cb_node_is_local(name);
+        err = o2cb_node_is_local(name, &is_local);
+        if (err) {
+            com_err(PROGNAME, err, "while determining if node %s is local",
+                    name);
+            rc = -EINVAL;
+            goto out;
+        }
+
+        if (is_local)
+            local = g_strdup("1");
+        else
+            local = g_strdup("0");
+        
         err = o2cb_add_node(cluster_name, name, number,
                             ip_address, ip_port, local);
         if (err)
