@@ -282,6 +282,9 @@ main(int argc, char **argv)
 	SystemFileDiskRecord *tmprec, *tmprec2;
 	char fname[SYSTEM_FILE_NAME_MAX];
 
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
 	s = get_state(argc, argv);
 
 	open_device(s);
@@ -316,6 +319,9 @@ main(int argc, char **argv)
 	system_dir = alloc_directory(s);
 	orphan_dir = alloc_directory(s);
 
+	if (!s->quiet)
+		printf("Creating bitmaps: ");
+
 	need = (s->volume_size_in_clusters + 7) >> 3;
 	need = ((need + s->cluster_size - 1) >> s->cluster_size_bits) << s->cluster_size_bits;
 
@@ -343,6 +349,12 @@ main(int argc, char **argv)
 		initialize_bitmap(s, tmprec->extent_len >> s->blocksize_bits,
 				  s->blocksize_bits, "system inode bitmap",
 				  tmprec2, tmprec);
+
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Writing superblock: ");
 
 	leading_space = alloc_inode(s, LEADING_SPACE_BLOCKS);
 	if (leading_space != 0ULL) {
@@ -412,6 +424,12 @@ main(int argc, char **argv)
 	format_leading_space(s, leading_space);
 	format_superblock(s, &superblock_rec, &root_dir_rec, &system_dir_rec);
 
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Writing system files: ");
+
 	format_file(s, &root_dir_rec);
 	format_file(s, &system_dir_rec);
 
@@ -439,9 +457,21 @@ main(int argc, char **argv)
 	write_directory_data(s, system_dir);
 	write_directory_data(s, orphan_dir);
 
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Writing autoconfig header: ");
+
 	write_autoconfig_header(s, &record[DLM_SYSTEM_INODE][0]);
 
+	if (!s->quiet)
+		printf("done\n");
+
 	close_device(s);
+
+	if (!s->quiet)
+		printf("%s successful\n\n", s->progname);
 
 	return 0;
 }
