@@ -80,8 +80,9 @@ def query_text(parent, prompt):
 
     return text
 
-try:
-    set_alt_button_order = gtk.Dialog.set_alternative_button_order
-except AttributeError:
-    def set_alt_button_order(dialog, new_order):
-        pass
+if hasattr(gtk.Dialog, 'set_alternative_button_order'):
+    Dialog = gtk.Dialog
+else:
+    class Dialog(gtk.Dialog):
+        def set_alternative_button_order(self, new_order=None):
+            pass

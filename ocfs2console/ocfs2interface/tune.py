@@ -19,7 +19,7 @@ import gtk
 
 import ocfs2
 
-from guiutil import set_props, error_box, format_bytes, set_alt_button_order
+from guiutil import Dialog, set_props, error_box, format_bytes
 from process import Process
 
 from fswidgets import NumNodes, VolumeLabel
@@ -63,14 +63,13 @@ def tune_action(widget_type, parent, device):
                           (widget_type.label.lower(), device))
         return False
 
-    dialog = gtk.Dialog(parent=parent, title=widget_type.title,
-                        buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                 gtk.STOCK_OK,     gtk.RESPONSE_OK))
+    dialog = Dialog(parent=parent, title=widget_type.title,
+                    buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                             gtk.STOCK_OK,     gtk.RESPONSE_OK))
+
+    dialog.set_alternative_button_order((gtk.RESPONSE_OK, gtk.RESPONSE_CANCEL))
 
     dialog.set_default_response(gtk.RESPONSE_OK)
-
-    set_alt_button_order(dialog, (gtk.RESPONSE_OK, gtk.RESPONSE_CANCEL))
-
 
     table = gtk.Table(rows=1, columns=2)
     set_props(table, row_spacing=4,
