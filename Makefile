@@ -37,6 +37,7 @@ SUBDIRS += vendor
 DIST_FILES = \
 	COPYING		\
 	README		\
+	README.O2CB	\
 	Config.make.in	\
 	Preamble.make	\
 	Postamble.make	\

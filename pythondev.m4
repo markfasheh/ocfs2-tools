@@ -1,5 +1,3 @@
-## Add your own autoconf macros here.
-
 ## Find the install dirs for the python installation.
 ##  By James Henstridge
 

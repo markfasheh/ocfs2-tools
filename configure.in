@@ -167,13 +167,6 @@ if test "x$enable_ocfs2console" = "xyes"; then
   AM_PATH_PYTHON(2.2)
   AM_CHECK_PYTHON_HEADERS(,[AC_MSG_ERROR(could not find Python headers)])
 
-  dnl check for GTK
-  PKG_CHECK_MODULES(GTK, gtk+-2.0 >= $GTK_REQUIRED_VERSION)
-
-  dnl check for PyGTK
-  PKG_CHECK_MODULES(PYGTK, pygtk-2.0 >= $PYGTK_REQUIRED_VERSION)
-  AC_SUBST(PYGTK_CFLAGS)
-
   BUILD_OCFS2CONSOLE=yes
 fi
 
