@@ -5,3 +5,4 @@ stamp-md5
 fsck.ocfs2
 *.8
 *.d
+prompt-codes.h

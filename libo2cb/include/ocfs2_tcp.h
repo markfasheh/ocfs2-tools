@@ -28,10 +28,6 @@
 
 #ifndef DLMNET_H
 #define DLMNET_H
-#include <linux/socket.h>
-#include <sys/socket.h>
-#include <linux/inet.h>
-#include <linux/in.h>
 
 typedef struct _gsd_ioc
 {
@@ -40,6 +36,11 @@ typedef struct _gsd_ioc
 	char name[NM_MAX_NAME_LEN+1];
 	int status;
 } gsd_ioc;
+
+typedef struct _net_ioc
+{
+	__u32 status;
+} net_ioc;
 
 #define  NET_IOC_MAGIC          'O'
 #define  NET_IOC_ACTIVATE       _IOR(NET_IOC_MAGIC, 1, net_ioc)

@@ -15,11 +15,8 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
-#define __u8 unsigned char 
-#define u8 unsigned char 
-#define u16 unsigned short int
-#define u32 unsigned int       
-#define u64 unsigned long long
+#include "o2cb.h"
+
 #define atomic_t int
 #define spinlock_t unsigned long
 typedef unsigned short kdev_t;
@@ -28,8 +25,6 @@ typedef struct list_head {
         struct list_head *next, *prev;
 } list_t;
 
-#include "ocfs2_nodemanager.h"
-
 #define NIPQUAD(addr) \
         ((unsigned char *)&addr)[0], \
         ((unsigned char *)&addr)[1], \
@@ -37,35 +32,17 @@ typedef struct list_head {
         ((unsigned char *)&addr)[3]
 
 
-#define CLUSTER_FILE   "/proc/cluster/nm/.cluster"
-#define GROUP_FILE     "/proc/cluster/nm/.group"
-#define NODE_FILE      "/proc/cluster/nm/.node"
-
 #define CONF_FILE   "/etc/cluster.conf"
 
 /* are these right ? */
 #define MIN_PORT_NUM   1024
 #define MAX_PORT_NUM   65535
 
-#define  NET_IOC_MAGIC          'O'
-#define  NET_IOC_ACTIVATE       _IOR(NET_IOC_MAGIC, 1, net_ioc)
-#define  NET_IOC_GETSTATE       _IOR(NET_IOC_MAGIC, 2, net_ioc)
-
-
-typedef struct _net_ioc
-{
-	unsigned int status;
-} net_ioc;
-
 #define OCFS2_NM_MODULE  "ocfs2_nodemanager"
 #define OCFS2_HB_MODULE  "ocfs2_heartbeat"
 #define OCFS2_TCP_MODULE "ocfs2_tcp"
 
 
-int activate_cluster(void);
-int add_node(nm_node_info *newnode);
-int set_cluster_name(char *cluster_name);
-int activate_net(void);
 int load_module(char *module, char *mountpoint, char *fstype);
 
 
@@ -118,7 +95,7 @@ int main(int argc, char **argv)
 		int node_num, port;
 		char *node_name = NULL;
 		char *ip = NULL;
-		u32 real_ip;
+		uint32_t real_ip;
 
 		ret = fscanf(conf, "%d,%64a[^,],%15a[0-9.],%d\n", &node_num, &node_name, &ip, &port);
 		if (ret == 0 || ret == -1) {
@@ -160,7 +137,7 @@ int main(int argc, char **argv)
 	}
 	fclose(conf);
 	
-	set_cluster_name(cluster_name);
+	ret = o2cb_set_cluster_name(cluster_name);
 	i=0;
 	while (1) {
 		if (!total_nodes--)
@@ -169,166 +146,17 @@ int main(int argc, char **argv)
 			i++;
 			continue;
 		}
-		add_node(&nodes[i]);
+		ret = o2cb_add_node(&nodes[i]);
 		i++;
 	}
 	printf("done.  activating cluster now...\n");
-	activate_cluster();
+	ret = o2cb_activate_cluster();
 	printf("done.  nm ready!\n");
-	activate_net();
+	ret = o2cb_activate_networking();
 	printf("done.  net ready!\n");
 	free(nodes);
 	return 0;
 }
-
-int set_cluster_name(char *cluster_name)
-{
-	int fd;
-	nm_op *op;
-	int ret;
-	char *buf;
-	
-	buf = malloc(4096);
-	op = (nm_op *)buf;
-	memset(buf, 0, 4096);
-	op->magic = NM_OP_MAGIC;
-
-	printf("setting cluster name...\n");
-	fd = open(CLUSTER_FILE, O_RDWR);
-	if (fd == -1) {
-		printf("failed to open %s\n", CLUSTER_FILE);
-		exit(1);
-	}
-	op->opcode = NM_OP_NAME_CLUSTER;
-	strcpy(&op->arg_u.name[0], cluster_name);
-
-	ret = write(fd, op, sizeof(nm_op));
-	printf("write called returned %d\n", ret);
-	if (ret < 0) {
-		printf("error is: %s\n", strerror(errno));
-		exit(1);
-	}
-	memset(buf, 0, 4096);
-	ret = read(fd, buf, 4096);
-	printf("read returned %d\n", ret);
-	if (ret < 0)
-		exit(1);
-	printf("<<<<%*s>>>>\n", ret, buf);
-	close(fd);
-	free(buf);
-	return 0;
-
-}
-
-int add_node(nm_node_info *newnode)
-{
-	int fd;
-	nm_op *op;
-	int ret;
-	char *buf;
-	nm_node_info *node;
-	
-	buf = malloc(4096);
-	op = (nm_op *)buf;
-	memset(buf, 0, 4096);
-	op->magic = NM_OP_MAGIC;
-
-
-	printf("adding cluster node....\n");
-	fd = open(CLUSTER_FILE, O_RDWR);
-	if (fd == -1) {
-		printf("failed to open %s\n", CLUSTER_FILE);
-		exit(1);
-	}
-	op->opcode = NM_OP_ADD_CLUSTER_NODE;
-	node = &(op->arg_u.node);
-	memcpy(node, newnode, sizeof(nm_node_info));
-	printf("passing port=%u, vers=%u, addr=%d.%d.%d.%d\n",
-	       node->ifaces[0].ip_port,
-	       node->ifaces[0].ip_version,
-	       NIPQUAD(node->ifaces[0].addr_u.ip_addr4));
-
-	ret = write(fd, op, sizeof(nm_op));
-	printf("write called returned %d\n", ret);
-	if (ret < 0) {
-		printf("error is: %s\n", strerror(errno));
-		exit(1);
-	}
-	memset(buf, 0, 4096);
-	ret = read(fd, buf, 4096);
-	printf("read returned %d\n", ret);
-	if (ret < 0)
-		exit(1);
-	printf("<<<<%*s>>>>\n", ret, buf);
-	close(fd);
-
-	free(buf);
-	return 0;
-
-}
-
-int activate_cluster(void)
-{
-	int fd;
-	nm_op *op;
-	int ret;
-	char *buf;
-	
-	buf = malloc(4096);
-	op = (nm_op *)buf;
-	memset(buf, 0, 4096);
-	op->magic = NM_OP_MAGIC;
-
-	printf("activating cluster....\n");
-	fd = open(CLUSTER_FILE, O_RDWR);
-	if (fd == -1) {
-		printf("failed to open %s\n", CLUSTER_FILE);
-		exit(1);
-	}
-	op->opcode = NM_OP_CREATE_CLUSTER;
-
-	ret = write(fd, op, sizeof(nm_op));
-	printf("write called returned %d\n", ret);
-	if (ret < 0) {
-		printf("error is: %s\n", strerror(errno));
-		exit(1);
-	}
-	memset(buf, 0, 4096);
-	ret = read(fd, buf, 4096);
-	printf("read returned %d\n", ret);
-	if (ret < 0)
-		exit(1);
-	printf("<<<<%*s>>>>\n", ret, buf);
-	close(fd);
-
-	free(buf);
-	return 0;
-
-}
-
-
-int activate_net(void)
-{
-	int fd;
-	net_ioc net;
-
-	memset(&net, 0, sizeof(net_ioc));
-	fd = open("/proc/cluster/net", O_RDONLY);
-	if (fd == -1) {
-		printf("eeek.  failed to open\n");
-		exit(1);
-	}
-	
-	if (ioctl(fd, NET_IOC_ACTIVATE, &net) == -1) {
-		printf("eeek.  ioctl failed\n");
-		close(fd);
-		exit(1);
-	}
-	close(fd);
-	printf("ioctl returned: %u\n", net.status);
-	return 0;
-}
-
 
 int load_module(char *module, char *mountpoint, char *fstype)
 {

@@ -29,7 +29,6 @@
 #define O2CB_CLUSTER_FILE 	"/proc/cluster/nm/.cluster"
 #define O2CB_GROUP_FILE		"/proc/cluster/nm/.group"
 #define O2CB_NODE_FILE		"/proc/cluster/nm/.node"
-
-int o2cb_set_cluster_name(const char *cluster_name);
+#define O2CB_NETWORKING_FILE	"/proc/cluster/net"
 
 #endif  /* _O2CB_ABI_H */

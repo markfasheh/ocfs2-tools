@@ -27,4 +27,16 @@ ec	O2CB_ET_BASE,
 ec	O2CB_ET_INVALID_CLUSTER_NAME,
 	"Invalid name for a cluster"
 
+ec	O2CB_ET_NO_MEMORY,
+	"Memory allocation failed"
+
+ec	O2CB_ET_IO,
+	"I/O error on channel"
+
+ec	O2CB_ET_SERVICE_UNAVAILABLE,
+	"Unable to access cluster service"
+
+ec	O2CB_ET_INTERNAL_FAILURE,
+	"Internal logic failure"
+
 	end

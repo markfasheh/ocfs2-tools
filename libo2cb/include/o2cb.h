@@ -55,4 +55,9 @@
 #include <o2cb/ocfs2_tcp.h>
 #endif
 
+errcode_t o2cb_set_cluster_name(const char *cluster_name);
+errcode_t o2cb_add_node(nm_node_info *node);
+errcode_t o2cb_activate_cluster(void);
+errcode_t o2cb_activate_networking(void);
+
 #endif  /* _O2CB_H */
