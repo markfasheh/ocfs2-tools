@@ -63,12 +63,14 @@
 					   exit(1); \
 					 })
 
-#define FSWRK_FATAL_STR(str)		DBGFS_FATAL(str, "")
+#define FSWRK_COM_FATAL(__p, __r)	do { com_err(__p, __r, ""); raise (SIGTERM); exit(1); } while(0)
+
+#define FSWRK_FATAL_STR(str)		FSWRK_FATAL(str, "")
 
 #define FSWRK_WARN(fmt, arg...)		fprintf(stderr, "WARNING at %s, %d: " fmt ".\n", \
 						__FILE__, __LINE__, ##arg)
 
-#define FSWRK_WARN_STR(str)		DBGFS_WARN(str, "")
+#define FSWRK_WARN_STR(str)		FSWRK_WARN(str, "")
 
 #undef max
 #define max(a,b)	((a) > (b) ? (a) : (b))
@@ -76,5 +78,7 @@
 #define min(a,b)	((a) < (b) ? (a) : (b))
 
 /* remaining headers */
+#include <corrupt.h>
+#include <chain.h>
 
 #endif		/* __MAIN_H__ */

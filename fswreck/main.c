@@ -25,11 +25,18 @@
 
 #include <main.h>
 
-#define MAX_CORRUPT		1
+#define MAX_CORRUPT		3
 
 char *progname = NULL;
 char *device = NULL;
 int corrupt[MAX_CORRUPT];
+
+void (*corrupt_func[]) (ocfs2_filesys *fs) = {
+	NULL,
+	NULL,
+	NULL,
+	&corrupt_3
+};
 
 /*
  * usage()
@@ -91,7 +98,7 @@ static int read_options(int argc, char **argv)
 		switch (c) {
 		case 'c':	/* corrupt */
 			ind = strtoul(optarg, NULL, 0);
-			if (ind < MAX_CORRUPT)
+			if (ind <= MAX_CORRUPT)
 				corrupt[ind] = 1;
 			else {
 				printf("booo\n");
@@ -118,8 +125,7 @@ int main (int argc, char **argv)
 {
 	ocfs2_filesys *fs = NULL;
 	errcode_t ret = 0;
-	uint64_t boo;
-	int len;
+	int i;
 
 #define INSTALL_SIGNAL(sig)					\
 	do {							\
@@ -148,6 +154,15 @@ int main (int argc, char **argv)
 	if (ret) {
 		com_err(progname, ret, "while opening \"%s\"", device);
 		goto bail;
+	}
+
+	for (i = 1; i <= MAX_CORRUPT; ++i) {
+		if (corrupt[i]) {
+			if (corrupt_func[i])
+				corrupt_func[i](fs);
+			else
+				printf("Unimplemented corrupt code = %d\n", i);
+		}
 	}
 
 bail:

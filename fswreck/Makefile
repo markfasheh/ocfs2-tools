@@ -16,10 +16,12 @@ else
 CFLAGS = -Wall -O2
 endif
 
-CFILES = main.c
+CFILES = main.c corrupt.c chain.c
 
 HFILES = 			\
-	include/main.h
+	include/main.h		\
+	include/corrupt.h	\
+	include/chain.c
 
 OBJS = $(subst .c,.o,$(CFILES))
 
