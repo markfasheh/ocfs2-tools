@@ -38,8 +38,6 @@
 
 /* no va_list variant of com_err */
 #define fatal_error(errcode, fmt...) do {				\
-	fflush(stdout);							\
-	fflush(stderr);							\
 	com_err("o2fsck", errcode, fmt);				\
 	exit(FSCK_ERROR);						\
 } while (0)
