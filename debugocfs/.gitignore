@@ -1,6 +1,6 @@
 debugocfs
 test
-cscope.files
+cscope*
 ocfsextfinder
 debugocfs.8
 stamp-md5

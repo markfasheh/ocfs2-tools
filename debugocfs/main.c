@@ -70,6 +70,7 @@ void usage(void)
     printf("       -L: vol metadata log system file\n");
     printf("       -M: vol metadata system file\n");
     printf("       -n: perform action as node number given\n");
+    printf("       -N: do not bind device with raw\n");
     printf("/dev/name: readable device\n");
     printf("    range: node numbers to inspect (0-31), commas and dashes ok\n");
     printf("            ex. 0-3,5,14-17\n");
@@ -77,7 +78,7 @@ void usage(void)
 
 void translate_usage(void)
 {
-    printf("Usage: debugocfs -X { -h highoff -l lowoff | -o off } -t type\n");
+    printf("Usage: debugocfs -X { -h highoff -l lowoff | -o off } [-N] -t type\n");
     printf("\n");
     printf("       highoff/lowoff: 32-bit high and low offsets to data\n");
     printf("                  off: 64-bit offset to data\n");
@@ -101,23 +102,26 @@ void do_translate(int argc, char **argv)
     __u64 off = 0;
     int size = 0;
     char *type = NULL;
-    char *dot;
+    char *p;
     debugocfs_print_func func;
     int flags;
+    bool no_rawbind = false;
 
     while (1)
     {
-	c = getopt(argc, argv, "2o:h:l:s:t:");
+	c = getopt(argc, argv, "N2o:h:l:s:t:");
 	if (c == -1)
 	    break;
 	switch (c)
 	{
 	    case 'o':
-		if ((dot = strchr(optarg, '.')) != NULL)
-		{
-		    *dot = '\0';
-		    off = atoll(optarg);
-		    *dot = '.';
+		p = strchr(optarg, '.');
+		if (!p)
+			off = atoll(optarg);
+		else {
+			*p = '\0';
+			off  = ((__u64) strtoul(optarg, NULL, 0)) << 32;
+			off |= strtoul(++p, NULL, 0);
 		}
 		break;
 	    case 'h':
@@ -130,6 +134,9 @@ void do_translate(int argc, char **argv)
 		break;
 	    case 't':
 		type = (char *) strdup(optarg);
+		break;
+	    case 'N':
+		no_rawbind = true;
 		break;
 	    case '2':		/* display 8-byte nums as 2 4-byte nums */
 		args.twoFourbyte = true;
@@ -199,8 +206,11 @@ void do_translate(int argc, char **argv)
 	exit(1);
     }
 
-    if (bind_raw(argv[optind], &rawminor, rawdev, sizeof(rawdev)) == -1)
-	    goto bail;
+    if (!no_rawbind) {
+	    if (bind_raw(argv[optind], &rawminor, rawdev, sizeof(rawdev)) == -1)
+		    goto bail;
+    } else
+	    strncpy(rawdev, argv[optind], sizeof(rawdev));
 
     flags = O_RDONLY | O_LARGEFILE;
     fd = open(rawdev, flags);
@@ -303,7 +313,7 @@ int main(int argc, char **argv)
     while (1)
     {
 	int off = 0;
-	int c = getopt(argc, argv, "hgl2v:p:d:D:f:F:a:A:b:B:b:r:c:L:M:s:n:X");
+	int c = getopt(argc, argv, "Nhgl2v:p:d:D:f:F:a:A:b:B:b:r:c:L:M:s:n:X");
 
 	if (c == -1)
 	    break;
@@ -392,6 +402,9 @@ int main(int argc, char **argv)
 	    case 'n':		/* node number */
 		args.nodenum = atoi(optarg);
 		break;
+	    case 'N':
+		args.no_rawbind = true;
+		break;
 	    case 'X':		/* translate */
 		do_translate(argc, argv);
 		exit(0);
@@ -420,8 +433,11 @@ int main(int argc, char **argv)
 	exit(1);
     }
 
-    if (bind_raw(argv[optind], &rawminor, rawdev, sizeof(rawdev)) == -1)
-	    goto bail;
+    if (!args.no_rawbind) {
+	    if (bind_raw(argv[optind], &rawminor, rawdev, sizeof(rawdev)) == -1)
+		    goto bail;
+    } else
+	    strncpy(rawdev, argv[optind], sizeof(rawdev));
 
     flags = O_RDONLY | O_LARGEFILE;
     fd = open(rawdev, flags);

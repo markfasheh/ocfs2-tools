@@ -91,6 +91,8 @@ void print_vol_disk_header(void *buf)
     printf("\tuid = %u\n", v->uid);
     printf("\tgid = %u\n", v->gid);
     printf("\texcl_mount = %d\n", v->excl_mount);
+    printf("\tdisk_hb = %d\n", v->disk_hb);
+    printf("\thb_timeo = %d\n", v->hb_timeo);
 }
 
 __u64 global_bm_bitnum_to_offset(int bitnum, void *data)

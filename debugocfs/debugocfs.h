@@ -58,6 +58,7 @@ typedef struct _user_args
     int showDirentAll;
     int showFileent;
     int showFileext;
+    bool no_rawbind;
     int twoFourbyte;
     int showSystemFiles;
     int suckFile;
