@@ -21,8 +21,14 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * Pass 0 verifies that the inode suballocators can be iterated over by
+ * latter passes without risk of running into corruption.  Usually our passes
+ * are analagous to ext{2,3} but ocfs2's allocation is more dynamic.  As 
+ * pass 0 it only makes sure that basic iteration in pass 1 will work.  After
+ * building a set of active inodes Pass 1 will call back into us to sync the
+ * bitmaps with the active inodes.
  */
+
 #include <string.h>
 #include <inttypes.h>
 #include <time.h>
@@ -49,8 +55,10 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 			    struct chain_state *cs, ocfs2_group_desc *bg,
 			    uint64_t blkno)
 {
-	verbosef("checking desc at %"PRIu64" bg: %"PRIu64"\n", blkno, 
-		 bg->bg_blkno);
+	verbosef("checking desc at %"PRIu64"; blkno %"PRIu64" size %u bits %u "
+		 "free_bits %u chain %u generation %u\n", blkno, bg->bg_blkno,
+		 bg->bg_size, bg->bg_bits, bg->bg_free_bits_count, 
+		 bg->bg_chain, bg->bg_generation);
 
 	/* We'll only consider this a valid descriptor if its signature,
 	 * parent inode, and generation all check out */
@@ -113,6 +121,9 @@ static int check_chain(o2fsck_state *ost, ocfs2_dinode *di,
 	uint64_t blkno = chain->c_blkno;
 	errcode_t ret;
 	int rc;
+
+	verbosef("free %u total %u blkno %"PRIu64"\n", chain->c_free,
+		 chain->c_total, chain->c_blkno);
 
 	if (ocfs2_block_out_of_range(ost->ost_fs, blkno))
 		return 0;
@@ -235,7 +246,10 @@ static errcode_t verify_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		max_chain_rec = cl->cl_next_free_rec;
 
 	for (i = 0; i < max_chain_rec; i++) {
-		cs.cs_chain_no = i;
+		/* clear it for each run */
+		cs = (struct chain_state) {
+			.cs_chain_no = i,
+		};
 		ret = check_chain(ost, di, &cs, &cl->cl_recs[i], buf1, buf2);
 		/* XXX do things :) */
 	}
@@ -243,42 +257,6 @@ static errcode_t verify_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 	return 0;
 }
 
-/* 
- * here's a little rough-draft of what I think the procedure should
- * look like.  I'm probably missing things.
- *
- * - replay the journals if needed
- * 	- walk the journal extents looking for simple inconsistencies
- * 		- loops, doubly referenced blocks
- * 		- need this code later anyway for verifying files
- * 		  and i_clusters/i_size
- * 	- prompt to proceed if errors (mention backup superblock)
- * 		- ignore entirely or partially replay?
- *
- * - clean up the inode allocators
- * 	- kill loops, chains can't share groups
- * 	- move local allocs back to the global or something?
- * 	- verify just enough of the fields to make iterating work
- *
- * - walk inodes
- * 	- record all valid clusters that inodes point to
- * 	- make sure extent trees in inodes are consistent
- * 	- inconsistencies mark inodes for deletion
- *
- * - update cluster bitmap
- * 	- have bits reflect our set of referenced clusters
- * 	- again, how to resolve local/global?
- * 	* from this point on the library can trust the cluster bitmap
- *
- * - update the inode allocators
- * 	- make sure our set of valid inodes matches the bits
- * 	- make sure all the bit totals add up
- * 	* from this point on the library can trust the inode allocators
- *
- * This makes it so only these early passes need to have global 
- * allocation goo in memory.  The rest can use the library as 
- * usual.
- */
 
 errcode_t o2fsck_pass0(o2fsck_state *ost)
 {
@@ -325,6 +303,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 					 blocks + ost->ost_fs->fs_blocksize,
 					 blocks + 
 					 (ost->ost_fs->fs_blocksize * 2));
+
 		/* XXX maybe helped by the alternate super block */
 		if (ret) {
 		}

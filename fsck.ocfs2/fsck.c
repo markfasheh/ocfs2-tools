@@ -21,7 +21,45 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * --
+ * Roughly o2fsck performs the following operations.  Each pass' file has
+ * more details.
+ * 
+ * - replay the journals if needed
+ * 	- walk the journal extents looking for simple inconsistencies
+ * 		- loops, doubly referenced blocks
+ * 		- need this code later anyway for verifying files
+ * 		  and i_clusters/i_size
+ * 	- prompt to proceed if errors (mention backup superblock)
+ * 		- ignore entirely or partially replay?
+ *
+ * - pass0: clean up the inode allocators
+ * 	- kill loops, chains can't share groups
+ * 	- move local allocs back to the global or something?
+ * 	- verify just enough of the fields to make iterating work
+ *
+ * - pass1: walk inodes
+ * 	- record all valid clusters that inodes point to
+ * 	- make sure extent trees in inodes are consistent
+ * 	- inconsistencies mark inodes for deletion
+ * 	- update cluster bitmap
+ * 		- have bits reflect our set of referenced clusters
+ * 		- again, how to resolve local/global?
+ * 		* from this point on the library can trust the cluster bitmap
+ *
+ * 	- update the inode allocators
+ * 		- make sure our set of valid inodes matches the bits
+ * 		- make sure all the bit totals add up
+ * 		* from this point on the library can trust the inode allocators
+ *
+ * This makes it so only these early passes need to have global 
+ * allocation goo in memory.  The rest can use the library as 
+ * usual.
+ *
+ * so what do we do about the extent metadata allocators?  track them in
+ * the same way we track inodes in the inode suballocators, I guess.  store
+ * with whatever key they have.  do the suballocators only allocate extent
+ * list blocks that are only owned by a tree?  that'd make it pretty easy.
  */
 #include <getopt.h>
 #include <limits.h>
@@ -184,7 +222,7 @@ int main(int argc, char **argv)
 
 	initialize_ocfs_error_table();
 
-	while((c = getopt(argc, argv, "b:B:npv")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:npvy")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -220,6 +258,11 @@ int main(int argc, char **argv)
 
 			/* "preen" don't ask and force fixing */
 			case 'p':
+				ost->ost_ask = 0;
+				ost->ost_answer = 1;
+				break;
+
+			case 'y':
 				ost->ost_ask = 0;
 				ost->ost_answer = 1;
 				break;

@@ -21,8 +21,22 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Zach Brown
+ * --
+ * This replays the jbd journals for each node.  First all the journals are
+ * walked to detect inconsistencies.  Only journals with no problems will be
+ * replayed.  IO errors during replay will just result in partial journal
+ * replay, just like jbd does in the kernel.  Journals that don't pass
+ * consistency checks, like having overlapping blocks or strange fields, are
+ * ignored and left for later passes to clean up.  Overlap testing is done
+ * using o2fsck_state's used block bitmap.  
+
+ * XXX
+ * 	future passes need to guarantee journals exist and are the same size 
+ * 	pass fsck trigger back up, write dirty fs, always zap/write
+ * 	revocation code is totally untested
+ * 	some setup errors, like finding the dlm system inode, are fatal
  */
+
 #include <stdint.h>
 #include <string.h>
 #include <inttypes.h>
@@ -36,12 +50,15 @@
 #include "ocfs2.h"
 #include "ocfs2_disk_dlm.h"
 #include "pass1.h"
+#include "problem.h"
 #include "util.h"
 
 static char *whoami = "journal recovery";
 
 struct journal_info {
 	int			ji_node;
+	unsigned		ji_replay:1;
+
 	uint64_t		ji_ino;
 	struct rb_root		ji_revoke;
 	journal_superblock_t	*ji_jsb;
@@ -185,19 +202,24 @@ static uint64_t jwrap(journal_superblock_t *jsb, uint64_t block)
 	return block;
 }
 
-static uint64_t count_tags(char *buf, size_t size)
+static errcode_t count_tags(o2fsck_state *ost, char *buf, size_t size,
+			    uint64_t *nr_ret)
 {
 	journal_block_tag_t *tag, *last;
 	uint64_t nr = 0;
 
 	if (size < sizeof(journal_header_t) + sizeof(*tag))
-		return 0;
+		return OCFS2_ET_BAD_JOURNAL_TAG;
 
        	tag = (journal_block_tag_t *)&buf[sizeof(journal_header_t)];
        	last = (journal_block_tag_t *)&buf[size - sizeof(*tag)];
 
 	for(; tag <= last; tag++) {
 		nr++;
+		if (ocfs2_block_out_of_range(ost->ost_fs, 
+					     be32_to_cpu(tag->t_blocknr)))
+			return OCFS2_ET_BAD_JOURNAL_TAG;
+
 		if (tag->t_flags & cpu_to_be32(JFS_FLAG_LAST_TAG))
 			break;
 		/* inline uuids are 16 bytes, tags are 8 */
@@ -205,34 +227,45 @@ static uint64_t count_tags(char *buf, size_t size)
 			tag += 2;
 	}
 
-	return nr;
+	*nr_ret = nr;
+	return 0;
 }
 
 static errcode_t lookup_journal_block(o2fsck_state *ost, 
 				      struct journal_info *ji, 
 				      uint64_t blkoff,
-				      uint64_t *blkno)
+				      uint64_t *blkno,
+				      int check_dup)
 {
 	errcode_t err;
 	int contig;
 
-	err = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff,
-					  1, blkno, &contig);
+	err = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff, 1, blkno,
+					  &contig);
 	if (err) 
 		com_err(whoami, err, "while looking up logical block "
 			"%"PRIu64" in node %d's journal", blkoff, ji->ji_node);
+
+	if (check_dup && o2fsck_mark_block_used(ost, *blkno)) {
+		printf("Logical block %"PRIu64" in node %d's journal maps to "
+		       "block %"PRIu64" which has already been used in "
+		       "another journal.\n", blkoff, ji->ji_node, *blkno);
+		err = OCFS2_ET_DUPLICATE_BLOCK;
+	}
+
 	return err;
 }
 
 static errcode_t read_journal_block(o2fsck_state *ost, 
 				    struct journal_info *ji, 
 				    uint64_t blkoff, 
-				    char *buf)
+				    char *buf,
+				    int check_dup)
 {
 	errcode_t err;
 	uint64_t	blkno;
 
-	err = lookup_journal_block(ost, ji, blkoff, &blkno);
+	err = lookup_journal_block(ost, ji, blkoff, &blkno, check_dup);
 	if (err)
 		return err;
 
@@ -275,7 +308,7 @@ static errcode_t replay_blocks(o2fsck_state *ost, struct journal_info *ji,
 		if (revoke_this_block(&ji->ji_revoke, tag.t_blocknr, seq))
 			goto skip_io;
 
-		err = read_journal_block(ost, ji, *next_block, io_buf);
+		err = read_journal_block(ost, ji, *next_block, io_buf, 1);
 		if (err) {
 			ret = err;
 			goto skip_io;
@@ -308,9 +341,9 @@ out:
 static errcode_t walk_journal(o2fsck_state *ost, int node, 
 			      struct journal_info *ji, char *buf, int recover)
 {
-	errcode_t err = 0;
+	errcode_t err, ret = 0;
 	uint32_t next_seq;
-	uint64_t next_block;
+	uint64_t next_block, nr;
 	journal_superblock_t *jsb = ji->ji_jsb;
 	journal_header_t jh;
 
@@ -321,16 +354,23 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 	if (next_block == 0)
 		return 0;
 
-	while(1) {
-		verbosef("next_seq %"PRIu32" next_block %"PRIu64"\n", next_seq, 
+	/* ret is set when bad tags are seen in the first scan and when there
+	 * are io errors in the recovery scan.  Only stop walking the journal
+	 * when bad tags are seen in the first scan. */
+	while(recover || !ret) {
+		verbosef("next_seq %"PRIu32" final_seq %"PRIu32" next_block "
+			 "%"PRIu64"\n", next_seq, ji->ji_final_seq,
 			 next_block);
 
 		if (recover && seq_geq(next_seq, ji->ji_final_seq))
 			break;
 
-		err = read_journal_block(ost, ji, next_block, buf);
-		if (err)
+		/* only mark the blocks used on the first pass */
+		err = read_journal_block(ost, ji, next_block, buf, !recover);
+		if (err) {
+			ret = err;
 			break;
+		}
 
 		next_block = jwrap(jsb, next_block + 1);
 
@@ -353,14 +393,21 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 		switch(jh.h_blocktype) {
 		case JFS_DESCRIPTOR_BLOCK:
 			verbosef("found a desc type %x\n", jh.h_blocktype);
-			if (!recover) {
-				next_block = jwrap(jsb, next_block + 
-					    count_tags(buf, jsb->s_blocksize));
+			/* replay the blocks described in the desc block */
+			if (recover) {
+				err = replay_blocks(ost, ji, buf, next_seq, 
+						    &next_block);
+				if (err)
+					ret = err;
 				continue;
 			}
 
-			err = replay_blocks(ost, ji, buf, next_seq, 
-					    &next_block);
+			/* just record the blocks as used and carry on */ 
+			err = count_tags(ost, buf, jsb->s_blocksize, &nr);
+			if (err)
+				ret = err;
+			else
+				next_block = jwrap(jsb, next_block + nr);
 			break;
 
 		case JFS_COMMIT_BLOCK:
@@ -386,14 +433,15 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 		ji->ji_set_final_seq = 1;
 		ji->ji_final_seq = next_seq;
 	} else if (ji->ji_final_seq != next_seq) {
-		err = OCFS2_ET_IO;
-		com_err(whoami, err, "while recovering the journal and found "
-			"that we arrived at seq %"PRIu32" instead of seq "
-			"%"PRIu32" as we expected from a previous scan.",
-			next_seq, ji->ji_final_seq);
+		printf("Replaying node %d's journal stopped at seq %"PRIu32" "
+		       "but an initial scan indicated that it should have "
+		       "stopped at seq %"PRIu32"\n", ji->ji_node, next_seq,
+		       ji->ji_final_seq);
+		if (ret == 0)
+			err = OCFS2_ET_IO;
 	}
 
-	return err;
+	return ret;
 }
 
 static errcode_t prep_journal_info(o2fsck_state *ost, int node,
@@ -430,7 +478,7 @@ static errcode_t prep_journal_info(o2fsck_state *ost, int node,
 		goto out;
 	}
 
-	err = lookup_journal_block(ost, ji, 0, &ji->ji_jsb_block);
+	err = lookup_journal_block(ost, ji, 0, &ji->ji_jsb_block, 1);
 	if (err)
 		goto out;
 
@@ -463,34 +511,14 @@ static int publish_mounted_set(ocfs2_filesys *fs, char *buf, int node,
 	return pub->mounted;
 }
 
-/* XXX The only job this has is to replay the journal if it can.  It doesn't
- * participate in book-keeping and doesn't try to fix up the journals.  It is
- * just replaying as much as it can for the main fsck passes.
- *
- * For now this is very simple and paranoid.  Any errors encountered
- * are fatal and stop fsck.  I propose:
- *
- * - Allocation errors are always fatal.  If we can't allocate what little
- *   we need to replay the journals there's no way we will be able to
- *   perform a full fsck.  Instead of wiping the journal we should leave
- *   the task to someone with enough mem (it won't be a lot, this is largely
- *   academic.)
- *
- * - block IO errors should only effect the bits of journal recovery
- *   they hit.  The rest should be recovered and fsck can pick up
- *   the pieces.  remapping around bad blocks, etc.
- *
- * - Missing journals, insane fields, etc, should be cleared and left
- *   for fsck to pick up.
- *
- * XXX pass fsck trigger back up, write dirty fs, always zap/write */
+/* XXX be more strict with the error codes that trickle up to here */
 errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 {
 	errcode_t err = 0, ret = 0;
 	struct journal_info *jis, *ji;
 	journal_superblock_t *jsb;
 	char *buf = NULL, *dlm_buf = NULL;
-	int i, max_nodes, buflen;
+	int i, max_nodes, buflen, journal_trouble = 0;
 	uint64_t dlm_ino;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
@@ -522,39 +550,42 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		goto out;
 	}
 
-	for (i = 0; i < max_nodes ; i++) {
+	printf("Checking each node's journal.\n");
+
+	for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
 		if (!publish_mounted_set(ost->ost_fs, dlm_buf, i, max_nodes)) {
 			verbosef("node %d is clean\n", i);
 			continue;
 		}
-		/* check mounted bits in the publish doo-dah. */
-		err = prep_journal_info(ost, i, &jis[i]);
-		if (err) {
-			ret = err;
-			continue;
-		}
+		ji->ji_replay = 1;
 
-		err = walk_journal(ost, i, &jis[i], buf, 0);
+		/* check mounted bits in the publish doo-dah. */
+		err = prep_journal_info(ost, i, ji);
+		if (err == 0)
+			err = walk_journal(ost, i, ji, buf, 0);
+
 		if (err) {
-			ret = err;
-			continue;
+			ji->ji_replay = 0;
+			printf("Node %d's journal can not be replayed.\n", i);
+			journal_trouble = 1;
 		}
 	}
 
-	for (i = 0, ji = jis; ret == 0 && i < max_nodes; i++, ji++) {
-		if (!ji->ji_ino)
+	for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
+		if (!ji->ji_replay)
 			continue;
+
+		if (!prompt(ost, PY, "Node %d's journal needs to be replayed. "
+			    "Do so?", i)) {
+			journal_trouble = 1;
+			continue;
+		}
 
 		err = walk_journal(ost, i, ji, buf, 1);
 		if (err) {
-			ret = err;
+			journal_trouble = 1;
 			continue;
 		} 
-
-		/* only write back the journal super block if we were
-		 * able to replay the journal */
-		if (ji->ji_jsb_block == 0)
-			continue;
 
 		jsb = ji->ji_jsb;
 		/* reset the journal */
@@ -563,14 +594,40 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		if (ji->ji_set_final_seq)
 			jsb->s_sequence = ji->ji_final_seq + 1;
 
+		/* we don't write back a clean 'mounted' bit here.  That would
+		 * have to also include having recovered the orphan dir.  we
+		 * updated s_start, though, so we won't replay the journal
+		 * again. */
 		err = ocfs2_write_journal_superblock(ost->ost_fs,
 						     ji->ji_jsb_block,
 						     (char *)ji->ji_jsb);
-		if (err)
-			ret = err;
+		if (err) {
+			com_err(whoami, err, "while writing node %d's journal "
+				"super block", i);
+			journal_trouble = 1;
+		}
+
+		printf("Node %d's journal replayed successfully.\n", i);
+	}
+
+	/* XXX make sure we maintain journal_trouble in all cases */
+	if (journal_trouble && 
+	    !prompt(ost, PN, "There were problems replaying journals.  This "
+		    "means that the file system is almost certainly badly "
+		    "damanged and that fsck might do more harm than good if "
+		    "it continues to try and repair.  Should fsck continue "
+		    "trying to repair the filesystem?")) {
+		printf("Exiting.\n");
+		exit(FSCK_ERROR);
 	}
 
 out:
+	if (ret) {
+		printf("fsck does not deal gracefully with failure to even "
+		       "discover a volume's journals.  Exiting.\n");
+		exit(FSCK_ERROR);
+	}
+
 	if (jis) {
 		for (i = 0, ji = jis; ret == 0 && i < max_nodes; i++, ji++) {
 			if (ji->ji_jsb)

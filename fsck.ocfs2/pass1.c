@@ -39,14 +39,17 @@
 
 static const char *whoami = "pass1";
 
-void o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
+/* XXX need to, you know, do things with this. */
+int o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
 {
 	int was_set;
+
 	ocfs2_bitmap_set(ost->ost_found_blocks, blkno, &was_set);
-	if (was_set) {
-		verbosef("duplicate block %"PRIu64"\n", blkno);
-		ocfs2_bitmap_set(ost->ost_dup_blocks, blkno, NULL);
-	}
+
+	if (was_set) /* XX can go away one all callers handle this */
+		verbosef("!! duplicate block %"PRIu64"\n", blkno);
+
+	return was_set;
 }
 
 /* XXX should walk down all the i_fields to make sure we're veryfying
@@ -178,14 +181,6 @@ out:
 	ocfs2_free(&buf);
 }
 
-/* XXX maybe this should be a helper in libocfs2? */
-static uint64_t blocks_holding_bytes(ocfs2_filesys *fs, uint64_t bytes)
-{
-	int b_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-
-	return (bytes +  fs->fs_blocksize - 1) >> b_bits;
-}
-
 static void check_link_data(struct verifying_blocks *vb)
 {
 	ocfs2_dinode *di = vb->vb_di;
@@ -216,7 +211,7 @@ static void check_link_data(struct verifying_blocks *vb)
 		}
 	}
 
-	expected = blocks_holding_bytes(ost->ost_fs, vb->vb_link_len + 1);
+	expected = ocfs2_blocks_in_bytes(ost->ost_fs, vb->vb_link_len + 1);
 
 	if (di->i_size != vb->vb_link_len) {
 		if (prompt(ost, PY, "The target of symlink inode %"PRIu64" "
@@ -235,8 +230,8 @@ static void check_link_data(struct verifying_blocks *vb)
 	if (vb->vb_num_blocks != expected) {
 		if (prompt(ost, PN, "The target of symlink inode %"PRIu64" "
 			   "fits in %"PRIu64" blocks but the inode has "
-			   "%"PRIu64" allocated.  Clear the inode?", expected,
-			   di->i_blkno)) {
+			   "%"PRIu64" allocated.  Clear the inode?", 
+			   di->i_blkno, expected, di->i_blkno)) {
 			vb->vb_clear = 1;
 			return;
 		}
@@ -288,15 +283,6 @@ static int verify_block(ocfs2_filesys *fs,
 	vb_saw_block(vb, bcount);
 
 	return 0;
-}
-
-/* XXX maybe this should be a helper in libocfs2? */
-static uint64_t clusters_holding_blocks(ocfs2_filesys *fs, uint64_t num_blocks)
-{
-	int c_to_b_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
-		          OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-
-	return (num_blocks + ((1 << c_to_b_bits) - 1)) >> c_to_b_bits;
 }
 
 static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
@@ -392,10 +378,10 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 #endif
 
 	if (vb.vb_num_blocks > 0)
-		expected = clusters_holding_blocks(fs, vb.vb_last_block + 1);
+		expected = ocfs2_clusters_in_blocks(fs, vb.vb_last_block + 1);
 
 	if (di->i_clusters < expected &&
-	    prompt(ost, PY, "inode %"PRIu64" has %"PRIu64" clusters but its "
+	    prompt(ost, PY, "inode %"PRIu64" has %"PRIu32" clusters but its "
 		   "blocks fit in %"PRIu64" clusters.  Correct the number of "
 		   "clusters?", di->i_blkno, di->i_clusters, expected)) {
 		di->i_clusters = expected;

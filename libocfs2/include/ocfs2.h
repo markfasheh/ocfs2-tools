@@ -403,6 +403,15 @@ errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
 					  void *priv_data),
 			      void *priv_data);
 
+/* 
+ * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
+ * returns the cluster that contains a block, not the number of clusters
+ * that hold a given number of blocks.
+ *
+ * ${foo}_in_${bar} is a ceiling function.  clusters_in_blocks will give
+ * the number of clusters needed to hold a given number of blocks.
+ */
+
 static inline uint64_t ocfs2_clusters_to_blocks(ocfs2_filesys *fs,
 						uint32_t clusters)
 {
@@ -423,10 +432,35 @@ static inline uint32_t ocfs2_blocks_to_clusters(ocfs2_filesys *fs,
 	return (uint32_t)(blocks >> b_to_c_bits);
 }
 
+static inline uint64_t ocfs2_blocks_in_bytes(ocfs2_filesys *fs, uint64_t bytes)
+{
+	uint64_t ret = bytes + fs->fs_blocksize - 1;
+
+	if (ret < bytes) /* deal with wrapping */
+		ret = UINT64_MAX;
+		return ret;
+
+	return ret >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+}
+
+static inline uint64_t ocfs2_clusters_in_blocks(ocfs2_filesys *fs, 
+						uint64_t blocks)
+{
+	int c_to_b_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
+		          OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	uint64_t ret = blocks + ((1 << c_to_b_bits) - 1); 
+
+	if (ret < blocks) /* deal with wrapping */
+		blocks = UINT64_MAX;
+
+	return ret >> c_to_b_bits;
+}
+
 static inline int ocfs2_block_out_of_range(ocfs2_filesys *fs, uint64_t block)
 {
 	return (block < OCFS2_SUPER_BLOCK_BLKNO) || (block > fs->fs_blocks);
 }
+
 
 
 #endif  /* _FILESYS_H */

@@ -62,6 +62,9 @@ ec	OCFS2_ET_BAD_JOURNAL_SUPERBLOCK_MAGIC,
 ec	OCFS2_ET_BAD_JOURNAL_REVOKE,
 	"Invalid revoke record in journal"
 
+ec	OCFS2_ET_BAD_JOURNAL_TAG,
+	"Invalid block tag in journal"
+
 ec	OCFS2_ET_INODE_NOT_VALID,
 	"Inode is not valid (active)"
 
@@ -106,5 +109,8 @@ ec	OCFS2_ET_INVALID_EXTENT_LOOKUP,
 
 ec	OCFS2_ET_EXTENT_NOT_FOUND,
 	"No mapping exists for the given extent range"
+
+ec	OCFS2_ET_DUPLICATE_BLOCK,
+	"Duplicate block discovered"
 
 	end
