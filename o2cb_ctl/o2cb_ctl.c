@@ -784,6 +784,107 @@ out_error:
     return rc;
 }  /* run_change() */
 
+static gint run_create_clusters(O2CBContext *ctxt)
+{
+    gint rc = 0;
+    O2CBCluster *cluster;
+    errcode_t err;
+    gchar *name;
+    GList *list;
+
+    list = ctxt->oc_objects;
+    while (list)
+    {
+        name = list->data;
+        cluster = o2cb_config_get_cluster_by_name(ctxt->oc_config,
+                                                  name);
+        if (cluster)
+        {
+            rc = -EEXIST;
+            fprintf(stderr,
+                    PROGNAME ": Cluster \"%s\" already exists\n",
+                    name);
+            break;
+        }
+
+        cluster = o2cb_config_add_cluster(ctxt->oc_config, name);
+        if (!cluster)
+        {
+            rc = -ENOMEM;
+            fprintf(stderr,
+                    PROGNAME ": Unable to add cluster \"%s\"\n",
+                    name);
+            break;
+        }
+
+        if (ctxt->oc_modify_running)
+        {
+            err = o2cb_create_cluster(name);
+            if (err)
+            {
+                if (err != O2CB_ET_CLUSTER_EXISTS)
+                {
+                    rc = -EIO;
+                    com_err(PROGNAME, err, "while setting cluster name");
+                    break;
+                }
+            }
+            else
+                fprintf(stdout, "Cluster %s created\n", name);
+        }
+
+        list = list->next;
+    }
+
+    return rc;
+}
+
+static gint run_create(O2CBContext *ctxt)
+{
+    gint rc;
+
+    if (!ctxt->oc_type || !ctxt->oc_objects)
+    {
+        fprintf(stderr,
+                PROGNAME ": Operation \'-C\' requires an object and an object type\n");
+        return -EINVAL;
+    } 
+
+    rc = validate_attrs(ctxt);
+    if (rc)
+        return rc;
+
+    rc = load_config(ctxt);
+    if (rc)
+        return rc;
+
+    if (ctxt->oc_type == O2CB_TYPE_NODE)
+    {
+        rc = -ENOTSUP;
+        fprintf(stderr,
+                PROGNAME ": Node creation not yet supported\n");
+        goto out_error;
+    }
+    else if (ctxt->oc_type == O2CB_TYPE_CLUSTER)
+    {
+        rc = run_create_clusters(ctxt);
+        if (rc)
+            goto out_error;
+    }
+    else
+    {
+        rc = -EINVAL;
+        fprintf(stderr,
+                PROGNAME ": Invalid object type!\n");
+        goto out_error;
+    }
+
+    rc = write_config(ctxt);
+
+out_error:
+    return rc;
+}  /* run_change() */
+
 gint main(gint argc, gchar *argv[])
 {
     int rc;
@@ -803,6 +904,9 @@ gint main(gint argc, gchar *argv[])
             break;
 
         case O2CB_OP_CREATE:
+            rc = run_create(&ctxt);
+            break;
+
         case O2CB_OP_DELETE:
         case O2CB_OP_INFO:
             rc = -ENOTSUP;

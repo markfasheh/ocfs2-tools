@@ -414,6 +414,10 @@ O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config,
     O2CBCluster *cluster;
 
     g_return_val_if_fail(config != NULL, NULL);
+    
+    cluster = o2cb_config_get_cluster_by_name(config, name);
+    if (cluster)
+        return NULL;
 
     cluster = g_new(O2CBCluster, 1);
 
@@ -528,6 +532,10 @@ O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster,
     O2CBNode *node;
 
     g_return_val_if_fail(cluster != NULL, NULL);
+
+    node = o2cb_cluster_get_node_by_name(cluster, name);
+    if (node)
+        return NULL;
 
     node = g_new(O2CBNode, 1);
 
