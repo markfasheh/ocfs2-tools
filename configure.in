@@ -198,8 +198,11 @@ ocfs/debugocfs/debugocfs.8
 ocfs/fsck/fsck.ocfs.8
 ocfs/format/mkfs.ocfs.8
 ocfs/format/tuneocfs.8
+ocfs2/debugfs.ocfs2/debugfs.ocfs2.8
+ocfs2/mkfs.ocfs2/mkfs.ocfs2.8
 ocfs_uid_gen/ocfs_uid_gen.8
 load_ocfs/load_ocfs.8
+load_ocfs/ocfs.conf.5
 ocfstool/ocfstool.8
 vendor/common/ocfs-tools.spec
 ocfs2/libocfs2/ocfs2_err.et

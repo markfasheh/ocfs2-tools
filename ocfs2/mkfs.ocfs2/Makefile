@@ -62,7 +62,9 @@ INSTALL_RULES = install-sbin-links install-man-links
 #	&& $(LN_S) mkfs.ocfs.8 mkfs.ocfs2.8 \
 #	&& $(LN_S) tuneocfs.8 resizeocfs.8
 
-DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs2.c #mkfs.ocfs2.8.in
+MANS = mkfs.ocfs2.8
+
+DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs2.c mkfs.ocfs2.8.in
 
 mkfs.ocfs2: mkfs.o
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)

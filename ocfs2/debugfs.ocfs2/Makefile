@@ -16,7 +16,9 @@ HFILES = include/main.h include/commands.h include/dump.h include/readfs.h inclu
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES) $(HFILES) README
+MANS = debugfs.ocfs2.8
+
+DIST_FILES = $(CFILES) $(HFILES) README debugfs.ocfs2.8.in
 
 DIST_RULES = dist-subdircreate
 

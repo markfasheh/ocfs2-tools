@@ -1,0 +1,82 @@
+.TH "/etc/ocfs.conf" "5" "July 2004" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+/etc/ocfs.conf \- OCFS/OCFS2 configuration file.
+.SH "SYNOPSIS"
+\fB/etc/ocfs.conf\fR 
+.SH "DESCRIPTION"
+.PP 
+\fB/etc/ocfs.conf\fR is commonly used by OCFS and OCFS2 to  store the module initialization parameters. During the initialization process, the \fIload_ocfs/load_ocfs2\fR scripts will read and validate all the parameters set in the file \fI/etc/ocfs.conf\fR and use them to load the OCFS/OCFS2 module. If the \fI/etc/ocfs.o\fR file is missing, then the module will not be loaded. Oracle does recommend the use of the \fIocfstool\fR utility to generate a proper \fI/etc/ocfs.conf\fR file before trying to load the module. The \fI/etc/ocfs.conf\fR file is a plain text file and the format is purely "parameter = value".
+.SH "OPTIONS"
+
+.TP
+\fBnode_name\fR \fI(Mandatory - OCFS/OCFS2)\fR
+Specify the public hostname of the system.
+
+.TP
+\fBnode_number\fR \fI(OCFS/OCFS2)\fR
+Specify a node number related to the node name. If left blank, ocfs will choose a node number for the host. Use this parameter only when really necessary.
+
+.TP
+\fBdebug_context\fR \fI(OCFS/OCFS2)\fR
+
+.TP
+\fBdebug_level\fR \fI(OCFS/OCFS2)\fR
+
+.TP
+\fBip_address\fR \fI(Mandatory - OCFS/OCFS2)\fR
+Specify the IP Address of the interface used by OCFS/OFS2 to vote.
+
+.TP
+\fBip_port\fR \fI(Mandatory - OCFS)\fR
+Specify the IP port of the interface used by OCFS to vote.
+
+.TP
+\fBip_port_v2\fR \fI(Mandatory - OCFS2)\fR
+Specify the IP port of the interface used by OCFS2 to vote.
+
+.TP
+\fBguid\fR \fI(Mandatory - OCFS/OCFS2)\fR
+This parameter is automatically filled by the \fIocfs_uid_gen\fR or \fIocfstool\fR program. One should not fill this parameter manually. See \fIocfs_uid_gen(8)\fR for details.
+
+.TP
+\fBcomm_voting\fR \fI(OCFS)\fR
+When set to 1, enable network vote, 0 (zero) disable. The default value is 1. This parameter is not used by OCFS2.
+
+
+.SH "Examples"
+The following is an example of a /etc/ocfs.conf file used by OCFS2:
+
+        #
+        # ocfs ipcdlm config
+        #
+        ip_address  = 139.185.118.88
+        ip_port_v2  = 7001
+        node_name   = ca-test2
+        guid = FF201F07A0F44DB0BC120002A5DA2765
+
+The next example show a /etc/ocfs.conf configured to run both, OCFS and OCFS2 in parallel.
+
+        #
+        # ocfs ipcdlm config
+        #
+        ip_address  = 139.185.118.88
+        ip_port     = 7000
+        ip_port_v2  = 7001
+        node_name   = ca-test2
+        comm_voting = 1
+        guid = FF201F07A0F44DB0BC120002A5DA2765
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs(5) 
+.BR ocfstool(8) 
+.BR ocfs_uid_gen(8) 
+.BR load_ocfs(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002 Oracle Corporation

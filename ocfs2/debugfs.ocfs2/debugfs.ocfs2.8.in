@@ -1,0 +1,100 @@
+.TH "debugfs.ocfs2" "8" "July 2004" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+debugfs.ocfs2 \- OCFS2 file system debugger.
+.SH "SYNOPSIS"
+\fBdebugfs.ocfs2\fR [\fB\-V\fR] [\fB\-?\fR] [\fB\-w\fR] [\fB\-N\fR] \fIdevice\fR
+.SH "DESCRIPTION"
+.PP 
+The \fBdebugfs.ocfs2\fR is an interactive file system debugger. It can be used to examine the state of an OCFS2 filesystem.
+\fIdevice\fR is the special file corresponding the device containing the OCFS2 filesystem (e.g /dev/hdxx). \fBdebugfs.ocfs2\fR will automatically bind the \fIdevice\fR to a raw device to perform the operations and unbind it when the program is terminated. It is recommended that the system have at least one free raw device (not bound to any block device) defined or \fIdebufs.ocfs2\fR will fail.
+.SH "OPTIONS"
+.TP
+\fB\-V\fR 
+Print version information and exit.
+
+.TP
+\fB\-?\fR 
+Displays help and exit.
+
+.TP
+\fB\-w\fR 
+Turn on write support.
+
+.TP
+\fB\-N\fR 
+Do not bind \fIdevice\fR to raw.
+
+.SH "COMMANDS"
+This is a list of the commands which debugfs.ocfs2 supports.
+
+.TP
+\fIcurdev\fR
+Show current working device (raw device).
+
+.TP
+\fIopen\fR <device>
+Open a device
+
+.TP
+\fIclose\fR
+Close a device
+
+.TP
+\fIshow_super_stats, stats\fR \fI[-h]\fR
+Show superblock
+
+.TP
+\fIshow_inode_info, stat\fR \fI<blknum>\fR 
+Show inode
+
+.TP
+\fIpwd\fR
+Print working directory
+
+.TP
+\fIls\fR <blknum>
+List directory
+
+.TP
+\fIcat\fR \fI<blknum>\fR \fI[outfile]\fR
+Prints or concatenates file to stdout/outfile
+
+.TP
+\fIdump\fR \fI<blknum>\fR \fI<outfile>\fR
+Dumps file to outfile
+
+.TP
+\fInodes\fR
+List of nodes
+
+.TP
+\fIpublish\fR
+Publish blocks
+
+.TP
+\fIvote\fR
+Vote blocks
+
+.TP
+\fIlogdump\fR \fI<nodenum>\fR
+Prints journal file for the node
+
+.TP
+\fIhelp, ?\fR
+This information
+
+.TP
+\fIquit, q\fR
+Exit the program
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs(5)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation
