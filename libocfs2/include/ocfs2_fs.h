@@ -20,9 +20,6 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
- *
- * Authors: Kurt Hackel, Mark Fasheh, Sunil Mushran, Wim Coekaerts,
- *	    Manish Singh, Joel Becker
  */
 
 #ifndef _OCFS2_FS_H
@@ -466,11 +463,12 @@ static inline int ocfs2_local_alloc_size(struct super_block *sb)
 	return size;
 }
 
-static inline uint32_t ocfs2_group_bitmap_size(struct super_block *sb)
+static inline int ocfs2_group_bitmap_size(struct super_block *sb)
 {
-	uint32_t size;
+	int size;
 
-	size = sb->s_blocksize - offsetof(struct _ocfs2_group_desc, bg_bitmap);
+	size = sb->s_blocksize -
+		offsetof(struct _ocfs2_group_desc, bg_bitmap);
 
 	return size;
 }
@@ -515,11 +513,12 @@ static inline int ocfs2_local_alloc_size(int blocksize)
 	return size;
 }
 
-static inline uint32_t ocfs2_group_bitmap_size(int blocksize)
+static inline int ocfs2_group_bitmap_size(int blocksize)
 {
-	uint32_t size;
+	int size;
 
-	size = blocksize - offsetof(struct _ocfs2_group_desc, bg_bitmap);
+	size = blocksize -
+		offsetof(struct _ocfs2_group_desc, bg_bitmap);
 
 	return size;
 }
