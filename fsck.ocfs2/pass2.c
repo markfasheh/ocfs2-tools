@@ -178,6 +178,27 @@ static int fix_dirent_lengths(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	return OCFS2_DIRENT_CHANGED;
 }
 
+static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+			   struct ocfs2_dir_entry *dirent, int offset)
+{
+	char *chr = dirent->name;
+	int len = dirent->name_len;
+	int fix = 0;
+
+	for(; len-- && (*chr == '/' || *chr == '\0'); chr++) {
+		/* XXX in %s parent name */
+		if (!fix) {
+			fix = should_fix(ost, FIX_DEFYES, "Entry '%*s' "
+					"contains invalid characters, replace "
+					"with dots?", dirent->name_len, 
+					dirent->name);
+			if (!fix)
+				return 0;
+		}
+		*chr = '.';
+	}
+}
+
 /* this could certainly be more clever to issue reads in groups */
 static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe, 
 					void *priv_data) 
@@ -222,7 +243,10 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 		ret_flags |= fix_dirent_dots(dd->ost, dbe, dirent, offset, 
 					     dd->fs->fs_blocksize - offset);
+		if (ret_flags & OCFS2_DIRENT_ABORT)
+			break;
 
+		ret_flags |= fix_dirent_name(dd->ost, dbe, dirent, offset);
 		if (ret_flags & OCFS2_DIRENT_ABORT)
 			break;
 
