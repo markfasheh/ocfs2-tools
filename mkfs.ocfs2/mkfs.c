@@ -319,7 +319,6 @@ main(int argc, char **argv)
 	DirData *root_dir;
 	DirData *system_dir;
 	uint32_t need;
-	uint64_t allocated;
 	SystemFileDiskRecord *tmprec;
 	char fname[SYSTEM_FILE_NAME_MAX];
 
@@ -470,10 +469,6 @@ main(int argc, char **argv)
 	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	add_entry_to_directory(s, orphan_dir, ".", tmprec->fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, orphan_dir, "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
-
-	tmprec = s->global_bm->bm_record;
-	alloc_bytes_from_bitmap(s, tmprec->extent_len, s->global_bm,
-				&(tmprec->extent_off), &allocated);
 
 	format_leading_space(s);
 	format_superblock(s, &superblock_rec, &root_dir_rec, &system_dir_rec);
