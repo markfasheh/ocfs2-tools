@@ -63,6 +63,7 @@ PYSRC = \
 	fswidgets.py \
 	general.py \
 	guiutil.py \
+	ipwidget.py \
 	mount.py \
 	menu.py \
 	nodemap.py \
