@@ -62,6 +62,48 @@ out_buf:
 	return ret;
 }
 
+
+/* FIXME swap rest of inode as kernel is updated */
+void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di)
+{
+	di->i_generation    = le32_to_cpu(di->i_generation);
+	di->i_suballoc_node = le16_to_cpu(di->i_suballoc_node);
+	di->i_suballoc_bit  = le16_to_cpu(di->i_suballoc_bit);
+	di->i_fs_generation = le32_to_cpu(di->i_fs_generation);
+
+	if (S_ISCHR(di->i_mode) || S_ISBLK(di->i_mode))
+		di->id1.dev1.i_rdev = le64_to_cpu(di->id1.dev1.i_rdev);
+	else if (di->i_flags & OCFS2_JOURNAL_FL)
+		di->id1.journal1.ij_flags =
+			le32_to_cpu(di->id1.journal1.ij_flags);
+	else if (di->i_flags & OCFS2_BITMAP_FL) {
+		di->id1.bitmap1.i_total = 
+			le32_to_cpu(di->id1.bitmap1.i_total);
+		di->id1.bitmap1.i_used = 
+			le32_to_cpu(di->id1.bitmap1.i_used);
+	} 
+}
+
+void ocfs2_swap_inode_to_le(ocfs2_dinode *di)
+{
+	di->i_generation    = cpu_to_le32(di->i_generation);
+	di->i_suballoc_node = cpu_to_le16(di->i_suballoc_node);
+	di->i_suballoc_bit  = cpu_to_le16(di->i_suballoc_bit);
+	di->i_fs_generation = cpu_to_le32(di->i_fs_generation);
+
+	if (S_ISCHR(di->i_mode) || S_ISBLK(di->i_mode))
+		di->id1.dev1.i_rdev = cpu_to_le64(di->id1.dev1.i_rdev);
+	else if (di->i_flags & OCFS2_JOURNAL_FL)
+		di->id1.journal1.ij_flags =
+			cpu_to_le32(di->id1.journal1.ij_flags);
+	else if (di->i_flags & OCFS2_BITMAP_FL) {
+		di->id1.bitmap1.i_total = 
+			cpu_to_le32(di->id1.bitmap1.i_total);
+		di->id1.bitmap1.i_used = 
+			cpu_to_le32(di->id1.bitmap1.i_used);
+	}
+}
+
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf)
 {
@@ -88,9 +130,10 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 		   strlen(OCFS2_INODE_SIGNATURE)))
 		goto out;
 
-	/* FIXME swap inode */
-
 	memcpy(inode_buf, blk, fs->fs_blocksize);
+
+	di = (ocfs2_dinode *) inode_buf;
+	ocfs2_swap_inode_to_cpu(di);
 
 	ret = 0;
 out:
@@ -104,6 +147,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
+	ocfs2_dinode *di;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -116,8 +160,10 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		return ret;
 
-	/* FIXME Swap inode */
 	memcpy(blk, inode_buf, fs->fs_blocksize);
+
+	di = (ocfs2_dinode *)blk;
+	ocfs2_swap_inode_to_le(di);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)

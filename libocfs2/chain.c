@@ -29,6 +29,15 @@
 
 #include "ocfs2.h"
 
+static void ocfs2_group_desc_to_cpu(ocfs2_group_desc *gd)
+{
+	gd->bg_generation = le32_to_cpu(gd->bg_generation);
+}
+
+static void ocfs2_group_desc_to_le(ocfs2_group_desc *gd)
+{
+	gd->bg_generation = cpu_to_le32(gd->bg_generation);
+}
 
 errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 				char *gd_buf)
@@ -56,9 +65,10 @@ errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 		   strlen(OCFS2_GROUP_DESC_SIGNATURE)))
 		goto out;
 
-	/* FIXME swap block */
-
 	memcpy(gd_buf, blk, fs->fs_blocksize);
+
+	gd = (ocfs2_group_desc *)gd_buf;
+	ocfs2_group_desc_to_cpu(gd);
 
 	ret = 0;
 out:
@@ -72,6 +82,7 @@ errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
+	ocfs2_group_desc *gd;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -84,9 +95,10 @@ errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		return ret;
 
-	/* FIXME Swap block */
-
 	memcpy(blk, gd_buf, fs->fs_blocksize);
+
+	gd = (ocfs2_group_desc *)blk;
+	ocfs2_group_desc_to_le(gd);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)

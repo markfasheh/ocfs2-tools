@@ -34,6 +34,20 @@
 
 #include "ocfs2.h"
 
+static void ocfs2_swap_extent_block_to_cpu(ocfs2_extent_block *eb)
+{
+	eb->h_blkno         = le64_to_cpu(eb->h_blkno);
+	eb->h_suballoc_node = le16_to_cpu(eb->h_suballoc_node);
+	eb->h_suballoc_bit  = le16_to_cpu(eb->h_suballoc_bit);
+}
+
+static void ocfs2_swap_extent_block_to_le(ocfs2_extent_block *eb)
+{
+	eb->h_blkno         = cpu_to_le64(eb->h_blkno);
+	eb->h_suballoc_node = cpu_to_le16(eb->h_suballoc_node);
+	eb->h_suballoc_bit  = cpu_to_le16(eb->h_suballoc_bit);
+}
+
 errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
 					  char *eb_buf)
 {
@@ -61,9 +75,10 @@ errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
 		goto out;
 	}
 
-	/* FIXME swap block */
-
 	memcpy(eb_buf, blk, fs->fs_blocksize);
+
+	eb = (ocfs2_extent_block *) eb_buf;
+	ocfs2_swap_extent_block_to_cpu(eb);
 
 out:
 	ocfs2_free(&blk);
@@ -90,6 +105,7 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
+	ocfs2_extent_block *eb;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -102,9 +118,10 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		return ret;
 
-	/* FIXME Swap block */
-
 	memcpy(blk, eb_buf, fs->fs_blocksize);
+
+	eb = (ocfs2_extent_block *) blk;
+	ocfs2_swap_extent_block_to_le(eb);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)

@@ -71,6 +71,46 @@ out:
 	return ret;
 }
 
+static void ocfs2_swap_super_to_cpu(ocfs2_dinode *di)
+{
+	ocfs2_super_block *sb;
+
+	ocfs2_swap_inode_to_cpu(di);
+
+	sb = &di->id2.i_super;
+	sb->s_major_rev_level     = le16_to_cpu(sb->s_major_rev_level);
+	sb->s_minor_rev_level     = le16_to_cpu(sb->s_minor_rev_level);
+	sb->s_feature_compat      = le32_to_cpu(sb->s_feature_compat);
+	sb->s_feature_ro_compat   = le32_to_cpu(sb->s_feature_ro_compat);
+	sb->s_feature_incompat    = le32_to_cpu(sb->s_feature_incompat);
+	sb->s_root_blkno          = le64_to_cpu(sb->s_root_blkno);
+	sb->s_system_dir_blkno    = le64_to_cpu(sb->s_system_dir_blkno);
+	sb->s_blocksize_bits      = le32_to_cpu(sb->s_blocksize_bits);
+	sb->s_clustersize_bits    = le32_to_cpu(sb->s_clustersize_bits);
+	sb->s_max_nodes           = le16_to_cpu(sb->s_max_nodes);
+	sb->s_first_cluster_group = le64_to_cpu(sb->s_first_cluster_group);
+}
+
+static void ocfs2_swap_super_to_le(ocfs2_dinode *di)
+{
+	ocfs2_super_block *sb;
+
+	ocfs2_swap_inode_to_le(di);
+
+	sb = &di->id2.i_super;
+	sb->s_major_rev_level     = cpu_to_le16(sb->s_major_rev_level);
+	sb->s_minor_rev_level     = cpu_to_le16(sb->s_minor_rev_level);
+	sb->s_feature_compat      = cpu_to_le32(sb->s_feature_compat);
+	sb->s_feature_ro_compat   = cpu_to_le32(sb->s_feature_ro_compat);
+	sb->s_feature_incompat    = cpu_to_le32(sb->s_feature_incompat);
+	sb->s_root_blkno          = cpu_to_le64(sb->s_root_blkno);
+	sb->s_system_dir_blkno    = cpu_to_le64(sb->s_system_dir_blkno);
+	sb->s_blocksize_bits      = cpu_to_le32(sb->s_blocksize_bits);
+	sb->s_clustersize_bits    = cpu_to_le32(sb->s_clustersize_bits);
+	sb->s_max_nodes           = cpu_to_le16(sb->s_max_nodes);
+	sb->s_first_cluster_group = cpu_to_le64(sb->s_first_cluster_group);
+}
+
 static errcode_t ocfs2_read_super(ocfs2_filesys *fs, int superblock)
 {
 	errcode_t ret;
@@ -91,12 +131,9 @@ static errcode_t ocfs2_read_super(ocfs2_filesys *fs, int superblock)
 		   strlen(OCFS2_SUPER_BLOCK_SIGNATURE)))
 		goto out_blk;
 
-	fs->fs_super = di;
+	ocfs2_swap_super_to_cpu(di);
 
-	/* FIXME: Swap the sucker here
-	 * ocfs2_swap_inode()
-	 * ocfs2_swap_super()
-	 */
+	fs->fs_super = di;
 
 	return 0;
 
@@ -123,7 +160,9 @@ errcode_t ocfs2_write_super(ocfs2_filesys *fs)
 		   strlen(OCFS2_SUPER_BLOCK_SIGNATURE)))
 		goto out_blk;
 
+	ocfs2_swap_super_to_le(di);
 	ret = io_write_block(fs->fs_io, OCFS2_SUPER_BLOCK_BLKNO, 1, blk);
+	ocfs2_swap_super_to_cpu(di);
 	if (ret)
 		goto out_blk;
 
