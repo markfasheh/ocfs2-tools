@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * filesys.h
+ * ocfs2.h
  *
  * Filesystem object routines for the OCFS2 userspace library.
  *
@@ -179,7 +179,7 @@ struct _ocfs2_filesys {
 	uint32_t fs_umask;
 	uint64_t fs_root_blkno;
 	uint64_t fs_sysdir_blkno;
-	uint64_t fs_bm_blkno;
+	uint64_t fs_first_cg_blkno;
 
 	/* Allocators */
 	ocfs2_cached_inode *fs_cluster_alloc;
@@ -294,6 +294,8 @@ errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 
 errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				  char *eb_buf);
+errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
+					  char *eb_buf);
 errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				   char *eb_buf);
 errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,

@@ -34,9 +34,8 @@
 
 #include "ocfs2.h"
 
-
-errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
-				  char *eb_buf)
+errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
+					  char *eb_buf)
 {
 	errcode_t ret;
 	char *blk;
@@ -56,22 +55,32 @@ errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 
 	eb = (ocfs2_extent_block *)blk;
 
-	ret = OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC;
 	if (memcmp(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
-		   strlen(OCFS2_EXTENT_BLOCK_SIGNATURE)))
+		   strlen(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
+		ret = OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC;
 		goto out;
+	}
 
 	/* FIXME swap block */
 
 	memcpy(eb_buf, blk, fs->fs_blocksize);
 
-	ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
-	if (eb->h_list.l_next_free_rec > eb->h_list.l_count)
-		goto out;
-
-	ret = 0;
 out:
 	ocfs2_free(&blk);
+
+	return ret;
+}
+
+errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
+				  char *eb_buf)
+{
+	errcode_t ret;
+	ocfs2_extent_block *eb = (ocfs2_extent_block *)eb_buf;
+
+	ret = ocfs2_read_extent_block_nocheck(fs, blkno, eb_buf);
+
+	if (ret == 0 && eb->h_list.l_next_free_rec > eb->h_list.l_count)
+		ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 
 	return ret;
 }

@@ -259,6 +259,8 @@ errcode_t ocfs2_open(const char *name, int flags,
 
 	fs->fs_clusters = fs->fs_super->i_clusters;
 	fs->fs_blocks = ocfs2_clusters_to_blocks(fs, fs->fs_clusters);
+	fs->fs_first_cg_blkno = 
+		OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group;
 
 	*ret_fs = fs;
 	return 0;
