@@ -1,0 +1,17 @@
+* CDSL
+
+* tuneocfs2
+
+* mkfs.ocfs2 needs to be smarter about defaults
+
+* fsck.ocfs2 needs to be completed
+
+* complete debugfs.ocfs2
+
+* node liveness test needs to be written and added to the utilities
+
+* ocfstool needs to be updated with ocfs2 stuff
+
+* mounted.ocfs2
+
+* mount.ocfs2
