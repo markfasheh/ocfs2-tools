@@ -495,7 +495,7 @@ static inline uint64_t ocfs2_blocks_in_bytes(ocfs2_filesys *fs, uint64_t bytes)
 	return ret >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 }
 
-static inline uint64_t ocfs2_clusters_in_blocks(ocfs2_filesys *fs, 
+static inline uint32_t ocfs2_clusters_in_blocks(ocfs2_filesys *fs, 
 						uint64_t blocks)
 {
 	int c_to_b_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
@@ -503,9 +503,9 @@ static inline uint64_t ocfs2_clusters_in_blocks(ocfs2_filesys *fs,
 	uint64_t ret = blocks + ((1 << c_to_b_bits) - 1); 
 
 	if (ret < blocks) /* deal with wrapping */
-		blocks = UINT64_MAX;
+		ret = UINT64_MAX;
 
-	return ret >> c_to_b_bits;
+	return (uint32_t)(ret >> c_to_b_bits);
 }
 
 static inline int ocfs2_block_out_of_range(ocfs2_filesys *fs, uint64_t block)

@@ -370,11 +370,15 @@ int main(int argc, char *argv[])
 		"\tblocksize = %d\n"
  		"\tclustersize = %d\n"
 		"\tclusters = %u\n"
-		"\tblocks = %"PRIu64"\n",
+		"\tblocks = %"PRIu64"\n"
+		"\troot_blkno = %"PRIu64"\n"
+		"\tsystem_dir_blkno = %"PRIu64"\n",
  		fs->fs_blocksize,
 		fs->fs_clustersize,
 		fs->fs_clusters,
-		fs->fs_blocks);
+		fs->fs_blocks,
+		fs->fs_root_blkno,
+		fs->fs_sysdir_blkno);
 
 	ret = ocfs2_close(fs);
 	if (ret) {

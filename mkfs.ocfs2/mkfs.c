@@ -232,7 +232,8 @@ struct _State {
 	uint32_t nr_cluster_groups;
 	uint16_t global_cpg;
 	uint16_t tail_group_bits;
-	uint64_t first_cluster_group;
+	uint32_t first_cluster_group;
+	uint64_t first_cluster_group_blkno;
 };
 
 
@@ -377,17 +378,6 @@ main(int argc, char **argv)
 	s->global_bm = initialize_bitmap (s, s->volume_size_in_clusters,
 					  s->cluster_size_bits,
 					  "global bitmap", tmprec);
-
-	/*
-	 * Set all bits up to and including the first group descriptor
-	 * which we currently have fixed as the block after the super block.
-	 * initialize_bitmap has cleared the bit that initialize_alloc_group
-	 * usually sets for the group desc so this alloc is sure to start
-	 * at cluster 0.
-	 */
-	alloc_bytes_from_bitmap(s, (s->first_cluster_group + 1) << s->blocksize_bits,
-				s->global_bm, &(crap_rec.extent_off),
-				&(crap_rec.extent_len));
 
 	/*
 	 * Now allocate the global inode alloc group
@@ -1025,7 +1015,7 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 {
 	AllocBitmap *bitmap;
 	uint64_t blkno;
-	int i, j, cpg, chain;
+	int i, j, cpg, chain, c_to_b_bits;
 	int recs_per_inode = ocfs2_chain_recs_per_inode(s->blocksize);
 	int wrapped = 0;
 
@@ -1054,16 +1044,25 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 	memset(bitmap->groups, 0, s->nr_cluster_groups * 
 	       sizeof(AllocGroup *));
 
-	s->first_cluster_group = OCFS2_SUPER_BLOCK_BLKNO + 1;
+	c_to_b_bits = s->cluster_size_bits - s->blocksize_bits;
+
+	s->first_cluster_group = (OCFS2_SUPER_BLOCK_BLKNO + 1);
+	s->first_cluster_group += ((1 << c_to_b_bits) - 1);
+	s->first_cluster_group >>= c_to_b_bits;
+
+	s->first_cluster_group_blkno = (uint64_t)s->first_cluster_group << c_to_b_bits;
 	bitmap->groups[0] = initialize_alloc_group(s, "stupid", bm_record,
-						   s->first_cluster_group,
+						   s->first_cluster_group_blkno,
 						   0, s->global_cpg, 1);
-	/* we'll set his bit later when we initialize for the super
-	 * block and friends, so totally munge these values for
-	 * now. */
-	ocfs2_clear_bit(0, bitmap->groups[0]->gd->bg_bitmap);
-	bitmap->groups[0]->gd->bg_free_bits_count++;
-	bm_record->bi.used_bits--;
+	/* The first bit is set by initialize_alloc_group, hence
+	 * we start at 1.  For this group (which contains the clusters
+	 * containing the superblock and first group descriptor), we
+	 * have to set these by hand. */
+	for (i = 1; i <= s->first_cluster_group; i++) {
+		ocfs2_set_bit(i, bitmap->groups[0]->gd->bg_bitmap);
+		bitmap->groups[0]->gd->bg_free_bits_count--;
+		bm_record->bi.used_bits++;
+	}
 	bitmap->groups[0]->chain_total = s->global_cpg;
 	bitmap->groups[0]->chain_free = s->global_cpg;
 
@@ -1206,7 +1205,7 @@ alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 		exit(1);
 	}
 
-	if (gd->bg_blkno == s->first_cluster_group)
+	if (gd->bg_blkno == s->first_cluster_group_blkno)
 		*start = (uint64_t) start_bit;
 	else
 		*start = (uint64_t) start_bit + gd->bg_blkno;
@@ -1490,7 +1489,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_blocksize_bits = cpu_to_le32(s->blocksize_bits);
 	di->id2.i_super.s_clustersize_bits = cpu_to_le32(s->cluster_size_bits);
 	di->id2.i_super.s_max_nodes = cpu_to_le32(s->initial_nodes);
-	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group);
+	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group_blkno);
 
 	strcpy(di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
@@ -1655,6 +1654,10 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 	int i;
 	uint64_t parent_blkno;
 	ocfs2_group_desc *gd;
+	char *buf = NULL;
+
+	buf = do_malloc(s, s->cluster_size);
+	memset(buf, 0, s->cluster_size);
 
 	parent_blkno = bitmap->bm_record->fe_off >> s->blocksize_bits;
 	for(i = 0; i < s->nr_cluster_groups; i++) {
@@ -1666,9 +1669,11 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 		/* Ok, we didn't get a chance to fill in the parent
 		 * blkno until now. */
 		gd->bg_parent_dinode = cpu_to_le64(parent_blkno);
-		do_pwrite(s, gd, s->blocksize,
+		memcpy(buf, gd, s->blocksize);
+		do_pwrite(s, buf, s->cluster_size,
 			  gd->bg_blkno << s->blocksize_bits);
 	}
+	free(buf);
 }
 
 static void

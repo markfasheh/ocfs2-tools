@@ -274,7 +274,7 @@ void read_sysdir (int fd, char *sysdir)
 	inode = (ocfs2_dinode *)sysdir;
 
 	if (!S_ISDIR(inode->i_mode)) {
-		printf("No system directory on thei volume\n");
+		printf("No system directory on the volume\n");
 		goto bail;
 	}
 
