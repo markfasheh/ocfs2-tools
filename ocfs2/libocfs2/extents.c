@@ -496,10 +496,7 @@ static int walk_blocks_func(ocfs2_filesys *fs,
 		wb->run_prev_blkno = blkno;
 		wb->run_first_blkno = blkno;
 		fprintf(stdout, "BLOCKS:\n");
-		return 0;
-	}
-
-	if ((wb->run_prev_blkno + 1) != blkno) {
+	} else if ((wb->run_prev_blkno + 1) != blkno) {
 		if (wb->run_first_bcount)
 			fprintf(stdout, ", ");
 
@@ -519,7 +516,7 @@ static int walk_blocks_func(ocfs2_filesys *fs,
 	}
 
 	if ((bcount + 1) == wb->last_block) {
-		if (bcount)
+		if (wb->run_first_bcount)
 			fprintf(stdout, ", ");
 
 		if ((wb->run_prev_blkno + 1) != blkno) {
