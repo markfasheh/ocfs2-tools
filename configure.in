@@ -198,6 +198,6 @@ debugfs.ocfs2/debugfs.ocfs2.8
 mkfs.ocfs2/mkfs.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.checks.8
-ocfs2tool/ocfs2tool.8
+ocfs2console/ocfs2tool.8
 vendor/common/ocfs2-tools.spec
 ])

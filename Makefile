@@ -29,7 +29,7 @@ SUBDIRS += ocfs2cdsl
 endif
 
 ifdef BUILD_OCFS2TOOL
-SUBDIRS += ocfs2tool
+SUBDIRS += ocfs2console
 endif
 
 SUBDIRS += vendor
