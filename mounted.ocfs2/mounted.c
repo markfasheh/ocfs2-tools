@@ -95,6 +95,12 @@ bail:
 	return ret;
 }
 
+static void chb_notify(int state, char *progress, void *user_data)
+{
+    fprintf(stdout, "%s", progress);
+    fflush(stdout);
+}
+
 /*
  * ocfs2_full_detect()
  *
@@ -138,7 +144,8 @@ errcode_t ocfs2_full_detect(char *device)
 	if (detect_only)
 		goto bail;
 		
-	ret = ocfs2_check_heartbeat(device, &mount_flags, node_names);
+	ret = ocfs2_check_heartbeat(device, &mount_flags, node_names,
+                                    chb_notify, NULL);
 	if (ret) {
 		com_err(progname, ret, "while detecting heartbeat");
 		goto bail;

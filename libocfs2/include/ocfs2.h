@@ -137,6 +137,13 @@
 #define OCFS2_NODE_MAP_MAX_NODES	256
 #define OCFS2_HBT_WAIT			10
 
+/* check_heartbeats progress states */
+#define OCFS2_CHB_START		1
+#define OCFS2_CHB_WAITING	2
+#define OCFS2_CHB_COMPLETE	3
+
+typedef void (*ocfs2_chb_notify)(int state, char *progress, void *data);
+
 typedef struct _ocfs2_filesys ocfs2_filesys;
 typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
 typedef struct _io_channel io_channel;
@@ -321,13 +328,16 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs, uint64_t blkno,
 				char **buf, int *len);
 
 errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
-				char **node_names);
+				char **node_names,
+				ocfs2_chb_notify notify,
+				void *user_data);
 
 void ocfs2_detect_live_nodes(ocfs2_filesys *fs, char *pub_buf,
 			     uint64_t *pub_times, int *node_stats,
 			     int first_time);
 
-void ocfs2_live_node_names(ocfs2_filesys *fs, char *node_buf, int *node_stats,
+void ocfs2_live_node_names(ocfs2_filesys *fs, char *node_buf,
+			   int *node_stats,
 			   char **node_names);
 
 #endif  /* _FILESYS_H */

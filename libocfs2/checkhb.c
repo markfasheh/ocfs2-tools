@@ -53,9 +53,19 @@
  * 	OCFS2_MF_MOUNTED_CLUSTER	if mounted on cluster
  *  node_names set to ==>
  *  	Slots of live nodes set to name
- *
+ *  notify ==>
+ *      Called for every step of progress (because this takes a few
+ *      seconds).  Can be NULL.  States are:
+ *              OCFS2_CHB_START
+ *              OCFS2_CHB_WAITING  (N times)
+ *              OCFS2_CHB_COMPLETE
+ *  user_data ==>
+ *      User data pointer for the notify function.
  */
-errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags, char **node_names)
+errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
+                                char **node_names,
+                                ocfs2_chb_notify notify,
+                                void *user_data)
 {
 	ocfs2_filesys *fs = NULL;
 	char *buf = NULL;
@@ -85,7 +95,7 @@ errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags, char **node_name
 	/* open	fs */
 	blksize = 0;
 	blkno = 0;
-	ret = ocfs2_open(device, O_DIRECT | OCFS2_FLAG_RO, blkno, blksize, &fs);
+	ret = ocfs2_open(device, OCFS2_FLAG_RO, blkno, blksize, &fs);
 	if (ret)
 		goto bail;
 
@@ -113,17 +123,24 @@ errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags, char **node_name
 		buflen = 0;
 	}
 
+	if (notify)
+		notify(OCFS2_CHB_START,
+		       "Checking heart beat on volume ",
+		       user_data);
+
 	/* wait */
-	printf("Checking heart beat on volume ");
 	wait_time = 1;
 	wait_time = (wait_time ? wait_time : 1);
 	for (i = 0; i < OCFS2_HBT_WAIT; ++i) {
-		printf(".");
-		fflush(stdout);
+		if (notify)
+			notify(OCFS2_CHB_WAITING, ".", user_data);
 		sleep(wait_time);
 	}
-	printf("\r                                                \r");
-	fflush(stdout);
+
+	if (notify)
+		notify(OCFS2_CHB_COMPLETE,
+		       "\r                                                \r",
+		       user_data);
   
 	/* read dlm file again */
 	ret = ocfs2_read_whole_file(fs, dlm_blkno, &buf, &buflen);
