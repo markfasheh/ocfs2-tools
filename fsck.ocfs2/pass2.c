@@ -80,7 +80,7 @@ static int fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	       	if (!dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
 			return 0;
 		if (should_fix(ost, FIX_DEFYES, 
-			       "Duplicate '%*s' directory found, remove?",
+			       "Duplicate '%.*s' directory found, remove?",
 			       dirent->name_len, dirent->name)) {
 			/* XXX I don't understand the inode = 0 clearing */
 			dirent->inode = 0;
@@ -202,7 +202,7 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	for(; len-- && (*chr == '/' || *chr == '\0'); chr++) {
 		/* XXX in %s parent name */
 		if (!fix) {
-			fix = should_fix(ost, FIX_DEFYES, "Entry '%*s' "
+			fix = should_fix(ost, FIX_DEFYES, "Entry '%.*s' "
 					"contains invalid characters, replace "
 					"with dots?", dirent->name_len, 
 					dirent->name);
@@ -276,7 +276,7 @@ check:
 	/* XXX do we care to have expected 0 -> lead to "set" rather than
 	 * "fix" language? */
 	if ((dirent->file_type != expected_type) &&
-	    should_fix(ost, FIX_DEFYES, "entry %*s contains file type %s (%u) "
+	    should_fix(ost, FIX_DEFYES, "entry %.*s contains file type %s (%u) "
 		"but its inode %"PRIu64" leads to type %s (%u)",
 		dirent->name_len, dirent->name, 
 		file_type_string(dirent->file_type), dirent->file_type,
@@ -324,8 +324,8 @@ static int fix_dirent_linkage(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	}
 
 	if (should_fix(ost, 0, "directory inode %"PRIu64" is not the first to "
-		"claim to be the parent of subdir '%*s' (%"PRIu64").  Forget "
-		"this linkage and leave the previous parent of '%*s' intact?",
+		"claim to be the parent of subdir '%.*s' (%"PRIu64").  Forget "
+		"this linkage and leave the previous parent of '%.*s' intact?",
 		dbe->e_ino, dirent->name_len, dirent->name, dirent->inode,
 		dirent->name_len, dirent->name)) {
 
@@ -357,7 +357,7 @@ static int fix_dirent_dups(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	if (!was_set)
 		return 0;
 
-	fprintf(stderr, "Duplicate directory entry '%*s' found.\n",
+	fprintf(stderr, "Duplicate directory entry '%.*s' found.\n",
 		      dirent->name_len, dirent->name);
 	fprintf(stderr, "Marking its parent %"PRIu64" for rebuilding.\n",
 			dbe->e_ino);
@@ -408,7 +408,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		/* I wonder if we should be checking that the padding
 		 * is 0 */
 
-		printf("dir entry %u %*s\n", dirent->rec_len, dirent->name_len,
+		printf("dir entry %u %.*s\n", dirent->rec_len, dirent->name_len,
 						dirent->name);
 
 		this_flags = fix_dirent_lengths(dd->ost, dbe, dirent, offset, 

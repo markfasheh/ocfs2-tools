@@ -133,11 +133,11 @@ int main(int argc, char **argv)
 
 		de = (struct ocfs2_dir_entry *)p;
 		if (de->rec_len==0 || de->inode==0 || de->name_len==0) {
-			printf("BAD OR END: inode=%llu, rec_len=%d, name_len=%d, file_type=%d, name='%*s'\n",
+			printf("BAD OR END: inode=%llu, rec_len=%d, name_len=%d, file_type=%d, name='%.*s'\n",
 				de->inode, de->rec_len, de->name_len, de->file_type, de->name_len, de->name);
 			break;
 		}
-		printf("entry #%d: inode=%llu, rec_len=%d, name_len=%d, file_type=%hhu, name='%*s'\n",
+		printf("entry #%d: inode=%llu, rec_len=%d, name_len=%d, file_type=%hhu, name='%.*s'\n",
 		       ++entry, de->inode, de->rec_len, de->name_len, de->file_type, de->name_len,
 		       de->name);
 		p += de->rec_len;
