@@ -286,6 +286,11 @@ static int ocfs_create_bitmap_file_entry(int file, ocfs_vol_disk_hdr *volhdr)
 	fe->u.bitinfo.used_bits = 0;			// used bits in bitmap
 	fe->u.bitinfo.total_bits = volhdr->num_clusters;// total valid bits in bitmap
 
+       	fe->extents[0].disk_off = volhdr->bitmap_off;
+       	fe->extents[0].file_off = 0ULL;
+       	fe->extents[0].num_bytes = OCFS_MAX_BITMAP_SIZE;
+	fe->next_free_ext = 1;
+	
 	if (!SetSeek(file, OCFS_BITMAP_LOCK_OFFSET))
 		goto bail;
 	if (!Write(file, OCFS_SECTOR_SIZE, (void *) fe))
