@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * mkfs2.c
+ * mkfs.c
  *
  * OCFS2 format utility
  *
@@ -21,215 +21,9 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Manish Singh, Kurt Hackel
  */
 
-#define _LARGEFILE64_SOURCE
-
-#define _GNU_SOURCE
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <getopt.h>
-#include <errno.h>
-#include <malloc.h>
-#include <time.h>
-#include <libgen.h>
-#include <netinet/in.h>
-#include <inttypes.h>
-
-#include "ocfs2.h"
-#include "bitops.h"
-
-/* jfs_compat.h defines these */
-#undef cpu_to_be32
-#undef be32_to_cpu
-
-#include "ocfs1_fs_compat.h"
-
-typedef unsigned short kdev_t;
-
-#include <signal.h>
-#include <libgen.h>
-
-#include "kernel-jbd.h"
-
-
-#ifndef MAX
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
-
-#define MIN_RESERVED_TAIL_BLOCKS    8
-
-#define LEADING_SPACE_BLOCKS    2
-#define SLOP_BLOCKS             0
-#define FILE_ENTRY_BLOCKS       8
-#define SUPERBLOCK_BLOCKS       1
-#define PUBLISH_BLOCKS(i,min)   (i<min ? min : i)
-#define VOTE_BLOCKS(i,min)      (i<min ? min : i)
-#define AUTOCONF_BLOCKS(i,min)  ((2+4) + (i<min ? min : i))
-#define NUM_LOCAL_SYSTEM_FILES  6
-
-#define OCFS2_OS_LINUX           0
-#define OCFS2_OS_HURD            1
-#define OCFS2_OS_MASIX           2
-#define OCFS2_OS_FREEBSD         3
-#define OCFS2_OS_LITES           4
-
-#define OCFS2_DFL_MAX_MNT_COUNT          20
-#define OCFS2_DFL_CHECKINTERVAL          0
-
-#define SYSTEM_FILE_NAME_MAX   40
-
-#define ONE_GB_SHIFT           30
-
-#define BITMAP_WARNING_LEN     1572864
-#define BITMAP_AUTO_MAX        786432
-
-#define MAX_CLUSTER_SIZE       1048576
-#define MIN_CLUSTER_SIZE       4096
-#define AUTO_CLUSTER_SIZE      65536
-
-
-enum {
-	SFI_JOURNAL,
-	SFI_CLUSTER,
-	SFI_LOCAL_ALLOC,
-	SFI_HEARTBEAT,
-	SFI_CHAIN,
-	SFI_OTHER
-};
-
-
-typedef struct _SystemFileInfo SystemFileInfo;
-
-struct _SystemFileInfo {
-	char *name;
-	int type;
-	int global;
-	int mode;
-};
-
-struct BitInfo {
-	uint32_t used_bits;
-	uint32_t total_bits;
-};
-
-typedef struct _AllocGroup AllocGroup;
-typedef struct _SystemFileDiskRecord SystemFileDiskRecord;
-
-struct _AllocGroup {
-	char *name;
-	ocfs2_group_desc *gd;
-	SystemFileDiskRecord *alloc_inode;
-	uint32_t chain_free;
-	uint32_t chain_total;
-	struct _AllocGroup *next;
-};
-
-
-struct _SystemFileDiskRecord {
-	uint64_t fe_off;
-        uint16_t suballoc_bit;
-	uint64_t extent_off;
-	uint64_t extent_len;
-	uint64_t file_size;
-
-	uint64_t chain_off;
-	AllocGroup *group;
-
-	struct BitInfo bi;
-	struct _AllocBitmap *bitmap;
-
-	int flags;
-	int links;
-	int mode;
-	int cluster_bitmap;
-};
-
-typedef struct _AllocBitmap AllocBitmap;
-
-struct _AllocBitmap {
-	AllocGroup **groups;
-
-	uint32_t valid_bits;
-	uint32_t unit;
-	uint32_t unit_bits;
-
-	char *name;
-
-	uint64_t fe_disk_off;
-
-	SystemFileDiskRecord *bm_record;
-	SystemFileDiskRecord *alloc_record;
-	int num_chains;
-};
-
-typedef struct _DirData DirData;
-
-struct _DirData {
-	uint64_t disk_off;
-	uint64_t disk_len;
-
-	void *buf;
-	int buf_len;
-
-	int last_off;
-	uint64_t fe_disk_off;
-
-	int link_count;
-
-	SystemFileDiskRecord *record;
-};
-
-typedef struct _State State;
-
-struct _State {
-  	char *progname;
-
-	int verbose;
-	int quiet;
-
-	uint32_t blocksize;
-	uint32_t blocksize_bits;
-
-	uint32_t cluster_size;
-	uint32_t cluster_size_bits;
-
-	uint64_t specified_size_in_blocks;
-	uint64_t volume_size_in_bytes;
-	uint32_t volume_size_in_clusters;
-	uint64_t volume_size_in_blocks;
-
-	uint32_t pagesize_bits;
-
-	uint64_t reserved_tail_size;
-
-	unsigned int initial_nodes;
-
-	uint64_t journal_size_in_bytes;
-
-	char *vol_label;
-	char *device_name;
-	char *uuid;
-	uint32_t vol_generation;
-
-	int fd;
-
-	time_t format_time;
-
-	AllocBitmap *global_bm;
-	AllocGroup *system_group;
-	uint32_t nr_cluster_groups;
-	uint16_t global_cpg;
-	uint16_t tail_group_bits;
-	uint32_t first_cluster_group;
-	uint64_t first_cluster_group_blkno;
-};
-
+#include "mkfs.h"
 
 static State *get_state(int argc, char **argv);
 static int get_number(char *arg, uint64_t *res);
@@ -324,6 +118,17 @@ main(int argc, char **argv)
 	setbuf(stderr, NULL);
 
 	s = get_state(argc, argv);
+
+	/* bail if volume already mounted on cluster, etc. */
+	if (ocfs2_check_volume(s))
+		goto bail;
+
+	/* Abort? */
+	fprintf(stdout, "Proceed (y/N): ");
+	if (toupper(getchar()) != 'Y') {
+		printf("Aborting operation.\n");
+		goto bail;
+	}
 
 	open_device(s);
 
@@ -532,6 +337,7 @@ main(int argc, char **argv)
 	if (!s->quiet)
 		printf("%s successful\n\n", s->progname);
 
+bail:
 	return 0;
 }
 
@@ -546,7 +352,7 @@ get_state(int argc, char **argv)
 	char *dummy;
 	State *s;
 	int c;
-	int verbose = 0, quiet = 0;
+	int verbose = 0, quiet = 0, force = 0;
 	int show_version = 0;
 	char *device_name;
 	int ret;
@@ -563,6 +369,7 @@ get_state(int argc, char **argv)
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
 		{ "journalsize", 0, 0, 'j'},
+		{ "force", 0, 0, 'f'},
 		{ 0, 0, 0, 0}
 	};
 
@@ -572,7 +379,7 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:c:L:n:j:vqV", long_options, 
+		c = getopt_long(argc, argv, "b:c:L:n:j:vqVf", long_options, 
 				NULL);
 
 		if (c == -1)
@@ -675,6 +482,10 @@ get_state(int argc, char **argv)
 			show_version = 1;
 			break;
 
+		case 'f':
+			force = 1;
+			break;
+
 		default:
 			usage(progname);
 			break;
@@ -716,6 +527,7 @@ get_state(int argc, char **argv)
 
 	s->verbose       = verbose;
 	s->quiet         = quiet;
+	s->force         = force;
 
 	s->blocksize     = blocksize;
 	s->cluster_size  = cluster_size;
@@ -780,7 +592,7 @@ static void
 usage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s [-b blocksize] [-c cluster-size] [-L volume-label]\n"
-			"\t[-n number-of-nodes] [-j journal-size] [-qvV] device [blocks-count]\n",
+			"\t[-n number-of-nodes] [-j journal-size] [-fqvV] device [blocks-count]\n",
 			progname);
 	exit(0);
 }
