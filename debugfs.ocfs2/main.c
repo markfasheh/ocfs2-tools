@@ -85,6 +85,8 @@ int main (int argc, char **argv)
 	char *arg;
 	gboolean seen_device = FALSE;
 
+	initialize_ocfs_error_table();
+
 #define INSTALL_SIGNAL(sig)					\
 	do {							\
 		if (signal(sig, handle_signal) == SIG_ERR) {	\
