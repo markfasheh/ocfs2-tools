@@ -108,7 +108,6 @@ fi
 /sbin/load_ocfs
 /sbin/load_ocfs2
 /sbin/mkfs.ocfs
-/sbin/mkfs.ocfs2
 /sbin/tuneocfs
 /sbin/resizeocfs
 /sbin/mounted.ocfs
@@ -119,6 +118,9 @@ fi
 
 
 %changelog
+* Mon Jun 21 2004 Manish Singh <manish.singh@oracle.com>
+- Don't dist ocfs2 format for now
+
 * Fri Feb 27 2004 Manish Singh <manish.singh@oracle.com>
 - Dist ocfs2 files
 

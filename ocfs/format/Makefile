@@ -44,14 +44,12 @@ INSTALL_RULES = install-sbin-links install-man-links
 
 install-sbin-links: install-sbin-programs
 	cd $(DESTDIR)$(sbindir) \
-	&& rm -f mkfs.ocfs2 resizeocfs \
-	&& $(LN_S) mkfs.ocfs mkfs.ocfs2 \
+	&& rm -f resizeocfs \
 	&& $(LN_S) tuneocfs resizeocfs
 
 install-man-links: install-mans
 	cd $(DESTDIR)$(mandir)/man8 \
-	&& rm -f mkfs.ocfs.8 resizeocfs.8 \
-	&& $(LN_S) mkfs.ocfs.8 mkfs.ocfs2.8 \
+	&& rm -f resizeocfs.8 \
 	&& $(LN_S) tuneocfs.8 resizeocfs.8
 
 DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs.ocfs.8.in tuneocfs.8.in
