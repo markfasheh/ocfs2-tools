@@ -43,11 +43,21 @@
 #define OCFS2_SUPER_BLOCK_BLKNO		2
 
 /*
- * As OCFS2 has a minimum clustersize of 4K, it has a maximum blocksize
- * of 4K
+ * Cluster size limits. The maximum is kept arbitrarily at 1 MB, and could
+ * grow if needed.
+ */
+#define OCFS2_MIN_CLUSTERSIZE		4096
+#define OCFS2_MAX_CLUSTERSIZE		1048576
+
+/*
+ * Blocks cannot be bigger than clusters, so the maximum blocksize is the
+ * minimum cluster size.
  */
 #define OCFS2_MIN_BLOCKSIZE		512
-#define OCFS2_MAX_BLOCKSIZE		4096
+#define OCFS2_MAX_BLOCKSIZE		OCFS2_MIN_CLUSTERSIZE
+
+/* Filesystem magic number */
+#define OCFS2_SUPER_MAGIC		0xa156f7eb
 
 /* Object signatures */
 #define OCFS2_SUPER_BLOCK_SIGNATURE	"OCFSV2"
@@ -107,19 +117,20 @@
 #define OCFS2_ERROR_FS		(0x00000001)	/* FS saw errors */
 
 /* Limit of space in ocfs2_dir_entry */
-#define OCFS2_MAX_FILENAME_LENGTH       255
+#define OCFS2_MAX_FILENAME_LEN		255
 
 /* Limit of node map bits in ocfs2_disk_lock */
 #define OCFS2_MAX_NODES			255
 
-#define MAX_VOL_ID_LENGTH               16
-#define MAX_VOL_LABEL_LEN               64
-#define MAX_CLUSTER_NAME_LEN            64
+#define OCFS2_VOL_UUID_LEN		16
+#define OCFS2_MAX_VOL_LABEL_LEN		64
+
+#define OCFS2_MAX_CLUSTER_NAME_LEN	64
 
 
-#define ONE_MEGA_BYTE           	(1 * 1024 * 1024)   /* in bytes */
-#define OCFS2_DEFAULT_JOURNAL_SIZE	(8 * ONE_MEGA_BYTE)
-#define OCFS2_MIN_JOURNAL_SIZE		(4 * ONE_MEGA_BYTE)
+/* Journal limits (in bytes) */
+#define OCFS2_MIN_JOURNAL_SIZE		(4 * 1024 * 1024)
+#define OCFS2_MAX_JOURNAL_SIZE		(500 * 1024 * 1024)
 
 struct ocfs2_system_inode_info {
 	char	*si_name;
@@ -208,8 +219,8 @@ static unsigned char ocfs_type_by_mode[S_IFMT >> S_SHIFT] = {
 /*
  * Convenience casts
  */
-#define OCFS2_RAW_SB(dinode)	(&((dinode)->id2.i_super))
-#define LOCAL_ALLOC(dinode)	(&((dinode)->id2.i_lab))
+#define OCFS2_RAW_SB(dinode)		(&((dinode)->id2.i_super))
+#define OCFS2_LOCAL_ALLOC(dinode)	(&((dinode)->id2.i_lab))
 
 
 /*
@@ -313,8 +324,8 @@ typedef struct _ocfs2_super_block {
 	__u32 s_reserved2;
 	__u64 s_first_cluster_group;	/* Block offset of 1st cluster
 					 * group header */
-/*50*/	__u8  s_label[64];		/* Label for mounting, etc. */
-/*90*/	__u8  s_uuid[16];		/* Was vol_id */
+/*50*/	__u8  s_label[OCFS2_MAX_VOL_LABEL_LEN];	/* Label for mounting, etc. */
+/*90*/	__u8  s_uuid[OCFS2_VOL_UUID_LEN];	/* 128-bit uuid */
 /*A0*/
 } ocfs2_super_block;
 
@@ -396,7 +407,7 @@ struct ocfs2_dir_entry {
 	__u16   rec_len;                /* Directory entry length */
 	__u8    name_len;               /* Name length */
 	__u8    file_type;
-/*0C*/	char    name[OCFS2_MAX_FILENAME_LENGTH];    /* File name */
+/*0C*/	char    name[OCFS2_MAX_FILENAME_LEN];   /* File name */
 /* Actual on-disk length specified by rec_len */
 };
 

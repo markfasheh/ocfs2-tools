@@ -323,7 +323,7 @@ errcode_t ocfs2_open(const char *name, int flags,
 		OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group;
 
 	raw_uuid = OCFS2_RAW_SB(fs->fs_super)->s_uuid;
-	for (i = 0, ptr = fs->uuid_str; i < MAX_VOL_ID_LENGTH; i++) {
+	for (i = 0, ptr = fs->uuid_str; i < OCFS2_VOL_UUID_LEN; i++) {
 		/* print with null */
 		len = snprintf(ptr, 3, "%02X", raw_uuid[i]);
 		if (len != 2) {

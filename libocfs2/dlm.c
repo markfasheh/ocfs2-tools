@@ -63,7 +63,7 @@ static void ocfs2_build_lock_name(ocfs2_filesys *fs, enum ocfs2_lock_type type,
 static errcode_t ocfs2_get_journal_blkno(ocfs2_filesys *fs, uint64_t *jrnl_blkno)
 {
 	ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
-	char sysfile[OCFS2_MAX_FILENAME_LENGTH];
+	char sysfile[OCFS2_MAX_FILENAME_LEN];
 	int i;
 	errcode_t ret = 0;
 

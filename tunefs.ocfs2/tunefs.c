@@ -144,7 +144,6 @@ parse_journal_opts(char *progname, const char *opts,
 	char *options, *token, *next, *p, *arg;
 	int ret, journal_usage = 0;
 	uint64_t val;
-	uint64_t max_journal_size = 500 * ONE_MEGA_BYTE;
 
 	options = strdup(opts);
 
@@ -174,13 +173,13 @@ parse_journal_opts(char *progname, const char *opts,
 
 			if (ret ||
 			    val < OCFS2_MIN_JOURNAL_SIZE ||
-			    val > max_journal_size) {
+			    val > OCFS2_MAX_JOURNAL_SIZE) {
 				com_err(progname, 0,
 					"Invalid journal size: %s\nSize must "
-					"be between %d and %"PRIu64" bytes",
+					"be between %d and %d bytes",
 					arg,
 					OCFS2_MIN_JOURNAL_SIZE,
-					max_journal_size);
+					OCFS2_MAX_JOURNAL_SIZE);
 				exit(1);
 			}
 
@@ -241,11 +240,11 @@ static void get_options(int argc, char **argv)
 		case 'L':
 			opts.vol_label = strdup(optarg);
 
-			if (strlen(opts.vol_label) >= MAX_VOL_LABEL_LEN) {
+			if (strlen(opts.vol_label) >= OCFS2_MAX_VOL_LABEL_LEN) {
 				com_err(opts.progname, 0,
 					"Volume label too long: must be less "
 					"than %d characters",
-					MAX_VOL_LABEL_LEN);
+					OCFS2_MAX_VOL_LABEL_LEN);
 				exit(1);
 			}
 			break;
@@ -427,8 +426,10 @@ bail:
  */
 static void update_volume_label(ocfs2_filesys *fs, int *changed)
 {
+  	memset (OCFS2_RAW_SB(fs->fs_super)->s_label, 0,
+		OCFS2_MAX_VOL_LABEL_LEN);
 	strncpy (OCFS2_RAW_SB(fs->fs_super)->s_label, opts.vol_label,
-		 MAX_VOL_LABEL_LEN);
+		 OCFS2_MAX_VOL_LABEL_LEN);
 
 	*changed = 1;
 

@@ -410,14 +410,14 @@ get_state(int argc, char **argv)
 			ret = get_number(optarg, &val);
 
 			if (ret ||
-			    val < MIN_CLUSTER_SIZE ||
-			    val > MAX_CLUSTER_SIZE) {
+			    val < OCFS2_MIN_CLUSTERSIZE ||
+			    val > OCFS2_MAX_CLUSTERSIZE) {
 				com_err(progname, 0,
 					"Invalid cluster size %s: "
 					"must be between %d and %d bytes",
 					optarg,
-					MIN_CLUSTER_SIZE,
-					MAX_CLUSTER_SIZE);
+					OCFS2_MIN_CLUSTERSIZE,
+					OCFS2_MAX_CLUSTERSIZE);
 				exit(1);
 			}
 
@@ -427,11 +427,11 @@ get_state(int argc, char **argv)
 		case 'L':
 			vol_label = strdup(optarg);
 
-			if (strlen(vol_label) >= MAX_VOL_LABEL_LEN) {
+			if (strlen(vol_label) >= OCFS2_MAX_VOL_LABEL_LEN) {
 				com_err(progname, 0,
 					"Volume label too long: must be less "
 					"than %d characters",
-					MAX_VOL_LABEL_LEN);
+					OCFS2_MAX_VOL_LABEL_LEN);
 				exit(1);
 			}
 
@@ -590,7 +590,6 @@ parse_journal_opts(char *progname, const char *opts,
 	char *options, *token, *next, *p, *arg;
 	int ret, journal_usage = 0;
 	uint64_t val;
-	uint64_t max_journal_size = 500 * ONE_MEGA_BYTE;
 
 	options = strdup(opts);
 
@@ -620,13 +619,13 @@ parse_journal_opts(char *progname, const char *opts,
 
 			if (ret ||
 			    val < OCFS2_MIN_JOURNAL_SIZE ||
-			    val > max_journal_size) {
+			    val > OCFS2_MAX_JOURNAL_SIZE) {
 				com_err(progname, 0,
 					"Invalid journal size: %s\nSize must "
-					"be between %d and %"PRIu64" bytes",
+					"be between %d and %d bytes",
 					arg,
 					OCFS2_MIN_JOURNAL_SIZE,
-					max_journal_size);
+					OCFS2_MAX_JOURNAL_SIZE);
 				exit(1);
 			}
 
@@ -756,8 +755,8 @@ fill_defaults(State *s)
 	if (!s->cluster_size) {
 		uint32_t volume_size, cluster_size, cluster_size_bits, need;
 
-		for (cluster_size = MIN_CLUSTER_SIZE;
-		     cluster_size < AUTO_CLUSTER_SIZE;
+		for (cluster_size = OCFS2_MIN_CLUSTERSIZE;
+		     cluster_size < AUTO_CLUSTERSIZE;
 		     cluster_size <<= 1) {
 			cluster_size_bits = get_bits(s, cluster_size);
 
@@ -1385,23 +1384,23 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 static int 
 ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
 {
-	int bytes;
+	int megabytes;
 
 	switch (block_size) {
-	case (4096):
-	case (2048):
-		bytes = 4 * ONE_MEGA_BYTE;
+	case 4096:
+	case 2048:
+		megabytes = 4;
 		break;
-	case (1024):
-		bytes = 2 * ONE_MEGA_BYTE;
+	case 1024:
+		megabytes = 2;
 		break;
-	case (512):
+	case 512:
 	default:
-		bytes = ONE_MEGA_BYTE;
+		megabytes = 1;
 		break;
 	}
 
-	return(bytes >> cluster_size_bits);
+	return (megabytes << ONE_MB_SHIFT) >> cluster_size_bits;
 }
 
 static void
@@ -1701,10 +1700,11 @@ generate_uuid(State *s)
 		exit(1);
 	}
 
-	s->uuid = do_malloc(s, MAX_VOL_ID_LENGTH);
+	s->uuid = do_malloc(s, OCFS2_VOL_UUID_LEN);
 
-	while (readlen < MAX_VOL_ID_LENGTH) {
-		if ((len = read(randfd, s->uuid + readlen, MAX_VOL_ID_LENGTH - readlen)) == -1) {
+	while (readlen < OCFS2_VOL_UUID_LEN) {
+		if ((len = read(randfd, s->uuid + readlen,
+				OCFS2_VOL_UUID_LEN - readlen)) == -1) {
 			com_err(s->progname, 0,
 				"Error reading from /dev/urandom: %s",
 				strerror(errno));

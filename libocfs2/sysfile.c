@@ -35,12 +35,11 @@ errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
 	errcode_t ret;
 	char *buf;
 
-	ret = ocfs2_malloc0(sizeof(char) *
-			    (OCFS2_MAX_FILENAME_LENGTH + 1), &buf);
+	ret = ocfs2_malloc0(sizeof(char) * (OCFS2_MAX_FILENAME_LEN + 1), &buf);
 	if (ret)
 		return ret;
 
-	ocfs2_sprintf_system_inode_name(buf, OCFS2_MAX_FILENAME_LENGTH, 
+	ocfs2_sprintf_system_inode_name(buf, OCFS2_MAX_FILENAME_LEN, 
 					type, node_num);
 
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, buf,

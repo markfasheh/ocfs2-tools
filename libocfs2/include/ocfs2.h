@@ -187,7 +187,7 @@ struct _ocfs2_filesys {
 	uint64_t fs_root_blkno;
 	uint64_t fs_sysdir_blkno;
 	uint64_t fs_first_cg_blkno;
-	char uuid_str[MAX_VOL_ID_LENGTH * 2 + 1];
+	char uuid_str[OCFS2_VOL_UUID_LEN * 2 + 1];
 
 	/* Allocators */
 	ocfs2_cached_inode *fs_cluster_alloc;
