@@ -3,8 +3,8 @@
 # XXX: for production
 #!/usr/bin/python -W ignore::DeprecationWarning
 
-from about import process_info_args
+from ocfs2console.about import process_info_args
 process_info_args()
 
-from interface import main
+from ocfs2console.interface import main
 main()

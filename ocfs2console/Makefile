@@ -40,6 +40,7 @@ SBIN_EXTRA = ocfs2console
 LIBRARIES = ocfs2module.so
 
 PYSRC = \
+	__init__.py \
 	about.py \
 	browser.py \
 	clconfig.py \
