@@ -17,3 +17,6 @@ debugfs.ocfs2:
 
 mounted.ocfs2:
 	Sunil Mushran <sunil.mushran@oracle.com>
+
+tunefs.ocfs2:
+	Sunil Mushran <sunil.mushran@oracle.com>
