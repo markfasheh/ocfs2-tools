@@ -40,7 +40,8 @@ typedef struct _hb_op
 	__u32 fd;
 	char disk_uuid[CLUSTER_DISK_UUID_LEN+1];
 	char pad1[15];  /* Pad to the __u16 following it */
-	__u16 group_num;
+	__u8  group_num;
+	__u8  pad2;
 	__u32 bits;
 	__u32 blocks;
 	__u64 start;

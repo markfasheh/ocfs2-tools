@@ -71,16 +71,16 @@ typedef unsigned short kdev_t;
 #define HEARTBEAT_DISK_FILE "/proc/cluster/heartbeat/.disk"
 
 
-int create_remote_group(char *group_name, __u16 node);
-int get_node_map(__u16 group_num, char *bitmap);
-int get_raw_node_map(__u16 groupnum, char *groupdev, __u32 block_bits, __u32 num_blocks, __u64 start_block, char *bitmap);
+int create_remote_group(char *group_name, __u8 node);
+int get_node_map(__u8 group_num, char *bitmap);
+int get_raw_node_map(__u8 groupnum, char *groupdev, __u32 block_bits, __u32 num_blocks, __u64 start_block, char *bitmap);
 int get_ocfs2_disk_hb_params(char *group_dev, __u32 *block_bits, __u32 *cluster_bits,
 			     __u64 *start_block, __u32 *num_clusters);
-int activate_group(char *group_name, char *group_dev, __u16 group_num, 
+int activate_group(char *group_name, char *group_dev, __u8 group_num, 
 		   __u32 block_bits, __u64 num_blocks, __u64 start_block);
-int add_to_local_group(char *uuid, __u16 group_num, __u16 node_num);
-int create_group(char *uuid, __u16 *group_num);
-int get_my_nodenum(__u16 *nodenum);
+int add_to_local_group(char *uuid, __u8 group_num, __u8 node_num);
+int create_group(char *uuid, __u8 *group_num);
+int get_my_nodenum(__u8 *nodenum);
 int add_me_to_group(char *groupname, char *groupdev);
 int ocfs2_detect_one(char *dev, char *uuid, int uuid_size);
 static int read_options(int argc, char **argv, char **device, char **mp);
@@ -276,7 +276,7 @@ bail:
 int add_me_to_group(char *groupname, char *groupdev)
 {
 	int ret;
-	__u16 my_nodenum, groupnum;
+	__u8 my_nodenum, groupnum;
 	__u32 pre_nodemap[] = {0, 0, 0, 0, 0, 0, 0, 0};
 	__u32 post_nodemap[] = {0, 0, 0, 0, 0, 0, 0, 0};
 	int start, next, i;
@@ -393,7 +393,7 @@ again:
 	return 0;
 }
 
-int get_my_nodenum(__u16 *nodenum)
+int get_my_nodenum(__u8 *nodenum)
 {
 	FILE *file;
 	int ret = -EINVAL;
@@ -423,7 +423,7 @@ done:
 	return ret;
 }
 
-int create_group(char *uuid, __u16 *group_num)
+int create_group(char *uuid, __u8 *group_num)
 {
 	FILE *file;
 	int ret = -EINVAL, retval;
@@ -473,7 +473,7 @@ done:
 }
 
 
-int add_to_local_group(char *uuid, __u16 group_num, __u16 node_num)
+int add_to_local_group(char *uuid, __u8 group_num, __u8 node_num)
 {
 	FILE *file;
 	int ret = -EINVAL, retval;
@@ -522,7 +522,7 @@ done:
 	return ret;
 }
 
-int activate_group(char *group_name, char *group_dev, __u16 group_num, 
+int activate_group(char *group_name, char *group_dev, __u8 group_num, 
 		   __u32 block_bits, __u64 num_blocks, __u64 start_block)
 {
 	int dev_fd = -1;
@@ -619,7 +619,7 @@ leave:
 	return status;
 }
 
-int get_node_map(__u16 group_num, char *bitmap)
+int get_node_map(__u8 group_num, char *bitmap)
 {
 	FILE *file = NULL;
 	hb_op *op;
@@ -660,7 +660,7 @@ done:
 }
 
 
-int get_raw_node_map(__u16 groupnum, char *groupdev, __u32 block_bits, __u32 num_blocks, __u64 start_block, char *bitmap)
+int get_raw_node_map(__u8 groupnum, char *groupdev, __u32 block_bits, __u32 num_blocks, __u64 start_block, char *bitmap)
 {
 	int i;
 	int ret = -EINVAL;
@@ -745,7 +745,7 @@ done:
 	return ret;
 }
 
-int create_remote_group(char *group_name, __u16 node)
+int create_remote_group(char *group_name, __u8 node)
 {
 	int ret, fd = -1, remote_node = -1;
 	gsd_ioc ioc;

@@ -54,11 +54,12 @@ typedef struct _nm_network_iface
 
 typedef struct _nm_node_info 
 {
-	__u16 node_num;
-	__u16 pad1;
-	__u32 pad2;
+	__u8 node_num;
+	__u8 pad1;
+	__u16 pad2;
+	__u32 pad3;
 	char node_name[NM_MAX_NAME_LEN+1];
-	char pad3[63];
+	char pad4[63];
 	nm_network_iface ifaces[NM_MAX_IFACES];
 } nm_node_info;
 
@@ -80,9 +81,11 @@ enum {
 
 typedef struct _nm_group_change
 {
-	__u16 group_num;
-	__u16 node_num;
-	__u16 slot_num;
+	__u8 group_num;
+	__u8 node_num;
+	__u8 slot_num;
+	__u8 pad1;
+	__u32 pad2;
 	char disk_uuid[CLUSTER_DISK_UUID_LEN+1];
 	char name[NM_MAX_NAME_LEN+1];
 } nm_group_change;
@@ -93,7 +96,7 @@ typedef struct _nm_op
 	__u16 opcode;
 	__u32 pad1;
 	union {
-		__u16 index;
+		__u8 index;
 		char name[NM_MAX_NAME_LEN+1];
 		nm_node_info node;
 		nm_group_change gc;

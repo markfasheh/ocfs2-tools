@@ -34,6 +34,8 @@
 #include "jconfig.h"
 #include "o2cb_config.h"
 
+#include "o2cb.h"
+
 
 struct _O2CBConfig {
     gchar *c_name;
@@ -94,7 +96,7 @@ static gint o2cb_config_fill_node(O2CBConfig *config,
     if (!ptr || *ptr)
         goto out_error;
     rc = -ERANGE;
-    if ((val == ULONG_MAX) || (val > UINT_MAX))
+    if ((val == ULONG_MAX) || (val >= NM_MAX_NODES))
         goto out_error;
     node->n_number = val;
 
