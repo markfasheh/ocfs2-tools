@@ -204,6 +204,35 @@ static void exit_if_skipping(o2fsck_state *ost)
 	return;
 }
 
+static void print_label(o2fsck_state *ost)
+{
+	char *label = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_label;
+	size_t i, max = sizeof(OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_label);
+
+	for(i = 0; i < max && label[i]; i++) {
+		if (isprint(label[i]))
+			printf("%c", label[i]);
+		else
+			printf(".");
+	}
+	if (i == 0)
+		printf("<NONE>");
+
+	printf("\n");
+}
+
+static void print_uuid(o2fsck_state *ost)
+{
+	unsigned char *uuid = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_uuid;
+	size_t i, max = sizeof(OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_uuid);
+
+	for(i = 0; i < max; i++)
+		printf("%02x ", uuid[i]);
+
+	printf("\n");
+}
+
+
 int main(int argc, char **argv)
 {
 	char *filename;
@@ -325,10 +354,16 @@ int main(int argc, char **argv)
 	/* XXX we don't use the bad blocks inode, do we? */
 
 	printf("Checking OCFS2 filesystem in %s:\n", filename);
+	printf("  label:              ");
+	print_label(ost);
+	printf("  uuid:               ");
+	print_uuid(ost);
 	printf("  number of blocks:   %"PRIu64"\n", ost->ost_fs->fs_blocks);
 	printf("  bytes per block:    %u\n", ost->ost_fs->fs_blocksize);
 	printf("  number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
 	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
+	printf("  max nodes:          %u\n", 
+	       OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes);
 
 	ret = o2fsck_replay_journals(ost);
 	if (ret) {
