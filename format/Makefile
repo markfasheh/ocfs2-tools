@@ -29,7 +29,7 @@ endif
 
 CFLAGS += $(OPTIMIZE)
 
-VERSION_FILES = format.c frmtport.c inc/format.h inc/frmtport.h mounted.c tune.c inc/tune.h inc/jfs_compat.h inc/kernel-jbd.h inc/kernel-list.h
+VERSION_FILES = format.c frmtport.c inc/format.h inc/frmtport.h journal.c mounted.c tune.c inc/tune.h inc/jfs_compat.h inc/kernel-jbd.h inc/kernel-list.h
 VERSION_SRC = frmtport.c
 VERSION_PREFIX = OCFS
 
