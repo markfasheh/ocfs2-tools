@@ -488,11 +488,12 @@ static inline int ocfs2_extent_recs_per_eb(struct super_block *sb)
 
 static inline int ocfs2_local_alloc_size(struct super_block *sb)
 {
-	/*
-	 * Perhaps change one day when we want to be dynamic
-	 * based on sb->s_blocksize.
-	 */
-	return OCFS2_LOCAL_BITMAP_DEFAULT_SIZE;
+	int size;
+
+	size = sb->s_blocksize -
+		offsetof(struct _ocfs2_dinode, id2.i_lab.la_bitmap);
+
+	return size;
 }
 #else
 static inline int ocfs2_extent_recs_per_inode(int blocksize)
@@ -517,7 +518,12 @@ static inline int ocfs2_extent_recs_per_eb(int blocksize)
 
 static inline int ocfs2_local_alloc_size(int blocksize)
 {
-	return OCFS2_LOCAL_BITMAP_DEFAULT_SIZE;
+	int size;
+
+	size = blocksize -
+		offsetof(struct _ocfs2_dinode, id2.i_lab.la_bitmap);
+
+	return size;
 }
 #endif  /* __KERNEL__ */
 
