@@ -15,3 +15,6 @@
 * mounted.ocfs2
 
 * mount.ocfs2
+
+* need to remove the pre beta 4 stuff from the ocfs1 tools as it's
+  totally invalid now.
