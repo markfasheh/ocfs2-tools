@@ -167,7 +167,7 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		   "allocated?",
 		   blkno, di->i_suballoc_node, node)) {
 		di->i_suballoc_node = node;
-		o2fsck_write_inode(ost->ost_fs, di->i_blkno, di);
+		o2fsck_write_inode(ost, di->i_blkno, di);
 	}
 out:
 	return;
@@ -193,12 +193,13 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	/* XXX need to compare the lifetime of inodes (uninitialized?
 	 * in use?  orphaned?  deleted?  garbage?) to understand what
 	 * fsck can do to fix it up */
-	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
-		   strlen(OCFS2_INODE_SIGNATURE)) &&
-	    prompt(ost, PY, "Inode %"PRIu64" doesn't have a valid signature. "
-		   "Clear it?", blkno)) {
-		clear = 1;
-		goto out;
+
+	if (di->i_blkno != blkno &&
+	    prompt(ost, PY, "Inode read from block %"PRIu64" has i_blkno set "
+		   "to %"PRIu64".  Set the inode's i_blkno value to reflect "
+		   "its location on disk?", blkno, di->i_blkno)) {
+		di->i_blkno = blkno;
+		o2fsck_write_inode(ost, blkno, di);
 	}
 
 	if (di->i_links_count)
@@ -215,14 +216,14 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 				  di->i_links_count);
 
-		o2fsck_write_inode(fs, blkno, di);
+		o2fsck_write_inode(ost, blkno, di);
 	}
 
 	if (di->i_dtime && prompt(ost, PY, "Inode %"PRIu64" is in use but has "
 				  "a non-zero dtime.  Reset the dtime to 0?",  
 				   di->i_blkno)) {
 		di->i_dtime = 0ULL;
-		o2fsck_write_inode(fs, blkno, di);
+		o2fsck_write_inode(ost, blkno, di);
 	}
 
 	if (S_ISDIR(di->i_mode)) {
@@ -247,7 +248,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 out:
 	if (clear) {
 		di->i_flags &= ~OCFS2_SUPER_BLOCK_FL;
-		o2fsck_write_inode(fs, blkno, di);
+		o2fsck_write_inode(ost, blkno, di);
 	}
 }
 
@@ -342,7 +343,7 @@ static void check_link_data(struct verifying_blocks *vb)
 			   "the length on disk?",
 			   di->i_blkno, vb->vb_link_len, di->i_size)) {
 			di->i_size = vb->vb_link_len;
-			o2fsck_write_inode(ost->ost_fs, di->i_blkno, di);
+			o2fsck_write_inode(ost, di->i_blkno, di);
 			return;
 		}
 	}
@@ -481,7 +482,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 				  di->i_links_count);
 		di->i_dtime = time(0);
-		o2fsck_write_inode(fs, di->i_blkno, di);
+		o2fsck_write_inode(ost, di->i_blkno, di);
 		/* XXX clear valid flag and stuff? */
 	}
 
@@ -495,7 +496,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		    "%"PRIu64" bytes of actual data. Correct the file size?",
 		    di->i_blkno, di->i_size, expected)) {
 		di->i_size = expected;
-		o2fsck_write_inode(fs, blkno, di);
+		o2fsck_write_inode(ost, blkno, di);
 	}
 #endif
 
@@ -507,7 +508,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		   "blocks fit in %"PRIu64" clusters.  Correct the number of "
 		   "clusters?", di->i_blkno, di->i_clusters, expected)) {
 		di->i_clusters = expected;
-		o2fsck_write_inode(fs, blkno, di);
+		o2fsck_write_inode(ost, blkno, di);
 	}
 }
 
@@ -549,6 +550,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 	ocfs2_dinode *di;
 	ocfs2_inode_scan *scan;
 	ocfs2_filesys *fs = ost->ost_fs;
+	int valid;
 
 	printf("Pass 1: Checking inodes and blocks.\n");
 
@@ -582,19 +584,23 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		if (blkno == 0)
 			break;
 
+		valid = 0;
+
 		/* scanners have to skip over uninitialized inodes */
-		if (di->i_flags & OCFS2_VALID_FL) {
+		if (!memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
+		    strlen(OCFS2_INODE_SIGNATURE)) &&
+		    di->i_flags & OCFS2_VALID_FL) {
 			o2fsck_verify_inode_fields(fs, ost, blkno, di);
 
 			/* XXX be able to mark the blocks in the inode as 
 			 * bad if the inode was bad */
 			o2fsck_check_blocks(fs, ost, blkno, di);
+			valid = di->i_flags & OCFS2_VALID_FL;
 		}
 
 		verbosef("blkno %"PRIu64" ino %"PRIu64"\n", blkno,
 				di->i_blkno);
-		update_inode_alloc(ost, di, blkno, 
-				   di->i_flags & OCFS2_VALID_FL);
+		update_inode_alloc(ost, di, blkno, valid);
 	}
 
 	if (ocfs2_bitmap_get_set_bits(ost->ost_dup_blocks))

@@ -302,7 +302,8 @@ static errcode_t verify_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	cl = &di->id2.i_chain;
 
-	verbosef("cl count %u next %u\n", cl->cl_count, cl->cl_next_free_rec);
+	verbosef("cl cpg %u bpc %u count %u next %u\n", 
+		 cl->cl_cpg, cl->cl_bpc, cl->cl_count, cl->cl_next_free_rec);
 
 	max_count = ocfs2_chain_recs_per_inode(ost->ost_fs->fs_blocksize);
 

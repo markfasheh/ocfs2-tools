@@ -25,6 +25,7 @@
 #define __O2FSCK_UTIL_H__
 
 #include <stdlib.h>
+#include "fsck.h"
 
 /* we duplicate e2fsck's error codes to make everyone's life easy */
 #define FSCK_OK          0      /* No errors */
@@ -42,7 +43,7 @@
 	exit(FSCK_ERROR);						\
 } while (0)
 
-void o2fsck_write_inode(ocfs2_filesys *fs, uint64_t blkno, ocfs2_dinode *di);
+void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di);
 
 #endif /* __O2FSCK_UTIL_H__ */
 

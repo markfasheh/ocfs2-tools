@@ -30,16 +30,23 @@
 
 #include "util.h"
 
-void o2fsck_write_inode(ocfs2_filesys *fs, uint64_t blkno, ocfs2_dinode *di)
+void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di)
 {
 	errcode_t ret;
+	char *whoami = "o2fsck_write_inode";
 
-	if (blkno != di->i_blkno)
-		fatal_error(0, "Asked to write inode with i_blkno %"PRIu64
-				" to different block %"PRIu64".\n", 
-				di->i_blkno, blkno);
+	if (blkno != di->i_blkno) {
+		com_err(whoami, OCFS2_ET_INTERNAL_FAILURE, "when asked to "
+			"write an inode with an i_blkno of %"PRIu64" to block "
+			"%"PRIu64, di->i_blkno, blkno);
+		ost->ost_write_error = 1;
+		return;
+	}
 
-	ret = ocfs2_write_inode(fs, blkno, (char *)di);
-	if (ret)
-		fatal_error(ret, "while writing inode %"PRIu64, di->i_blkno);
+	ret = ocfs2_write_inode(ost->ost_fs, blkno, (char *)di);
+	if (ret) {
+		com_err(whoami, ret, "while writing inode %"PRIu64, 
+		        di->i_blkno);
+		ost->ost_write_error = 1;
+	}
 }

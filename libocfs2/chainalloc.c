@@ -94,7 +94,7 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 	cr->cr_ag = (ocfs2_group_desc *)gd_buf;
 
 	cb->cb_errcode = OCFS2_ET_CORRUPT_GROUP_DESC;
-	if (cr->cr_ag->bg_bits % 8)
+	if (cr->cr_ag->bg_size != ocfs2_group_bitmap_size(fs->fs_blocksize))
 		goto out_free_cr;
 
 	cb->cb_errcode = ocfs2_bitmap_alloc_region(bitmap,
@@ -105,10 +105,8 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 		goto out_free_cr;
 
 	br->br_private = cr;
-	memcpy(br->br_bitmap, cr->cr_ag->bg_bitmap,
-	       cr->cr_ag->bg_bits / 8);
-	br->br_set_bits = cr->cr_ag->bg_bits -
-		cr->cr_ag->bg_free_bits_count;
+	memcpy(br->br_bitmap, cr->cr_ag->bg_bitmap, br->br_bytes);
+	br->br_set_bits = cr->cr_ag->bg_bits - cr->cr_ag->bg_free_bits_count;
 
 	cb->cb_errcode = ocfs2_bitmap_insert_region(bitmap, br);
 	if (cb->cb_errcode)
@@ -152,12 +150,10 @@ static errcode_t chainalloc_write_group(struct ocfs2_bitmap_region *br,
 	ocfs2_filesys *fs = private_data;
 	errcode_t ret = 0;
 
-	printf("want to write desc %"PRIu64"\n", cr->cr_ag->bg_blkno);
-
 	if (!cr->cr_dirty)
 		return 0;
 
-	memcpy(cr->cr_ag->bg_bitmap, br->br_bitmap, cr->cr_ag->bg_bits / 8);
+	memcpy(cr->cr_ag->bg_bitmap, br->br_bitmap, br->br_bytes);
 
 	ret = ocfs2_write_group_desc(fs, cr->cr_ag->bg_blkno, 
 				     (char *)cr->cr_ag);

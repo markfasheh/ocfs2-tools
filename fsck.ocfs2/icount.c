@@ -117,16 +117,20 @@ uint16_t o2fsck_icount_get(o2fsck_icount *icount, uint64_t blkno)
 {
 	icount_node *in;
 	int was_set;
+	uint16_t ret = 0;
 
 	ocfs2_bitmap_test(icount->ic_single_bm, blkno, &was_set);
-	if (was_set)
-		return 1;
+	if (was_set) {
+		ret = 1;
+		goto out;
+	}
 
 	in = icount_search(icount, blkno);
 	if (in)
-		return in->in_icount;
+		ret = in->in_icount;
 
-	return 0;
+out:
+	return ret;
 }
 
 /* again, simple before efficient.  We just find the old value and

@@ -32,11 +32,11 @@
 
 struct ocfs2_bitmap_region {
 	struct rb_node br_node;
-	uint64_t br_start_bit;		/* Bit offset.  Must be
-					   byte-aligned */
+	uint64_t br_start_bit;		/* Bit offset. */
 	int br_total_bits;		/* set_bit() and friends can't
 					   handle bitmaps larger than
 					   int offsets */
+	size_t br_bytes;
 	int br_set_bits;
 	char *br_bitmap;
 	void *br_private;

@@ -212,18 +212,9 @@ out_free:
 	return ret;
 }
 
-static void ocfs2_region_align(uint64_t *start_bit, int *total_bits)
+static size_t ocfs2_align_total(int total_bits)
 {
-	uint64_t byte_mask = ~7ULL;
-
-	if (start_bit)
-		*start_bit &= byte_mask;
-
-	if (total_bits) {
-		*total_bits += 7;
-		*total_bits &= (int)byte_mask;
-	}
-
+	return (total_bits + 7) / 8;
 }
 
 errcode_t ocfs2_bitmap_alloc_region(ocfs2_bitmap *bitmap,
@@ -237,16 +228,16 @@ errcode_t ocfs2_bitmap_alloc_region(ocfs2_bitmap *bitmap,
 	if (total_bits < 0)
 		return OCFS2_ET_INVALID_BIT;
 
-	ocfs2_region_align(&start_bit, &total_bits);
-
 	ret = ocfs2_malloc0(sizeof(struct ocfs2_bitmap_region), &br);
 	if (ret)
 		return ret;
 
+
+	br->br_bytes = ocfs2_align_total(total_bits);
 	br->br_start_bit = start_bit;
 	br->br_total_bits = total_bits;
 
-	ret = ocfs2_malloc0(br->br_total_bits / 8, &br->br_bitmap);
+	ret = ocfs2_malloc0(br->br_bytes, &br->br_bitmap);
 	if (ret)
 		ocfs2_free(&br);
 	else
@@ -267,20 +258,20 @@ errcode_t ocfs2_bitmap_realloc_region(ocfs2_bitmap *bitmap,
 				      int total_bits)
 {
 	errcode_t ret;
+	size_t new_bytes;
 
 	if ((br->br_start_bit + total_bits) > bitmap->b_total_bits)
 		return OCFS2_ET_INVALID_BIT;
 
-	ocfs2_region_align(NULL, &total_bits);
+	new_bytes = ocfs2_align_total(total_bits);
 
-	if (total_bits > br->br_total_bits) {
-		ret = ocfs2_realloc0(total_bits / 8,
-				     &br->br_bitmap,
-				     br->br_total_bits / 8);
+	if (new_bytes > br->br_bytes) {
+		ret = ocfs2_realloc0(new_bytes, &br->br_bitmap, br->br_bytes);
 		if (ret)
 			return ret;
-		br->br_total_bits = total_bits;
+		br->br_bytes = new_bytes;
 	}
+	br->br_total_bits = total_bits;
 
 	return 0;
 }
@@ -315,7 +306,8 @@ static errcode_t ocfs2_bitmap_merge_region(ocfs2_bitmap *bitmap,
 {
 	errcode_t ret;
 	uint64_t new_bits;
-	int prev_bits;
+	size_t prev_bytes;
+	uint8_t *pbm, *nbm, offset, diff;
 
 	if ((prev->br_start_bit + prev->br_total_bits) !=
 	    next->br_start_bit)
@@ -330,15 +322,46 @@ static errcode_t ocfs2_bitmap_merge_region(ocfs2_bitmap *bitmap,
 	if (new_bits > INT_MAX)
 		return OCFS2_ET_INVALID_BIT;
 
-	prev_bits = prev->br_total_bits;
+	/* grab before realloc changes them */
+	prev_bytes = prev->br_bytes;
+	offset = prev->br_total_bits % 8;
+
 	ret = ocfs2_bitmap_realloc_region(bitmap, prev, (int)new_bits);
 	if (ret)
 		return ret;
 
-	memcpy(prev->br_bitmap + (prev_bits / 8), next->br_bitmap,
-	       next->br_total_bits / 8);
-	prev->br_set_bits = prev->br_set_bits + next->br_set_bits;
+	/* if prev's last bit ends on a byte boundary then we can just
+	 * copy everything over */
+	if (offset == 0) {
+		memcpy(prev->br_bitmap + prev_bytes, next->br_bitmap, 
+				next->br_bytes);
+		goto done;
+	}
 
+	/* otherwise we have to shift next in.  we're about to free
+	 * next, so we consume it as we go. */
+	pbm = &prev->br_bitmap[prev_bytes - 1];
+	nbm = &next->br_bitmap[0];
+	diff = 8 - offset;
+	while(next->br_bytes-- && next->br_total_bits > 0) {
+		/* mask off just the offset bytes in the prev */
+		*pbm &= ((1 << offset) - 1);
+		/* move 'diff' LSB from next into prevs MSB */
+		*pbm |= (*nbm & ((1 << diff) - 1)) << offset;
+		pbm++;
+		next->br_total_bits -= diff;
+
+		if (next->br_total_bits > 0) {
+			/* then set prev's LSB to the next offset MSB.  this relies
+			 * on 0s being shifted into the MSB */
+			*pbm = *nbm >> diff;
+			nbm++;
+			next->br_total_bits -= offset;
+		}
+	}
+
+done:
+	prev->br_set_bits = prev->br_set_bits + next->br_set_bits;
 	rb_erase(&next->br_node, &bitmap->b_regions);
 	ocfs2_bitmap_free_region(next);
 

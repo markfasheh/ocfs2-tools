@@ -8,7 +8,7 @@ INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 
 ifdef OCFS_DEBUG
-OPTS += -O -g
+OPTS += -ggdb
 else
 OPTS += -O2
 endif

@@ -73,7 +73,7 @@ static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di)
 		di->i_links_count = refs;
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 				  refs);
-		o2fsck_write_inode(ost->ost_fs, di->i_blkno, di);
+		o2fsck_write_inode(ost, di->i_blkno, di);
 	}
 
 out:

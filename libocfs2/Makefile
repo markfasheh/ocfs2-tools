@@ -6,7 +6,7 @@ WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
 	-Wmissing-declarations
 
 ifdef OCFS_DEBUG
-OPTS += -O -g
+OPTS += -ggdb
 else
 OPTS += -O2
 endif
