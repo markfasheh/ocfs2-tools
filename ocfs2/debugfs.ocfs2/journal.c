@@ -39,47 +39,127 @@ extern dbgfs_gbls gbls;
 void read_journal (char *buf, __u64 buflen, FILE *out)
 {
 	char *block;
-	int blocknum;
+	__u64 blocknum;
 	journal_header_t *header;
-	int last_metadata = 0;
 	__u32 blksize = 1 << gbls.blksz_bits;
 	__u64 len;
 	char *p;
+	__u64 last_unknown = 0;
+	int type;
 
-	len = buflen;
-	p = buf;
-	blocknum = -1;
+	fprintf (out, "\tBlock 0: ");
+	print_super_block ((journal_superblock_t *) buf, out);
+
+	blocknum = 1;
+	p = buf + blksize;
+	len = buflen - blksize;
 
 	while (len) {
-		blocknum++;
 		block = p;
 		header = (journal_header_t *) block;
-		if (blocknum == 0) {
-			fprintf (out, "block %d: ", blocknum);
-			print_super_block ((journal_superblock_t *) block, out);
-		} else if (header->h_magic == ntohl(JFS_MAGIC_NUMBER)) {
-			if (last_metadata > 0) {
-				print_metadata_blocks(last_metadata, 
-						      blocknum - 1, out);
-				last_metadata = 0;
+		if (header->h_magic == ntohl(JFS_MAGIC_NUMBER)) {
+			if (last_unknown) {
+				dump_unknown (last_unknown, blocknum, out);
+				last_unknown = 0;
 			}
-			fprintf (out, "block %d: ", blocknum);
+			fprintf (out, "\tBlock %llu: ", blocknum);
 			print_jbd_block (header, out);
 		} else {
-			if (last_metadata == 0)
-				last_metadata = blocknum;
-//			continue;
+			type = detect_block (block);
+			if (type < 0) {
+				if (last_unknown == 0)
+					last_unknown = blocknum;
+			} else {
+				if (last_unknown) {
+					dump_unknown (last_unknown, blocknum, out);
+					last_unknown = 0;
+				}
+				fprintf (out, "\tBlock %llu: ", blocknum);
+				dump_metadata (type, block, blksize, out);
+			}
 		}
-		
+		blocknum++;
 		p += blksize;
 		len -= blksize;
 	}
 
-	if (last_metadata > 0)
-		print_metadata_blocks(last_metadata, blocknum, out);
+	if (last_unknown) {
+		dump_unknown (last_unknown, blocknum, out);
+		last_unknown = 0;
+	}
 
 	return ;
 }				/* read_journal */
+
+/*
+ * dump_metadata()
+ *
+ */
+void dump_metadata (int type, char *buf, __u64 buflen, FILE *out)
+{
+	switch (type) {
+	case 1:
+		fprintf(out, "Inode\n");
+		dump_inode (out, (ocfs2_dinode *)buf);
+		fprintf (out, "\n");
+		break;
+	case 2:
+		fprintf(out, "Extent\n");
+		dump_extent_block (out, (ocfs2_extent_block *)buf);
+		fprintf (out, "\n");
+		break;
+	default:
+		fprintf (out, "TODO\n\n");
+		break;
+	}
+
+	return ;
+}				/* dump_metadata */
+
+
+/*
+ * detect_block()
+ *
+ */
+int detect_block (char *buf)
+{
+	ocfs2_dinode *inode;
+	ocfs2_extent_block *extent;
+	int ret = -1;
+
+	inode = (ocfs2_dinode *)buf;
+	if (!memcmp(inode->i_signature, OCFS2_INODE_SIGNATURE,
+		    sizeof(OCFS2_INODE_SIGNATURE))) {
+		ret = 1;
+		goto bail;
+	}
+
+	extent = (ocfs2_extent_block *)buf;
+	if (!memcmp(extent->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
+		    sizeof(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
+		ret = 2;
+		goto bail;
+	}
+
+bail:
+	return ret;
+}				/* detect_block */
+
+
+/*
+ * dump_unknown()
+ *
+ */
+void dump_unknown (__u64 start, __u64 end, FILE *out)
+{
+	if (start == end - 1)
+		fprintf (out, "\tBlock %llu: ", start);
+	else
+		fprintf (out, "\tBlock %llu to %llu: ", start, end - 1);
+	fprintf (out, "Unknown -- Probably Data\n\n");
+
+	return ;
+}				/* dump_unknown */
 
 /*
  * print_header()
@@ -117,7 +197,7 @@ void print_super_block (journal_superblock_t *jsb, FILE *out)
 	fprintf (out, "\tFirst Commit ID: %u   Start Log Blknum: %u\n",
 		 jsb->s_sequence, jsb->s_start);
 
-	fprintf (out, "\tError: %u\n", jsb->s_errno);
+	fprintf (out, "\tError: %d\n", jsb->s_errno);
 
 	fprintf (out, "\tFeatures Compat: %u   Incompat: %u   RO Compat: %u\n",
 		 jsb->s_feature_compat, jsb->s_feature_incompat,
@@ -134,23 +214,10 @@ void print_super_block (journal_superblock_t *jsb, FILE *out)
 	fprintf (out, "\tPer Txn Block Limit    Journal: %u    Data: %u\n",
 		 jsb->s_max_transaction, jsb->s_max_trans_data);
 
+	fprintf (out, "\n");
+
 	return;
 }				/* print_super_block */
-
-
-/*
- * print_metadata_blocks()
- *
- */
-void print_metadata_blocks (int start, int end, FILE *out)
-{
-	if (start == end)
-		fprintf(out, "block %d: ", start);
-	else
-		fprintf(out, "block %d --> block %d: ", start, end);
-	fprintf(out, "Filesystem Metadata\n\n");
-	return;
-}				/* print_metadata_blocks */
 
 /*
  * print_jbd_block()
@@ -225,6 +292,7 @@ void print_jbd_block (journal_header_t *header, FILE *out)
 		fprintf(out, "Unknown Block Type\n");
 		break;
 	}
+	fprintf (out, "\n");
 
 	if (tagflg)
 		g_string_free (tagflg, 1);
