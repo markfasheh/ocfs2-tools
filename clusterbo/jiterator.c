@@ -97,11 +97,11 @@ j_iterator_has_more (JIterator *iterator)
 {
   gpointer result;
 
-  g_return_val_if_fail (iterator != NULL, FALSE);
+  g_return_val_if_fail(iterator != NULL, FALSE);
 
   result = (*iterator->has_more_func) (iterator->context);
 
-  return (gboolean) result;
+  return (gboolean) GPOINTER_TO_INT(result);
 }  /* j_iterator_has_more() */
 
 gpointer
@@ -130,14 +130,14 @@ j_iterator_list_has_more (gpointer context)
   GList *header, *elem;
   gboolean result;
 
-  g_return_val_if_fail (context != NULL, (gpointer) FALSE);
+  g_return_val_if_fail(context != NULL, GINT_TO_POINTER(FALSE));
 
   header = (GList *) context;
   elem = (GList *) header->data;
 
   result = (elem != NULL);
 
-  return (gpointer) result;
+  return (gpointer) GINT_TO_POINTER(result);
 }  /* j_iterator_list_has_more() */
 
 static gpointer
