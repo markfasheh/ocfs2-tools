@@ -64,7 +64,8 @@ CFILES = 		\
 	sysfile.c	\
 	link.c		\
 	unlink.c	\
-	bitmap.c
+	bitmap.c	\
+	fileio.c
 
 HFILES =				\
 	include/jfs_user.h		\

@@ -30,6 +30,7 @@
 
 #define _XOPEN_SOURCE 600  /* Triggers ISOC99, UNIX98 in features.h */
 #define _LARGEFILE64_SOURCE
+#define _GNU_SOURCE /* Because libc really doesn't want us using O_DIRECT? */
 
 #include <string.h>
 #include <sys/types.h>
@@ -76,6 +77,8 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 	strcpy(chan->io_name, name);
 	chan->io_blksize = OCFS2_MIN_BLOCKSIZE;
 	chan->io_flags = (flags & OCFS2_FLAG_RW) ? O_RDWR : O_RDONLY;
+	/* FIXME: should do a "check for success, fallback to bindraw */
+	chan->io_flags |= O_DIRECT;
 	chan->io_error = 0;
 
 	ret = OCFS2_ET_IO;

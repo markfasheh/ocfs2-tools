@@ -312,5 +312,8 @@ errcode_t ocfs2_check_if_mounted(const char *file, int *mount_flags);
 errcode_t ocfs2_check_mount_point(const char *device, int *mount_flags,
 		                  char *mtpt, int mtlen);
 
+errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs, uint64_t blkno,
+				char **buf, int *len);
+
 #endif  /* _FILESYS_H */
 
