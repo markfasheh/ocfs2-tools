@@ -2,20 +2,16 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
-           -Wmissing-declarations
-
-ifdef OCFS_DEBUG
-OPTS = -g
-endif
-
-CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
-
 SBIN_PROGRAMS = fsck.ocfs2
 
-INCLUDES = -I$(TOPDIR)/libocfs2/include
 
-OPTIMIZE = -O2
+INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+
+CFLAGS := -g -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
+           -Wmissing-declarations -fno-strict-aliasing
+
+DEFINES = -DOCFS2_FLAT_INCLUDES
 
 ifeq ($(OCFS_PROCESSOR),x86_64)
   CFLAGS += -m64
@@ -26,17 +22,23 @@ ifeq ($(OCFS_PROCESSOR),i686)
   DEFINES += -D__ILP32__
 endif
 
-CFLAGS += $(OPTIMIZE)
+CFILES = fsck.c pass1.c
+HFILES = include/pass1.h
 
-VERSION_FILES = fsck.c 
-VERSION_SRC = fsck.c
+OBJS = $(subst .c,.o,$(CFILES))
+
+VERSION_FILES = $(CFILES) $(HFILES)
+VERSION_SRC = $(CFILES)
 VERSION_PREFIX = OCFS2
 
-#MANS = fsck.ocfs2.8
+DIST_FILES = $(CFILES) $(HFILES) 
 
-DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) #mkfs.ocfs2.8.in
+DIST_RULES = dist-subdircreate
 
-fsck.ocfs2: fsck.o
-	$(LINK) 
+dist-subdircreate:
+	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
+
+fsck.ocfs2: $(OBJS)
+	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make
