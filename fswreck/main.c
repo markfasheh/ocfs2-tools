@@ -25,7 +25,7 @@
 
 #include <main.h>
 
-#define MAX_CORRUPT		6
+#define MAX_CORRUPT		12
 
 char *progname = NULL;
 char *device = NULL;
@@ -37,13 +37,20 @@ struct corrupt_funcs {
 };
 
 struct corrupt_funcs cf[] = {
-	{ NULL },		/* 0 */
-	{ NULL },		/* 1 */
-	{ NULL },		/* 2 */
-	{ &corrupt_chains },	/* 3 */
-	{ &corrupt_chains },	/* 4 */
-	{ &corrupt_chains },	/* 5 */
-	{ &corrupt_chains }	/* 6 */
+	{ NULL },		/* 00 */
+	{ NULL },		/* 01 */
+	{ NULL },		/* 02 */
+				/* Following relates to the Global bitmap: */
+	{ &corrupt_chains },	/* 03 - Delink the last chain from the inode */
+	{ &corrupt_chains },	/* 04 - Corrupt cl_count */
+	{ &corrupt_chains },	/* 05 - Corrupt cl_next_free_rec */
+	{ NULL },		/* 06 */
+	{ &corrupt_chains },	/* 07 - Corrupt id1.bitmap1.i_total/i_used */
+	{ &corrupt_chains },	/* 08 - Corrupt c_blkno of the first record with a number larger than volume size */
+	{ NULL },		/* 09 */
+	{ &corrupt_chains },	/* 10 - Corrupt c_blkno of the first record with an unaligned number */
+	{ &corrupt_chains },	/* 11 - Corrupt c_blkno of the first record with 0 */
+	{ &corrupt_chains }	/* 12 - Corrupt c_total/c_free of the first record */
 };
 
 /*
@@ -111,7 +118,7 @@ static int read_options(int argc, char **argv)
 			if (ind <= MAX_CORRUPT)
 				corrupt[ind] = 1;
 			else {
-				printf("booo\n");
+				fprintf(stderr, "Invalid corrupt code:%d\n", ind);
 				return -1;
 			}
 			break;
@@ -177,7 +184,7 @@ int main (int argc, char **argv)
 			if (cf[i].func)
 				cf[i].func(fs, i, nodenum);
 			else
-				printf("Unimplemented corrupt code = %d\n", i);
+				fprintf(stderr, "Unimplemented corrupt code = %d\n", i);
 		}
 	}
 

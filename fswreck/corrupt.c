@@ -43,19 +43,24 @@ void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t nodenum)
 	case 4:
 	case 5:
 	case 6:
+	case 7:
+	case 8:
+	case 10:
+	case 11:
+	case 12:
 		snprintf(sysfile, sizeof(sysfile),
 			 sysfile_info[GLOBAL_BITMAP_SYSTEM_INODE].name);
 		break;
 #ifdef _LATER_
-	case 1:
+	case X:
 		snprintf(sysfile, sizeof(sysfile),
 			 sysfile_info[GLOBAL_INODE_ALLOC_SYSTEM_INODE].name);
 		break;
-	case 2: 
+	case Y: 
 		snprintf(sysfile, sizeof(sysfile),
 			 sysfile_info[EXTENT_ALLOC_SYSTEM_INODE].name, nodenum);
 		break;
-	case 3:
+	case Z:
 		snprintf(sysfile, sizeof(sysfile),
 			 sysfile_info[INODE_ALLOC_SYSTEM_INODE].name, nodenum);
 		break;
