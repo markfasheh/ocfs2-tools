@@ -59,6 +59,8 @@ static errcode_t ocfs2_partition_list (struct list_head *dev_list)
 	FILE *proc;
 	char line[256];
 	char name[256];
+	char major[256];
+	char minor[256];
 	ocfs2_devices *dev;
 
 	proc = fopen ("/proc/partitions", "r");
@@ -68,7 +70,9 @@ static errcode_t ocfs2_partition_list (struct list_head *dev_list)
 	}
 
 	while (fgets (line, sizeof(line), proc) != NULL) {
-		if (sscanf(line, "%*d %*d %*d %99[^ \t\n]", name) != 1)
+		*major = *minor = *name = '\0';
+		if (sscanf(line, "%*[ ]%[0-9]%*[ ]%[0-9] %*d %99[^ \t\n]",
+			   major, minor, name) != 3)
 			continue;
 
 		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
@@ -76,6 +80,8 @@ static errcode_t ocfs2_partition_list (struct list_head *dev_list)
 			goto bail;
 
 		snprintf(dev->dev_name, sizeof(dev->dev_name), "/dev/%s", name);
+		dev->maj_num = strtoul(major, NULL, 0);
+		dev->min_num = strtoul(minor, NULL, 0);
 		list_add_tail(&(dev->list), dev_list);
 	}
 
@@ -95,10 +101,11 @@ static void ocfs2_print_uuids(struct list_head *dev_list)
 	ocfs2_devices *dev;
 	struct list_head *pos;
 	char uuid[40];
+	char devstr[10];
 	char *p;
 	int i;
 
-	printf("%-20s  %-32s\n", "Device", "UUID");
+	printf("%-20s  %7s  %-32s\n", "Device", "maj,min", "UUID");
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		if (dev->fs_type == 0)
@@ -108,7 +115,8 @@ static void ocfs2_print_uuids(struct list_head *dev_list)
 		for (i = 0, p = uuid; i < 16; i++, p += 2)
 			sprintf(p, "%02X", dev->uuid[i]);
 
-		printf("%-20s  %-32s\n", dev->dev_name, uuid);
+		sprintf(devstr, "%3d,%-d", dev->maj_num, dev->min_num);
+		printf("%-20s  %-7s  %-32s\n", dev->dev_name, devstr, uuid);
 	}
 
 	return ;
