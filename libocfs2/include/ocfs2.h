@@ -278,8 +278,6 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      int *ret_count);
 errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
-errcode_t ocfs2_drop_extent_map(ocfs2_filesys *fs,
-				ocfs2_cached_inode *cinode);
 
 errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 					  uint32_t size, int flags,

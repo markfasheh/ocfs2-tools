@@ -574,21 +574,9 @@ errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 	return 0;
 
 cleanup:
-	ocfs2_drop_extent_map(fs, cinode);
+	ocfs2_extent_map_free(cinode);
 
 	return ret;
-}
-
-errcode_t ocfs2_drop_extent_map(ocfs2_filesys *fs,
-				ocfs2_cached_inode *cinode)
-{
-	if (!cinode || !cinode->ci_map)
-		return OCFS2_ET_INVALID_ARGUMENT;
-
-	ocfs2_extent_map_free(cinode);
-	cinode->ci_map = NULL;
-
-	return 0;
 }
 
 static void __ocfs2_extent_map_drop(ocfs2_cached_inode  *cinode,
