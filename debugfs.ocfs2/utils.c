@@ -26,54 +26,6 @@
 #include <main.h>
 
 /*
- * add_extent_rec()
- *
- */
-void add_extent_rec (GArray *arr, ocfs2_extent_rec *rec)
-{
-	ocfs2_extent_rec *new;
-
-	if (!arr)
-		return ;
-
-	if (!(new = malloc(sizeof(ocfs2_extent_rec))))
-		DBGFS_FATAL("%s", strerror(errno));
-
-	memcpy(new, rec, sizeof(ocfs2_extent_rec));
-	g_array_append_vals(arr, new, 1);
-
-	return ;
-}				/* add_extent_rec */
-
-/*
- * add_dir_rec()
- *
- */
-void add_dir_rec (GArray *arr, struct ocfs2_dir_entry *rec)
-{
-	struct ocfs2_dir_entry *new;
-
-	if (!arr)
-		return ;
-
-	if (!(new = malloc(sizeof(struct ocfs2_dir_entry))))
-		DBGFS_FATAL("%s", strerror(errno));
-
-	memset(new, 0, sizeof(struct ocfs2_dir_entry));
-
-	new->inode = rec->inode;
-	new->rec_len = rec->rec_len;
-	new->name_len = rec->name_len;
-	new->file_type = rec->file_type;
-	strncpy(new->name, rec->name, rec->name_len);
-	new->name[rec->name_len] = '\0';
-
-	g_array_append_vals(arr, new, 1);
-
-	return ;
-}				/* add_dir_rec */
-
-/*
  * get_vote_flag()
  *
  */
@@ -103,7 +55,7 @@ void get_vote_flag (__u32 flag, GString *str)
 		g_string_append (str, "none");
 
 	return ;
-}				/* get_vote_flag */
+}
 
 /*
  * get_publish_flag()
@@ -189,7 +141,7 @@ void get_publish_flag (__u32 flag, GString *str)
 		g_string_append (str, "none");
 
 	return ;
-}				/* get_publish_flag */
+}
 
 /*
  * get_journal_blktyp()
@@ -219,7 +171,7 @@ void get_journal_blktyp (__u32 jtype, GString *str)
 		g_string_append (str, "none");
 
 	return ;
-}				/* get_journal_blktyp */
+}
 
 /*
  * get_tag_flag()
@@ -246,7 +198,7 @@ void get_tag_flag (__u32 flags, GString *str)
 
 done:
 	return ;
-}				/* get_tag_flag */
+}
 
 /*
  * open_pager() -- copied from e2fsprogs-1.32/debugfs/util.c
@@ -271,7 +223,7 @@ FILE *open_pager(void)
 	outfile = popen(pager, "w");
 
 	return (outfile ? outfile : stdout);
-}				/* open_pager */
+}
 
 /*
  * close_pager() -- copied from e2fsprogs-1.32/debugfs/util.c
@@ -282,4 +234,34 @@ FILE *open_pager(void)
 void close_pager(FILE *stream)
 {
 	if (stream && stream != stdout) pclose(stream);
-}				/* close_pager */
+}
+
+
+/*
+ * string_to_inode()
+ *
+ * This routine is used whenever a command needs to turn a string into
+ * an inode.
+ *
+ * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
+ * redistributed under the terms of the GNU Public License.
+ */
+errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
+			  uint64_t cwd_blkno, char *str, uint64_t *blkno)
+{
+	int len;
+	char *end;
+
+	/*
+	 * If the string is of the form <ino>, then treat it as an
+	 * inode number.
+	 */
+	len = strlen(str);
+	if ((len > 2) && (str[0] == '<') && (str[len-1] == '>')) {
+		*blkno = strtoul(str+1, &end, 0);
+		if (*end=='>')
+			return 0;
+	}
+
+	return ocfs2_namei(fs, root_blkno, cwd_blkno, str, blkno);
+}

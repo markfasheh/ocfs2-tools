@@ -513,6 +513,18 @@ errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
 			      uint32_t len,
 			      uint64_t start_blkno);
 
+errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir, const char *name,
+		       int namelen, char *buf, uint64_t *inode);
+
+errcode_t ocfs2_namei(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
+		      const char *name, uint64_t *inode);
+
+errcode_t ocfs2_namei_follow(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
+			     const char *name, uint64_t *inode);
+
+errcode_t ocfs2_follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
+			    uint64_t inode, uint64_t *res_inode);
+
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
  * returns the cluster that contains a block, not the number of clusters

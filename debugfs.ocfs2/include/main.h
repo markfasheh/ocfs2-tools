@@ -69,8 +69,8 @@ typedef struct _dbgfs_glbs {
 	char *progname;
 	char *device;
 	ocfs2_filesys *fs;
-	char *curdir;
-	uint64_t curdir_blkno;
+	char *cwd;
+	uint64_t cwd_blkno;
 	char *blockbuf;
 	uint64_t max_clusters;
 	uint64_t max_blocks;

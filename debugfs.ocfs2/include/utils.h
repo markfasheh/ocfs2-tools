@@ -26,13 +26,13 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
-void add_extent_rec (GArray *arr, ocfs2_extent_rec *rec);
-void add_dir_rec (GArray *arr, struct ocfs2_dir_entry *rec);
 void get_vote_flag (__u32 flag, GString *str);
 void get_publish_flag (__u32 flag, GString *str);
 void get_journal_blktyp (__u32 jtype, GString *str);
 void get_tag_flag (__u32 flags, GString *str);
 FILE *open_pager(void);
 void close_pager(FILE *stream);
+errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
+			  uint64_t cwd_blkno, char *str, uint64_t *blkno);
 
 #endif		/* __UTILS_H__ */

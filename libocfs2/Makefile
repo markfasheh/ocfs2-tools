@@ -66,7 +66,8 @@ CFILES = 		\
 	bitops.c	\
 	expanddir.c	\
 	newdir.c	\
-	extend_file.c
+	extend_file.c	\
+	namei.c
 
 HFILES =				\
 	include/jfs_user.h		\
