@@ -83,9 +83,9 @@ class IPEditor(gtk.HBox):
 	    self.entrys[name].connect('insert_text', self.entry_insert_text_cb, nname)
 
 	for name in ip_fields:
-	    self.pack_start(self.entrys[name], gtk.FALSE, gtk.FALSE)
+	    self.pack_start(self.entrys[name], False, False)
 	    if name != 'entry4':
-		self.pack_start(gtk.Label('.'), gtk.FALSE, gtk.FALSE)
+		self.pack_start(gtk.Label('.'), False, False)
 
     def getFocusableWidget(self):
         return self.entrys['entry1']
@@ -153,17 +153,17 @@ if __name__ == "__main__":
 	    print data.dehydrate()
 	except:
 	    print "oops errors"
-	gtk.mainquit()
+	gtk.main_quit()
 
     win = gtk.Window()
-    win.connect('destroy', gtk.mainquit)
+    win.connect('destroy', gtk.main_quit)
     vbox = gtk.VBox()
     ip = IPEditor()
     vbox = gtk.VBox()
     vbox.pack_start(ip)
     button = gtk.Button("Quit")
     button.connect("pressed", output, ip)
-    vbox.pack_start(button, gtk.FALSE, gtk.FALSE)
+    vbox.pack_start(button, False, False)
     win.add(vbox)
     win.show_all()
     gtk.main()
