@@ -508,13 +508,26 @@ out:
 	return err;
 }
 
+/*
+ * We only need to replay the journals if the inode's flag is set and s_start
+ * indicates that there is actually pending data in the journals.
+ *
+ * In the simple case of an unclean shutdown we don't want to have to build up
+ * enough state to be able to truncate the inodes waiting in the orphan dir.
+ * ocfs2 in the kernel only fixes up the orphan dirs if the journal dirty flag
+ * is set.  So after replaying the journals we clear s_startin the journals to
+ * stop a second journal replay but leave the dirty bit set so that the kernel
+ * will truncate the orphaned inodes. 
+ */
 errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 {
 	uint16_t i, max_nodes;
-	ocfs2_dinode *di;
 	char *buf = NULL;
 	uint64_t blkno;
 	errcode_t ret;
+	ocfs2_cached_inode *cinode = NULL;
+	int contig, is_dirty;
+	journal_superblock_t *jsb;
 
 	*should = 0;
 	max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
@@ -526,7 +539,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 		goto out;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	jsb = (journal_superblock_t *)buf;
 
 	for (i = 0; i < max_nodes; i++) {
 		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
@@ -537,23 +550,55 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 			goto out;
 		}
 
-		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (cinode) {
+			ocfs2_free_cached_inode(fs, cinode);
+			cinode = NULL;
+		}
+		ret = ocfs2_read_cached_inode(fs, blkno, &cinode);
 		if (ret) {
 			com_err(whoami, ret, "while reading cached inode "
 				"%"PRIu64" for node %d's journal", blkno, i);
 			goto out;
 		}
-		
-		verbosef("node %d JOURNAL_DIRTY_FL: %d\n", i,
-			 di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL);
 
-		if (di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL) 
+		ret = ocfs2_extent_map_init(fs, cinode);
+		if (ret) {
+			com_err(whoami, ret, "while initializing extent map");
+			goto out;
+		}
+
+		is_dirty = cinode->ci_inode->id1.journal1.ij_flags &
+			   OCFS2_JOURNAL_DIRTY_FL;
+		verbosef("node %d JOURNAL_DIRTY_FL: %d\n", i, is_dirty);
+		if (!is_dirty)
+			continue;
+
+		ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno,
+						  &contig);
+		if (ret) {
+			com_err(whoami, ret, "while looking up the journal "
+				"super block in node %d's journal", i);
+			goto out;
+		}
+
+		/* XXX be smarter about reading in the whole super block if it
+		 * spans multiple blocks */
+		ret = ocfs2_read_journal_superblock(fs, blkno, buf);
+		if (ret) {
+			com_err(whoami, ret, "while reading the journal "
+				"super block in node %d's journal", i);
+			goto out;
+		}
+
+		if (jsb->s_start)
 			*should = 1;
 	}
 
 out:
 	if (buf)
 		ocfs2_free(&buf);
+	if (cinode)
+		ocfs2_free_cached_inode(fs, cinode);
 	return ret;
 	
 }

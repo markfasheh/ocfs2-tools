@@ -108,6 +108,12 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 		goto out;
 	}
 
+	if (!prompt(ost, PY, PR_INODE_ORPHANED,
+		   "Inode %"PRIu64" was found in the orphan directory. "
+		   "Delete its contents and unlink it?", dirent->inode)) {
+		goto out;
+	}
+
 	ret = ocfs2_truncate(ost->ost_fs, dirent->inode, 0);
 	if (ret) {
 		com_err(whoami, ret, "while truncating orphan inode %"PRIu64,

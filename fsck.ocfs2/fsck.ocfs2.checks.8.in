@@ -515,6 +515,8 @@ A directory was found whose ".." doesn't refer to its parent.
 Answering yes will read the directory block for the given directory and update
 its ".." entry to reflect its parent.
 
+\" pass4.c
+
 .SS "INODE_NOT_CONNECTED"
 Most all inodes in the system should be referenced by a directory entry. An inode was found which isn't referred to by any directory entry.
 
@@ -528,8 +530,14 @@ refer to it.
 
 Answering yes sets the inode's count to match the number of referring directory entries.
 
+.SS "INODE_ORPHANED"
+While files are being deleted they are placed in an internal directory.  If
+the machine crashes while this is taking place the files will be left in
+this directory.  Fsck has found an inode in this directory and would like
+to finish the job of truncating and removing it.
 
-\" pass4.c
+Answering yes removes the file data associated with the inode and frees
+the inode.
 
 .SH "SEE ALSO"
 .BR ocfs2(8)
