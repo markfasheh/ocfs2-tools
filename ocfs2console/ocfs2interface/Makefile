@@ -24,7 +24,7 @@ BLKID_DEPS =
 else
 BLKID_DEPS = $(TOPDIR)/ocfs2console/blkid/libblkid-internal.a
 
-BLKID_CFLAGS = -I$(TOPDIR)/ocfs2console/blkid
+BLKID_CFLAGS = -I$(TOPDIR)/ocfs2console
 BLKID_LIBS = -L$(TOPDIR)/ocfs2console/blkid -lblkid-internal -luuid
 endif
 
