@@ -43,6 +43,17 @@
  * systems, as well as non-32 bit systems.
  */
 
+#ifdef __powerpc__
+int ocfs2_set_bit(int nr,void * addr)
+{
+	unsigned long mask = 1 << (nr & 0x1f);
+	unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
+	unsigned long old = *p;
+
+	*p = old | mask;
+	return (old & mask) != 0;
+}
+#else
 int ocfs2_set_bit(int nr,void * addr)
 {
 	int		mask, retval;
@@ -54,7 +65,19 @@ int ocfs2_set_bit(int nr,void * addr)
 	*ADDR |= mask;
 	return retval;
 }
+#endif
 
+#ifdef __powerpc__
+int ocfs2_clear_bit(int nr, void * addr)
+{
+	unsigned long mask = 1 << (nr & 0x1f);
+	unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
+	unsigned long old = *p;
+
+	*p = old & ~mask;
+	return (old & mask) != 0;
+}
+#else
 int ocfs2_clear_bit(int nr, void * addr)
 {
 	int		mask, retval;
@@ -66,7 +89,16 @@ int ocfs2_clear_bit(int nr, void * addr)
 	*ADDR &= ~mask;
 	return retval;
 }
+#endif
 
+#ifdef __powerpc__
+int ocfs2_test_bit(int nr, const void * addr)
+{
+	const unsigned int *p = (const unsigned int *) addr;
+
+	return ((p[nr >> 5] >> (nr & 0x1f)) & 1) != 0;
+}
+#else
 int ocfs2_test_bit(int nr, const void * addr)
 {
 	int			mask;
@@ -76,11 +108,34 @@ int ocfs2_test_bit(int nr, const void * addr)
 	mask = 1 << (nr & 0x07);
 	return ((mask & *ADDR) != 0);
 }
+#endif
 
 #endif	/* !_OCFS2_HAVE_ASM_BITOPS_ */
 
 #if !defined(_OCFS2_HAVE_ASM_FINDBIT_)
 #include <strings.h>
+
+#ifdef __powerpc__
+static inline int __ilog2(unsigned long x)
+{
+        int lz;
+                                                                                                                                                         
+        asm ("cntlzw %0,%1" : "=r" (lz) : "r" (x));
+        return 31 - lz;
+}
+                                                                                                                                                         
+static inline int ffz(unsigned int x)
+{
+        if ((x = ~x) == 0)
+                return 32;
+        return __ilog2(x & -x);
+}
+                                                                                                                                                         
+static inline int __ffs(unsigned long x)
+{
+        return __ilog2(x & -x);
+}
+#endif	/* __powerpc__ */
 
 int ocfs2_find_first_bit_set(void *addr, int size)
 {
@@ -92,6 +147,45 @@ int ocfs2_find_first_bit_clear(void *addr, int size)
 	return ocfs2_find_next_bit_clear(addr, size, 0);
 }
 
+#ifdef __powerpc__
+int ocfs2_find_next_bit_set(void *addr, int size, int offset)
+{
+	unsigned int *p = ((unsigned int *) addr) + (offset >> 5);
+	unsigned int result = offset & ~31UL;
+	unsigned int tmp;
+
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset &= 31UL;
+	if (offset) {
+		tmp = *p++;
+		tmp &= ~0UL << offset;
+		if (size < 32)
+			goto found_first;
+		if (tmp)
+			goto found_middle;
+		size -= 32;
+		result += 32;
+	}
+	while (size >= 32) {
+		if ((tmp = *p++) != 0)
+			goto found_middle;
+		result += 32;
+		size -= 32;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
+
+found_first:
+	tmp &= ~0UL >> (32 - size);
+	if (tmp == 0UL)        /* Are any bits set? */
+		return result + size; /* Nope. */
+found_middle:
+	return result + __ffs(tmp);
+}
+#else
 int ocfs2_find_next_bit_set(void *addr, int size, int offset)
 {
 	unsigned char * p;
@@ -129,7 +223,46 @@ int ocfs2_find_next_bit_set(void *addr, int size, int offset)
 
 	return (res + d0 - 1);
 }
+#endif	/* __powerpc__ */
 
+#ifdef __powerpc__
+int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
+{
+	unsigned int * p = ((unsigned int *) addr) + (offset >> 5);
+	unsigned int result = offset & ~31UL;
+	unsigned int tmp;
+
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset &= 31UL;
+	if (offset) {
+		tmp = *p++;
+		tmp |= ~0UL >> (32-offset);
+		if (size < 32)
+			goto found_first;
+		if (tmp != ~0U)
+			goto found_middle;
+		size -= 32;
+		result += 32;
+	}
+	while (size >= 32) {
+		if ((tmp = *p++) != ~0U)
+			goto found_middle;
+		result += 32;
+		size -= 32;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
+found_first:
+	tmp |= ~0UL << size;
+	if (tmp == ~0UL)        /* Are any bits zero? */
+		return result + size; /* Nope. */
+found_middle:
+	return result + ffz(tmp);
+}
+#else
 int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 {
 	unsigned char * p;
@@ -166,6 +299,8 @@ int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 
 	return (res + d0 - 1);
 }
+#endif	/* __powerpc__ */
+
 #endif	
 
 
