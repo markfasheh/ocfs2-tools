@@ -1002,7 +1002,8 @@ initialize_alloc_group(State *s, const char *name,
 	group->gd->bg_size = (uint32_t)ocfs2_group_bitmap_size(s->blocksize);
 	group->gd->bg_bits = cpg * bpc;
 	group->gd->bg_chain = chain;
-	group->gd->bg_parent_dinode = alloc_inode->fe_off;
+	group->gd->bg_parent_dinode = alloc_inode->fe_off >> 
+					s->blocksize_bits;
 	group->gd->bg_blkno = blkno;
 
 	/* First bit set to account for the descriptor block */
@@ -1655,7 +1656,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 	uint64_t parent_blkno;
 	ocfs2_group_desc *gd;
 
-	parent_blkno = bitmap->bm_record->fe_off;
+	parent_blkno = bitmap->bm_record->fe_off >> s->blocksize_bits;
 	for(i = 0; i < s->nr_cluster_groups; i++) {
 		gd = bitmap->groups[i]->gd;
 		if (strcmp(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE)) {
