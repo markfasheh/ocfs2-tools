@@ -95,7 +95,7 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	val = !!val;
 
-	if (!ost->ost_write_inode_alloc)
+	if (ost->ost_write_inode_alloc_asked && !ost->ost_write_inode_alloc)
 		return;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
@@ -114,15 +114,8 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		if (cinode == NULL)
 			continue;
 
-		if (val)
-			ret = ocfs2_bitmap_set(cinode->ci_chains, blkno,
-					       &oldval);
-		else
-			ret = ocfs2_bitmap_clear(cinode->ci_chains, blkno,
-						 &oldval);
-
-		com_err(whoami, ret, "node %"PRIu16, node);
-
+		ret = ocfs2_chain_force_val(ost->ost_fs, cinode, blkno, val,
+					    &oldval);
 		if (ret) {
 		       	if (ret != OCFS2_ET_INVALID_BIT)
 				com_err(whoami, ret, "while trying to set "

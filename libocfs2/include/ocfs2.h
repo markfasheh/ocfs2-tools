@@ -428,6 +428,11 @@ errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
 			   uint64_t blkno,
 			   int *oldval);
+errcode_t ocfs2_chain_force_val(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode,
+				uint64_t blkno, 
+				int newval,
+				int *oldval);
 
 errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir);
 

@@ -353,6 +353,27 @@ errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 	return 0;
 }
 
+/* just a variant that won't return failure if it tried to set what
+ * was already set */
+errcode_t ocfs2_chain_force_val(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode,
+				uint64_t blkno, 
+				int newval, 
+				int *oldval)
+{
+	errcode_t ret;
+
+	if (!cinode->ci_chains)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if (newval)
+		ret = ocfs2_bitmap_set(cinode->ci_chains, blkno, oldval);
+	else
+		ret = ocfs2_bitmap_clear(cinode->ci_chains, blkno, oldval);
+
+	return ret;
+}
+
 errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
 			   uint64_t blkno,
