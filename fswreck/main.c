@@ -116,9 +116,10 @@ static int read_options(int argc, char **argv)
  */
 int main (int argc, char **argv)
 {
-	fswrk_ctxt *ctxt = NULL;
-	ocfs2_super_block *sb;
-	int i;
+	ocfs2_filesys *fs = NULL;
+	errcode_t ret = 0;
+	uint64_t boo;
+	int len;
 
 #define INSTALL_SIGNAL(sig)					\
 	do {							\
@@ -143,22 +144,16 @@ int main (int argc, char **argv)
 
 	print_version (progname);
 
-	ctxt = open_fs(device);
-
-	printf("inode=%llu, dlm=%llu, bm=%llu, orphan=%llu\n",
-	       ctxt->sys_global_inode, ctxt->sys_dlm,
-	       ctxt->sys_global_bitmap, ctxt->sys_orphan);
-
-	sb = &(ctxt->super_block->id2.i_super);
-	for (i = 0; i < sb->s_max_nodes; ++i) {
-		printf("%d. ext=%llu, in=%llu, jrn=%llu, lcl=%llu\n", i,
-		       ctxt->sys_extent[i], ctxt->sys_inode[i],
-		       ctxt->sys_journal[i], ctxt->sys_local[i]);
+	ret = ocfs2_open(device, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		com_err(progname, ret, "while opening \"%s\"", device);
+		goto bail;
 	}
 
 bail:
-	if (ctxt)
-		close_fs(ctxt);
+	ret = ocfs2_close(fs);
+	if (ret)
+		com_err(progname, ret, "while closing \"%s\"", device);
 
 	return 0;
 }					/* main */

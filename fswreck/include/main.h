@@ -52,31 +52,10 @@
 
 #include <linux/types.h>
 
+#include "ocfs2.h"
 #include "ocfs2_fs.h"
 #include "ocfs2_disk_dlm.h"
 #include "ocfs1_fs_compat.h"
-
-typedef struct _fswrk_ctxt {
-	char *device;
-	int fd;
-	uint64_t sys_global_inode;
-	uint64_t sys_dlm;
-	uint64_t sys_global_bitmap;
-	uint64_t sys_orphan;
-	uint64_t sys_extent[256];
-	uint64_t sys_inode[256];
-	uint64_t sys_journal[256];
-	uint64_t sys_local[256];
-	uint64_t max_clusters;
-	uint64_t max_blocks;
-	ocfs2_dinode *super_block;
-	ocfs2_dinode *root_dir;
-	ocfs2_dinode *system_dir;
-} fswrk_ctxt;
-
-void *memalign(size_t boundary, size_t size);
-
-#define safefree(_p)	do {if (_p) { free(_p); (_p) = NULL; } } while (0)
 
 #define FSWRK_FATAL(fmt, arg...)	({ fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \
 						   __FILE__, __LINE__, ##arg);  \
@@ -97,7 +76,5 @@ void *memalign(size_t boundary, size_t size);
 #define min(a,b)	((a) < (b) ? (a) : (b))
 
 /* remaining headers */
-#include <readfs.h>
-#include <utils.h>
 
 #endif		/* __MAIN_H__ */
