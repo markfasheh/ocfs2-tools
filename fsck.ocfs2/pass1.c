@@ -55,6 +55,7 @@
 #include <time.h>
 
 #include "ocfs2.h"
+#include "bitops.h"
 
 #include "dirblocks.h"
 #include "dirparents.h"
@@ -163,6 +164,142 @@ out:
 	return;
 }
 
+static errcode_t verify_local_alloc(o2fsck_state *ost, ocfs2_dinode *di)
+{
+	ocfs2_local_alloc *la = &di->id2.i_lab;
+	uint32_t max;
+	int broken = 0, changed = 0, clear = 0;
+	errcode_t ret = 0;
+
+	verbosef("la_bm_off %u size %u total %u used %u\n", la->la_bm_off,
+		 la->la_size, di->id1.bitmap1.i_total,
+		 di->id1.bitmap1.i_used);
+
+	max = ocfs2_local_alloc_size(ost->ost_fs->fs_blocksize);
+
+	if (la->la_size > max) {
+		broken = 1;
+		if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" claims to "
+			   "have %u bytes of bitmap data but %u bytes is the "
+			   "maximum allowed.  Set the inode's count to the "
+			   "maximum?", di->i_blkno, la->la_size, max)) {
+
+			la->la_size = max;
+			changed = 1;
+		}
+	}
+
+	if (di->id1.bitmap1.i_total == 0) {
+		/* ok, it's not used.  we don't mark these errors as 
+		 * 'broken' as the kernel shouldn't care.. right? */
+		if (di->id1.bitmap1.i_used != 0) {
+			if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" "
+			    "isn't in use bit its i_used isn't 0.  Set it to "
+			    "0?", di->i_blkno)) {
+
+				di->id1.bitmap1.i_used = 0;
+				changed = 1;
+			}
+		}
+
+		if (la->la_bm_off != 0) {
+			if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" "
+			    "isn't in use bit its i_bm_off isn't 0.  Set it "
+			    "to 0?", di->i_blkno)) {
+
+				la->la_bm_off = 0;
+				changed = 1;
+			}
+		}
+
+		goto out;
+	}
+
+	if (la->la_bm_off >= ost->ost_fs->fs_clusters) {
+		broken = 1;
+		if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" claims to "
+			   "contain a bitmap that starts at cluster %u but "
+			   "the volume contains %u clusters.  Mark the local "
+			   "alloc bitmap as unused?", di->i_blkno,
+			   la->la_bm_off, ost->ost_fs->fs_clusters)) {
+			clear = 1;
+		}
+	}
+
+	if (di->id1.bitmap1.i_total > la->la_size * 8) {
+		broken = 1;
+		if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" claims to "
+			   "have a bitmap with %u bits but the inode can only "
+			   "fit %u bits.  Clamp the bitmap size to this "
+			   "maxmum?", di->i_blkno, di->id1.bitmap1.i_total,
+			   la->la_size * 8)) {
+
+			di->id1.bitmap1.i_total = la->la_size * 8;
+			changed = 1;
+		}
+	}
+
+	if (la->la_bm_off + di->id1.bitmap1.i_total >
+	    ost->ost_fs->fs_clusters) {
+		broken = 1;
+		if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" claims to "
+			   "have a bitmap that covers clusters numbered %u "
+			   "through %u but %u is the last valid cluster. "
+			   "Mark the local bitmap as unused?",
+			   di->i_blkno,
+			   la->la_bm_off,
+			   la->la_bm_off + di->id1.bitmap1.i_total - 1, 
+			   ost->ost_fs->fs_clusters - 1)) {
+			clear = 1;
+		}
+		/* we can't possibly check _used if bm/off and total are
+		 * so busted */
+		goto out;
+	}
+
+	if (di->id1.bitmap1.i_used > di->id1.bitmap1.i_total) {
+		broken = 1;
+		if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" claims to "
+			   "contain a bitmap with %u bits and %u used.  Set "
+			   "i_used down to %u?", di->i_blkno,
+			   di->id1.bitmap1.i_total, di->id1.bitmap1.i_used, 
+			   di->id1.bitmap1.i_total)) {
+
+			di->id1.bitmap1.i_used = di->id1.bitmap1.i_total;
+			changed = 1;
+		}
+	}
+
+out:
+	if (broken && !clear &&
+	    prompt(ost, PY, 0, "Local alloc inode %"PRIu64" contained errors. "
+		   "Mark it as unused instead of trying to correct its "
+		   "bitmap?", di->i_blkno)) {
+		clear = 1;
+	}
+
+	if (clear) {
+		di->id1.bitmap1.i_total = 0;
+		di->id1.bitmap1.i_used = 0;
+		la->la_bm_off = 0;
+		memset(la->la_bitmap, 0, 
+		       ocfs2_local_alloc_size(ost->ost_fs->fs_blocksize));
+		changed = 1;
+	}
+
+	if (changed) {
+		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
+		if (ret) {
+			com_err(whoami, ret, "while writing local alloc inode "
+				    "%"PRIu64, di->i_blkno);
+			ost->ost_write_error = 1;
+			ret = 0;
+		}
+	}
+
+	return ret;
+}
+
 /* Check the basics of the ocfs2_dinode itself.  If we find problems
  * we clear the VALID flag and the caller will see that and update
  * inode allocations and write the inode to disk. 
@@ -255,6 +392,9 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 		/* i_size?  what other sanity testing for devices? */
 	}
+
+	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
+		verify_local_alloc(ost, di);
 
 out:
 	/* XXX when we clear we need to also free whatever blocks may have
@@ -438,15 +578,6 @@ static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
 	return 0;
 }
 
-/* XXX do something with these */
-static errcode_t handle_local_alloc(o2fsck_state *ost, ocfs2_dinode *di)
-{
-	ocfs2_local_alloc *lab = &di->id2.i_lab;
-	verbosef("la_bm_off %u size %u total %u used %u\n", lab->la_bm_off,
-		 lab->la_size, di->id1.bitmap1.i_total,
-		 di->id1.bitmap1.i_used);
-	return 0;
-}
 
 static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 				uint64_t blkno, ocfs2_dinode *di)
@@ -459,7 +590,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	vb.vb_di = di;
 
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
-		ret = handle_local_alloc(ost, di);
+		ret = 0;
 	else if (di->i_flags & OCFS2_CHAIN_FL)
 		ret = ocfs2_chain_iterate(fs, blkno, check_gd_block, &vb);
 	else {
@@ -523,6 +654,171 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		di->i_clusters = expected;
 		o2fsck_write_inode(ost, blkno, di);
 	}
+}
+
+static void sync_local_bitmap(o2fsck_state *ost, ocfs2_dinode *di,
+			      ocfs2_local_alloc *la, uint64_t start,
+			      uint64_t end)
+{
+	uint64_t pos, alloc;
+	errcode_t ret;
+	int bmap, last_bmap, changed = 0;
+	uint16_t used = 0;
+
+	/* it's pretty lame that we dup this and the loop in 
+	 * write_cluster_alloc but they're pretty different bitmaps.. */
+
+	for(last_bmap = 0, pos = start ; pos < end;
+	    last_bmap = bmap + 1, pos = alloc + 1) {
+
+		ret = ocfs2_bitmap_find_next_set(ost->ost_allocated_clusters,
+						 pos, &alloc);
+		if (ret == OCFS2_ET_BIT_NOT_FOUND)
+			alloc = end;
+
+		bmap = ocfs2_find_next_bit_set(la->la_bitmap,
+					      di->id1.bitmap1.i_total,
+					      last_bmap);
+
+		verbosef("last_bmap %u pos %"PRIu64" -> bmap %u alloc "
+			 "%"PRIu64"\n", last_bmap, pos, bmap, alloc);
+
+		if (bmap == alloc - la->la_bm_off) {
+			if (alloc != end)
+				used++;
+			continue;
+		}
+
+		/* XXX specifically for each bit? */
+		if (!changed &&
+		    !prompt(ost, PY, 0, "Local alloc inode %"PRIu64" has bits "
+			    "in its bitmap which don't match what is used in "
+			    "the file system.  Sync its bitmap up with what "
+			    "is in use?", di->i_blkno))
+			break;
+
+		changed = 1;
+
+		/* the local bitmap is missing something that is in use */
+		if (bmap > alloc - la->la_bm_off) {
+			bmap = alloc - la->la_bm_off;
+			ocfs2_set_bit(bmap, la->la_bitmap);
+			used++;
+		}
+
+		/* the local bitmap has some set that aren't in use */
+		for ( ; bmap < alloc - la->la_bm_off; bmap++)
+			ocfs2_clear_bit(bmap, la->la_bitmap);
+
+	}
+
+	if (di->id1.bitmap1.i_used != used) {
+		if (prompt(ost, PY, 0, "Local alloc inode %"PRIu64" now has "
+			   "%u bits set in its bitmap but it thinks there are "
+			   "%u set.  Fix the record of set bits to match "
+			   "how many are really set in the bitmap?",
+			   di->i_blkno, used, di->id1.bitmap1.i_used)) {
+
+			di->id1.bitmap1.i_used = used;
+			changed = 1;
+		}
+	}
+
+	if (changed) {
+		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
+		if (ret) {
+			com_err(whoami, ret, "while writing local alloc inode "
+				    "%"PRIu64, di->i_blkno);
+			ost->ost_write_error = 1;
+			ret = 0;
+		}
+	}
+
+	/* the kernel is going to trust this local alloc so we need to 
+	 * make sure that its space is reserved in the cluster bitmap */
+	for(pos = start ; pos < end; pos = alloc + 1) {
+		ret = ocfs2_bitmap_find_next_set(ost->ost_allocated_clusters,
+						 pos, &alloc);
+		if (ret == OCFS2_ET_BIT_NOT_FOUND)
+			alloc = end;
+		for ( ; pos < alloc; pos++) {
+			verbosef("reserving bit %"PRIu64" in the global "
+				 "bitmap for local alloc %"PRIu64"\n",
+				 pos, di->i_blkno);
+			ocfs2_bitmap_set(ost->ost_allocated_clusters, pos,
+					 NULL);
+		}
+	}
+}
+
+/* if we have valid local allocs we have two jobs: 
+ *  - make sure the bitmap in the local alloc reflects what is used on disk
+ *  - make sure the cluster bitmap has all the bits in the local alloc set
+ */
+static void write_local_allocs(o2fsck_state *ost)
+{
+	uint16_t node, max_nodes;
+	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	char *buf = NULL;
+	errcode_t ret;
+	uint64_t blkno, start, end;
+	ocfs2_dinode *di;
+	ocfs2_local_alloc *la = &di->id2.i_lab;
+
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating an inode buffer to "
+			"use when verifying local alloc inode bitmaps.");
+		goto out;
+	}
+
+	di = (ocfs2_dinode *)buf; 
+
+	for (node = 0; node < max_nodes; node++) {
+		ret = ocfs2_lookup_system_inode(ost->ost_fs,
+						LOCAL_ALLOC_SYSTEM_INODE,
+						node, &blkno);
+		if (ret) {
+			com_err(whoami, ret, "while looking up local alloc "
+				"inode %"PRIu64" to verify its bitmap",
+				blkno);
+			goto out;
+		}
+
+		ret = ocfs2_read_inode(ost->ost_fs, blkno, buf);
+		if (ret) {
+			com_err(whoami, ret, "while reading local alloc "
+				"inode %"PRIu64" to verify its bitmap",
+				blkno);
+			goto out;
+		}
+
+		if (di->id1.bitmap1.i_total == 0)
+			continue;
+
+		la = &di->id2.i_lab;
+
+		/* make sure we don't try to work with a crazy bitmap.  It
+		 * can only be this crazy if the user wouldn't let us fix
+		 * it up.. just ignore it */
+		if (la->la_size > 
+		    ocfs2_local_alloc_size(ost->ost_fs->fs_blocksize) ||
+		    di->id1.bitmap1.i_used > di->id1.bitmap1.i_total ||
+		    di->id1.bitmap1.i_total > la->la_size * 8)
+			continue;
+
+		start = la->la_bm_off;
+		end = la->la_bm_off + di->id1.bitmap1.i_total;
+
+		if (start >= ost->ost_fs->fs_clusters || 
+		    end < start ||
+		    end > ost->ost_fs->fs_clusters)
+			continue;
+
+		sync_local_bitmap(ost, di, la, start, end);
+	}
+out:
+	return;
 }
 
 /* once we've iterated all the inodes we should have the current working
@@ -742,6 +1038,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		update_inode_alloc(ost, di, blkno, valid);
 	}
 
+	write_local_allocs(ost);
 	write_cluster_alloc(ost);
 	write_inode_alloc(ost);
 
