@@ -157,7 +157,9 @@ int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 	if((flags & PY) && (flags & PN))
 		flags &= ~PY;
 
+	va_start(ap, fmt);
 	len = vsnprintf(NULL, 0, fmt, ap);
+	va_end(ap);
 	if (len < 0) {
 		perror("vsnprintf failed when trying to bulid an output "
 		       "buffer");
