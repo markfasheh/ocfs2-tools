@@ -147,7 +147,7 @@ dist-copy: dist-mkdir $(DIST_ALL_FILES) $(DIST_RULES)
 
 dist-all: dist-copy dist-subdirs
 
-LOCAL_DFILES := $(wildcard *.d)
+LOCAL_DFILES := $(wildcard .*.d)
 ifneq ($(LOCAL_DFILES),)
 .PHONY: $(LOCAL_DFILES)
 -include $(LOCAL_DFILES)
