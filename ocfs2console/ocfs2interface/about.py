@@ -25,20 +25,27 @@ def print_version():
 def print_usage(name):
     print '''Usage: %s [OPTION]...
 Options:
-  -V, --version  print version information and exit
-      --help     display this help and exit''' % name
+  -C, --clusterconf  run cluster configurator only
+  -V, --version      print version information and exit
+      --help         display this help and exit''' % name
 
 def process_args():
+    clusterconf = False
+
     for arg in sys.argv[1:]:
-        if arg == '--version' or arg == '-V':
+        if arg in ('--version', '-V'):
             print_version()
             sys.exit(0)
-        elif arg == '--help':
+        elif arg in ('--help',):
             print_usage(sys.argv[0])
             sys.exit(0)
+        elif arg in ('--clusterconf', '-C'):
+            clusterconf = True
+
+    return clusterconf
 
 def process_gui_args():
-    if len(sys.argv) > 1:
+    if len(sys.argv) > 1 and sys.argv[1] not in ('--clusterconf', '-C'):
         print_usage(sys.argv[0])
         sys.exit(1)
         

@@ -141,6 +141,7 @@ class Console(gtk.Window):
         cluster_configurator(self)
 
 def main():
+    from about import process_gui_args
     process_gui_args()
     console = Console()
     gtk.main()

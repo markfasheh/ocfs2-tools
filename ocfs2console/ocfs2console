@@ -4,7 +4,7 @@
 #!/usr/bin/python -W ignore::DeprecationWarning
 
 from ocfs2interface.about import process_args
-process_args()
+clusterconf = process_args()
 
 try:
     import gtk
@@ -14,5 +14,9 @@ except RuntimeError:
 Make sure a proper setup for your display environment exists.\n'''
     sys.exit(1)
 
-from ocfs2interface.console import main
-main()
+if clusterconf:
+    from ocfs2interface.clconfig import cluster_configurator
+    cluster_configurator()
+else:
+    from ocfs2interface.console import main
+    main()

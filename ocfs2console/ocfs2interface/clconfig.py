@@ -64,6 +64,9 @@ class ClusterConfig(Dialog):
                         buttons=(gtk.STOCK_APPLY, gtk.RESPONSE_APPLY,
                                  gtk.STOCK_CLOSE, gtk.RESPONSE_CLOSE))
 
+        if parent is None:
+            self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_NORMAL)
+
         frame = gtk.Frame()
         frame.set_shadow_type(gtk.SHADOW_NONE)
         self.vbox.add(frame)
@@ -515,6 +518,8 @@ def cluster_configurator(parent=None):
             info.destroy()
 
 def main():
+    from about import process_gui_args
+    process_gui_args()
     cluster_configurator()
 
 if __name__ == '__main__':
