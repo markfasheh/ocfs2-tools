@@ -404,7 +404,7 @@ main(int argc, char **argv)
 	system_dir_rec.fe_off = alloc_inode(s, 1);
 	system_dir->record = &system_dir_rec;
 	add_entry_to_directory(s, system_dir, ".", system_dir_rec.fe_off, OCFS2_FT_DIR);
-	add_entry_to_directory(s, system_dir, "..", system_dir_rec.extent_off, OCFS2_FT_DIR);
+	add_entry_to_directory(s, system_dir, "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		num = (system_files[i].global) ? 1 : s->initial_nodes;
