@@ -192,7 +192,7 @@ static inline int ocfs2_test_bit(int nr, const void * addr)
  * convention.
  */
 
-_INLINE_ int ext2fs_set_bit(int nr,void * addr)
+static inline int ocfs2_set_bit(int nr,void * addr)
 {
 #if 1
 	int		mask;
@@ -220,7 +220,7 @@ _INLINE_ int ext2fs_set_bit(int nr,void * addr)
 #endif
 }
 
-_INLINE_ int ext2fs_clear_bit(int nr, void * addr)
+static inline int ocfs2_clear_bit(int nr, void * addr)
 {
 #if 1
 	int		mask;
@@ -249,7 +249,7 @@ _INLINE_ int ext2fs_clear_bit(int nr, void * addr)
 #endif
 }
 
-_INLINE_ int ext2fs_test_bit(int nr, const void * addr)
+static inline int ocfs2_test_bit(int nr, const void * addr)
 {
 	int			mask;
 	const unsigned char	*ADDR = (const unsigned char *) addr;
