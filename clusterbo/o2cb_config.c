@@ -21,6 +21,8 @@
  * Boston, MA 021110-1307, USA.
  */
 
+#include <string.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -37,6 +39,7 @@ struct _O2CBConfig {
     gchar *c_name;
     guint c_num_nodes;
     GList *c_nodes;
+    gboolean c_valid;
 };
 
 struct _O2CBNode {
@@ -61,16 +64,245 @@ O2CBConfig *o2cb_config_initialize(void)
     config->c_name = NULL;
     config->c_num_nodes = 0;
     config->c_nodes = NULL;
+    config->c_valid = FALSE;
 
     return config;
 }  /* o2cb_config_initialize() */
 
+static gint o2cb_config_fill_node(O2CBConfig *config,
+                                  JConfigStanza *cfs)
+{
+    O2CBNode *node;
+    gchar *num_s, *name, *addr, *port_s;
+    gchar *ptr;
+    gulong val;
+    gint rc;
+
+    /* NB: _add_node() gives us a node number, but we're going to
+     * override it, because we know better. */
+    node = o2cb_config_add_node(config);
+    if (!node)
+        return -ENOMEM;
+
+    rc = -EINVAL;
+    num_s = j_config_get_attribute(cfs, "number");
+    if (!num_s || !*num_s)
+        goto out_error;
+    val = strtoul(num_s, &ptr, 10);
+    if (!ptr || *ptr)
+        goto out_error;
+    rc = -ERANGE;
+    if ((val == ULONG_MAX) || (val > UINT_MAX))
+        goto out_error;
+    node->n_number = val;
+
+    rc = -EINVAL;
+    name = j_config_get_attribute(cfs, "name");
+    if (!name || !*name)
+        goto out_error;
+    rc = o2cb_node_set_name(node, name);
+    if (rc)
+        goto out_error;
+
+    rc = -EINVAL;
+    addr = j_config_get_attribute(cfs, "ip_address");
+    if (!addr || !*addr)
+        goto out_error;
+    rc = o2cb_node_set_ip_string(node, name);
+    if (rc)
+        goto out_error;
+
+    rc = -EINVAL;
+    port_s = j_config_get_attribute(cfs, "ip_port");
+    if (!port_s || !*port_s)
+        goto out_error;
+    val = strtoul(port_s, &ptr, 10);
+    rc = -ERANGE;
+    if ((val == ULONG_MAX) || (val > UINT_MAX))
+        goto out_error;
+    o2cb_node_set_port(node, val);
+
+    rc = 0;
+
+out_error:
+    g_free(num_s);
+    g_free(name);
+    g_free(addr);
+    g_free(port_s);
+
+    return rc;
+}  /* o2cb_config_fill_node() */
+
+static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
+{
+    gint rc;
+    gulong val;
+    gchar *count, *ptr;
+    JIterator *iter;
+    JConfigStanza *cfs;
+    JConfigMatch match = {J_CONFIG_MATCH_VALUE, "cluster", NULL};
+
+    cfs = j_config_get_stanza_nth(cf, "cluster", 0);
+    if (!cfs)
+        return -ENOENT;
+
+    rc = -ENOENT;
+    match.value = j_config_get_attribute(cfs, "name");
+    if (!match.value && !*match.value)
+        goto out_error;
+
+    rc = o2cb_config_set_cluster_name(config, match.value);
+    if (rc)
+        goto out_error;
+
+    rc = -ENOMEM;
+    iter = j_config_get_stanzas(cf, "node", &match, 1);
+    if (!iter)
+        goto out_error;
+
+    while (j_iterator_has_more(iter))
+    {
+        cfs = (JConfigStanza *)j_iterator_get_next(iter);
+        rc = o2cb_config_fill_node(config, cfs);
+        if (rc)
+            break;
+    }
+    j_iterator_free(iter);
+
+    if (rc)
+        goto out_error;
+
+    rc = -EINVAL;
+    count = j_config_get_attribute(cfs, "node_count");
+    if (!count || !*count)
+        goto out_error;
+    val = strtoul(count, &ptr, 10);
+    if (!ptr || *ptr)
+        goto out_error;
+    rc = -ERANGE;
+    if ((val == ULONG_MAX) || (val > UINT_MAX))
+        goto out_error;
+    config->c_num_nodes = val;
+
+    rc = 0;
+
+out_error:
+    g_free(match.value);
+
+    return rc;
+}  /* o2cb_config_fill() */
+
 O2CBConfig *o2cb_config_load(const char *filename)
 {
+    gint rc;
+    JConfigCtxt *ctxt;
+    JConfig *cf;
     O2CBConfig *config;
+
+    ctxt = j_config_new_context();
+    if (!ctxt)
+        return NULL;
+    j_config_context_set_verbose(ctxt, FALSE);
+
+    cf = j_config_parse_file_with_context(ctxt, filename);
+    if (j_config_context_get_error(ctxt))
+    {
+        if (cf)
+        {
+            j_config_free(cf);
+            cf = NULL;
+        }
+    }
+    j_config_context_free(ctxt);
+
+    if (!cf)
+        return NULL;
+
+    config = o2cb_config_initialize();
+    if (config)
+    {
+        rc = o2cb_config_fill(config, cf);
+        if (rc)
+        {
+            o2cb_config_free(config);
+            config = NULL;
+        }
+        else
+            config->c_valid = TRUE;
+    }
+
+    j_config_free(cf);
 
     return config;
 }  /* o2cb_config_load() */
+
+static gint o2cb_node_store(JConfig *cf, O2CBNode *node)
+{
+    gchar *val;
+    JConfigStanza *cfs;
+
+    cfs = j_config_add_stanza(cf, "node");
+    if (!cfs)
+        return -ENOMEM;
+
+    j_config_set_attribute(cfs, "name", node->n_name);
+    j_config_set_attribute(cfs, "ip_address", node->n_addr);
+
+    val = g_strdup_printf("%u", node->n_port);
+    if (!val)
+        return -ENOMEM;
+    j_config_set_attribute(cfs, "ip_port", val);
+    g_free(val);
+
+    val = g_strdup_printf("%u", node->n_number);
+    if (!val)
+        return -ENOMEM;
+    j_config_set_attribute(cfs, "number", val);
+    g_free(val);
+
+    return 0;
+}  /* o2cb_node_store() */
+
+gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
+{
+    int rc;
+    JConfig *cf;
+    JConfigStanza *cfs;
+    O2CBNode *node;
+    gchar *count;
+    GList *list;
+
+    cf = j_config_parse_memory("", strlen(""));
+    if (!cf)
+        return -ENOMEM;
+
+    cfs = j_config_add_stanza(cf, "cluster");
+
+    j_config_set_attribute(cfs, "name", config->c_name);
+
+    count = g_strdup_printf("%u", config->c_num_nodes);
+    j_config_set_attribute(cfs, "node_count", count);
+    g_free(count);
+
+    list = config->c_nodes;
+    while (list)
+    {
+        node = (O2CBNode *)list->data;
+        rc = o2cb_node_store(cf, node);
+        if (rc)
+            break;
+
+        list = list->next;
+    }
+
+    if (!rc)
+    {
+        if (!j_config_dump_file(cf, filename))
+            rc = -EIO;
+    }
+
+    return rc;
+}  /* o2cb_config_store() */
 
 static void o2cb_node_free(O2CBNode *node)
 {
@@ -111,8 +343,20 @@ gchar *o2cb_config_get_cluster_name(O2CBConfig *config)
     return g_strdup(config->c_name);
 }  /* o2cb_config_get_cluster_name() */
 
-void o2cb_config_set_cluster_name(O2CBConfig *config)
+gint o2cb_config_set_cluster_name(O2CBConfig *config, const gchar *name)
 {
+    gchar *new_name;
+
+    new_name = g_strdup(name);
+    if (!new_name)
+        return -ENOMEM;
+
+    g_free(config->c_name);
+    config->c_name = new_name;
+
+    config->c_valid = TRUE;
+
+    return 0;
 }  /* o2cb_config_set_cluster_name() */
 
 JIterator *o2cb_config_get_nodes(O2CBConfig *config)
@@ -224,7 +468,16 @@ gint o2cb_node_set_name(O2CBNode *node, const gchar *name)
 
 gint o2cb_node_set_ip_string(O2CBNode *node, const gchar *addr)
 {
+    gint rc;
     gchar *new_addr;
+    struct in_addr ip;
+
+    /* Let's validate the address, shall we? */
+    rc = inet_pton(AF_INET, addr, &ip);
+    if (rc < 0)
+        return -errno;
+    if (!rc)
+        return -EINVAL;
     
     new_addr = g_strdup(addr);
     if (!new_addr)
