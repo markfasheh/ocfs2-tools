@@ -27,6 +27,8 @@
 
 
 extern ocfsck_context ctxt;
+extern bool never_mounted;
+extern __u32 fs_version;
 
 /*
  * test_member_range()
@@ -744,6 +746,7 @@ int verify_vol_disk_header(int fd, char *buf, int idx, GHashTable **bad)
 		LOG_WARNING("nonzero bytes after the disk header structure");
 	}
 
+#if 0
 	if (hdr->minor_version != OCFS_MINOR_VERSION)
 	{
 		mbr = find_class_member(cl, "minor_version", &i);
@@ -754,6 +757,17 @@ int verify_vol_disk_header(int fd, char *buf, int idx, GHashTable **bad)
 		mbr = find_class_member(cl, "major_version", &i);
 		g_hash_table_insert(*bad, GINT_TO_POINTER(i), GINT_TO_POINTER(1));
 	}
+#endif
+
+	if (hdr->major_version == 1)
+		fs_version = 1;
+	else if (hdr->major_version == 2)
+		fs_version = 2;
+	else {
+		mbr = find_class_member(cl, "major_version", &i);
+		g_hash_table_insert(*bad, GINT_TO_POINTER(i), GINT_TO_POINTER(1));
+	}
+
 	if (strncmp(hdr->signature, OCFS_VOLUME_SIGNATURE, MAX_VOL_SIGNATURE_LEN) != 0)
 	{
 		mbr = find_class_member(cl, "signature", &i);
@@ -800,7 +814,9 @@ int verify_vol_disk_header(int fd, char *buf, int idx, GHashTable **bad)
 		mbr = find_class_member(cl, "data_start_off", &i);
 		g_hash_table_insert(*bad, GINT_TO_POINTER(i), GINT_TO_POINTER(1));
 	}
-	if (hdr->internal_off != OCFSCK_INTERNAL_OFF)
+	if (hdr->internal_off == 0)
+		never_mounted = true;
+	else if (hdr->internal_off != OCFSCK_INTERNAL_OFF)
 	{
 		mbr = find_class_member(cl, "internal_off", &i);
 		g_hash_table_insert(*bad, GINT_TO_POINTER(i), GINT_TO_POINTER(1));
@@ -884,7 +900,9 @@ int verify_vol_disk_header(int fd, char *buf, int idx, GHashTable **bad)
 	/* the root off is *always* at OCFSCK_ROOT_OFF */
 	/* and we can no longer do the signature check because */
 	/* it may be bad and we want to be able to change it later */
-	if (hdr->root_off != OCFSCK_ROOT_OFF)
+	if (hdr->root_off == 0)
+		never_mounted = true;
+	else if (hdr->root_off != OCFSCK_ROOT_OFF)
 	{
 		mbr = find_class_member(cl, "root_off", &i);
 		g_hash_table_insert(*bad, GINT_TO_POINTER(i), GINT_TO_POINTER(1));

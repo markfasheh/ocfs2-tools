@@ -41,6 +41,9 @@ __u32 debug_context = 0;
 __u32 debug_level = 0;
 __u32 debug_exclude = 0;
 
+bool never_mounted = false;
+__u32 fs_version = 0;
+
 ocfs_global_ctxt OcfsGlobalCtxt;
 ocfsck_context ctxt;
 extern void version(char *progname);
@@ -660,6 +663,11 @@ int main(int argc, char **argv)
 
 			else if (option == 'n' || option == 'd' || option == 'q')
 				break;
+		}
+
+		if (i == 0 && never_mounted == true) {
+			LOG_PRINT("Volume has never been mounted on any node. Exiting");
+			goto bail;
 		}
 
 		if (option == 'q' || option == 'd')

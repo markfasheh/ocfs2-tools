@@ -62,6 +62,6 @@ $(GLIB_OBJS): %.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(GLIB_CFLAGS) $(DEFINES) -DUSE_MALLOC_ALIGNED $(VERMAGIC) -o $@ -c $<
 
 fsck.ocfs: classes.o fsck.o $(GLIB_OBJS) ver.o
-	$(LINK) -static $(GLIB_LIBS) $(LIBOCFS_LIBS)
+	$(LINK) $(GLIB_LIBS) $(LIBOCFS_LIBS)
 
 include $(TOPDIR)/Postamble.make
