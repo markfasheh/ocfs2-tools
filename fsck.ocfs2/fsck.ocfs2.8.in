@@ -2,7 +2,7 @@
 .SH "NAME"
 fsck.ocfs2 \- Check an OCFS2 file system.
 .SH "SYNOPSIS"
-\fBfsck.ocfs2\fR [ \fB\-npuvy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
+\fBfsck.ocfs2\fR [ \fB\-Gnpuvy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
 \fBfsck.ocfs2\fR is used to check an OCFS2 file system.
@@ -24,6 +24,13 @@ The \fIblock size\fR, specified in bytes, can range from 512 to 4096.  A value o
 \fB\-f\fR
 Force checking even if the file system is clean.  This currently has no
 effect as the file system is always checked.
+
+.TP
+\fB\-G\fR
+Usually \fBfsck.ocfs2\fR will silently assume inodes whose generation number
+does not match the generation number of the super block are unused inodes.
+This option causes \fBfsck.ocfs2\fR to ask the user if these inodes should in
+fact be marked unused.
 
 .TP
 \fB\-n\fR

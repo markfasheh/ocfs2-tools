@@ -257,7 +257,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:npuvVy")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:GnpuvVy")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -285,6 +285,10 @@ int main(int argc, char **argv)
 
 			case 'f':
 				ost->ost_force = 1;
+				break;
+
+			case 'G':
+				ost->ost_fix_fs_gen = 1;
 				break;
 
 			case 'n':

@@ -175,9 +175,6 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	verbosef("checking inode %"PRIu64"'s fields\n", blkno);
 
-	if (!(di->i_flags & OCFS2_VALID_FL))
-		goto out;
-
 	if (di->i_fs_generation != ost->ost_fs_generation) {
 		if (prompt(ost, PY, 0, "Inode read from block %"PRIu64" looks "
 			   "like it is valid but it has a generation of %x "
@@ -260,8 +257,12 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	}
 
 out:
+	/* XXX when we clear we need to also free whatever blocks may have
+	 * hung off this inode that haven't already been reserved.  we want
+	 * to do this on the transition from valid to invalid, not just
+	 * any time we see an invalid inode (somewhat obviously). */
 	if (clear) {
-		di->i_flags &= ~OCFS2_SUPER_BLOCK_FL;
+		di->i_flags &= ~OCFS2_VALID_FL;
 		o2fsck_write_inode(ost, blkno, di);
 	}
 }
@@ -721,14 +722,20 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 		valid = 0;
 
-		/* scanners have to skip over uninitialized inodes */
+		/* we never consider inodes who don't have a signature.
+		 * We only consider inodes whose generations don't match
+		 * if the user has asked us to */
 		if (!memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
-		    strlen(OCFS2_INODE_SIGNATURE))) {
-			o2fsck_verify_inode_fields(fs, ost, blkno, di);
+			    strlen(OCFS2_INODE_SIGNATURE)) &&
+		    (ost->ost_fix_fs_gen ||
+		    (di->i_fs_generation == ost->ost_fs_generation))) {
 
-			/* XXX be able to mark the blocks in the inode as 
-			 * bad if the inode was bad */
-			o2fsck_check_blocks(fs, ost, blkno, di);
+			if (di->i_flags & OCFS2_VALID_FL)
+				o2fsck_verify_inode_fields(fs, ost, blkno, di);
+
+			if (di->i_flags & OCFS2_VALID_FL)
+				o2fsck_check_blocks(fs, ost, blkno, di);
+
 			valid = di->i_flags & OCFS2_VALID_FL;
 		}
 
