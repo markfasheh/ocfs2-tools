@@ -38,7 +38,16 @@ OBJS = $(subst .c,.o,$(ALL))
 
 MANS = ocfs2tool.8
 
+SBIN_EXTRA = ocfs2tool
+
 LIBRARIES = ocfs2module.so
+
+PYLIB = $(LIBRARIES) main.py guiutil.py process.py general.py nodemap.py \
+	bitmap.py browser.py format.py
+
+INSTALL_RULES = install-pylib
+
+CLEAN_RULES = gen-clean
 
 DIST_FILES = $(CFILES) $(HFILES) ocfs2tool ocfsmarshal.list \
 	cellmap.defs cellmap.override ocfs2tool.8.in
@@ -66,5 +75,14 @@ cellmap.c: cellmap.defs cellmap.override
 
 ocfs2module.so: $(OBJS)
 	$(LINK) -shared $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(GTK_LIBS)
+
+install-pylib:
+	$(SHELL) $(TOPDIR)/mkinstalldirs $(DESTDIR)$(pyexecdir)/ocfs2tool
+	for f in $(PYLIB); do \
+	  $(INSTALL_DATA) $$f $(DESTDIR)$(pyexecdir)/ocfs2tool/$$f; \
+	done
+
+gen-clean:
+	rm -f ocfsmarshal.c ocfsmarshal.h cellmap.c
 
 include $(TOPDIR)/Postamble.make
