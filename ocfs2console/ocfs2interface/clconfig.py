@@ -15,6 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
+import os
+
 import gtk
 
 from cStringIO import StringIO
@@ -74,7 +76,7 @@ class ClusterConf(gtk.HBox):
 #        vbbox.add(button)
 
     def get_cluster_state(self):
-        command = ('o2cb_ctl', '-I', '-t', 'node', '-o')
+        command = 'o2cb_ctl -I -t node -o'
 
         o2cb_ctl = Process(command, 'Cluster Control', 'Querying nodes...',
                            self.toplevel, spin_now=False)
@@ -160,21 +162,6 @@ class ClusterConf(gtk.HBox):
 
         dialog.destroy()
 
-        command = ('o2cb_ctl', '-I', '-t', 'cluster', '-n', 'ocfs2', '-o')
-        o2cb_ctl = Process(command, 'Cluster Control', 'Adding node...',
-                           self.toplevel, spin_now=False)
-        success, output, k = o2cb_ctl.reap()
-
-        if not success:
-            command = ('o2cb_ctl', '-C', '-n', 'ocfs2', '-t', 'cluster', '-i')
-            success, output, k = o2cb_ctl.reap()
-
-            if not success:
-                error_box(self.toplevel,
-                          '%s\nCould not create cluster' % output)
-                return
-
-            
         command = ('o2cb_ctl', '-C', '-n', name, '-t', 'node',
                    '-a', 'cluster=ocfs2',
                    '-a', 'ip_address=%s' % ip_addr,
@@ -197,6 +184,52 @@ class ClusterConf(gtk.HBox):
         pass
 
 def cluster_configurator(parent):
+    if not os.access('/usys/cluster', os.F_OK):
+        command = ('/etc/init.d/o2cb load')
+
+        o2cb = Process(command, 'Cluster Stack', 'Starting cluster stack...',
+                       parent, spin_now=False)
+        success, output, k = o2cb.reap()
+
+        if success:
+            msg_type = gtk.MESSAGE_INFO
+            msg = ('The cluster stack has been started. It needs to be '
+                   'running for any clustering functionality to happen. '
+                   'Please run "/etc/init.d/o2cb enable" to have it started '
+                   'upon bootup.')
+        else:
+            msg_type = gtk.MESSAGE_WARNING
+            msg = ('Could not start cluster stack. This must be resolved '
+                   'before any OCFS2 filesystem can be mounted')
+
+        info = gtk.MessageDialog(parent=parent,
+                                 flags=gtk.DIALOG_DESTROY_WITH_PARENT,
+                                 type=msg_type,
+                                 buttons=gtk.BUTTONS_CLOSE,
+                                 message_format=msg)
+
+        info.run()
+        info.destroy()
+
+        if not success:
+            return
+
+    command = 'o2cb_ctl -I -t cluster -n ocfs2 -o'
+    o2cb_ctl = Process(command, 'Cluster Control', 'Querying cluster...',
+                       parent, spin_now=False)
+    success, output, k = o2cb_ctl.reap()
+
+    if not success:
+        command = 'o2cb_ctl -C -n ocfs2 -t cluster -i'
+        o2cb_ctl = Process(command, 'Cluster Control', 'Creating cluster...',
+                           parent, spin_now=False)
+        success, output, k = o2cb_ctl.reap()
+
+        if not success:
+            error_box(self.toplevel,
+                      '%s\nCould not create cluster' % output)
+            return
+
     try:
         conf = ClusterConf(parent)
     except ConfError, e:
@@ -211,6 +244,26 @@ def cluster_configurator(parent):
 
     dialog.run()
     dialog.destroy()
+
+    if not os.access('/usys/cluster/ocfs2', os.F_OK):
+        command = ('/etc/init.d/o2cb online ocfs2')
+
+        o2cb = Process(command, 'Cluster Stack', 'Starting OCFS2 cluster...',
+                       parent, spin_now=False)
+        success, output, k = o2cb.reap()
+
+        if not success:
+            msg = ('Could not bring OCFS2 cluster online. This must be '
+                   'resolved before any OCFS2 filesystem can be mounted')
+
+            info = gtk.MessageDialog(parent=parent,
+                                     flags=gtk.DIALOG_DESTROY_WITH_PARENT,
+                                     type=gtk.MESSAGE_WARNING,
+                                     buttons=gtk.BUTTONS_CLOSE,
+                                     message_format=msg)
+
+            info.run()
+            info.destroy()
 
 def main():
     cluster_configurator(None)
