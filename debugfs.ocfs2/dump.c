@@ -24,6 +24,7 @@
  */
 
 #include <main.h>
+#include <inttypes.h>
 
 extern dbgfs_gbls gbls;
 
@@ -317,7 +318,7 @@ bail:
 void dump_group_descriptor (FILE *out, ocfs2_group_desc *blk)
 {
 
-	fprintf (out, "\tParent Chain: %u   Blknum: %llu\n",
+	fprintf (out, "\tParent Chain: %u   Blknum: %"PRIu64"\n",
 		 blk->bg_chain,
 		 blk->bg_blkno);
 
