@@ -20,24 +20,13 @@ Distribution: Oracle
 Vendor: Oracle Corporation
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: ocfs2-support >= @DIST_VERSION@, glib2 >= 2.0.6
+Requires: coreutils, net-tools, modutils, %{chkconfig_dep}, glib2 >= 2.0.6
 BuildRequires: glib2-devel >= 2.0.6
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 
 %description
 Tools to manage OCFS2
-
-
-%package -n ocfs2-support
-Summary: Support programs for OCFS2
-Group: System Environment/Kernel
-Requires: fileutils, sh-utils, net-tools, modutils, %{chkconfig_dep}
-AutoReqProv: No
-
-
-%description -n ocfs2-support
-Support programs for using OCFS2
 
 
 %prep
@@ -52,19 +41,14 @@ make
 %install
 
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
-IVENDOR=redhat
-if [ -r /etc/UnitedLinux-release -o -r /etc/SuSE-release ]
-then
-    IVENDOR=unitedlinux
-fi
-cp -f vendor/$IVENDOR/ocfs.init $RPM_BUILD_ROOT/etc/init.d/ocfs2
+cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
 
-for tool in mkfs.ocfs2 debugfs.ocfs2 mounted.ocfs2 load_ocfs ocfs_uid_gen
+for tool in fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 clusterbo mount.ocfs2 ocfs2cdsl
 do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
 done
 
-#for tool in ocfstool
+#for tool in ocfs2tool
 #do
 #  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
 #done
@@ -74,32 +58,24 @@ done
 rm -rf "$RPM_BUILD_ROOT"
 
 
-%post -n ocfs2-support
-chkconfig ocfs2 on
-IVENDOR=redhat
-if [ -r /etc/UnitedLinux-release -o -r /etc/SuSE-release ]
-then
-    IVENDOR=unitedlinux
-else
-    /etc/init.d/ocfs2 link
-fi
+%post
+chkconfig o2cb on
 
 
 %files
 %defattr(-,root,root)
 /usr/share
-
-
-%files -n ocfs2-support
-%defattr(-,root,root)
-/sbin/load_ocfs2
+/sbin/fsck.ocfs2
 /sbin/mkfs.ocfs2
+/sbin/mount.ocfs2
+/sbin/tunefs.ocfs2
 /sbin/debugfs.ocfs2
-/sbin/ocfs_uid_gen2
+/sbin/o2cb_ctl
 /sbin/mounted.ocfs2
-/etc/init.d/ocfs2
+/sbin/ocfs2cdsl
+/etc/init.d/o2cb
 
 
 %changelog
-* Mon Aug 30 2004 Manish Singh <manish.singh@oracle.com>
+* Fri Jan 31 2004 Manish Singh <manish.singh@oracle.com>
 - Initial rpm spec
