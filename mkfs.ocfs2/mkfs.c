@@ -325,7 +325,7 @@ main(int argc, char **argv)
 
 	open_device(s);
 
-	fill_defaults(s);  
+	fill_defaults(s);
 
 //	adjust_volume_size(s);
 
@@ -439,8 +439,8 @@ main(int argc, char **argv)
 	/* back when we initialized the alloc group we hadn't allocated
 	 * an inode for the global allocator yet */
 	tmprec = &(record[GLOBAL_INODE_ALLOC_SYSTEM_INODE][0]);
-	s->system_group->gd->bg_parent_dinode = 
-		cpu_to_le64(tmprec->fe_off >> s->blocksize_bits);
+	s->system_group->gd->bg_parent_dinode =
+		tmprec->fe_off >> s->blocksize_bits;
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
 	need = (OCFS2_MAX_NODES + 1) << s->blocksize_bits;
@@ -1182,10 +1182,9 @@ alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 		group = bitmap->groups[i];
 		do {
 			gd = group->gd;
-			if (le16_to_cpu(gd->bg_free_bits_count) >=
-			    num_bits) {
+			if (gd->bg_free_bits_count >= num_bits) {
 				buf = gd->bg_bitmap;
-				size = le16_to_cpu(gd->bg_bits);
+				size = gd->bg_bits;
 				start_bit = find_clear_bits(buf, size,
 							    num_bits, 0);
 				found = 1;
@@ -1468,11 +1467,10 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->i_fs_generation = cpu_to_le32(s->vol_generation);
 
 	di->i_atime = 0;
-	di->i_ctime = cpu_to_le64(s->format_time);
-	di->i_mtime = cpu_to_le64(s->format_time);
-	di->i_blkno = cpu_to_le64(super_off >> s->blocksize_bits);
-	di->i_flags = cpu_to_le32(OCFS2_VALID_FL | OCFS2_SYSTEM_FL |
-				  OCFS2_SUPER_BLOCK_FL);
+	di->i_ctime = s->format_time;
+	di->i_mtime = s->format_time;
+	di->i_blkno = super_off >> s->blocksize_bits;
+	di->i_flags = OCFS2_VALID_FL | OCFS2_SYSTEM_FL | OCFS2_SUPER_BLOCK_FL;
 	di->i_clusters = s->volume_size_in_clusters;
 	di->id2.i_super.s_major_rev_level = cpu_to_le16(OCFS2_MAJOR_REV_LEVEL);
 	di->id2.i_super.s_minor_rev_level = cpu_to_le16(OCFS2_MINOR_REV_LEVEL);
@@ -1539,20 +1537,20 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	di->i_fs_generation = cpu_to_le32(s->vol_generation);
 	di->i_suballoc_node = cpu_to_le16(-1);
         di->i_suballoc_bit = cpu_to_le16(rec->suballoc_bit);
-	di->i_blkno = cpu_to_le64(rec->fe_off >> s->blocksize_bits);
+	di->i_blkno = rec->fe_off >> s->blocksize_bits;
 	di->i_uid = 0;
 	di->i_gid = 0;
-	di->i_size = cpu_to_le64(rec->file_size);
-	di->i_mode = cpu_to_le16(mode);
-	di->i_links_count = cpu_to_le16(rec->links);
-	di->i_flags = cpu_to_le32(rec->flags);
-	di->i_atime = di->i_ctime = di->i_mtime = cpu_to_le64(s->format_time);
+	di->i_size = rec->file_size;
+	di->i_mode = mode;
+	di->i_links_count = rec->links;
+	di->i_flags = rec->flags;
+	di->i_atime = di->i_ctime = di->i_mtime = s->format_time;
 	di->i_dtime = 0;
-	di->i_clusters = cpu_to_le32(clusters);
+	di->i_clusters = clusters;
 
 	if (rec->flags & OCFS2_LOCAL_ALLOC_FL) {
 		di->id2.i_lab.la_size =
-			cpu_to_le16(ocfs2_local_alloc_size(s->blocksize));
+			ocfs2_local_alloc_size(s->blocksize);
 		goto write_out;
 	}
 
@@ -1563,16 +1561,16 @@ format_file(State *s, SystemFileDiskRecord *rec)
 
 	if (rec->cluster_bitmap) {
 		di->id2.i_chain.cl_count = 
-			cpu_to_le16(ocfs2_chain_recs_per_inode(s->blocksize));
-		di->id2.i_chain.cl_cpg = cpu_to_le16(s->global_cpg);
-		di->id2.i_chain.cl_bpc = cpu_to_le16(1);
+			ocfs2_chain_recs_per_inode(s->blocksize);
+		di->id2.i_chain.cl_cpg = s->global_cpg;
+		di->id2.i_chain.cl_bpc = 1;
 		if (s->nr_cluster_groups > 
 		    ocfs2_chain_recs_per_inode(s->blocksize)) {
 			di->id2.i_chain.cl_next_free_rec = di->id2.i_chain.cl_count;
 		} else
-			di->id2.i_chain.cl_next_free_rec = 
-				cpu_to_le16(s->nr_cluster_groups);
-		di->i_clusters = cpu_to_le32(s->volume_size_in_clusters);
+			di->id2.i_chain.cl_next_free_rec =
+				s->nr_cluster_groups;
+		di->i_clusters = s->volume_size_in_clusters;
 
 		bitmap = rec->bitmap;
 		for(i = 0; i < bitmap->num_chains; i++) {
@@ -1587,45 +1585,40 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	}
 	if (rec->flags & OCFS2_CHAIN_FL) {
 		di->id2.i_chain.cl_count = 
-			cpu_to_le16(ocfs2_chain_recs_per_inode(s->blocksize));
+			ocfs2_chain_recs_per_inode(s->blocksize);
 
 		di->id2.i_chain.cl_cpg = 
-			cpu_to_le16(ocfs2_clusters_per_group(s->blocksize, 
-						 s->cluster_size_bits));
-		di->id2.i_chain.cl_bpc = 
-			cpu_to_le16(s->cluster_size / s->blocksize);
+			ocfs2_clusters_per_group(s->blocksize, 
+						 s->cluster_size_bits);
+		di->id2.i_chain.cl_bpc = s->cluster_size / s->blocksize;
 		di->id2.i_chain.cl_next_free_rec = 0;
 
 		if (rec->chain_off) {
-			di->id2.i_chain.cl_next_free_rec =
-				cpu_to_le16(1);
+			di->id2.i_chain.cl_next_free_rec = 1;
 			di->id2.i_chain.cl_recs[0].c_free =
-				cpu_to_le16(rec->group->gd->bg_free_bits_count);
+				rec->group->gd->bg_free_bits_count;
 			di->id2.i_chain.cl_recs[0].c_total =
-				cpu_to_le16(rec->group->gd->bg_bits);
+				rec->group->gd->bg_bits;
 			di->id2.i_chain.cl_recs[0].c_blkno =
-				cpu_to_le64(rec->chain_off >> s->blocksize_bits);
+				rec->chain_off >> s->blocksize_bits;
                         di->id2.i_chain.cl_cpg =
-                            cpu_to_le16(rec->group->gd->bg_bits /
-                                        le16_to_cpu(di->id2.i_chain.cl_bpc));
-			di->i_clusters =
-                            cpu_to_le64(di->id2.i_chain.cl_cpg);
-			di->i_size =
-                            cpu_to_le64(di->i_clusters << s->cluster_size_bits);
+				rec->group->gd->bg_bits /
+				di->id2.i_chain.cl_bpc;
+			di->i_clusters = di->id2.i_chain.cl_cpg;
+			di->i_size = di->i_clusters << s->cluster_size_bits;
 		}
 		goto write_out;
 	}
-	di->id2.i_list.l_count =
-		cpu_to_le16(ocfs2_extent_recs_per_inode(s->blocksize));
+	di->id2.i_list.l_count = ocfs2_extent_recs_per_inode(s->blocksize);
 	di->id2.i_list.l_next_free_rec = 0;
 	di->id2.i_list.l_tree_depth = 0;
 
 	if (rec->extent_len) {
-		di->id2.i_list.l_next_free_rec = cpu_to_le16(1);
+		di->id2.i_list.l_next_free_rec = 1;
 		di->id2.i_list.l_recs[0].e_cpos = 0;
-		di->id2.i_list.l_recs[0].e_clusters = cpu_to_le32(clusters);
+		di->id2.i_list.l_recs[0].e_clusters = clusters;
 		di->id2.i_list.l_recs[0].e_blkno =
-			cpu_to_le64(rec->extent_off >> s->blocksize_bits);
+			rec->extent_off >> s->blocksize_bits;
 	}
 
 write_out:
@@ -1669,7 +1662,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 		}
 		/* Ok, we didn't get a chance to fill in the parent
 		 * blkno until now. */
-		gd->bg_parent_dinode = cpu_to_le64(parent_blkno);
+		gd->bg_parent_dinode = parent_blkno;
 		memcpy(buf, gd, s->blocksize);
 		do_pwrite(s, buf, s->cluster_size,
 			  gd->bg_blkno << s->blocksize_bits);
