@@ -48,11 +48,11 @@ HFILES =				\
 
 HFILES_GEN =		\
 	include/o2cb_err.h
-	
-$(CFILES): $(HFILES_GEN)
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2cb_err.o
+	
+$(OBJS): $(HFILES_GEN)
 
 o2cb_err.et: o2cb_err.et.in
 	cd $(TOPDIR) && ./config.status

@@ -88,10 +88,10 @@ HFILES =				\
 HFILES_GEN =		\
 	include/ocfs2_err.h
 	
-$(CFILES): $(HFILES_GEN)
-
 OBJS = $(subst .c,.o,$(CFILES)) \
 	ocfs2_err.o
+
+$(OBJS): $(HFILES_GEN)
 
 ocfs2_err.et: ocfs2_err.et.in
 	cd $(TOPDIR) && ./config.status

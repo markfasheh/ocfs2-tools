@@ -47,10 +47,10 @@ HFILES = 			\
 HFILES_GEN =			\
 	include/o2dlm_err.h
 
-$(CFILES): $(HFILES_GEN)
-
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2dlm_err.o
+
+$(OBJS): $(HFILES_GEN)
 
 TESTING_OBJS = $(subst .c,.o,$(TESTING_CFILES))
 
