@@ -112,7 +112,7 @@
 
 #define ONE_MEGA_BYTE           	(1 * 1024 * 1024)   /* in bytes */
 #define OCFS2_DEFAULT_JOURNAL_SIZE	(8 * ONE_MEGA_BYTE)
-
+#define OCFS2_MIN_JOURNAL_SIZE		(4 * ONE_MEGA_BYTE)
 
 /* System file index */
 enum {
