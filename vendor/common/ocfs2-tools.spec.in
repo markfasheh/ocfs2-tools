@@ -32,7 +32,7 @@ Tools to manage Oracle Cluster Filesystem 2 volumes.
 %package -n ocfs2console
 Summary: GUI frontend for OCFS2 management
 Group: System Environment/Kernel
-Requires: glib2 >= 2.0.6, %{pygtk_name} >= 1.99.16, python >= %{pyversion}
+Requires: glib2 >= 2.2.3, %{pygtk_name} >= 1.99.16, python >= %{pyversion}
 AutoReqProv: No
 
 
