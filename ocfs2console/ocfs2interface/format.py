@@ -105,10 +105,10 @@ class NumNodes(gtk.SpinButton):
 
 class Device(BaseCombo):
     def fill(self, partitions, device):
-        self.set_choices([(p, p == device) for p in partitions])
+        self.set_choices([('%s (%s)' % p, p[0] == device) for p in partitions])
 
     def get_device(self):
-        return self.get_choice()
+        return self.get_choice().split(' ')[0]
 
 class VolumeLabel(gtk.Entry):
     def __init__(self):
@@ -147,13 +147,18 @@ def format_partition(parent, device):
     partitions = []
 
     def add_partition(device, fstype):
-        partitions.append(device)
+        partitions.append((device, fstype))
 
     ocfs2.partition_list(add_partition, unmounted=True)
 
     if not partitions:
         error_box(parent, 'No unmounted partitions')
         return False
+
+    def sort_partition(x, y):
+        return cmp(x[0], y[0])
+
+    partitions.sort(sort_partition)
 
     dialog = gtk.Dialog(parent=parent, title='Format',
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
@@ -164,8 +169,6 @@ def format_partition(parent, device):
                      column_spacing=4,
                      border_width=4,
                      parent=dialog.vbox)
-
-    partitions.sort()
 
     widgets = []
     row = 0
