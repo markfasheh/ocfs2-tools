@@ -21,8 +21,8 @@ export LC_ALL=C
 [ -f /etc/sysconfig/o2cb ] && . /etc/sysconfig/o2cb
 
 # XXX some description of what this does
-LOAD_ACTIONS=("load_module usysfs"
-		"mount_fs usysfs /usys"
+LOAD_ACTIONS=("load_module configfs"
+		"mount_fs configfs /usys"
 		"load_module ocfs2_nodemanager"
 		"load_module ocfs2_dlmfs"
 		"mount_fs ocfs2_dlmfs /dlm")

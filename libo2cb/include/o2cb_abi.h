@@ -3,7 +3,7 @@
  *
  * o2cb_abi.c
  *
- * Layout of usysfs paths for O2CB cluster configuration.
+ * Layout of configfs paths for O2CB cluster configuration.
  *
  * Copyright (C) 2005 Oracle.  All rights reserved.
  *
