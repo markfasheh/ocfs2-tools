@@ -442,6 +442,12 @@ main(int argc, char **argv)
 		}
 	}
 
+	/* back when we initialized the alloc group we hadn't allocated
+	 * an inode for the global allocator yet */
+	tmprec = &(record[GLOBAL_INODE_ALLOC_SYSTEM_INODE][0]);
+	s->system_group->gd->bg_parent_dinode = 
+		cpu_to_le64(tmprec->fe_off >> s->blocksize_bits);
+
 	tmprec = &(record[DLM_SYSTEM_INODE][0]);
 	need = (AUTOCONF_BLOCKS(s->initial_nodes, 32) +
 		PUBLISH_BLOCKS(s->initial_nodes, 32) +
