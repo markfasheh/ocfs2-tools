@@ -19,6 +19,7 @@ import os
 import types
 
 import gtk
+import gobject
 import pango
 
 from cStringIO import StringIO
@@ -54,6 +55,8 @@ fields = (
     (COLUMN_IP_ADDR,  'IP Address', IPEditor,       str),
     (COLUMN_IP_PORT,  'IP Port',    gtk.SpinButton, str)
 )
+
+typemap = { bool: gobject.TYPE_BOOLEAN }
 
 class ConfigError(Exception):
     pass
@@ -126,7 +129,7 @@ class ClusterConfig(Dialog):
         if not success:
             raise ConfError, output
 
-        self.store = gtk.ListStore(*[f[3] for f in fields])
+        self.store = gtk.ListStore(*[typemap.get(f[3], f[3]) for f in fields])
 
         def node_compare(store, a, b):
             n1 = store[a][COLUMN_NODE]
