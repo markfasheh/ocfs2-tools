@@ -32,6 +32,7 @@
 #include "ocfs2.h"
 
 #include "bitmap.h"
+#include "bitops.h"
 #include "kernel-rbtree.h"
 
 
@@ -363,6 +364,25 @@ errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 	return ocfs2_bitmap_test(cinode->ci_chains, blkno, oldval);
 }
 
+void ocfs2_init_group_desc(ocfs2_filesys *fs, ocfs2_group_desc *gd,
+			   uint64_t blkno, uint32_t generation,
+			   uint64_t parent_inode, uint16_t bits,
+			   uint16_t chain)
+{
+	memset(gd, 0, fs->fs_blocksize);
+
+	strcpy(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
+	gd->bg_generation = generation;
+	gd->bg_size = ocfs2_group_bitmap_size(fs->fs_blocksize);
+	gd->bg_bits = bits;
+	gd->bg_chain = chain;
+	gd->bg_parent_dinode = parent_inode;
+	gd->bg_blkno = blkno;
+
+	/* First bit set to account for the descriptor block */
+	ocfs2_set_bit(0, gd->bg_bitmap);
+	gd->bg_free_bits_count = gd->bg_bits - 1;
+}
 
 #ifdef DEBUG_EXE
 #include <stdlib.h>

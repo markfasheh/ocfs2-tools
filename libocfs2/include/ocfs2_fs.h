@@ -466,12 +466,11 @@ static inline int ocfs2_local_alloc_size(struct super_block *sb)
 	return size;
 }
 
-static inline int ocfs2_group_bitmap_size(struct super_block *sb)
+static inline uint32_t ocfs2_group_bitmap_size(struct super_block *sb)
 {
-	int size;
+	uint32_t size;
 
-	size = sb->s_blocksize -
-		offsetof(struct _ocfs2_group_desc, bg_bitmap);
+	size = sb->s_blocksize - offsetof(struct _ocfs2_group_desc, bg_bitmap);
 
 	return size;
 }
@@ -516,12 +515,11 @@ static inline int ocfs2_local_alloc_size(int blocksize)
 	return size;
 }
 
-static inline int ocfs2_group_bitmap_size(int blocksize)
+static inline uint32_t ocfs2_group_bitmap_size(int blocksize)
 {
-	int size;
+	uint32_t size;
 
-	size = blocksize -
-		offsetof(struct _ocfs2_group_desc, bg_bitmap);
+	size = blocksize - offsetof(struct _ocfs2_group_desc, bg_bitmap);
 
 	return size;
 }

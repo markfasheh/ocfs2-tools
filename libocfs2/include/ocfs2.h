@@ -433,6 +433,10 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir);
 
 errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 				     int *is_allocated);
+void ocfs2_init_group_desc(ocfs2_filesys *fs, ocfs2_group_desc *gd,
+			   uint64_t blkno, uint32_t generation,
+			   uint64_t parent_inode, uint16_t bits,
+			   uint16_t chain);
 
 errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 			      uint64_t parent_ino, char **block);
@@ -494,6 +498,27 @@ static inline int ocfs2_block_out_of_range(ocfs2_filesys *fs, uint64_t block)
 	return (block < OCFS2_SUPER_BLOCK_BLKNO) || (block > fs->fs_blocks);
 }
 
+struct ocfs2_cluster_group_sizes {
+	uint16_t	cgs_cpg;
+	uint16_t	cgs_tail_group_bits;
+	uint32_t	cgs_cluster_groups;
+};
+static inline void ocfs2_calc_cluster_groups(uint64_t clusters, 
+					     uint64_t blocksize,
+				     struct ocfs2_cluster_group_sizes *cgs)
+{
+	uint16_t max_bits = 8 * ocfs2_group_bitmap_size(blocksize);
 
+	cgs->cgs_cpg = max_bits;
+	if (max_bits > clusters)
+		cgs->cgs_cpg = clusters;
+
+	cgs->cgs_cluster_groups = (clusters + cgs->cgs_cpg - 1) / 
+				  cgs->cgs_cpg;
+
+	cgs->cgs_tail_group_bits = clusters % cgs->cgs_cpg;
+	if (cgs->cgs_tail_group_bits == 0)
+		cgs->cgs_tail_group_bits = cgs->cgs_cpg;
+}
 
 #endif  /* _FILESYS_H */

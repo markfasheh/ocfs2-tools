@@ -833,6 +833,7 @@ fill_defaults(State *s)
 	size_t pagesize;
 	errcode_t err;
 	uint32_t ret;
+	struct ocfs2_cluster_group_sizes cgs;
 
 	pagesize = getpagesize();
 
@@ -913,21 +914,12 @@ fill_defaults(State *s)
 	
 	s->reserved_tail_size = 0;
 
-	if (s->volume_size_in_clusters < 
-	    ( 8 * ocfs2_group_bitmap_size(s->blocksize))) {
-		/* small volume, only one cluster group. */
-		s->global_cpg = s->volume_size_in_clusters;
-		s->nr_cluster_groups = 1;
-		s->tail_group_bits = s->volume_size_in_clusters;
-	} else {
-		s->global_cpg = 8 * ocfs2_group_bitmap_size(s->blocksize);
-		s->nr_cluster_groups = s->volume_size_in_clusters / s->global_cpg;
-		if (s->volume_size_in_clusters % s->global_cpg) {
-			s->tail_group_bits = s->volume_size_in_clusters % s->global_cpg;
-			s->nr_cluster_groups++;
-		} else
-			s->tail_group_bits = s->global_cpg;
-	}
+	ocfs2_calc_cluster_groups(s->volume_size_in_clusters, s->blocksize,
+				  &cgs);
+	s->global_cpg = cgs.cgs_cpg;
+	s->nr_cluster_groups = cgs.cgs_cluster_groups;
+	s->tail_group_bits = cgs.cgs_tail_group_bits;
+
 #if 0
 	printf("volume_size_in_clusters = %u\n", s->volume_size_in_clusters);
 	printf("global_cpg = %u\n", s->global_cpg);
