@@ -141,6 +141,10 @@ get_super (PyObject *self,
   GString       *uuid;
   gint           i;
 
+  static gchar *fmt[] = { "%02x", "%02x", "%02x", "%02x",
+			  "-%02x", "%02x", "-%02x", "%02x", "-%02x", "%02x",
+			  "-%02x", "%02x", "%02x", "%02x", "%02x", "%02x" };
+
   if (!PyArg_ParseTuple (args, "s:get_super", &device))
     return NULL;
 
@@ -178,7 +182,7 @@ get_super (PyObject *self,
   uuid = g_string_sized_new (32);
 
   for (i = 0; i < 16; i++)
-    g_string_append_printf (uuid, "%02X",
+    g_string_append_printf (uuid, fmt[i],
 			    OCFS2_RAW_SB (fs->fs_super)->s_uuid[i]);
 
   PyStructSequence_SET_ITEM (v, index++, PyString_FromString (uuid->str));
@@ -197,8 +201,8 @@ get_super (PyObject *self,
 }
 
 static PyMethodDef ocfs2_methods[] = {
-  {"partition_list", partition_list, METH_VARARGS | METH_KEYWORDS},
-  {"get_super", get_super, METH_VARARGS},
+  {"partition_list", (PyCFunction)partition_list, METH_VARARGS | METH_KEYWORDS},
+  {"get_super", (PyCFunction)get_super, METH_VARARGS},
   {NULL,       NULL}    /* sentinel */
 };
 
