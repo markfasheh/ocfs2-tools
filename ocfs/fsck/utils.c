@@ -687,7 +687,7 @@ void find_set_bits(__u8 *vol_bm, char *bitmap)
 	j = VOL_BITMAP_BYTES / ctxt.hdr->cluster_size;
 
 	for (i = j; i < ctxt.hdr->num_clusters; ++i) {
-		if (test_bit(i, vol_bm))
+		if (test_bit(i, (unsigned long *)vol_bm))
 			g_array_append_val(bits, i);
 	}
 
