@@ -8,12 +8,11 @@
  * read_super_block()
  *
  */
-int read_super_block(int fd, char *buf, int buflen)
+int read_super_block(int fd, char *buf, int buflen, __u32 *bits)
 {
 	int ret = -1;
 	__u64 off;
 	ocfs1_vol_disk_hdr *hdr;
-	__u32 blksize;
 	ocfs2_dinode *di;
 
 	if ((ret = pread64(fd, buf, buflen, 0)) == -1) {
@@ -33,8 +32,8 @@ int read_super_block(int fd, char *buf, int buflen)
 	 * blocksizes.  4096 is the maximum blocksize because it is
 	 * the minimum clustersize.
 	 */
-	for (blksize = 512; blksize <= OCFS2_MAX_BLOCKSIZE; blksize <<= 1) {
-		off = blksize * OCFS2_SUPER_BLOCK_BLKNO;
+	for (*bits = 9; *bits < 13; (*bits)++) {
+		off = OCFS2_SUPER_BLOCK_BLKNO << *bits;
 
 		if ((ret = pread64(fd, buf, buflen, off)) == -1) {
 			LOG_INTERNAL("%s", strerror(errno));

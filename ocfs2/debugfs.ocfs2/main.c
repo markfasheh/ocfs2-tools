@@ -17,7 +17,7 @@
 #include "inc/commands.h"
 #endif
 
-#define PROMPT "debugocfs: "
+#define PROMPT "debugfs: "
 
 static void  usage         (char *progname);
 static void  print_version (void);

@@ -56,14 +56,17 @@ static void      do_dump     (char **args);
 static void      do_lcd      (char **args);
 static void      do_curdev   (char **args);
 static void      do_super    (char **args);
+static void      do_inode    (char **args);
 
 
 extern gboolean allow_write;
 
 static char *device = NULL;
 static int   dev_fd = -1;
+static __u32 blksz_bits = 0;
 static char *curdir = NULL;
-static char header[512];
+static char superblk[512];
+static char rootin[512];
 
 static Command commands[] =
 {
@@ -92,7 +95,12 @@ static Command commands[] =
   { "cat",    do_dump   },
 
   { "curdev", do_curdev },
+
   { "show_super_stats", do_super },
+  { "stats", do_super },
+
+  { "show_inode_info", do_inode },
+  { "stat", do_inode }
 };
 
 
@@ -142,6 +150,7 @@ void do_command (char *cmd)
 static void do_open (char **args)
 {
 	char *dev = args[1];
+	ocfs2_dinode *inode;
 
 	if (device)
 		do_close (NULL);
@@ -155,8 +164,18 @@ static void do_open (char **args)
 
 	device = g_strdup (dev);
 
-	read_super_block (dev_fd, header, sizeof(header));
+	if (read_super_block (dev_fd, superblk, sizeof(superblk), &blksz_bits) != -1)
+		curdir = g_strdup ("/");
 
+	/* read root inode */
+	inode = (ocfs2_dinode *)superblk;
+	if ((pread64(dev_fd, rootin, sizeof(rootin),
+		     (inode->id2.i_super.s_root_blkno << blksz_bits))) == -1) {
+		LOG_INTERNAL("%s", strerror(errno));
+		goto bail;
+	}
+
+bail:
 	return ;
 }					/* do_open */
 
@@ -173,9 +192,10 @@ static void do_close (char **args)
 		dev_fd = -1;
 
 		g_free (curdir);
-		curdir = g_strdup ("/");
+		curdir = NULL;
 
-		memset (header, 0, sizeof(header));
+		memset (superblk, 0, sizeof(superblk));
+		memset (rootin, 0, sizeof(rootin));
 	} else
 		printf ("device not open\n");
 
@@ -685,13 +705,28 @@ static void do_super (char **args)
 	ocfs2_dinode *in;
 	ocfs2_super_block *sb;
 
-	if (opts && !strncmp(opts, "-h", 2)) {
-		in = (ocfs2_dinode *)header;
-		sb = &(in->id2.i_super);
+	in = (ocfs2_dinode *)superblk;
+	sb = &(in->id2.i_super);
+	dump_super_block(sb);
+
+	if (!opts || strncmp(opts, "-h", 2))
 		dump_inode(in);
-		dump_super_block(sb);
-	}
 
 	return ;
 }					/* do_super */
+
+/*
+ * do_inode()
+ *
+ */
+static void do_inode (char **args)
+{
+	char *opts = args[1];
+	ocfs2_dinode *inode;
+
+	inode = (ocfs2_dinode *)rootin;
+	dump_inode(inode);
+
+	return ;
+}					/* do_inode */
 
