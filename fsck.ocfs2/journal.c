@@ -34,6 +34,7 @@
 #undef be32_to_cpu
 #include "jfs_user.h"
 #include "ocfs2.h"
+#include "ocfs2_disk_dlm.h"
 #include "pass1.h"
 #include "util.h"
 
@@ -220,11 +221,6 @@ static errcode_t lookup_journal_block(o2fsck_state *ost,
 	if (err) 
 		com_err(whoami, err, "while looking up logical block "
 			"%"PRIu64" in node %d's journal", blkoff, ji->ji_node);
-#if 0
-	/* XXX when we more aggresively track blocks.. */
-	o2fsck_mark_block_used(ost, *blkno);
-#endif
-
 	return err;
 }
 
@@ -455,7 +451,23 @@ out:
 	return err;
 }
 
-/* XXX For now this is very simple and paranoid.  Any errors encountered
+static int publish_mounted_set(ocfs2_filesys *fs, char *buf, int node, 
+			       int max_nodes)
+{
+	int b_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	/* magic! */
+	ocfs_publish *pub = (ocfs_publish *)(buf + ((2 + 4 + max_nodes + node)
+			       			<< b_bits));
+	verbosef("node %d's publish: %u\n", node, le32_to_cpu(pub->mounted));
+
+	return pub->mounted;
+}
+
+/* XXX The only job this has is to replay the journal if it can.  It doesn't
+ * participate in book-keeping and doesn't try to fix up the journals.  It is
+ * just replaying as much as it can for the main fsck passes.
+ *
+ * For now this is very simple and paranoid.  Any errors encountered
  * are fatal and stop fsck.  I propose:
  *
  * - Allocation errors are always fatal.  If we can't allocate what little
@@ -477,8 +489,9 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 	errcode_t err = 0, ret = 0;
 	struct journal_info *jis, *ji;
 	journal_superblock_t *jsb;
-	char *buf = NULL;
-	int i, max_nodes;
+	char *buf = NULL, *dlm_buf = NULL;
+	int i, max_nodes, buflen;
+	uint64_t dlm_ino;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
 
@@ -496,7 +509,25 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		goto out;
 	}
 
+	ret = ocfs2_lookup_system_inode(ost->ost_fs, DLM_SYSTEM_INODE,
+					0, &dlm_ino);
+	if (ret) {
+		com_err(whoami, ret, "while looking up the dlm system inode");
+		goto out;
+	}
+
+	ret = ocfs2_read_whole_file(ost->ost_fs, dlm_ino, &dlm_buf, &buflen);
+	if (ret) {
+		com_err(whoami, ret, "while reading dlm file");
+		goto out;
+	}
+
 	for (i = 0; i < max_nodes ; i++) {
+		if (!publish_mounted_set(ost->ost_fs, dlm_buf, i, max_nodes)) {
+			verbosef("node %d is clean\n", i);
+			continue;
+		}
+		/* check mounted bits in the publish doo-dah. */
 		err = prep_journal_info(ost, i, &jis[i]);
 		if (err) {
 			ret = err;
@@ -510,8 +541,10 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		}
 	}
 
-	/* only try to replay the journals if we prepared all of them */
 	for (i = 0, ji = jis; ret == 0 && i < max_nodes; i++, ji++) {
+		if (!ji->ji_ino)
+			continue;
+
 		err = walk_journal(ost, i, ji, buf, 1);
 		if (err) {
 			ret = err;
@@ -552,6 +585,8 @@ out:
 
 	if (buf)
 		ocfs2_free(&buf);
+	if (dlm_buf)
+		ocfs2_free(&dlm_buf);
 
 	return ret;
 }
