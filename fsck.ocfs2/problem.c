@@ -33,9 +33,9 @@
 #include "problem.h"
 #include "util.h"
 
-static char read_a_char(int fd)
+static int read_a_char(int fd)
 {
-	char c;
+	int c;
 	ssize_t ret;
 
 	ret = read(fd, &c, sizeof(c));
@@ -52,7 +52,7 @@ static char read_a_char(int fd)
 int should_fix(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 {
 	va_list ap;
-	char c;
+	int c;
 
 	/* paranoia for jokers that claim to default to both */
 	if((flags & FIX_DEFYES) && (flags & FIX_DEFNO))
