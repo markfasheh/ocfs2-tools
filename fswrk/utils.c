@@ -43,7 +43,7 @@ void add_extent_rec (GArray *arr, ocfs2_extent_rec *rec)
 	g_array_append_vals(arr, new, 1);
 
 	return ;
-}				/* add_extent_rec */
+}
 
 /*
  * add_dir_rec()
@@ -71,4 +71,22 @@ void add_dir_rec (GArray *arr, struct ocfs2_dir_entry *rec)
 	g_array_append_vals(arr, new, 1);
 
 	return ;
-}				/* add_dir_rec */
+}
+
+/*
+ * read_block()
+ *
+ */
+int read_block(fswrk_ctxt *ctxt, uint64_t blkno, char **buf)
+{
+	ocfs2_super_block *sb = &(ctxt->super_block->id2.i_super);
+	uint32_t len = 1 << 1 << sb->s_blocksize_bits;
+	uint64_t off = blkno << sb->s_blocksize_bits;
+
+	if (!*buf) {
+		if (!(*buf = memalign(len, len)))
+			FSWRK_FATAL("out of memory");
+	}
+
+	return ((pread64(ctxt->fd, *buf, len, off) == len) ? 0 : -1);
+}

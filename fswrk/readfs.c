@@ -26,95 +26,10 @@
 #include <main.h>
 
 /*
- * open_fs()
- *
- */
-fswrk_ctxt *open_fs (char *dev)
-{
-	ocfs2_super_block *sb;
-	uint32_t len;
-	fswrk_ctxt *ctxt = NULL;
-
-	if (!dev)
-		return NULL;
-
-	if (!(ctxt = malloc(sizeof(fswrk_ctxt))))
-		FSWRK_FATAL("%s", strerror(errno));
-
-	memset(ctxt, 0, sizeof(fswrk_ctxt));
-
-	ctxt->fd = open (dev, O_DIRECT | O_RDWR);
-	if (ctxt->fd == -1) {
-		printf ("could not open device %s\n", dev);
-		goto bail;
-	}
-
-	ctxt->device = g_strdup (dev);
-
-	if (read_super_block (ctxt) == -1) {
-		close (ctxt->fd);
-		goto bail;
-	}
-
-	sb = &(ctxt->super_block->id2.i_super);
-
-	/* read root inode */
-	len = 1 << sb->s_blocksize_bits;
-	if (!(ctxt->root_dir = memalign(len, len)))
-		FSWRK_FATAL("%s", strerror(errno));
-	if ((pread64(ctxt->fd, (char *)ctxt->root_dir, len,
-		     (sb->s_root_blkno << sb->s_blocksize_bits))) == -1)
-		FSWRK_FATAL("%s", strerror(errno));
-
-	/* read sysdir inode */
-	len = 1 << sb->s_blocksize_bits;
-	if (!(ctxt->system_dir = memalign(len, len)))
-		FSWRK_FATAL("%s", strerror(errno));
-	if ((pread64(ctxt->fd, (char *)ctxt->system_dir, len,
-		     (sb->s_system_dir_blkno << sb->s_blocksize_bits))) == -1)
-		FSWRK_FATAL("%s", strerror(errno));
-
-	/* load sysfiles blknums */
-	read_sysdir(ctxt);
-
-	/* get the max clusters/blocks */
-	ctxt->max_clusters = ctxt->super_block->i_clusters;
-	ctxt->max_blocks = ctxt->max_clusters << (sb->s_clustersize_bits -
-						  sb->s_blocksize_bits);
-
-	return ctxt;
-
-bail:
-	safefree(ctxt);
-	return NULL;
-}					/* open_fs */
-
-/*
- * close_fs()
- *
- */
-void close_fs (fswrk_ctxt *ctxt)
-{
-	if (ctxt->device) {
-		safefree (ctxt->device);
-
-		close (ctxt->fd);
-		ctxt->fd = -1;
-
-		safefree (ctxt->super_block);
-		safefree (ctxt->root_dir);
-		safefree (ctxt->system_dir);
-	} else
-		printf ("device not open\n");
-
-	return ;
-}					/* close_fs */
-
-/*
  * read_super_block()
  *
  */
-int read_super_block (fswrk_ctxt *ctxt)
+static int read_super_block (fswrk_ctxt *ctxt)
 {
 	int ret = -1;
 	uint64_t off;
@@ -129,7 +44,7 @@ int read_super_block (fswrk_ctxt *ctxt)
 		if (!(buf = memalign(buflen, buflen)))
 			FSWRK_FATAL("%s", strerror(errno));
 
-		if ((ret =  pread64(ctxt->fd, buf, buflen, 0)) == -1) {
+		if ((ret = pread64(ctxt->fd, buf, buflen, 0)) == -1) {
 			safefree (buf);
 			continue;
 		} else
@@ -184,165 +99,13 @@ bail:
 		safefree (buf);
 	
 	return ret;
-}				/* read_super_block */
-
-/*
- * read_inode()
- *
- */
-int read_inode (fswrk_ctxt *ctxt, uint64_t blkno, char *buf)
-{
-	ocfs2_dinode *inode;
-	int ret = 0;
-	ocfs2_super_block *sb = &(ctxt->super_block->id2.i_super);
-	int len = 1 << sb->s_blocksize_bits;
-	uint64_t off = blkno << sb->s_blocksize_bits;
-
-	if ((pread64(ctxt->fd, buf, len, off)) == -1)
-		FSWRK_FATAL("%s off=%"PRIu64, strerror(errno), off);
-
-	inode = (ocfs2_dinode *)buf;
-
-	if (memcmp(inode->i_signature, OCFS2_INODE_SIGNATURE,
-		   sizeof(OCFS2_INODE_SIGNATURE)))
-		ret = -1;
-
-	return ret;
-}				/* read_inode */
-
-/*
- * read_group()
- *
- */
-int read_group (fswrk_ctxt *ctxt, uint64_t blkno, char *buf)
-{
-	ocfs2_group_desc *bg;
-	int ret = 0;
-	ocfs2_super_block *sb = &(ctxt->super_block->id2.i_super);
-	int len = 1 << sb->s_blocksize_bits;
-	uint64_t off = blkno << sb->s_blocksize_bits;
-
-	if ((pread64(ctxt->fd, buf, len, off)) == -1)
-		FSWRK_FATAL("%s off=%"PRIu64, strerror(errno), off);
-
-	bg = (ocfs2_group_desc *)buf;
-
-	if (memcmp(bg->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
-		   sizeof(OCFS2_GROUP_DESC_SIGNATURE)))
-		ret = -1;
-
-	return ret;
-}				/* read_group */
-
-/*
- * traverse_extents()
- *
- */
-int traverse_extents (fswrk_ctxt *ctxt, ocfs2_extent_list *ext, GArray *arr)
-{
-	ocfs2_extent_block *blk;
-	ocfs2_extent_rec *rec;
-	int ret = 0;
-	uint64_t off;
-	char *buf = NULL;
-	uint32_t buflen;
-	int i;
-	ocfs2_super_block *sb = &(ctxt->super_block->id2.i_super);
-
-	for (i = 0; i < ext->l_next_free_rec; ++i) {
-		rec = &(ext->l_recs[i]);
-		if (ext->l_tree_depth == 0)
-			add_extent_rec (arr, rec);
-		else {
-			buflen = 1 << sb->s_blocksize_bits;
-			if (!(buf = memalign(buflen, buflen)))
-				FSWRK_FATAL("%s", strerror(errno));
-
-			off = (uint64_t)rec->e_blkno << sb->s_blocksize_bits;
-			if ((pread64 (ctxt->fd, buf, buflen, off)) == -1)
-				FSWRK_FATAL("%s", strerror(errno));
-
-			blk = (ocfs2_extent_block *)buf;
-
-			traverse_extents (ctxt, &(blk->h_list), arr);
-		}
-	}
-
-	safefree (buf);
-	return ret;
-}				/* traverse_extents */
-
-/*
- * read_dir_block()
- *
- */
-void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr)
-{
-	char *p;
-	struct ocfs2_dir_entry *rec;
-
-	p = (char *) dir;
-
-	while (p < (((char *)dir) + len)) {
-		rec = (struct ocfs2_dir_entry *)p;
-		if (rec->inode)
-			add_dir_rec (arr, rec);
-		p += rec->rec_len;
-	}
-
-	return ;
-}				/* read_dir_block */
-
-/*
- * read_dir()
- *
- */
-void read_dir (fswrk_ctxt *ctxt, ocfs2_extent_list *ext, uint64_t size, GArray *dirarr)
-{
-	ocfs2_extent_rec *rec;
-	GArray *arr = NULL;
-	unsigned int i = 0;
-	char *buf = NULL;
-	ocfs2_super_block *sb = &(ctxt->super_block->id2.i_super);
-	uint32_t len;
-	uint64_t off;
-	uint64_t foff;
-
-	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
-
-	traverse_extents (ctxt, ext, arr);
-
-	for (i = 0; i < arr->len; ++i) {
-		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
-
-		off = rec->e_blkno << sb->s_blocksize_bits;
-                foff = rec->e_cpos << sb->s_clustersize_bits;
-		len = rec->e_clusters << sb->s_clustersize_bits;
-		if ((foff + len) > size)
-			len = size - foff;
-
-		if (!(buf = memalign((1 << sb->s_blocksize_bits), len)))
-			FSWRK_FATAL("%s", strerror(errno));
-
-		if ((pread64(ctxt->fd, buf, len, off)) == -1)
-			FSWRK_FATAL("%s", strerror(errno));
-
-		read_dir_block ((struct ocfs2_dir_entry *)buf, len, dirarr);
-
-		safefree (buf);
-	}
-
-	if (arr)
-		g_array_free (arr, 1);
-
-	return ;
-}				/* read_dir */
+}
 
 /*
  * read_sysdir()
  *
  */
-void read_sysdir (fswrk_ctxt *ctxt)
+static void read_sysdir (fswrk_ctxt *ctxt)
 {
 	ocfs2_dinode *di;
 	struct ocfs2_dir_entry *rec;
@@ -472,7 +235,215 @@ bail:
 	}
 
 	return ;
-}				/* read_sysdir */
+}
+
+
+/*
+ * open_fs()
+ *
+ */
+fswrk_ctxt *open_fs (char *dev)
+{
+	ocfs2_super_block *sb;
+	fswrk_ctxt *ctxt = NULL;
+
+	if (!dev)
+		return NULL;
+
+	if (!(ctxt = malloc(sizeof(fswrk_ctxt))))
+		FSWRK_FATAL("%s", strerror(errno));
+
+	memset(ctxt, 0, sizeof(fswrk_ctxt));
+
+	ctxt->fd = open (dev, O_DIRECT | O_RDWR);
+	if (ctxt->fd == -1) {
+		printf ("could not open device %s\n", dev);
+		goto bail;
+	}
+
+	ctxt->device = g_strdup (dev);
+
+	if (read_super_block (ctxt) == -1) {
+		close (ctxt->fd);
+		goto bail;
+	}
+
+	sb = &(ctxt->super_block->id2.i_super);
+
+	/* read root inode */
+	if (read_block(ctxt, sb->s_root_blkno, (char **)&ctxt->root_dir))
+		FSWRK_FATAL("%s", strerror(errno));
+
+	/* read sysdir inode */
+	if (read_block(ctxt, sb->s_system_dir_blkno, (char **)&ctxt->system_dir))
+		FSWRK_FATAL("%s", strerror(errno));
+
+	/* load sysfiles blknums */
+	read_sysdir(ctxt);
+
+	/* get the max clusters/blocks */
+	ctxt->max_clusters = ctxt->super_block->i_clusters;
+	ctxt->max_blocks = ctxt->max_clusters << (sb->s_clustersize_bits -
+						  sb->s_blocksize_bits);
+
+	return ctxt;
+
+bail:
+	safefree(ctxt);
+	return NULL;
+}
+
+/*
+ * close_fs()
+ *
+ */
+void close_fs (fswrk_ctxt *ctxt)
+{
+	if (ctxt->device) {
+		safefree (ctxt->device);
+
+		close (ctxt->fd);
+		ctxt->fd = -1;
+
+		safefree (ctxt->super_block);
+		safefree (ctxt->root_dir);
+		safefree (ctxt->system_dir);
+	} else
+		printf ("device not open\n");
+
+	return ;
+}
+
+/*
+ * read_inode()
+ *
+ */
+int read_inode (fswrk_ctxt *ctxt, uint64_t blkno, char *buf)
+{
+	ocfs2_dinode *di;
+
+	if (read_block(ctxt, blkno, (char **)&buf))
+		FSWRK_FATAL("%s blkno=%"PRIu64, strerror(errno), blkno);
+
+	di = (ocfs2_dinode *)buf;
+
+	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
+		   sizeof(OCFS2_INODE_SIGNATURE)))
+		return -1;
+
+	return 0;
+}
+
+/*
+ * read_group()
+ *
+ */
+int read_group (fswrk_ctxt *ctxt, uint64_t blkno, char *buf)
+{
+	ocfs2_group_desc *bg;
+
+	if (read_block(ctxt, blkno, (char **)&buf))
+		FSWRK_FATAL("%s blkno=%"PRIu64, strerror(errno), blkno);
+
+	bg = (ocfs2_group_desc *)buf;
+
+	if (memcmp(bg->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
+		   sizeof(OCFS2_GROUP_DESC_SIGNATURE)))
+		return -1;
+
+	return 0;
+}
+
+/*
+ * traverse_extents()
+ *
+ */
+static int traverse_extents (fswrk_ctxt *ctxt, ocfs2_extent_list *ext, GArray *arr)
+{
+	ocfs2_extent_block *blk;
+	ocfs2_extent_rec *rec;
+	int ret = 0;
+	char *buf = NULL;
+	int i;
+
+	for (i = 0; i < ext->l_next_free_rec; ++i) {
+		rec = &(ext->l_recs[i]);
+		if (ext->l_tree_depth == 0)
+			add_extent_rec (arr, rec);
+		else {
+			if (read_block(ctxt, rec->e_blkno, (char **)buf))
+				FSWRK_FATAL("%s", strerror(errno));
+
+			blk = (ocfs2_extent_block *)buf;
+
+			traverse_extents (ctxt, &(blk->h_list), arr);
+		}
+	}
+
+	safefree (buf);
+	return ret;
+}
+
+/*
+ * read_dir_block()
+ *
+ */
+static void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr)
+{
+	char *p;
+	struct ocfs2_dir_entry *rec;
+
+	p = (char *) dir;
+
+	while (p < (((char *)dir) + len)) {
+		rec = (struct ocfs2_dir_entry *)p;
+		if (rec->inode)
+			add_dir_rec (arr, rec);
+		p += rec->rec_len;
+	}
+
+	return ;
+}
+
+/*
+ * read_dir()
+ *
+ */
+void read_dir (fswrk_ctxt *ctxt, ocfs2_extent_list *ext, uint64_t size, GArray *dirarr)
+{
+	ocfs2_extent_rec *rec;
+	GArray *arr = NULL;
+	unsigned int i = 0;
+	char *buf = NULL;
+	ocfs2_super_block *sb = &(ctxt->super_block->id2.i_super);
+	uint32_t len;
+	uint64_t foff;
+
+	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
+
+	traverse_extents (ctxt, ext, arr);
+
+	for (i = 0; i < arr->len; ++i) {
+		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
+
+                foff = rec->e_cpos << sb->s_clustersize_bits;
+		len = rec->e_clusters << sb->s_clustersize_bits;
+		if ((foff + len) > size)
+			len = size - foff;
+
+		if (read_block(ctxt, rec->e_blkno, (char **)&buf))
+			FSWRK_FATAL("%s", strerror(errno));
+
+		read_dir_block ((struct ocfs2_dir_entry *)buf, len, dirarr);
+
+		safefree (buf);
+	}
+
+	if (arr)
+		g_array_free (arr, 1);
+
+	return ;
+}
 
 #if 0
 /*

@@ -28,13 +28,9 @@
 
 fswrk_ctxt *open_fs(char *device);
 void close_fs(fswrk_ctxt *ctxt);
-int read_super_block (fswrk_ctxt *ctxt);
-int read_inode (fswrk_ctxt *ctxt, __u64 blknum, char *buf);
-int read_group (fswrk_ctxt *ctxt, __u64 blknum, char *buf);
-int traverse_extents (fswrk_ctxt *ctxt, ocfs2_extent_list *ext, GArray *arr);
-void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr);
 void read_dir (fswrk_ctxt *ctxt, ocfs2_extent_list *ext, __u64 size, GArray *dirarr);
-void read_sysdir (fswrk_ctxt *ctxt);
 int read_file (fswrk_ctxt *ctxt, __u64 blknum, int fdo, char **buf);
+int read_inode (fswrk_ctxt *ctxt, uint64_t blkno, char *buf);
+int read_group (fswrk_ctxt *ctxt, uint64_t blkno, char *buf);
 
 #endif		/* __READFS_H__ */
