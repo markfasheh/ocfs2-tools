@@ -252,6 +252,8 @@ void ocfs2_extent_map_free(ocfs2_cached_inode *cinode);
 errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
 				  ocfs2_extent_rec *rec,
 				  int tree_depth);
+errcode_t ocfs2_extent_map_drop(ocfs2_cached_inode *cinode,
+				 uint32_t new_clusters);
 errcode_t ocfs2_extent_map_trunc(ocfs2_cached_inode *cinode,
 				 uint32_t new_clusters);
 errcode_t ocfs2_extent_map_get_rec(ocfs2_cached_inode *cinode,

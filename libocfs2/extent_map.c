@@ -510,47 +510,12 @@ errcode_t ocfs2_extent_map_init(ocfs2_filesys *fs,
 	return 0;
 }
 
-/*
- * Truncate all entries past new_clusters.
- * If you want to also clip the last extent by some number of clusters,
- * you need to call ocfs2_extent_map_get_rec() and modify the rec
- * you are returned.
- */
-errcode_t ocfs2_extent_map_trunc(ocfs2_cached_inode *cinode,
-				 uint32_t new_clusters)
-{
-	errcode_t ret = 0;
-	struct rb_node *node, *next;
-	ocfs2_extent_map *em = cinode->ci_map;
-	ocfs2_extent_map_entry *ent;
-
-	if (!em)
-		return OCFS2_ET_INVALID_ARGUMENT;
-
-	node = rb_last(&em->em_extents);
-	while (node)
-	{
-		next = rb_prev(node);
-
-		ent = rb_entry(node, ocfs2_extent_map_entry, e_node);
-		if (ent->e_rec.e_cpos < new_clusters)
-			break;
-
-		rb_erase(&ent->e_node, &em->em_extents);
-		ocfs2_free(&ent);
-
-		node = next;
-	}
-
-	return ret;
-}
-
 void ocfs2_extent_map_free(ocfs2_cached_inode *cinode)
 {
 	if (!cinode->ci_map)
 		return;
 
-	ocfs2_extent_map_trunc(cinode, 0);
+	ocfs2_extent_map_drop(cinode, 0);
 	ocfs2_free(&cinode->ci_map);
 }
 
@@ -627,6 +592,120 @@ errcode_t ocfs2_drop_extent_map(ocfs2_filesys *fs,
 
 	return 0;
 }
+
+static void __ocfs2_extent_map_drop(ocfs2_cached_inode  *cinode,
+				    uint32_t new_clusters,
+				    struct rb_node **free_head,
+				    ocfs2_extent_map_entry **tail_ent)
+{
+	struct rb_node *node, *next;
+	ocfs2_extent_map *em = cinode->ci_map;
+	ocfs2_extent_map_entry *ent;
+
+	*free_head = NULL;
+
+	ent = NULL;
+	node = rb_last(&em->em_extents);
+	while (node)
+	{
+		next = rb_prev(node);
+
+		ent = rb_entry(node, ocfs2_extent_map_entry,
+			       e_node);
+		if (ent->e_rec.e_cpos < new_clusters)
+			break;
+
+		rb_erase(&ent->e_node, &em->em_extents);
+
+		node->rb_right = *free_head;
+		*free_head = node;
+
+		ent = NULL;
+		node = next;
+	}
+
+	/* Do we have an entry straddling new_clusters? */
+	if (tail_ent) {
+		if (ent &&
+		    ((ent->e_rec.e_cpos + ent->e_rec.e_clusters) >
+		     new_clusters))
+			*tail_ent = ent;
+		else
+			*tail_ent = NULL;
+	}
+
+	return;
+}
+
+static void __ocfs2_extent_map_drop_cleanup(struct rb_node *free_head)
+{
+	struct rb_node *node;
+	ocfs2_extent_map_entry *ent;
+
+	while (free_head) {
+		node = free_head;
+		free_head = node->rb_right;
+
+		ent = rb_entry(node, ocfs2_extent_map_entry,
+			       e_node);
+		ocfs2_free(&ent);
+	}
+}
+
+
+/*
+ * Remove all entries past new_clusters, inclusive of an entry that
+ * contains new_clusters.  This is effectively a cache forget.
+ *
+ * If you want to also clip the last extent by some number of clusters,
+ * you need to call ocfs2_extent_map_trunc().
+ */
+errcode_t ocfs2_extent_map_drop(ocfs2_cached_inode *cinode,
+				uint32_t new_clusters)
+{
+	struct rb_node *free_head = NULL;
+	ocfs2_extent_map *em = cinode->ci_map;
+	ocfs2_extent_map_entry *ent;
+
+	if (!em)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	__ocfs2_extent_map_drop(cinode, new_clusters, &free_head, &ent);
+
+	if (ent) {
+		rb_erase(&ent->e_node, &em->em_extents);
+		ent->e_node.rb_right = free_head;
+		free_head = &ent->e_node;
+	}
+
+	if (free_head)
+		__ocfs2_extent_map_drop_cleanup(free_head);
+
+	return 0;
+}
+
+/*
+ * Remove all entries past new_clusters and also clip any extent
+ * straddling new_clusters, if there is one.
+ */
+errcode_t ocfs2_extent_map_trunc(ocfs2_cached_inode *cinode,
+				 uint32_t new_clusters)
+{
+	struct rb_node *free_head = NULL;
+	ocfs2_extent_map_entry *ent = NULL;
+
+	__ocfs2_extent_map_drop(cinode, new_clusters, &free_head, &ent);
+
+	if (ent)
+		ent->e_rec.e_clusters =
+			new_clusters - ent->e_rec.e_cpos;
+
+	if (free_head)
+		__ocfs2_extent_map_drop_cleanup(free_head);
+
+	return 0;
+}
+
 
 #ifdef DEBUG_EXE
 #include <stdlib.h>
