@@ -31,11 +31,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include <blkid/blkid.h>
-
 #include <glib.h>
 
 #include "ocfs2.h"
+
+#include <blkid/blkid.h>
 
 #include "ocfsplist.h"
 
