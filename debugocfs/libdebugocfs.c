@@ -1,8 +1,5 @@
 #include "debugocfs.h"
 #include <time.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/raw.h>
 #include "glib.h"
 #include "libdebugocfs.h"

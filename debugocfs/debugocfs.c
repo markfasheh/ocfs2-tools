@@ -27,10 +27,6 @@
 #include <time.h>
 
 #ifdef LIBDEBUGOCFS
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 #include "glib.h"
 #include "libdebugocfs.h"
 #endif
