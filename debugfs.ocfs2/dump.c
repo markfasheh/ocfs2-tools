@@ -254,9 +254,8 @@ void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 	fprintf (out, "\tSubAlloc Bit: %u   SubAlloc Node: %u\n",
 		 blk->h_suballoc_bit, blk->h_suballoc_node);
 
-	fprintf (out, "\tBlknum: %"PRIu64"   Parent: %"PRIu64"   "
-		 "Next Leaf: %"PRIu64"\n",
-		 blk->h_blkno, blk->h_parent_blk, blk->h_next_leaf_blk);
+	fprintf (out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
+		 blk->h_blkno, blk->h_next_leaf_blk);
 
 	return ;
 }				/* dump_extent_block */

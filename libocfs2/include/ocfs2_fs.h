@@ -274,9 +274,7 @@ typedef struct _ocfs2_extent_block
 					   block group */
 	__u32 h_reserved2;
 	__u64 h_blkno;			/* Offset on disk, in blocks */
-/*20*/	__u64 h_parent_blk;		/* Offset on disk, in blocks,
-					   of this block's parent in the
-					   tree */
+/*20*/	__u64 h_reserved3;
 	__u64 h_next_leaf_blk;		/* Offset on disk, in blocks,
 					   of next leaf header pointing
 					   to data */
