@@ -70,8 +70,21 @@ int verbose = 0;
 static void print_usage(void)
 {
 	fprintf(stderr,
-		"Usage: fsck.ocfs2 [-s <superblock>] [-B <blksize>]\n"
-	       	"               <filename>\n");
+		"Usage: fsck.ocfs2 [ -fGnpuvy ] [ -b superblock block ]\n"
+		"		    [ -B block size ] device\n"
+		"\n"
+		"Critical flags for emergency repair:\n" 
+		" -n		Check but don't change the file system\n"
+		" -y		Answer 'yes' to all repair questions\n"
+		" -f		Force checking even if file system is clean\n"
+		"\n"
+		"Less critical flags:\n"
+		" -b superblock	Treat given block as the super block\n"
+		" -B blocksize	Force the given block size\n"
+		" -G		Ask to fix mismatched inode generations\n"
+		" -u		Access the device with buffering\n"
+		" -V		Output fsck.ocfs2's version\n"
+		);
 }
 
 static uint64_t read_number(const char *num)
@@ -496,7 +509,7 @@ int main(int argc, char **argv)
 				print_usage();
 				goto out;
 				break;
-		}
+		
 	}
 
 
