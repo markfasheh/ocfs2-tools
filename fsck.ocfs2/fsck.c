@@ -135,6 +135,26 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 	return 0;
 }
 
+static void check_superblock(char *whoami, o2fsck_state *ost)
+{
+	ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+
+	if (sb->s_max_nodes == 0) {
+		printf("The superblock max_nodes field is set to 0.  fsck "
+		       "doesn't know how to repair this.\n");
+		exit(FSCK_ERROR);
+	}
+
+	/* ocfs2_open() already checked _incompat and _ro_compat */
+	if (sb->s_feature_compat & ~OCFS2_FEATURE_COMPAT_SUPP) {
+		com_err(whoami, OCFS2_ET_UNSUPP_FEATURE,
+		        "while checking _compat flags");
+		exit(FSCK_ERROR);
+	}
+
+	/* XXX do we want checking for different revisions of ocfs2? */
+}
+
 static void exit_if_skipping(o2fsck_state *ost)
 {
 	if (ost->ost_force)
@@ -253,18 +273,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	/* XXX do we want checking for different revisions of ocfs2? */
 
-	/* XXX should be verifying super-block bits here. 
-	 * like s_max_nodes, journal recovery trusts it. */
-
-	/* ocfs2_open() already checked _incompat and _ro_compat */
-	if (OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_compat &
-	    ~OCFS2_FEATURE_COMPAT_SUPP) {
-		com_err(argv[0], OCFS2_ET_UNSUPP_FEATURE,
-		        "while checking _compat flags");
-		exit(FSCK_ERROR);
-	}
+	check_superblock(argv[0], ost);
 
 	exit_if_skipping(ost);
 
@@ -276,7 +286,12 @@ int main(int argc, char **argv)
 	printf("  number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
 	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
 
-	o2fsck_replay_journals(ost);
+	ret = o2fsck_replay_journals(ost);
+	if (ret) {
+		printf("fsck encountered unrecoverable errors while replaying "
+		       "the journals and will not continue\n");
+		exit(FSCK_ERROR);
+	}
 
 	ret = o2fsck_pass1(ost);
 	if (ret)

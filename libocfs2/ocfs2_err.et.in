@@ -59,6 +59,9 @@ ec	OCFS2_ET_JOURNAL_TOO_SMALL,
 ec	OCFS2_ET_BAD_JOURNAL_SUPERBLOCK_MAGIC,
 	"Bad magic number in journal superblock"
 
+ec	OCFS2_ET_BAD_JOURNAL_REVOKE,
+	"Invalid revoke record in journal"
+
 ec	OCFS2_ET_INODE_NOT_VALID,
 	"Inode is not valid (active)"
 

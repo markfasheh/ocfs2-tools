@@ -47,6 +47,7 @@ struct journal_info {
 	uint64_t		ji_jsb_block;
 	ocfs2_cached_inode	*ji_cinode;
 
+	unsigned		ji_set_final_seq:1;
 	uint32_t		ji_final_seq;
 };
 
@@ -67,7 +68,8 @@ static int seq_geq(uint32_t x, uint32_t y)
 	return diff >= 0;
 }
 
-static void revoke_insert(struct rb_root *root, uint64_t block, uint32_t seq)
+static errcode_t revoke_insert(struct rb_root *root, uint64_t block,
+				uint32_t seq)
 {
 	struct rb_node ** p = &root->rb_node;
 	struct rb_node * parent = NULL;
@@ -85,20 +87,21 @@ static void revoke_insert(struct rb_root *root, uint64_t block, uint32_t seq)
 		else {
 			if (seq_gt(seq, re->r_seq))
 				re->r_seq = seq;
-			return;
+			return 0;
 		}
 	}
 
 	re = malloc(sizeof(struct revoke_entry));
 	if (re == NULL)
-		fatal_error(OCFS2_ET_NO_MEMORY, "while allocating "
-			    "space for revoke entries");
+		return OCFS2_ET_NO_MEMORY;
 
 	re->r_block = block;
 	re->r_seq = seq;
 
 	rb_link_node(&re->r_node, parent, p);
 	rb_insert_color(&re->r_node, root);
+
+	return 0;
 }
 
 static int revoke_this_block(struct rb_root *root, uint64_t block, 
@@ -140,27 +143,32 @@ static void revoke_free_all(struct rb_root *root)
 	}
 }
 
-static void add_revoke_records(struct journal_info *ji, char *buf,
-			       size_t max, uint32_t seq)
+static errcode_t add_revoke_records(struct journal_info *ji, char *buf,
+				    size_t max, uint32_t seq)
 {
 	journal_revoke_header_t jr;
 	uint32_t *blkno;  /* XXX 640k ought to be enough for everybody */
 	size_t i, num;
+	errcode_t err = 0;
 
 	memcpy(&jr, buf, sizeof(jr));
 	jr.r_count = be32_to_cpu(jr.r_count);
 
 	if (jr.r_count < sizeof(jr) || jr.r_count > max) {
-		/* XXX abort replay? */
 		verbosef("corrupt r_count: %X", jr.r_count);
-		return;
+		return OCFS2_ET_BAD_JOURNAL_REVOKE;
 	}
 
 	num = (jr.r_count - sizeof(jr)) / sizeof(blkno);
 	blkno = (uint32_t *)(buf + sizeof(jr));
 
-	for (i = 0; i < num; i++, blkno++)
-		revoke_insert(&ji->ji_revoke, be32_to_cpu(*blkno), seq);
+	for (i = 0; i < num; i++, blkno++) {
+		err = revoke_insert(&ji->ji_revoke, be32_to_cpu(*blkno), seq);
+		if (err)
+			break;
+	}
+
+	return err;
 }
 
 static uint64_t jwrap(journal_superblock_t *jsb, uint64_t block)
@@ -378,9 +386,10 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 
 	verbosef("done scanning with seq %"PRIu32"\n", next_seq);
 
-	if (!recover)
+	if (!recover) {
+		ji->ji_set_final_seq = 1;
 		ji->ji_final_seq = next_seq;
-	else if (ji->ji_final_seq != next_seq) {
+	} else if (ji->ji_final_seq != next_seq) {
 		err = OCFS2_ET_IO;
 		com_err(whoami, err, "while recovering the journal and found "
 			"that we arrived at seq %"PRIu32" instead of seq "
@@ -401,7 +410,7 @@ static errcode_t prep_journal_info(o2fsck_state *ost, int node,
 
 	err = ocfs2_malloc_blocks(ost->ost_fs->fs_io, 1, &ji->ji_jsb);
 	if (err)
-		fatal_error(err, "while allocating space for node %d's "
+		com_err(whoami, err, "while allocating space for node %d's "
 			    "journal superblock", node);
 
 	err = ocfs2_lookup_system_inode(ost->ost_fs, JOURNAL_SYSTEM_INODE,
@@ -446,32 +455,47 @@ out:
 	return err;
 }
 
-/* XXX we should think harder about what behaviour we want here.  Right now
- * this function always leaves with clean reset journals.  Any errors in
- * the journal recovery process will trigger a full fsck.
+/* XXX For now this is very simple and paranoid.  Any errors encountered
+ * are fatal and stop fsck.  I propose:
+ *
+ * - Allocation errors are always fatal.  If we can't allocate what little
+ *   we need to replay the journals there's no way we will be able to
+ *   perform a full fsck.  Instead of wiping the journal we should leave
+ *   the task to someone with enough mem (it won't be a lot, this is largely
+ *   academic.)
+ *
+ * - block IO errors should only effect the bits of journal recovery
+ *   they hit.  The rest should be recovered and fsck can pick up
+ *   the pieces.  remapping around bad blocks, etc.
+ *
+ * - Missing journals, insane fields, etc, should be cleared and left
+ *   for fsck to pick up.
+ *
  * XXX pass fsck trigger back up, write dirty fs, always zap/write */
 errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 {
 	errcode_t err = 0, ret = 0;
 	struct journal_info *jis, *ji;
+	journal_superblock_t *jsb;
 	char *buf = NULL;
 	int i, max_nodes;
 
 	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
 
-	err = ocfs2_malloc_blocks(ost->ost_fs->fs_io, 1, &buf);
-	if (err)
-		fatal_error(err, "while allocating room to read journal "
+	ret = ocfs2_malloc_blocks(ost->ost_fs->fs_io, 1, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating room to read journal "
 			    "blocks");
+		goto out;
+	}
 
-	err = ocfs2_malloc0(sizeof(struct journal_info) * max_nodes, &jis);
-	if (err)
-		fatal_error(err, "while allocating an array of block numbers "
-			    "for journal replay");
+	ret = ocfs2_malloc0(sizeof(struct journal_info) * max_nodes, &jis);
+	if (ret) {
+		com_err(whoami, ret, "while allocating an array of block "
+			 "numbers for journal replay");
+		goto out;
+	}
 
-	/* we'll try loading and verifying them all first before proceeding
-	 * to replay them.  This way we can make sure their blocks don't
-	 * overlap or anything crazy like that. */
 	for (i = 0; i < max_nodes ; i++) {
 		err = prep_journal_info(ost, i, &jis[i]);
 		if (err) {
@@ -482,9 +506,11 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		err = walk_journal(ost, i, &jis[i], buf, 0);
 		if (err) {
 			ret = err;
+			continue;
 		}
 	}
 
+	/* only try to replay the journals if we prepared all of them */
 	for (i = 0, ji = jis; ret == 0 && i < max_nodes; i++, ji++) {
 		err = walk_journal(ost, i, ji, buf, 1);
 		if (err) {
@@ -492,32 +518,38 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 			continue;
 		} 
 
-		/* only write back the journal super block if we found out
-		 * where it was to begin with */
-		if (ji->ji_jsb_block != 0) {
-			journal_superblock_t *jsb = ji->ji_jsb;
+		/* only write back the journal super block if we were
+		 * able to replay the journal */
+		if (ji->ji_jsb_block == 0)
+			continue;
 
-			/* reset the journal */
-			jsb->s_start = 0;
-			/* XXX and if we haven't set final_seq? */
+		jsb = ji->ji_jsb;
+		/* reset the journal */
+		jsb->s_start = 0;
+
+		if (ji->ji_set_final_seq)
 			jsb->s_sequence = ji->ji_final_seq + 1;
 
-			err = ocfs2_write_journal_superblock(ost->ost_fs,
-					ji->ji_jsb_block,
-					(char *)ji->ji_jsb);
-			if (err)
-				ret = err;
-		}
-
-		if (jis[i].ji_jsb)
-			ocfs2_free(&jis[i].ji_jsb);
-		if (jis[i].ji_cinode)
-			ocfs2_free_cached_inode(ost->ost_fs, jis[i].ji_cinode);
-		revoke_free_all(&jis[i].ji_revoke);
+		err = ocfs2_write_journal_superblock(ost->ost_fs,
+						     ji->ji_jsb_block,
+						     (char *)ji->ji_jsb);
+		if (err)
+			ret = err;
 	}
 
-	if (jis)
+out:
+	if (jis) {
+		for (i = 0, ji = jis; ret == 0 && i < max_nodes; i++, ji++) {
+			if (ji->ji_jsb)
+				ocfs2_free(&ji->ji_jsb);
+			if (ji->ji_cinode)
+				ocfs2_free_cached_inode(ost->ost_fs, 
+							ji->ji_cinode);
+			revoke_free_all(&ji->ji_revoke);
+		}
 		ocfs2_free(&jis);
+	}
+
 	if (buf)
 		ocfs2_free(&buf);
 
