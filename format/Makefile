@@ -9,7 +9,7 @@ ifdef OCFS_DEBUG
 OPTS = -g
 endif
 
-CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) -pthread
+CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) -pthread $(GLIB_CFLAGS)
 
 SBIN_PROGRAMS = mkfs.ocfs mounted.ocfs tuneocfs
 

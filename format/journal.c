@@ -2,7 +2,7 @@
 #include <signal.h>
 #include <libgen.h>
 
-#include <netinet/in.h>
+#include <glib.h>
 
 #include "kernel-jbd.h"
 
@@ -18,14 +18,14 @@ int ocfs_replacement_journal_create(int file, __u64 journal_off)
 	
 	memset(sb, 0, OCFS_JOURNAL_DEFAULT_SIZE);
 
-	sb->s_header.h_magic	 = htonl(JFS_MAGIC_NUMBER);
-	sb->s_header.h_blocktype = htonl(JFS_SUPERBLOCK_V2);
-	sb->s_blocksize	= htonl(512);
-	sb->s_maxlen	= htonl(OCFS_JOURNAL_DEFAULT_SIZE / 512);
-	sb->s_first	= htonl(1);
-	sb->s_start     = htonl(1);
-	sb->s_sequence  = htonl(1);
-	sb->s_errno     = htonl(0);
+	sb->s_header.h_magic	 = g_htonl(JFS_MAGIC_NUMBER);
+	sb->s_header.h_blocktype = g_htonl(JFS_SUPERBLOCK_V2);
+	sb->s_blocksize	= g_htonl(512);
+	sb->s_maxlen	= g_htonl(OCFS_JOURNAL_DEFAULT_SIZE / 512);
+	sb->s_first	= g_htonl(1);
+	sb->s_start     = g_htonl(1);
+	sb->s_sequence  = g_htonl(1);
+	sb->s_errno     = g_htonl(0);
 
 	if (SetSeek(file, journal_off)) {
                 if (Write(file, OCFS_JOURNAL_DEFAULT_SIZE, (void *) sb)) {
