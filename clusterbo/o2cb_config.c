@@ -84,6 +84,8 @@ static gint o2cb_config_fill_node(O2CBConfig *config,
     if (!node)
         return -ENOMEM;
 
+    num_s = name = addr = port_s = NULL;
+
     rc = -EINVAL;
     num_s = j_config_get_attribute(cfs, "number");
     if (!num_s || !*num_s)
