@@ -28,19 +28,19 @@ o2cb_ctl \- Control program for the OCFS2 Cluster Software.
 
 .TP
 \fB\-C\fR
-Create a new OCFS2 Cluster Configuration.
+Create an object in the OCFS2 Cluster Configuration.
 
 .TP
 \fB\-D\fR
-Delete an existing OCFS2 Cluster Configuration.
+Delete an object from the existing OCFS2 Cluster Configuration.
 
 .TP
 \fB\-I\fR
-Print information about OCFS2 Cluster Configuration.
+Print information about the OCFS2 Cluster Configuration.
 
 .TP
 \fB\-H\fR
-Change an existing OCFS2 Cluster Configuration.
+Change an object or objects in the existing OCFS2 Cluster Configuration.
 
 .TP
 \fB\-h\fR
@@ -54,7 +54,7 @@ Print version and exit.
 
 .TP
 \fB\-a\fR \fI<attribute>\fR
-\fI<attribute>\fR is in format "parameter=value", where the parameter is a valid parameter that can be set in the file \fI/etc/ocfs2/cluster.conf\fR.
+With \fB\-C\fR, \fI<attribute>\fR is in format "parameter=value", where the parameter is a valid parameter that can be set in the file \fI/etc/ocfs2/cluster.conf\fR.  With \fB\-I\fR, \fI<attribute>\fR may be "parameter", indicating an attribute to be listed in the output, or it may be "parameter==value", indicating that only objects matching "parameter=value" are to be displayed.
 
 .TP
 \fB\-i\fR

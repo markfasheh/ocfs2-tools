@@ -508,9 +508,50 @@ static gint write_config(O2CBContext *ctxt)
 
 static gint find_objects_for_type(O2CBContext *ctxt)
 {
-    fprintf(stderr,
-            PROGNAME ": Discovery by type not yet supported\n");
-    return -ENOTSUP;
+    int rc = 0;
+    JIterator *c_iter, *n_iter;
+    O2CBCluster *cluster;
+    O2CBNode *node;
+
+    c_iter = o2cb_config_get_clusters(ctxt->oc_config);
+
+    if (!c_iter)
+    {
+        rc = -ENOMEM;
+        goto out;
+    }
+
+    while (j_iterator_has_more(c_iter))
+    {
+        cluster = j_iterator_get_next(c_iter);
+
+        if (ctxt->oc_type == O2CB_TYPE_CLUSTER)
+        {
+            add_object(ctxt, o2cb_cluster_get_name(cluster));
+        }
+        else if (ctxt->oc_type == O2CB_TYPE_NODE)
+        {
+            n_iter = o2cb_cluster_get_nodes(cluster);
+            if (!n_iter)
+            {
+                rc = -ENOMEM;
+                break;
+            }
+
+            while (j_iterator_has_more(n_iter))
+            {
+                node = j_iterator_get_next(n_iter);
+                add_object(ctxt, o2cb_node_get_name(node));
+            }
+            j_iterator_free(n_iter);
+        }
+        else
+            abort();
+    }
+    j_iterator_free(c_iter);
+
+out:
+    return rc;
 }  /* find_objects_for_type() */
 
 static gint find_type_for_objects(O2CBContext *ctxt)
@@ -563,6 +604,174 @@ static gint find_type_for_objects(O2CBContext *ctxt)
 out:
     return rc;
 }  /* find_type_for_objects() */
+
+static gint run_info_clusters(O2CBContext *ctxt)
+{
+    GList *list;
+    O2CBCluster *cluster;
+    gchar *name;
+    gchar *format;
+
+
+    if (ctxt->oc_compact_info)
+    {
+        format = "%s:%u:%s\n";
+        fprintf(stdout, "#name:count:status\n");
+    }
+    else
+    {
+        format = "cluster:\n"
+            "\tname = %s\n"
+            "\tnode_count = %u\n"
+            "\tstatus = %s\n"
+            "\n";
+    }
+
+    list = ctxt->oc_objects;
+    while (list)
+    {
+        name = list->data;
+        cluster = o2cb_config_get_cluster_by_name(ctxt->oc_config,
+                                                  name);
+        if (!cluster)
+        {
+            fprintf(stderr, "Cluster \"%s\" does not exist\n",
+                    name);
+            return -ENOENT;
+        }
+
+        fprintf(stdout, format, o2cb_cluster_get_name(cluster),
+                o2cb_cluster_get_node_count(cluster),
+                "configured");
+
+        list = list->next;
+    }
+
+    return 0;
+}
+
+static gint run_info_nodes(O2CBContext *ctxt)
+{
+    GList *list;
+    JIterator *iter;
+    O2CBCluster *cluster;
+    O2CBNode *node;
+    gchar *name;
+    gchar *format;
+
+
+    if (ctxt->oc_compact_info)
+    {
+        format = "%s:%s:%u:%s:%d:%s\n";
+        fprintf(stdout, "#name:cluster:number:ip_address:ip_port:status\n");
+    }
+    else
+    {
+        format = "node:\n"
+            "\tname = %s\n"
+            "\tcluster = %s\n"
+            "\tnumber = %u\n"
+            "\tip_address = %s\n"
+            "\tip_port = %d\n"
+            "\tstatus = %s\n"
+            "\n";
+    }
+
+    list = ctxt->oc_objects;
+    while (list)
+    {
+        name = list->data;
+
+        iter = o2cb_config_get_clusters(ctxt->oc_config);
+        if (!iter)
+            return -ENOMEM;
+
+        node = NULL;
+        while (j_iterator_has_more(iter))
+        {
+            cluster = j_iterator_get_next(iter);
+
+            node = o2cb_cluster_get_node_by_name(cluster, name);
+            if (node)
+                break;
+        }
+        j_iterator_free(iter);
+
+        if (!node)
+        {
+            fprintf(stderr, "Node \"%s\" does not exist\n", name);
+            return -ENOENT;
+        }
+
+        fprintf(stdout, format,
+                o2cb_node_get_name(node),
+                o2cb_cluster_get_name(cluster),
+                o2cb_node_get_number(node),
+                o2cb_node_get_ip_string(node),
+                o2cb_node_get_port(node),
+                "configured");
+
+        list = list->next;
+    }
+
+    return 0;
+}
+
+static gint run_info(O2CBContext *ctxt)
+{
+    gint rc;
+
+    if (!ctxt->oc_type && !ctxt->oc_objects)
+    {
+        fprintf(stderr,
+                PROGNAME ": Operation \'-I\' requires an object or object type\n");
+        return -EINVAL;
+    } 
+
+    rc = validate_attrs(ctxt);
+    if (rc)
+        return rc;
+
+    rc = load_config(ctxt);
+    if (rc)
+        return rc;
+
+    if (ctxt->oc_type && !ctxt->oc_objects)
+    {
+        rc = find_objects_for_type(ctxt);
+        if (rc)
+            goto out_error;
+    }
+    else if (ctxt->oc_objects && !ctxt->oc_type)
+    {
+        rc = find_type_for_objects(ctxt);
+        if (rc)
+            goto out_error;
+    }
+
+    if (ctxt->oc_type == O2CB_TYPE_NODE)
+    {
+        rc = run_info_nodes(ctxt);
+        if (rc)
+            goto out_error;
+    }
+    else if (ctxt->oc_type == O2CB_TYPE_CLUSTER)
+    {
+        rc = run_info_clusters(ctxt);
+        if (rc)
+            goto out_error;
+    }
+    else
+    {
+        rc = -EINVAL;
+        fprintf(stderr,
+                PROGNAME ": Invalid object type!\n");
+        goto out_error;
+    }
+
+out_error:
+    return rc;
+}  /* run_info() */
 
 static gchar *o2cb_node_is_local(gchar *node_name)
 {
@@ -1066,10 +1275,13 @@ gint main(gint argc, gchar *argv[])
             break;
 
         case O2CB_OP_DELETE:
-        case O2CB_OP_INFO:
             rc = -ENOTSUP;
             fprintf(stderr,
                     PROGNAME ": Not yet supported\n");
+            break;
+
+        case O2CB_OP_INFO:
+            rc = run_info(&ctxt);
             break;
 
         case O2CB_OP_CHANGE:

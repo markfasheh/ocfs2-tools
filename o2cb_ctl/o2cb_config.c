@@ -480,6 +480,13 @@ gint o2cb_cluster_set_name(O2CBCluster *cluster, const gchar *name)
     return 0;
 }  /* o2cb_config_set_cluster_name() */
 
+guint o2cb_cluster_get_node_count(O2CBCluster *cluster)
+{
+    g_return_val_if_fail(cluster != NULL, NULL);
+
+    return cluster->c_num_nodes;
+}
+
 JIterator *o2cb_cluster_get_nodes(O2CBCluster *cluster)
 {
     g_return_val_if_fail(cluster != NULL, NULL);

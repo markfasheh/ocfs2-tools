@@ -44,6 +44,7 @@ O2CBCluster *o2cb_config_get_cluster_by_name(O2CBConfig *config,
 
 gchar *o2cb_cluster_get_name(O2CBCluster *cluster);
 gint o2cb_cluster_set_name(O2CBCluster *cluster, const gchar *name);
+guint o2cb_cluster_get_node_count(O2CBCluster *cluster);
 JIterator *o2cb_cluster_get_nodes(O2CBCluster *cluster);
 O2CBNode *o2cb_cluster_get_node(O2CBCluster *cluster, guint n);
 O2CBNode *o2cb_cluster_get_node_by_name(O2CBCluster *cluster,
