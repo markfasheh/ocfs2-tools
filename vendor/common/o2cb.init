@@ -55,6 +55,7 @@ MODULE_LIST="ocfs2_nodemanager:nm:nm ocfs2_heartbeat:hb:heartbeat ocfs2_tcp::"
 if_fail()
 {
     RC="$1"
+    REASON="$2"
     if [ "$RC" = "0" ]
     then
         echo "OK"
@@ -64,6 +65,10 @@ if_fail()
         return
     fi
     echo "Failed"
+    if [ -n "${REASON}" ]
+    then
+        echo "${REASON}" >&2
+    fi
     exit 1
 }
 
@@ -252,7 +257,7 @@ unmount_device()
 }
 
 
-start()
+load()
 {
     for MODSPEC in $MODULE_LIST
     do
@@ -271,7 +276,22 @@ start()
     done
 }
 
-stop()
+online()
+{
+    CLUSTER="$1"
+
+    #
+    # FIXME FIXME FIXME
+    # Right now, there is no way to check if we're already online.
+    # So this will always fail the second time around.  Ugh.
+    #
+
+    echo -n "Starting cluster ${CLUSTER}: "
+    OUTPUT="$(o2cb_ctl -H -l "${O2CB_MANAGER}" -n "${CLUSTER}" -t cluster -a online=yes 2>&1)"
+    if_fail "$?" "$OUTPUT"
+}
+
+unload()
 {
     # Reverse list for unloading
     R_MODLIST=""
@@ -351,7 +371,11 @@ status()
 
 case "$1" in
     start)
-        start
+        load
+        if [ -n "$2" ]
+        then
+            online "$2"
+        fi
         ;;
 
     status)
@@ -359,7 +383,7 @@ case "$1" in
         ;;
 
     stop)
-        stop
+        unload
         ;;
 
     restart)
@@ -367,8 +391,23 @@ case "$1" in
         start
         ;;
 
+    load)
+        load
+        ;;
+
+    online)
+        #
+        # FIXME: Cluster argument should perhaps be optional, with
+        # the default being all clusters configured.
+        #
+        online "$2"
+        ;;
+
+    unload)
+        unload
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart|enable|disable|status}"
+        echo "Usage: $0 {start|stop|restart|enable|disable|load|unload|status}"
         exit 1
         ;;
 esac
