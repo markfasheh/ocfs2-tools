@@ -31,6 +31,7 @@ void add_dir_rec (GArray *arr, struct ocfs2_dir_entry *rec);
 void get_vote_flag (__u32 flag, GString *str);
 void get_publish_flag (__u32 flag, GString *str);
 void get_journal_blktyp (__u32 jtype, GString *str);
+void get_tag_flag (__u32 flags, GString *str);
 FILE *open_pager(void);
 void close_pager(FILE *stream);
 

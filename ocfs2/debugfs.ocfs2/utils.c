@@ -227,6 +227,33 @@ void get_journal_blktyp (__u32 jtype, GString *str)
 }				/* get_journal_blktyp */
 
 /*
+ * get_tag_flag()
+ *
+ */
+void get_tag_flag (__u32 flags, GString *str)
+{
+	if (flags == 0) {
+		g_string_append (str, "none");
+		goto done;
+	}
+
+	if (flags & JFS_FLAG_ESCAPE)
+		g_string_append (str, "JFS_FLAG_ESCAPE ");
+
+	if (flags & JFS_FLAG_SAME_UUID)
+		g_string_append (str, "JFS_FLAG_SAME_UUID ");
+
+	if (flags & JFS_FLAG_DELETED)
+		g_string_append (str, "JFS_FLAG_DELETED ");
+
+	if (flags & JFS_FLAG_LAST_TAG)
+		g_string_append (str, "JFS_FLAG_LAST_TAG");
+
+done:
+	return ;
+}				/* get_tag_flag */
+
+/*
  * open_pager() -- copied from e2fsprogs-1.32/debugfs/util.c
  * 
  * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be

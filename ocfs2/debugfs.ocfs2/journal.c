@@ -55,16 +55,16 @@ void read_journal (char *buf, __u64 buflen, FILE *out)
 		block = p;
 		header = (journal_header_t *) block;
 		if (blocknum == 0) {
-			fprintf(out, "block %d: ", blocknum);
-			print_super_block((journal_superblock_t *) block, out);
+			fprintf (out, "block %d: ", blocknum);
+			print_super_block ((journal_superblock_t *) block, out);
 		} else if (header->h_magic == ntohl(JFS_MAGIC_NUMBER)) {
 			if (last_metadata > 0) {
 				print_metadata_blocks(last_metadata, 
 						      blocknum - 1, out);
 				last_metadata = 0;
 			}
-			fprintf(out, "block %d: ", blocknum);
-			print_jbd_block(header, out);
+			fprintf (out, "block %d: ", blocknum);
+			print_jbd_block (header, out);
 		} else {
 			if (last_metadata == 0)
 				last_metadata = blocknum;
@@ -80,9 +80,6 @@ void read_journal (char *buf, __u64 buflen, FILE *out)
 
 	return ;
 }				/* read_journal */
-
-#define PRINT_FIELD(name, size, field, out)   fprintf(out, "\t" #field ":\t\t" size \
-						      "\n", ntohl(name->field))
 
 /*
  * print_header()
@@ -156,29 +153,6 @@ void print_metadata_blocks (int start, int end, FILE *out)
 }				/* print_metadata_blocks */
 
 /*
- * print_tag_flag()
- *
- */
-void print_tag_flag (__u32 flags, FILE *out)
-{
-
-	if (flags == 0) {
-		fprintf(out, "(none)");
-		goto done;
-	}
-	if (flags & JFS_FLAG_ESCAPE)
-		fprintf(out, "JFS_FLAG_ESCAPE ");
-	if (flags & JFS_FLAG_SAME_UUID)
-		fprintf(out, "JFS_FLAG_SAME_UUID ");
-	if (flags & JFS_FLAG_DELETED)
-		fprintf(out, "JFS_FLAG_DELETED ");
-	if (flags & JFS_FLAG_LAST_TAG)
-		fprintf(out, "JFS_FLAG_LAST_TAG");
-done:
-	return;
-}				/* print_tag_flag */
-
-/*
  * print_jbd_block()
  *
  */
@@ -187,6 +161,7 @@ void print_jbd_block (journal_header_t *header, FILE *out)
 	int i;
 	int j;
 	int count = 0;
+	GString *tagflg = NULL;
 	/* for descriptors */
 	journal_block_tag_t *tag;
 	journal_revoke_header_t *revoke;
@@ -194,28 +169,34 @@ void print_jbd_block (journal_header_t *header, FILE *out)
 	__u32 *blocknr;
 	char *uuid;
 
-	switch(ntohl(header->h_blocktype)) {
+	tagflg = g_string_new (NULL);
+
+	switch (ntohl(header->h_blocktype)) {
 	case JFS_DESCRIPTOR_BLOCK:
-		fprintf(out, "Journal Descriptor\n");
+		fprintf (out, "Journal Descriptor\n");
 		print_header (header, out);
-		for(i = sizeof(journal_header_t); i < (1 << gbls.blksz_bits);
-		    i+=sizeof(journal_block_tag_t)) {
+
+		fprintf (out, "\t%3s %-15s %-s\n", "No.", "Blocknum", "Flags");
+
+		for (i = sizeof(journal_header_t); i < (1 << gbls.blksz_bits);
+		     i+=sizeof(journal_block_tag_t)) {
 			tag = (journal_block_tag_t *) &blk[i];
-			fprintf(out, "\ttag[%d]->t_blocknr:\t\t%u\n", count,
-			       ntohl(tag->t_blocknr));
-			fprintf(out, "\ttag[%d]->t_flags:\t\t", count);
-			print_tag_flag(ntohl(tag->t_flags), out);
-			fprintf(out, "\n");
+
+			get_tag_flag(ntohl(tag->t_flags), tagflg);
+			fprintf (out, "\t%2d. %-15u %-s\n",
+				 count, ntohl(tag->t_blocknr), tagflg->str);
+			g_string_truncate (tagflg, 0);
+
 			if (tag->t_flags & htonl(JFS_FLAG_LAST_TAG))
 				break;
 
 			/* skip the uuid. */
 			if (!(tag->t_flags & htonl(JFS_FLAG_SAME_UUID))) {
 				uuid = &blk[i + sizeof(journal_block_tag_t)];
-				fprintf(out, "\ttag[%d] uuid:\t\t", count);
+				fprintf (out, "\tUUID: ");
 				for(j = 0; j < 16; j++)
-					fprintf(out, "%x ", uuid[j]);
-				fprintf(out, "\n");
+					fprintf (out, "%02X",uuid[j]);
+				fprintf (out, "\n");
 				i += 16;
 			}
 			count++;
@@ -227,10 +208,11 @@ void print_jbd_block (journal_header_t *header, FILE *out)
 		print_header (header, out);
 		break;
 
-	case JFS_REVOKE_BLOCK:
+	case JFS_REVOKE_BLOCK:							/*TODO*/
 		fprintf(out, "Journal Revoke Block\n");
 		print_header (header, out);
 		revoke = (journal_revoke_header_t *) blk;
+
 		fprintf(out, "\tr_count:\t\t%d\n", ntohl(revoke->r_count));
 		count = (ntohl(revoke->r_count) - 
 			 sizeof(journal_revoke_header_t)) / sizeof(__u32);
@@ -240,9 +222,12 @@ void print_jbd_block (journal_header_t *header, FILE *out)
 		break;
 
 	default:
-		fprintf(out, "Unknown block type\n");
+		fprintf(out, "Unknown Block Type\n");
 		break;
 	}
+
+	if (tagflg)
+		g_string_free (tagflg, 1);
 
 	return;
 }				/* print_jbd_block */
