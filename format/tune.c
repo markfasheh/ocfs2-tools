@@ -26,6 +26,11 @@
 #include <format.h>
 #include <tune.h>
 
+/* getopt stuff */
+int getopt(int argc, char *const argv[], const char *optstring);
+extern char *optarg;
+extern int optind, opterr, optopt;
+
 void init_global_context(void);
 int create_orphan_dirs(ocfs_vol_disk_hdr *volhdr, bool *update, int fd);
 int ocfs_init_orphan_dir(ocfs_super *osb, int node_num, char *filename);
@@ -51,7 +56,9 @@ ocfs_options opts = {
 	.slot_num = OCFS_INVALID_NODE_NUM,
 	.device_size = 0,
 	.list_nodes = false,
-	.convert = -1
+	.convert = -1,
+	.disk_hb = 0,
+	.hb_timeo = 0
 };
 
 bool ignore_signal = false;
@@ -60,8 +67,9 @@ int rawminor = 0;
 char rawdev[FILE_NAME_SIZE];
 
 char *usage_string =
-"usage: %s [-F] [-g gid] [-h] [-l] [-n] [-N nodenum] [-p permissions] "
-"[-q] [-S size] [-u uid] [-V] device\n\n"
+"usage: %s [-d ms] [-F] [-g gid] [-h] [-l] [-n] [-N nodenum] [-p permissions] "
+"[-q] [-S size] [-t ms] [-u uid] [-V] device\n\n"
+"	-d disk heartbeat in ms\n"
 "	-F Force resize existing OCFS volume\n"
 "	-g Group ID for the root directory\n"
 "	-h Help\n"
@@ -71,6 +79,7 @@ char *usage_string =
 "	-p Permissions for the root directory\n"
 "	-q Quiet execution\n"
 "	-S Volume size, e.g., 50G (M for mega, G for giga, T for tera)\n"
+"	-t heartbeat timeout in ms\n"
 "	-u User ID for the root directory\n"
 "	-c Convert filesystem versions\n"
 "	-V Print version and exit\n";
@@ -188,7 +197,7 @@ int main(int argc, char **argv)
 
 	/* Update volume disk header */
 	if (opts.gid != -1 || opts.uid != -1 || opts.perms != -1 ||
-	    opts.device_size || opts.convert != -1) {
+	    opts.device_size || opts.convert != -1 || opts.disk_hb || opts.hb_timeo) {
 		if (!(update_volume_header(file, volhdr, sect_size, vol_size,
 					   &update)))
 			goto bail;
@@ -253,7 +262,7 @@ int main(int argc, char **argv)
 
 	/* Write volume disk header */
 	if (opts.gid != -1 || opts.uid != -1 || opts.perms != -1 ||
-	    opts.device_size || opts.convert != -1) {
+	    opts.device_size || opts.convert != -1 || opts.disk_hb || opts.hb_timeo) {
 		offset = volhdr->start_off;
 		if (!write_sectors(file, offset, 1, sect_size, (void *)volhdr))
 			goto bail;
@@ -278,15 +287,14 @@ bail:
 /*
  * read_options()
  *
- * tuneocfs [ -C ] [ -f ] [ -g gid] [ -L label] [ -m mount-point]
- *          [ -p permissions] [ -q ] [ -S size] [ -u uid] [ -V ] device
+ * "usage: %s [-d ms] [-F] [-g gid] [-h] [-l] [-n] [-N nodenum] [-p permissions] "
+ * "[-q] [-S size] [-t ms] [-u uid] [-V] device\n\n"
  *
  */
 int read_options(int argc, char **argv)
 {
-	int i;
 	int ret = 1;
-	char tmp[128];
+	int c;
 	char *p;
 	__u64 fac = 1;
 	long double size;
@@ -298,143 +306,99 @@ int read_options(int argc, char **argv)
 		goto bail;
 	}
 
-	for (i = 1; i < argc && ret; i++) {
-		switch(*argv[i]) {
-		case '-':
-			switch(*++argv[i]) {
-			case 'C':	/* clear all data blocks */
-				opts.clear_data_blocks = true;
-				break;
+	while(1) {
+		c = getopt(argc, argv, "CFhlnqVd:g:N:p:S:t:u:");
+		if (c == -1)
+			break;
 
-			case 'F':	/* force resize */
-				opts.force_op = true;
-				break;
+		switch (c) {
+		case 'd':	/* disk heartbeat */
+			opts.disk_hb = strtoul(optarg, NULL, 0);
+			break;
 
-			case 'g':	/* gid */
-				++i;
-				if (i < argc && argv[i])
-					opts.gid = get_gid(argv[i]);
-				else {
-					fprintf(stderr, "Invalid group id.\n"
-						"Aborting.\n");
-					ret = 0;
-				}
-				break;
+		case 'C':	/* clear all data blocks */
+			opts.clear_data_blocks = true;
+			break;
 
-			case 'h':	/* help */
-				version(argv[0]);
-				usage(argv[0]);
+		case 'F':	/* force resize */
+			opts.force_op = true;
+			break;
+
+		case 'g':	/* gid */
+			opts.gid = get_gid(optarg);
+			break;
+
+		case 'h':	/* help */
+			version(argv[0]);
+			usage(argv[0]);
+			ret = 0;
+			break;
+
+		case 'l':	/* list node configs */
+			opts.list_nodes = true;
+			break;
+
+		case 'n':	/* query */
+			opts.query_only = true;
+			break;
+
+		case 'N':	/* node cfg slot */
+			opts.slot_num = atoi(optarg);
+			break;
+
+		case 'p':	/* permissions */
+			opts.perms = strtoul(optarg, NULL, 8);
+			opts.perms &= 0007777;
+			break;
+
+		case 'q':	/* quiet */
+			opts.quiet = true;
+			break;
+
+		case 'S':	/* device size */
+			size = strtold(optarg, &p);
+			if (p)
+				MULT_FACTOR(*p, fac);
+			opts.device_size = (__u64)(size * fac);
+			break;
+
+		case 't':	/* node timeout */
+			opts.hb_timeo = strtoul(optarg, NULL, 0);
+			break;
+
+		case 'u':	/* uid */
+			opts.uid = get_uid(optarg);
+			break;
+
+		case 'V':	/* print version */
+			version(argv[0]);
+			ret = 0;
+			break;
+
+		case 'x':	/* used for debugocfs */
+			opts.print_progress = true;
+			break;
+
+		case 'c':	/* convert */
+			opts.convert = atoi(optarg);
+			if (opts.convert == OCFS_MAJOR_VERSION) {
+				fprintf(stderr, "Conversion to V1 ocfs not yet supported.\nAborting.\n");
 				ret = 0;
-				break;
-
-			case 'l':	/* list node configs */
-				opts.list_nodes = true;
-				break;
-
-			case 'n':	/* query */
-				opts.query_only = true;
-				break;
-
-			case 'N':	/* node cfg slot */
-				++i;
-				if (i < argc && argv[i])
-					opts.slot_num = atoi(argv[i]);
-				else {
-					fprintf(stderr,"Invalid node config slot.\n"
-						"Aborting.\n");
-					ret = 0;
-				}
-				break;
-
-			case 'p':	/* permissions */
-				++i;
-				if (i < argc && argv[i]) {
-					opts.perms = strtoul(argv[i], NULL, 8);
-					opts.perms &= 0007777;
-				} else {
-					fprintf(stderr,"Invalid permissions.\n"
-						"Aborting.\n");
-					ret = 0;
-				}
-				break;
-
-			case 'q':	/* quiet */
-				opts.quiet = true;
-				break;
-
-			case 'S':	/* device size */
-				++i;
-				if (i < argc && argv[i]) {
-					strcpy(tmp, argv[i]);
-					size = strtold(tmp, &p);
-					if (p)
-						MULT_FACTOR(*p, fac);
-					opts.device_size = (__u64)(size * fac);
-				} else {
-					fprintf(stderr,"Invalid device size.\n"
-						"Aborting.\n");
-					ret = 0;
-				}
-				break;
-
-			case 'u':	/* uid */
-				++i;
-				if (i < argc && argv[i])
-					opts.uid = get_uid(argv[i]);
-				else {
-					fprintf(stderr,"Invalid user id.\n"
-						"Aborting.\n");
-					ret = 0;
-				}
-				break;
-
-			case 'V':	/* print version */
-				version(argv[0]);
+			} else if (opts.convert < OCFS_MAJOR_VERSION || opts.convert > OCFS2_MAJOR_VERSION) {
+				fprintf(stderr, "Invalid version.\nAborting.\n");
 				ret = 0;
-				break;
-
-			case 'x':	/* used for debugocfs */
-				opts.print_progress = true;
-				break;
-
-			case 'c':	/* convert */
-				++i;
-				if (i < argc && argv[i]) {
-					opts.convert = atoi(argv[i]);
-					if (opts.convert == OCFS_MAJOR_VERSION) {
-						fprintf(stderr, "Conversion to"
-							" V1 ocfs not yet"
-							" supported.\n"
-							"Aborting.\n");
-						ret = 0;
-					} else if (opts.convert < OCFS_MAJOR_VERSION || opts.convert > OCFS2_MAJOR_VERSION) {
-						fprintf(stderr, "Invalid "
-							"version.\n"
-							"Aborting.\n");
-						ret = 0;
-					}
-				} else {
-					fprintf(stderr, "No version "
-						"specified.\nAborting.\n");
-					ret = 0;
-				}
-				break;
-
-			default:
-				fprintf(stderr, "Invalid switch -%c.\n"
-					"Aborting.\n", *argv[i]);
-				ret = 0;
-				break;
 			}
 			break;
 
 		default:
-			strncpy(opts.device, argv[i], FILE_NAME_SIZE);
 			break;
 		}
 	}
 
-      bail:
+	if (ret && optind < argc && argv[optind])
+			strncpy(opts.device, argv[optind], FILE_NAME_SIZE);
+
+bail:
 	return ret;
 }				/* read_options */
 
@@ -445,6 +409,9 @@ int read_options(int argc, char **argv)
  */
 bool validate_options(char *progname)
 {
+	__u32 miss_cnt;
+	__u32 min_hbt;
+
 	if (opts.device[0] == '\0') {
 		fprintf(stderr, "Error: Device not specified.\n");
 		usage(progname);
@@ -453,9 +420,37 @@ bool validate_options(char *progname)
 
 	if (opts.slot_num != OCFS_INVALID_NODE_NUM) {
 		if (opts.slot_num < 0 || opts.slot_num >= OCFS_MAXIMUM_NODES) {
-			fprintf(stderr, "Error: Invalid node config slot "
-			       	"specified.\n");
-			usage(progname);
+			fprintf(stderr, "Error: Node config slot should be "
+				"between 0 and 31.\n");
+			return 0;
+		}
+	}
+
+	if (opts.disk_hb && !IS_VALID_DISKHB(opts.disk_hb)) {
+		fprintf(stderr, "Error: Disk heartbeat should be between %d "
+			"and %d.\n", OCFS_MIN_DISKHB, OCFS_MAX_DISKHB);
+		return 0;
+	}
+
+	if (opts.hb_timeo && !IS_VALID_HBTIMEO(opts.hb_timeo)) {
+		fprintf(stderr, "Error: Node timeout should be between %d "
+			"and %d.\n", OCFS_MIN_HBTIMEO, OCFS_MAX_HBTIMEO);
+		return 0;
+	}
+
+	if (opts.disk_hb || opts.hb_timeo) {
+		if (!(opts.disk_hb && opts.hb_timeo)) {
+			fprintf(stderr, "Error: Both node timeout and disk "
+				"heartbeat need to be specified.\n");
+		       	return 0;
+		}
+
+		miss_cnt = opts.hb_timeo / opts.disk_hb;
+		if (miss_cnt < MIN_MISS_COUNT_VALUE) {
+			min_hbt = opts.disk_hb * MIN_MISS_COUNT_VALUE;
+			fprintf(stderr, "Error: For %d ms disk heartbeat, "
+			       	"node timeout cannot be less than %d ms.\n",
+			       	opts.disk_hb, min_hbt);
 			return 0;
 		}
 	}
@@ -534,6 +529,21 @@ int update_volume_header(int file, ocfs_vol_disk_hdr *volhdr, __u32 sect_size,
 		}
 		*update = true;
 	}
+
+	if (opts.disk_hb) {
+		printf("Changing disk heartbeat from %u ms to %u ms\n",
+		       volhdr->disk_hb, opts.disk_hb);
+		volhdr->disk_hb = opts.disk_hb;
+		*update = true;
+	}
+
+	if (opts.hb_timeo) {
+		printf("Changing node timeout from %u ms to %u ms\n",
+		       volhdr->hb_timeo, opts.hb_timeo);
+		volhdr->hb_timeo = opts.hb_timeo;
+		*update = true;
+	}
+
 bail:
 	return ret;
 }				/* update_volume_header */

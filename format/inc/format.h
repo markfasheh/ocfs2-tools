@@ -158,6 +158,8 @@ typedef struct _ocfs_options
 	__u64 device_size;
 	bool list_nodes;
 	int convert;
+	__u32 disk_hb;
+	__u32 hb_timeo;
 }
 ocfs_options;
 

@@ -238,7 +238,13 @@ int main(int argc, char **argv)
 
     /* Clear NewConf */
     offset = volhdr->node_cfg_off + volhdr->node_cfg_size;
-    if (!ClearSectors(file, offset, 4, sect_size))
+    if (!ClearSectors(file, offset, 1, sect_size))
+	goto bail;
+    offset += sect_size;
+    if (!InitNodeConfHdr(file, offset, sect_size))
+	goto bail;
+    offset += (2 * sect_size);
+    if (!ClearSectors(file, offset, 1, sect_size))
 	goto bail;
     fsync(file);
 

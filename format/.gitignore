@@ -1,5 +1,4 @@
-cscope.files
-cscope.out
+cscope.*
 stamp-md5
 mounted.ocfs
 mkfs.ocfs
