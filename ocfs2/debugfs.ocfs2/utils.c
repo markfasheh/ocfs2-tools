@@ -123,13 +123,13 @@ void get_publish_flag (__u32 flag, GString *str)
 	if (flag & FLAG_FILE_RENAME)
 		g_string_append (str, "rename ");
 
-	if (flag &  FLAG_FILE_UPDATE)
+	if (flag & FLAG_FILE_UPDATE)
 		g_string_append (str, "update ");
 
-	if (flag &  FLAG_FILE_RECOVERY)
+	if (flag & FLAG_FILE_RECOVERY)
 		g_string_append (str, "recovery ");
 
-	if (flag &  FLAG_FILE_CREATE_DIR)
+	if (flag & FLAG_FILE_CREATE_DIR)
 		g_string_append (str, "createdir ");
 
 	if (flag & FLAG_FILE_UPDATE_OIN)

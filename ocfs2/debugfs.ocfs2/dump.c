@@ -181,10 +181,16 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
  */
 void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
 {
+#if 0
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
 	int i, j, k;
 	__u32 node_map;
+#endif
 
+	fprintf(out, "\tLock Master: %u   Level: 0x%0x\n",
+		dl->dl_master, dl->dl_level);
+
+#if 0
 	fprintf(out, "\tLock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
 	       dl->dl_master, dl->dl_level, (unsigned long long)dl->dl_seq_num);
 
@@ -200,6 +206,7 @@ void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
 		}
 		fprintf (out, "\n");
 	}
+#endif
 
 	return ;
 }				/* dump_disk_lock */
