@@ -8,8 +8,7 @@ ocfs2console - GUI frontend for OCFS2 management and debugging
 .PP
 \fBocfs2console\fP is a GUI frontend for managing and debugging OCFS2 volumes on
 the system. One can mount and unmount volumes, format, view overview
-information and individual files, see the current node map, and block
-bitmap.
+information and individual files, see the current node map.
 
 .SH BUGS
 Stuff.
@@ -18,7 +17,7 @@ Stuff.
 .BR ocfs2(5)
 
 .SH AUTHORS
-Oracle Corporation
+Oracle
 
 .SH COPYRIGHT
-Copyright \(co 2002, 2005 Oracle Corporation
+Copyright \(co 2002, 2005 Oracle
