@@ -1,4 +1,4 @@
-/* -*- mode: c; c-basic-offset: 9; -*-
+/* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
  * ocfs2_fs.h
@@ -183,7 +183,6 @@ static unsigned char ocfs_type_by_mode[S_IFMT >> S_SHIFT] = {
 #define OCFS2_NODE_CONFIG_VER		2
 #define OCFS2_NODE_MIN_SUPPORTED_VER	2
 
-#define MAX_IP_ADDR_LEN		32
 #define MAX_NODE_NAME_LENGTH	32
 
 #define OCFS2_GUID_HOSTID_LEN	20
@@ -371,46 +370,74 @@ struct ocfs2_dir_entry {
 /* Actual on-disk length specified by rec_len */
 };
 
-typedef struct _ocfs_ipc_config_info			// CLASS
+/*
+ * On-disk IPC configuration for an OCFS2 node.
+ */
+typedef struct _ocfs_ipc_config_info
 {
-	__u8 type;					// NUMBER RANGE(0, 255)
-	__u8 ip_addr[MAX_IP_ADDR_LEN+1];		// CHAR[MAX_IP_ADDR_LEN+1]
-	__u32 ip_port;					// NUMBER RANGE(0,ULONG_MAX)
-	__u8 ip_mask[MAX_IP_ADDR_LEN+1];		// CHAR[MAX_IP_ADDR_LEN+1]
-}
-ocfs_ipc_config_info;	// END CLASS
+/*00*/	__u16 ip_version;		/* IP version in NBO */
+	__u16 ip_port;			/* IP port in NBO */
+	__u32 ip_reserved1;
+	__u64 ip_reserved2;
+/*10*/	union {
+		__u32 ip_addr4;		/* IPv4 address in NBO */
+		__u32 ip_addr6[4];	/* IPv6 address in NBO */
+	} addr_u;
+/*20*/
+} ocfs_ipc_config_info;
 
-/* TODO this structure will break in 64-bit.... need to pack */
+/*
+ * On-disk structure representing a Global Unique ID for an OCFS2 node.
+ *
+ * The GUID has two parts.  The host_id is a generally-randomly-unique
+ * hex-as-ascii string of 20 characters (10 bytes).  The mad_id field
+ * is, unsurprisingly, the MAC address of the network card that the
+ * IPC mechanism will be using (the address in
+ * ocfs_ipc_config_info.addr_u).  This should (ha-ha) provide a unique
+ * identifier for a node in the OCFS2 cluster.  It has the added
+ * benefit of detecting when a node has changed network cards
+ * (host_id is the same, mac_id has changed) or when an identical
+ * mac address is on a different mode (the converse).
+ */
 typedef union _ocfs_guid
 {
-	struct
+/*00*/	struct
 	{
 		char host_id[OCFS2_GUID_HOSTID_LEN];
 		char mac_id[OCFS2_GUID_MACID_LEN];
 	} id;
 	__u8 guid[OCFS2_GUID_LEN];
+/*20*/
 } ocfs_guid;
 
-typedef struct _ocfs_node_config_info			// CLASS
+/*
+ * On-disk configuration information for an OCFS2 node.  A node
+ * populates its own info for other nodes to read and use.
+ */
+typedef struct _ocfs_node_config_info
 {
-	ocfs2_disk_lock disk_lock;			// DISKLOCK
-	__u8 node_name[MAX_NODE_NAME_LENGTH+1];		// CHAR[MAX_NODE_NAME_LENGTH+1]
-	ocfs_guid guid;					// GUID
-	ocfs_ipc_config_info ipc_config;		// IPCONFIG
-}
-ocfs_node_config_info;					// END CLASS
+/*00*/	ocfs2_disk_lock disk_lock;		/* Lock on the info */
+/*30*/	ocfs_guid guid;				/* GUID */
+/*50*/	ocfs_ipc_config_info ipc_config;	/* IPC info */
+/*70*/	__u8 node_name[MAX_NODE_NAME_LENGTH+1]; /* Name */
+/*91*/	__u8 name_pad[7];			/* Pad to align (UGH) */
+/*98*/
+} ocfs_node_config_info;
 
-typedef struct _ocfs_node_config_hdr			// CLASS
+/*
+ * On-disk ... for OCFS2.  FIXME this description.
+ */
+typedef struct _ocfs_node_config_hdr
 {
-	ocfs2_disk_lock disk_lock;			// DISKLOCK
-	__u8 signature[OCFS2_NODE_CONFIG_SIGN_LEN];	// CHAR[NODE_CONFIG_SIGN_LEN]
-	__u32 version;					// NUMBER RANGE(0,ULONG_MAX)
-	__u32 num_nodes;				// NUMBER RANGE(0,32)
-	__u32 last_node;				// NUMBER RANGE(0,32)
-	__u32 onch_pad;                                 // UNUSED
-	__u64 cfg_seq_num;				// NUMBER RANGE(0,ULONG_LONG_MAX)
-}
-ocfs_node_config_hdr;					// END CLASS
+/*00*/	ocfs2_disk_lock disk_lock;
+/*30*/	__u8 signature[OCFS2_NODE_CONFIG_SIGN_LEN];
+	__u32 version;
+	__u32 num_nodes;
+/*40*/	__u32 last_node;
+	__u32 onch_pad;
+	__u64 cfg_seq_num;
+/*50*/	
+} ocfs_node_config_hdr;
 
 
 #ifdef __KERNEL__

@@ -94,7 +94,6 @@ extern void * memalign (size_t __alignment, size_t __size);
 #define OCFS2_DFL_MAX_MNT_COUNT          20      /* Allow 20 mounts */
 #define OCFS2_DFL_CHECKINTERVAL          0       /* Don't use interval check */
 
-
 enum {
 	sfi_journal,
 	sfi_bitmap,
@@ -639,21 +638,28 @@ void format_file(system_file_disk_record *rec)
 	di->i_atime = di->i_ctime = di->i_mtime = cpu_to_le64(format_time);
 	di->i_dtime = 0;
 	di->i_clusters = cpu_to_le32(clusters);
+	if (rec->flags & OCFS2_LOCAL_ALLOC_FL) {
+		di->id2.i_lab.la_size = 
+			cpu_to_le16(OCFS2_LOCAL_BITMAP_DEFAULT_SIZE);
+		return;
+	} 
+
+	if (rec->flags & OCFS2_BITMAP_FL) {
+		di->id1.bitmap1.i_used = cpu_to_le32(rec->bi.used_bits);
+		di->id1.bitmap1.i_total = cpu_to_le32(rec->bi.total_bits);
+	} 
+
 	di->id2.i_list.l_count = cpu_to_le16(ocfs2_extent_recs_per_inode(blocksize));
 	di->id2.i_list.l_next_free_rec = cpu_to_le16(0);
 	di->id2.i_list.l_tree_depth = cpu_to_le16(-1);
+
 	if (rec->extent_len) {
 		di->id2.i_list.l_next_free_rec = cpu_to_le16(1);
 		di->id2.i_list.l_recs[0].e_cpos = 0;
 		di->id2.i_list.l_recs[0].e_clusters = cpu_to_le32(clusters);
 		di->id2.i_list.l_recs[0].e_blkno = cpu_to_le64(rec->extent_off >> blocksize_bits);
 	}
-	if (rec->flags & OCFS2_BITMAP_FL) {
-		di->id1.bitmap1.i_used = cpu_to_le32(rec->bi.used_bits);
-		di->id1.bitmap1.i_total = cpu_to_le32(rec->bi.total_bits);
-	}
 }
-		
 
 void write_bitmap_data(alloc_bm *bm)
 {
