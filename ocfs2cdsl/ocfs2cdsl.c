@@ -310,6 +310,11 @@ get_state(int argc, char **argv)
 	if ((optind == argc) && !show_version)
 		usage(progname);
 
+	if (show_version) {
+		version(progname);
+		exit(0);
+	}
+
 	filename = argv[optind++];
 
 	tmp = g_path_get_dirname(filename);
@@ -325,11 +330,6 @@ get_state(int argc, char **argv)
 
 	if (optind < argc)
 		usage(progname);
-
-	if (show_version) {
-		version(progname);
-		exit(0);
-	}
 
 	s = g_new0(State, 1);
 
@@ -437,6 +437,7 @@ cdsl_path_expand(State *s)
 		break;
 	default:
 		g_assert_not_reached();
+		prefix = val = NULL;
 		break;
 	}
 
@@ -466,6 +467,7 @@ cdsl_target(State *s, const char *path)
 		break;
 	default:
 		g_assert_not_reached();
+		type = NULL;
 		break;
 	}
 
