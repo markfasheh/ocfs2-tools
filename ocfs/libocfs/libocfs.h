@@ -422,7 +422,7 @@ found_middle:
 	return result + ffz(tmp);
 }
 
-#else /* !ppc32 */
+#elif !defined(__ia64__)
 #error "Your platform doesn't provide the functions required in <asm/bitops.h>"
 #endif
 
