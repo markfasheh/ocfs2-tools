@@ -310,6 +310,18 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 					   int ref_recno,
 					   void *priv_data),
 			       void *priv_data);
+errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
+				     ocfs2_dinode *inode,
+				     int flags,
+				     char *block_buf,
+				     int (*func)(ocfs2_filesys *fs,
+					         ocfs2_extent_rec *rec,
+					         int tree_depth,
+					         uint32_t ccount,
+					         uint64_t ref_blkno,
+					         int ref_recno,
+					         void *priv_data),
+					         void *priv_data);
 errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 			      uint64_t blkno,
 			      int flags,
@@ -318,6 +330,14 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 					  uint64_t bcount,
 					  void *priv_data),
 			      void *priv_data);
+errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
+				    ocfs2_dinode *inode,
+				    int flags,
+				    int (*func)(ocfs2_filesys *fs,
+						uint64_t blkno,
+						uint64_t bcount,
+						void *priv_data),
+				    void *priv_data);
 
 errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
 			       void *buf);

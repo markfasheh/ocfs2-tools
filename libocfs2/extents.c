@@ -236,53 +236,41 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 }
 
 
-errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
-			       uint64_t blkno,
-			       int flags,
-			       char *block_buf,
-			       int (*func)(ocfs2_filesys *fs,
-					   ocfs2_extent_rec *rec,
-					   int tree_depth,
-					   uint32_t ccount,
-					   uint64_t ref_blkno,
-					   int ref_recno,
-					   void *priv_data),
-			       void *priv_data)
+errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
+				     ocfs2_dinode *inode,
+				     int flags,
+				     char *block_buf,
+				     int (*func)(ocfs2_filesys *fs,
+					         ocfs2_extent_rec *rec,
+					         int tree_depth,
+					         uint32_t ccount,
+					         uint64_t ref_blkno,
+					         int ref_recno,
+					         void *priv_data),
+					         void *priv_data)
 {
 	int i;
 	int iret = 0;
-	char *buf;
-	ocfs2_dinode *inode;
 	ocfs2_extent_list *el;
 	errcode_t ret;
 	struct extent_context ctxt;
 
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		return ret;
-
-	ret = ocfs2_read_inode(fs, blkno, buf);
-	if (ret)
-		goto out_buf;
-
-	inode = (ocfs2_dinode *)buf;
-
 	ret = OCFS2_ET_INODE_NOT_VALID;
 	if (!(inode->i_flags & OCFS2_VALID_FL))
-		goto out_buf;
+		goto out;
 
 	ret = OCFS2_ET_INODE_CANNOT_BE_ITERATED;
 	if (inode->i_flags & (OCFS2_SUPER_BLOCK_FL |
 			      OCFS2_LOCAL_ALLOC_FL |
 			      OCFS2_CHAIN_FL))
-		goto out_buf;
+		goto out;
 
 	el = &inode->id2.i_list;
 	if (el->l_tree_depth) {
 		ret = ocfs2_malloc0(sizeof(char *) * el->l_tree_depth,
 				    &ctxt.eb_bufs);
 		if (ret)
-			goto out_buf;
+			goto out;
 
 		if (block_buf) {
 			ctxt.eb_bufs[0] = block_buf;
@@ -328,9 +316,43 @@ out_eb_bufs:
 		ocfs2_free(&ctxt.eb_bufs);
 	}
 
-out_buf:
-	ocfs2_free(&buf);
+out:
+	return ret;
+}
 
+errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
+			       uint64_t blkno,
+			       int flags,
+			       char *block_buf,
+			       int (*func)(ocfs2_filesys *fs,
+					   ocfs2_extent_rec *rec,
+					   int tree_depth,
+					   uint32_t ccount,
+					   uint64_t ref_blkno,
+					   int ref_recno,
+					   void *priv_data),
+			       void *priv_data)
+{
+	char *buf = NULL;
+	ocfs2_dinode *inode;
+	errcode_t ret;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_inode(fs, blkno, buf);
+	if (ret)
+		goto out_buf;
+
+	inode = (ocfs2_dinode *)buf;
+
+	ret = ocfs2_extent_iterate_inode(fs, inode, flags, block_buf,
+					 func, priv_data);
+
+out_buf:
+	if (buf)
+		ocfs2_free(&buf);
 	return ret;
 }
 
@@ -374,6 +396,31 @@ static int block_iterate_func(ocfs2_filesys *fs,
 	return iret;
 }
 
+errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
+				    ocfs2_dinode *inode,
+				    int flags,
+				    int (*func)(ocfs2_filesys *fs,
+						uint64_t blkno,
+						uint64_t bcount,
+						void *priv_data),
+				    void *priv_data)
+{
+	errcode_t ret;
+	struct block_context ctxt;
+
+	ctxt.inode = inode;
+	ctxt.flags = flags;
+	ctxt.func = func;
+	ctxt.errcode = 0;
+	ctxt.priv_data = priv_data;
+
+	ret = ocfs2_extent_iterate_inode(fs, inode,
+					 OCFS2_EXTENT_FLAG_DATA_ONLY,
+					 NULL,
+					 block_iterate_func, &ctxt);
+	return ret;
+}
+
 errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 			      uint64_t blkno,
 			      int flags,
@@ -383,9 +430,9 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 					  void *priv_data),
 			      void *priv_data)
 {
+	ocfs2_dinode *inode;
 	errcode_t ret;
 	char *buf;
-	struct block_context ctxt;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -395,20 +442,12 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 	if (ret)
 		goto out_buf;
 
-	ctxt.inode = (ocfs2_dinode *)buf;
-	ctxt.flags = flags;
-	ctxt.func = func;
-	ctxt.errcode = 0;
-	ctxt.priv_data = priv_data;
+	inode = (ocfs2_dinode *)buf;
 
-	ret = ocfs2_extent_iterate(fs, blkno,
-				   OCFS2_EXTENT_FLAG_DATA_ONLY,
-				   NULL,
-				   block_iterate_func, &ctxt);
+	ret = ocfs2_block_iterate_inode(fs, inode, flags, func, priv_data);
 
 out_buf:
 	ocfs2_free(&buf);
-
 	return ret;
 }
 

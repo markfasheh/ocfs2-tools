@@ -439,8 +439,8 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	else {
 		ret = o2fsck_check_extents(ost, di);
 		if (ret == 0)
-			ret = ocfs2_block_iterate(fs, blkno, 0, verify_block,
-						  &vb);
+			ret = ocfs2_block_iterate_inode(fs, di, 0,
+							verify_block, &vb);
 	}
 
 	if (ret) {
