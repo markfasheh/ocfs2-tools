@@ -69,8 +69,8 @@ CONFIG=/etc/ocfs.conf
 # Set VALID_PARMS to the untion of all parameters valid for the modules
 # this script suppports.  Set REQUIRED_PARMS to the parameters requred
 # by all the modules this script supports.
-COMMON_PARMS="node_name:node_number:debug_context:debug_level:ip_address:guid:comm_voting"
-VALID_PARMS="$COMMON_PARMS:ip_port:ip_port_v2"
+COMMON_PARMS="node_name:node_number:debug_context:debug_level:ip_address:guid"
+VALID_PARMS="$COMMON_PARMS:ip_port:ip_port_v2:comm_voting"
 REQUIRED_PARMS="node_name:ip_address:guid"
 
 # Multi-module switch.  The script's argv0 is used to determine the
@@ -85,7 +85,7 @@ ocfs2)
     ;;
 ocfs)
     REQUIRED_PARMS="$REQUIRED_PARMS:ip_port"
-    USED_PARMS="$COMMON_PARMS:ip_port"
+    USED_PARMS="$COMMON_PARMS:ip_port:comm_voting"
     ;;
 esac
 
