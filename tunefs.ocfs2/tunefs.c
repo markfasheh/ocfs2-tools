@@ -494,6 +494,7 @@ int main(int argc, char **argv)
 	uint64_t vol_size = 0;
 
 	initialize_ocfs_error_table();
+	initialize_o2dl_error_table();
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -504,8 +505,20 @@ int main(int argc, char **argv)
 
 	ret = ocfs2_open(opts.device, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
-		com_err(argv[0], ret, " ");
-		goto bail;
+		com_err(opts.progname, ret, " ");
+		goto close;
+	}
+
+	ret = ocfs2_initialize_dlm(fs);
+	if (ret) {
+		com_err(opts.progname, ret, " ");
+		goto close;
+	}
+
+	ret = ocfs2_lock_down_cluster(fs);
+	if (ret) {
+		com_err(opts.progname, ret, " ");
+		goto close;
 	}
 
 //	check_32bit_blocks (s);
@@ -513,7 +526,7 @@ int main(int argc, char **argv)
 	/* get journal size of node 0 */
 	ret = get_default_journal_size(fs, &def_jrnl_size);
 	if (ret)
-		goto bail;
+		goto unlock;
 
 	/* validate volume label */
 	if (opts.vol_label) {
@@ -530,7 +543,7 @@ int main(int argc, char **argv)
 		} else {
 			printf("ERROR: Nodes (%d) has to be larger than "
 			       "configured nodes (%d)\n", opts.num_nodes, tmp);
-			goto bail;
+			goto unlock;
 		}
 
 		if (!opts.jrnl_size)
@@ -552,7 +565,7 @@ int main(int argc, char **argv)
 			if (!opts.num_nodes) {
 				printf("ERROR: Journal size %"PRIu64" has to be larger "
 				       "than %"PRIu64"\n", opts.jrnl_size, def_jrnl_size);
-				goto bail;
+				goto unlock;
 			}
 		}
 	}
@@ -575,7 +588,7 @@ int main(int argc, char **argv)
 	printf("Proceed (y/N): ");
 	if (toupper(getchar()) != 'Y') {
 		printf("Aborting operation.\n");
-		goto bail;
+		goto unlock;
 	}
 
 	/* update volume label */
@@ -590,7 +603,7 @@ int main(int argc, char **argv)
 		ret = update_nodes(fs, &upd_nodes);
 		if (ret) {
 			com_err(opts.progname, ret, "while updating nodes");
-			goto bail;
+			goto unlock;
 		}
 		if (upd_nodes)
 			printf("Added nodes\n");
@@ -601,7 +614,7 @@ int main(int argc, char **argv)
 		ret = update_journal_size(fs, &upd_jrnls);
 		if (ret) {
 			com_err(opts.progname, ret, "while updating journal size");
-			goto bail;
+			goto unlock;
 		}
 		if (upd_jrnls)
 			printf("Resized journals\n");
@@ -612,7 +625,7 @@ int main(int argc, char **argv)
 		ret = update_volume_size(fs, &upd_vsize);
 		if (ret) {
 			com_err(opts.progname, ret, "while updating volume size");
-			goto bail;
+			goto unlock;
 		}
 		if (upd_vsize)
 			printf("Resized volume\n");
@@ -623,12 +636,19 @@ int main(int argc, char **argv)
 		ret = ocfs2_write_super(fs);
 		if (ret) {
 			com_err(opts.progname, ret, "while writing superblock");
-			goto bail;
+			goto unlock;
 		}
 		printf("Wrote Superblock\n");
 	}
 
-bail:
+unlock:
+	if (fs->fs_dlm_ctxt)
+		ocfs2_release_cluster(fs);
+
+close:
+	if (fs->fs_dlm_ctxt)
+		ocfs2_shutdown_dlm(fs);
+
 	if (fs)
 		ocfs2_close(fs);
 
