@@ -27,24 +27,49 @@
 
 extern char *progname;
 
-void corrupt_3(ocfs2_filesys *fs)
+/*
+ * corrupt_chains()
+ *
+ */
+void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t nodenum)
 {
 	errcode_t ret;
 	uint64_t blkno;
 	ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
-	char *global_bitmap = sysfile_info[GLOBAL_BITMAP_SYSTEM_INODE].name;
+	char sysfile[40];
 
-	ret = ocfs2_lookup(fs, sb->s_system_dir_blkno, global_bitmap,
-			   strlen(global_bitmap), NULL, &blkno);
+	switch (code) {
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+		snprintf(sysfile, sizeof(sysfile),
+			 sysfile_info[GLOBAL_BITMAP_SYSTEM_INODE].name);
+		break;
+#ifdef _LATER_
+	case 1:
+		snprintf(sysfile, sizeof(sysfile),
+			 sysfile_info[GLOBAL_INODE_ALLOC_SYSTEM_INODE].name);
+		break;
+	case 2: 
+		snprintf(sysfile, sizeof(sysfile),
+			 sysfile_info[EXTENT_ALLOC_SYSTEM_INODE].name, nodenum);
+		break;
+	case 3:
+		snprintf(sysfile, sizeof(sysfile),
+			 sysfile_info[INODE_ALLOC_SYSTEM_INODE].name, nodenum);
+		break;
+#endif
+	default:
+		FSWRK_FATAL("Invalid code=%d", code);
+	}
+
+	ret = ocfs2_lookup(fs, sb->s_system_dir_blkno, sysfile,
+			   strlen(sysfile), NULL, &blkno);
 	if (ret)
 		FSWRK_FATAL();
 
-	fprintf(stdout, "Corrupt #3: Delink group descriptor from "
-		"global bitmap at block#%"PRIu64"\n", blkno);
-
-	delink_chain_group(fs, blkno, 1);
-
-	fprintf(stdout, "Corrupt #3: Finito\n");
+	mess_up_chains(fs, blkno, code);
 
 	return ;
 }

@@ -26,6 +26,6 @@
 #ifndef __CHAIN_H__
 #define __CHAIN_H__
 
-void delink_chain_group(ocfs2_filesys *fs, int blkno, int count);
+void mess_up_chains(ocfs2_filesys *fs, uint64_t blkno, int code);
 
 #endif		/* __CHAIN_H__ */

@@ -25,17 +25,25 @@
 
 #include <main.h>
 
-#define MAX_CORRUPT		3
+#define MAX_CORRUPT		6
 
 char *progname = NULL;
 char *device = NULL;
+uint16_t nodenum = 0;
 int corrupt[MAX_CORRUPT];
 
-void (*corrupt_func[]) (ocfs2_filesys *fs) = {
-	NULL,
-	NULL,
-	NULL,
-	&corrupt_3
+struct corrupt_funcs {
+	void (*func) (ocfs2_filesys *fs, int code, uint16_t nodenum);
+};
+
+struct corrupt_funcs cf[] = {
+	{ NULL },		/* 0 */
+	{ NULL },		/* 1 */
+	{ NULL },		/* 2 */
+	{ &corrupt_chains },	/* 3 */
+	{ &corrupt_chains },	/* 4 */
+	{ &corrupt_chains },	/* 5 */
+	{ &corrupt_chains }	/* 6 */
 };
 
 /*
@@ -45,6 +53,8 @@ void (*corrupt_func[]) (ocfs2_filesys *fs) = {
 static void usage (char *progname)
 {
 	g_print ("Usage: %s [OPTION]... [DEVICE]\n", progname);
+	g_print ("	-c <corrupt code>\n");
+	g_print ("	-n <node number>\n");
 	exit (0);
 }					/* usage */
 
@@ -91,7 +101,7 @@ static int read_options(int argc, char **argv)
 	}
 
 	while(1) {
-		c = getopt(argc, argv, "c:");
+		c = getopt(argc, argv, "c:n:");
 		if (c == -1)
 			break;
 
@@ -104,6 +114,10 @@ static int read_options(int argc, char **argv)
 				printf("booo\n");
 				return -1;
 			}
+			break;
+
+		case 'n':	/* nodenum */
+			nodenum = strtoul(optarg, NULL, 0);
 			break;
 
 		default:
@@ -158,17 +172,19 @@ int main (int argc, char **argv)
 
 	for (i = 1; i <= MAX_CORRUPT; ++i) {
 		if (corrupt[i]) {
-			if (corrupt_func[i])
-				corrupt_func[i](fs);
+			if (cf[i].func)
+				cf[i].func(fs, i, nodenum);
 			else
 				printf("Unimplemented corrupt code = %d\n", i);
 		}
 	}
 
 bail:
-	ret = ocfs2_close(fs);
-	if (ret)
-		com_err(progname, ret, "while closing \"%s\"", device);
+	if (fs) {
+		ret = ocfs2_close(fs);
+		if (ret)
+			com_err(progname, ret, "while closing \"%s\"", device);
+	}
 
 	return 0;
 }					/* main */
