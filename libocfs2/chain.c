@@ -287,7 +287,7 @@ static int walk_chain_func(ocfs2_filesys *fs,
 	gd = (ocfs2_group_desc *)wi->gd_buf;
 	wi->count_free += gd->bg_free_bits_count;
 	wi->count_total += gd->bg_bits;
-	fprintf(stdout, "    % 16"PRIu64": %05d/%05d = %05d/%05d\n",
+	fprintf(stdout, "     %16"PRIu64": %05d/%05d = %05d/%05d\n",
 		gd->bg_blkno,
 		gd->bg_free_bits_count, gd->bg_bits,
 		wi->count_free, wi->count_total);
