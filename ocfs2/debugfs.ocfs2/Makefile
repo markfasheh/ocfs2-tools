@@ -2,7 +2,7 @@ TOPDIR = ../..
 
 include $(TOPDIR)/Preamble.make
 
-BIN_PROGRAMS = debugfs.ocfs2
+SBIN_PROGRAMS = debugfs.ocfs2
 
 DEFINES = -DLINUX -DDEBUGOCFS -DDEBUG -DDEBUGOCFS_VERSION=\"0.0.1\"
 
