@@ -70,6 +70,7 @@ static void do_vote (char **args);
 static void do_journal (char **args);
 
 extern gboolean allow_write;
+extern gboolean no_raw_bind;
 
 dbgfs_gbls gbls = {
 	.device = NULL,
@@ -187,18 +188,20 @@ static void do_open (char **args)
 		goto bail;
 	}
 
-	if (bind_raw (dev, &gbls.raw_minor, raw_dev, sizeof(raw_dev)))
-		goto bail;
+	if (!no_raw_bind) {
+		if (bind_raw (dev, &gbls.raw_minor, raw_dev, sizeof(raw_dev)))
+			goto bail;
+		printf ("Bound %s to %s\n", dev, raw_dev);
+		dev = raw_dev;
+	}
 
-	printf ("Bound %s to %s\n", dev, raw_dev);
-
-	gbls.dev_fd = open (raw_dev, allow_write ? O_RDONLY : O_RDWR);
+	gbls.dev_fd = open (dev, allow_write ? O_RDONLY : O_RDWR);
 	if (gbls.dev_fd == -1) {
 		printf ("could not open device %s\n", dev);
 		goto bail;
 	}
 
-	gbls.device = g_strdup (raw_dev);
+	gbls.device = g_strdup (dev);
 
 	if (read_super_block (gbls.dev_fd, (char **)&gbls.superblk) != -1)
 		gbls.curdir = g_strdup ("/");
