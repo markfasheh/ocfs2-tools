@@ -141,6 +141,8 @@ int main (int argc, char **argv)
 	errcode_t ret = 0;
 	int i;
 
+	initialize_ocfs_error_table();
+
 #define INSTALL_SIGNAL(sig)					\
 	do {							\
 		if (signal(sig, handle_signal) == SIG_ERR) {	\
