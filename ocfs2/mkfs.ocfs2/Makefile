@@ -41,8 +41,6 @@ VERSION_PREFIX = OCFS2
 
 DIST_RULES = dist-incdir
 
-#MANS = mkfs.ocfs2.8
-
 INSTALL_RULES = install-sbin-links install-man-links
 
 ##########################

@@ -31,6 +31,7 @@
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
+#include <netinet/in.h>
 
 #include "ocfs2.h"
 

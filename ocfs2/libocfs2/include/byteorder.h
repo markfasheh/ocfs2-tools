@@ -27,13 +27,94 @@
 #ifndef _BYTEORDER_H
 #define _BYTEORDER_H
 
+
+#include <endian.h>
+#include <byteswap.h>
+#include <stdint.h>
+
 /*
- * This is a hack, using the kernel parts, until we get something
- * stable in userspace....unless everyone is happy with this??
+ * All OCFS2 on-disk values are in little endian, except for the
+ * autoconfig areas and the journal areas.  The journal code has the
+ * right bits for itself, and the autoconfig areas use htonl(), so
+ * they are OK.
  */
 
-#define __KERNEL__
-#include <asm/byteorder.h>
-#undef __KERNEL__
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+# ifndef cpu_to_le16
+#  define cpu_to_le16(x) ((uint16_t)(x))
+# endif
+# ifndef le16_to_cpu
+#  define le16_to_cpu(x) ((uint16_t)(x))
+# endif
+# ifndef cpu_to_le32
+#  define cpu_to_le32(x) ((uint32_t)(x))
+# endif
+# ifndef le32_to_cpu
+#  define le32_to_cpu(x) ((uint32_t)(x))
+# endif
+# ifndef cpu_to_le64
+#  define cpu_to_le64(x) ((uint64_t)(x))
+# endif
+# ifndef le64_to_cpu
+#  define le64_to_cpu(x) ((uint64_t)(x))
+# endif
+# ifndef cpu_to_be16
+#  define cpu_to_be16(x) ((uint16_t)bswap_16(x))
+# endif
+# ifndef be16_to_cpu
+#  define be16_to_cpu(x) ((uint16_t)bswap_16(x))
+# endif
+# ifndef cpu_to_be32
+#  define cpu_to_be32(x) ((uint32_t)bswap_32(x))
+# endif
+# ifndef be32_to_cpu
+#  define be32_to_cpu(x) ((uint32_t)bswap_32(x))
+# endif
+# ifndef cpu_to_be64
+#  define cpu_to_be64(x) ((uint64_t)bswap_64(x))
+# endif
+# ifndef be64_to_cpu
+#  define be64_to_cpu(x) ((uint64_t)bswap_64(x))
+# endif
+#elif __BYTE_ORDER == __BIG_ENDIAN
+# ifndef cpu_to_le16
+#  define cpu_to_le16(x) ((uint16_t)bswap_16(x))
+# endif
+# ifndef le16_to_cpu
+#  define le16_to_cpu(x) ((uint16_t)bswap_16(x))
+# endif
+# ifndef cpu_to_le32
+#  define cpu_to_le32(x) ((uint32_t)bswap_32(x))
+# endif
+# ifndef le32_to_cpu
+#  define le32_to_cpu(x) ((uint32_t)bswap_32(x))
+# endif
+# ifndef cpu_to_le64
+#  define cpu_to_le64(x) ((uint64_t)bswap_64(x))
+# endif
+# ifndef le64_to_cpu
+#  define le64_to_cpu(x) ((uint64_t)bswap_64(x))
+# endif
+# ifndef cpu_to_be16
+#  define cpu_to_be16(x) ((uint16_t)(x))
+# endif
+# ifndef be16_to_cpu
+#  define be16_to_cpu(x) ((uint16_t)(x))
+# endif
+# ifndef cpu_to_be32
+#  define cpu_to_be32(x) ((uint32_t)(x))
+# endif
+# ifndef be32_to_cpu
+#  define be32_to_cpu(x) ((uint32_t)(x))
+# endif
+# ifndef cpu_to_be64
+#  define cpu_to_be64(x) ((uint64_t)(x))
+# endif
+# ifndef be64_to_cpu
+#  define be64_to_cpu(x) ((uint64_t)(x))
+# endif
+#else
+# error Invalid byte order __BYTE_ORDER
+#endif  /* __BYTE_ORDER */
 
 #endif  /* _BYTEORDER_H */

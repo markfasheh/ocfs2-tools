@@ -37,6 +37,7 @@
 #include <errno.h>
 #include <malloc.h>
 #include <time.h>
+#include <netinet/in.h>
 
 #include <asm/bitops.h>
 
