@@ -35,20 +35,13 @@ HFILES = 		\
 	list.h		\
 	probe.h
 
-HFILES_GEN = blkid_types.h
-
 OBJS = $(subst .c,.o,$(CFILES))
-
-$(OBJS): $(HFILES_GEN)
-
-blkid_types.h: blkid_types.h.in
-	cd $(TOPDIR) && ./config.status
 
 libblkid-internal.a: $(OBJS)
 	rm -f $@
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(HFILES) blkid_types.h.in ChangeLog
+DIST_FILES = $(CFILES) $(HFILES) ChangeLog
 
 include $(TOPDIR)/Postamble.make

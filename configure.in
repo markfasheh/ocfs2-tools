@@ -126,33 +126,7 @@ if test "x$enable_ocfs2console" = "xyes"; then
     if test "x$have_pythondev" = "xyes"; then
       if $PYTHON -c 'import pygtk' >/dev/null 2>&1; then
         BUILD_OCFS2CONSOLE=yes
-
-        HAVE_BLKID=
-        PKG_CHECK_MODULES(BLKID, blkid >= 1.36, HAVE_BLKID=yes,
-          [AC_MSG_WARN([blkid >= 1.36 not found, using internal version])])
-        AC_SUBST(HAVE_BLKID)
-
-        if test "x$HAVE_BLKID" != "xyes"; then
-          AC_CHECK_LIB(uuid, uuid_unparse, :,
-            [AC_MSG_ERROR([could not find uuid library])])
-
-          AC_CHECK_SIZEOF(short)
-          AC_CHECK_SIZEOF(int)
-          AC_CHECK_SIZEOF(long)
-          AC_CHECK_SIZEOF(long long)
-
-          SIZEOF_SHORT=$ac_cv_sizeof_short
-          SIZEOF_INT=$ac_cv_sizeof_int
-          SIZEOF_LONG=$ac_cv_sizeof_long
-          SIZEOF_LONG_LONG=$ac_cv_sizeof_long_long
-
-          AC_SUBST(SIZEOF_SHORT)
-          AC_SUBST(SIZEOF_INT)
-          AC_SUBST(SIZEOF_LONG)
-          AC_SUBST(SIZEOF_LONG_LONG)
-
-          AC_CONFIG_FILES(ocfs2console/blkid/blkid_types.h)
-        fi
+        OCFS2_BLKID
       else
         AC_MSG_WARN([could not find PyGTK, ocfs2console will not be built])
       fi 
