@@ -242,6 +242,52 @@ bail:
 }				/* traverse_extents */
 
 /*
+ * traverse_chains()
+ *
+ */
+static int traverse_chains (ocfs2_filesys *fs, ocfs2_chain_list *cl, FILE *out)
+{
+	ocfs2_group_desc *grp;
+	ocfs2_chain_rec *rec;
+	errcode_t ret = 0;
+	char *buf = NULL;
+	uint64_t blkno;
+	int i;
+	int index;
+
+	dump_chain_list (out, cl);
+
+	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
+	if (ret) {
+		com_err(gbls.progname, ret, "while allocating a block");
+		goto bail;
+	}
+
+	for (i = 0; i < cl->cl_next_free_rec; ++i) {
+		rec = &(cl->cl_recs[i]);
+		blkno = rec->c_blkno;
+		index = 0;
+		fprintf(out, "\n");
+		while (blkno) {
+			ret = ocfs2_read_group_desc(fs, blkno, buf);
+			if (ret)
+				goto bail;
+
+			grp = (ocfs2_group_desc *)buf;
+			dump_group_descriptor(out, grp, index);
+			blkno = grp->bg_next_group;
+			index++;
+		}
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}				/* traverse_chains */
+
+
+/*
  * do_open()
  *
  */
@@ -581,7 +627,7 @@ static void do_inode (char **args)
 	if ((inode->i_flags & OCFS2_LOCAL_ALLOC_FL))
 		dump_local_alloc(out, &(inode->id2.i_lab));
 	else if ((inode->i_flags & OCFS2_CHAIN_FL))
-		dump_chain_list(out, &(inode->id2.i_chain));
+		traverse_chains(gbls.fs, &(inode->id2.i_chain), out);
 	else
 		traverse_extents(gbls.fs, &(inode->id2.i_list), out);
 
@@ -737,11 +783,12 @@ bail:
  */
 static void do_group (char **args)
 {
-	ocfs2_group_desc *bg;
+	ocfs2_group_desc *grp;
 	uint64_t blkno;
 	char *buf = NULL;
 	FILE *out;
 	errcode_t ret = 0;
+	int index = 0;
 
 	if (!gbls.fs) {
 		printf ("device not open\n");
@@ -753,19 +800,23 @@ static void do_group (char **args)
 		goto bail;
 
 	buf = gbls.blockbuf;
-	ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
-	if (ret) {
-		com_err(gbls.progname, ret,
-			"while reading chain group in block %"PRIu64, blkno);
-		goto bail;
-	}
-
-	bg = (ocfs2_group_desc *)buf;
 
 	out = open_pager();
-	dump_group_descriptor(out, bg);
-	close_pager (out);
+	while (blkno) {
+		ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
+		if (ret) {
+			com_err(gbls.progname, ret,
+				"while reading chain group in block %"PRIu64, blkno);
+			goto close;
+		}
 
+		grp = (ocfs2_group_desc *)buf;
+		dump_group_descriptor(out, grp, index);
+		blkno = grp->bg_next_group;
+		index++;
+	}
+close:
+	close_pager (out);
 bail:
 
 	return ;

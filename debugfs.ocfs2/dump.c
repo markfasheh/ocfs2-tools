@@ -175,7 +175,7 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		tmp_str, in->i_suballoc_bit);
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
-		fprintf(out, "\tBitmap Total: %u   Used: %u   Clear: %u\n",
+		fprintf(out, "\tBitmap Total: %u   Used: %u   Free: %u\n",
 		       in->id1.bitmap1.i_total, in->id1.bitmap1.i_used,
 		       (in->id1.bitmap1.i_total - in->id1.bitmap1.i_used));
 
@@ -205,23 +205,23 @@ void dump_chain_list (FILE *out, ocfs2_chain_list *cl)
 	ocfs2_chain_rec *rec;
 	int i;
 
-	fprintf(out, "\tClusters Per Group: %u   Bits Per Cluster: %u\n",
+	fprintf(out, "\tClusters per Group: %u   Bits per Cluster: %u\n",
 		cl->cl_cpg, cl->cl_bpc);
 
-	fprintf(out, "\tCount: %u   Next Free Record: %u\n",
+	fprintf(out, "\tCount: %u   Next Free Rec: %u\n",
 		cl->cl_count, cl->cl_next_free_rec);
 
 	if (!cl->cl_next_free_rec)
 		goto bail;
 
+	fprintf(out, "\t##   %-10s   %-10s   %-10s   %s\n",
+		"Total", "Free", "Used", "Block#");
+	
 	for (i = 0; i < cl->cl_next_free_rec; ++i) {
 		rec = &(cl->cl_recs[i]);
-		fprintf(out, "\t## Bits Total    Bits Free      Disk Offset\n");
-
-		fprintf(out, "\t%-2d %-11u   %-12u   %"PRIu64"\n", i, rec->c_total,
-			rec->c_free, rec->c_blkno);
-		traverse_chain(out, rec->c_blkno);
-		fprintf(out, "\n");
+		fprintf(out, "\t%-2d   %-10u   %-10u   %-10u   %"PRIu64"\n",
+			i, rec->c_total, rec->c_free,
+			(rec->c_total - rec->c_free), rec->c_blkno);
 	}
 
 bail:
@@ -239,7 +239,7 @@ void dump_extent_list (FILE *out, ocfs2_extent_list *ext)
 	if (!ext->l_next_free_rec)
 		goto bail;
 
-	fprintf(out, "\t## File Offset   Num Clusters   Disk Offset\n");
+	fprintf(out, "\t## %-11s   %-12s   %-s\n", "Offset", "Clusters", "Block#");
 
 	for (i = 0; i < ext->l_next_free_rec; ++i) {
 		rec = &(ext->l_recs[i]);
@@ -267,64 +267,24 @@ void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 }				/* dump_extent_block */
 
 /*
- * traverse_chain()
- *
- */
-void traverse_chain(FILE *out, __u64 blkno)
-{
-	ocfs2_group_desc *bg;
-	char *buf = NULL;
-	errcode_t ret = 0;
-
-	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
-	if (ret) {
-		com_err(gbls.progname, ret, "while allocating a block");
-		goto bail;
-	}
-
-	do {
-		ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
-		if (ret) {
-			com_err(gbls.progname, ret,
-				"while reading chain group in block %"PRIu64, blkno);
-			goto bail;
-		}
-
-		bg = (ocfs2_group_desc *)buf;
-
-		dump_group_descriptor(out, bg);
-		blkno = bg->bg_next_group;
-	} while (blkno);
-	
-bail:
-	if (buf)
-		ocfs2_free(&buf);
-
-	return ;
-}
-
-/*
  * dump_group_descriptor()
  *
  */
-void dump_group_descriptor (FILE *out, ocfs2_group_desc *blk)
+void dump_group_descriptor (FILE *out, ocfs2_group_desc *grp, int index)
 {
+	if (!index) {
+		fprintf (out, "\tGroup Chain: %u   Parent Inode: %"PRIu64"  "
+			 "Generation: %u\n",
+			 grp->bg_chain,
+			 grp->bg_parent_dinode,
+			 grp->bg_generation);
+		fprintf(out, "\t##   %-15s   %-6s   %-6s   %-6s   %-6s\n",
+			"Block#", "Total", "Free", "Used", "Size");
+	}
 
-	fprintf (out, "\tBlknum: %"PRIu64"   Next Group %"PRIu64"\n",
-		 blk->bg_blkno,
-		 blk->bg_next_group);
-
-	fprintf (out, "\tFree Bits Count: %u   Group Bits: %u   "
-		 "Group Size: %u\n",
-		 blk->bg_free_bits_count,
-		 blk->bg_bits,
-		 blk->bg_size);
-
-	fprintf (out, "\tParent Chain: %u   Parent Dinode: %"PRIu64"  "
-		 "Generation: %u\n",
-		 blk->bg_chain,
-		 blk->bg_parent_dinode,
-		 blk->bg_generation);
+	fprintf(out, "\t%-2d   %-15"PRIu64"   %-6u   %-6u   %-6u   %-6u\n",
+		index, grp->bg_blkno, grp->bg_bits, grp->bg_free_bits_count,
+		(grp->bg_bits - grp->bg_free_bits_count), grp->bg_size);
 
 	return ;
 }				/* dump_group_descriptor */
