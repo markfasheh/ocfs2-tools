@@ -65,7 +65,6 @@ static void do_inode (char **args);
 static void do_config (char **args);
 static void do_publish (char **args);
 static void do_vote (char **args);
-static void do_cat (char **args);
 
 extern gboolean allow_write;
 
@@ -106,7 +105,7 @@ static Command commands[] =
   { "q",      do_quit   },
 
   { "dump",   do_dump   },
-  { "cat",    do_cat   },
+  { "cat",    do_dump   },
 
   { "curdev", do_curdev },
 
@@ -191,6 +190,11 @@ static void do_open (char **args)
 
 	if (read_super_block (dev_fd, &superblk) != -1)
 		curdir = g_strdup ("/");
+	else {
+		close (dev_fd);
+		dev_fd = -1;
+		goto bail;
+	}
 
 	inode = (ocfs2_dinode *)superblk;
 	sb = &(inode->id2.i_super);
@@ -400,15 +404,6 @@ static void do_quit (char **args)
 }					/* do_quit */
 
 /*
- * do_dump()
- *
- */
-static void do_dump (char **args)
-{
-
-}					/* do_dump */
-
-/*
  * do_lcd()
  *
  */
@@ -511,11 +506,18 @@ bail:
  */
 static void do_config (char **args)
 {
+	char *dlmbuf = NULL;
+
 	if (dev_fd == -1)
 		printf ("device not open\n");
-	else
-		process_dlm (dev_fd, CONFIG);
+	else {
+		if (read_file (dev_fd, dlm_blkno, -1, &dlmbuf) == -1)
+			goto bail;
+		dump_config (dlmbuf);
+	}
 
+bail:
+	safefree (dlmbuf);
 	return ;
 }					/* do_config */
 
@@ -525,11 +527,18 @@ static void do_config (char **args)
  */
 static void do_publish (char **args)
 {
+	char *dlmbuf = NULL;
+
 	if (dev_fd == -1)
 		printf ("device not open\n");
-	else
-		process_dlm (dev_fd, PUBLISH);
+	else {
+		if (read_file (dev_fd, dlm_blkno, -1, &dlmbuf) == -1)
+			goto bail;
+		dump_publish (dlmbuf);
+	}
 
+bail:
+	safefree (dlmbuf);
 	return ;
 }					/* do_publish */
 
@@ -539,49 +548,64 @@ static void do_publish (char **args)
  */
 static void do_vote (char **args)
 {
+	char *dlmbuf = NULL;
+	
 	if (dev_fd == -1)
 		printf ("device not open\n");
-	else
-		process_dlm (dev_fd, VOTE);
+	else {
+		if (read_file (dev_fd, dlm_blkno, -1, &dlmbuf) == -1)
+			goto bail;
+		dump_vote (dlmbuf);
+	}
 
+bail:
+	safefree (dlmbuf);
 	return ;
 }					/* do_vote */
 
 /*
- * do_cat()
+ * do_dump()
  *
  */
-static void do_cat (char **args)
+static void do_dump (char **args)
 {
-	char *opts = args[1];
-	ocfs2_dinode *inode;
-	__u32 blknum = 0;
-	char *buf = NULL;
-	__u32 buflen;
+	__u64 blknum = 0;
+	__s32 outfd = -1;
+	int flags;
+	int op = 0;  /* 0 = dump, 1 = cat */
+	char *outfile = NULL;
 
 	if (dev_fd == -1) {
 		printf ("device not open\n");
 		goto bail;
 	}
 
-	if (opts)
-		blknum = atoi(opts);
+	if (!strncasecmp (args[0], "cat", 3)) {
+		outfd = 1;
+		op = 1;
+	}
+
+	if (args[1])
+		blknum = strtoull (args[1], NULL, 0);
 
 	if (!blknum)
 		goto bail;
 
-	buflen = 1 << blksz_bits;
-	if (!(buf = malloc(buflen)))
-		DBGFS_FATAL("%s", strerror(errno));
-
-	if ((read_inode (dev_fd, blknum, buf, buflen)) == -1) {
-		printf("Not an inode\n");
-		goto bail;
+	if (args[2]) {
+		outfile = args[2];
+		flags = O_WRONLY| O_CREAT | O_LARGEFILE;
+		flags |= ((op) ? O_APPEND : O_TRUNC);
+		if ((outfd = open (outfile, flags)) == -1) {
+			printf ("unable to open file %s\n", outfile);
+			goto bail;
+		}
 	}
-	inode = (ocfs2_dinode *)buf;
 
-	read_file (dev_fd, &(inode->id2.i_list), inode->i_size, NULL, 1);
+	read_file (dev_fd, blknum, outfd, NULL);
 
 bail:
+	if (outfd > 2)
+		close (outfd);
+
 	return ;
-}					/* do_cat */
+}					/* do_dump */

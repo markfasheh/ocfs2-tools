@@ -282,7 +282,7 @@ void dump_config (char *buf)
 	__u16 port;
 	char addr[32];
 	struct in_addr ina;
-	int i;
+	int i, j;
 
 	hdr = (ocfs_node_config_hdr *)buf;
 
@@ -306,11 +306,13 @@ void dump_config (char *buf)
 		strcpy (addr, inet_ntoa(ina));
 
 		printf("%-4u %-32s %-15s %-6u ", i, node->node_name, addr, port);
-		for (i = 0; i < 16; i++)
-			printf("%02X", sb->s_uuid[i]);
+		for (j = 0; j < OCFS2_GUID_LEN; j++)
+			printf("%c", node->guid.guid[j]);
 		printf("\n");
 		p += (1 << blksz_bits);
 	}
+
+	return ;
 }				/* dump_config */
 
 /*

@@ -51,7 +51,7 @@ int read_super_block (int fd, char **buf)
 	if (!(*buf = malloc(buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
-	if ((ret = pread64(fd, *buf, buflen, 0)) == -1)
+	if ((pread64(fd, *buf, buflen, 0)) == -1)
 		DBGFS_FATAL("%s", strerror(errno));
 
 	hdr = (ocfs1_vol_disk_hdr *)*buf;
@@ -75,13 +75,12 @@ int read_super_block (int fd, char **buf)
 		}
 
 		off = OCFS2_SUPER_BLOCK_BLKNO << bits;
-		if ((ret = pread64(fd, *buf, buflen, off)) == -1)
+		if ((pread64(fd, *buf, buflen, off)) == -1)
 			DBGFS_FATAL("%s", strerror(errno));
 
 		di = (ocfs2_dinode *) *buf;
-		if (!memcmp(di->i_signature,
-                            OCFS2_SUPER_BLOCK_SIGNATURE,
-			   strlen(OCFS2_SUPER_BLOCK_SIGNATURE))) {
+		if (!memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
+			    strlen(OCFS2_SUPER_BLOCK_SIGNATURE))) {
 			ret = 0;
 			break;
 		}
@@ -89,7 +88,7 @@ int read_super_block (int fd, char **buf)
 	}
 
         if (bits >= 13)
-            printf("Not an OCFS2 volume");
+            printf("Not an OCFS2 volume\n");
 
 bail:
 	return ret;
@@ -99,21 +98,21 @@ bail:
  * read_inode()
  *
  */
-int read_inode (int fd, __u32 blknum, char *buf, int buflen)
+int read_inode (int fd, __u64 blknum, char *buf, int buflen)
 {
 	__u64 off;
 	ocfs2_dinode *inode;
 	int ret = 0;
 
-	off = (__u64)(blknum << blksz_bits);
+	off = blknum << blksz_bits;
 
 	if ((pread64(fd, buf, buflen, off)) == -1)
 		DBGFS_FATAL("%s", strerror(errno));
 
 	inode = (ocfs2_dinode *)buf;
 
-	if (memcmp(inode->i_signature, OCFS2_FILE_ENTRY_SIGNATURE,
-		   sizeof(OCFS2_FILE_ENTRY_SIGNATURE)))
+	if (memcmp(inode->i_signature, OCFS2_INODE_SIGNATURE,
+		   sizeof(OCFS2_INODE_SIGNATURE)))
 		ret = -1;
 
 	return ret;
@@ -268,31 +267,54 @@ bail:
  * read_file()
  *
  */
-void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf, int fdo)
+int read_file (int fd, __u64 blknum, int fdo, char **buf)
 {
+	ocfs2_dinode *inode = NULL;
 	GArray *arr = NULL;
 	ocfs2_extent_rec *rec;
-	char *p;
+	char *p = NULL;
 	__u64 off, foff, len;
 	int i;
 	char *newbuf = NULL;
 	__u32 newlen = 0;
+	char *inode_buf = NULL;
+	int buflen = 0;
+	int ret = -1;
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
 
-	traverse_extents (fd, ext, arr, 0);
+	buflen = 1 << blksz_bits;
+	if (!(inode_buf = malloc(buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
 
-	p = buf;
+	if ((read_inode (fd, blknum, inode_buf, buflen)) == -1) {
+		printf("Not an inode\n");
+		goto bail;
+	}
+	inode = (ocfs2_dinode *)inode_buf;
+
+	traverse_extents (fd, &(inode->id2.i_list), arr, 0);
+
+	if (fdo == -1) {
+		if (!(*buf = malloc (inode->i_size)))
+			DBGFS_FATAL("%s", strerror(errno));
+		p = *buf;
+	} else {
+		if (fdo > 2) {
+			fchmod (fdo, inode->i_mode);
+			fchown (fdo, inode->i_uid, inode->i_gid);
+		}
+	}
 
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
 		off = rec->e_blkno << blksz_bits;
 		foff = rec->e_cpos << clstrsz_bits;
 		len = rec->e_clusters << clstrsz_bits;
-		if ((foff + len) > size)
-			len = size - foff;
+		if ((foff + len) > inode->i_size)
+			len = inode->i_size - foff;
 
-		if (fd != -1) {
+		if (fdo != -1) {
 			if (newlen <= len) {
 				safefree (newbuf);
 				if (!(newbuf = malloc (len)))
@@ -305,7 +327,7 @@ void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf, int fdo)
 		if ((pread64(fd, p, len, off)) == -1)
 			DBGFS_FATAL("%s", strerror(errno));
 
-		if (fd != -1) {
+		if (fdo != -1) {
 			if (len)
 				if (!(write (fdo, p, len)))
 					DBGFS_FATAL("%s", strerror(errno));
@@ -313,64 +335,14 @@ void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf, int fdo)
 			p += len;
 	}
 
+	ret = 0;
+
+bail:
+	safefree (inode_buf);
 	safefree (newbuf);
 
 	if (arr)
 		g_array_free (arr, 1);
 
-	return ;
+	return ret;
 }				/* read_file */
-
-/*
- * process_dlm()
- *
- */
-void process_dlm (int fd, int type)
-{
-	char *buf = NULL;
-	__u32 buflen;
-	char *dlmbuf = NULL;
-	ocfs2_dinode *inode;
-	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
-
-	/* get the dlm inode */
-	buflen = 1 << blksz_bits;
-	if (!(buf = malloc(buflen)))
-		DBGFS_FATAL("%s", strerror(errno));
-
-	if ((read_inode (fd, dlm_blkno, buf, buflen)) == -1) {
-		printf("Invalid dlm system file\n");
-		goto bail;
-	}
-	inode = (ocfs2_dinode *)buf;
-
-	/* length of file to read */
-	buflen = 2 + 4 + (3 * sb->s_max_nodes);
-	buflen <<= blksz_bits;
-
-	/* alloc the buffer */
-	if (!(dlmbuf = malloc (buflen)))
-		DBGFS_FATAL("%s", strerror(errno));
-
-	read_file (fd, &(inode->id2.i_list), buflen, dlmbuf, -1);
-
-	switch (type) {
-	case CONFIG:
-		dump_config (dlmbuf);
-		break;
-	case PUBLISH:
-		dump_publish (dlmbuf);
-		break;
-	case VOTE:
-		dump_vote (dlmbuf);
-		break;
-	default:
-		break;
-	}
-
-bail:
-	safefree (buf);
-	safefree (dlmbuf);
-
-	return ;
-}				/* process_dlm */
