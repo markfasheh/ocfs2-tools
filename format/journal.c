@@ -2,10 +2,9 @@
 #include <signal.h>
 #include <libgen.h>
 
-#define CONFIG_JBD 1
-
-#include <linux/jbd.h>
 #include <netinet/in.h>
+
+#include "kernel-jbd.h"
 
 int ocfs_replacement_journal_create(int file, __u64 journal_off)
 {
