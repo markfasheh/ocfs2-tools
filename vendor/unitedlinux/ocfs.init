@@ -1,0 +1,106 @@
+#! /bin/sh
+# init fragment for ocfs
+#
+### BEGIN INIT INFO
+# Provides: ocfs
+# Required-Start: $network
+# Required-Stop:
+# Default-Start: 2 3 5
+# Default-Stop:
+# Description: Load OCFS driver at system boot
+### END INIT INFO
+
+#
+# Note that the start priority is after the network comes up.
+# There is no real automatic mounting yet.
+#
+# All OCFS volumes that are to be mounted at boot need to have the
+# '_netdev' option added to their fstab entry.  This prevents them
+# from trying to mount before this script has run.
+#
+
+case "`basename $0`" in
+*ocfs)
+    MODNAME=ocfs
+    FSNAME=OCFS
+    LOAD_OCFS=/sbin/load_ocfs
+    ;;
+*ocfs2)
+    MODNAME=ocfs2
+    FSNAME=OCFS2
+    LOAD_OCFS=/sbin/load_ocfs2
+    ;;
+*)
+    exit 1
+esac
+
+test -x "$LOAD_OCFS" || exit 5
+
+test -r /etc/ocfs.conf || exit 6
+
+KVER="`uname -r`"
+case "$KVER" in
+2.4.19-64GB-SMP|2.4.19-4GB-SMP|2.4.19-4GB)
+    MODPATH="/lib/modules/${KVER}/kernel/drivers/addon/${MODNAME}"
+    ;;
+*)
+    # Not a supported kernel
+    exit 0
+    ;;
+esac
+
+test -r "${MODPATH}/${MODNAME}.o" || exit 5
+
+# Source init.d functions
+. /etc/rc.status
+
+# Source networking configuration
+#. /etc/sysconfig/network
+
+
+fstab_check()
+{
+    # Are there any volumes to mount?
+    ANY="`awk '/^[  ]*#/{next}$4 ~ /^noauto$|^noauto,|,noauto$/{next}$3 == "ocfs"{print $2}' /etc/fstab 2>/dev/null`"
+    test -z "$ANY" && return
+      
+    # Check if anything is missing netdev
+    ANY="`awk '/^[  ]*#/{next}$4 ~ /^noauto$|^noauto,|,noauto$/{next}$4 ~ /^_netdev$|^_netdev,|,_netdev$/{next}$3 == "ocfs"{print $2}' /etc/fstab 2>/dev/null`"
+    test -n "$ANY" && echo "Warning: ${FSNAME} filesystems missing \"_netdev\" option: $ANY"
+}
+
+
+rc_reset
+
+case "$1" in
+    start)
+        fstab_check
+
+        echo -n $"Loading ${FSNAME}:"
+
+        # Note that UnitedLinux doesn't have NETWORKING=no
+
+        if grep '^${MODNAME} ' /proc/modules >/dev/null 2>&1; then
+            rc_status -v
+            rc_exit
+        fi
+
+        "$LOAD_OCFS"
+        rc_status -v
+        ;;
+        
+    status)
+        echo -n $"Checking if ${FSNAME} is loaded: "
+        grep '^${MODNAME} ' /proc/modules >/dev/null 2>&1
+        rc_status -v
+        ;;
+
+    stop|force-reload|restart)
+	;;
+
+    *)
+	echo "Usage: $0 {start|stop|status|restart|force-reload}"
+        exit 1
+esac
+
+rc_exit

@@ -1,0 +1,22 @@
+.TH "load_ocfs" "1" "November 2003" "Version @VERSION@" "OCFS Manual Pages"
+.SH "NAME"
+load_ocfs \- Load the ocfs.o module according to the setup file /etc/ocfs.conf.
+.SH "SYNOPSIS"
+\fBload_ocfs\fR 
+.SH "DESCRIPTION"
+.PP 
+\fBload_ocfs\fR is used to load the \fIocfs.o\fR module into the kernel area. During the load process, it will validate all the parameters set in the file \fI/etc/ocfs.conf\fR. If the \fI/etc/ocfs.o\fR file is missing, then the module will not be loaded. Use the \fIocfstool\fR utility to generate the proper \fI/etc/ocfs.conf\fR file before using \fIload_ocfs\fR.
+.SH "OPTIONS"
+.TP
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs(5) ocfstool(1)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation

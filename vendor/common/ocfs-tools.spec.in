@@ -1,0 +1,132 @@
+#
+# Spec file for ocfs-tools
+#
+
+# Macros
+# This one is hardcoded because, well, it belongs there
+%define _prefix /usr
+# Because RPM is dumb
+%define _unpackaged_files_terminate_build 0
+
+Summary: Tools for managing the Oracle Cluster Filesystem
+Name: ocfs-tools
+Version: @DIST_VERSION@
+Release: @RPM_VERSION@
+Copyright: GPL
+Group: System Environment/Kernel
+Source: ocfs-tools-@DIST_VERSION@.tar.gz
+URL: http://oss.oracle.com/projects/ocfs-tools/
+Distribution: Oracle
+Vendor: Oracle Corporation
+Packager: nobody <nobody@oracle.com>
+Exclusiveos: Linux
+Requires: ocfs-support >= @DIST_VERSION@, %{gtk_name} >= 1.2.8
+BuildRequires: %{gtk_name}-devel >= 1.2.8
+
+BuildRoot: %{_tmppath}/ocfs-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
+
+%description
+Tools to manage the Oracle Cluster Filesystem
+
+
+%package -n ocfs-support
+Summary: Support programs for the Oracle Cluster Filesystem
+Group: System Environment/Kernel
+Requires: fileutils, sh-utils, net-tools, modutils, %{chkconfig_dep}
+AutoReqProv: No
+
+
+%description -n ocfs-support
+Support programs for using the Oracle Cluster Filesystem.
+
+
+%prep
+%setup -n ocfs-tools-%{version}
+
+
+%build
+%configure --prefix=/usr --mandir=/usr/share/man
+make
+
+
+%install
+
+mkdir -p $RPM_BUILD_ROOT/etc/init.d
+IVENDOR=redhat
+if [ -r /etc/UnitedLinux-release -o -r /etc/SuSE-release ]
+then
+    IVENDOR=unitedlinux
+fi
+cp -f vendor/$IVENDOR/ocfs.init $RPM_BUILD_ROOT/etc/init.d/ocfs
+ln -s ocfs $RPM_BUILD_ROOT/etc/init.d/ocfs2
+
+for tool in format fsck load_ocfs ocfs_uid_gen
+do
+  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
+done
+
+for tool in debugocfs ocfstool
+do
+  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
+done
+
+%clean
+rm -rf "$RPM_BUILD_ROOT"
+
+
+%pre -n ocfs-support
+# Cleanup for bad RPMs
+if [ -e /usr/sbin/load_ocfs ] ; then
+	rm -f /usr/sbin/load_ocfs
+fi
+
+if [ -e /usr/sbin/ocfs_uid_gen ] ; then
+	rm -f /usr/sbin/ocfs_uid_gen
+fi
+
+%post -n ocfs-support
+chkconfig ocfs on
+chkconfig ocfs2 on
+IVENDOR=redhat
+if [ -r /etc/UnitedLinux-release -o -r /etc/SuSE-release ]
+then
+    IVENDOR=unitedlinux
+else
+    /etc/init.d/ocfs link
+    /etc/init.d/ocfs2 link
+fi
+
+
+%files
+%defattr(-,root,root)
+/usr/sbin
+/usr/share
+
+
+%files -n ocfs-support
+%defattr(-,root,root)
+/sbin/load_ocfs
+/sbin/load_ocfs2
+/sbin/mkfs.ocfs
+/sbin/mkfs.ocfs2
+/sbin/tuneocfs
+/sbin/resizeocfs
+/sbin/mounted.ocfs
+/sbin/fsck.ocfs
+/sbin/ocfs_uid_gen
+/etc/init.d/ocfs
+/etc/init.d/ocfs2
+
+
+%changelog
+* Fri Feb 27 2004 Manish Singh <manish.singh@oracle.com>
+- Dist ocfs2 files
+
+* Wed Jan 28 2004 Manish Singh <manish.singh@oracle.com>
+- Split out tools
+
+* Thu Mar 27 2003 Joel Becker <joel.becker@oracle.com>
+- Added %if %{up} and ocfs-support Requires
+
+* Thu Mar 27 2003 Bryce	<philip.copeland@oracle.com>
+- Initial swipe at rpm spec file cleanup

@@ -1,0 +1,72 @@
+.TH "tuneocfs" "19" "January 2004" "Version @VERSION@" "OCFS Manual Pages"
+.SH "NAME"
+tuneocfs \- Change Filesystem Metadata and resize existing OCFS volume.
+.SH "SYNOPSIS"
+\fBtuneocfs\fR [\-F] [\-g gid] [\-h] [\-l] [\-n] [\-N nodenum] [\-p permissions] [\-q] [\-S size] [\-u uid] [\-V] device
+.SH "DESCRIPTION"
+.PP 
+\fBtuneocfs\fR is used to maintain metadata information in an OCFS file system or to resize it. This command should be used carefully as it may affect applications that have access to the filesystem.
+.SH "OPTIONS"
+.TP
+\fB\-F\fR 
+Force resize existing OCFS volume.
+
+.TP
+\fB\-g\fR \fIgid\fR 
+Change the group ID for the root directory. On mount time, it will
+automatically assign the \fIgid\fR specified by this parameter to the mount
+point. One may use the \fIgid\fR or the group name(i.e:1011 or \fIdba\fR).
+
+.TP
+\fB\-h\fR 
+Help. 
+
+.TP
+\fB\-l\fR 
+List all the node config slots. With this command, one can list all nodes that once mounted the specified OCFS device.
+
+.TP
+\fB\-n\fR 
+Query only. Will not perform any change to the filesystem.
+
+.TP
+\fB\-N\fR \fInodenum\fR
+Node config slot be to be cleared. This is used to remove a specific node that
+used to be part of the cluster from the used slots list. Only one slot can be
+cleared at a time.
+
+.TP
+\fB\-p\fR \fINNNN\fR
+Permissions \fINNNN\fR for the root directory. On mount, it will automatcially
+assign the permission specified by this parameter to the mount point.
+
+.TP
+\fB\-q\fR 
+Quiet execution.
+
+.TP
+\fB\-S\fR \fIsize\fR
+Volume \fIsize\fR for the root directory, e.g., 50G (M for mega, G for giga, T
+for tera).
+
+.TP
+\fB\-u\fR \fIuid\fR
+Change the user ID owner of the root directory. On mount time, it will
+automatcially assign \fIuid\fR specified by this parameter to the mount
+point. One may use the \fIuid\fR or the username (i.e.:1011 or \fIoracle\fR).
+
+.TP
+\fB\-V\fR 
+Print version and exit.
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs(5)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation

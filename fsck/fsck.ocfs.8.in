@@ -1,0 +1,39 @@
+.TH "fsck.ocfs" "1" "November 2003" "Version @VERSION@" "OCFS Manual Pages"
+.SH "NAME"
+fsck.ocfs \- Build an OCFS file system.
+.SH "SYNOPSIS"
+\fBfsck.ocfs\fR \-w  [\-V] [\-v] [\-q] device 
+.SH "DESCRIPTION"
+.PP 
+\fBfsck.ocfs\fR is used to check an OCFS file system on a device, usually a partition in a shared disk. \fBfsck.ocfs\fR will execute read-only if \-w is not specified. This is allows users to run fsck while a OCFS volume is mounted and active. The \fBfsck.ocfs\fR command will look for the first free raw device and bind the device specified to it. The command will fail if there is no free raw device available. One can also perform this raw binding manually and provide the /dev/raw/rawX as the device. Raw binding is used to ensure direct io behaviour across various flavors of linux.
+
+.SH "OPTIONS"
+.TP
+\fB\-w\fR 
+This option tell \fBfsck.ocfs\fR that it is going to run in read/write
+mode. This option should only be specified with the device properly unmounted
+on all nodes.
+
+.TP
+\fB\-V\fR 
+Display \fBfsck.ocfs\fR version.
+
+.TP
+\fB\-v\fR 
+Run \fBfsck.ocfs\fR in verbose mode.
+
+.TP
+\fB\-q\fR 
+Run \fBfsck.ocfs\fR in quiet mode.
+   
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs(5)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation

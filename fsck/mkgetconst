@@ -1,0 +1,45 @@
+#!/bin/bash
+# this is used by parse.c to turn a #define'd
+# constant name into a usable array bound
+# eg.  ocfs_alloc_ext extents[OCFS_MAX_DATA_EXTENTS]
+# input:   OCFS_MAX_DATA_EXTENTS 
+# output:  18
+# don't know why i bothered with sign/size
+# arrays should be unsigned 32-bit int bounded here
+# and hell, if it's that big, we're screwed
+
+
+if [ "$bigint" = "" ]; then
+	typ="long";
+	fmt="l";
+else
+	typ="long long";
+	fmt="ll";
+fi
+
+if [ "$signed" = "" ]; then
+	sgn="unsigned";
+	fmt=$fmt"u";
+else
+	sgn="signed";
+	fmt=$fmt"d";
+fi
+
+cat > getconst.c << DONE
+/* just to make it shut up */
+#define O_DIRECT        040000
+
+#include <stdio.h>
+#include "ocfsconst.h"
+
+int main(int argc, char **argv)
+{
+	${sgn} ${typ} c = $1;
+	printf("%${fmt}\n", c);
+	exit(0);
+}
+DONE
+
+gcc -I. -I${COMMON_HEADERS} -o getconst getconst.c
+./getconst
+rm getconst.c getconst > /dev/null 2>&1

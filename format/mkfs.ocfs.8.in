@@ -1,0 +1,72 @@
+.TH "mkfs.ocfs" "1" "November 2003" "Version @VERSION@" "OCFS Manual Pages"
+.SH "NAME"
+mkfs.ocfs \- Build an OCFS file system.
+.SH "SYNOPSIS"
+\fBmkfs.ocfs\fR \-b block\-size [\-C] [\-F] [\-g gid] [\-h] \-L volume\-label \-m mount\-path [\-n] [\-p permissions] [\-q] [\-u uid] [\-V] device
+.SH "DESCRIPTION"
+.PP 
+\fBmkfs.ocfs\fR is used to build an OCFS file system on a device, usually a partition in a shared disk. \fBmkfs.ocfs\fR will not format a partition if a node has it mounted to prevent data loss. After the filesystem is formatted, it needs to be exclusively mounted by node 0, for the first time. After the first mount, all subsequent mounts can be performed in parallel.
+.SH "OPTIONS"
+.TP
+\fB\-b\fR \fIblocksize\fR
+Block size in kilo bytes. The size of the blocksize (4k\-1M) will determine the maximum filesystem size possible for the OCFS (32Gb\-8Tb).
+
+.TP
+\fB\-C\fR 
+Clear all data blocks. Use this option only if it is really necessary to clear all blocks. This will slow down the process.
+
+.TP
+\fB\-F\fR 
+Force format. Use this option only if formatting an existing OCFS partition.
+
+.TP
+\fB\-g\fR \fIgid\fR 
+Set the \fIgid\fR for the root directory. On mount time, it will automatcially
+assign the \fIgid\fR specified by this parameter to the mount point. One may
+use the \fIgid\fR or the group name (i.e.:1011 or \fIdba\fR).
+
+.TP
+\fB\-h\fR 
+Help. 
+
+.TP
+\fB\-L\fR \fIVolume label\fR
+Volume label. Allows mount of the file system using LABEL=<Volume Label> instead of device name.
+
+.TP
+\fB\-m\fR \fImount point\fR
+Mount point where the formatted device will be mounted.
+
+.TP
+\fB\-n\fR 
+Query only. Will not build the filesystem.
+
+.TP
+\fB\-p\fR \fINNNN\fR
+Permissions \fINNNN\fR for the root directory. On mount, it will automatcially assign the permission specified by this parameter to the mount point.
+
+.TP
+\fB\-q\fR 
+Quiet execution.
+
+.TP
+\fB\-u\fR \fIuid\fR
+Set the \fIuid\fR for the root directory. On mount time, it will automatcially
+assign \fIuid\fR specified by this parameter to the mount point. One can use
+the \fIuid\fR or the username (i.e.:1011 or \fIoracle\fR).
+
+.TP
+\fB\-V\fR 
+Print version and exit.
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR ocfs(5)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation
