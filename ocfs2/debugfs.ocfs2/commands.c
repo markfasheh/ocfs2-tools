@@ -220,7 +220,7 @@ static void do_open (char **args)
 
 	/* read root inode */
 	len = 1 << gbls.blksz_bits;
-	if (!(gbls.rootin = memalign(512, len)))
+	if (!(gbls.rootin = memalign(len, len)))
 		DBGFS_FATAL("%s", strerror(errno));
 	if ((pread64(gbls.dev_fd, (char *)gbls.rootin, len,
 		     (gbls.root_blkno << gbls.blksz_bits))) == -1)
@@ -228,7 +228,7 @@ static void do_open (char **args)
 
 	/* read sysdir inode */
 	len = 1 << gbls.blksz_bits;
-	if (!(gbls.sysdirin = memalign(512, len)))
+	if (!(gbls.sysdirin = memalign(len, len)))
 		DBGFS_FATAL("%s", strerror(errno));
 	if ((pread64(gbls.dev_fd, (char *)gbls.sysdirin, len,
 		     (gbls.sysdir_blkno << gbls.blksz_bits))) == -1)
@@ -297,7 +297,7 @@ static void do_ls (char **args)
 	}
 
 	len = 1 << gbls.blksz_bits;
-	if (!(buf = memalign(512, len)))
+	if (!(buf = memalign(len, len)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if (opts) {
@@ -498,7 +498,7 @@ static void do_inode (char **args)
 	}
 
 	buflen = 1 << gbls.blksz_bits;
-	if (!(buf = memalign(512, buflen)))
+	if (!(buf = memalign(buflen, buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if (opts) {
@@ -659,6 +659,11 @@ static void do_journal (char **args)
 	__u32 nodenum;
 	ocfs2_super_block *sb = &(gbls.superblk->id2.i_super);
 
+	if (gbls.dev_fd == -1) {
+		printf ("device not open\n");
+		goto bail;
+	}
+
 	if (args[1])
 		nodenum = strtoull (args[1], NULL, 0);
 	else {
@@ -673,15 +678,12 @@ static void do_journal (char **args)
 
 	blknum = gbls.journal_blkno[nodenum];
 
-	if (gbls.dev_fd == -1)
-		printf ("device not open\n");
-	else {
-		if ((len = read_file (gbls.dev_fd, blknum, -1, &logbuf)) == -1)
-			goto bail;
-		out = open_pager ();
-		read_journal (out, logbuf, (__u64)len);
-		close_pager (out);
-	}
+	if ((len = read_file (gbls.dev_fd, blknum, -1, &logbuf)) == -1)
+		goto bail;
+
+	out = open_pager ();
+	read_journal (out, logbuf, (__u64)len);
+	close_pager (out);
 
 bail:
 	safefree (logbuf);

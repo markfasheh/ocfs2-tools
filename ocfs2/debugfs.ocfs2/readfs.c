@@ -46,18 +46,27 @@ int read_super_block (int fd, char **buf)
 	__u32 bits = 9;
 	__u32 buflen;
 
-	buflen = 1 << bits;
-	if (!(*buf = memalign(512, buflen)))
-		DBGFS_FATAL("%s", strerror(errno));
+	for (bits = 9; bits < 13; bits++) {
+		buflen = 1 << bits;
+		if (!(*buf = memalign(buflen, buflen)))
+			DBGFS_FATAL("%s", strerror(errno));
 
-	if ((pread64(fd, *buf, buflen, 0)) == -1)
-		DBGFS_FATAL("%s", strerror(errno));
+		if ((ret =  pread64(fd, *buf, buflen, 0)) == -1) {
+			safefree (*buf);
+			continue;
+		} else
+			break;
+	}
+
+	if (ret == -1)
+		DBGFS_FATAL ("unable to read the first block");
 
 	hdr = (ocfs1_vol_disk_hdr *)*buf;
 	if (memcmp(hdr->signature, OCFS1_VOLUME_SIGNATURE,
 		   strlen (OCFS1_VOLUME_SIGNATURE)) == 0) {
 		printf("OCFS1 detected. Use debugocfs.\n");
 		safefree (*buf);
+		ret = -1;
 		goto bail;
 	}
 
@@ -66,10 +75,10 @@ int read_super_block (int fd, char **buf)
 	 * blocksizes.  4096 is the maximum blocksize because it is
 	 * the minimum clustersize.
 	 */
-	for (bits = 9; bits < 13; bits++) {
+	for (; bits < 13; bits++) {
 		if (!*buf) {
 			buflen = 1 << bits;
-			if (!(*buf = memalign(512, buflen)))
+			if (!(*buf = memalign(buflen, buflen)))
 				DBGFS_FATAL("%s", strerror(errno));
 		}
 
@@ -86,8 +95,10 @@ int read_super_block (int fd, char **buf)
 		safefree (*buf);
 	}
 
-        if (bits >= 13)
-            printf("Not an OCFS2 volume\n");
+	if (bits >= 13) {
+		printf("Not an OCFS2 volume\n");
+		ret = -1;
+	}
 
 bail:
 	return ret;
@@ -140,7 +151,7 @@ int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump, FIL
 			add_extent_rec (arr, rec);
 		else {
 			buflen = 1 << gbls.blksz_bits;
-			if (!(buf = memalign(512, buflen)))
+			if (!(buf = memalign(buflen, buflen)))
 				DBGFS_FATAL("%s", strerror(errno));
 
 			off = (__u64)rec->e_blkno << gbls.blksz_bits;
@@ -208,7 +219,7 @@ void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
                 if ((foff + len) > size)
                     len = size - foff;
 
-		if (!(buf = memalign(512, len)))
+		if (!(buf = memalign((1 << gbls.blksz_bits), len)))
 			DBGFS_FATAL("%s", strerror(errno));
 
 		if ((pread64(fd, buf, len, off)) == -1)
@@ -305,7 +316,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
 
 	buflen = 1 << gbls.blksz_bits;
-	if (!(inode_buf = memalign(512, buflen)))
+	if (!(inode_buf = memalign(buflen, buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	if ((read_inode (fd, blknum, inode_buf, buflen)) == -1) {
@@ -326,7 +337,7 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 		}
 	}
 
-	if (!(newbuf = memalign(512, newlen)))
+	if (!(newbuf = memalign((1 << gbls.blksz_bits), newlen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
 	p = newbuf;
@@ -342,8 +353,8 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 		while (len) {
 			buflen = min (newlen, len);
 			/* rndup is reqd because source is read o_direct */
-			rndup = buflen % 512;
-			rndup = (rndup ? 512 - rndup : 0);
+			rndup = buflen % (1 << gbls.blksz_bits);
+			rndup = (rndup ? (1 << gbls.blksz_bits) - rndup : 0);
 			buflen += rndup;
 
 			if ((pread64(fd, p, buflen, off)) == -1)
