@@ -26,8 +26,9 @@ HFILES = 			\
 OBJS = $(subst .c,.o,$(CFILES))
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
-fswreck: $(OBJS)
+fswreck: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make

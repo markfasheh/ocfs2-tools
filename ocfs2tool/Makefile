@@ -13,6 +13,7 @@ CFLAGS = $(OPTS) $(WARNINGS) -fPIC
 
 LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 DEFINES = -DOCFS2_FLAT_INCLUDES -DG_DISABLE_DEPRECATED -DGDK_PIXBUF_DISABLE_DEPRECATED -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED
 INCLUDES = $(LIBOCFS2_CFLAGS) $(PYTHON_INCLUDES) $(PYGTK_CFLAGS) $(GTK_CFLAGS)
@@ -73,7 +74,7 @@ cellmap.c: cellmap.defs cellmap.override
 	--override cellmap.override \
 	cellmap.defs > $@
 
-ocfs2module.so: $(OBJS)
+ocfs2module.so: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) -shared $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(GTK_LIBS)
 
 install-pylib:
