@@ -300,7 +300,7 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 {
 	errcode_t ret = 0;
 	uint64_t n_clusters = 0;
-	uint64_t clustno, blkno;
+	uint64_t blkno;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -314,9 +314,7 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 		if (ret)
 			goto bail;
 
-		clustno = ocfs2_blocks_to_clusters(fs, blkno);
-
-	 	ret = ocfs2_insert_extent(fs, ino, clustno, n_clusters);
+	 	ret = ocfs2_insert_extent(fs, ino, blkno, n_clusters);
 		if (ret)
 			goto bail;
 
