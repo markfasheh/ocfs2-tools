@@ -34,6 +34,8 @@
 
 #include "extent_map.h"
 
+/* FIXME: Use rbtrees.  Add lookup */
+
 struct extent_map_context {
 	ocfs2_cached_inode *cinode;
 	errcode_t errcode;

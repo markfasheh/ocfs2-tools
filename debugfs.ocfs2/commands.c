@@ -61,6 +61,8 @@ static void do_config (char **args);
 static void do_publish (char **args);
 static void do_vote (char **args);
 static void do_journal (char **args);
+static void do_group (char **args);
+static void do_header (char **args);
 
 extern gboolean allow_write;
 extern gboolean no_raw_bind;
@@ -118,8 +120,10 @@ static Command commands[] =
   { "publish", do_publish },
   { "vote", do_vote },
 
-  { "logdump", do_journal }
+  { "logdump", do_journal },
 
+  { "group", do_group },
+  { "header", do_header }
 };
 
 
@@ -526,6 +530,8 @@ static void do_inode (char **args)
 
 	if ((inode->i_flags & OCFS2_LOCAL_ALLOC_FL))
 		dump_local_alloc(out, &(inode->id2.i_lab));
+	else if ((inode->i_flags & OCFS2_CHAIN_FL))
+		dump_chain_list(out, &(inode->id2.i_chain));
 	else
 		traverse_extents(gbls.dev_fd, &(inode->id2.i_list), NULL, 1, out);
 
@@ -706,6 +712,112 @@ bail:
 	return ;
 }					/* do_journal */
 
+/*
+ * do_group()
+ *
+ */
+static void do_group (char **args)
+{
+	char *opts = args[1];
+	ocfs2_group_desc *bg;
+	__u32 blknum;
+	char *buf = NULL;
+	__u32 buflen;
+	FILE *out;
+
+	if (gbls.dev_fd == -1) {
+		printf ("device not open\n");
+		goto bail;
+	}
+
+	buflen = 1 << gbls.blksz_bits;
+	if (!(buf = memalign(buflen, buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	if (!opts) {
+		printf("no block number specified\n");
+		goto bail;
+	}
+
+	blknum = atoi(opts);
+	if (blknum > gbls.max_blocks) {
+		printf("block number is too large\n");
+		goto bail;
+	}
+	if ((read_group (gbls.dev_fd, blknum, buf, buflen)) == -1) {
+		printf("Not a group descriptor\n");
+		goto bail;
+	}
+	bg = (ocfs2_group_desc *)buf;
+
+	out = open_pager();
+	dump_group_descriptor(out, bg);
+
+	close_pager (out);
+
+bail:
+	safefree (buf);
+	return ;
+}					/* do_group */
+
+/*
+ * do_header()
+ *
+ */
+static void do_header (char **args)
+{
+	char *opts = args[1];
+	ocfs2_extent_block *eb;
+	__u32 blknum;
+	char *buf = NULL;
+	__u32 buflen;
+	FILE *out;
+	__u64 off;
+
+	if (gbls.dev_fd == -1) {
+		printf ("device not open\n");
+		goto bail;
+	}
+
+	buflen = 1 << gbls.blksz_bits;
+	if (!(buf = memalign(buflen, buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	if (!opts) {
+		printf("no block number specified\n");
+		goto bail;
+	}
+
+	blknum = atoi(opts);
+	if (blknum > gbls.max_blocks) {
+		printf("block number is too large\n");
+		goto bail;
+	}
+
+	off = blknum << gbls.blksz_bits;
+	if ((pread64 (gbls.dev_fd, buf, buflen, off)) == -1) {
+		printf("error reading block!\n");
+		goto bail;
+	}
+
+	out = open_pager();
+
+	eb = (ocfs2_extent_block *)buf;
+	if (memcmp(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
+		   sizeof(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
+		printf("Not an extent block\n");
+		goto bail;
+	}
+
+	dump_extent_block(out, eb);
+	dump_extent_list(out, &eb->h_list);
+
+	close_pager (out);
+
+bail:
+	safefree (buf);
+	return ;
+}					/* do_header */
 
 /*
  * handle_signal()

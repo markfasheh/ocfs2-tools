@@ -135,6 +135,8 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		g_string_append (flags, "journal ");
 	if (in->i_flags & OCFS2_DLM_FL)
 		g_string_append (flags, "dlm ");
+	if (in->i_flags & OCFS2_CHAIN_FL)
+		g_string_append (flags, "chain ");
 
 	fprintf(out, "\tInode: %llu   Mode: 0%0o   Generation: %u\n",
 	        (unsigned long long)in->i_blkno, mode, in->i_generation);
@@ -162,8 +164,8 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	fprintf(out, "\tdtime: 0x%llx -- %s", (unsigned long long)in->i_dtime, str);
 
 	fprintf(out, "\tLast Extblk: %llu\n", (unsigned long long)in->i_last_eb_blk);
-	fprintf(out, "\tSub Alloc Node: %u   Sub Alloc Blknum: %llu\n",
-	       in->i_suballoc_node, (unsigned long long)in->i_suballoc_blkno);
+	fprintf(out, "\tSub Alloc Node: %u   Sub Alloc Bit: %u\n",
+	       in->i_suballoc_node, in->i_suballoc_bit);
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
 		fprintf(out, "\tBitmap Total: %u   Used: %u   Clear: %u\n",
@@ -215,6 +217,34 @@ void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
  * dump_extent_list()
  *
  */
+void dump_chain_list (FILE *out, ocfs2_chain_list *cl)
+{
+	ocfs2_chain_rec *rec;
+	int i;
+
+	fprintf(out, "\tClusters Per Group: %u   Bits Per Cluster: %u\n",
+		cl->cl_cpg, cl->cl_bpc);
+
+	fprintf(out, "\tCount: %u   Next Free Record: %u\n",
+		cl->cl_count, cl->cl_next_free_rec);
+
+	if (!cl->cl_next_free_rec)
+		goto bail;
+
+	for (i = 0; i < cl->cl_next_free_rec; ++i) {
+		rec = &(cl->cl_recs[i]);
+		fprintf(out, "\t## Bits Total    Bits Free      Disk Offset\n");
+
+		fprintf(out, "\t%-2d %-11u   %-12u   %llu\n", i, rec->c_total,
+			rec->c_free, (unsigned long long)rec->c_blkno);
+		traverse_chain(out, rec->c_blkno);
+		fprintf(out, "\n");
+	}
+
+bail:
+	return ;
+}				/* dump_chain_list */
+
 void dump_extent_list (FILE *out, ocfs2_extent_list *ext)
 {
 	ocfs2_extent_rec *rec;
@@ -244,8 +274,8 @@ bail:
  */
 void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 {
-	fprintf (out, "\tSubAlloc Blknum: %llu   SubAlloc Node: %u\n",
-		 (unsigned long long)blk->h_suballoc_blkno, blk->h_suballoc_node);
+	fprintf (out, "\tSubAlloc Bit: %u   SubAlloc Node: %u\n",
+		 blk->h_suballoc_bit, blk->h_suballoc_node);
 
 	fprintf (out, "\tBlknum: %llu   Parent: %llu   Next Leaf: %llu\n",
 		 (unsigned long long)blk->h_blkno,
@@ -254,6 +284,57 @@ void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 
 	return ;
 }				/* dump_extent_block */
+
+void traverse_chain(FILE *out, __u64 blknum)
+{
+	ocfs2_group_desc *bg;
+	char *buf = NULL;
+	__u32 buflen;
+
+	buflen = 1 << gbls.blksz_bits;
+	if (!(buf = memalign(buflen, buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	do {
+		if ((read_group (gbls.dev_fd, blknum, buf, buflen)) == -1) {
+			printf("Not a group descriptor\n");
+			goto bail;
+		}
+		bg = (ocfs2_group_desc *)buf;
+		dump_group_descriptor(out, bg);
+		blknum = bg->bg_next_group;
+	} while (blknum);
+	
+bail:
+	safefree (buf);
+	return ;
+}
+
+/*
+ * dump_group_descriptor()
+ *
+ */
+void dump_group_descriptor (FILE *out, ocfs2_group_desc *blk)
+{
+
+	fprintf (out, "\tParent Chain: %u   Blknum: %llu\n",
+		 blk->bg_chain,
+		 blk->bg_blkno);
+
+	fprintf (out, "\tFree Bits Count: %u   Group Bits: %u   "
+		 "Group Size: %u\n",
+		 blk->bg_free_bits_count,
+		 blk->bg_bits,
+		 blk->bg_size);
+
+	fprintf (out, "\tNext Group: %llu   Parent Dinode: %llu  "
+		 "Generation: %u\n",
+		 (unsigned long long)blk->bg_next_group,
+		 (unsigned long long)blk->bg_parent_dinode,
+		 blk->bg_generation);
+
+	return ;
+}				/* dump_group_descriptor */
 
 /*
  * dump_dir_entry()

@@ -17,7 +17,7 @@ LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 
 INCLUDES = $(LIBOCFS2_CFLAGS)
-DEFINES = -DOCFS2_FLAT_INCLUDES
+DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 OPTIMIZE = -O2
 
@@ -35,15 +35,14 @@ endif
 
 CFLAGS += $(OPTIMIZE)
 
-VERSION_FILES = mkfs.c
-VERSION_SRC = mkfs.c
-VERSION_PREFIX = OCFS2
+CFILES = mkfs.c
+OBJS = $(subst .c,.o,$(CFILES))
 
 MANS = mkfs.ocfs2.8
 
-DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) mkfs.ocfs2.8.in
+DIST_FILES = $(CFILES) mkfs.ocfs2.8.in
 
-mkfs.ocfs2: mkfs.o
+mkfs.ocfs2: $(OBJS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 readdir: readdir.o

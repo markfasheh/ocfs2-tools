@@ -266,14 +266,8 @@ static errcode_t ocfs2_bitmap_merge_cluster(ocfs2_bitmap *bitmap,
 	    next->bc_start_bit)
 		return OCFS2_ET_INVALID_BIT;
 
-	/*
-	 * If at least one cpos is not zero, then these have real disk
-	 * locations, and they better be cpos contig as well.
-	 */
-	if ((prev->bc_cpos || next->bc_cpos) &&
-	    ((prev->bc_cpos +
-	     ((prev->bc_total_bits / 8) /
-	      bitmap->b_fs->fs_clusters)) != next->bc_cpos))
+	if (bitmap->b_ops->merge_cluster &&
+	    !(*bitmap->b_ops->merge_cluster)(bitmap, prev, next))
 		return OCFS2_ET_INVALID_BIT;
 
 	new_bits = (uint64_t)(prev->bc_total_bits) +
@@ -602,9 +596,9 @@ static void dump_clusters(ocfs2_bitmap *bitmap)
 		bc = rb_entry(node, struct ocfs2_bitmap_cluster, bc_node);
 
 		fprintf(stdout,
-			"(start: %"PRIu64", n: %d, set: %d, cpos: %"PRIu32")\n",
+			"(start: %"PRIu64", n: %d, set: %d)\n",
 			bc->bc_start_bit, bc->bc_total_bits,
-			bc->bc_set_bits, bc->bc_cpos);
+			bc->bc_set_bits);
 	}
 }
 

@@ -12,15 +12,19 @@ INCLUDES += $(GLIB_CFLAGS)
 CFLAGS += -Wall -O2
 
 CFILES = main.c commands.c dump.c readfs.c utils.c journal.c bindraw.c
-HFILES = include/main.h include/commands.h include/dump.h include/readfs.h include/utils.h include/jbd.h include/journal.h include/bindraw.h
+HFILES =			\
+	include/main.h		\
+	include/commands.h	\
+	include/dump.h		\
+	include/readfs.h	\
+	include/utils.h		\
+	include/jbd.h		\
+	include/journal.h	\
+	include/bindraw.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
-
-VERSION_FILES = $(CFILES) $(HFILES)
-VERSION_SRC = $(CFILES)
-VERSION_PREFIX = OCFS2
 
 MANS = debugfs.ocfs2.8
 

@@ -29,6 +29,20 @@
 
 #include "kernel-rbtree.h"
 
+struct ocfs2_bitmap_cluster {
+	struct rb_node bc_node;
+	uint64_t bc_start_bit;		/* Bit offset.  Must be
+					   aligned on
+					   (clustersize * 8) */
+	int bc_total_bits;		/* set_bit() and friends can't
+					   handle bitmaps larger than
+					   int offsets */
+	int bc_set_bits;
+	char *bc_bitmap;
+
+	void *bc_private;
+};
+
 struct ocfs2_bitmap_operations {
 	errcode_t (*set_bit)(ocfs2_bitmap *bm, uint64_t bit,
 			     int *oldval);
@@ -36,6 +50,9 @@ struct ocfs2_bitmap_operations {
 			       int *oldval);
 	errcode_t (*test_bit)(ocfs2_bitmap *bm, uint64_t bit,
 			      int *val);
+	errcode_t (*merge_cluster)(ocfs2_bitmap *bm,
+				   struct ocfs2_bitmap_cluster *prev,
+				   struct ocfs2_bitmap_cluster *next);
 	errcode_t (*read_bitmap)(ocfs2_bitmap *bm);
 	errcode_t (*write_bitmap)(ocfs2_bitmap *bm);
 	void (*destroy_notify)(ocfs2_bitmap *bm);
@@ -54,20 +71,6 @@ struct _ocfs2_bitmap {
 						   inode */
 	struct rb_root b_clusters;
 	void *b_private;
-};
-
-struct ocfs2_bitmap_cluster {
-	struct rb_node bc_node;
-	uint64_t bc_start_bit;		/* Bit offset.  Must be
-					   aligned on
-					   (clustersize * 8) */
-	int bc_total_bits;		/* set_bit() and friends can't
-					   handle bitmaps larger than
-					   int offsets */
-	int bc_set_bits;
-	uint32_t bc_cpos;		/* If this bitmap is stored
-					   on disk, where it lives */
-	char *bc_bitmap;
 };
 
 

@@ -86,4 +86,13 @@ ec	OCFS2_ET_INVALID_BIT,
 ec	OCFS2_ET_INTERNAL_FAILURE,
 	"Internal logic faliure"
 
+ec	OCFS2_ET_BAD_GROUP_DESC_MAGIC,
+	"Bad magic number in group descriptor"
+
+ec	OCFS2_ET_CORRUPT_GROUP_DESC,
+	"Group descriptor is corrupt"
+
+ec	OCFS2_ET_CORRUPT_CHAIN,
+	"Chain allocator is corrupt"
+
 	end

@@ -124,6 +124,30 @@ int read_inode (int fd, __u64 blknum, char *buf, int buflen)
 }				/* read_inode */
 
 /*
+ * read_group()
+ *
+ */
+int read_group (int fd, __u64 blknum, char *buf, int buflen)
+{
+	uint64_t off;
+	ocfs2_group_desc *bg;
+	int ret = 0;
+
+	off = blknum << gbls.blksz_bits;
+
+	if ((pread64(fd, buf, buflen, off)) == -1)
+		DBGFS_FATAL("%s off=%"PRIu64, strerror(errno), off);
+
+	bg = (ocfs2_group_desc *)buf;
+
+	if (memcmp(bg->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
+		   sizeof(OCFS2_GROUP_DESC_SIGNATURE)))
+		ret = -1;
+
+	return ret;
+}				/* read_group */
+
+/*
  * traverse_extents()
  *
  */

@@ -45,38 +45,96 @@ struct _ocfs2_inode_scan {
 	int next_inode_file;
 	ocfs2_cached_inode *cur_inode_alloc;
 	ocfs2_cached_inode **inode_alloc;
-	ocfs2_extent_map_entry *cur_entry;
+	ocfs2_chain_rec *cur_rec;
+	int next_rec;
+	ocfs2_group_desc *cur_desc;
+	unsigned int count;
 	uint64_t cur_blkno;
-	char *extent_buffer;
+	char *group_buffer;
 	char *cur_block;
-	uint32_t buffer_clusters;
-	uint64_t blocks_in_buffer;
-	uint64_t blocks_left;
-	uint32_t cpos;
+	int buffer_blocks;
+	int blocks_in_buffer;
+	unsigned int blocks_left;
+	uint64_t bpos;
 	int c_to_b_bits;
 };
 
 
 /*
- * This function is called by fill_extent_buffer when an extent has
- * been completely read.  It must not be called from the last extent.
+ * This function is called by fill_group_buffer when an alloc group has
+ * been completely read.  It must not be called from the last group.
  * ocfs2_get_next_inode() should have detected that condition.
  */
-static errcode_t get_next_extent(ocfs2_inode_scan *scan)
+static errcode_t get_next_group(ocfs2_inode_scan *scan)
 {
-	struct list_head *pos;
-	ocfs2_extent_map *em;
+	errcode_t ret;
 
-	em = scan->cur_inode_alloc->ci_map;
-	pos = scan->cur_entry->e_list.next;
-	if (pos == &em->em_extents)
+	if (!scan->cur_desc) {
+		if (scan->bpos)
+			abort();
+
+		ret = ocfs2_malloc_block(scan->fs->fs_io,
+					 &scan->cur_desc);
+		if (ret)
+			return ret;
+	}
+
+	if (scan->bpos)
+		scan->cur_blkno = scan->cur_desc->bg_next_group;
+
+	/*
+	 * scan->cur_blkno better be nonzero, either set by
+	 * get_next_chain() or valid from bg_next_group
+	 */ 
+	if (!scan->cur_blkno)
 		abort();
-	scan->cur_entry = list_entry(pos, ocfs2_extent_map_entry,
-				     e_list);
-	if (scan->cur_entry->e_rec.e_cpos != scan->cpos)
-		return OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 
-	scan->cur_blkno = scan->cur_entry->e_rec.e_blkno;
+	ret = io_read_block(scan->fs->fs_io, scan->cur_blkno, 1,
+			    (char *)scan->cur_desc);
+	if (ret)
+		return (ret);
+
+	if (scan->cur_desc->bg_blkno != scan->cur_blkno)
+		return OCFS2_ET_CORRUPT_GROUP_DESC;
+
+	/* Skip past group descriptor block */
+	scan->cur_blkno++;
+	scan->count++;
+	scan->blocks_left--;
+	scan->bpos = scan->cur_blkno;
+
+	return 0;
+}
+
+/*
+ * This function is called by fill_group_buffer when an alloc chain
+ * has been completely read.  It must not be called  when the current
+ * inode alloc file has been read in its entirety.  This condition
+ * should have been detected by ocfs2_get_next_inode().
+ */
+static errcode_t get_next_chain(ocfs2_inode_scan *scan)
+{
+	ocfs2_dinode *di = scan->cur_inode_alloc->ci_inode;
+
+	if (scan->next_rec == di->id2.i_chain.cl_next_free_rec) {
+		if (!scan->next_rec) {
+			/*
+			 * The only way we can get here with next_rec
+			 * == cl_next_free_rec == 0 is if
+			 * bitmap1.i_total was non-zero.  But if i_total
+			 * was non-zero and we have no chains, we're
+			 * corrupt.
+			 */
+			return OCFS2_ET_CORRUPT_CHAIN;
+		} else
+			abort();
+	}
+
+	scan->cur_rec = &di->id2.i_chain.cl_recs[scan->next_rec];
+	scan->next_rec++;
+	scan->count = 0;
+	scan->bpos = 0;
+	scan->cur_blkno = scan->cur_rec->c_blkno;
 
 	return 0;
 }
@@ -88,60 +146,48 @@ static errcode_t get_next_extent(ocfs2_inode_scan *scan)
  * in its entirety.  This condition is detected by
  * ocfs2_get_next_inode().
  */
-static errcode_t fill_extent_buffer(ocfs2_inode_scan *scan)
+static errcode_t fill_group_buffer(ocfs2_inode_scan *scan)
 {
 	errcode_t ret;
-	uint64_t num_blocks;
-	uint32_t num_clusters;
+	int num_blocks;
 
-	if (scan->cpos > (scan->cur_entry->e_rec.e_cpos +
-			  scan->cur_entry->e_rec.e_clusters))
+	if (scan->cur_rec && (scan->count > scan->cur_rec->c_total))
+	    abort();
+
+	if (scan->cur_rec && (scan->bpos > (scan->cur_desc->bg_blkno +
+			  scan->cur_desc->bg_bits)))
 		abort();
 
-	if (scan->cpos == (scan->cur_entry->e_rec.e_cpos +
-			   scan->cur_entry->e_rec.e_clusters)) {
-		ret = get_next_extent(scan);
+	if (!scan->cur_rec || (scan->count == scan->cur_rec->c_total)) {
+		ret = get_next_chain(scan);
+		if (ret)
+			return ret;
+	}
+	
+	if (!scan->bpos || (scan->bpos == (scan->cur_desc->bg_blkno +
+					   scan->cur_desc->bg_bits))) {
+		ret = get_next_group(scan);
 		if (ret)
 			return ret;
 	}
 
-	num_clusters = scan->cur_entry->e_rec.e_clusters -
-		(scan->cpos - scan->cur_entry->e_rec.e_cpos);
 
-	if (num_clusters > scan->buffer_clusters)
-		num_clusters = scan->buffer_clusters;
+	num_blocks = (scan->cur_desc->bg_blkno +
+		      scan->cur_desc->bg_bits) - scan->bpos;
 
-	num_blocks = (uint64_t)num_clusters << scan->c_to_b_bits;
+	if (num_blocks > scan->buffer_blocks)
+		num_blocks = scan->buffer_blocks;
+
 	ret = io_read_block(scan->fs->fs_io,
 			    scan->cur_blkno,
 			    num_blocks,
-			    scan->extent_buffer);
+			    scan->group_buffer);
 	if (ret)
 		return ret;
 
-	scan->cpos += num_clusters;
+	scan->bpos += num_blocks;
 	scan->blocks_in_buffer = num_blocks;
-	scan->cur_block = scan->extent_buffer;
-
-	if (!scan->cur_blkno) {
-		/*
-		 * inode_alloc[0] is the global inode allocator.  It
-		 * contains the first extent of the filesystem,
-		 * including block zero.  If this is that allocator
-		 * skip it past the superblock inode.
-		 *
-		 * (next_inode_file is one because we just incremented
-		 *  it.)
-		 */
-		if (scan->next_inode_file == 1) {
-			scan->cur_blkno = OCFS2_SUPER_BLOCK_BLKNO + 1;
-			scan->cur_block += (scan->cur_blkno *
-					    scan->fs->fs_blocksize);
-			scan->blocks_left -= scan->cur_blkno;
-			scan->blocks_in_buffer -= scan->cur_blkno;
-		}
-		/* FIXME: error otherwise */
-	}
+	scan->cur_block = scan->group_buffer;
 
 	return 0;
 }
@@ -151,7 +197,7 @@ static int get_next_inode_alloc(ocfs2_inode_scan *scan)
 {
 	ocfs2_cached_inode *cinode = scan->cur_inode_alloc;
 
-	if (cinode && (scan->cpos != cinode->ci_inode->i_clusters))
+	if (cinode && scan->blocks_left)
 		abort();
 
 	do {
@@ -163,15 +209,14 @@ static int get_next_inode_alloc(ocfs2_inode_scan *scan)
 		cinode = scan->cur_inode_alloc;
 
 		scan->next_inode_file++;
-	} while (list_empty(&cinode->ci_map->em_extents));
+	} while (!cinode->ci_inode->id1.bitmap1.i_total);
 
-	scan->cur_entry = list_entry(cinode->ci_map->em_extents.next,
-				     ocfs2_extent_map_entry, e_list);
-	scan->cpos = scan->cur_entry->e_rec.e_cpos;
-	/* could check cpos == 0 */
-	scan->cur_blkno = scan->cur_entry->e_rec.e_blkno;
+	scan->next_rec = 0;
+	scan->count = 0;
+	scan->cur_blkno = 0;
+	scan->cur_rec = 0;
 	scan->blocks_left =
-		cinode->ci_inode->i_clusters << scan->c_to_b_bits;
+		cinode->ci_inode->id1.bitmap1.i_total;
 
 	return 0;
 }
@@ -192,12 +237,12 @@ errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,
 	}
 
 	if (!scan->blocks_in_buffer) {
-		ret = fill_extent_buffer(scan);
+		ret = fill_group_buffer(scan);
 		if (ret)
 			return ret;
 	}
 	
-	/* Should swap the inode */
+	/* FIXME: Should swap the inode */
 	memcpy(inode, scan->cur_block, scan->fs->fs_blocksize);
 
 	scan->cur_block += scan->fs->fs_blocksize;
@@ -205,6 +250,7 @@ errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,
 	scan->blocks_left--;
 	*blkno = scan->cur_blkno;
 	scan->cur_blkno++;
+	scan->count++;
 
 	return 0;
 }
@@ -236,16 +282,17 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 		goto out_scan;
 
 	/* Minimum 8 inodes in the buffer */
-	if ((fs->fs_clustersize / fs->fs_blocksize) < 8) {
-		scan->buffer_clusters =
+	scan->buffer_blocks = fs->fs_clustersize / fs->fs_blocksize;
+	if (scan->buffer_blocks < 8) {
+		scan->buffer_blocks =
 			((8 * fs->fs_blocksize) +
 			 (fs->fs_clustersize - 1)) /
 			fs->fs_clustersize;
-	} else {
-		scan->buffer_clusters = 1;
+		scan->buffer_blocks <<= scan->c_to_b_bits;
 	}
-	ret = ocfs2_malloc(sizeof(char) * scan->buffer_clusters *
-			   fs->fs_clustersize, &scan->extent_buffer);
+
+	ret = ocfs2_malloc(sizeof(char) * scan->buffer_blocks *
+			   fs->fs_blocksize, &scan->group_buffer);
 	if (ret)
 		goto out_inode_files;
 
@@ -274,11 +321,10 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 			goto out_cleanup;
 	}
 
-	for (i = 0; i < scan->num_inode_alloc; i++) {
-		ret = ocfs2_load_extent_map(fs, scan->inode_alloc[i]);
-		if (ret)
-			goto out_cleanup;
-	}
+	/*
+	 * FIXME: Should this pre-read all the group descriptors like
+	 * the old code read all the extent maps?
+	 */
 
 	*ret_scan = scan;
 
@@ -311,7 +357,8 @@ void ocfs2_close_inode_scan(ocfs2_inode_scan *scan)
 		}
 	}
 
-	ocfs2_free(&scan->extent_buffer);
+	ocfs2_free(&scan->group_buffer);
+	ocfs2_free(&scan->cur_desc);
 	ocfs2_free(&scan->inode_alloc);
 	ocfs2_free(&scan);
 
@@ -352,7 +399,7 @@ int main(int argc, char *argv[])
 	}
 	filename = argv[1];
 
-	ret = ocfs2_open(filename, OCFS2_FLAG_RO, 0, 0, &fs);
+	ret = ocfs2_open(filename, OCFS2_FLAG_RO|OCFS2_FLAG_BUFFERED, 0, 0, &fs);
 	if (ret) {
 		com_err(argv[0], ret,
 			"while opening file \"%s\"", filename);

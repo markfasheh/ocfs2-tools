@@ -35,12 +35,17 @@ ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
 DEBUG_EXE_PROGRAMS = $(addprefix debug_,$(subst .c,,$(DEBUG_EXE_FILES)))
 
+.SECONDARY:
+
 UNINST_PROGRAMS += $(DEBUG_EXE_PROGRAMS)
 
-debug_%: %.c libocfs2.a
+debug_%.o : %.c 
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
-		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
-		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
+		$(INCLUDES) $(DEFINES) \
+		-DDEBUG_EXE -o $@ -c $<
+
+debug_%: debug_%.o libocfs2.a
+	$(LINK) $(COM_ERR_LIBS)
 
 endif
 
@@ -66,6 +71,7 @@ CFILES = 		\
 	unlink.c	\
 	bitmap.c	\
 	fileio.c	\
+	chain.c		\
 	checkhb.c	\
 	kernel-rbtree.c	\
 	bitops.c

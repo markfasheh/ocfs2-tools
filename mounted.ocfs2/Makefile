@@ -30,15 +30,14 @@ endif
 
 CFLAGS += $(OPTIMIZE)
 
-VERSION_FILES = mounted.c
-VERSION_SRC = mounted.c
-VERSION_PREFIX = OCFS2
+CFILES = mounted.c
+OBJS = $(subst .c,.o,$(CFILES))
 
 #MANS = fsck.ocfs2.8
 
-DIST_FILES = $(VERSION_FILES) $(VERSION_SRC)
+DIST_FILES = $(CFILES)
 
-mounted.ocfs2: mounted.o
-	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(VERMAGIC)
+mounted.ocfs2: $(OBJS)
+	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make

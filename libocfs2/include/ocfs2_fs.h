@@ -56,6 +56,7 @@
 #define OCFS2_SUPER_BLOCK_SIGNATURE	"OCFSV2"
 #define OCFS2_INODE_SIGNATURE		"INODE01"
 #define OCFS2_EXTENT_BLOCK_SIGNATURE	"EXBLK01"
+#define OCFS2_GROUP_DESC_SIGNATURE      "GROUP01"
 
 /* Compatibility flags */
 #define OCFS2_HAS_COMPAT_FEATURE(sb,mask)			\
@@ -96,7 +97,7 @@
 #define OCFS2_BITMAP_FL		(0x00000080)	/* Allocation bitmap */
 #define OCFS2_JOURNAL_FL	(0x00000100)	/* Node journal */
 #define OCFS2_DLM_FL		(0x00000200)	/* DLM area */
-	
+#define OCFS2_CHAIN_FL		(0x00000400)	/* Chain allocator */
 
 /* Limit of space in ocfs2_dir_entry */
 #define OCFS2_MAX_FILENAME_LENGTH       255
@@ -117,16 +118,13 @@
 enum {
 	BAD_BLOCK_SYSTEM_INODE = 0,
 	GLOBAL_INODE_ALLOC_SYSTEM_INODE,
-	GLOBAL_INODE_ALLOC_BITMAP_SYSTEM_INODE,
 	DLM_SYSTEM_INODE,
 #define OCFS2_FIRST_ONLINE_SYSTEM_INODE DLM_SYSTEM_INODE
 	GLOBAL_BITMAP_SYSTEM_INODE,
 	ORPHAN_DIR_SYSTEM_INODE,
 #define OCFS2_LAST_GLOBAL_SYSTEM_INODE ORPHAN_DIR_SYSTEM_INODE
 	EXTENT_ALLOC_SYSTEM_INODE,
-	EXTENT_ALLOC_BITMAP_SYSTEM_INODE,
 	INODE_ALLOC_SYSTEM_INODE,
-	INODE_ALLOC_BITMAP_SYSTEM_INODE,
 	JOURNAL_SYSTEM_INODE,
 	LOCAL_ALLOC_SYSTEM_INODE,
 	NUM_SYSTEM_INODES
@@ -134,10 +132,9 @@ enum {
 
 static char *ocfs2_system_inode_names[NUM_SYSTEM_INODES] = {
 	/* Global system inodes (single copy) */
-	/* The first three are only used from userspace mfks/tunefs */
+	/* The first two are only used from userspace mfks/tunefs */
 	[BAD_BLOCK_SYSTEM_INODE]		"bad_blocks",
 	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	"global_inode_alloc",
-	[GLOBAL_INODE_ALLOC_BITMAP_SYSTEM_INODE]	"global_inode_alloc_bitmap",
 
 	/* These are used by the running filesystem */
 	[DLM_SYSTEM_INODE]			"dlm",
@@ -146,9 +143,7 @@ static char *ocfs2_system_inode_names[NUM_SYSTEM_INODES] = {
 
 	/* Node-specific system inodes (one copy per node) */
 	[EXTENT_ALLOC_SYSTEM_INODE]		"extent_alloc:%04d",
-	[EXTENT_ALLOC_BITMAP_SYSTEM_INODE]	"extent_alloc_bitmap:%04d",
 	[INODE_ALLOC_SYSTEM_INODE]		"inode_alloc:%04d",
-	[INODE_ALLOC_BITMAP_SYSTEM_INODE]	"inode_alloc_bitmap:%04d",
 	[JOURNAL_SYSTEM_INODE]			"journal:%04d",
 	[LOCAL_ALLOC_SYSTEM_INODE]		"local_alloc:%04d"
 };
@@ -227,6 +222,12 @@ typedef struct _ocfs2_extent_rec {
 /*10*/
 } ocfs2_extent_rec;	
 
+typedef struct _ocfs2_chain_rec {
+	__u32 c_free;	/* Number of free bits in this chain. */
+	__u32 c_total;	/* Number of total bits in this chain */
+	__u64 c_blkno;	/* Physical disk offset (blocks) of 1st group */
+} ocfs2_chain_rec;
+
 /*
  * On disk extent list for OCFS2 (node in the tree).  Note that this
  * is contained inside ocfs2_dinode or ocfs2_extent_block, so the
@@ -247,16 +248,30 @@ typedef struct _ocfs2_extent_list {
 } ocfs2_extent_list;
 
 /*
+ * On disk allocation chain list for OCFS2.  Note that this is
+ * contained inside ocfs2_dinode, so the offsets are relative to
+ * ocfs2_dinode.id2.i_chain.
+ */
+typedef struct _ocfs2_chain_list {
+/*00*/	__u16 cl_cpg;			/* Clusters per Block Group */
+	__u16 cl_bpc;			/* Bits per cluster */
+	__u16 cl_count;			/* Total chains in this list */
+	__u16 cl_next_free_rec;		/* Next unused chain slot */
+	__u64 cl_reserved1;
+/*10*/	ocfs2_chain_rec cl_recs[0];	/* Chain records */
+} ocfs2_chain_list;
+
+/*
  * On disk extent block (indirect block) for OCFS2
  */
 typedef struct _ocfs2_extent_block
 {
 /*00*/	__u8 h_signature[8];		/* Signature for verification */
-	__u64 h_suballoc_blkno;		/* Node suballocator offset,
-					   in blocks */
+	__u64 h_reserved1;
 /*10*/	__s16 h_suballoc_node;		/* Node suballocator this
 					   extent_header belongs to */
-	__u16 h_reserved1;
+	__u16 h_suballoc_bit;		/* Bit offset in suballocater
+					   block group */
 	__u32 h_reserved2;
 	__u64 h_blkno;			/* Offset on disk, in blocks */
 /*20*/	__u64 h_parent_blk;		/* Offset on disk, in blocks,
@@ -275,13 +290,9 @@ typedef struct _ocfs2_extent_block
 typedef struct _ocfs2_disk_lock
 {
 /*00*/	__s16 dl_master;	/* Node number of current master */
-	__u16 dl_reserved1;
 	__u8 dl_level;		/* Lock level */
-	__u8 dl_reserved2[3];	/* Pad to u64 */
-	__u64 dl_seq_num;	/* Lock transaction seqnum */
-/*10*/	__u32 dl_node_map[8];	/* Bitmap of interested nodes,
-				   was __u32 */ 
-/*30*/
+	__u8 dl_reserved1;
+/*04*/
 } ocfs2_disk_lock;
 
 /*
@@ -341,45 +352,43 @@ typedef struct _ocfs2_local_alloc
 typedef struct _ocfs2_dinode {
 /*00*/	__u8 i_signature[8];		/* Signature for validation */
 	__u32 i_generation;		/* Generation number */
-	__u16 i_reserved1;
 	__s16 i_suballoc_node;		/* Node suballocater this inode
 					   belongs to */
-/*10*/	__u64 i_suballoc_blkno;		/* Node suballocator offset,
-       					   in blocks */
-/*18*/	ocfs2_disk_lock i_disk_lock;	/* Lock structure */
-/*48*/	__u32 i_uid;			/* Owner UID */
+	__u16 i_suballoc_bit;		/* Bit offset in suballocater
+					   block group */
+/*10*/	ocfs2_disk_lock i_disk_lock;	/* Lock structure */
+/*14*/	__u32 i_clusters;		/* Cluster count */
+/*18*/	__u32 i_uid;			/* Owner UID */
 	__u32 i_gid;			/* Owning GID */
-/*50*/	__u64 i_size;			/* Size in bytes */
+/*20*/	__u64 i_size;			/* Size in bytes */
 	__u16 i_mode;			/* File mode */
 	__u16 i_links_count;		/* Links count */
 	__u32 i_flags;			/* File flags */
-/*60*/	__u64 i_atime;			/* Access time */
+/*30*/	__u64 i_atime;			/* Access time */
 	__u64 i_ctime;			/* Creation time */
-/*70*/	__u64 i_mtime;			/* Modification time */
+/*40*/	__u64 i_mtime;			/* Modification time */
 	__u64 i_dtime;			/* Deletion time */
-/*80*/	__u64 i_blkno;			/* Offset on disk, in blocks */
-	__u32 i_clusters;		/* Cluster count */
-	__u32 i_reserved2;
-/*90*/	__u64 i_last_eb_blk;		/* Pointer to last extent
+/*50*/	__u64 i_blkno;			/* Offset on disk, in blocks */
+	__u64 i_last_eb_blk;		/* Pointer to last extent
 					   block */
-	__u64 i_reserved3;
-/*A0*/	__u64 i_reserved4;
-	__u64 i_reserved5;
-/*B0*/	__u64 i_reserved6;
-	union {
-		__u64 i_pad1;		/* Generic way to refer to this 64bit
-					   union */
+/*60*/	__u64 i_reserved1[11];
+/*B8*/	union {
+		__u64 i_pad1;		/* Generic way to refer to this
+					   64bit union */
 		struct {
 			__u64 i_rdev;	/* Device number */
 		} dev1;
-		struct {		/* Info for bitmap system inodes */
+		struct {		/* Info for bitmap system
+					   inodes */
 			__u32 i_used;	/* Bits (ie, clusters) used  */
-			__u32 i_total;	/* Total bits (clusters) available */
+			__u32 i_total;	/* Total bits (clusters)
+					   available */
 		} bitmap1;
 	} id1;				/* Inode type dependant 1 */
 /*C0*/	union {
 		ocfs2_super_block i_super;
-                ocfs2_local_alloc i_lab;
+		ocfs2_local_alloc i_lab;
+		ocfs2_chain_list  i_chain;
 		ocfs2_extent_list i_list;
 	} id2;
 /* Actual on-disk size is one block */
@@ -397,7 +406,28 @@ struct ocfs2_dir_entry {
 /* Actual on-disk length specified by rec_len */
 };
 
-
+/*
+ * On disk allocator group structure for OCFS2
+ */
+typedef struct _ocfs2_group_desc
+{
+/*00*/	__u8    bg_signature[8];        /* Signature for validation */
+	__u16   bg_size;                /* Size of included bitmap in
+					   bytes. */
+	__u16   bg_bits;                /* Bits represented by this
+					   group. */
+	__u16	bg_free_bits_count;     /* Free bits count */
+	__u16   bg_chain;               /* What chain I am in. */
+/*10*/	__u32   bg_generation;
+	__u32	bg_reserved1;
+	__u64   bg_next_group;          /* Next group in my list, in
+					   blocks */
+/*20*/	__u64   bg_parent_dinode;       /* dinode which owns me, in
+					   blocks */
+	__u64   bg_blkno;               /* Offset on disk, in blocks */
+/*30*/	__u64   bg_reserved2[2];
+/*40*/	__u8    bg_bitmap[0];
+} ocfs2_group_desc;
 
 #ifdef __KERNEL__
 static inline int ocfs2_extent_recs_per_inode(struct super_block *sb)
@@ -408,6 +438,16 @@ static inline int ocfs2_extent_recs_per_inode(struct super_block *sb)
 		offsetof(struct _ocfs2_dinode, id2.i_list.l_recs);
 
 	return size / sizeof(struct _ocfs2_extent_rec);
+}
+
+static inline int ocfs2_chain_recs_per_inode(struct super_block *sb)
+{
+	int size;
+
+	size = sb->s_blocksize -
+		offsetof(struct _ocfs2_dinode, id2.i_chain.cl_recs);
+
+	return size / sizeof(struct _ocfs2_chain_rec);
 }
 
 static inline int ocfs2_extent_recs_per_eb(struct super_block *sb)
@@ -429,6 +469,16 @@ static inline int ocfs2_local_alloc_size(struct super_block *sb)
 
 	return size;
 }
+
+static inline int ocfs2_group_bitmap_size(struct super_block *sb)
+{
+	int size;
+
+	size = sb->s_blocksize -
+		offsetof(struct _ocfs2_group_desc, bg_bitmap);
+
+	return size;
+}
 #else
 static inline int ocfs2_extent_recs_per_inode(int blocksize)
 {
@@ -438,6 +488,16 @@ static inline int ocfs2_extent_recs_per_inode(int blocksize)
 		offsetof(struct _ocfs2_dinode, id2.i_list.l_recs);
 
 	return size / sizeof(struct _ocfs2_extent_rec);
+}
+
+static inline int ocfs2_chain_recs_per_inode(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct _ocfs2_dinode, id2.i_chain.cl_recs);
+
+	return size / sizeof(struct _ocfs2_chain_rec);
 }
 
 static inline int ocfs2_extent_recs_per_eb(int blocksize)
@@ -456,6 +516,16 @@ static inline int ocfs2_local_alloc_size(int blocksize)
 
 	size = blocksize -
 		offsetof(struct _ocfs2_dinode, id2.i_lab.la_bitmap);
+
+	return size;
+}
+
+static inline int ocfs2_group_bitmap_size(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct _ocfs2_group_desc, bg_bitmap);
 
 	return size;
 }

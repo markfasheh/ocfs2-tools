@@ -98,7 +98,7 @@
 /* Return flags for the block iterator functions */
 #define OCFS2_BLOCK_CHANGED	0x01
 #define OCFS2_BLOCK_ABORT	0x02
-#define OCFS2_BLOCK_ERROR	0x03
+#define OCFS2_BLOCK_ERROR	0x04
 
 /*
  * Block iterate flags
@@ -116,13 +116,19 @@
 
 
 /* Return flags for the directory iterator functions */
-#define OCFS2_DIRENT_CHANGED	1
-#define OCFS2_DIRENT_ABORT	2
-#define OCFS2_DIRENT_ERROR	3
+#define OCFS2_DIRENT_CHANGED	0x01
+#define OCFS2_DIRENT_ABORT	0x02
+#define OCFS2_DIRENT_ERROR	0x04
 
 /* Directory iterator flags */
-#define OCFS2_DIRENT_FLAG_INCLUDE_EMPTY		1
-#define OCFS2_DIRENT_FLAG_INCLUDE_REMOVED	2
+#define OCFS2_DIRENT_FLAG_INCLUDE_EMPTY		0x01
+#define OCFS2_DIRENT_FLAG_INCLUDE_REMOVED	0x02
+
+/* Return flags for the chain iterator functions */
+#define OCFS2_CHAIN_CHANGED	0x01
+#define OCFS2_CHAIN_ABORT	0x02
+#define OCFS2_CHAIN_ERROR	0x04
+
 
 /* Directory constants */
 #define OCFS2_DIRENT_DOT_FILE		1
@@ -131,11 +137,11 @@
 #define OCFS2_DIRENT_DELETED_FILE	4
 
 /* Check if mounted flags */
-#define OCFS2_MF_MOUNTED         1
-#define OCFS2_MF_ISROOT          2
-#define OCFS2_MF_READONLY        4
-#define OCFS2_MF_SWAP            8
-#define OCFS2_MF_MOUNTED_CLUSTER 16
+#define OCFS2_MF_MOUNTED         0x01
+#define OCFS2_MF_ISROOT          0x02
+#define OCFS2_MF_READONLY        0x04
+#define OCFS2_MF_SWAP            0x08
+#define OCFS2_MF_MOUNTED_CLUSTER 0x16
 
 /* Some constants used in heartbeat */
 #define OCFS2_NODE_MAP_MAX_NODES	256
@@ -358,5 +364,19 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int quick_detect,
 
 errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
 				uint8_t *uuid, uint16_t uuid_len);
+
+errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
+				char *gd_buf);
+
+errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
+				 char *gd_buf);
+
+errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
+			      uint64_t blkno,
+			      int (*func)(ocfs2_filesys *fs,
+					  uint64_t gd_blkno,
+					  int chain_num,
+					  void *priv_data),
+			      void *priv_data);
 
 #endif  /* _FILESYS_H */

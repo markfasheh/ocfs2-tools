@@ -365,8 +365,7 @@ usage(const char *progname)
 static void
 version(const char *progname)
 {
-	fprintf(stderr, "%s %s %s (build %s)\n", progname,
-		OCFS2_BUILD_VERSION, OCFS2_BUILD_DATE, OCFS2_BUILD_MD5);
+	fprintf(stderr, "%s %s\n", progname, VERSION);
 }
 
 static char *

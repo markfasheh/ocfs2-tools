@@ -207,8 +207,8 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 
 	flags = extent_iterate_el(el, eb_rec->e_blkno, ctxt);
 	changed |= flags;
-	if (flags & OCFS2_EXTENT_ABORT)
-		iret |= OCFS2_EXTENT_ABORT;
+	if (flags & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR))
+		iret |= flags & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR);
 
 	if (changed & OCFS2_EXTENT_CHANGED) {
 		/* Do something */
@@ -216,7 +216,7 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 
 	if ((ctxt->flags & OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE) &&
 	    !(ctxt->flags & OCFS2_EXTENT_FLAG_DATA_ONLY) &&
-	    !(iret & OCFS2_EXTENT_ABORT))
+	    !(iret & (OCFS2_EXTENT_ABORT|OCFS2_EXTENT_ERROR)))
 		iret = (*ctxt->func)(ctxt->fs, eb_rec,
 				     ref_tree_depth,
 				     ctxt->ccount, ref_blkno,
