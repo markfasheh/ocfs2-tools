@@ -305,7 +305,7 @@ stop()
 status()
 {
     echo -n "Checking if O2CB is loaded: "
-    RC=2
+    RC=0
     for MODSPEC in $MODULE_LIST
     do
         MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
@@ -314,7 +314,7 @@ status()
 
         if grep "^${MODULE_NAME} " /proc/modules >/dev/null 2>&1
         then
-            echo -n "${MODULE_NAME}"
+            echo -n "${MODULE_NAME} "
         else
             RC=1
             break
@@ -328,12 +328,17 @@ status()
         MODULE_NAME="$(echo $MODSPEC | cut -d: -f1)"
         FSTYPE="$(echo $MODSPEC | cut -d: -f2)"
         MOUNT_POINT="$(echo $MODSPEC | cut -d: -f3)"
-        FULL_MOUNT="${O2CB_MANAGER}/${MOUNT_POINT}"
 
+        if [ -z "$FSTYPE" -o -z "$MOUNT_POINT" ]
+        then
+            continue
+        fi
+
+        FULL_MOUNT="${O2CB_MANAGER}/${MOUNT_POINT}"
         FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
         if grep "^${FSTYPE} ${FULL_MOUNTSEARCH} ${FSTYPE}" /proc/mounts >/dev/null 2>&1
         then
-            echo -n "${MOUNT_POINT}"
+            echo -n "${MOUNT_POINT} "
         else
             RC=1
             break
