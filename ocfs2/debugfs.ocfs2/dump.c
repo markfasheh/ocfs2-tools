@@ -187,7 +187,7 @@ void dump_inode(ocfs2_dinode *in)
 	       in->i_suballoc_node, in->i_suballoc_blkno);
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
-		printf("Global Bitmap Total: %u   Used: %u   Clear: %u\n",
+		printf("Bitmap Total: %u   Used: %u   Clear: %u\n",
 		       in->id1.bitmap1.i_total, in->id1.bitmap1.i_used,
 		       (in->id1.bitmap1.i_total - in->id1.bitmap1.i_used));
 
