@@ -1,3 +1,5 @@
 cscope*
 listuuid
 stamp-md5
+listuuid.ocfs2
+.*.sw?

@@ -158,9 +158,16 @@ errcode_t ocfs2_open(const char *name, int flags,
 		goto out;
 	strcpy(fs->fs_devname, name);
 
-	ret = ocfs2_validate_ocfs1_header(fs);
-	if (ret)
-		goto out;
+	/*
+	 * If OCFS2_FLAG_NO_REV_CHECK is specified, fsck (or someone
+	 * like it) is asking to ignore the OCFS vol_header at
+	 * block 0.
+	 */
+	if (!(flags & OCFS2_FLAG_NO_REV_CHECK)) {
+		ret = ocfs2_validate_ocfs1_header(fs);
+		if (ret)
+			goto out;
+	}
 
 	if (superblock) {
 		ret = OCFS2_ET_INVALID_ARGUMENT;
