@@ -48,5 +48,6 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum);
 void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum);
 void dump_jbd_unknown (FILE *out, __u64 start, __u64 end);
 void dump_slots (FILE *out, char *buf, uint32_t len);
+void dump_fast_symlink (FILE *out, char *link);
 
 #endif		/* __DUMP_H__ */
