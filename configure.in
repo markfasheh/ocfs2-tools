@@ -165,6 +165,5 @@ mkfs.ocfs2/mkfs.ocfs2.8
 ocfs_uid_gen/ocfs_uid_gen.8
 load_ocfs/load_ocfs.8
 load_ocfs/ocfs.conf.5
-ocfstool/ocfstool.8
 vendor/common/ocfs2-tools.spec
 ])

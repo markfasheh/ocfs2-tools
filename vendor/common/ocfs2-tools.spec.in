@@ -20,7 +20,7 @@ Distribution: Oracle
 Vendor: Oracle Corporation
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: ocfs-support >= @DIST_VERSION@, %{gtk_name} >= 1.2.8
+Requires: ocfs2-support >= @DIST_VERSION@, %{gtk_name} >= 1.2.8
 BuildRequires: %{gtk_name}-devel >= 1.2.8
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
@@ -59,7 +59,7 @@ then
 fi
 cp -f vendor/$IVENDOR/ocfs.init $RPM_BUILD_ROOT/etc/init.d/ocfs2
 
-for tool in mkfs.ocfs2 debugfs.ocfs2 load_ocfs ocfs_uid_gen
+for tool in mkfs.ocfs2 debugfs.ocfs2 mounted.ocfs2 load_ocfs ocfs_uid_gen
 do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
 done
@@ -74,7 +74,7 @@ done
 rm -rf "$RPM_BUILD_ROOT"
 
 
-%post -n ocfs-2support
+%post -n ocfs2-support
 chkconfig ocfs2 on
 IVENDOR=redhat
 if [ -r /etc/UnitedLinux-release -o -r /etc/SuSE-release ]
@@ -87,16 +87,16 @@ fi
 
 %files
 %defattr(-,root,root)
-/usr/sbin
 /usr/share
 
 
-%files -n ocfs-support
+%files -n ocfs2-support
 %defattr(-,root,root)
 /sbin/load_ocfs2
 /sbin/mkfs.ocfs2
 /sbin/debugfs.ocfs2
 /sbin/ocfs_uid_gen2
+/sbin/mounted.ocfs2
 /etc/init.d/ocfs2
 
 

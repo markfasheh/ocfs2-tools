@@ -65,10 +65,10 @@ distclean: clean
 	rm -f Config.make config.status config.cache config.log
 
 srpm: dist
-	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "gtk_name $(GTK_NAME)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOPDIR)/vendor/common/ocfs-tools.spec
+	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "gtk_name $(GTK_NAME)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOPDIR)/vendor/common/ocfs2-tools.spec
 
 rpm: srpm
-	$(RPMBUILD) --rebuild --define "gtk_name $(GTK_NAME)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --target $(TOOLSARCH) "ocfs-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
+	$(RPMBUILD) --rebuild --define "gtk_name $(GTK_NAME)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --target $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
 
 def:
 	@echo $(TOOLSARCH)

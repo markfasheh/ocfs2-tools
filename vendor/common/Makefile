@@ -2,6 +2,6 @@ TOPDIR = ../..
 
 include $(TOPDIR)/Preamble.make
 
-DIST_FILES = ocfs-tools.spec.in
+DIST_FILES = ocfs2-tools.spec.in
 
 include $(TOPDIR)/Postamble.make

@@ -36,7 +36,7 @@ VERSION_PREFIX = OCFS2
 
 #MANS = fsck.ocfs2.8
 
-DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) ocfs2_err.et.in
+DIST_FILES = $(VERSION_FILES) $(VERSION_SRC)
 
 mounted.ocfs2: mounted.o
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(VERMAGIC)
