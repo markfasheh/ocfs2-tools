@@ -5,7 +5,7 @@
  *
  * OCFS2 CDSL utility
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2005 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -55,8 +55,23 @@ typedef enum {
 	CDSL_TYPE_HOSTNAME,
 	CDSL_TYPE_MACH,
 	CDSL_TYPE_OS,
-	CDSL_TYPE_NODENUM
+	CDSL_TYPE_NODENUM,
+	CDSL_TYPE_SYS,
+	CDSL_TYPE_UID,
+	CDSL_TYPE_GID,
+	CDSL_TYPE_UNKNOWN
 } CDSLType;
+
+static const char * const cdsl_names[] = {
+	[CDSL_TYPE_HOSTNAME]	"hostname",
+	[CDSL_TYPE_MACH]	"mach",
+	[CDSL_TYPE_OS]		"os",
+	[CDSL_TYPE_NODENUM]	"mach",
+	[CDSL_TYPE_SYS]		"sys",
+	[CDSL_TYPE_UID]		"uid",
+	[CDSL_TYPE_GID]		"gid",
+	[CDSL_TYPE_UNKNOWN]	NULL
+};
 
 
 typedef struct _State State;
@@ -83,6 +98,7 @@ static State *get_state (int argc, char **argv);
 static void usage(const char *progname);
 static void version(const char *progname);
 static char *get_ocfs2_root(const char *path);
+static CDSLType cdsl_type_from_string(const char *str);
 static char *cdsl_path_expand(State *s);
 static char *cdsl_target(State *s, const char *path);
 static void delete(State *s, const char *path);
@@ -268,17 +284,10 @@ get_state(int argc, char **argv)
 
 		switch (c) {
 		case 't':
-			if (strcmp(optarg, "hostname") == 0)
-				type = CDSL_TYPE_HOSTNAME;
-			else if (strcmp(optarg, "mach") == 0)
-				type = CDSL_TYPE_MACH;
-			else if (strcmp(optarg, "os") == 0)
-				type = CDSL_TYPE_OS;
-			else if (strcmp(optarg, "nodenum") == 0)
-				type = CDSL_TYPE_NODENUM;
-			else {
+			type = cdsl_type_from_string(optarg);
+			if (type == CDSL_TYPE_UNKNOWN) {
 				fprintf(stderr, "%s: '%s' not a recognized "
-						"type",
+						"type\n",
 					progname, optarg);
 				exit(1);
 			}
@@ -357,15 +366,35 @@ get_state(int argc, char **argv)
 static void
 usage(const char *progname)
 {
-	fprintf(stderr, "Usage: %s [-cfnqvV] [-t hostname|mach|os|nodenum] "
-		"[filename]\n", progname);
-	exit(0);
+	const char * const *name;
+
+	fprintf(stderr, "Usage: %s [-cfnqvV] [-t", progname);
+
+	for (name = cdsl_names; *name; name++)
+		fprintf(stderr, " %s", *name);
+
+	fprintf(stderr, "] [filename]\n");
+	exit(1);
 }
 
 static void
 version(const char *progname)
 {
 	fprintf(stderr, "%s %s\n", progname, VERSION);
+}
+
+static CDSLType
+cdsl_type_from_string(const char *str)
+{
+	const char * const *name;
+	CDSLType type;
+
+	for (name = cdsl_names, type = CDSL_TYPE_HOSTNAME; *name;
+	     name++, type++)
+		if (strcmp(str, *name) == 0)
+			break;
+
+	return type;
 }
 
 static char *
@@ -410,63 +439,60 @@ get_ocfs2_root(const char *path)
 static char *
 cdsl_path_expand(State *s)
 {
-	char *prefix, *val;
+	const char *prefix;
+	char *val, *ret;;
 	struct utsname buf;
 
 	uname(&buf);
 
 	switch(s->type) {
 	case CDSL_TYPE_HOSTNAME:
-		prefix = "hostname";
-		val = buf.nodename;
+		val = g_strdup(buf.nodename);
 		break;
 	case CDSL_TYPE_MACH:
-		prefix = "mach";
-		val = buf.machine;
+		val = g_strdup(buf.machine);
 		break;
 	case CDSL_TYPE_OS:
-		prefix = "os";
-		val = buf.sysname;
+		val = g_strdup(buf.sysname);
 		break;
 	case CDSL_TYPE_NODENUM:
-		prefix = "nodenum";
 		val = get_node_num(s);
 		break;
+	case CDSL_TYPE_SYS:
+		val = g_strdup_printf("%s_%s", buf.machine, buf.sysname);
+		break;
+	case CDSL_TYPE_UID:
+		val = g_strdup_printf("%lu", (unsigned long)getuid());
+		break;
+	case CDSL_TYPE_GID:
+		val = g_strdup_printf("%lu", (unsigned long)getgid());
+		break;
+	case CDSL_TYPE_UNKNOWN:
 	default:
 		g_assert_not_reached();
-		prefix = val = NULL;
+		val = NULL;
 		break;
 	}
 
-	return g_build_filename(CDSL_BASE, prefix, val, NULL);
+	prefix = cdsl_names[s->type];
+
+	ret = g_build_filename(CDSL_BASE, prefix, val, NULL);
+
+	g_free(val);
+
+	return ret;
 }
 
 static char *
 cdsl_target(State *s, const char *path)
 {
-	char *type, *val, *ret;
+	const char *type;
+	char *val, *ret;
 	GString *prefix;
 	char **parts;
 	int i;
 
-	switch(s->type) {
-	case CDSL_TYPE_HOSTNAME:
-		type = "hostname";
-		break;
-	case CDSL_TYPE_MACH:
-		type = "mach";
-		break;
-	case CDSL_TYPE_OS:
-		type = "os";
-		break;
-	case CDSL_TYPE_NODENUM:
-		type = "nodenum";
-		break;
-	default:
-		g_assert_not_reached();
-		type = NULL;
-		break;
-	}
+	type = cdsl_names[s->type];
 
 	val = g_strdup_printf("{%s}", type);
 
