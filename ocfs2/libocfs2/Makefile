@@ -50,8 +50,10 @@ CFILES = 		\
 	openfs.c	\
 	closefs.c	\
 	freefs.c	\
+	getsize.c	\
 	inode.c		\
 	inode_scan.c	\
+	ismounted.c	\
 	cached_inode.c	\
 	extent_map.c	\
 	mkjournal.c	\

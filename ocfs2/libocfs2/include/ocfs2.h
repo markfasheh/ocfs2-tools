@@ -126,6 +126,11 @@
 #define OCFS2_DIRENT_OTHER_FILE		3
 #define OCFS2_DIRENT_DELETED_FILE	4
 
+/* Check if mounted flags */
+#define OCFS2_MF_MOUNTED         1
+#define OCFS2_MF_ISROOT          2
+#define OCFS2_MF_READONLY        4
+#define OCFS2_MF_SWAP            8
 
 typedef struct _ocfs2_filesys ocfs2_filesys;
 typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
@@ -293,5 +298,13 @@ errcode_t ocfs2_bitmap_clear(ocfs2_bitmap *bitmap, uint64_t bitno,
 			     int *oldval);
 errcode_t ocfs2_bitmap_test(ocfs2_bitmap *bitmap, uint64_t bitno,
 			    int *val);
+
+errcode_t ocfs2_get_device_size(const char *file, int blocksize,
+				uint32_t *retblocks);
+
+errcode_t ocfs2_check_if_mounted(const char *file, int *mount_flags);
+errcode_t ocfs2_check_mount_point(const char *device, int *mount_flags,
+		                  char *mtpt, int mtlen);
+
 #endif  /* _FILESYS_H */
 
