@@ -65,6 +65,7 @@ static void do_inode (char **args);
 static void do_config (char **args);
 static void do_publish (char **args);
 static void do_vote (char **args);
+static void do_cat (char **args);
 
 extern gboolean allow_write;
 
@@ -117,7 +118,10 @@ static Command commands[] =
 
   { "nodes", do_config },
   { "publish", do_publish },
-  { "vote", do_vote }
+  { "vote", do_vote },
+
+  { "cat", do_cat }
+
 };
 
 
@@ -518,3 +522,37 @@ static void do_vote (char **args)
 
 	return ;
 }					/* do_vote */
+
+/*
+ * do_cat()
+ *
+ */
+static void do_cat (char **args)
+{
+#if 0
+	char *opts = args[1];
+	ocfs2_dinode *inode;
+	__u32 blknum = 0;
+	char *buf = NULL;
+	__u32 buflen;
+
+	if (opts)
+		blknum = atoi(opts);
+
+	if (!blknum)
+		goto bail;
+
+	buflen = 1 << blksz_bits;
+	if (!(buf = malloc(buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	if ((read_inode (dev_fd, blknum, buf, buflen)) == -1) {
+		printf("Not an inode\n");
+		goto bail;
+	}
+	inode = (ocfs2_dinode *)buf;
+
+bail:
+#endif
+	return ;
+}					/* do_cat */

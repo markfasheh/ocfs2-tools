@@ -75,4 +75,46 @@ enum {
 
 #define DBGFS_WARN_STR(str)		DBGFS_WARN(str, "")
 
+
+/* Publish flags */
+#define  FLAG_FILE_CREATE         0x00000001
+#define  FLAG_FILE_EXTEND         0x00000002
+#define  FLAG_FILE_DELETE         0x00000004
+#define  FLAG_FILE_RENAME         0x00000008
+#define  FLAG_FILE_UPDATE         0x00000010
+#define  FLAG_FILE_RECOVERY       0x00000020
+#define  FLAG_FILE_CREATE_DIR     0x00000040
+#define  FLAG_FILE_UPDATE_OIN     0x00000080
+#define  FLAG_FILE_RELEASE_MASTER 0x00000100
+#define  FLAG_RELEASE_DENTRY      0x00000200
+#define  FLAG_CHANGE_MASTER       0x00000400
+#define  FLAG_ADD_OIN_MAP         0x00000800
+#define  FLAG_DIR                 0x00001000
+#define  FLAG_REMASTER            0x00002000
+#define  FLAG_FAST_PATH_LOCK      0x00004000
+#define  FLAG_FILE_UNUSED5        0x00008000
+#define  FLAG_FILE_UNUSED6        0x00010000
+//#define  FLAG_DEL_NAME            0x00020000
+//#define  FLAG_DEL_INODE           0x00040000
+#define  FLAG_FILE_UNUSED7        0x00080000
+#define  FLAG_FILE_UNUSED8        0x00100000
+#define  FLAG_FILE_UNUSED9        0x00200000
+#define  FLAG_FILE_RELEASE_CACHE  0x00400000
+#define  FLAG_FILE_UNUSED10       0x00800000
+#define  FLAG_FILE_UNUSED11       0x01000000
+#define  FLAG_FILE_UNUSED12       0x02000000
+#define  FLAG_FILE_UNUSED13       0x04000000
+#define  FLAG_FILE_TRUNCATE       0x08000000
+#define  FLAG_DROP_READONLY       0x10000000 
+#define  FLAG_READDIR             0x20000000 
+#define  FLAG_ACQUIRE_LOCK        0x40000000 
+#define  FLAG_RELEASE_LOCK        0x80000000 
+
+/* Vote flags */
+#define  FLAG_VOTE_NODE               0x1
+#define  FLAG_VOTE_OIN_UPDATED        0x2
+#define  FLAG_VOTE_OIN_ALREADY_INUSE  0x4
+#define  FLAG_VOTE_UPDATE_RETRY       0x8
+#define  FLAG_VOTE_FILE_DEL           0x10
+
 #endif		/* __MAIN_H__ */

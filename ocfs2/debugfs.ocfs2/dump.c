@@ -280,7 +280,7 @@ void dump_config (char *buf)
 	ocfs_node_config_info *node;
 	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
 	__u16 port;
-	char *addr;
+	char addr[32];
 	struct in_addr ina;
 	int i;
 
@@ -297,9 +297,13 @@ void dump_config (char *buf)
 	p = buf + (2 << blksz_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		node = (ocfs_node_config_info *)p;
-		port = htonl(node->ipc_config.ip_port);
+		if (!*node->node_name)
+			continue;
+
+		port  = htonl(node->ipc_config.ip_port);
+
 		ina.s_addr = node->ipc_config.addr_u.ip_addr4;
-		addr = inet_ntoa(ina);
+		strcpy (addr, inet_ntoa(ina));
 
 		printf("%-4u %-32s %-15s %-6u ", i, node->node_name, addr, port);
 		for (i = 0; i < 16; i++)
@@ -315,8 +319,38 @@ void dump_config (char *buf)
  */
 void dump_publish (char *buf)
 {
+	ocfs_publish *pub;
+	char *p;
+	GString *pub_flag;
+	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	__u32 i, j;
 
+	printf("%-2s %-3s %-3s %-3s %-15s %-15s %-15s %-*s %-s\n",
+	       "No", "Mnt", "Vot", "Dty", "LockId", "Seq", "Time", sb->s_max_nodes,
+	       "Map", "Type");
 
+	p = buf + ((2 + 4 + sb->s_max_nodes) << blksz_bits);
+	for (i = 0; i < sb->s_max_nodes; ++i) {
+		pub = (ocfs_publish *)p;
+
+		pub_flag = g_string_new (NULL);
+		get_publish_flag (pub->vote_type, pub_flag);
+
+		printf("%-2d  %1u   %1u   %1u  %-15llu %-15llu %-15llu ",
+		       i, pub->mounted, pub->vote, pub->dirty, pub->lock_id,
+		       pub->publ_seq_num, pub->time);
+
+		for (j = 0; j < sb->s_max_nodes; j++)
+			printf ("%d", ((pub->vote_map & (1 << j)) ? 1 : 0));
+
+		printf(" %-s\n", pub_flag->str);
+
+		g_string_free (pub_flag, 1);
+
+		p += (1 << blksz_bits);
+	}
+
+	return ;	
 }				/* dump_publish */
 
 /*
@@ -325,6 +359,29 @@ void dump_publish (char *buf)
  */
 void dump_vote (char *buf)
 {
+	ocfs_vote *vote;
+	char *p;
+	GString *vote_flag;
+	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	__u32 i;
 
+	printf("%-2s %-2s %-1s %-15s %-15s %-s\n",
+	       "No", "NV", "O", "LockId", "Seq", "Type");
 
+	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << blksz_bits);
+	for (i = 0; i < sb->s_max_nodes; ++i) {
+		vote = (ocfs_vote *)p;
+
+		vote_flag = g_string_new (NULL);
+		get_vote_flag (vote->type, vote_flag);
+
+		printf("%-2u %-2u %-1u %-15llu %-15llu %-s\n", i,
+		       vote->node, vote->open_handle, vote->lock_id,
+		       vote->vote_seq_num, vote_flag->str);
+
+		g_string_free (vote_flag, 1);
+		p += (1 << blksz_bits);
+	}
+
+	return ;
 }				/* dump_vote */
