@@ -590,4 +590,23 @@ static inline void ocfs2_calc_cluster_groups(uint64_t clusters,
 		cgs->cgs_tail_group_bits = cgs->cgs_cpg;
 }
 
+/*
+ * shamelessly lifted from the kernel
+ *
+ * min()/max() macros that also do
+ * strict type-checking.. See the
+ * "unnecessary" pointer comparison.
+ */
+#define ocfs2_min(x,y) ({ \
+	const typeof(x) _x = (x);       \
+	const typeof(y) _y = (y);       \
+	(void) (&_x == &_y);            \
+	_x < _y ? _x : _y; })
+                                                                                
+#define ocfs2_max(x,y) ({ \
+	const typeof(x) _x = (x);       \
+	const typeof(y) _y = (y);       \
+	(void) (&_x == &_y);            \
+	_x > _y ? _x : _y; })
+
 #endif  /* _FILESYS_H */
