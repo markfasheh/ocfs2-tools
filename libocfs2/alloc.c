@@ -121,6 +121,16 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di,
 	fel->l_count = ocfs2_extent_recs_per_inode(fs->fs_blocksize);
 }
 
+static void ocfs2_init_eb(ocfs2_filesys *fs, ocfs2_extent_block *eb,
+			  uint64_t gd_blkno, uint64_t blkno)
+{
+	strcpy(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE);
+	eb->h_blkno = blkno;
+	eb->h_suballoc_node = 0;
+	eb->h_suballoc_bit = (uint16_t)(blkno - gd_blkno);
+	eb->h_list.l_count = ocfs2_extent_recs_per_eb(fs->fs_blocksize);
+}
+
 errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 {
 	errcode_t ret;
@@ -256,6 +266,76 @@ errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 	}
 	return ret;
 }
+
+errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno)
+{
+	errcode_t ret;
+	char *buf;
+	uint64_t gd_blkno;
+	ocfs2_extent_block *eb;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE,
+			   	   0, &fs->fs_eb_allocs[0]);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_eb_allocs[0],
+					&gd_blkno, blkno);
+	if (ret)
+		goto out;
+
+	memset(buf, 0, fs->fs_blocksize);
+	eb = (ocfs2_extent_block *)buf;
+	ocfs2_init_eb(fs, eb, gd_blkno, *blkno);
+
+	ret = ocfs2_write_extent_block(fs, *blkno, buf);
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
+errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno)
+{
+	errcode_t ret;
+	char *buf;
+	ocfs2_extent_block *eb;
+	int node;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_extent_block(fs, blkno, buf);
+	if (ret)
+		goto out;
+	eb = (ocfs2_extent_block *)buf;
+	node = eb->h_suballoc_node;
+
+	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE,
+				   node,
+				   &fs->fs_eb_allocs[node]);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_free_with_io(fs, fs->fs_eb_allocs[node],
+				       blkno);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_write_extent_block(fs, eb->h_blkno, buf);
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
 
 #ifdef DEBUG_EXE
 #include <stdio.h>

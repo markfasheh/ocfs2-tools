@@ -185,7 +185,7 @@ struct _ocfs2_filesys {
 	ocfs2_cached_inode *fs_cluster_alloc;
 	ocfs2_cached_inode **fs_inode_allocs;
 	ocfs2_cached_inode *fs_system_inode_alloc;
-	ocfs2_cached_inode *fs_eb_alloc;
+	ocfs2_cached_inode **fs_eb_allocs;
 	ocfs2_cached_inode *fs_system_eb_alloc;
 
 	/* Reserved for the use of the calling application. */

@@ -242,6 +242,12 @@ errcode_t ocfs2_open(const char *name, int flags,
 	if (ret)
 		goto out;
 
+	ret = ocfs2_malloc0(OCFS2_RAW_SB(fs->fs_super)->s_max_nodes *
+			    sizeof(ocfs2_cached_inode *), 
+			    &fs->fs_eb_allocs);
+	if (ret)
+		goto out;
+
 	ret = OCFS2_ET_UNEXPECTED_BLOCK_SIZE;
 	if (block_size !=
 	    (1U << OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits))
