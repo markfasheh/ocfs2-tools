@@ -25,7 +25,7 @@ endif
 SUBDIRS = load_ocfs ocfs_uid_gen
 
 ifdef BUILD_OCFS
-SUPDIRS += ocfs
+SUBDIRS += ocfs
 endif
 
 ifdef BUILD_OCFS2
