@@ -246,23 +246,22 @@ errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
 errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode);
 
-errcode_t ocfs2_extent_map_new(ocfs2_filesys *fs,
-			       ocfs2_cached_inode *cinode,
-			       ocfs2_extent_map **ret_em);
-void ocfs2_extent_map_free(ocfs2_extent_map *em);
-errcode_t ocfs2_extent_map_insert(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_init(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode);
+void ocfs2_extent_map_free(ocfs2_cached_inode *cinode);
+errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
 				  ocfs2_extent_rec *rec,
 				  int tree_depth);
-errcode_t ocfs2_extent_map_trunc(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_trunc(ocfs2_cached_inode *cinode,
 				 uint32_t new_clusters);
-errcode_t ocfs2_extent_map_get_rec(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_get_rec(ocfs2_cached_inode *cinode,
 				   uint32_t cpos,
 				   ocfs2_extent_rec **rec);
-errcode_t ocfs2_extent_map_get_clusters(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_get_clusters(ocfs2_cached_inode *cinode,
 					uint32_t v_cpos, int count,
 					uint32_t *p_cpos,
 					int *ret_count);
-errcode_t ocfs2_extent_map_get_blocks(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
 				      uint64_t *p_blkno,
 				      int *ret_count);

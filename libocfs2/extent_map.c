@@ -79,7 +79,7 @@ ocfs2_extent_map_lookup(ocfs2_extent_map *em,
 	return ent;
 }
 
-static errcode_t ocfs2_extent_map_find_leaf(ocfs2_extent_map *em,
+static errcode_t ocfs2_extent_map_find_leaf(ocfs2_cached_inode *cinode,
 					    uint32_t cpos,
 					    uint32_t clusters,
 					    ocfs2_extent_list *el)
@@ -92,8 +92,7 @@ static errcode_t ocfs2_extent_map_find_leaf(ocfs2_extent_map *em,
 	ocfs2_extent_rec *rec;
 
 	if (el->l_tree_depth) {
-		ret = ocfs2_malloc_block(em->em_cinode->ci_fs->fs_io,
-					 &eb_buf);
+		ret = ocfs2_malloc_block(cinode->ci_fs->fs_io, &eb_buf);
 		if (ret)
 			return ret;
 	}
@@ -106,18 +105,20 @@ static errcode_t ocfs2_extent_map_find_leaf(ocfs2_extent_map *em,
 
 			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 			if (rec->e_cpos >=
-			    em->em_cinode->ci_inode->i_clusters)
+			    cinode->ci_inode->i_clusters)
 				goto out_free;
 
 			if ((rec->e_cpos + rec->e_clusters) <= cpos) {
-				ret = ocfs2_extent_map_insert(em, rec,
+				ret = ocfs2_extent_map_insert(cinode,
+							      rec,
 							      el->l_tree_depth);
 				if (ret)
 					goto out_free;
 				continue;
 			}
 			if ((cpos + clusters) <= rec->e_cpos) {
-				ret = ocfs2_extent_map_insert(em, rec,
+				ret = ocfs2_extent_map_insert(cinode,
+							      rec,
 							      el->l_tree_depth);
 				if (ret)
 					goto out_free;
@@ -150,7 +151,7 @@ static errcode_t ocfs2_extent_map_find_leaf(ocfs2_extent_map *em,
 		if (!blkno)
 			goto out_free;
 
-		ret = ocfs2_read_extent_block(em->em_cinode->ci_fs,
+		ret = ocfs2_read_extent_block(cinode->ci_fs,
 					      blkno, eb_buf);
 		if (ret)
 			goto out_free;
@@ -164,7 +165,7 @@ static errcode_t ocfs2_extent_map_find_leaf(ocfs2_extent_map *em,
 
 	for (i = 0; i < el->l_next_free_rec; i++) {
 		rec = &el->l_recs[i];
-		ret = ocfs2_extent_map_insert(em, rec,
+		ret = ocfs2_extent_map_insert(cinode, rec,
 					      el->l_tree_depth);
 		if (ret)
 			goto out_free;
@@ -184,7 +185,7 @@ out_free:
  * It will never re-traverse blocks.  This means that all inserts should
  * be new regions or more granular regions (both allowed by insert).
  */
-static errcode_t ocfs2_extent_map_lookup_read(ocfs2_extent_map *em,
+static errcode_t ocfs2_extent_map_lookup_read(ocfs2_cached_inode *cinode,
 				      uint32_t cpos,
 				      uint32_t clusters,
 				      ocfs2_extent_map_entry **ret_ent)
@@ -192,7 +193,7 @@ static errcode_t ocfs2_extent_map_lookup_read(ocfs2_extent_map *em,
 	errcode_t ret;
 	ocfs2_extent_map_entry *ent;
 	char *eb_buf = NULL;
-	ocfs2_cached_inode *cinode = em->em_cinode;
+	ocfs2_extent_map *em = cinode->ci_map;
 	ocfs2_extent_block *eb;
 	ocfs2_extent_list *el;
 
@@ -221,7 +222,7 @@ static errcode_t ocfs2_extent_map_lookup_read(ocfs2_extent_map *em,
 	} else 
 		el = &cinode->ci_inode->id2.i_list;
 
-	ret = ocfs2_extent_map_find_leaf(em, cpos, clusters, el);
+	ret = ocfs2_extent_map_find_leaf(cinode, cpos, clusters, el);
 	if (eb_buf)
 		ocfs2_free(&eb_buf);
 	if (ret)
@@ -254,17 +255,19 @@ static errcode_t ocfs2_extent_map_insert_entry(ocfs2_extent_map *em,
 	return 0;
 }
 
-errcode_t ocfs2_extent_map_insert(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
 				  ocfs2_extent_rec *rec,
 				  int tree_depth)
 {
 	errcode_t ret;
+	ocfs2_extent_map *em = cinode->ci_map;
 	ocfs2_extent_map_entry *old_ent, *new_ent;
 	ocfs2_extent_map_entry *left_ent = NULL, *right_ent = NULL;
 
-	/* FIXME: should we cache i_clusters instead of cinode? */
-	if ((rec->e_cpos + rec->e_clusters) >
-	    em->em_cinode->ci_inode->i_clusters)
+	if (!em)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if ((rec->e_cpos + rec->e_clusters) > em->em_clusters)
 		return OCFS2_ET_INVALID_EXTENT_LOOKUP;
 
 	ret = ocfs2_malloc0(sizeof(struct _ocfs2_extent_map_entry),
@@ -369,27 +372,33 @@ out_free:
  * ret = ocfs2_extent_map_get_rec(em, orig_size - 5, &rec);
  * rec->e_clusters -= 5;
  */
-errcode_t ocfs2_extent_map_get_rec(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_get_rec(ocfs2_cached_inode *cinode,
 				   uint32_t cpos,
 				   ocfs2_extent_rec **rec)
 {
-	errcode_t ret;
+	errcode_t ret = OCFS2_ET_EXTENT_NOT_FOUND;
+	ocfs2_extent_map *em = cinode->ci_map;
 	ocfs2_extent_map_entry *ent = NULL;
 
 	*rec = NULL;
 
-	if (cpos >= em->em_cinode->ci_inode->i_clusters)
+	if (!em)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if (cpos >= cinode->ci_inode->i_clusters)
 		return OCFS2_ET_INVALID_EXTENT_LOOKUP;
 
-	ret = ocfs2_extent_map_lookup_read(em, cpos, 1, &ent);
+	ent = ocfs2_extent_map_lookup(em, cpos, 1, NULL, NULL);
 	
-	if (!ret)
+	if (ent) {
 		*rec = &ent->e_rec;
+		ret = 0;
+	}
 
 	return ret;
 }
 
-errcode_t ocfs2_extent_map_get_clusters(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_get_clusters(ocfs2_cached_inode *cinode,
 					uint32_t v_cpos, int count,
 					uint32_t *p_cpos,
 					int *ret_count)
@@ -397,14 +406,17 @@ errcode_t ocfs2_extent_map_get_clusters(ocfs2_extent_map *em,
 	errcode_t ret;
 	uint32_t coff, ccount;
 	ocfs2_extent_map_entry *ent = NULL;
-	ocfs2_filesys *fs = em->em_cinode->ci_fs;
+	ocfs2_filesys *fs = cinode->ci_fs;
 
 	*p_cpos = ccount = 0;
 
-	if ((v_cpos + count) > em->em_cinode->ci_inode->i_clusters)
+	if (!cinode->ci_map)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if ((v_cpos + count) > cinode->ci_map->em_clusters)
 		return OCFS2_ET_INVALID_EXTENT_LOOKUP;
 
-	ret = ocfs2_extent_map_lookup_read(em, v_cpos, count, &ent);
+	ret = ocfs2_extent_map_lookup_read(cinode, v_cpos, count, &ent);
 	if (ret)
 		return ret;
 
@@ -430,27 +442,30 @@ errcode_t ocfs2_extent_map_get_clusters(ocfs2_extent_map *em,
 	return OCFS2_ET_EXTENT_NOT_FOUND;
 }
 
-errcode_t ocfs2_extent_map_get_blocks(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
 				      uint64_t *p_blkno, int *ret_count)
 {
 	errcode_t ret;
 	uint64_t boff;
 	uint32_t cpos, clusters;
-	ocfs2_filesys *fs = em->em_cinode->ci_fs;
+	ocfs2_filesys *fs = cinode->ci_fs;
 	int bpc = ocfs2_clusters_to_blocks(fs, 1);
 	ocfs2_extent_map_entry *ent = NULL;
 	ocfs2_extent_rec *rec;
 
 	*p_blkno = 0;
 
+	if (!cinode->ci_map)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
 	cpos = ocfs2_blocks_to_clusters(fs, v_blkno);
 	clusters = ocfs2_blocks_to_clusters(fs,
 					    (uint64_t)count + bpc - 1);
-	if ((cpos + clusters) > em->em_cinode->ci_inode->i_clusters)
+	if ((cpos + clusters) > cinode->ci_map->em_clusters)
 		return OCFS2_ET_INVALID_EXTENT_LOOKUP;
 
-	ret = ocfs2_extent_map_lookup_read(em, cpos, clusters, &ent);
+	ret = ocfs2_extent_map_lookup_read(cinode, cpos, clusters, &ent);
 	if (ret)
 		return ret;
 
@@ -479,21 +494,18 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_extent_map *em,
 	return OCFS2_ET_EXTENT_NOT_FOUND;
 }
 
-errcode_t ocfs2_extent_map_new(ocfs2_filesys *fs,
-			       ocfs2_cached_inode *cinode,
-			       ocfs2_extent_map **ret_em)
+errcode_t ocfs2_extent_map_init(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode)
 {
 	errcode_t ret;
-	ocfs2_extent_map *em;
 
-	ret = ocfs2_malloc0(sizeof(struct _ocfs2_extent_map), &em);
+	ret = ocfs2_malloc0(sizeof(struct _ocfs2_extent_map),
+			    &cinode->ci_map);
 	if (ret)
 		return ret;
 
-	em->em_cinode = cinode;
-	em->em_extents = RB_ROOT;
-
-	*ret_em = em;
+	cinode->ci_map->em_clusters = cinode->ci_inode->i_clusters;
+	cinode->ci_map->em_extents = RB_ROOT;
 
 	return 0;
 }
@@ -504,12 +516,16 @@ errcode_t ocfs2_extent_map_new(ocfs2_filesys *fs,
  * you need to call ocfs2_extent_map_get_rec() and modify the rec
  * you are returned.
  */
-errcode_t ocfs2_extent_map_trunc(ocfs2_extent_map *em,
+errcode_t ocfs2_extent_map_trunc(ocfs2_cached_inode *cinode,
 				 uint32_t new_clusters)
 {
 	errcode_t ret = 0;
 	struct rb_node *node, *next;
+	ocfs2_extent_map *em = cinode->ci_map;
 	ocfs2_extent_map_entry *ent;
+
+	if (!em)
+		return OCFS2_ET_INVALID_ARGUMENT;
 
 	node = rb_last(&em->em_extents);
 	while (node)
@@ -529,10 +545,13 @@ errcode_t ocfs2_extent_map_trunc(ocfs2_extent_map *em,
 	return ret;
 }
 
-void ocfs2_extent_map_free(ocfs2_extent_map *em)
+void ocfs2_extent_map_free(ocfs2_cached_inode *cinode)
 {
-	ocfs2_extent_map_trunc(em, 0);
-	ocfs2_free(&em);
+	if (!cinode->ci_map)
+		return;
+
+	ocfs2_extent_map_trunc(cinode, 0);
+	ocfs2_free(&cinode->ci_map);
 }
 
 
@@ -552,7 +571,7 @@ static int extent_map_func(ocfs2_filesys *fs,
 		ctxt->errcode = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 		iret |= OCFS2_EXTENT_ABORT;
 	} else {
-		ret = ocfs2_extent_map_insert(ctxt->cinode->ci_map, rec,
+		ret = ocfs2_extent_map_insert(ctxt->cinode, rec,
 					      tree_depth);
 		if (ret) {
 			ctxt->errcode = ret;
@@ -572,7 +591,7 @@ errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 	if (!cinode)
 		return OCFS2_ET_INVALID_ARGUMENT;
 
-	ret = ocfs2_extent_map_new(fs, cinode, &cinode->ci_map);
+	ret = ocfs2_extent_map_init(fs, cinode);
 	if (ret)
 		return ret;
 
@@ -600,13 +619,10 @@ cleanup:
 errcode_t ocfs2_drop_extent_map(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode)
 {
-	ocfs2_extent_map *em;
-
 	if (!cinode || !cinode->ci_map)
 		return OCFS2_ET_INVALID_ARGUMENT;
 
-	em = cinode->ci_map;
-	ocfs2_extent_map_free(em);
+	ocfs2_extent_map_free(cinode);
 	cinode->ci_map = NULL;
 
 	return 0;
@@ -875,7 +891,7 @@ int main(int argc, char *argv[])
 			goto out_free;
 		}
 	} else {
-		ret = ocfs2_extent_map_new(fs, cinode, &cinode->ci_map);
+		ret = ocfs2_extent_map_init(fs, cinode);
 		if (ret) {
 			com_err(argv[0], ret,
 				"while initializing extent map");
@@ -884,7 +900,7 @@ int main(int argc, char *argv[])
 
 		switch (op) {
 			case OP_LOOKUP_BLOCK:
-				ret = ocfs2_extent_map_get_blocks(cinode->ci_map,
+				ret = ocfs2_extent_map_get_blocks(cinode,
 								  blkoff,
 								  count,
 								  &blkno,
@@ -899,7 +915,7 @@ int main(int argc, char *argv[])
 				break;
 
 			case OP_LOOKUP_CLUSTER:
-				ret = ocfs2_extent_map_get_clusters(cinode->ci_map,
+				ret = ocfs2_extent_map_get_clusters(cinode,
 								  cpos,
 								  count,
 								  &coff,
@@ -914,7 +930,7 @@ int main(int argc, char *argv[])
 				break;
 				
 			case OP_LOOKUP_REC:
-				ret = ocfs2_extent_map_get_rec(cinode->ci_map,
+				ret = ocfs2_extent_map_get_rec(cinode,
 							       cpos,
 							       &rec);
 				if (ret) {

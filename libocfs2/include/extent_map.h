@@ -32,8 +32,8 @@
 typedef struct _ocfs2_extent_map_entry ocfs2_extent_map_entry;
 
 struct _ocfs2_extent_map {
-	ocfs2_cached_inode *em_cinode;
 	struct rb_root em_extents;
+	uint32_t em_clusters;
 };
 
 struct _ocfs2_extent_map_entry {
