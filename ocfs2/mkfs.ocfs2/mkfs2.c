@@ -111,6 +111,7 @@ typedef struct _system_file_info {
 } system_file_info;
 
 system_file_info system_files[] = {
+	{ "bad_blocks", sfi_other, 1, 0 },
 	{ "global_bitmap", sfi_bitmap, 1, 0 },
 	{ "global_inode_alloc", sfi_other, 1, 0 },
 	{ "global_inode_alloc_bitmap", sfi_bitmap, 1, 0 },
