@@ -64,6 +64,12 @@ DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) #mkfs.ocfs2.8.in
 mkfs.ocfs2: mkfs2.o
 	$(LINK) 
 
+readdir: readdir.o
+	$(LINK) 
+
+fe: readdir.o
+	$(LINK) 
+
 dist-incdir:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/inc
 
