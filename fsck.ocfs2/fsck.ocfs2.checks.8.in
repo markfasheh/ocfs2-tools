@@ -16,14 +16,6 @@ from proceeding.
 
 .SH "CHECKS"
 
-.SS "1"
-Each node's journals are usually empty after an orderly shut down of the
-file system.  A node was marked as not having shut down properly so its
-journal should be replayed.
-
-Answering yes replays the given node's journal.  Each block in the journal will be written
-to its intended location in the file system. 
-
 .SS "2"
 The group descriptors that make up the global bitmap chain allocator are
 static and should be found in specific chains in the allocator.  A given

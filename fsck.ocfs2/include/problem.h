@@ -33,7 +33,7 @@
 /* returns non-zero for yes and zero for no.  The caller is expected to
  * provide a thorough description of the state and the action that will
  * be taken depending on the answer.  Without \n termination. */
-int prompt(o2fsck_state *ost, unsigned flags, unsigned code, 
+int prompt(o2fsck_state *ost, unsigned flags, uint16_t code, 
 	   const char *fmt, ...)
 	 __attribute__ ((format (printf, 4, 5)));
 

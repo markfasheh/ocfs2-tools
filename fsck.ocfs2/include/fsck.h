@@ -26,6 +26,7 @@
 
 #include "icount.h"
 #include "dirblocks.h"
+#include "ocfs2_disk_dlm.h"
 
 typedef struct _o2fsck_state {
 	ocfs2_filesys 	*ost_fs;
@@ -49,6 +50,8 @@ typedef struct _o2fsck_state {
 	 * entries, including '.' and '..'. */
 	o2fsck_icount	*ost_icount_refs;
 
+	ocfs_publish	*ost_publish;
+
 	o2fsck_dirblocks	ost_dirblocks;
 
 	uint32_t	ost_fs_generation;
@@ -63,7 +66,12 @@ typedef struct _o2fsck_state {
 			ost_write_inode_alloc:1,
 			ost_write_error:1,
 			ost_write_cluster_alloc_asked:1,
-			ost_write_cluster_alloc:1,
+ 			ost_write_cluster_alloc:1,
+ 			ost_saw_error:1, /* if we think there are still errors
+ 					  * on disk we'll mark the sb as having
+ 					  * errors as we exit */
+ 			ost_stale_mounts:1, /* set when reading publish blocks
+ 					     * that still indicated mounted */
 			ost_fix_fs_gen:1;
 } o2fsck_state;
 

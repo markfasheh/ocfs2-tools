@@ -49,5 +49,6 @@ void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,
 				    uint32_t num);
 errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 				  uint8_t *type);
+errcode_t o2fsck_read_publish(o2fsck_state *ost);
 
 #endif /* __O2FSCK_UTIL_H__ */

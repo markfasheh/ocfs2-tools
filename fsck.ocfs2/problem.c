@@ -146,7 +146,7 @@ static void print_wrapped(char *str)
  * and have a notion of grouping, as well.  The caller is expected to provide
  * a fully formed question that isn't terminated with a newline.
  */
-int prompt(o2fsck_state *ost, unsigned flags, unsigned code, const char *fmt,
+int prompt(o2fsck_state *ost, unsigned flags, uint16_t code, const char *fmt,
 	   ...)
 {
 	va_list ap;

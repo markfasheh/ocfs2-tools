@@ -821,6 +821,35 @@ out:
 	return;
 }
 
+/* XXX we really need to get the latch stuff straight */
+static errcode_t force_cluster_bit(o2fsck_state *ost, 
+				   ocfs2_cached_inode *ci,
+				   uint64_t bit,
+				   int val)
+{
+	errcode_t ret;
+	char *reason;
+
+	if (!val) {
+		reason = "Cluster %u is marked in the global cluster "
+			 "bitmap but it isn't in use.  Clear its bit "
+			 "in the bitmap?";
+	} else {
+		reason = "Cluster %u is in use but isn't set in the "
+			 "global cluster bitmap.  Set its bit in the "
+			 "bitmap?";
+	}
+
+	if (!prompt(ost, PY, 0, reason, bit))
+		return 0;
+
+	ret = ocfs2_chain_force_val(ost->ost_fs, ci, bit, !!val, NULL);
+	if (ret)
+		com_err(whoami, ret, "while trying to %s bit %"PRIu64" in the "
+			"cluster bitmap", val ? "set" : "clear", bit);
+	return ret;
+}
+
 /* once we've iterated all the inodes we should have the current working
  * set of which blocks we think are in use.  we use this to derive the set
  * of clusters that should be allocated in the cluster chain allocators.  we
@@ -893,27 +922,9 @@ static void write_cluster_alloc(o2fsck_state *ost)
 		if (cbit_found == cbit)
 			continue;
 
-		if (!ost->ost_write_cluster_alloc_asked) {
-			int yn;
-			yn = prompt(ost, PY, 0, "The cluster bitmap doesn't "
-				    "match what fsck thinks should be in use "
-				    "and freed.  Update the bitmap on disk?");
-			ost->ost_write_cluster_alloc_asked = 1;
-			ost->ost_write_cluster_alloc = !!yn;
-			if (!ost->ost_write_cluster_alloc)
-				goto out;
-		}
-
 		/* clear set bits that should have been clear up to cbit */
 		while (cbit_found < cbit) {
-			ret = ocfs2_chain_force_val(ost->ost_fs, ci,
-						    cbit_found, 0, NULL);
-			if (ret) {
-				com_err(whoami, ret, "while trying to clear "
-					"bit %"PRIu64" in the cluster bitmap.",
-					cbit_found);
-				goto out;
-			}
+			force_cluster_bit(ost, ci, cbit_found, 0);
 			cbit_found++;
 			ret = ocfs2_bitmap_find_next_set(ci->ci_chains, cbit, 
 							 &cbit_found);
@@ -922,16 +933,8 @@ static void write_cluster_alloc(o2fsck_state *ost)
 		}
 
 		/* make sure cbit is set before moving on */
-		if (cbit_found != cbit && cbit != ost->ost_fs->fs_clusters) {
-			ret = ocfs2_chain_force_val(ost->ost_fs, ci, cbit, 1,
-						    NULL);
-			if (ret) {
-				com_err(whoami, ret, "while trying to set bit "
-					"%"PRIu64" in the cluster bitmap.",
-					cbit);
-				goto out;
-			}
-		}
+		if (cbit_found != cbit && cbit != ost->ost_fs->fs_clusters)
+			force_cluster_bit(ost, ci, cbit, 1);
 	}
 
 	ret = ocfs2_write_chain_allocator(ost->ost_fs, ci);

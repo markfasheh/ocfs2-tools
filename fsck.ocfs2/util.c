@@ -26,6 +26,7 @@
  *
  */
 #include <inttypes.h>
+#include <string.h>
 #include "ocfs2.h"
 
 #include "util.h"
@@ -39,7 +40,6 @@ void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di)
 		com_err(whoami, OCFS2_ET_INTERNAL_FAILURE, "when asked to "
 			"write an inode with an i_blkno of %"PRIu64" to block "
 			"%"PRIu64, di->i_blkno, blkno);
-		ost->ost_write_error = 1;
 		return;
 	}
 
@@ -47,7 +47,7 @@ void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di)
 	if (ret) {
 		com_err(whoami, ret, "while writing inode %"PRIu64, 
 		        di->i_blkno);
-		ost->ost_write_error = 1;
+		ost->ost_saw_error = 1;
 	}
 }
 
@@ -99,5 +99,58 @@ errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 out:
 	if (buf)
 		ocfs2_free(&buf);
+	return ret;
+}
+
+errcode_t o2fsck_read_publish(o2fsck_state *ost)
+{
+	uint16_t i, max_nodes;
+	char *dlm_buf = NULL;
+	uint64_t dlm_ino;
+	errcode_t ret;
+	int buflen;
+	char *whoami = "read_publish";
+
+	if (ost->ost_publish)
+		ocfs2_free(&ost->ost_publish);
+
+	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+
+	ret = ocfs2_malloc0(sizeof(ocfs_publish) * max_nodes,
+			    &ost->ost_publish);
+	if (ret) {
+		com_err(whoami, ret, "while allocating an array to store each "
+			"node's publish block");
+		goto out;
+	}
+
+	ret = ocfs2_lookup_system_inode(ost->ost_fs, DLM_SYSTEM_INODE,
+					0, &dlm_ino);
+	if (ret) {
+		com_err(whoami, ret, "while looking up the dlm system inode");
+		goto out;
+	}
+
+	ret = ocfs2_read_whole_file(ost->ost_fs, dlm_ino, &dlm_buf, &buflen);
+	if (ret) {
+		com_err(whoami, ret, "while reading dlm file");
+		goto out;
+	}
+
+	/* I have no idea what that magic math is really doing. */
+	for (i = 0; i < max_nodes; i++) {
+		int b_bits = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_blocksize_bits;
+
+		memcpy(&ost->ost_publish[i],
+		       dlm_buf + ((2 + 4 + max_nodes + i) << b_bits),
+		       sizeof(ocfs_publish));
+		if (ost->ost_publish[i].mounted)
+			ost->ost_stale_mounts = 1;
+	}
+out:
+	if (ret && ost->ost_publish)
+		ocfs2_free(&ost->ost_publish);
+	if (dlm_buf)
+		ocfs2_free(&dlm_buf);
 	return ret;
 }

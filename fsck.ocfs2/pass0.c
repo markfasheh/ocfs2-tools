@@ -165,7 +165,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 				"descriptor to block %"PRIu64" somewhere in "
 				"chain %d in group allocator inode %"PRIu64, 
 				bg->bg_blkno, cs->cs_chain_no, di->i_blkno);
-			ost->ost_write_error = 1;
+			ost->ost_saw_error = 1;
 		}
 	}
 
@@ -354,7 +354,7 @@ new_head:
 				"descriptor to block %"PRIu64" somewhere in "
 				"chain %d in group allocator inode %"PRIu64, 
 				bg1->bg_blkno, cs->cs_chain_no, di->i_blkno);
-			ost->ost_write_error = 1;
+			ost->ost_saw_error = 1;
 		}
 	}
 
@@ -513,7 +513,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		if (ret) {
 			com_err(whoami, ret, "while writing inode alloc inode "
 				    "%"PRIu64, di->i_blkno);
-			ost->ost_write_error = 1;
+			ost->ost_saw_error = 1;
 			ret = 0;
 		}
 	}
@@ -600,7 +600,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 				com_err(whoami, ret, "while writing a cluster "
 					"group descriptor at block %"PRIu64,
 					blkno);
-				ost->ost_write_error = 1;
+				ost->ost_saw_error = 1;
 				continue;
 			}
 		}
@@ -646,7 +646,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 		if (ret) {
 			com_err(whoami, ret, "while writing a cluster group "
 				"descriptor at block %"PRIu64, blkno);
-			ost->ost_write_error = 1;
+			ost->ost_saw_error = 1;
 			continue;
 		}
 
@@ -669,7 +669,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 		if (ret) {
 			com_err(whoami, ret, "while writing inode alloc inode "
 				    "%"PRIu64, di->i_blkno);
-			ost->ost_write_error = 1;
+			ost->ost_saw_error = 1;
 			ret = 0;
 		}
 	}

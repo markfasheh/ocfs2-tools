@@ -96,6 +96,11 @@
 #define OCFS2_DLM_FL		(0x00000200)	/* DLM area */
 #define OCFS2_CHAIN_FL		(0x00000400)	/* Chain allocator */
 
+/*
+ * superblock s_state flags
+ */
+#define OCFS2_ERROR_FS		(0x00000001)	/* FS saw errors */
+
 /* Limit of space in ocfs2_dir_entry */
 #define OCFS2_MAX_FILENAME_LENGTH       255
 

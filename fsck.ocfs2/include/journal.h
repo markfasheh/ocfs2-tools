@@ -26,7 +26,8 @@
 
 #include "fsck.h"
 
-errcode_t o2fsck_replay_journals(o2fsck_state *ost);
+errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
+				 int *replayed);
 
 #endif /* __O2FSCK_JOURNAL_H__ */
 

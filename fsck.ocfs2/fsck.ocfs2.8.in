@@ -2,7 +2,7 @@
 .SH "NAME"
 fsck.ocfs2 \- Check an OCFS2 file system.
 .SH "SYNOPSIS"
-\fBfsck.ocfs2\fR [ \fB\-Gnpuvy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
+\fBfsck.ocfs2\fR [ \fB\-fGnpuvy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
 \fBfsck.ocfs2\fR is used to check an OCFS2 file system.

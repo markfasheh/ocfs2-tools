@@ -23,8 +23,7 @@
  * replayed.  IO errors during replay will just result in partial journal
  * replay, just like jbd does in the kernel.  Journals that don't pass
  * consistency checks, like having overlapping blocks or strange fields, are
- * ignored and left for later passes to clean up.  Overlap testing is done
- * using o2fsck_state's used block bitmap.  
+ * ignored and left for later passes to clean up.  
 
  * XXX
  * 	future passes need to guarantee journals exist and are the same size 
@@ -44,7 +43,6 @@
 #undef be32_to_cpu
 #include "jfs_user.h"
 #include "ocfs2.h"
-#include "ocfs2_disk_dlm.h"
 #include "pass1.h"
 #include "problem.h"
 #include "util.h"
@@ -201,7 +199,7 @@ static uint64_t jwrap(journal_superblock_t *jsb, uint64_t block)
 	return block;
 }
 
-static errcode_t count_tags(o2fsck_state *ost, char *buf, size_t size,
+static errcode_t count_tags(ocfs2_filesys *fs, char *buf, size_t size,
 			    uint64_t *nr_ret)
 {
 	journal_block_tag_t *tag, *last;
@@ -215,7 +213,7 @@ static errcode_t count_tags(o2fsck_state *ost, char *buf, size_t size,
 
 	for(; tag <= last; tag++) {
 		nr++;
-		if (ocfs2_block_out_of_range(ost->ost_fs, 
+		if (ocfs2_block_out_of_range(fs, 
 					     be32_to_cpu(tag->t_blocknr)))
 			return OCFS2_ET_BAD_JOURNAL_TAG;
 
@@ -230,7 +228,7 @@ static errcode_t count_tags(o2fsck_state *ost, char *buf, size_t size,
 	return 0;
 }
 
-static errcode_t lookup_journal_block(o2fsck_state *ost, 
+static errcode_t lookup_journal_block(ocfs2_filesys *fs, 
 				      struct journal_info *ji, 
 				      uint64_t blkoff,
 				      uint64_t *blkno,
@@ -263,7 +261,7 @@ out:
 	return ret;
 }
 
-static errcode_t read_journal_block(o2fsck_state *ost, 
+static errcode_t read_journal_block(ocfs2_filesys *fs, 
 				    struct journal_info *ji, 
 				    uint64_t blkoff, 
 				    char *buf,
@@ -272,11 +270,11 @@ static errcode_t read_journal_block(o2fsck_state *ost,
 	errcode_t err;
 	uint64_t	blkno;
 
-	err = lookup_journal_block(ost, ji, blkoff, &blkno, check_dup);
+	err = lookup_journal_block(fs, ji, blkoff, &blkno, check_dup);
 	if (err)
 		return err;
 
-	err = io_read_block(ost->ost_fs->fs_io, blkno, 1, buf);
+	err = io_read_block(fs->fs_io, blkno, 1, buf);
 	if (err)
 		com_err(whoami, err, "while reading block %"PRIu64" of node "
 			"%d's journal", blkno, ji->ji_node);
@@ -284,7 +282,7 @@ static errcode_t read_journal_block(o2fsck_state *ost,
 	return err;
 }
 
-static errcode_t replay_blocks(o2fsck_state *ost, struct journal_info *ji,
+static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 			       char *buf, uint64_t seq, uint64_t *next_block)
 {
 	journal_block_tag_t tag, *tagp;
@@ -296,7 +294,7 @@ static errcode_t replay_blocks(o2fsck_state *ost, struct journal_info *ji,
 	num = (ji->ji_jsb->s_blocksize - sizeof(journal_header_t)) / 
 	      sizeof(tag);
 
-	ret = ocfs2_malloc_blocks(ost->ost_fs->fs_io, 1, &io_buf);
+	ret = ocfs2_malloc_blocks(fs->fs_io, 1, &io_buf);
 	if (ret) {
 		com_err(whoami, ret, "while allocating a block buffer");
 		goto out;
@@ -315,7 +313,7 @@ static errcode_t replay_blocks(o2fsck_state *ost, struct journal_info *ji,
 		if (revoke_this_block(&ji->ji_revoke, tag.t_blocknr, seq))
 			goto skip_io;
 
-		err = read_journal_block(ost, ji, *next_block, io_buf, 1);
+		err = read_journal_block(fs, ji, *next_block, io_buf, 1);
 		if (err) {
 			ret = err;
 			goto skip_io;
@@ -326,7 +324,7 @@ static errcode_t replay_blocks(o2fsck_state *ost, struct journal_info *ji,
 			memcpy(io_buf, &magic, sizeof(magic));
 		}
 
-		err = io_write_block(ost->ost_fs->fs_io, tag.t_blocknr, 1, 
+		err = io_write_block(fs->fs_io, tag.t_blocknr, 1, 
 				     io_buf);
 		if (err)
 			ret = err;
@@ -345,7 +343,7 @@ out:
 	return ret;
 }
 
-static errcode_t walk_journal(o2fsck_state *ost, int node, 
+static errcode_t walk_journal(ocfs2_filesys *fs, int node, 
 			      struct journal_info *ji, char *buf, int recover)
 {
 	errcode_t err, ret = 0;
@@ -373,7 +371,7 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 			break;
 
 		/* only mark the blocks used on the first pass */
-		err = read_journal_block(ost, ji, next_block, buf, !recover);
+		err = read_journal_block(fs, ji, next_block, buf, !recover);
 		if (err) {
 			ret = err;
 			break;
@@ -402,7 +400,7 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 			verbosef("found a desc type %x\n", jh.h_blocktype);
 			/* replay the blocks described in the desc block */
 			if (recover) {
-				err = replay_blocks(ost, ji, buf, next_seq, 
+				err = replay_blocks(fs, ji, buf, next_seq, 
 						    &next_block);
 				if (err)
 					ret = err;
@@ -410,7 +408,7 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 			}
 
 			/* just record the blocks as used and carry on */ 
-			err = count_tags(ost, buf, jsb->s_blocksize, &nr);
+			err = count_tags(fs, buf, jsb->s_blocksize, &nr);
 			if (err)
 				ret = err;
 			else
@@ -451,7 +449,7 @@ static errcode_t walk_journal(o2fsck_state *ost, int node,
 	return ret;
 }
 
-static errcode_t prep_journal_info(o2fsck_state *ost, int node,
+static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
 			           struct journal_info *ji)
 {
 	errcode_t err;
@@ -459,12 +457,12 @@ static errcode_t prep_journal_info(o2fsck_state *ost, int node,
 	ji->ji_revoke = RB_ROOT;
 	ji->ji_node = node;
 
-	err = ocfs2_malloc_blocks(ost->ost_fs->fs_io, 1, &ji->ji_jsb);
+	err = ocfs2_malloc_blocks(fs->fs_io, 1, &ji->ji_jsb);
 	if (err)
 		com_err(whoami, err, "while allocating space for node %d's "
 			    "journal superblock", node);
 
-	err = ocfs2_lookup_system_inode(ost->ost_fs, JOURNAL_SYSTEM_INODE,
+	err = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE,
 					node, &ji->ji_ino);
 	if (err) {
 		com_err(whoami, err, "while looking up the journal inode for "
@@ -472,26 +470,26 @@ static errcode_t prep_journal_info(o2fsck_state *ost, int node,
 		goto out;
 	}
 
-	err = ocfs2_read_cached_inode(ost->ost_fs, ji->ji_ino, &ji->ji_cinode);
+	err = ocfs2_read_cached_inode(fs, ji->ji_ino, &ji->ji_cinode);
 	if (err) {
 		com_err(whoami, err, "while reading cached inode %"PRIu64" "
 			"for node %d's journal", ji->ji_ino, node);
 		goto out;
 	}
 
-	err = ocfs2_extent_map_init(ost->ost_fs, ji->ji_cinode);
+	err = ocfs2_extent_map_init(fs, ji->ji_cinode);
 	if (err) {
 		com_err(whoami, err, "while initializing extent map");
 		goto out;
 	}
 
-	err = lookup_journal_block(ost, ji, 0, &ji->ji_jsb_block, 1);
+	err = lookup_journal_block(fs, ji, 0, &ji->ji_jsb_block, 1);
 	if (err)
 		goto out;
 
 	/* XXX be smarter about reading in the whole super block if it
 	 * spans multiple blocks */
-	err = ocfs2_read_journal_superblock(ost->ost_fs, ji->ji_jsb_block, 
+	err = ocfs2_read_journal_superblock(fs, ji->ji_jsb_block, 
 					    (char *)ji->ji_jsb);
 	if (err) {
 		com_err(whoami, err, "while reading block %"PRIu64" as node "
@@ -500,46 +498,35 @@ static errcode_t prep_journal_info(o2fsck_state *ost, int node,
 		goto out;
 	}
 
-	verbosef("jsb start %u maxlen %u\n", ji->ji_jsb->s_start,
-		 ji->ji_jsb->s_maxlen);
+	verbosef("node: %d jsb start %u maxlen %u\n", node,
+		 ji->ji_jsb->s_start, ji->ji_jsb->s_maxlen);
 out:
 	return err;
 }
 
-static int publish_mounted_set(ocfs2_filesys *fs, char *buf, int node, 
-			       int max_nodes)
-{
-	int b_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-	/* magic! */
-	ocfs_publish *pub = (ocfs_publish *)(buf + ((2 + 4 + max_nodes + node)
-			       			<< b_bits));
-	verbosef("node %d's publish: %u\n", node, le32_to_cpu(pub->mounted));
-
-	return pub->mounted;
-}
-
 /* Try and replay the nodes journals if they're dirty.  This only returns
  * a non-zero error if the caller should not continue. */
-errcode_t o2fsck_replay_journals(o2fsck_state *ost)
+errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
+				 int *replayed)
 {
 	errcode_t err = 0, ret = 0;
 	struct journal_info *jis, *ji;
 	journal_superblock_t *jsb;
-	char *buf = NULL, *dlm_buf = NULL;
-	int i, max_nodes, buflen, journal_trouble = 0;
-	uint64_t dlm_ino;
+	char *buf = NULL;
+	int journal_trouble = 0;
+	uint16_t i, max_nodes;
 	ocfs2_bitmap *used_blocks = NULL;
 
-	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
 
-	ret = ocfs2_block_bitmap_new(ost->ost_fs, "journal blocks",
+	ret = ocfs2_block_bitmap_new(fs, "journal blocks",
 				     &used_blocks);
 	if (ret) {
 		com_err(whoami, ret, "while allocating journal block bitmap"); 
 		goto out;
 	}
 
-	ret = ocfs2_malloc_blocks(ost->ost_fs->fs_io, 1, &buf);
+	ret = ocfs2_malloc_blocks(fs->fs_io, 1, &buf);
 	if (ret) {
 		com_err(whoami, ret, "while allocating room to read journal "
 			    "blocks");
@@ -553,32 +540,19 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		goto out;
 	}
 
-	ret = ocfs2_lookup_system_inode(ost->ost_fs, DLM_SYSTEM_INODE,
-					0, &dlm_ino);
-	if (ret) {
-		com_err(whoami, ret, "while looking up the dlm system inode");
-		goto out;
-	}
-
-	ret = ocfs2_read_whole_file(ost->ost_fs, dlm_ino, &dlm_buf, &buflen);
-	if (ret) {
-		com_err(whoami, ret, "while reading dlm file");
-		goto out;
-	}
-
 	printf("Checking each node's journal.\n");
 
 	for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
-		if (!publish_mounted_set(ost->ost_fs, dlm_buf, i, max_nodes)) {
+		if (!pub[i].mounted) {
 			verbosef("node %d is clean\n", i);
 			continue;
 		}
 		ji->ji_replay = 1;
 		ji->ji_used_blocks = used_blocks;
 
-		err = prep_journal_info(ost, i, ji);
+		err = prep_journal_info(fs, i, ji);
 		if (err == 0)
-			err = walk_journal(ost, i, ji, buf, 0);
+			err = walk_journal(fs, i, ji, buf, 0);
 
 		if (err) {
 			ji->ji_replay = 0;
@@ -591,13 +565,9 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		if (!ji->ji_replay)
 			continue;
 
-		if (!prompt(ost, PY, 1, "Node %d's journal needs to be "
-			    "replayed. Do so?", i)) {
-			journal_trouble = 1;
-			continue;
-		}
+		printf("Replaying node %d's journal.\n", i);
 
-		err = walk_journal(ost, i, ji, buf, 1);
+		err = walk_journal(fs, i, ji, buf, 1);
 		if (err) {
 			journal_trouble = 1;
 			continue;
@@ -614,16 +584,18 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		 * have to also include having recovered the orphan dir.  we
 		 * updated s_start, though, so we won't replay the journal
 		 * again. */
-		err = ocfs2_write_journal_superblock(ost->ost_fs,
+		err = ocfs2_write_journal_superblock(fs,
 						     ji->ji_jsb_block,
 						     (char *)ji->ji_jsb);
 		if (err) {
 			com_err(whoami, err, "while writing node %d's journal "
 				"super block", i);
 			journal_trouble = 1;
+		} else {
+			printf("Node %d's journal replayed successfully.\n",
+			       i);
+			*replayed = 1;
 		}
-
-		printf("Node %d's journal replayed successfully.\n", i);
 	}
 
 	/* this is awkward, but we want fsck -n to tell us as much as it
@@ -641,7 +613,7 @@ out:
 			if (ji->ji_jsb)
 				ocfs2_free(&ji->ji_jsb);
 			if (ji->ji_cinode)
-				ocfs2_free_cached_inode(ost->ost_fs, 
+				ocfs2_free_cached_inode(fs, 
 							ji->ji_cinode);
 			revoke_free_all(&ji->ji_revoke);
 		}
@@ -650,8 +622,6 @@ out:
 
 	if (buf)
 		ocfs2_free(&buf);
-	if (dlm_buf)
-		ocfs2_free(&dlm_buf);
 	if (used_blocks)
 		ocfs2_bitmap_free(used_blocks);
 

@@ -140,11 +140,12 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 	return 0;
 }
 
-static errcode_t check_superblock(char *whoami, o2fsck_state *ost)
+static errcode_t check_superblock(o2fsck_state *ost)
 {
 	ocfs2_dinode *di = ost->ost_fs->fs_super;
 	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 	errcode_t ret = 0;
+	char *whoami = __FUNCTION__;
 
 	if (sb->s_max_nodes == 0) {
 		printf("The superblock max_nodes field is set to 0.\n");
@@ -166,14 +167,102 @@ static errcode_t check_superblock(char *whoami, o2fsck_state *ost)
 	return ret;
 }
 
-static void exit_if_skipping(o2fsck_state *ost)
+static errcode_t write_out_superblock(o2fsck_state *ost)
 {
-	if (ost->ost_force)
-		return;
+	ocfs2_dinode *di = ost->ost_fs->fs_super;
+	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 
-	/* XXX do something with s_state, _mnt_count, checkinterval,
-	 * etc. */
-	return;
+	sb->s_errors = ost->ost_saw_error;
+	sb->s_lastcheck = time(NULL);
+	sb->s_mnt_count = 0;
+
+	return ocfs2_write_super(ost->ost_fs);
+}
+
+static void scale_time(time_t secs, unsigned *scaled, char **units)
+{
+	if (secs < 60) {
+		*units = "seconds";
+		goto done;
+	}
+	secs /= 60;
+
+	if (secs < 60) {
+		*units = "minutes";
+		goto done;
+	}
+	secs /= 60;
+
+	if (secs < 24) {
+		*units = "hours";
+		goto done;
+	}
+	secs /= 24;
+	*units = "days";
+
+done:
+	*scaled = secs;
+}
+
+/* avoid "warning: `%c' yields only last 2 digits of year in some locales" */
+static size_t ftso_strftime(char *s, size_t max, const char *fmt,
+			    const struct tm *tm) {
+	return strftime(s, max, fmt, tm);
+}
+
+static int fs_is_clean(o2fsck_state *ost, char *filename)
+{
+	ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+	time_t now = time(NULL);
+	time_t next = sb->s_lastcheck + sb->s_checkinterval;
+	static char reason[4096] = {'\0', };
+	struct tm local;
+
+	if (ost->ost_force)
+		strcpy(reason, "was run with -f");
+	else if (sb->s_state & OCFS2_ERROR_FS)
+		strcpy(reason, "contains a file system with errors");
+	else if (sb->s_max_mnt_count > 0 &&
+		 sb->s_mnt_count > sb->s_max_mnt_count) {
+		sprintf(reason, "has been mounted %u times without being "
+			"checked", sb->s_mnt_count);
+	} else if (sb->s_checkinterval > 0 && now >= next) {
+		unsigned scaled_time;
+		char *scaled_units;
+
+		scale_time(now - sb->s_lastcheck, &scaled_time, &scaled_units);
+		sprintf(reason, "has gone %u %s without being checked",
+			scaled_time, scaled_units);
+	}
+
+	if (reason[0]) {
+		printf("%s %s, check forced.\n", filename, reason);
+		return 0;
+	}
+
+	reason[0] = '\0';
+
+	if (sb->s_max_mnt_count > 0)
+		sprintf(reason, "after %u additional mounts", 
+			sb->s_max_mnt_count - sb->s_mnt_count);
+
+	if (sb->s_checkinterval > 0) {
+		localtime_r(&next, &local);
+
+		if (reason[0])
+			ftso_strftime(reason + strlen(reason),
+				 sizeof(reason) - strlen(reason),
+			 	 " or by %c, whichever comes first", &local);
+		else
+			ftso_strftime(reason, sizeof(reason), "by %c", &local);
+	}
+
+	printf("%s is clean.", filename);
+
+	if (reason[0])
+		printf("  It will be checked %s.\n", reason);
+
+	return 1;
 }
 
 static void print_label(o2fsck_state *ost)
@@ -236,13 +325,91 @@ static void version(void)
 	exit(FSCK_USAGE);
 }
 
+static errcode_t open_and_check(o2fsck_state *ost, char *filename,
+				int open_flags, uint64_t blkno,
+				uint64_t blksize)
+{
+	errcode_t ret;
+	char *whoami = __FUNCTION__;
+
+	ret = ocfs2_open(filename, open_flags, blkno, blksize, &ost->ost_fs);
+	if (ret) {
+		com_err(whoami, ret, "while opening file \"%s\"", filename);
+		goto out;
+	}
+
+	ret = check_superblock(ost);
+	if (ret)
+		goto out;
+
+	ret = o2fsck_read_publish(ost);
+	if (ret)
+		goto out;
+
+out:
+	return ret;
+}
+
+static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
+				       int open_flags, uint64_t blkno,
+				       uint64_t blksize)
+{	
+	int replayed = 0;
+	errcode_t ret = 0;
+	char *whoami = __FUNCTION__;
+
+	if (!ost->ost_stale_mounts)
+		goto out;
+
+	if (!(ost->ost_fs->fs_flags & OCFS2_FLAG_RW)) {
+		printf("** Skipping journal replay because -n was "
+		       "given.  There may be spurious errors that "
+		       "journal replay would fix. **\n");
+		goto out;
+	}
+
+	printf("%s wasn't cleanly unmounted by all nodes.  Attempting to "
+	       "replay the journals for nodes that didn't unmount cleanly",
+	       filename);
+
+	/* journal replay is careful not to use ost as we only really
+	 * build it up after spraying the journal all over the disk
+	 * and reopening */
+	ret = o2fsck_replay_journals(ost->ost_fs, ost->ost_publish,
+				     &replayed);
+	if (ret)
+		goto out;
+
+	/* if the journals were replayed we close the fs and start
+	 * over */
+	if (!replayed)
+		goto out;
+
+	ret = ocfs2_close(ost->ost_fs);
+	if (ret) {
+		com_err(whoami, ret, "while closing \"%s\"", filename);
+		goto out;
+	}
+
+	ret = open_and_check(ost, filename, open_flags, blkno, blksize);
+	if (ret) {
+		printf("fsck saw unrecoverable errors while "
+		       "re-opening the super block and will not "
+		       "continue.\n");
+		goto out;
+	}
+out:
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	char *filename;
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
-	int c, ret, open_flags = OCFS2_FLAG_RW;
+	int c, open_flags = OCFS2_FLAG_RW;
 	int fsck_mask = FSCK_OK;
+	errcode_t ret;
 
 	memset(ost, 0, sizeof(o2fsck_state));
 	ost->ost_ask = 1;
@@ -257,7 +424,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:GnpuvVy")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:fGnpuvVy")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -346,38 +513,13 @@ int main(int argc, char **argv)
 
 	filename = argv[optind];
 
-	ret = ocfs2_open(filename, open_flags, blkno, blksize, &ost->ost_fs);
-	if (ret) {
-		com_err(argv[0], ret,
-			"while opening file \"%s\"", filename);
-		fsck_mask |= FSCK_ERROR;
-		goto out;
-	}
-
-	if (o2fsck_state_init(ost->ost_fs, argv[0], ost)) {
-		fprintf(stderr, "error allocating run-time state, exiting..\n");
-		fsck_mask |= FSCK_ERROR;
-		goto out;
-	}
-
-	ret = check_superblock(argv[0], ost);
+	ret = open_and_check(ost, filename, open_flags, blkno, blksize);
 	if (ret) {
 		printf("fsck saw unrecoverable errors in the super block and "
 		       "will not continue.\n");
 		fsck_mask |= FSCK_ERROR;
 		goto out;
 	}
-
-	exit_if_skipping(ost);
-
-#if 0
-	o2fsck_mark_block_used(ost, 0);
-	o2fsck_mark_block_used(ost, 1);
-	o2fsck_mark_block_used(ost, OCFS2_SUPER_BLOCK_BLKNO);
-#endif
-	mark_magical_clusters(ost);
-
-	/* XXX we don't use the bad blocks inode, do we? */
 
 	printf("Checking OCFS2 filesystem in %s:\n", filename);
 	printf("  label:              ");
@@ -388,50 +530,93 @@ int main(int argc, char **argv)
 	printf("  bytes per block:    %u\n", ost->ost_fs->fs_blocksize);
 	printf("  number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
 	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
-	printf("  max nodes:          %u\n", 
+	printf("  max nodes:          %u\n\n", 
 	       OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes);
 
-	ret = o2fsck_replay_journals(ost);
+	ret = maybe_replay_journals(ost, filename, open_flags, blkno, blksize);
 	if (ret) {
-		printf("fsck encountered unrecoverable errors while replaying "
-		       "the journals and will not continue\n");
+		printf("fsck encountered unrecoverable errors while "
+		       "replaying the journals and will not continue\n");
 		fsck_mask |= FSCK_ERROR;
 		goto out;
 	}
 
-	/* XXX think harder about these error cases. */
-	ret = o2fsck_pass0(ost);
-	if (ret) {
-		printf("fsck encountered unrecoverable errors in pass 0 and "
-		       "will not continue\n");
+	/* allocate all this junk after we've replayed the journal and the
+	 * sb should be stable */
+	if (o2fsck_state_init(ost->ost_fs, argv[0], ost)) {
+		fprintf(stderr, "error allocating run-time state, exiting..\n");
 		fsck_mask |= FSCK_ERROR;
 		goto out;
+	}
+
+	if (fs_is_clean(ost, filename)) {
+		fsck_mask = FSCK_OK;
+		goto out;
+	}
+
+#if 0
+	o2fsck_mark_block_used(ost, 0);
+	o2fsck_mark_block_used(ost, 1);
+	o2fsck_mark_block_used(ost, OCFS2_SUPER_BLOCK_BLKNO);
+#endif
+	mark_magical_clusters(ost);
+
+	/* XXX we don't use the bad blocks inode, do we? */
+
+
+	/* XXX for now it is assumed that errors returned from a pass
+	 * are fatal.  these can be fixed over time. */
+	ret = o2fsck_pass0(ost);
+	if (ret) {
+		com_err(argv[0], ret, "while performing pass 0");
+		goto done;
 	}
 
 	ret = o2fsck_pass1(ost);
-	if (ret)
-		com_err(argv[0], ret, "pass1 failed");
+	if (ret) {
+		com_err(argv[0], ret, "while performing pass 1");
+		goto done;
+	}
 
 	ret = o2fsck_pass2(ost);
-	if (ret)
-		com_err(argv[0], ret, "pass2 failed");
+	if (ret) {
+		com_err(argv[0], ret, "while performing pass 2");
+		goto done;
+	}
 
 	ret = o2fsck_pass3(ost);
-	if (ret)
-		com_err(argv[0], ret, "pass3 failed");
+	if (ret) {
+		com_err(argv[0], ret, "while performing pass 3");
+		goto done;
+	}
 
 	ret = o2fsck_pass4(ost);
+	if (ret) {
+		com_err(argv[0], ret, "while performing pass 4");
+		goto done;
+	}
+
+done:
 	if (ret)
-		com_err(argv[0], ret, "pass4 failed");
+		fsck_mask |= FSCK_ERROR;
+	else {
+		ost->ost_saw_error = 0;
+		printf("All passes succeeded.\n");
+	}
+
+	if (ost->ost_fs->fs_flags & OCFS2_FLAG_RW) {
+		ret = write_out_superblock(ost);
+		if (ret)
+			com_err(argv[0], ret, "while writing back the "
+				"superblock");
+	}
 
 	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {
-		com_err(argv[0], ret,
-			"while closing file \"%s\"", filename);
-	}
-
-	/* XXX check if the fs is modified and yell something. */
-	printf("fsck completed successfully.\n");
+		com_err(argv[0], ret, "while closing file \"%s\"", filename);
+		/* XXX I wonder about this error.. */
+		fsck_mask |= FSCK_ERROR;
+	} 
 
 out:
 	return fsck_mask;
