@@ -1048,7 +1048,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	int mode;
 	uint32_t clusters;
 
-	mode = rec->dir ? 0755 | S_IFDIR: 0644 | S_IFREG;
+	mode = rec->dir ? 0755 | S_IFDIR : 0644 | S_IFREG;
 
 	clusters = (rec->extent_len + s->cluster_size - 1) >> s->cluster_size_bits;
 
@@ -1063,7 +1063,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	di->i_uid = 0;
 	di->i_gid = 0;
 	di->i_size = cpu_to_le64(rec->file_size);
-	di->i_mode = 0;
+	di->i_mode = cpu_to_le16(mode);
 	di->i_links_count = cpu_to_le16(rec->links);
 	di->i_flags = cpu_to_le32(rec->flags);
 	di->i_atime = di->i_ctime = di->i_mtime = cpu_to_le64(s->format_time);
@@ -1174,11 +1174,14 @@ replacement_journal_create(State *s, uint64_t journal_off)
 	if (s->blocksize == 512)
 		sb->s_first = htonl(2);
 	else
-		sb->s_first     = htonl(1);
+		sb->s_first = htonl(1);
 
 	sb->s_start     = htonl(1);
 	sb->s_sequence  = htonl(1);
 	sb->s_errno     = htonl(0);
+
+	do_pwrite(s, buf, OCFS2_DEFAULT_JOURNAL_SIZE, journal_off);
+	free(buf);
 }
 
 static void
