@@ -1,9 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * dlmnm.h
- *
- * Function prototypes
+ * ocfs2_nodemanager.h
  *
  * Copyright (C) 2002, 2004 Oracle.  All rights reserved.
  *
@@ -26,8 +24,8 @@
  *	    Manish Singh, Neeraj Goyal, Suchit Kaura
  */
 
-#ifndef DLMNM_H
-#define DLMNM_H
+#ifndef _OCFS2_NODEMANAGER_H
+#define _OCFS2_NODEMANAGER_H
 
 #include "ocfs2_heartbeat.h"
 
@@ -41,24 +39,6 @@
 
 #define NM_GROUP_INODE_START    200000
 #define NM_NODE_INODE_START     100000
-
-enum {
-	NM_CLUSTER_DOWN=0,
-	NM_CLUSTER_UP
-};
-
-enum {
-	NM_GROUP_NOT_READY=0,
-	NM_GROUP_READY
-};
-
-enum {
-	NM_Root = 1,
-	NM_Cluster,
-	NM_Node,
-	NM_Group,
-};
-
 
 
 
@@ -120,4 +100,4 @@ typedef struct _nm_op
 	} arg_u;
 } nm_op;
 
-#endif /* DLMNM_H */
+#endif /* _OCFS2_NODEMANAGER_H */

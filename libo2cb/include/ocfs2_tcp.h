@@ -1,9 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * dlmtcp.h
- *
- * Function prototypes
+ * ocfs2_tcp.h
  *
  * Copyright (C) 2002, 2004 Oracle.  All rights reserved.
  *
@@ -21,13 +19,10 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
- *
- * Authors: Kurt Hackel, Mark Fasheh, Sunil Mushran, Wim Coekaerts,
- *	    Manish Singh, Neeraj Goyal, Suchit Kaura
  */
 
-#ifndef DLMNET_H
-#define DLMNET_H
+#ifndef _OCFS2_TCP_H
+#define _OCFS2_TCP_H
 
 typedef struct _gsd_ioc
 {
@@ -48,15 +43,4 @@ typedef struct _net_ioc
 #define  GSD_IOC_CREATE_GROUP   _IOR(NET_IOC_MAGIC, 3, gsd_ioc)
 #define  GSD_IOC_ADD_GROUP_NODE _IOR(NET_IOC_MAGIC, 4, gsd_ioc)
 
-#define GSD_MESSAGE   130
-#define GSD_ACTION_ADD_GROUP        (0x01)
-#define GSD_ACTION_ADD_GROUP_NODE   (0x02)
-typedef struct _gsd_message
-{
-	__u16 from;
-	__u8 action;
-	__u8 namelen;
-	__u8 name[NM_MAX_NAME_LEN];
-} gsd_message;
-
-#endif /* DLMNET_H */
+#endif /* _OCFS2_TCP_H */

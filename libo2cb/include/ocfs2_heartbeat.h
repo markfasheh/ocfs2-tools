@@ -1,9 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * dlmhb.h
- *
- * Function prototypes
+ * ocfs2_heartbeat.h
  *
  * Copyright (C) 2002, 2004 Oracle.  All rights reserved.
  *
@@ -21,21 +19,12 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
- *
- * Authors: Kurt Hackel, Mark Fasheh, Sunil Mushran, Wim Coekaerts,
- *	    Manish Singh, Neeraj Goyal, Suchit Kaura
  */
 
-#ifndef DLMHB_H
-#define DLMHB_H
+#ifndef _OCFS2_HEARTBEAT_H
+#define _OCFS2_HEARTBEAT_H
 
 #define CLUSTER_DISK_UUID_LEN      32      // 16 byte binary == 32 char hex string
-
-enum {
-	HB_NODE_STATE_INIT = 0,
-	HB_NODE_STATE_DOWN,
-	HB_NODE_STATE_UP
-};
 
 
 #define HB_OP_MAGIC      0xf00d
@@ -57,39 +46,9 @@ typedef struct _hb_op
 	__u64 start;
 } hb_op;
 
-enum {
-	HB_TYPE_DISK = 0,
-	HB_TYPE_NET
-};
-
-
-/* callback stuff */
-
-enum {
-	HB_NODE_DOWN_CB = 0,
-	HB_NODE_UP_CB,
-	HB_NODE_RESPONDED_CB,    // this one is very chatty
-	HB_NUM_CB
-};
-
-enum {
-	HB_Root = 1,
-	HB_Disk,
-	HB_WriteOpArraySize
-};
-
 typedef struct _hb_disk_heartbeat_block
 {
 	__u64 time;
 } hb_disk_heartbeat_block;
 
-
-// number of initial allowed misses 
-#define HB_INITIAL_DISK_MARGIN     60
-#define HB_INITIAL_NET_MARGIN      60
-
-// number of allowed misses in steady state
-#define HB_DISK_MARGIN             30
-#define HB_NET_MARGIN              30
-
-#endif /* DLMHB_H */
+#endif /* _OCFS2_HEARTBEAT_H */
