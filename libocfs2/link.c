@@ -95,7 +95,7 @@ static int link_proc(struct ocfs2_dir_entry *dirent,
 	dirent->inode = ls->inode;
 	dirent->name_len = ls->namelen;
 	strncpy(dirent->name, ls->name, ls->namelen);
-        ocfs_set_de_type(dirent, ls->flags);
+	dirent->file_type = ls->flags;
 
 	ls->done++;
 	return OCFS2_DIRENT_ABORT|OCFS2_DIRENT_CHANGED;

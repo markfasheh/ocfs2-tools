@@ -33,7 +33,8 @@
 
 static errcode_t ocfs2_chain_alloc_with_io(ocfs2_filesys *fs,
 					   ocfs2_cached_inode *cinode,
-					   uint64_t *blkno)
+					   uint64_t *gd_blkno,
+					   uint64_t *bitno)
 {
 	errcode_t ret;
 
@@ -43,7 +44,7 @@ static errcode_t ocfs2_chain_alloc_with_io(ocfs2_filesys *fs,
 			return ret;
 	}
 
-	ret = ocfs2_chain_alloc(fs, cinode, blkno);
+	ret = ocfs2_chain_alloc(fs, cinode, gd_blkno, bitno);
 	if (ret)
 		return ret;
 
@@ -52,7 +53,7 @@ static errcode_t ocfs2_chain_alloc_with_io(ocfs2_filesys *fs,
 
 static errcode_t ocfs2_chain_free_with_io(ocfs2_filesys *fs,
 					  ocfs2_cached_inode *cinode,
-					  uint64_t blkno)
+					  uint64_t bitno)
 {
 	errcode_t ret;
 
@@ -62,7 +63,7 @@ static errcode_t ocfs2_chain_free_with_io(ocfs2_filesys *fs,
 			return ret;
 	}
 
-	ret = ocfs2_chain_free(fs, cinode, blkno);
+	ret = ocfs2_chain_free(fs, cinode, bitno);
 	if (ret)
 		return ret;
 
@@ -86,46 +87,146 @@ static errcode_t ocfs2_load_allocator(ocfs2_filesys *fs,
 			return ret;
 	}
 
+	if (!(*alloc_cinode)->ci_chains) {
+		ret = ocfs2_load_chain_allocator(fs, *alloc_cinode);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
-errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *blkno)
+static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di,
+			     uint64_t gd_blkno, uint64_t blkno)
+{
+	ocfs2_extent_list *fel;
+
+	di->i_generation = 0; /* FIXME */
+	di->i_blkno = blkno;
+	di->i_suballoc_node = 0;
+	di->i_suballoc_bit = (uint16_t)(blkno - gd_blkno);
+	di->i_uid = di->i_gid = 0;
+	if (S_ISDIR(di->i_mode))
+		di->i_links_count = 2;
+	else
+		di->i_links_count = 1;
+	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
+	di->i_flags |= OCFS2_VALID_FL;
+	di->i_atime = di->i_ctime = di->i_mtime = 0;  /* FIXME */
+	di->i_dtime = 0;
+
+	fel = &di->id2.i_list;
+	fel->l_tree_depth = 0;
+	fel->l_next_free_rec = 0;
+	fel->l_count = ocfs2_extent_recs_per_inode(fs->fs_blocksize);
+}
+
+errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 {
 	errcode_t ret;
+	char *buf;
+	uint64_t gd_blkno;
+	ocfs2_dinode *di;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
 
 	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE,
 			   	   0, &fs->fs_inode_allocs[0]);
 	if (ret)
-		return ret;
+		goto out;
 
-	return ocfs2_chain_alloc_with_io(fs, fs->fs_inode_allocs[0], blkno);
+	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_inode_allocs[0],
+					&gd_blkno, ino);
+	if (ret)
+		goto out;
+
+	memset(buf, 0, fs->fs_blocksize);
+	di = (ocfs2_dinode *)buf;
+	di->i_mode = mode;
+	ocfs2_init_inode(fs, di, gd_blkno, *ino);
+
+	ret = ocfs2_write_inode(fs, *ino, buf);
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
 }
 
-errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *blkno)
+errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
+				 int mode)
 {
 	errcode_t ret;
+	char *buf;
+	uint64_t gd_blkno;
+	ocfs2_dinode *di;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
 
 	ret = ocfs2_load_allocator(fs, GLOBAL_INODE_ALLOC_SYSTEM_INODE,
 			   	   0, &fs->fs_system_inode_alloc);
 	if (ret)
-		return ret;
+		goto out;
 
-	return ocfs2_chain_alloc_with_io(fs, fs->fs_system_inode_alloc,
-					 blkno);
+	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_system_inode_alloc,
+					&gd_blkno, ino);
+	if (ret)
+		goto out;
+
+	memset(buf, 0, fs->fs_blocksize);
+	di = (ocfs2_dinode *)buf;
+	di->i_mode = mode;
+	ocfs2_init_inode(fs, di, gd_blkno, *ino);
+	di->i_flags |= OCFS2_SYSTEM_FL;
+	di->i_generation = fs->fs_super->i_generation;
+
+	ret = ocfs2_write_inode(fs, *ino, buf);
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
 }
 
-errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t blkno)
+errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 {
 	errcode_t ret;
+	char *buf;
+	ocfs2_dinode *di;
+	int node;
 
-	/* XXX needs to delete from the allocator that has the inode */
-
-	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE,
-			   	   0, &fs->fs_inode_allocs[0]);
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
 
-	return ocfs2_chain_free_with_io(fs, fs->fs_inode_allocs[0], blkno);
+	ret = ocfs2_read_inode(fs, ino, buf);
+	if (ret)
+		goto out;
+	di = (ocfs2_dinode *)buf;
+	node = di->i_suballoc_node;
+
+	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE,
+				   node,
+				   &fs->fs_inode_allocs[node]);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_free_with_io(fs, fs->fs_inode_allocs[node],
+				       ino);
+	if (ret)
+		goto out;
+
+	di->i_flags &= ~OCFS2_VALID_FL;
+	ret = ocfs2_write_inode(fs, di->i_blkno, buf);
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
 }
 
 errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
@@ -149,45 +250,11 @@ errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 		if (ret)
 			break;
 
-		/* XXX I don't understand why this isn't in
-		 * ocfs2_load_allocator.. the _with_io guys in this file about
-		 * chain_allocator */
-		if ((*ci)->ci_chains == NULL) {
-			ret = ocfs2_load_chain_allocator(fs, *ci);
-			if (ret)
-				break;
-		}
-
 		ret = ocfs2_chain_test(fs, *ci, blkno, is_allocated);
 		if (ret != OCFS2_ET_INVALID_BIT)
 			break;
 	}
 	return ret;
-}
-
-void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di,
-		      uint64_t blkno)
-{
-	ocfs2_extent_list *fel;
-
-	di->i_generation = 0; /* FIXME */
-	di->i_blkno = blkno;
-	di->i_suballoc_node = 0;
-	di->i_suballoc_bit = 0; /* FIXME */
-	di->i_uid = di->i_gid = 0;
-	if (S_ISDIR(di->i_mode))
-		di->i_links_count = 2;
-	else
-		di->i_links_count = 1;
-	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
-	di->i_flags |= OCFS2_VALID_FL;
-	di->i_atime = di->i_ctime = di->i_mtime = 0;  /* FIXME */
-	di->i_dtime = 0;
-
-	fel = &di->id2.i_list;
-	fel->l_tree_depth = 0;
-	fel->l_next_free_rec = 0;
-	fel->l_count = ocfs2_extent_recs_per_inode(fs->fs_blocksize);
 }
 
 #ifdef DEBUG_EXE
@@ -229,19 +296,10 @@ int main(int argc, char *argv[])
 
 	di = (ocfs2_dinode *)buf;
 
-	ret = ocfs2_new_inode(fs, &blkno);
+	ret = ocfs2_new_inode(fs, &blkno, 0644 | S_IFREG);
 	if (ret) {
 		com_err(argv[0], ret,
 			"while allocating a new inode");
-		goto out_free;
-	}
-
-	ocfs2_init_inode(fs, di, blkno);
-
-	ret = ocfs2_write_inode(fs, blkno, buf);
-	if (ret) {
-		com_err(argv[0], ret,
-			"while writing new inode %"PRIu64, blkno);
 		goto out_free;
 	}
 

@@ -335,23 +335,50 @@ errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
 	return ocfs2_bitmap_write(cinode->ci_chains);
 }
 
+struct find_desc_ctxt {
+	uint64_t target_bit;
+	uint64_t gd_blkno;
+};
+
+static errcode_t chainalloc_find_desc(struct ocfs2_bitmap_region *br,
+				      void *private_data)
+{
+	struct chainalloc_region_private *cr = br->br_private;
+	struct find_desc_ctxt *ctxt = private_data;
+
+	if (ctxt->target_bit < br->br_start_bit)
+		return 0;
+	if (ctxt->target_bit >= (br->br_start_bit + br->br_total_bits))
+		return 0;
+
+	ctxt->gd_blkno = cr->cr_ag->bg_blkno;
+	return 0;
+}
+
 /* FIXME: should take a hint, no? */
 /* FIXME: Better name, too */
 errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 			    ocfs2_cached_inode *cinode,
-			    uint64_t *blkno)
+			    uint64_t *gd_blkno,
+			    uint64_t *bitno)
 {
 	errcode_t ret;
 	int oldval;
+	struct find_desc_ctxt ctxt;
 
 	if (!cinode->ci_chains)
 		return OCFS2_ET_INVALID_ARGUMENT;
 
-	ret = ocfs2_bitmap_find_next_clear(cinode->ci_chains, 0, blkno);
+	ret = ocfs2_bitmap_find_next_clear(cinode->ci_chains, 0, bitno);
 	if (ret)
 		return ret;
 
-	ret = ocfs2_bitmap_set(cinode->ci_chains, *blkno, &oldval);
+	ctxt.gd_blkno = 0;
+	ctxt.target_bit = *bitno;
+	ret = ocfs2_bitmap_foreach_region(cinode->ci_chains,
+					  chainalloc_find_desc, &ctxt);
+
+	ret = ocfs2_bitmap_set(cinode->ci_chains, *bitno, &oldval);
 	if (ret)
 		return ret;
 	if (oldval)
@@ -362,7 +389,7 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 
 errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
-			   uint64_t blkno)
+			   uint64_t bitno)
 {
 	errcode_t ret;
 	int oldval;
@@ -370,7 +397,7 @@ errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 	if (!cinode->ci_chains)
 		return OCFS2_ET_INVALID_ARGUMENT;
 
-	ret = ocfs2_bitmap_clear(cinode->ci_chains, blkno, &oldval);
+	ret = ocfs2_bitmap_clear(cinode->ci_chains, bitno, &oldval);
 	if (ret)
 		return ret;
 	if (!oldval)
@@ -383,7 +410,7 @@ errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
  * was already set */
 errcode_t ocfs2_chain_force_val(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode,
-				uint64_t blkno, 
+				uint64_t bitno, 
 				int newval, 
 				int *oldval)
 {
@@ -393,22 +420,22 @@ errcode_t ocfs2_chain_force_val(ocfs2_filesys *fs,
 		return OCFS2_ET_INVALID_ARGUMENT;
 
 	if (newval)
-		ret = ocfs2_bitmap_set(cinode->ci_chains, blkno, oldval);
+		ret = ocfs2_bitmap_set(cinode->ci_chains, bitno, oldval);
 	else
-		ret = ocfs2_bitmap_clear(cinode->ci_chains, blkno, oldval);
+		ret = ocfs2_bitmap_clear(cinode->ci_chains, bitno, oldval);
 
 	return ret;
 }
 
 errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
-			   uint64_t blkno,
+			   uint64_t bitno,
 			   int *oldval)
 {
 	if (!cinode->ci_chains)
 		return OCFS2_ET_INVALID_ARGUMENT;
 
-	return ocfs2_bitmap_test(cinode->ci_chains, blkno, oldval);
+	return ocfs2_bitmap_test(cinode->ci_chains, bitno, oldval);
 }
 
 void ocfs2_init_group_desc(ocfs2_filesys *fs, ocfs2_group_desc *gd,

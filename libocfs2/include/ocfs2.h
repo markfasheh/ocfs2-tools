@@ -427,13 +427,14 @@ errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
 				      ocfs2_cached_inode *cinode);
 errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 			    ocfs2_cached_inode *cinode,
-			    uint64_t *blkno);
+			    uint64_t *gd_blkno,
+			    uint64_t *bitno);
 errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
-			   uint64_t blkno);
+			   uint64_t bitno);
 errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,
-			   uint64_t blkno,
+			   uint64_t bitno,
 			   int *oldval);
 errcode_t ocfs2_chain_force_val(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode,
@@ -457,6 +458,11 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
 			      uint64_t c_blkno, uint32_t clusters);
 errcode_t ocfs2_extent_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint32_t new_clusters);
+
+errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
+errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
+errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino);
+
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
