@@ -90,4 +90,7 @@ ec	O2DLM_ET_LOCKING,
 ec	O2DLM_ET_FAILED_UNLOCKS,
 	"Could not drop all locks"
 
+ec	O2DLM_ET_INVALID_ARGS,
+	"Invalid arguments passed to function"
+
 	end

@@ -176,6 +176,9 @@ errcode_t o2dlm_initialize(const char *dlmfs_path,
 	errcode_t ret, dir_created = 0;
 	struct o2dlm_ctxt *ctxt;
 
+	if (!dlmfs_path || !domain_name || !dlm_ctxt)
+		return O2DLM_ET_INVALID_ARGS;
+
 	if (strlen(domain_name) >= O2DLM_DOMAIN_MAX_LEN)
 		return O2DLM_ET_NAME_TOO_LONG;
 
@@ -307,6 +310,9 @@ errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
 	char *path;
 	struct o2dlm_lock_res *lockres;
 
+	if (!ctxt || !lockid)
+		return O2DLM_ET_INVALID_ARGS;
+
 	/* names starting with '.' are reserved. */
 	if (lockid[0] == '.')
 		return O2DLM_ET_INVALID_LOCK_NAME;
@@ -396,6 +402,9 @@ errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
 	int ret;
 	struct o2dlm_lock_res *lockres = NULL;
 
+	if (!ctxt || !lockid)
+		return O2DLM_ET_INVALID_ARGS;
+
 	lockres = o2dlm_find_lock_res(ctxt, lockid);
 	if (!lockres)
 		return O2DLM_ET_UNKNOWN_LOCK;
@@ -465,6 +474,9 @@ errcode_t o2dlm_destroy(struct o2dlm_ctxt *ctxt)
 	int error = 0;
 	struct o2dlm_lock_res *lockres;
         struct list_head *p, *n;
+
+	if (!ctxt)
+		return O2DLM_ET_INVALID_ARGS;
 
 	list_for_each_safe(p, n, &ctxt->ct_locks) {
 		lockres = list_entry(p, struct o2dlm_lock_res, l_list);
