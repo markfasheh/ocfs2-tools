@@ -205,6 +205,7 @@ struct _State {
 	uint32_t cluster_size;
 	uint32_t cluster_size_bits;
 
+	uint64_t specified_size_in_blocks;
 	uint64_t volume_size_in_bytes;
 	uint32_t volume_size_in_clusters;
 	uint64_t volume_size_in_blocks;
@@ -688,12 +689,13 @@ get_state(int argc, char **argv)
 	device_name = argv[optind];
 	optind++;
 
+	s = malloc(sizeof(State));
+	memset(s, 0, sizeof(State));
+
 	if (optind < argc) {
-		unsigned long val;
-
-		val = strtoul(argv[optind], &dummy, 0);
-
-		if ((*dummy) || (val > 0xffffffffUL)) {
+		s->specified_size_in_blocks = strtoull(argv[optind], &dummy,
+						       0);
+		if ((*dummy)) {
 			com_err(progname, 0, "Block count bad - %s",
 				argv[optind]);
 			exit(1);
@@ -711,8 +713,6 @@ get_state(int argc, char **argv)
 	if (show_version)
 		exit(0);
 
-	s = malloc(sizeof(State));
-	memset(s, 0, sizeof(State));
 
 	s->progname      = progname;
 
@@ -844,6 +844,19 @@ fill_defaults(State *s)
 	if (!s->volume_size_in_blocks) {
 		err = ocfs2_get_device_size(s->device_name, s->blocksize, &ret);
 		s->volume_size_in_blocks = ret;
+		if (s->specified_size_in_blocks) {
+			if (s->specified_size_in_blocks > 
+			    s->volume_size_in_blocks) {
+				printf("%"PRIu64" blocks were specified and "
+				       "this is greater than the %"PRIu64" "
+				       "blocks that make up %s.\n", 
+				       s->specified_size_in_blocks,
+				       s->volume_size_in_blocks, 
+				       s->device_name);
+				exit(1);
+			}
+			s->volume_size_in_blocks = s->specified_size_in_blocks;
+		}
 	}
 
 	s->volume_size_in_bytes = s->volume_size_in_blocks * s->blocksize;
