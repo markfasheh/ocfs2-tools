@@ -276,9 +276,9 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	__u64 off, foff, len;
 	int i;
 	char *newbuf = NULL;
-	__u32 newlen = 0;
+	__u64 newlen = 0;
 	char *inode_buf = NULL;
-	int buflen = 0;
+	__u64 buflen = 0;
 	int ret = -1;
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
@@ -296,15 +296,19 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 	traverse_extents (fd, &(inode->id2.i_list), arr, 0);
 
 	if (fdo == -1) {
-		if (!(*buf = malloc (inode->i_size)))
-			DBGFS_FATAL("%s", strerror(errno));
-		p = *buf;
+		newlen = inode->i_size;
 	} else {
+		newlen = 1024 * 1024;
 		if (fdo > 2) {
 			fchmod (fdo, inode->i_mode);
 			fchown (fdo, inode->i_uid, inode->i_gid);
 		}
 	}
+
+	if (!(newbuf = malloc (newlen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	p = newbuf;
 
 	for (i = 0; i < arr->len; ++i) {
 		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
@@ -314,32 +318,30 @@ int read_file (int fd, __u64 blknum, int fdo, char **buf)
 		if ((foff + len) > inode->i_size)
 			len = inode->i_size - foff;
 
-		if (fdo != -1) {
-			if (newlen <= len) {
-				safefree (newbuf);
-				if (!(newbuf = malloc (len)))
+		while (len) {
+			buflen = min (newlen, len);
+
+			if ((pread64(fd, p, buflen, off)) == -1)
+				DBGFS_FATAL("%s", strerror(errno));
+
+			if (fdo != -1) {
+				if (!(write (fdo, p, buflen)))
 					DBGFS_FATAL("%s", strerror(errno));
-				newlen = len;
-				p = newbuf;
-			}
+			} else
+				p += buflen;
+			len -= buflen;
+			off += buflen;
 		}
-
-		if ((pread64(fd, p, len, off)) == -1)
-			DBGFS_FATAL("%s", strerror(errno));
-
-		if (fdo != -1) {
-			if (len)
-				if (!(write (fdo, p, len)))
-					DBGFS_FATAL("%s", strerror(errno));
-		} else
-			p += len;
 	}
 
 	ret = 0;
+	if (buf)
+		*buf = newbuf;
 
 bail:
 	safefree (inode_buf);
-	safefree (newbuf);
+	if (ret == -1 || !buf)
+		safefree (newbuf);
 
 	if (arr)
 		g_array_free (arr, 1);

@@ -75,6 +75,10 @@ enum {
 
 #define DBGFS_WARN_STR(str)		DBGFS_WARN(str, "")
 
+#undef max
+#define max(a,b)	((a) > (b) ? (a) : (b))
+#undef min
+#define min(a,b)	((a) < (b) ? (a) : (b))
 
 /* Publish flags */
 #define  FLAG_FILE_CREATE         0x00000001
