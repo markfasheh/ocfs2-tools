@@ -250,6 +250,7 @@ static void add_entry_to_directory(State *s, DirData *dir, char *name,
 static uint32_t blocks_needed(State *s);
 static uint32_t system_dir_blocks_needed(State *s);
 static void adjust_volume_size(State *s);
+static void check_32bit_blocks(State *s);
 static void format_superblock(State *s, SystemFileDiskRecord *rec,
 			      SystemFileDiskRecord *root_rec,
 			      SystemFileDiskRecord *sys_rec);
@@ -326,6 +327,8 @@ main(int argc, char **argv)
 	create_generation(s);
 
 	print_state (s);
+
+	check_32bit_blocks (s);
 
 	init_record(s, &global_alloc_rec, SFI_OTHER, 0);
 	global_alloc_rec.extent_off = 0;
@@ -1297,6 +1300,24 @@ adjust_volume_size(State *s)
 	s->volume_size_in_bytes = vsize;
 }
 
+/* this will go away once we have patches to jbd to support 64bit blocks.
+ * ocfs2 will only fail mounts when it finds itself asked to mount a large
+ * device in a kernel that doesn't have a smarter jbd. */
+static void
+check_32bit_blocks(State *s)
+{
+	uint64_t max = UINT32_MAX;
+       
+	if (s->volume_size_in_blocks <= max)
+		return;
+
+	fprintf(stderr, "ERROR: jbd can only store block numbers in 32 bits. "
+		"%s can hold %"PRIu64" blocks which overflows this limit. "
+		"Consider increasing the block size or decreasing the device "
+		"size.\n", s->device_name, s->volume_size_in_blocks);
+	exit(1);
+}
+
 static void
 format_superblock(State *s, SystemFileDiskRecord *rec,
 		  SystemFileDiskRecord *root_rec, SystemFileDiskRecord *sys_rec)
@@ -1690,8 +1711,8 @@ print_state(State *s)
 	printf("Filesystem label=%s\n", s->vol_label);
 	printf("Block size=%u (bits=%u)\n", s->blocksize, s->blocksize_bits);
 	printf("Cluster size=%u (bits=%u)\n", s->cluster_size, s->cluster_size_bits);
-	printf("Volume size=%llu (%u clusters)\n",
+	printf("Volume size=%llu (%u clusters) (%"PRIu64" blocks)\n",
 	       (unsigned long long) s->volume_size_in_bytes,
-	       s->volume_size_in_clusters);
+	       s->volume_size_in_clusters, s->volume_size_in_blocks);
 	printf("Initial number of nodes: %u\n", s->initial_nodes);
 }
