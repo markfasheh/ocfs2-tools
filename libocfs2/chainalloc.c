@@ -377,6 +377,7 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 	ctxt.target_bit = *bitno;
 	ret = ocfs2_bitmap_foreach_region(cinode->ci_chains,
 					  chainalloc_find_desc, &ctxt);
+	*gd_blkno = ctxt.gd_blkno;
 
 	ret = ocfs2_bitmap_set(cinode->ci_chains, *bitno, &oldval);
 	if (ret)

@@ -96,14 +96,14 @@ static errcode_t ocfs2_load_allocator(ocfs2_filesys *fs,
 	return 0;
 }
 
-static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di,
+static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
 			     uint64_t gd_blkno, uint64_t blkno)
 {
 	ocfs2_extent_list *fel;
 
 	di->i_generation = fs->fs_super->i_generation;
 	di->i_blkno = blkno;
-	di->i_suballoc_node = 0;
+	di->i_suballoc_node = node;
 	di->i_suballoc_bit = (uint16_t)(blkno - gd_blkno);
 	di->i_uid = di->i_gid = 0;
 	if (S_ISDIR(di->i_mode))
@@ -155,7 +155,7 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 	memset(buf, 0, fs->fs_blocksize);
 	di = (ocfs2_dinode *)buf;
 	di->i_mode = mode;
-	ocfs2_init_inode(fs, di, gd_blkno, *ino);
+	ocfs2_init_inode(fs, di, 0, gd_blkno, *ino);
 
 	ret = ocfs2_write_inode(fs, *ino, buf);
 
@@ -191,7 +191,7 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
 	di = (ocfs2_dinode *)buf;
 	di->i_mode = mode;
 	di->i_flags = flags;
-	ocfs2_init_inode(fs, di, gd_blkno, *ino);
+	ocfs2_init_inode(fs, di, -1, gd_blkno, *ino);
 	di->i_flags |= OCFS2_SYSTEM_FL;
 	di->i_fs_generation = fs->fs_super->i_fs_generation;
 
