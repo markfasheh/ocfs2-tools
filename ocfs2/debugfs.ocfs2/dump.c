@@ -155,7 +155,7 @@ TOTAL: 247
 	if (in->i_flags & OCFS2_DLM_FL)
 		g_string_append (flags, "dlm ");
 
-	printf("Inode: %llu   Type: %s   Mode: 0%0u   Flags: %s   Generation: %u\n",
+	printf("Inode: %llu   Type: %s   Mode: 0%0o   Flags: %s   Generation: %u\n",
 	       in->i_blkno, str, mode, flags->str, in->i_generation);
 
 	pw = getpwuid(in->i_uid);
