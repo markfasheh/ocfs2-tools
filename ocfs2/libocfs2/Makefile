@@ -31,17 +31,24 @@ endif
 CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
-BIN_PROGRAMS += unix_io
+BIN_PROGRAMS += unix_io openfs
 
 unix_io: unix_io.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
 		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 
+openfs: openfs.c libocfs2.a
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
+		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
+		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 endif
 CFILES = 		\
 	unix_io.c	\
-	memory.c
+	memory.c	\
+	openfs.c	\
+	closefs.c	\
+	freefs.c
 
 HFILES =				\
 	include/kernel-jbd.h		\
@@ -49,7 +56,10 @@ HFILES =				\
 	include/ocfs2_fs.h		\
 	include/ocfs2_disk_dlm.h	\
 	include/ocfs1_fs_compat.h	\
-	include/memory.h
+	include/memory.h		\
+	include/unix_io.h		\
+	include/byteorder.h		\
+	include/filesys.h
 
 HFILES_GEN =		\
 	ocfs2_err.h

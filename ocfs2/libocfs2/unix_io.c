@@ -31,6 +31,7 @@
 #define _XOPEN_SOURCE 600  /* Triggers ISOC99, UNIX98 in features.h */
 #define _LARGEFILE64_SOURCE
 
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 #include <stdint.h>
@@ -44,14 +45,18 @@
 #include <sys/utsname.h>
 #endif
 
+#include <linux/types.h>
+
 #include <et/com_err.h>
 #include "ocfs2_err.h"
 
 #include "unix_io.h"
 #include "memory.h"
 
+#include "ocfs2_fs.h" /* For OCFS2_MIN_BLOCKSIZE */
 
-#define OCFS2_MIN_BLKSIZE	512
+#include "filesys.h"
+
 
 struct _io_channel {
 	char *io_name;
@@ -82,7 +87,7 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 	if (ret)
 		goto out_chan;
 	strcpy(chan->io_name, name);
-	chan->io_blksize = OCFS2_MIN_BLKSIZE;
+	chan->io_blksize = OCFS2_MIN_BLOCKSIZE;
 	chan->io_flags = (flags & OCFS2_FLAG_RW) ? O_RDWR : O_RDONLY;
 	chan->io_error = 0;
 
@@ -162,11 +167,11 @@ int io_get_error(io_channel *channel)
 
 errcode_t io_set_blksize(io_channel *channel, int blksize)
 {
-	if (blksize % OCFS2_MIN_BLKSIZE)
+	if (blksize % OCFS2_MIN_BLOCKSIZE)
 		return OCFS2_ET_INVALID_ARGUMENT;
 
 	if (!blksize)
-		blksize = OCFS2_MIN_BLKSIZE;
+		blksize = OCFS2_MIN_BLOCKSIZE;
 
 	if (channel->io_blksize != blksize)
 		channel->io_blksize = blksize;
@@ -174,11 +179,9 @@ errcode_t io_set_blksize(io_channel *channel, int blksize)
 	return 0;
 }
 
-errcode_t io_get_blksize(io_channel *channel, int *blksize)
+int io_get_blksize(io_channel *channel)
 {
-	*blksize = channel->io_blksize;
-
-	return 0;
+	return channel->io_blksize;
 }
 
 errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
@@ -355,7 +358,7 @@ int main(int argc, char *argv[])
 
 			case 'B':
 				blksize = read_number(optarg);
-				if (!count) {
+				if (!blksize) {
 					fprintf(stderr, 
 						"Invalid blksize: %s\n",
 						optarg);
@@ -371,7 +374,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (blksize % OCFS2_MIN_BLKSIZE) {
+	if (blksize % OCFS2_MIN_BLOCKSIZE) {
 		fprintf(stderr, "Invalid blocksize: %lld\n", blksize);
 		print_usage();
 		return 1;

@@ -49,6 +49,7 @@
  * As OCFS2 has a minimum clustersize of 4K, it has a maximum blocksize
  * of 4K
  */
+#define OCFS2_MIN_BLOCKSIZE		512
 #define OCFS2_MAX_BLOCKSIZE		4096
 
 /* Object signatures */
@@ -231,8 +232,8 @@ typedef struct _ocfs2_extent_rec {
  * ocfs2_extent_block.h_list, respectively.
  */
 typedef struct _ocfs2_extent_list {
-/*00*/	__s16 l_tree_depth;		/* Extent tree depth from this
-					   point.  -1 means data extents
+/*00*/	__u16 l_tree_depth;		/* Extent tree depth from this
+					   point.  0 means data extents
 					   hang directly off this
 					   header (a leaf) */
 	__u16 l_count;			/* Number of extent records */

@@ -110,7 +110,7 @@ errcode_t ocfs2_malloc_blocks(io_channel *channel, int num_blocks,
 	int blksize;
 	void **pp = (void **)ptr;
 
-	io_get_blksize(channel, &blksize);
+	blksize = io_get_blksize(channel);
 
 	ret = posix_memalign(pp, blksize, num_blocks * blksize);
 	if (!ret)

@@ -1,9 +1,9 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * unix_io.h
+ * byteorder.h
  *
- * I/O routines for the OCFS2 userspace library.
+ * Byteswapping!
  *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
@@ -24,18 +24,16 @@
  * Authors: Joel Becker
  */
 
-#ifndef _UNIX_IO_H
-#define _UNIX_IO_H
+#ifndef _BYTEORDER_H
+#define _BYTEORDER_H
 
-typedef struct _io_channel io_channel;
+/*
+ * This is a hack, using the kernel parts, until we get something
+ * stable in userspace....unless everyone is happy with this??
+ */
 
-errcode_t io_open(const char *name, int flags, io_channel **channel);
-errcode_t io_close(io_channel *channel);
-int io_get_error(io_channel *channel);
-errcode_t io_set_blksize(io_channel *channel, int blksize);
-int io_get_blksize(io_channel *channel);
-errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
-			char *data);
-errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
-			 const char *data);
-#endif  /* _UNIX_IO_H */
+#define __KERNEL__
+#include <asm/byteorder.h>
+#undef __KERNEL__
+
+#endif  /* _BYTEORDER_H */

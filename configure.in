@@ -131,6 +131,8 @@ if test "x$COM_ERR_LIBS" = "x"; then
 fi
 AC_SUBST(COM_ERR_LIBS)
 
+AC_C_BIGENDIAN()
+
 AC_MSG_CHECKING(for debug executables)
 AC_ARG_ENABLE(debugexe, [  --enable-debugexe=[yes/no]     Enable debug executables for library source files [default=no]],,enable_debugexe=no)
 OCFS2_DEBUG_EXE=

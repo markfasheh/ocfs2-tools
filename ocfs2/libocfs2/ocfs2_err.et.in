@@ -26,4 +26,22 @@ ec	OCFS2_ET_NO_MEMORY,
 ec	OCFS2_ET_INVALID_ARGUMENT,
 	"Invalid argument passed to OCFS2 library"
 
+ec	OCFS2_ET_OCFS_REV,
+	"Device contains an OCFS volume"
+
+ec	OCFS2_ET_BAD_MAGIC,
+	"Bad magic number in superblock"
+
+ec	OCFS2_ET_UNEXPECTED_BLOCK_SIZE,
+	"Filesystem has unexpected block size"
+
+ec	OCFS2_ET_CORRUPT_SUPERBLOCK,
+	"The OCFS2 superblock is corrupt"
+
+ec	OCFS2_ET_UNSUPP_FEATURE,
+	"Filesystem has unsupported feature(s)"
+
+ec	OCFS2_ET_RO_UNSUPP_FEATURE,
+	"Filesystem has unsupported read-only feature(s)"
+
 	end
