@@ -67,8 +67,10 @@ static char * get_line (void)
 
 	line = readline (PROMPT);
 
-	if (line && *line)
+	if (line && *line) {
+		g_strchug(line);
 		add_history (line);
+	}
 
 	return line;
 }					/* get_line */

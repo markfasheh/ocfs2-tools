@@ -133,6 +133,9 @@ void do_command (char *cmd)
 
 	args = g_strsplit (cmd, " ", -1);
 
+	/* Move empty strings to the end */
+	crunch_strsplit(args);
+
 	command = find_command (args[0]);
 
 	if (command)

@@ -50,4 +50,5 @@ void inode_perms_to_str(uint16_t mode, char *str, int len);
 void inode_time_to_str(uint64_t mtime, char *str, int len);
 errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 		      const char *dumproot, int verbose);
+void crunch_strsplit(char **args);
 #endif		/* __UTILS_H__ */

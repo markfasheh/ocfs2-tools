@@ -681,3 +681,36 @@ bail:
 
 	return ret;
 }
+
+/*
+ * crunch_strsplit()
+ *
+ * Moves empty strings to the end in args returned by g_strsplit(),
+ *
+ */
+void crunch_strsplit(char **args)
+{
+	char *p;
+	int i, j;
+	
+	i = j = 0;
+	while(args[i]) {
+		if (!strlen(args[i])) {
+			j = max(j, i+1);
+			while(args[j]) {
+				if (strlen(args[j])) {
+					p = args[i];
+					args[i] = args[j];
+					args[j] = p;
+					break;
+				}
+				++j;
+			}
+			if (!args[j])
+				break;
+		}
+		++i;
+	}
+
+	return ;
+}
