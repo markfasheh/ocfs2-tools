@@ -18,7 +18,7 @@ LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 SBIN_PROGRAMS = tunefs.ocfs2
 
-INCLUDES = -I$(TOPDIR)/libocfs2/include
+INCLUDES = -I$(TOPDIR)/libocfs2/include $(GLIB_CFLAGS)
 DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 ifeq ($(OCFS_PROCESSOR),x86_64)
@@ -38,6 +38,6 @@ OBJS = $(subst .c,.o,$(CFILES))
 DIST_FILES = $(CFILES)
 
 tunefs.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
-	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+	$(LINK) $(LIBOCFS2_LIBS) $(GLIB_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make

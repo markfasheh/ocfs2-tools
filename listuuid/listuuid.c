@@ -104,7 +104,7 @@ static void ocfs2_print_uuids(struct list_head *dev_list)
 	char *p;
 	int i;
 
-	printf("%-20s  %7s  %-32s\n", "Device", "maj,min", "UUID");
+	printf("%-20s  %7s  %-5s  %-32s  %-s\n", "Device", "maj,min", "FS", "UUID", "Label");
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		if (dev->fs_type == 0)
@@ -115,7 +115,8 @@ static void ocfs2_print_uuids(struct list_head *dev_list)
 			sprintf(p, "%02X", dev->uuid[i]);
 
 		sprintf(devstr, "%3d,%-d", dev->maj_num, dev->min_num);
-		printf("%-20s  %-7s  %-32s\n", dev->dev_name, devstr, uuid);
+		printf("%-20s  %-7s  %-5s  %-32s  %s\n", dev->dev_name, devstr, 
+		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"), uuid, dev->label);
 	}
 
 	return ;
@@ -158,20 +159,33 @@ static errcode_t ocfs2_detect(char *device)
 		fs = NULL;
 		ret = ocfs2_open(dev_name, OCFS2_FLAG_RO, 0, 0, &fs);
 		if (ret) {
-			dev->fs_type = 0;
-			ret = 0;
-			continue;
+			if (ret == OCFS2_ET_OCFS_REV)
+				dev->fs_type = 1;
+			else {
+				ret = 0;
+				continue;
+			}
 		} else
 			dev->fs_type = 2;
 
 		/* get uuid for ocfs2 */
 		if (dev->fs_type == 2) {
+			memcpy(dev->label, OCFS2_RAW_SB(fs->fs_super)->s_label,
+			       sizeof(dev->label));
 			memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
 			       sizeof(dev->uuid));
+		} else {
+			if (ocfs2_get_ocfs1_label(dev->dev_name,
+					dev->label, sizeof(dev->label),
+					dev->uuid, sizeof(dev->uuid))) {
+				dev->label[0] = '\0';
+				memset(dev->uuid, 0, sizeof(dev->uuid));
+			}
 		}
 
 		/* close fs */
-		ocfs2_close(fs);
+		if (fs)
+			ocfs2_close(fs);
 	}
 
 	ocfs2_print_uuids(&dev_list);

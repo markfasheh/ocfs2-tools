@@ -482,15 +482,17 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 			      cinode->ci_inode->id2.i_chain.cl_cpg *
 			      cinode->ci_inode->id2.i_chain.cl_bpc, 0);
 
+	rec = &cinode->ci_inode->id2.i_chain.cl_recs[0];
+	old_blkno = rec->c_blkno;
+	gd->bg_next_group = old_blkno;
+
 	ret = ocfs2_write_group_desc(fs, blkno, (char *)gd);
 	if (ret)
 		goto out;
 
 	/* XXX could be a helper? */
-	rec = &cinode->ci_inode->id2.i_chain.cl_recs[0];
 	rec->c_free += gd->bg_free_bits_count;
 	rec->c_total += gd->bg_bits;
-	old_blkno = rec->c_blkno;
 	rec->c_blkno = blkno;
 
 	cinode->ci_inode->i_clusters += cinode->ci_inode->id2.i_chain.cl_cpg;

@@ -110,7 +110,7 @@
 #define OCFS2_MAX_FILENAME_LENGTH       255
 
 /* Limit of node map bits in ocfs2_disk_lock */
-#define OCFS2_MAX_NODES			256
+#define OCFS2_MAX_NODES			255
 
 #define MAX_VOL_ID_LENGTH               16
 #define MAX_VOL_LABEL_LEN               64

@@ -485,6 +485,7 @@ bail:
 
 	return ret;
 }
+#endif /* 0 */
 
 /*
  * ocfs2_get_ocfs1_label()
@@ -515,4 +516,3 @@ bail:
 		close(fd);
 	return ret;
 }
-#endif /* 0 */

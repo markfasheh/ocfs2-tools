@@ -200,8 +200,15 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
 
 	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_system_inode_alloc,
 					&gd_blkno, ino);
-	if (ret)
-		goto out;
+	if (ret == OCFS2_ET_BIT_NOT_FOUND) {
+		ret = ocfs2_chain_add_group(fs, fs->fs_system_inode_alloc);
+		if (ret)
+			goto out;
+		ret = ocfs2_chain_alloc_with_io(fs, fs->fs_system_inode_alloc,
+						&gd_blkno, ino);
+		if (ret)
+			goto out;
+	}
 
 	memset(buf, 0, fs->fs_blocksize);
 	di = (ocfs2_dinode *)buf;

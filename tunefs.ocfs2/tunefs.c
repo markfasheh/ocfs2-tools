@@ -43,6 +43,7 @@
 #include <netinet/in.h>
 #include <inttypes.h>
 #include <ctype.h>
+#include <glib.h>
 
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
@@ -72,7 +73,7 @@ ocfs2_tune_opts opts;
  */
 static void usage(const char *progname)
 {
-	fprintf(stderr, "Usage: %s [-L volume-label] [-n number-of-nodes]\n"
+	fprintf(stderr, "usage: %s [-L volume-label] [-n number-of-nodes]\n"
 			"\t\t[-j journal-size] [-S volume-size] [-qvV] device\n",
 			progname);
 	exit(0);
@@ -268,37 +269,57 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 	char fname[SYSTEM_FILE_NAME_MAX];
 	uint64_t blkno;
 	int i, j;
+	char *display_str = NULL;
 
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
 		for (j = old_num; j < opts.num_nodes; ++j) {
 			sprintf(fname, ocfs2_system_inodes[i].si_name, j);
-			printf("Adding %s...  ", fname);
+			display_str = g_strdup_printf("Adding %s...", fname);
+			printf("%s", display_str);
+			fflush(stdout);
+
+			/* Goto next if file already exists */
+			ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, fname,
+					   strlen(fname), NULL, &blkno);
+			if (!ret)
+				goto next_file;
 
 			/* create inode for system file */
-			ret =  ocfs2_new_system_inode(fs, &blkno, ocfs2_system_inodes[i].si_mode,
+			ret =  ocfs2_new_system_inode(fs, &blkno,
+						      ocfs2_system_inodes[i].si_mode,
 						      ocfs2_system_inodes[i].si_flags);
 			if (ret)
 				goto bail;
 
 			/* Add the inode to the system dir */
-			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname,
-					 blkno, OCFS2_FT_REG_FILE);
-			if (ret) {
-				if (ret == OCFS2_ET_DIR_NO_SPACE) {
-					ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno, fs->fs_sysdir_blkno);
-					if (!ret)
-						ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
-								 fname, blkno, OCFS2_FT_REG_FILE);
-				}
-				if (ret)
-					goto bail;
+			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname, blkno,
+					 OCFS2_FT_REG_FILE);
+			if (!ret)
+				goto next_file;
+			if (ret == OCFS2_ET_DIR_NO_SPACE) {
+				ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno,
+						       fs->fs_sysdir_blkno);
+				if (!ret)
+					ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
+							 fname, blkno,
+							 OCFS2_FT_REG_FILE);
+			} else
+				goto bail;
+next_file:
+			if (display_str) {
+				memset(display_str, ' ', strlen(display_str));
+				printf("\r%s\r", display_str);
+				fflush(stdout);
+				free(display_str);
+				display_str = NULL;
 			}
-			printf("\r                                                     \r");
 		}
 	}
 bail:
-	if (ret)
+	if (display_str) {
+		free(display_str);
 		printf("\n");
+	}
 
 	return ret;
 }
@@ -385,7 +406,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 	uint64_t blkno;
 	int i;
 	uint16_t max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
-	uint64_t num_clusters;
+	uint32_t num_clusters;
 	char *buf = NULL;
 	ocfs2_dinode *di;
 
@@ -483,11 +504,7 @@ int main(int argc, char **argv)
 
 	ret = ocfs2_open(opts.device, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
-		if (ret == OCFS2_ET_OCFS_REV)
-			printf("ERROR: %s is an ocfs (and not ocfs2) volume. ", opts.device);
-		else
-			printf("ERROR: %s is not an ocfs2 volume. ", opts.device);
-		printf("Aborting.\n");
+		com_err(argv[0], ret, " ");
 		goto bail;
 	}
 
