@@ -32,6 +32,9 @@ endif
 ifeq ($(OCFS_PROCESSOR),i686)
   DEFINES += -D__ILP32__
 endif
+ifeq ($(OCFS_PROCESSOR),s390x)
+  DEFINES += -D__LP64__
+endif
 
 CFLAGS += $(OPTIMIZE)
 

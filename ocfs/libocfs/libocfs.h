@@ -316,7 +316,7 @@ static inline int atomic_dec_and_test(atomic_t *v)
 #endif
 
 
-#if !defined(smp_mb__before_clear_bit)
+#if !defined(test_bit)
 
 #if defined(__powerpc__) && !defined(__powerpc64__)
 
@@ -423,7 +423,7 @@ found_middle:
 }
 
 #else /* !ppc32 */
-#error "Your platform doesn't provide the functions required in <asm/bitopts.h>"
+#error "Your platform doesn't provide the functions required in <asm/bitops.h>"
 #endif
 
 #endif /* !smp_mb__before_clear_bit */

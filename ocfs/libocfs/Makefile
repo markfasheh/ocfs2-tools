@@ -32,6 +32,9 @@ endif
 ifeq ($(OCFS_PROCESSOR),i686)
   DEFINES += -D__ILP32__
 endif
+ifeq ($(OCFS_PROCESSOR),s390x)
+  DEFINES += -D__LP64__
+endif
 
 CFLAGS += $(OPTIMIZE)
 
@@ -98,6 +101,10 @@ $(CFILES): $(HFILES)
 
 OBJS = $(subst .c,.o,$(CFILES))
 
+ifeq ($(OCFS_PROCESSOR),s390x)
+  OBJS += bitmap.o
+endif
+
 libocfs.a: $(OBJS)
 	rm -f $@
 	$(AR) r $@ $^
@@ -108,7 +115,7 @@ CLEAN_RULES = clean-libocfs
 clean-libocfs:
 	rm -f Common/*.o Linux/*.o Common/*.p Linux/*.p Common/*.s Linux/*.s *.o *.p *.s
 
-DIST_FILES = $(CFILES) $(HFILES)
+DIST_FILES = $(CFILES) $(HFILES) bitmap.S
 
 DIST_RULES = dist-subdircreate
 
