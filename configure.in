@@ -154,15 +154,15 @@ fi
 AC_SUBST(BUILD_OCFS2CDSL)
 AC_SUBST(BUILD_DEBUGOCFS2)
 
-BUILD_OCFSTOOL=
-dnl AC_ARG_ENABLE(ocfstool, [  --enable-ocfstool=[yes/no]       Build GUI frontend [default=yes]],,enable_ocfstool=yes)
-AC_ARG_ENABLE(ocfstool, [  --enable-ocfstool=[yes/no]       Build GUI frontend [default=no]],,enable_ocfstool=no)
+BUILD_OCFS2TOOL=
+dnl AC_ARG_ENABLE(ocfs2tool, [  --enable-ocfs2tool=[yes/no]       Build GUI frontend [default=yes]],,enable_ocfs2tool=yes)
+AC_ARG_ENABLE(ocfs2tool, [  --enable-ocfs2tool=[yes/no]       Build GUI frontend [default=no]],,enable_ocfs2tool=no)
 
 if test "x$have_glib" != "xyes"; then
-  enable_ocfstool=no
+  enable_ocfs2tool=no
 fi
 
-if test "x$enable_ocfstool" = "xyes"; then
+if test "x$enable_ocfs2tool" = "xyes"; then
   dnl check for Python
   AM_PATH_PYTHON(2.2)
   AM_CHECK_PYTHON_HEADERS(,[AC_MSG_ERROR(could not find Python headers)])
@@ -184,10 +184,10 @@ if test "x$enable_ocfstool" = "xyes"; then
   AC_SUBST(PYGTK_DEFSDIR)
   AC_MSG_RESULT($PYGTK_DEFSDIR)
 
-  BUILD_OCFSTOOL=yes
+  BUILD_OCFS2TOOL=yes
 fi
 
-AC_SUBST(BUILD_OCFSTOOL)
+AC_SUBST(BUILD_OCFS2TOOL)
 
 AC_OUTPUT([
 Config.make
