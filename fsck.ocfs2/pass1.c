@@ -64,14 +64,13 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	/* clamp inodes to > OCFS2_SUPER_BLOCK_BLKNO && < fs->fs_blocks? */
 
-	/* what's our deletion story?  i_links_count, dtime, etc.. */
-
-#if 0 /* XXX we don't care about the signature on inodes? */
+	/* XXX need to compare the lifetime of inodes (uninitialized?
+	 * in use?  orphaned?  deleted?  garbage?) to understand what
+	 * fsck can do to fix it up */
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		   strlen(OCFS2_INODE_SIGNATURE))) {
 		goto bad;
 	}
-#endif
 
 	if (di->i_links_count)
 		o2fsck_icount_update(ost->ost_icount_in_inodes, di->i_blkno,
@@ -122,6 +121,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	return;
 bad:
+	/* XXX we don't actually do anything with this bitmap */
 	ocfs2_bitmap_set(ost->ost_bad_inodes, blkno, NULL);
 }
 
@@ -311,6 +311,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		}
 		if (blkno == 0)
 			break;
+
 		/* scanners have to skip over uninitialized inodes */
 		if (!(di->i_flags & OCFS2_VALID_FL))
 			continue;
