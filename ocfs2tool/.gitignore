@@ -1,0 +1,7 @@
+.*.sw?
+*.pyc
+ocfsmarshal.c
+ocfsmarshal.h
+cellmap.c
+*.so
+ocfs2tool.8

@@ -2,3 +2,4 @@ cscope*
 stamp-md5
 .*.sw?
 .*.cmd
+fsck.ocfs2
