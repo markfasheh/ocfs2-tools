@@ -404,7 +404,7 @@ main(int argc, char **argv)
 	alloc_from_bitmap (s, need, s->global_bm, &system_dir_rec.extent_off, &system_dir_rec.extent_len);
 	system_dir_rec.fe_off = alloc_inode(s, 1);
 	system_dir->record = &system_dir_rec;
-	add_entry_to_directory(s, system_dir, ".", system_dir_rec.extent_off, OCFS2_FT_DIR);
+	add_entry_to_directory(s, system_dir, ".", system_dir_rec.fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, system_dir, "..", system_dir_rec.extent_off, OCFS2_FT_DIR);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
@@ -430,7 +430,7 @@ main(int argc, char **argv)
 	tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][0];
 	orphan_dir->record = tmprec;
 	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
-	add_entry_to_directory(s, orphan_dir, ".", tmprec->extent_off, OCFS2_FT_DIR);
+	add_entry_to_directory(s, orphan_dir, ".", tmprec->fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, orphan_dir, "..", tmprec->extent_off, OCFS2_FT_DIR);
 
 	tmprec = s->global_bm->bm_record;
