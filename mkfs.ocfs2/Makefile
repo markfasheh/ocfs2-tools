@@ -11,7 +11,7 @@ endif
 
 CFLAGS = $(OPTS) $(WARNINGS) 
 
-SBIN_PROGRAMS = mkfs.ocfs2 mkfs2.ocfs2
+SBIN_PROGRAMS = mkfs.ocfs2 mkfs2.ocfs2 tunefs.ocfs2
 
 LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
@@ -34,6 +34,9 @@ mkfs.ocfs2: $(OBJS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 mkfs2.ocfs2: mkfs2.o mkfs_utils.o
+	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+
+tunefs.ocfs2: tunefs.o mkfs_utils.o
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 readdir: readdir.o

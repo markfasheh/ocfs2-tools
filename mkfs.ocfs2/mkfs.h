@@ -188,6 +188,20 @@ struct _DirData {
 	SystemFileDiskRecord *record;
 };
 
+typedef struct _new_state new_state;
+
+struct _new_state {
+	uint64_t volume_size_in_bytes;
+	uint32_t volume_size_in_clusters;
+	uint64_t volume_size_in_blocks;
+
+	unsigned int initial_nodes;
+
+	uint64_t journal_size_in_bytes;
+
+	char *vol_label;
+};
+
 typedef struct _State State;
 
 struct _State {
@@ -225,6 +239,8 @@ struct _State {
 
 	AllocBitmap *global_bm;
 	AllocGroup *system_group;
+
+	new_state new;
 };
 
 #endif
