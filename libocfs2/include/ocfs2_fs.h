@@ -123,7 +123,7 @@
 
 struct ocfs2_system_inode_info {
 	char	*si_name;
-	int	si_flags;
+	int	si_iflags;
 	int	si_mode;
 };
 

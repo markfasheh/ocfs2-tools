@@ -345,7 +345,7 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 			/* create inode for system file */
 			ret =  ocfs2_new_system_inode(fs, &blkno,
 						      ocfs2_system_inodes[i].si_mode,
-						      ocfs2_system_inodes[i].si_flags);
+						      ocfs2_system_inodes[i].si_iflags);
 			if (ret)
 				goto bail;
 
