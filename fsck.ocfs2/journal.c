@@ -454,8 +454,6 @@ static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
 {
 	errcode_t err;
 
-	ji->ji_revoke = RB_ROOT;
-	ji->ji_node = node;
 
 	err = ocfs2_malloc_blocks(fs->fs_io, 1, &ji->ji_jsb);
 	if (err)
@@ -477,10 +475,9 @@ static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
 		goto out;
 	}
 
-	if (ji->ji_cinode->ci_inode->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL) {
-		ji->ji_replay = 0;
+	if (!(ji->ji_cinode->ci_inode->id1.journal1.ij_flags &
+	      OCFS2_JOURNAL_DIRTY_FL))
 		goto out;
-	}
 
 	err = ocfs2_extent_map_init(fs, ji->ji_cinode);
 	if (err) {
@@ -502,6 +499,8 @@ static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
 			ji->ji_node);
 		goto out;
 	}
+
+	ji->ji_replay = 1;
 
 	verbosef("node: %d jsb start %u maxlen %u\n", node,
 		 ji->ji_jsb->s_start, ji->ji_jsb->s_maxlen);
@@ -597,23 +596,26 @@ errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 	printf("Checking each node's journal.\n");
 
 	for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
-		ji->ji_replay = 1;
 		ji->ji_used_blocks = used_blocks;
+		ji->ji_revoke = RB_ROOT;
+		ji->ji_node = i;
 
+		/* sets ji->ji_replay */
 		err = prep_journal_info(fs, i, ji);
-		if (err == 0) {
-			/* Will only be modified in prep_journal_info()
-			 * if 0 is returned */
-			if (!ji->ji_replay) {
-				verbosef("node %d is clean\n", i);
-				continue;
-			}
-
-			err = walk_journal(fs, i, ji, buf, 0);
+		if (err) {
+			printf("Node %d seems to have a corrupt journal.\n",
+			       i);
+			journal_trouble = 1;
+			continue;
 		}
 
+		if (!ji->ji_replay) {
+			verbosef("node %d is clean\n", i);
+			continue;
+		}
+
+		err = walk_journal(fs, i, ji, buf, 0);
 		if (err) {
-			ji->ji_replay = 0;
 			printf("Node %d's journal can not be replayed.\n", i);
 			journal_trouble = 1;
 		}

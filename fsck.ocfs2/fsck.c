@@ -373,7 +373,7 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 	}
 
 	printf("%s wasn't cleanly unmounted by all nodes.  Attempting to "
-	       "replay the journals for nodes that didn't unmount cleanly",
+	       "replay the journals for nodes that didn't unmount cleanly\n",
 	       filename);
 
 	/* journal replay is careful not to use ost as we only really
