@@ -51,7 +51,8 @@ static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
 
 	/* XXX offer to remove files/dirs with no data? */
 	if (refs == 0 &&
-	    prompt(ost, PY, 0, "Inode %"PRIu64" isn't referenced by any "
+	    prompt(ost, PY, PR_INODE_NOT_CONNECTED,
+		   "Inode %"PRIu64" isn't referenced by any "
 		   "directory entries.  Move it to lost+found?", 
 		   di->i_blkno)) {
 		o2fsck_reconnect_file(ost, blkno);
@@ -74,7 +75,8 @@ static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
 			"disk it is %"PRIu16, di->i_blkno, in_inode, 
 			di->i_links_count);
 
-	if (prompt(ost, PY, 0, "Inode %"PRIu64" has a link count of %"PRIu16" on "
+	if (prompt(ost, PY, PR_INODE_COUNT,
+		   "Inode %"PRIu64" has a link count of %"PRIu16" on "
 		   "disk but directory entry references come to %"PRIu16". "
 		   "Update the count on disk to match?", di->i_blkno, in_inode, 
 		   refs)) {

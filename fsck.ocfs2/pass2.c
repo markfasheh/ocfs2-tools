@@ -109,8 +109,10 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	       	if (!dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
 			goto out;
 			return 0;
-		if (prompt(ost, PY, 0, "Duplicate '%.*s' directory entry found, "
-			   "remove it?", dirent->name_len, dirent->name)) {
+		if (prompt(ost, PY, PR_DIRENT_DOTTY_DUP,
+			   "Duplicate '%.*s' directory entry found, remove "
+			   "it?", dirent->name_len, dirent->name)) {
+
 			dirent->inode = 0;
 			*flags |= OCFS2_DIRENT_CHANGED;
 			goto out;
@@ -118,7 +120,8 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	}
 
 	if (!dirent_has_dots(dirent, expect_dots) &&
-	    prompt(ost, PY, 0, "The %s directory entry in directory inode "
+	    prompt(ost, PY, PR_DIRENT_NOT_DOTTY,
+		   "The %s directory entry in directory inode "
 		   "%"PRIu64" is '%.*s' instead of '%.*s'.  Clobber the "
 		   "current name with the expected dot name?", 
 		   expect_dots == 1 ? "first" : "second", dbe->e_ino, 
@@ -147,7 +150,8 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	}
 
 	if ((dirent->inode != dbe->e_ino) &&
-            prompt(ost, PY, 0, "The '.' entry in directory inode %"PRIu64" "
+            prompt(ost, PY, PR_DIRENT_DOT_INODE,
+		   "The '.' entry in directory inode %"PRIu64" "
 		   "points to inode %"PRIu64" instead of itself.  Fix "
 		   "the '.' entry?", dbe->e_ino, dirent->inode)) {
 		dirent->inode = dbe->e_ino;
@@ -161,7 +165,8 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	 */
 	new_len = OCFS2_DIR_REC_LEN(dirent->name_len) - dirent->rec_len;
 	if (new_len && (changed_len || 
-			prompt(ost, PY, 0, "The '.' entry in directory inode "
+			prompt(ost, PY, PR_DIRENT_DOT_EXCESS,
+			       "The '.' entry in directory inode "
 			       "%"PRIu64" is too long.  Try to create another "
 			       "directory entry from the excess?", 
 			       dbe->e_ino))) {
@@ -229,7 +234,8 @@ static void fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	int len = dirent->name_len, fix = 0;
 
 	if (len == 0) {
-		if (prompt(ost, PY, 0, "Directory entry has a zero-length name, "
+		if (prompt(ost, PY, PR_DIRENT_ZERO,
+			   "Directory entry has a zero-length name, "
 				    "clear it?")) {
 			dirent->inode = 0;
 			*flags |= OCFS2_DIRENT_CHANGED;
@@ -239,7 +245,8 @@ static void fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	for(; len-- > 0 && (*chr == '/' || *chr == '\0'); chr++) {
 		/* XXX in %s parent name */
 		if (!fix) {
-			fix = prompt(ost, PY, 0, "Directory entry '%.*s' "
+			fix = prompt(ost, PY, PR_DIRENT_NAME_CHARS,
+				     "Directory entry '%.*s' "
 				     "contains invalid characters, replace "
 				     "them with dots?", dirent->name_len, 
 				     dirent->name);
@@ -256,7 +263,8 @@ static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 			     int *flags)
 {
 	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode) &&
-	    prompt(ost, PY, 0, "Directory entry '%.*s' refers to inode "
+	    prompt(ost, PY, PR_DIRENT_INODE_RANGE,
+		   "Directory entry '%.*s' refers to inode "
 		   "number %"PRIu64" which is out of range, clear the entry?",
 		   dirent->name_len, dirent->name, dirent->inode)) {
 
@@ -266,7 +274,8 @@ static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	}
 
 	if (!o2fsck_test_inode_allocated(ost, dbe->e_ino) &&
-	    prompt(ost, PY, 0, "Directory entry '%.*s' refers to inode number "
+	    prompt(ost, PY, PR_DIRENT_INODE_FREE,
+		   "Directory entry '%.*s' refers to inode number "
 		   "%"PRIu64" which isn't allocated, clear the entry?", 
 		   dirent->name_len, dirent->name, dirent->inode)) {
 		dirent->inode = 0;
@@ -337,7 +346,8 @@ static errcode_t fix_dirent_filetype(o2fsck_state *ost,
 
 check:
 	if ((dirent->file_type != expected_type) &&
-	    prompt(ost, PY, 0, "Directory entry %.*s contains file type %s (%u) "
+	    prompt(ost, PY, PR_DIRENT_TYPE,
+		   "Directory entry %.*s contains file type %s (%u) "
 		"but its inode %"PRIu64" leads to type %s (%u).  Reset the "
 		"entry's type to match the inode's?",
 		dirent->name_len, dirent->name, 
@@ -397,7 +407,8 @@ static errcode_t fix_dirent_linkage(o2fsck_state *ost,
 		goto out;
 	}
 
-	if (prompt(ost, 0, 0, "Directory inode %"PRIu64" is not the first to "
+	if (prompt(ost, 0, PR_DIR_PARENT_DUP,
+		   "Directory inode %"PRIu64" is not the first to "
 		"claim to be the parent of subdir '%.*s' (inode %"PRIu64"). "
 		"Clear this directory entry and leave the previous parent of "
 		"the subdir's inode intact?", dbe->e_ino, 
@@ -504,7 +515,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		/* if we can't trust this dirent then fix it up or skip
 		 * the whole block */
 		if (corrupt_dirent(dirent, dd->fs->fs_blocksize - offset)) {
-			if (!prompt(dd->ost, PY, 0, "Directory inode %"PRIu64" "
+			if (!prompt(dd->ost, PY, PR_DIRENT_LENGTH,
+				    "Directory inode %"PRIu64" "
 				    "corrupted in logical block %"PRIu64" "
 				    "physical block %"PRIu64" offset %d. "
 				    "Attempt to repair this block's directory "

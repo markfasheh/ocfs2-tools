@@ -49,6 +49,7 @@ HFILES = 	include/fsck.h		\
 		include/strings.h	\
 		include/util.h
 
+
 OBJS = $(subst .c,.o,$(CFILES))
 MANS = fsck.ocfs2.8 fsck.ocfs2.checks.8
 
@@ -61,6 +62,22 @@ dist-subdircreate:
 fsck.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
+$(OBJS): prompt-codes.h
+
+# make it hard to add a prompt call
+# without documenting what it does
+prompt-codes.h: fsck.ocfs2.checks.8.in
+	@echo generating $@ by parsing $^
+	@rm -f .$@.tmp
+	@(	echo '#ifndef __PROMPT_CODES_H__';			\
+		echo '#define __PROMPT_CODES_H__';			\
+		for a in `grep '^.SS ".*"' $^ | awk -F\" '{print $$2}'`; do\
+			echo '#define PR_'$$a' \';			\
+			echo '	(struct prompt_code){ .str = "'$$a'" }';\
+		done;							\
+		echo '#endif';						\
+	 ) > $@
+
 .PHONY: check-prompt-dups
 check-prompt-dups: fsck.ocfs2
 	@rm -f .$@.tmp
@@ -69,5 +86,10 @@ check-prompt-dups: fsck.ocfs2
 		sort | uniq -c | awk '($$1 > 1){print $$0}' > .$@.tmp
 	@cat .$@.tmp
 	@test ! -s .$@.tmp
+
+CLEAN_RULES += o2fsck-clean
+.PHONY: o2fsck-clean
+o2fsck-clean:
+	rm -f prompt-codes.h
 
 include $(TOPDIR)/Postamble.make

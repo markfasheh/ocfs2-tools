@@ -83,7 +83,8 @@ static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 		 bg->bg_chain, bg->bg_generation);
 
 	if (bg->bg_generation != ost->ost_fs_generation &&
-	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" has "
+	    prompt(ost, PY, PR_GROUP_GEN,
+		   "Group descriptor at block %"PRIu64" has "
 		   "a generation of %"PRIx32" which doesn't match the "
 		   "volume's generation of %"PRIx32".  Change the generation "
 		   "in the descriptor to match the volume?", blkno,
@@ -97,7 +98,8 @@ static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	 * kinds of descs have valid generations for the inodes they
 	 * reference */
 	if ((bg->bg_parent_dinode != di->i_blkno) &&
-	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" is "
+	    prompt(ost, PY, PR_GROUP_PARENT,
+		   "Group descriptor at block %"PRIu64" is "
 		   "referenced by inode %"PRIu64" but thinks its parent inode "
 		   "is %"PRIu64".  Fix the descriptor's parent inode?", blkno,
 		   di->i_blkno, bg->bg_parent_dinode)) {
@@ -105,18 +107,9 @@ static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 		changed = 1;
 	}
 
-	if ((bg->bg_generation != di->i_generation) &&
-	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" is "
-		   "referenced by inode %"PRIu64" who has a generation of "
-		   "%u, but the descriptor has a generation of %u.  Update "
-		   "the descriptor's generation?", blkno, di->i_blkno,
-		   di->i_generation, bg->bg_generation)) {
-		bg->bg_generation = di->i_generation;
-		changed = 1;
-	}
-
 	if ((bg->bg_blkno != blkno) &&
-	    prompt(ost, PY, 0, "Group descriptor read from block %"PRIu64" "
+	    prompt(ost, PY, PR_GROUP_BLKNO,
+		   "Group descriptor read from block %"PRIu64" "
 		   "claims to be located at block %"PRIu64".  Update its "
 		   "recorded block location?", blkno, di->i_blkno)) {
 		bg->bg_blkno = blkno;
@@ -124,7 +117,8 @@ static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if ((bg->bg_chain != cs->cs_chain_no) &&
-	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" was "
+	    prompt(ost, PY, PR_GROUP_CHAIN,
+		   "Group descriptor at block %"PRIu64" was "
 		   "found in chain %u but it claims to be in chain %u. Update "
 		   "the descriptor's recorded chain?", blkno, cs->cs_chain_no,
 		   bg->bg_chain)) {
@@ -133,7 +127,8 @@ static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if ((bg->bg_free_bits_count > bg->bg_bits) &&
-	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" claims to "
+	    prompt(ost, PY, PR_GROUP_FREE_BITS,
+		   "Group descriptor at block %"PRIu64" claims to "
 		   "have %u free bits which is more than its %u total bits. "
 		   "Drop its free bit count down to the total?", blkno,
 		   bg->bg_free_bits_count, bg->bg_bits)) {
@@ -334,7 +329,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 
 		/* is it even feasible? */
 		if (ocfs2_block_out_of_range(ost->ost_fs, blkno)) {
-			if (prompt(ost, PY, 8, "Chain %d in allocator at inode "
+			if (prompt(ost, PY, PR_CHAIN_LINK_RANGE,
+				   "Chain %d in allocator at inode "
 				   "%"PRIu64" contains a reference at depth "
 				   "%d to block %"PRIu64" which is out "
 				   "of range. Truncate this chain?",
@@ -350,7 +346,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 
 		ret = ocfs2_read_group_desc(ost->ost_fs, blkno, (char *)bg2);
 		if (ret == OCFS2_ET_BAD_GROUP_DESC_MAGIC) {
-			if (prompt(ost, PY, 8, "Chain %d in allocator at inode "
+			if (prompt(ost, PY, PR_CHAIN_LINK_MAGIC,
+				   "Chain %d in allocator at inode "
 				   "%"PRIu64" contains a reference at depth "
 				   "%d to block %"PRIu64" which doesn't have "
 				   "a valid checksum.  Truncate this chain?",
@@ -375,9 +372,10 @@ static errcode_t check_chain(o2fsck_state *ost,
 		}
 
 		if (bg2->bg_generation != ost->ost_fs_generation &&
-		    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" "
+		    prompt(ost, PY, PR_CHAIN_LINK_GEN,
+			   "Group descriptor at block %"PRIu64" "
 			   "has a generation of %"PRIx32" which doesn't match "
-			   "the volume's generation of %"PRIx32".  Delete "
+			   "the volume's generation of %"PRIx32".  Unlink "
 			   "this group descriptor?", blkno, bg2->bg_generation,
 			   ost->ost_fs_generation)) {
 
@@ -420,7 +418,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 
 	if (cs->cs_total_bits != chain->c_total ||
 	    cs->cs_free_bits != chain->c_free) {
-		if (prompt(ost, PY, 12, "Chain %d in allocator inode %"PRIu64" "
+		if (prompt(ost, PY, PR_CHAIN_BITS,
+			   "Chain %d in allocator inode %"PRIu64" "
 			   "has %u bits marked free out of %d total bits "
 			   "but the block groups in the chain have %u "
 			   "free out of %u total.  Fix this by updating "
@@ -490,7 +489,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 		if (cr->c_blkno != 0&&
 		    ocfs2_block_out_of_range(ost->ost_fs, cr->c_blkno) &&
-		    prompt(ost, PY, 6, "Chain %d in allocator inode %"PRIu64" "
+		    prompt(ost, PY, PR_CHAIN_HEAD_LINK_RANGE,
+			   "Chain %d in allocator inode %"PRIu64" "
 			   "contains an initial block reference to %"PRIu64" "
 			   "which is out of range.  Clear this reference?",
 			   i, di->i_blkno, cr->c_blkno)) {
@@ -502,7 +502,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	/* make sure cl_count is clamped to the size of the inode */
 	if (cl->cl_count > max_count &&
-	    prompt(ost, PY, 4, "Allocator inode %"PRIu64" claims to have %u "
+	    prompt(ost, PY, PR_CHAIN_COUNT,
+		   "Allocator inode %"PRIu64" claims to have %u "
 		   "chains, but the maximum is %u. Fix the inode's count?",
 		   di->i_blkno, cl->cl_count, max_count)) {
 		cl->cl_count = max_count;
@@ -513,7 +514,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		max_count = cl->cl_count;
 
 	if (cl->cl_next_free_rec > max_count) {
-		if (prompt(ost, PY, 5, "Allocator inode %"PRIu64" claims %u "
+		if (prompt(ost, PY, PR_CHAIN_NEXT_FREE,
+			   "Allocator inode %"PRIu64" claims %u "
 			   "as the next free chain record, but fsck believes "
 			   "the largest valid value is %u.  Clamp the next "
 			   "record value?", di->i_blkno, cl->cl_next_free_rec,
@@ -547,7 +549,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 			continue;
 		}
 
-		if (prompt(ost, PY, 6, "Chain %d in allocator inode %"PRIu64" "
+		if (prompt(ost, PY, PR_CHAIN_EMPTY,
+			   "Chain %d in allocator inode %"PRIu64" "
 			   "is empty.  Remove it from the chain record "
 			   "array in the inode and shift further chains "
 			   "into its place?", cs.cs_chain_no, di->i_blkno)) {
@@ -579,7 +582,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	if (di->id1.bitmap1.i_total != total || 
 	    (di->id1.bitmap1.i_used != total - free)) {
-		if (prompt(ost, PY, 7, "Allocator inode %"PRIu64" has %u bits "
+		if (prompt(ost, PY, PR_CHAIN_GROUP_BITS,
+			   "Allocator inode %"PRIu64" has %u bits "
 			   "marked used out of %d total bits but the chains "
 			   "have %u used out of %u total.  Fix this by "
 			   "updating the inode counts?", di->i_blkno,
@@ -666,7 +670,8 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 	for (blkno = ost->ost_fs->fs_first_cg_blkno;
 	     !ocfs2_bitmap_find_next_set(forbidden, blkno, &blkno);
 	     blkno++) {
-		if (!prompt(ost, PY, 3, "Block %"PRIu64" is a group "
+		if (!prompt(ost, PY, PR_GROUP_UNEXPECTED_DESC,
+			    "Block %"PRIu64" is a group "
 			    "descriptor in the bitmap chain allocator but it "
 			    "isn't at one of the pre-determined locations and "
 			    "so shouldn't be in the allocator.  Remove it "
@@ -699,7 +704,8 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 		if (!was_set)
 			continue;
 
-		if (!prompt(ost, PY, 3, "Block %"PRIu64" should be a group "
+		if (!prompt(ost, PY, PR_GROUP_EXPECTED_DESC,
+			    "Block %"PRIu64" should be a group "
 			    "descriptor for the bitmap chain allocator but it "
 			    "wasn't found in any chains.  Reinitialize it as "
 			    "a group desc and link it into the bitmap "

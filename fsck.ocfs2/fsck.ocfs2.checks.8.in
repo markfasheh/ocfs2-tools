@@ -16,24 +16,139 @@ from proceeding.
 
 .SH "CHECKS"
 
-.SS "2"
-The group descriptors that make up the global bitmap chain allocator are
-static and should be found in specific chains in the allocator.  A given
-group descriptor wasn't found in the chain it should have been in.
+\" escape.c
 
-Answering yes relinks the given group descriptor into the head of the chain it
-should have been found in.
+.SS "EB_BLKNO"
+Extent blocks contain a record of the disk block where they are located.  An
+extent block was found at a block that didn't match its recorded location.
 
-.SS "3"
-The group descriptors that make up the global bitmap chain allocator are
-static and should be found in specific chains in the allocator.  A given
-group descriptor block existed on disk but wasn't linked into the global
-bitmap chain allocator.
+Answering yes will update the data structure in the extent block to reflect
+its real location on disk.
 
-Answering yes links the given group descriptor into the global bitmap chain
-allocator.
+.SS "EB_GEN"
+Extent blocks are created with a generation number to match the generation
+number of the volume at the time of creation.  An extent block was found which
+contains a generation number that doesn't match.
 
-.SS "4"
+Answering yes implies that the generation number is correct and that the
+extent block is from a previous file system.  The extent block will be ignored 
+and the file that contains it will lose the data it referenced.
+
+.SS "EB_GEN_FIX"
+Extent blocks are created with a generation number to match the generation
+number of the volume at the time of creation.  An extent block was found which
+contains a generation number that doesn't match.
+
+Answering yes implies that the generation number in the extent block is
+incorrect and that the extent block is valid.  The generation number in the
+block is updated to match the generation number in the volume.
+
+.SS "EXTENT_BLKNO_UNALIGNED"
+The block that marks the start of an extent should always fall on the start of a cluster.  An extent was found that starts part-way into a cluster.
+
+Answering yes moves the start of the extent back to the start of the addressed
+cluster.  This may add data to the middle of the file that contains this extent.
+
+.SS "EXTENT_CLUSTERS_OVERRUN"
+An extent was found which claims to contain clusters which are beyond the end of the volume.
+
+Answering yes clamps the extent to the end of the volume.  This may result in a
+reduced file size for the file that contains the extent, but it couldn't have
+addressed those final clusters anyway.  One can imagine this problem arising if
+there are problems shrinking a volume.
+
+.SS "EXTENT_EB_INVALID"
+Deep extent trees are built by forming a tree out of extent blocks.  An extent tree references an invalid extent block.
+
+Answering yes stops the tree from referencing the invalid extent block.  This
+may truncate data from the file which contains the tree.
+
+.SS "EXTENT_LIST_DEPTH"
+Extent lists contain a record of their depth in the tree.  An extent list
+was found whose recorded depth doesn't match the position they have in the tree.
+
+Answering yes updates the depth field in the list to match the tree on disk.
+
+.SS "EXTENT_LIST_COUNT"
+The number of entries in an extent list is bounded by either the size of the 
+inode or the size of the block which contains it.  An extent list was found
+which claims to have more entries than would fit in its container.
+
+Answering yes updates the count field in the exent list to match the container.
+Answering no to this question may stop further fixes from being done because
+the count value can not be trusted.
+
+.SS "EXTENT_LIST_FREE"
+The number of free entries in an extent list must be less than the total
+number of entries in the list.   A list was found which claims to have more free entries than possible entries.
+
+Answering yes sets the number of free entries in the list equal to the total
+possible entries.
+
+.SS "EXTENT_BLKNO_RANGE"
+An extent record was found which references a block which can not be referenced
+by an extent.  The referenced block is either very early in the volume, and
+thus reserved, or beyond the end of the volume.
+
+Answering yes removes this extent record from the tree.  This may remove data
+from the file which owns the tree but any such data was inaccesible.
+
+\" pass0.c
+
+.SS "GROUP_UNEXPECTED_DESC"
+The group descriptors that make up the global bitmap chain allocator reside
+at predictable locations on disk.  A group descriptor was found in the global
+bitmap allocator which isn't at one of these locations and so shouldn't
+be in the allocator.
+
+Answering yes removes this descriptor from the global bitmap allocator.
+
+.SS "GROUP_EXPECTED_DESC"
+The group descriptors that make up the global bitmap chain allocator reside
+at predictable locations on disk.  A group descriptor at one of these locations
+was not linked into the global bitmap allocator.
+
+Answering yes will relink this group into the allocator.
+
+.SS "GROUP_GEN"
+A group descriptor was found with a generation number that doesn't match
+the generation number of the volume.
+
+Answering yes sets the group descriptor's generation equal to the generation
+number in the volume.
+
+.SS "GROUP_PARENT"
+Group descriptors contain a pointer to the allocator inode which contains
+the chain they belong to.  A group descriptor was found in an allocator
+inode that doesn't match the descriptor's parent pointer.
+
+Answering yes updates the group descriptor's parent pointer to match the inode
+it resides in.
+
+.SS "GROUP_BLKNO"
+Group descriptors have a field which records their block location on disk.  A
+group descriptor was found at a given location but is recorded as being located
+somewhere else.
+
+Answering yes updates the group descriptor's recorded location to match where
+it actually is found on disk.
+
+.SS "GROUP_CHAIN"
+Group descriptors are found in a number of different singly-linked chains
+in an allocator inode.  A group descriptor records the chain number that it is linked in.  A group descriptor was found whose chain field doesn't match the chain it was found in.
+
+Answering yes sets the group descriptor's chain field to match the chain
+it is found in.
+
+.SS "GROUP_FREE_BITS"
+A group descriptor records the number of bits in its bitmap that are free.
+A group descriptor was found which claims to have more free bits than are
+valid in its bitmap.
+
+Answering yes decreases the number of recorded free bits so that it equals
+the total number of bits in the group descriptor's bitmap.
+
+.SS "CHAIN_COUNT"
 The chain list embedded in an inode is limited by the block size and the
 number of bytes consumed by the rest of the inode.  A chain list header was
 found which claimed that there are more entries in the list then could 
@@ -42,12 +157,12 @@ fit in the inode.
 Answering yes resets the header's cl_count member to the maximum size allowed
 by the block size after accounting for the space consumed by the inode.
 
-.SS "5"
-This is identical to test 4 except that it is testing and fixing the pointer
-to the next free list entry recorded in the cl_next_free_rec member instead of
-the total number of entries. 
+.SS "CHAIN_NEXT_FREE"
+This is identical to CHAIN_COUNT except that it is testing and fixing the
+pointer to the next free list entry recorded in the cl_next_free_rec member
+instead of the total number of entries. 
 
-.SS "6"
+.SS "CHAIN_EMPTY"
 Chain entries need to be packed such that there are no chains without 
 descriptors found before the chain that is marked as free by the chain header.
 A chain without descriptors was found found before that chain that was
@@ -56,7 +171,7 @@ marked free.
 Answering yes will remove the unused chain and shift the remaining chains
 forward in the list.
 
-.SS "7"
+.SS "CHAIN_GROUP_BITS"
 The inode that contains an embedded chain list has fields which record the
 total number of bits covered by the chain as well as the amount free.  These 
 fields didn't match what was found in the chain. 
@@ -64,9 +179,33 @@ fields didn't match what was found in the chain.
 Answering yes updates the fields in the inode to reflect what was actually
 found by walking the chain.
 
-.SS "8"
-Chains are built by the chain headers and group descriptors which are linked
-together by block references.  A reference a block reference was found which
+.SS "CHAIN_HEAD_LINK_RANGE"
+The header that starts a chain tried to reference a group descriptor at
+a block number that couldn't be valid.
+
+Answering yes will clear the reference to this invalid block and truncate the chain that it started.
+
+.SS "CHAIN_LINK_GEN"
+A reference was made to a group descriptor whose generation number doesn't
+match the generation of the volume.
+
+Answering yes to this question implies that the group descriptor is invalid
+and the chain is truncated at the point that it referred to this invalid
+group descriptor.  Answering no to this question considers the group descriptor
+as valid and its generation may be fixed.
+
+.SS "CHAIN_LINK_MAGIC"
+Chains are built by chain headers and group descriptors which are linked
+together by block references.  A reference was made to a group descriptor
+at a given block but a valid group descriptor signature wasn't found
+at that block.
+
+Answering yes clears the reference to this invalid block and truncates the
+chain at the point of the reference.
+
+.SS "CHAIN_LINK_RANGE"
+Chains are built by chain headers and group descriptors which are linked
+together by block references.  A reference a block was found which
 can't possibly be valid because it was either too small or extended beyond the
 volume.
 
@@ -75,23 +214,7 @@ reference.  This shortens the chain in question and could result in more
 fixes later if the part of the chain that couldn't be referenced was valid
 at some point.
 
-.SS "10"
-The global bitmap chain allocator contains fixed blocks at predictable 
-offsets in the volume.  A group descriptor was found in this chain which
-wasn't at one of these predictable locations.
-
-Answering yes removes this unexpected group descriptor from the chain.  It's
-block will likely then be unused and marked as free in the bitmap later on.
-
-.SS "11"
-A reference was made to a group descriptor that is invalid, for whatever
-reason.
-
-Answering yes truncates the chain in question by removing the reference to
-this invalid group descriptor.  This has the same implications as answering
-yes to check 8. 
-
-.SS "12"
+.SS "CHAIN_BITS"
 A chain's header contains members which record the total number of bits in the
 chain as well as the number of bits that are free.  After walking through a
 chain it was found that the number of bits recorded in its header don't match
@@ -99,6 +222,297 @@ what was found by totalling up the group descriptors.
 
 Answering yes updates the c_total and c_free members of the header to reflect
 what was found in the group descriptors in the chain.
+
+\" pass1.c
+
+.SS "INODE_ALLOC_REPAIR"
+The inode allocator did not accurately reflect the set of inodes that are
+free and in use in the volume.
+
+Answering yes will update the inode allocator bitmaps.  Each bit that doesn't match the state of its inode will be inverted.
+
+.SS "INODE_SUBALLOC"
+Each inode records the node whose allocator is responsible for the inode.  An
+inode was found in a given node's allocator but the inode itself claimed to
+belong to a different node.
+
+Answering yes will correct the inode to point to the node's allocator that it
+belongs to.
+
+.SS "LALLOC_SIZE"
+Each node has a local allocator contained in a block that is used to allocate
+clusters in batches.  A node's local allocator claims to reflect more bytes
+than are possible for the volume's block size.
+
+Answering yes decreses the local allocator's size to reflect the volume's block
+size.
+
+.SS "LALLOC_NZ_USED"
+A given node's local allocator isn't in use but it claims to have bits
+in use in its bitmap.
+
+Answering yes zeros this used field.
+
+.SS "LALLOC_NZ_BM"
+A given node's local allocator isn't in use but it has a field which records
+the bitmap as starting at a non-zero cluster offset.
+
+Answering yes zeros the bm_off field.
+
+.SS "LALLOC_BM_OVERRUN"
+Each local allocator contains a reference to the first cluster that its bitmap
+addresses.  A given local allocator was found which references a starting
+cluster that is beyond the end of the volume.
+
+Answering yes resets the given local allocator.  No allocated data will
+be lost.
+
+.SS "LALLOC_BM_SIZE"
+The given local allocator claims to cover more bits than are possible for the
+size in bytes of its bitmap.
+
+Answering yes decreases the number of bits the allocator covers to reflect
+the size in bytes of the bitmap and resets the allocator.  No allocated
+data will be lost.
+
+.SS "LALLOC_BM_STRADDLE"
+The given local allocator claims to cover a region of clusters which extents
+beyond the end of the volume.
+
+Answering yes resets the given local allocator.  No allocated data will
+be lost.
+
+.SS "LALLOC_USED_OVERRUN"
+The given local allocator claims to have more bits in use than it has total
+bits in its bitmap.
+
+Answerying yes decreases the number of bits used so that it equals the total
+number of available bits.
+
+.SS "LALLOC_CLEAR"
+A local allocator inode was found to have problems.  This gives the operator
+a chance to just reset the local allocator inode. 
+
+Answering yes clears the local allocator.  No information is lost but the global
+bitmap allocator may need to be updated to reflect clusters that were reserved for the local allocator but were free.
+
+.SS "INODE_GEN"
+Inodes are created with a generation number to match the generation
+number of the volume at the time of creation.  An Inode was found which
+contains a generation number that doesn't match.
+
+Answering yes implies that the generation number is correct and that the
+inode is from a previous file system.  The inode will be recorded as free.
+
+.SS "INODE_GEN_FIX"
+Inodes are created with a generation number to match the generation
+number of the volume at the time of creation.  An inode was found which
+contains a generation number that doesn't match.
+
+Answering yes implies that the generation number in the inode is
+incorrect and that the inode is valid.  The generation number in the
+inode is updated to match the generation number in the volume.
+
+.SS "INODE_BLKNO"
+Inodes contain a field that must match the block that they reside in.  An inode was found at a block that doesn't match the field in the inode.
+
+Answering yes updates the field to match the inode's position on disk.
+
+.SS "ROOT_NOTDIR"
+The super block contains a reference to the inode that contains the root
+directory.  This block was found to contain an inode that isn't a directory.
+
+Answering yes clears this inode.  The operator will be asked to recreate
+the root directory at a point in the near future.
+
+.SS "INODE_NZ_DTIME"
+Inodes contain a field describing the time at which they were delted.  This
+can not be set for an inode that is still in use.  An inode was found
+which is in use but which contains a non-zero dtime.
+
+Answering yes implies that the inode is still valid and resets its dtime
+to zero.
+
+.SS "LINK_NULLTERM"
+The targets of links on disk must be null terminated.  A link was found
+whose target wasn't null terminated. 
+
+Answering yes clears the inode and so deletes the link.
+
+.SS "LINK_SIZE"
+The size of a link on disk must match the length of its target string.  A link was found whose size does not.
+
+Answering yes updates the link's size to reflect the length of its target
+string.
+
+.SS "LINK_BLOCKS"
+Links can not be sparse.  There must be exactly as many blocks allocated as are needed to cover its size.  A link was found which doesn't have enough blocks allocated to cover its size.
+
+Answering yes clears the link's inode and so deletes the link.
+
+.SS "DIR_ZERO"
+Directories must at least contain a block that has the "." and ".." entries.
+A directory was found which doesn't contain any blocks.
+
+Answering yes to this question clears the directorie's inode and so
+deletes the directory.
+
+.SS "INODE_CLUSTERS"
+Inodes contain a record of how many clusters are allocated to them.  An inode
+was found whose recorded number of clusters doesn't match the number of blocks
+that were found associated with the inode.
+
+Answering yes resets the inode's number of clusters to reflect the number
+of blocks that were associated with the file.
+
+.SS "LALLOC_REPAIR"
+An active local allocator did not accurately reflect the set of clusters that
+are free and in use in its region.
+
+Answering yes will update the local allocator bitmap.  Each bit that doesn't
+match the use of its cluster will be inverted.
+
+.SS "LALLOC_USED"
+A local allocator records the number of bits that are used in its bitmap.  An
+allocator was found whose used value doesn't reflect the number of bits that
+are set in its bitmap.
+
+Answering yes sets the used value to match the number of bits set in the 
+allocator's bitmap.
+
+.SS "CLUSTER_ALLOC_BIT"
+A specific cluster's use didn't match the setting of its bit in the cluster
+allocator.
+
+Answering yes will invert the bit in the allocator to match the use of the cluster -- either allocated and in use or free.
+
+\" pass2.c
+
+.SS "DIRENT_DOTTY_DUP"
+There can be only one instance of both the "." and ".." entries in a directory.
+A directory entry was found which duplicated one of these entries.
+
+Answering yes will remove the duplicate directory entry.
+
+.SS "DIRENT_NOT_DOTTY"
+The first and second directory entries in a directory must be "." and ".."
+respectively.  One of these directory entries was found to not match these
+rules.
+
+Answering yes will force the directory entry to be either "." or "..".  This
+might consume otherwise valid entries and cause some files to appear in 
+lost+found.
+
+.SS "DIRENT_DOT_INODE"
+The inode field of the "." directory entry must refer to the directory inode
+that contains the given directory block.  A "." entry was found which doesn't
+do so.
+
+Answering yes sets the directory entry's inode reference to the parent
+directory that contains the entry.
+
+.SS "DIRENT_DOT_EXCESS"
+A "." directory entry was found whose lengths exceeds the amount required
+for the single dot in the name.
+
+Answering yes creates another empty directory entry in this excess space.
+
+.SS "DIRENT_ZERO"
+A directory entry was found with a zero length name.
+
+Answering yes clears the directory entry so its space can be reused.
+
+.SS "DIRENT_NAME_CHARS"
+Directory entries can not contain either the NULL character (ascii 0) or 
+the forward slash (ascii 47).  A directory entry was found which contains
+either.
+
+Answering yes will change each instance of these forbidden characters into
+a period (ascii 46).
+
+.SS "DIRENT_INODE_RANGE"
+Each directory entry contains a inode field which the entry's name corresponds
+to.  An entry was found which referenced an inode number that is invalid
+for the current volume.
+
+Answering yes clears this entry so its space can be reused.  If the entry
+once corresponded to a real inode and was corrupted this inode may appear
+in lost+found.
+
+.SS "DIRENT_INODE_FREE"
+Each directory entry contains a inode field which the entry's name corresponds
+to.  An entry was found which referenced an inode number that isn't in
+use.
+
+Answering yes clears this directory entry.
+
+.SS "DIRENT_TYPE"
+Each directory entry contains a field which describes the type of file
+that the entry refers to.  An entry was found whose type doesn't match the
+inode it is referring to.
+
+Answering yes resets the entry's type to match the target inode.
+
+.SS "DIR_PARENT_DUP"
+Each directory can only be pointed to by one directory entry in a parent directory.  A directory entry was found which was the second entry to point to a given
+directory inode.
+
+Answering yes clears this entry which was the second to refer to a given directory.  This reflects the policy that hard links to directories are not allowed.
+
+.SS "DIRENT_LENGTH"
+There are very few directory entry lengths that are valid.  The lengths must be
+greater than the minimum required to record a single character directory, be
+rounded to 12 bytes, be within the amount of space remaining in a directory
+block, and be properly rounded for the size of the name of the directory entry.
+An entry was found which didn't meet these criteria.
+
+Answering yes will try to repair the directory entry.  This runs a very good
+chance of invalidating all the entries in the directory block.  Orphaned inodes
+may appear in lost+found.
+
+\" pass3.c
+
+.SS "ROOT_DIR_MISSING"
+The super block contains a reference to the inode that serves as the root directory.  This reference points to an inode that isn't in use.
+
+Answering yes will, actually, cause fsck to exit and make you cranky.
+
+.SS "LOSTFOUND_MISSING"
+The super block contains a reference to the inode that serves as the lost+found directory.  This reference points to an inode that isn't in use.
+
+Answering yes will create a new lost+found directory in the root directory.
+
+.SS "DIR_NOT_CONNECTED"
+Every directory in the file system should be reachable by a directory entry
+in its parent directory.  This is verified by walking every directory in
+the system.  A directory inode was found during this walk which doesn't have
+a parent directory entry.
+
+Answering yes moves this directory entry into the lost+found directory and 
+gives it a name based on its inode number.
+
+.SS "DIR_DOTDOT"
+A directory inode's ".." directory entry must refer to the parent directory.
+A directory was found whose ".." doesn't refer to its parent.
+
+Answering yes will read the directory block for the given directory and update
+its ".." entry to reflect its parent.
+
+.SS "INODE_NOT_CONNECTED"
+Most all inodes in the system should be referenced by a directory entry. An inode was found which isn't referred to by any directory entry.
+
+Answering yes moves this inode into the lost+found directory and 
+gives it a name based on its inode number.
+
+.SS "INODE_COUNT"
+Each inode records the number of directory entries that refer to it.  An inode
+was found whose recorded count doesn't match the number of entries that
+refer to it.
+
+Answering yes sets the inode's count to match the number of referring directory entries.
+
+
+\" pass4.c
 
 .SH "SEE ALSO"
 .BR ocfs2(8)

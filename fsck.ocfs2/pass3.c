@@ -59,7 +59,8 @@ static void check_root(o2fsck_state *ost)
 		return;
 	}
 
-	if (!prompt(ost, PY, 0, "The root inode %"PRIu64" doesn't exist. "
+	if (!prompt(ost, PY, PR_ROOT_DIR_MISSING,
+		    "The root inode %"PRIu64" doesn't exist. "
 			"Should it be created?", ost->ost_fs->fs_root_blkno)) {
 		printf("Aborting.\n");
 		exit(FSCK_ERROR);
@@ -85,7 +86,8 @@ static void check_lostfound(o2fsck_state *ost)
 	if (ret == 0)
 		return;
 
-	if (!prompt(ost, PY, 0, "/lost+found does not exist.  Create it so "
+	if (!prompt(ost, PY, PR_LOSTFOUND_MISSING,
+		    "/lost+found does not exist.  Create it so "
 		    "that we an possibly fill it with orphaned inodes?"))
 		return;
 
@@ -318,7 +320,8 @@ static errcode_t connect_directory(o2fsck_state *ost,
 		/* ok, we hit an orphan subtree with no parent or are at 
 		 * the dir in a subtree that is the first to try to reference
 		 * a dir in its children */
-		fix = prompt(ost, PY, 0, "Directory inode %"PRIu64" isn't "
+		fix = prompt(ost, PY, PR_DIR_NOT_CONNECTED,
+			     "Directory inode %"PRIu64" isn't "
 			     "connected to the filesystem.  Move it to "
 			     "lost+found?", dp->dp_ino);
 		if (fix)
@@ -328,7 +331,8 @@ static errcode_t connect_directory(o2fsck_state *ost,
 	}
 
 	if (dir->dp_dirent != dir->dp_dot_dot) {
-		fix = prompt(ost, PY, 0, "Directory inode %"PRIu64" is "
+		fix = prompt(ost, PY, PR_DIR_DOTDOT,
+			     "Directory inode %"PRIu64" is "
 			     "referenced by a dirent in directory %"PRIu64" "
 			     "but its '..' entry points to inode %"PRIu64". "
 			     "Fix the '..' entry to reference %"PRIu64"?", 

@@ -42,15 +42,20 @@
  * one call site.
  */
 #define prompt(ost, flags, code, fmt...) ({			\
-	static int fsck_prompt_callers_with_code_##code = code;	\
+	static int fsck_prompt_callers_with_code_##code = __LINE__;	\
 	int _ret = fsck_prompt_callers_with_code_##code;	\
 	_ret = prompt_input(ost, flags, code, fmt);		\
 	_ret;							\
 })
 
-int prompt_input(o2fsck_state *ost, unsigned flags, uint16_t code, 
+struct prompt_code {
+	const char *str;
+};
+
+#include "../prompt-codes.h"
+
+int prompt_input(o2fsck_state *ost, unsigned flags, struct prompt_code code,
 		 const char *fmt, ...)
 	 __attribute__ ((format (printf, 4, 5)));
 
 #endif /* __O2FSCK_PROBLEM_H__ */
-

@@ -146,7 +146,7 @@ static void print_wrapped(char *str)
  * and have a notion of grouping, as well.  The caller is expected to provide
  * a fully formed question that isn't terminated with a newline.
  */
-int prompt_input(o2fsck_state *ost, unsigned flags, uint16_t code,
+int prompt_input(o2fsck_state *ost, unsigned flags, struct prompt_code code,
 		const char *fmt, ...)
 {
 	va_list ap;
@@ -169,7 +169,7 @@ int prompt_input(o2fsck_state *ost, unsigned flags, uint16_t code,
 	}
 
 	if (flags & (PY|PN))
-		len += sizeof(yes) + 10; /* includes code and null */
+		len += sizeof(yes) + 80; /* W. includes code and null */
 
 	output = malloc(len);
 	if (output == NULL) {
@@ -177,7 +177,7 @@ int prompt_input(o2fsck_state *ost, unsigned flags, uint16_t code,
 		exit(FSCK_ERROR);
 	}
 
-	part = snprintf(output, len, "[%u] ", code);
+	part = snprintf(output, len, "[%s] ", code.str);
 	if (part < 0) {
 		perror("vsnprintf failed when trying to bulid an output "
 		       "buffer");
