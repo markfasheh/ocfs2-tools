@@ -39,8 +39,6 @@ typedef struct _o2fsck_state {
 
 	ocfs2_bitmap	*ost_allocated_clusters;
 
-	ocfs2_bitmap	*ost_rebuild_dirs;
-
 	/* This is no more than a cache of what we know the i_link_count
 	 * in each inode to currently be.  If an inode is marked in used_inodes
 	 * this had better be up to date. */

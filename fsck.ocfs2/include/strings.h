@@ -28,12 +28,16 @@
 
 typedef struct _o2fsck_strings {
 	struct rb_root	s_root;
+	size_t		s_allocated;
 } o2fsck_strings;
 
+int o2fsck_strings_exists(o2fsck_strings *strings, char *string,
+			  size_t strlen);
 errcode_t o2fsck_strings_insert(o2fsck_strings *strings, char *string,
 				size_t strlen, int *is_dup);
 void o2fsck_strings_init(o2fsck_strings *strings);
 void o2fsck_strings_free(o2fsck_strings *strings);
+size_t o2fsck_strings_bytes_allocated(o2fsck_strings *strings);
 
 #endif /* __O2FSCK_STRINGS_H__ */
 

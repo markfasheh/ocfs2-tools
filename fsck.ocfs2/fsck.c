@@ -148,13 +148,6 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, const char *whoami,
 		return ret;
 	}
 
-	ret = ocfs2_block_bitmap_new(fs, "directory inodes to rebuild",
-				     &ost->ost_rebuild_dirs);
-	if (ret) {
-		com_err(whoami, ret, "while allocating rebuild dirs bitmap");
-		return ret;
-	}
-
 	return 0;
 }
 

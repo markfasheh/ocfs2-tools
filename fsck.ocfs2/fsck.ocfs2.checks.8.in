@@ -459,6 +459,14 @@ directory inode.
 
 Answering yes clears this entry which was the second to refer to a given directory.  This reflects the policy that hard links to directories are not allowed.
 
+.SS "DIRENT_DUPLICATE"
+File names within a directory must be unique.  A file name occurred in more
+than one directory entry in a given directory.
+
+Answering yes renames the duplicate entry to a name that doesn't collide
+with recent entries and is unlikely to collide with future entries in
+the directory.
+
 .SS "DIRENT_LENGTH"
 There are very few directory entry lengths that are valid.  The lengths must be
 greater than the minimum required to record a single character directory, be

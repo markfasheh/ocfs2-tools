@@ -29,10 +29,6 @@
  *
  * Pass 2 builds up the parent dir linkage as it scans the directory entries
  * so that pass 3 can walk the directory trees to find disconnected inodes.
- *
- * XXX
- * 	do something about duplicate entries?
- *
  */
 #include <string.h>
 #include <inttypes.h>
@@ -66,10 +62,12 @@ int o2fsck_test_inode_allocated(o2fsck_state *ost, uint64_t blkno)
 }
 
 struct dirblock_data {
-	o2fsck_state *ost;
-	ocfs2_filesys *fs;
-	char *buf;
+	o2fsck_state 	*ost;
+	ocfs2_filesys 	*fs;
+	char 		*buf;
 	errcode_t	ret;
+	o2fsck_strings	strings;
+	uint64_t	last_ino;
 };
 
 static int dirent_has_dots(struct ocfs2_dir_entry *dirent, int num_dots)
@@ -422,18 +420,34 @@ out:
 	return ret;
 }
 
+/* detecting dups is irritating because of the storage requirements of
+ * detecting duplicates.  e2fsck avoids the storage burden for a regular fsck
+ * pass by only detecting duplicate entries that occur in the same directory
+ * block.  its repair pass then suffers under enormous directories because it
+ * reads the whole thing into memory to detect duplicates.
+ *
+ * we'll take a compromise which expands the reach of a regular fsck pass by
+ * using a slightly larger block size but which repairs in place rather than
+ * reading the dir into memory.
+ *
+ * if we ever truly care to invest in duplicate detection and repair we could
+ * either explicitly use some external sort and merge algo or perhaps just
+ * combine mmap and some internal sort that has strong enough locality of
+ * reference to work well with the vm.
+ */
 static errcode_t fix_dirent_dups(o2fsck_state *ost,
 				 o2fsck_dirblock_entry *dbe,
 				 struct ocfs2_dir_entry *dirent,
 				 o2fsck_strings *strings,
-				 int *dups_in_block,
 				 int *flags)
 {
 	errcode_t ret = 0;
-	int was_set;
+	char *new_name = NULL;
+	int was_set, i;
 
-	if (*dups_in_block)
-		goto out;
+	/* start over every N bytes of dirent */
+	if (o2fsck_strings_bytes_allocated(strings) > (4 * 1024 * 1024))
+		o2fsck_strings_free(strings);
 
 	ret = o2fsck_strings_insert(strings, dirent->name, dirent->name_len, 
 				    &was_set);
@@ -446,18 +460,67 @@ static errcode_t fix_dirent_dups(o2fsck_state *ost,
 	if (!was_set)
 		goto out;
 
-	printf("Duplicate directory entry '%.*s' found.\n",
-	       dirent->name_len, dirent->name);
-	printf("Marking its parent %"PRIu64" for rebuilding.\n", dbe->e_ino);
-
-	ret = ocfs2_bitmap_set(ost->ost_rebuild_dirs, dbe->e_ino, &was_set);
-	if (ret)
-		com_err(whoami, ret, "while recording that inode %"PRIu64" "
-			"needs to have duplicate entries removed.",
+	new_name = calloc(1, dirent->rec_len + 1);
+	if (new_name == NULL) {
+		ret = OCFS2_ET_NO_MEMORY;
+		com_err(whoami, ret, "while trying to generate a new name "
+			"for duplicate file name '%.*s' in dir inode "
+			"%"PRIu64, dirent->name_len, dirent->name,
 			dbe->e_ino);
+		goto out;
+	}
 
-	*dups_in_block = 1;
+	/* just simple mangling for now */ 
+	memcpy(new_name, dirent->name, dirent->name_len);
+	was_set = 1;
+	/* append '_' to free space in the dirent until its unique */
+	for (i = dirent->name_len ; was_set && i < dirent->rec_len; i++){
+		new_name[i] = '_';
+		if (!o2fsck_strings_exists(strings, new_name, strlen(new_name)))
+			was_set = 0;
+	}
+
+	/* rename characters at the end to '_' until its unique */
+	for (i = dirent->name_len - 1 ; was_set && i >= 0; i--) {
+		new_name[i] = '_';
+		if (!o2fsck_strings_exists(strings, new_name, strlen(new_name)))
+			was_set = 0;
+	}
+
+	if (was_set) {
+		printf("Directory inode %"PRIu64" contains a duplicate "
+		       "occurance " "of the file name '%.*s' but fsck was "
+		       "unable to come up with a unique name so this duplicate "
+		       "name will not be dealt with.\n.",
+			dbe->e_ino, dirent->name_len, dirent->name);
+		goto out;
+	}
+
+	if (!prompt(ost, PY, PR_DIRENT_DUPLICATE,
+		    "Directory inode %"PRIu64" contains a duplicate occurance "
+		    "of the file name '%.*s'.  Replace this duplicate name "
+		    "with '%s'?", dbe->e_ino, dirent->name_len, dirent->name,
+		    new_name)) {
+		/* we don't really care that we leak new_name's recording
+		 * in strings, it'll be freed later */
+		goto out;
+	}
+
+	ret = o2fsck_strings_insert(strings, new_name, strlen(new_name),
+				    NULL);
+	if (ret) {
+		com_err(whoami, ret, "while allocating space to track "
+			"duplicates of a newly renamed dirent");
+		goto out;
+	}
+
+	dirent->name_len = strlen(new_name);
+	memcpy(dirent->name, new_name, dirent->name_len);
+	*flags |= OCFS2_DIRENT_CHANGED;
+
 out:
+	if (new_name != NULL)
+		free(new_name);
 	return ret;
 }
 
@@ -479,8 +542,6 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
 	unsigned int offset = 0, ret_flags = 0;
-	o2fsck_strings strings;
-	int dups_in_block = 0;
 	errcode_t ret;
 
 	if (!o2fsck_test_inode_allocated(dd->ost, dbe->e_ino)) {
@@ -490,7 +551,10 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		return 0;
 	}
 
-	o2fsck_strings_init(&strings);
+	if (dbe->e_ino != dd->last_ino) {
+		o2fsck_strings_free(&dd->strings);
+		dd->last_ino = dbe->e_ino;
+	}
 
  	ret = ocfs2_read_dir_block(dd->fs, dbe->e_blkno, dd->buf);
 	if (ret && ret != OCFS2_ET_DIR_CORRUPTED) {
@@ -572,8 +636,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		if (dirent->inode == 0)
 			goto next;
 
-		ret = fix_dirent_dups(dd->ost, dbe, dirent, &strings,
-				      &dups_in_block, &ret_flags);
+		ret = fix_dirent_dups(dd->ost, dbe, dirent, &dd->strings,
+				      &ret_flags);
 		if (ret)
 			goto out;
 		if (dirent->inode == 0)
@@ -596,7 +660,6 @@ next:
 		}
 	}
 
-	o2fsck_strings_free(&strings);
 out:
 	if (ret)
 		dd->ret = ret;
@@ -610,9 +673,12 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 	struct dirblock_data dd = {
 		.ost = ost,
 		.fs = ost->ost_fs,
+		.last_ino = 0,
 	};
 
 	printf("Pass 2: Checking directory entries.\n");
+
+	o2fsck_strings_init(&dd.strings);
 
 	retval = ocfs2_malloc_block(ost->ost_fs->fs_io, &dd.buf);
 	if (retval)
@@ -636,6 +702,7 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 
 	o2fsck_dir_block_iterate(&ost->ost_dirblocks, pass2_dir_block_iterate, 
 			 	 &dd);
+	o2fsck_strings_free(&dd.strings);
 	ocfs2_free(&dd.buf);
 	return 0;
 }

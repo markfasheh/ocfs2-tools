@@ -40,15 +40,46 @@ struct string_entry {
 	char		s_string[0]; /* null terminated */
 };
 
+/* I'm too lazy to share code with _insert right now */
+int o2fsck_strings_exists(o2fsck_strings *strings, char *string,
+			  size_t strlen)
+{	struct rb_node ** p = &strings->s_root.rb_node;
+	struct rb_node * parent = NULL;
+	struct string_entry *se;
+	int cmp;
+
+	while (*p)
+	{
+		parent = *p;
+		se = rb_entry(parent, struct string_entry, s_node);
+
+		/* we don't actually care about lexographical sorting */
+		cmp = strlen - se->s_strlen;
+		if (cmp == 0)
+			cmp = memcmp(string, se->s_string, strlen);
+
+		if (cmp < 0)
+			p = &(*p)->rb_left;
+		else if (cmp > 0)
+			p = &(*p)->rb_right;
+		else {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 errcode_t o2fsck_strings_insert(o2fsck_strings *strings, char *string,
 			   size_t strlen, int *is_dup)
 {
 	struct rb_node ** p = &strings->s_root.rb_node;
 	struct rb_node * parent = NULL;
 	struct string_entry *se;
+	size_t bytes;
 	int cmp;
 
-	*is_dup = 0;
+	if (is_dup)
+		*is_dup = 0;
 
 	while (*p)
 	{
@@ -71,14 +102,18 @@ errcode_t o2fsck_strings_insert(o2fsck_strings *strings, char *string,
 		else if (cmp > 0)
 			p = &(*p)->rb_right;
 		else {
-			*is_dup = 1;
+			if (is_dup)
+				*is_dup = 1;
 			return 0;
 		}
 	}
 
-	se = malloc(offsetof(struct string_entry, s_string[strlen]));
+	bytes = offsetof(struct string_entry, s_string[strlen]);
+	se = malloc(bytes);
 	if (se == NULL)
 		return OCFS2_ET_NO_MEMORY;
+
+	strings->s_allocated += bytes;
 
 	se->s_strlen = strlen;
 	memcpy(se->s_string, string, strlen);
@@ -104,4 +139,11 @@ void o2fsck_strings_free(o2fsck_strings *strings)
 		rb_erase(node, &strings->s_root);
 		free(se);
 	}
+
+	strings->s_allocated = 0;
+}
+
+size_t o2fsck_strings_bytes_allocated(o2fsck_strings *strings)
+{
+	return strings->s_allocated;
 }
