@@ -1,6 +1,6 @@
-AC_INIT(load_ocfs/load_ocfs)
+AC_INIT(libocfs2/bitmap.c)
 
-PACKAGE=ocfs-tools
+PACKAGE=ocfs2-tools
 
 AC_SUBST(PACKAGE)
 
@@ -105,24 +105,6 @@ fi
 AC_SUBST(OCFS_DEBUG)
 AC_MSG_RESULT($enable_debug)
 
-AC_MSG_CHECKING(for memory debugging)
-AC_ARG_ENABLE(memdebug, [  --enable-memdebug=[yes/no]     Turn on memory debugging [default=no]],,enable_memdebug=no)
-OCFS_MEMDEBUG=
-if test "x$enable_memdebug" = "xyes"; then
-  OCFS_MEMDEBUG=yes
-fi
-AC_SUBST(OCFS_MEMDEBUG)
-AC_MSG_RESULT($enable_memdebug)
-
-AC_MSG_CHECKING(for tracing)
-AC_ARG_ENABLE(trace, [  --enable-trace=[yes/no]         Turn on tracing [default=no]],,enable_trace=no)
-OCFS_TRACE=
-if test "x$enable_trace" = "xyes"; then
-  OCFS_TRACE=yes
-fi
-AC_SUBST(OCFS_TRACE)
-AC_MSG_RESULT($enable_trace)
-
 COM_ERR_LIBS=
 AC_CHECK_LIB(com_err, com_err, COM_ERR_LIBS=-lcom_err)
 if test "x$COM_ERR_LIBS" = "x"; then
@@ -131,24 +113,6 @@ fi
 AC_SUBST(COM_ERR_LIBS)
 
 AC_C_BIGENDIAN()
-
-AC_MSG_CHECKING(if tools should be built for OCFS)
-AC_ARG_ENABLE(ocfs, [  --enable-ocfs=[yes/no]    Enable building of tools for OCFS filesystems [default=yes]],,enable_ocfs=yes)
-BUILD_OCFS=
-if test "x$enable_ocfs" = "xyes"; then
-    BUILD_OCFS=yes
-fi
-AC_SUBST(BUILD_OCFS)
-AC_MSG_RESULT($enable_ocfs)
-
-AC_MSG_CHECKING(if tools should be built for OCFS2)
-AC_ARG_ENABLE(ocfs2, [  --enable-ocfs2=[yes/no]    Enable building of tools for OCFS2 filesystems [default=yes]],,enable_ocfs2=yes)
-BUILD_OCFS2=
-if test "x$enable_ocfs2" = "xyes"; then
-    BUILD_OCFS2=yes
-fi
-AC_SUBST(BUILD_OCFS2)
-AC_MSG_RESULT($enable_ocfs2)
 
 AC_MSG_CHECKING(for debug executables)
 AC_ARG_ENABLE(debugexe, [  --enable-debugexe=[yes/no]     Enable debug executables for library source files [default=no]],,enable_debugexe=no)
@@ -193,12 +157,8 @@ AC_SUBST(BUILD_OCFSTOOL)
 
 AC_OUTPUT([
 Config.make
-ocfs/debugocfs/debugocfs.8
-ocfs/fsck/fsck.ocfs.8
-ocfs/format/mkfs.ocfs.8
-ocfs/format/tuneocfs.8
-ocfs2/debugfs.ocfs2/debugfs.ocfs2.8
-ocfs2/mkfs.ocfs2/mkfs.ocfs2.8
+debugfs.ocfs2/debugfs.ocfs2.8
+mkfs.ocfs2/mkfs.ocfs2.8
 ocfs_uid_gen/ocfs_uid_gen.8
 load_ocfs/load_ocfs.8
 load_ocfs/ocfs.conf.5
