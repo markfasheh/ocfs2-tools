@@ -1,24 +1,6 @@
 Commands:
 
-curdev			Show current device
 open			Open a device
 close			Close a device
 show_super_stats -h	Dumps super block
-cd			Change working directory
-pwd			Print working directory
-ls			List directory
-dump, cat		Dump contents of a file
-lcd			Change current local working directory
-read			Read a low level structure
-write			Write a low level structure
-help, ?			This information
 quit, q			Exit the program
-
-read and write take one of: dir_node, file_entry, publish, vote, vol_disk_hdr,
-or vol_label.
-
-The output of read is the format you give to write. All the fields need not
-be given.
-
-publish and vote take node numbers optionally. dir_node and file_entry work
-with either offsets or paths. 
