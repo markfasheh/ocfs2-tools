@@ -45,12 +45,6 @@ static void do_open (char **args);
 static void do_close (char **args);
 static void do_cd (char **args);
 static void do_ls (char **args);
-static void do_pwd (char **args);
-static void do_mkdir (char **args);
-static void do_rmdir (char **args);
-static void do_rm (char **args);
-static void do_read (char **args);
-static void do_write (char **args);
 static void do_quit (char **args);
 static void do_help (char **args);
 static void do_dump (char **args);
@@ -60,7 +54,6 @@ static void do_lcd (char **args);
 static void do_curdev (char **args);
 static void do_stats (char **args);
 static void do_stat (char **args);
-static void do_hb (char **args);
 static void do_logdump (char **args);
 static void do_group (char **args);
 static void do_extent (char **args);
@@ -71,50 +64,27 @@ extern gboolean allow_write;
 
 dbgfs_gbls gbls;
 
-static Command commands[] =
-{
-  { "open",   do_open   },
-  { "close",  do_close  },
-  { "cd",     do_cd     },
-  { "ls",     do_ls     },
-  { "pwd",    do_pwd    },
-  { "chroot", do_chroot },
-
-  { "mkdir",  do_mkdir  },
-  { "rmdir",  do_rmdir  },
-  { "rm",     do_rm     },
-
-  { "lcd",    do_lcd    },
-
-  { "read",   do_read   },
-  { "write",  do_write  },
-
-  { "help",   do_help   },
-  { "?",      do_help   },
-
-  { "quit",   do_quit   },
-  { "q",      do_quit   },
-
-  { "rdump",  do_rdump  },
-  { "dump",   do_dump   },
-  { "cat",    do_cat   },
-
-  { "curdev", do_curdev },
-
-  { "stats", do_stats },
-
-  { "stat", do_stat },
-
-  { "nodes", do_hb },
-  { "publish", do_hb },
-  { "vote", do_hb },
-
-  { "logdump", do_logdump },
-
-  { "group", do_group },
-  { "extent", do_extent },
-
-  { "slotmap", do_slotmap }
+static Command commands[] = {
+	{ "open",	do_open },
+	{ "close",	do_close },
+	{ "cd",		do_cd },
+	{ "ls",		do_ls },
+	{ "chroot",	do_chroot },
+	{ "lcd",	do_lcd },
+	{ "help",	do_help },
+	{ "?",		do_help },
+	{ "quit",	do_quit },
+	{ "q",		do_quit },
+	{ "rdump",	do_rdump },
+	{ "dump",	do_dump },
+	{ "cat",	do_cat },
+	{ "curdev",	do_curdev },
+	{ "stats",	do_stats },
+	{ "stat",	do_stat },
+	{ "logdump",	do_logdump },
+	{ "group",	do_group },
+	{ "extent",	do_extent },
+	{ "slotmap",	do_slotmap }
 };
 
 /*
@@ -235,7 +205,7 @@ static int process_ls_args(char **args, uint64_t *blkno, int *long_opt)
 		return -1;
 
 	if (args[ind]) {
-		if (!strncasecmp(args[1], "-l", 2)) {
+		if (!strcmp(args[1], "-l")) {
 			*long_opt = 1;
 			++ind;
 		}
@@ -245,7 +215,6 @@ static int process_ls_args(char **args, uint64_t *blkno, int *long_opt)
 		opts = args[ind];
 	else
 		opts = def;
-
 
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
 			      opts, blkno);
@@ -592,60 +561,6 @@ static void do_ls (char **args)
 }
 
 /*
- * do_pwd()
- *
- */
-static void do_pwd (char **args)
-{
-	printf ("%s\n", __FUNCTION__);
-}
-
-/*
- * do_mkdir()
- *
- */
-static void do_mkdir (char **args)
-{
-	printf ("%s\n", __FUNCTION__);
-}
-
-/*
- * do_rmdir()
- *
- */
-static void do_rmdir (char **args)
-{
-	printf ("%s\n", __FUNCTION__);
-}
-
-/*
- * do_rm()
- *
- */
-static void do_rm (char **args)
-{
-	printf ("%s\n", __FUNCTION__);
-}
-
-/*
- * do_read()
- *
- */
-static void do_read (char **args)
-{
-
-}
-
-/*
- * do_write()
- *
- */
-static void do_write (char **args)
-{
-
-}
-
-/*
  * do_help()
  *
  */
@@ -689,13 +604,18 @@ static void do_quit (char **args)
  */
 static void do_lcd (char **args)
 {
-	char *usage = "usage: lcd <dir on a mounted fs>";
+	char buf[PATH_MAX];
 
 	if (check_device_open())
 		return ;
 
 	if (!args[1]) {
-		fprintf(stderr, "%s\n", usage);
+		/* show cwd */
+		if (!getcwd(buf, sizeof(buf))) {
+			com_err(args[0], errno, " ");
+			return ;
+		}
+		fprintf(stdout, "%s\n", buf);
 		return ;
 	}
 
@@ -735,7 +655,7 @@ static void do_stats (char **args)
 	sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	dump_super_block(out, sb);
 
-	if (!opts || strncmp(opts, "-h", 2))
+	if (!opts || strcmp(opts, "-h"))
 		dump_inode(out, in);
 
 	close_pager (out);
@@ -785,7 +705,7 @@ static void do_stat (char **args)
 
 	return ;
 }
-
+#if 0
 /*
  * do_hb()
  *
@@ -819,6 +739,7 @@ bail:
 
 	return ;
 }
+#endif
 
 /*
  * do_dump()
@@ -1072,7 +993,7 @@ static void do_rdump(char **args)
 		return ;
 	}
 
-	if (!strncmp(args[1], "-v", 2)) {
+	if (!strcmp(args[1], "-v")) {
 		++ind;
 		++verbose;
 	}
@@ -1109,7 +1030,7 @@ static void do_rdump(char **args)
 
 	/* I could traverse the dirs from the root and find the directory */
 	/* name... but this is debugfs, for crying out loud */
-	if (!strncmp(p, ".", 1) || !strncmp(p, "..", 2) || !strncmp(p, "/", 1)) {
+	if (!strcmp(p, ".") || !strcmp(p, "..") || !strcmp(p, "/")) {
 		time_t tt;
 		struct tm *tm;
 

@@ -278,6 +278,12 @@ errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
 	if (!inodestr_to_inode(str, blkno))
 		return 0;
 
+	/* // is short for system directory */
+	if (!strcmp(str, "//")) {
+		*blkno = fs->fs_sysdir_blkno;
+		return 0;
+	}
+
 	return ocfs2_namei(fs, root_blkno, cwd_blkno, str, blkno);
 }
 
@@ -563,7 +569,7 @@ static int rdump_dirent(struct ocfs2_dir_entry *rec, int offset, int blocksize,
 
 	rec->name[rec->name_len] = '\0';
 
-	if (!strncmp(rec->name, ".", 1) || !strncmp(rec->name, "..", 2))
+	if (!strcmp(rec->name, ".") || !strcmp(rec->name, ".."))
 		goto bail;
 
 	ret = rdump_inode(rd->fs, rec->inode, rec->name, rd->fullname,
@@ -627,8 +633,8 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 		ret = dump_file(fs, blkno, fd, fullname, 1);
 		if (ret)
 			goto bail;
-	} else if (S_ISDIR(di->i_mode) && strncmp(name, ".", 1) &&
-		   strncmp(name, "..", 2)) {
+	} else if (S_ISDIR(di->i_mode) && strcmp(name, ".") &&
+		   strcmp(name, "..")) {
 
 		if (verbose)
 			fprintf(stdout, "%s\n", fullname);

@@ -267,7 +267,6 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 	uint16_t old_num = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
 	char fname[SYSTEM_FILE_NAME_MAX];
 	uint64_t blkno;
-	int mode;
 	int i, j;
 
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
@@ -276,8 +275,8 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 			printf("Adding %s...  ", fname);
 
 			/* create inode for system file */
-			mode = ocfs2_system_inodes[i].si_mode ? 0755 | S_IFDIR : 0644 | S_IFREG;
-			ret =  ocfs2_new_system_inode(fs, &blkno, mode, ocfs2_system_inodes[i].si_flags);
+			ret =  ocfs2_new_system_inode(fs, &blkno, ocfs2_system_inodes[i].si_mode,
+						      ocfs2_system_inodes[i].si_flags);
 			if (ret)
 				goto bail;
 
