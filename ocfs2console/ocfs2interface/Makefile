@@ -66,7 +66,6 @@ PYSRC = \
 	ipwidget.py \
 	mount.py \
 	menu.py \
-	nodemap.py \
 	partitionview.py \
 	process.py \
 	toolbar.py \

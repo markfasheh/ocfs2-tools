@@ -27,7 +27,6 @@ from mount import mount, unmount
 from format import format_partition
 from tune import tune_label, tune_nodes
 from general import General
-from nodemap import NodeMap
 from browser import Browser
 from clconfig import cluster_configurator
 from fsck import fsck_volume
@@ -35,7 +34,6 @@ from fsck import fsck_volume
 info_items = (
     ('General',          General),
     ('File Listing',     Browser),
-#    ('Configured Nodes', NodeMap),
 )
 
 class Console(gtk.Window):
