@@ -195,7 +195,7 @@ static uint64_t jwrap(journal_superblock_t *jsb, uint64_t block)
 	if (diff == 0) /* ugh */
 		return 0;
 
-	while (block > jsb->s_maxlen)
+	while (block >= jsb->s_maxlen)
 		block -= diff;
 
 	return block;
