@@ -204,7 +204,7 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 		ocfs2_bitmap_free(cinode->ci_chains);
 
 	snprintf(name, sizeof(name),
-		 "Chain allocator inode %llu", cinode->ci_blkno);
+		 "Chain allocator inode %"PRIu64, cinode->ci_blkno);
 	ret = ocfs2_chainalloc_bitmap_new(fs, name, &cinode->ci_chains);
 	if (ret)
 		return ret;
