@@ -41,6 +41,19 @@ static int read_a_char(int fd)
 	ret = read(fd, &c, sizeof(c));
 	if (ret != sizeof(c))
 		return EOF;
+	/*
+	 * Don't you mean:
+	 * top:
+	 * ret = read(fd, &c, 1);
+	 * if (ret == 0)
+	 * 	return EOF;
+	 * else if (ret < 0) {
+	 * 	if (errno == EINTR)
+	 * 		goto top;
+	 * 	else
+	 * 		return -errno;
+	 * }
+	 */
 
 	return c;
 }
