@@ -4,6 +4,9 @@ A more complete cluster infrastructure may replace it later.
 
 [Describing Your Cluster Configuration]
 
+It is recommended that you use ocfs2console to generate your cluster
+configuration.
+
 The cluster confguration is stored in /etc/ocfs2/cluster.conf.  This is
 a hardcoded name right now (boo!), so you have to put it there.  The
 file is in stanza format, with one stanza describing the generic cluster
