@@ -6,13 +6,15 @@ RPM_TOPDIR = $(CURDIR)
 
 RPMBUILD = $(shell /usr/bin/which rpmbuild 2>/dev/null || /usr/bin/which rpm 2>/dev/null || echo /bin/false)
 
-SUSEBUILD = $(shell if test -r /etc/UnitedLinux-release -o -r /etc/SuSE-release; then echo yes; else echo no; fi)
+SUSEBUILD = $(shell if test -r /etc/SuSE-release; then echo yes; else echo no; fi)
+
+PYVERSION = $(shell echo $(pyexecdir) | sed -e 's/.*python\([0-9]\.[0-9]\).*/\1/')
 
 ifeq ($(SUSEBUILD),yes)
-GTK_NAME = gtk
+PYGTK_NAME = python-gtk
 CHKCONFIG_DEP = aaa_base
 else
-GTK_NAME = gtk+
+PYGTK_NAME = pygtk2
 CHKCONFIG_DEP = chkconfig
 endif
 
@@ -71,10 +73,10 @@ distclean: clean
 	rm -f Config.make config.status config.cache config.log
 
 srpm: dist
-	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "gtk_name $(GTK_NAME)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOPDIR)/vendor/common/ocfs2-tools.spec
+	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOPDIR)/vendor/common/ocfs2-tools.spec
 
 rpm: srpm
-	$(RPMBUILD) --rebuild --define "gtk_name $(GTK_NAME)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --target $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
+	$(RPMBUILD) --rebuild --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --target $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
 
 def:
 	@echo $(TOOLSARCH)

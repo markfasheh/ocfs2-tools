@@ -8,7 +8,7 @@
 # Because RPM is dumb
 %define _unpackaged_files_terminate_build 0
 
-Summary: Tools for managing the Oracle Cluster Filesystem
+Summary: Tools for managing the Oracle Cluster Filesystem 2
 Name: ocfs2-tools
 Version: @DIST_VERSION@
 Release: @RPM_VERSION@
@@ -21,12 +21,24 @@ Vendor: Oracle Corporation
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
 Requires: coreutils, net-tools, modutils, %{chkconfig_dep}, glib2 >= 2.0.6
-BuildRequires: glib2-devel >= 2.0.6
+BuildRequires: glib2-devel >= 2.0.6, %{pygtk_name} >= 1.99.16, python-devel >= %{pyversion}
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 
 %description
-Tools to manage OCFS2
+Tools to manage Oracle Cluster Filesystem 2 volumes.
+
+
+%package -n ocfs2console
+Summary: GUI frontend for OCFS2 management and debugging
+Group: System Environment/Kernel
+Requires: glib2 >= 2.0.6, %{pygtk_name} >= 1.99.16
+AutoReqProv: No
+
+
+%description -n ocfs2console
+GUI frontend for management and debugging of Oracle Cluster Filesystem 2
+volumes.
 
 
 %prep
@@ -48,10 +60,10 @@ do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
 done
 
-#for tool in ocfs2tool
-#do
-#  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
-#done
+for tool in ocfs2console
+do
+  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
+done
 
 
 %clean
@@ -64,7 +76,6 @@ chkconfig o2cb on
 
 %files
 %defattr(-,root,root)
-/usr/share
 /sbin/fsck.ocfs2
 /sbin/mkfs.ocfs2
 /sbin/mounted.ocfs2
@@ -74,8 +85,21 @@ chkconfig o2cb on
 /sbin/mount.ocfs2
 /sbin/ocfs2cdsl
 /etc/init.d/o2cb
+/usr/share/man/man8/debugfs.ocfs2.8.gz
+/usr/share/man/man8/fsck.ocfs2.8.gz
+/usr/share/man/man8/fsck.ocfs2.checks.8.gz
+/usr/share/man/man8/mkfs.ocfs2.8.gz
+
+
+%files -n ocfs2console
+/usr/lib/python%{pyversion}
+/usr/sbin/ocfs2console
+/usr/share/man/man8/ocfs2console.8.gz
 
 
 %changelog
-* Fri Jan 31 2004 Manish Singh <manish.singh@oracle.com>
+* Thu Jan 27 2005 Manish Singh <manish.singh@oracle.com>
+- Add ocfs2console
+
+* Fri Jan 21 2005 Manish Singh <manish.singh@oracle.com>
 - Initial rpm spec
