@@ -38,9 +38,11 @@ endif
 
 CFILES = o2dlm.c
 
-HFILES = include/o2dlm.h
+HFILES = 			\
+	include/kernel-list.h	\
+	include/o2dlm.h 
 
-HFILES_GEN =		\
+HFILES_GEN =			\
 	include/o2dlm_err.h
 
 $(CFILES): $(HFILES_GEN)
