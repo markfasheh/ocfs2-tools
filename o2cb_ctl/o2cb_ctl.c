@@ -41,7 +41,7 @@
 #include "o2cb.h"
 
 #define PROGNAME "o2cb_ctl"
-#define O2CB_CONFIG_FILE "/etc/cluster.conf"
+#define O2CB_CONFIG_FILE "/etc/ocfs2/cluster.conf"
 
 typedef enum {
     O2CB_OP_NONE = 0,
@@ -847,7 +847,7 @@ static gint run_create_nodes(O2CBContext *ctxt)
 {
     gint rc;
     O2CBCluster *cluster;
-    O2CBNode *node;
+    O2CBNode *node, *tmpnode;
     errcode_t err;
     long num;
     gchar *ptr;
@@ -959,6 +959,16 @@ static gint run_create_nodes(O2CBContext *ctxt)
             goto out;
         }
 
+        tmpnode = o2cb_cluster_get_node(cluster, num);
+        if (tmpnode)
+        {
+            rc = -EEXIST;
+            fprintf(stderr,
+                    PROGNAME ": Node number \"%ld\" already exists\n",
+                    num);
+            g_free(number);
+            goto out;
+        }
         o2cb_node_set_number(node, num);
     }
     else

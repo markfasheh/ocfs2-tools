@@ -8,9 +8,9 @@ In the future, ocfs2-tool and o2cb_ctl will allow you to manage the
 cluster configuration in a much nicer way.  But until then, you have to
 hand-edit the file.
 
-The cluster confguration is stored in /etc/cluster.conf.  This is a
-hardcoded name right now (boo!), so you have to put it there.  The file
-is in stanza format, with one stanza describing the generic cluster
+The cluster confguration is stored in /etc/ocfs2/cluster.conf.  This is
+a hardcoded name right now (boo!), so you have to put it there.  The
+file is in stanza format, with one stanza describing the generic cluster
 attributes and one stanza for each node.
 
 The stanza for the generic cluster attributes looks like so:
