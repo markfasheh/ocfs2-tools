@@ -68,7 +68,7 @@ libo2dlm.a: $(OBJS)
 o2dlm_test: $(TESTING_OBJS) $(LIBRARIES) $(COM_ERR_LIBS)
 	$(LINK)
 
-DIST_FILES = $(CFILES) $(HFILES) o2dlm_err.et
+DIST_FILES = $(CFILES) $(HFILES) o2dlm_err.et $(TESTING_CFILES)
 
 DIST_RULES = dist-subdircreate
 
