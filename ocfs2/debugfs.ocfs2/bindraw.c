@@ -59,7 +59,7 @@ int bind_raw (char *blk_dev, int *raw_minor, char *raw_dev, int rdlen)
 	}
 	else {
 		if ((fd = open("/dev/rawctl", O_RDWR)) == -1)
-			DBGFS_FATAL("Error opening /dev/rawctl.\n%s\n", strerror(errno));
+			DBGFS_FATAL("Error opening /dev/rawctl.\n%s\nMaybe you should use the --no-raw flag.\n", strerror(errno));
 
 		for (i = 1; i < 255; ++i) {
 			memset(&rcs, 0, sizeof(struct raw_config_request));
