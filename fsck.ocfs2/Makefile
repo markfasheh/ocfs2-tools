@@ -44,12 +44,7 @@ HFILES = 	include/fsck.h		\
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-VERSION_FILES = $(CFILES) $(HFILES)
-VERSION_SRC = $(CFILES)
-VERSION_PREFIX = OCFS2
-
 DIST_FILES = $(CFILES) $(HFILES) 
-
 DIST_RULES = dist-subdircreate
 
 dist-subdircreate:
