@@ -451,7 +451,7 @@ main(int argc, char **argv)
 	orphan_dir->record = tmprec;
 	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	add_entry_to_directory(s, orphan_dir, ".", tmprec->fe_off, OCFS2_FT_DIR);
-	add_entry_to_directory(s, orphan_dir, "..", tmprec->extent_off, OCFS2_FT_DIR);
+	add_entry_to_directory(s, orphan_dir, "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
 
 	tmprec = s->global_bm->bm_record;
 	alloc_bytes_from_bitmap(s, tmprec->extent_len, s->global_bm,
