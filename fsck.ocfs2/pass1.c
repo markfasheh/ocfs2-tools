@@ -109,7 +109,9 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	} else if (S_ISREG(di->i_mode)) {
 		ocfs2_bitmap_set(ost->ost_reg_inodes, blkno, NULL);
 	} else if (S_ISLNK(di->i_mode)) {
-		/* make sure fast symlinks are ok, etc */
+		/* we only make sure a link's i_size matches
+		 * the link names length in the file data later when
+		 * we walk the inode's blocks */
 	} else {
 		if (!S_ISCHR(di->i_mode) && !S_ISBLK(di->i_mode) &&
 			!S_ISFIFO(di->i_mode) && !S_ISSOCK(di->i_mode))
@@ -125,10 +127,13 @@ bad:
 }
 
 struct verifying_blocks {
-       unsigned		vb_mark_dir_blocks;	
+       unsigned		vb_clear:1,
+       			vb_saw_link_null:1,
+       			vb_link_read_error:1;
+
+       uint64_t		vb_link_len;
        uint64_t		vb_num_blocks;	
        uint64_t		vb_last_block;	
-       int		vb_clear;
        int		vb_errors;
        o2fsck_state 	*vb_ost;
        ocfs2_dinode	*vb_di;
@@ -140,6 +145,102 @@ static void vb_saw_block(struct verifying_blocks *vb, uint64_t bcount)
 	vb->vb_num_blocks++;
 	if (bcount > vb->vb_last_block)
 		vb->vb_last_block = bcount;
+}
+
+static void process_link_block(struct verifying_blocks *vb, uint64_t blkno)
+{
+	char *buf, *null;
+	errcode_t ret;
+	unsigned int blocksize = vb->vb_ost->ost_fs->fs_blocksize;
+
+	if (vb->vb_saw_link_null)
+		return;
+
+	ret = ocfs2_malloc_blocks(vb->vb_ost->ost_fs->fs_io, 1, &buf);
+	if (ret)
+		fatal_error(ret, "while allocating room to read a block of "
+				 "link data");
+
+	ret = io_read_block(vb->vb_ost->ost_fs->fs_io, blkno, 1, buf);
+	if (ret) {
+		goto out;
+	}
+
+	null = memchr(buf, 0, blocksize);
+	if (null != NULL) {
+		vb->vb_link_len += null - buf;
+		vb->vb_saw_link_null = 1;
+	} else {
+		vb->vb_link_len += blocksize;
+	}
+
+out:
+	ocfs2_free(&buf);
+}
+
+/* XXX maybe this should be a helper in libocfs2? */
+static uint64_t blocks_holding_bytes(ocfs2_filesys *fs, uint64_t bytes)
+{
+	int b_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+
+	return (bytes +  fs->fs_blocksize - 1) >> b_bits;
+}
+
+static void check_link_data(struct verifying_blocks *vb)
+{
+	ocfs2_dinode *di = vb->vb_di;
+	o2fsck_state *ost = vb->vb_ost;
+	uint64_t expected;
+
+	verbosef("found a link: num %"PRIu64" last %"PRIu64" len "
+		"%"PRIu64" null %d error %d\n", vb->vb_num_blocks, 
+		vb->vb_last_block, vb->vb_link_len, vb->vb_saw_link_null, 
+		vb->vb_link_read_error);
+
+	if (vb->vb_link_read_error) {
+		if (prompt(ost, PY, "There was an error reading a data block "
+			   "for symlink inode %"PRIu64".  Clear the inode?",
+			   di->i_blkno)) {
+			vb->vb_clear = 1;
+			return;
+		}
+	}
+
+	/* XXX this could offer to null terminate */
+	if (!vb->vb_saw_link_null) {
+		if (prompt(ost, PY, "The target of symlink inode %"PRIu64" "
+			   "isn't null terminated.  Clear the inode?",
+			   di->i_blkno)) {
+			vb->vb_clear = 1;
+			return;
+		}
+	}
+
+	expected = blocks_holding_bytes(ost->ost_fs, vb->vb_link_len + 1);
+
+	if (di->i_size != vb->vb_link_len) {
+		if (prompt(ost, PY, "The target of symlink inode %"PRIu64" "
+			   "is %"PRIu64" bytes long on disk, but i_size is "
+			   "%"PRIu64" bytes long.  Update i_size to reflect "
+			   "the length on disk?",
+			   di->i_blkno, vb->vb_link_len, di->i_size)) {
+			di->i_size = vb->vb_link_len;
+			o2fsck_write_inode(ost->ost_fs, di->i_blkno, di);
+			return;
+		}
+	}
+
+	/* maybe we don't shrink link target allocations, I don't know,
+	 * someone will holler if this is wrong :) */
+	if (vb->vb_num_blocks != expected) {
+		if (prompt(ost, PN, "The target of symlink inode %"PRIu64" "
+			   "fits in %"PRIu64" blocks but the inode has "
+			   "%"PRIu64" allocated.  Clear the inode?", expected,
+			   di->i_blkno)) {
+			vb->vb_clear = 1;
+			return;
+		}
+	}
 }
 
 static int verify_block(ocfs2_filesys *fs,
@@ -180,6 +281,9 @@ static int verify_block(ocfs2_filesys *fs,
 		o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno, blkno,
 					bcount);
 	}
+
+	if (S_ISLNK(di->i_mode))
+		process_link_block(vb, blkno);
 
 	vb_saw_block(vb, bcount);
 
@@ -231,11 +335,6 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	vb.vb_ost = ost;
 	vb.vb_di = di;
 
-	/* XXX it isn't enough to just walk the blocks.  We want to mark
-	 * metadata blocks in the extents as used and otherwise validate them
-	 * while we're at it. */
-
-
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
 		ret = 0; /* nothing to iterate over in this case */
 	else if (di->i_flags & OCFS2_CHAIN_FL)
@@ -252,6 +351,9 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		fatal_error(ret, "while iterating over the blocks for inode "
 			         "%"PRIu64, di->i_blkno);	
 	}
+
+	if (S_ISLNK(di->i_mode))
+		check_link_data(&vb);
 
 	if (S_ISDIR(di->i_mode) && vb.vb_num_blocks == 0) {
 		if (prompt(ost, PY, "Inode %"PRIu64" is a zero length "
