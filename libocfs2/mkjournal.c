@@ -21,8 +21,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Joel Becker
- *
  * Portions of the code from e2fsprogs/lib/ext2fs/mkjournal.c
  *   Copyright (C) 2000 Theodore Ts'o.
  */

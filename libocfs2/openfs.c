@@ -21,8 +21,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Joel Becker
- *
  * Ideas taken from e2fsprogs/lib/ext2fs/openfs.c
  *   Copyright (C) 1993, 1994, 1995, 1996 Theodore Ts'o.
  */

@@ -21,8 +21,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Joel Becker
- *
  * Ideas taken from e2fsprogs/lib/ext2fs/fileio.c
  *   Copyright (C) 1997 Theodore Ts'o.
  */

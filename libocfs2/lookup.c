@@ -21,8 +21,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Joel Becker
- *
  *  This code is a port of e2fsprogs/lib/ext2fs/lookup.c
  *  Copyright (C) 1993, 1994, 1994, 1995 Theodore Ts'o.
  */
