@@ -42,6 +42,10 @@ DIST_FILES = \
 	Preamble.make	\
 	Postamble.make	\
 	aclocal.m4	\
+	glib-2.0.m4	\
+	python.m4	\
+	pythondev.m4	\
+	runlog.m4	\
 	config.guess	\
 	config.sub	\
 	configure	\
