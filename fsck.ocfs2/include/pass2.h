@@ -1,5 +1,5 @@
 /*
- * fsck.h
+ * pass2.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,33 +21,12 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_FSCK_H__
-#define __O2FSCK_FSCK_H__
+#ifndef __O2FSCK_PASS2_H__
+#define __O2FSCK_PASS2_H__
 
-#include "icount.h"
-#include "dirblocks.h"
+#include "fsck.h"
 
-typedef struct _o2fsck_state {
-	ocfs2_filesys 	*ost_fs;
+errcode_t o2fsck_pass2(o2fsck_state *ost);
 
-	ocfs2_bitmap	*ost_used_inodes;
-	ocfs2_bitmap	*ost_bad_inodes;
-	ocfs2_bitmap	*ost_dir_inodes;
-	ocfs2_bitmap	*ost_reg_inodes;
-
-	ocfs2_bitmap	*ost_found_blocks;
-	ocfs2_bitmap	*ost_dup_blocks;
-
-	o2fsck_icount	*ost_icount_in_inodes;
-	o2fsck_icount	*ost_icount_refs;
-
-	o2fsck_dirblocks	ost_dirblocks;
-
-	/* flags */
-	unsigned	ost_ask:1,	/* confirm with the user */
-			ost_answer:1,	/* answer if we don't ask the user */
-			ost_force:1;	/* -f supplied; force check */
-} o2fsck_state;
-
-#endif /* __O2FSCK_FSCK_H__ */
+#endif /* __O2FSCK_PASS2_H__ */
 

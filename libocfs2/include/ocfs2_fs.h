@@ -176,9 +176,11 @@ static char *ocfs2_system_inode_names[NUM_SYSTEM_INODES] = {
  */
 #define OCFS2_DIR_PAD			4
 #define OCFS2_DIR_ROUND			(OCFS2_DIR_PAD - 1)
-#define OCFS2_DIR_REC_LEN(name_len)	(((name_len) + 12 + \
+#define OCFS2_DIR_MEMBER_LEN 		offsetof(struct ocfs2_dir_entry, name)
+#define OCFS2_DIR_REC_LEN(name_len)	(((name_len) + OCFS2_DIR_MEMBER_LEN + \
                                           OCFS2_DIR_ROUND) & \
 					 ~OCFS2_DIR_ROUND)
+
 #define OCFS2_LINK_MAX		32000
 
 #define S_SHIFT			12

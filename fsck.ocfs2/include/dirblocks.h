@@ -1,5 +1,5 @@
 /*
- * fsck.h
+ * dirblocks.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,33 +21,31 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_FSCK_H__
-#define __O2FSCK_FSCK_H__
+#ifndef __O2FSCK_DIRBLOCKS_H__
+#define __O2FSCK_DIRBLOCKS_H__
 
-#include "icount.h"
-#include "dirblocks.h"
+#include "ocfs2.h"
 
-typedef struct _o2fsck_state {
-	ocfs2_filesys 	*ost_fs;
+typedef struct _o2fsck_dirblocks {
+	struct rb_root	db_root;
+} o2fsck_dirblocks;
 
-	ocfs2_bitmap	*ost_used_inodes;
-	ocfs2_bitmap	*ost_bad_inodes;
-	ocfs2_bitmap	*ost_dir_inodes;
-	ocfs2_bitmap	*ost_reg_inodes;
+typedef struct _o2fsck_dirblock_entry {
+	struct rb_node	e_node;
+	uint64_t	e_ino;
+	uint64_t	e_blkno;
+	uint64_t	e_blkcount;
+} o2fsck_dirblock_entry;
 
-	ocfs2_bitmap	*ost_found_blocks;
-	ocfs2_bitmap	*ost_dup_blocks;
+typedef unsigned (*dirblock_iterator)(o2fsck_dirblock_entry *,
+					void *priv_data);
 
-	o2fsck_icount	*ost_icount_in_inodes;
-	o2fsck_icount	*ost_icount_refs;
+void o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino, uint64_t blkno, 
+			uint64_t blkcount);
 
-	o2fsck_dirblocks	ost_dirblocks;
+void o2fsck_dir_block_iterate(o2fsck_dirblocks *db, dirblock_iterator func,
+				void *priv_data);
+		     
 
-	/* flags */
-	unsigned	ost_ask:1,	/* confirm with the user */
-			ost_answer:1,	/* answer if we don't ask the user */
-			ost_force:1;	/* -f supplied; force check */
-} o2fsck_state;
-
-#endif /* __O2FSCK_FSCK_H__ */
+#endif /* __O2FSCK_DIRBLOCKS_H__ */
 

@@ -29,13 +29,14 @@
 
 #include "ocfs2.h"
 
+#include "dirblocks.h"
 #include "icount.h"
 #include "fsck.h"
 #include "pass1.h"
 #include "problem.h"
 #include "util.h"
 
-const char *whoami = "pass1";
+static const char *whoami = "pass1";
 
 /*
  * for now we're just building up info, we're not actually
@@ -177,11 +178,9 @@ static int verify_block(ocfs2_filesys *fs,
 		ocfs2_bitmap_set(ost->ost_dup_blocks, blkno, NULL);
 	}
 
-	if (S_ISDIR(di->i_mode)) {
-#if 0
-		o2fsck_add_dir_block(di, blkno, bcount);
-#endif
-	}
+	if (S_ISDIR(di->i_mode))
+		o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno, blkno,
+					bcount);
 
 	vb->vb_num_blocks++;
 	if (bcount > vb->vb_last_block)

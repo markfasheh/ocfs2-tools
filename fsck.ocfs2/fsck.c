@@ -35,6 +35,7 @@
 #include "fsck.h"
 #include "icount.h"
 #include "pass1.h"
+#include "pass2.h"
 #include "util.h"
 
 static void print_usage(void)
@@ -140,6 +141,7 @@ int main(int argc, char **argv)
 
 	memset(ost, 0, sizeof(o2fsck_state));
 	ost->ost_ask = 1;
+	ost->ost_dirblocks.db_root = RB_ROOT;
 
 	/* These mean "autodetect" */
 	blksize = 0;
@@ -244,6 +246,10 @@ int main(int argc, char **argv)
 	ret = o2fsck_pass1(ost);
 	if (ret)
 		com_err(argv[0], ret, "pass1 failed");
+
+	ret = o2fsck_pass2(ost);
+	if (ret)
+		com_err(argv[0], ret, "pass2 failed");
 
 	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {
