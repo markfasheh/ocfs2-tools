@@ -285,6 +285,10 @@ static void do_open (char **args)
 	gbls.max_blocks = ocfs2_clusters_to_blocks(gbls.fs, gbls.max_clusters);
 	gbls.root_blkno = sb->s_root_blkno;
 	gbls.sysdir_blkno = sb->s_system_dir_blkno;
+	gbls.curdir_blkno = sb->s_root_blkno;
+	if (gbls.curdir)
+		free(gbls.curdir);
+	gbls.curdir = strdup("/");
 
 	/* lookup dlm file */
 	snprintf (sysfile, sizeof(sysfile),
@@ -362,9 +366,12 @@ static void do_ls (char **args)
 		goto bail;
 	}
 
-	ret = get_blknum(args[1], &blkno);
-	if (ret)
-		goto bail;
+	if (args[1]) {
+		ret = get_blknum(args[1], &blkno);
+		if (ret)
+			goto bail;
+	} else
+		blkno = gbls.curdir_blkno;
 
 	buf = gbls.blockbuf;
 	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
