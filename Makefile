@@ -2,6 +2,8 @@ TOPDIR = .
  
 include $(TOPDIR)/Preamble.make
 
+RPM_TOPDIR = $(CURDIR)
+
 RPMBUILD = $(shell /usr/bin/which rpmbuild 2>/dev/null || /usr/bin/which rpm 2>/dev/null || echo /bin/false)
 
 SUSEBUILD = $(shell if test -r /etc/UnitedLinux-release -o -r /etc/SuSE-release; then echo yes; else echo no; fi)
