@@ -4,3 +4,4 @@ cscope.files
 ocfsextfinder
 debugocfs.8
 stamp-md5
+*.a

@@ -1,9 +1,9 @@
-Config.make
-aclocal.m4
-autom4te.cache
-config.cache
-config.log
-config.status
+cscope.out
+*.a
+stamp-md5
 configure
-ocfs-tools*.tar.gz
-ocfs-tools-*
+Config.make
+config.*
+autom4te.cache
+aclocal.m4
+
