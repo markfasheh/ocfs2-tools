@@ -19,7 +19,7 @@ the echo mode. (echo "stats" | debugfs.ocfs2 /dev/sdb1). The echo mode allows
 users to redirect the output to a file (very useful when reading the journal
 file).
 
-The current list of working commands are as follws:
+The current list of commands are as follows:
 
 curdev                          Show current device
 open <device>                   Open a device
@@ -33,8 +33,7 @@ dump <blknum> <outfile>         Dumps file to outfile
 nodes                           List of nodes
 publish                         Publish blocks
 vote                            Vote blocks
-logdump <blknum>                Prints journal file
+logdump <nodenum>               Prints journal file
 help, ?                         This information
 quit, q                         Exit the program
-
-As always, comments  are welcome.
+===============================================================================
