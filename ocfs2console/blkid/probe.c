@@ -127,6 +127,7 @@ static int probe_ext2(int fd __BLKID_ATTR((unused)),
 		      struct blkid_magic *id, unsigned char *buf)
 {
 	struct ext2_super_block *es;
+	const char *sec_type = 0, *label = 0;
 
 	es = (struct ext2_super_block *)buf;
 
@@ -320,6 +321,7 @@ static int probe_swap1(int fd,
 		       unsigned char *buf __BLKID_ATTR((unused)))
 {
 	struct swap_id_block *sws;
+	const char *label = 0;
 
 	probe_swap0(fd, cache, dev, id, buf);
 	/*

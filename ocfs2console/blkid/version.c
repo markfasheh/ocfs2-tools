@@ -18,8 +18,8 @@
 
 #include "blkid.h"
 
-#define E2FSPROGS_VERSION "1.36"
-#define E2FSPROGS_DATE "05-Feb-2005"
+#define E2FSPROGS_VERSION "1.37"
+#define E2FSPROGS_DATE "21-Mar-2005"
 
 static const char *lib_version = E2FSPROGS_VERSION;
 static const char *lib_date = E2FSPROGS_DATE;
