@@ -138,6 +138,7 @@ static void print_wrapped(char *str)
 		else
 			target -= (i % width);
 	}
+	fflush(stdout);
 }
 
 /* 
