@@ -277,7 +277,13 @@ partition_walk (gpointer key,
 	  else
 	    info.mountpoint = NULL;
 
-	  if (!wdata->unmounted || !info.mountpoint)
+	  if (wdata->unmounted)
+	    {
+	      if ((info.mountpoint == NULL) &&
+		  (strcmp (info.fstype, "oracleasm") != 0))
+		wdata->func (&info, wdata->data);
+	    }
+	  else
 	    wdata->func (&info, wdata->data);
 
 	  g_free (info.fstype);
