@@ -1467,6 +1467,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	strcpy(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE);
 	di->i_suballoc_node = cpu_to_le16((__u16)-1);
 	di->i_suballoc_bit = cpu_to_le16((__u16)-1);
+	di->i_generation = cpu_to_le32(s->vol_generation);
 
 	di->i_atime = 0;
 	di->i_ctime = cpu_to_le64(s->format_time);
