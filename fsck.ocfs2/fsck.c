@@ -123,9 +123,9 @@ int main(int argc, char **argv)
 
 	initialize_ocfs_error_table();
 
-	while((c = getopt(argc, argv, "nps:B:")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:np")) != EOF) {
 		switch (c) {
-			case 's':
+			case 'b':
 				blkno = read_number(optarg);
 				if (blkno < OCFS2_SUPER_BLOCK_BLKNO) {
 					fprintf(stderr,
@@ -195,16 +195,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	fprintf(stdout, "OCFS2 filesystem on \"%s\":\n", filename);
-	fprintf(stdout,
-		"\tblocksize = %d\n"
- 		"\tclustersize = %d\n"
-		"\tclusters = %u\n"
-		"\tblocks = %llu\n",
- 		fs->fs_blocksize,
-		fs->fs_clustersize,
-		fs->fs_clusters,
-		fs->fs_blocks);
+	/* XXX should be verifying super-block bits here. */
 
 	ret = o2fsck_pass1(fs, ost);
 	if (ret)
