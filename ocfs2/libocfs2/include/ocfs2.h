@@ -42,8 +42,6 @@
 
 #include <et/com_err.h>
 
-#include "unix_io.h"
-#include "memory.h"
 #include "byteorder.h"
 
 #if OCFS2_FLAT_INCLUDES
@@ -130,6 +128,7 @@
 
 
 typedef struct _ocfs2_filesys ocfs2_filesys;
+typedef struct _io_channel io_channel;
 
 struct _ocfs2_filesys {
 	char *fs_devname;
@@ -150,6 +149,27 @@ struct _ocfs2_filesys {
 	void *fs_private;
 };
 
+
+
+errcode_t ocfs2_malloc(unsigned long size, void *ptr);
+errcode_t ocfs2_malloc0(unsigned long size, void *ptr);
+errcode_t ocfs2_free(void *ptr);
+errcode_t ocfs2_realloc(unsigned long size, void *ptr);
+errcode_t ocfs2_realloc0(unsigned long size, void *ptr,
+			 unsigned long old_size);
+errcode_t ocfs2_malloc_blocks(io_channel *channel, int num_blocks,
+			      void *ptr);
+errcode_t ocfs2_malloc_block(io_channel *channel, void *ptr);
+
+errcode_t io_open(const char *name, int flags, io_channel **channel);
+errcode_t io_close(io_channel *channel);
+int io_get_error(io_channel *channel);
+errcode_t io_set_blksize(io_channel *channel, int blksize);
+int io_get_blksize(io_channel *channel);
+errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
+			char *data);
+errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
+			 const char *data);
 
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int blksize,

@@ -88,10 +88,8 @@ HFILES =				\
 	include/ocfs2_fs.h		\
 	include/ocfs2_disk_dlm.h	\
 	include/ocfs1_fs_compat.h	\
-	include/memory.h		\
-	include/unix_io.h		\
 	include/byteorder.h		\
-	include/ocfs2.h		\
+	include/ocfs2.h			\
 	include/dir_iterate.h
 
 HFILES_GEN =		\
