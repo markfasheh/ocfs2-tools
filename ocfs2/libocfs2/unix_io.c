@@ -28,7 +28,7 @@
  *  	2002 by Theodore Ts'o.
  */
 
-#define _XOPEN_SOURCE 500
+#define _XOPEN_SOURCE 600  /* Triggers ISOC99, UNIX98 in features.h */
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>
@@ -284,7 +284,7 @@ static void dump_u32(uint32_t *val)
 
 static void dump_block(int64_t blkno, int blksize, char *buf)
 {
-	int offset, i;
+	int i;
 	uint32_t *vals = (uint32_t *)buf;
 
 	fprintf(stdout, "Dumping block %lld (%d bytes):\n", blkno,

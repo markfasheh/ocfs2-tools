@@ -31,12 +31,12 @@ endif
 CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
-DEFINES += -DDEBUG_EXE
-
 BIN_PROGRAMS += unix_io
 
-unix_io: unix_io.o memory.o ocfs2_err.o
-	$(LINK)	$(COM_ERR) $(COM_ERR_LIBS)
+unix_io: unix_io.c libocfs2.a
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
+		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
+		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 
 endif
 CFILES = 		\
