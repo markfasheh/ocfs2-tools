@@ -36,6 +36,12 @@
 #define MAX_VOL_ID_LENGTH_V1               16
 #define MAX_VOL_LABEL_LEN_V1               64
 #define MAX_CLUSTER_NAME_LEN_V1            64
+#define MAX_IP_ADDR_LEN                    32
+#define MAX_NODE_NAME_LENGTH               32
+
+#define GUID_LEN                           32
+#define HOSTID_LEN                         20
+#define MACID_LEN                          12
 
 #define OCFS1_MAJOR_VERSION              (2)
 #define OCFS1_MINOR_VERSION              (0)
@@ -107,6 +113,32 @@ typedef struct _ocfs1_vol_label
 /*A6*/
 } ocfs1_vol_label;
 
+
+typedef struct _ocfs1_ipc_config_info
+{
+	__u8 type;
+	__u8 ip_addr[MAX_IP_ADDR_LEN+1];
+	__u32 ip_port;
+	__u8 ip_mask[MAX_IP_ADDR_LEN+1];
+} ocfs1_ipc_config_info;
+
+typedef union _ocfs1_guid
+{
+	struct
+	{
+		char host_id[HOSTID_LEN];
+		char mac_id[MACID_LEN];
+	} id;
+	__u8 guid[GUID_LEN];
+} ocfs1_guid;
+
+typedef struct _ocfs1_disk_node_config_info
+{
+	ocfs1_disk_lock disk_lock;
+	__u8 node_name[MAX_NODE_NAME_LENGTH+1];
+	ocfs1_guid guid;
+	ocfs1_ipc_config_info ipc_config;
+} ocfs1_disk_node_config_info;
 
 #endif /* _OCFS1_FS_COMPAT_H */
 

@@ -2,6 +2,7 @@
  * mounted.c
  *
  * ocfs2 mount detect utility
+ * Detects both ocfs and ocfs2 volumes
  *
  * Copyright (C) 2004 Oracle.  All rights reserved.
  *
@@ -42,27 +43,20 @@
 #include <ocfs1_fs_compat.h>
 #include <kernel-list.h>
 
-int detect_only = 0;
+int quick_detect = 0;
 char *device = NULL;
 char *progname = NULL;
 
-#define MAX_DEVNAME_LEN		100
-
-struct _ocfs2_devices {
-	struct list_head list;
-	char name[MAX_DEVNAME_LEN];
-};
-typedef struct _ocfs2_devices ocfs2_devices;
-
 char *usage_string =
-"usage: %s [-d] [device]\n"
-"	-d detect only\n";
+"usage: %s [-d] [-f] [device]\n"
+"	-d quick detect\n"
+"	-f full detect\n";
 
-errcode_t ocfs2_full_detect(char *device);
-errcode_t ocfs2_quick_detect(char *device);
-void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes);
+errcode_t ocfs2_detect(char *device, int quick_detect);
+void ocfs2_print_quick_detect(struct list_head *dev_list);
+void ocfs2_print_full_detect(struct list_head *dev_list);
+void ocfs2_print_nodes(struct list_head *node_list);
 errcode_t ocfs2_partition_list (struct list_head *dev_list);
-int ocfs2_get_ocfs1_label(char *device, char *buf, int buflen);
 int read_options(int argc, char **argv);
 void usage(char *progname);
 
@@ -80,16 +74,7 @@ int main(int argc, char **argv)
 	if (ret)
 		goto bail;
 
-	if (!detect_only && !device) {
-		usage(progname);
-		ret = 1;
-		goto bail;
-	}
-
-	if (detect_only)
-		ret = ocfs2_quick_detect(device);
-	else
-		ret = ocfs2_full_detect(device);
+	ret = ocfs2_detect(device, quick_detect);
 
 bail:
 	return ret;
@@ -102,100 +87,24 @@ static void chb_notify(int state, char *progress, void *user_data)
 }
 
 /*
- * ocfs2_full_detect()
+ * ocfs2_detect()
  *
  */
-errcode_t ocfs2_full_detect(char *device)
+errcode_t ocfs2_detect(char *device, int quick_detect)
 {
 	errcode_t ret = 0;
-	int mount_flags = 0;
-	char *node_names[OCFS2_NODE_MAP_MAX_NODES];
-	ocfs2_filesys *fs = NULL;
-	uint8_t *vol_label = NULL;
-	uint8_t *vol_uuid = NULL;
-	uint16_t num_nodes = OCFS2_NODE_MAP_MAX_NODES;
-	int i;
-
-	memset(node_names, 0, sizeof(node_names));
-
-	/* open	fs */
-	ret = ocfs2_open(device, O_DIRECT | OCFS2_FLAG_RO, 0, 0, &fs);
-	if (ret) {
-		if (ret == OCFS2_ET_OCFS_REV)
-			fprintf(stderr, "Error: %s is an ocfs volume. "
-				"Use mounted.ocfs to detect heartbeat on it.\n",
-				device);
-		else
-			com_err(progname, ret, "while opening \"%s\"", device);
-		goto bail;
-	}
-
-	num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
-	vol_label = OCFS2_RAW_SB(fs->fs_super)->s_label;
-	vol_uuid = OCFS2_RAW_SB(fs->fs_super)->s_uuid;
-
-	printf("Device: %s\n", device);
-	printf("Label : %s\n", vol_label);
-	printf("Id    : ");
-	for (i = 0; i < 16; i++)
-		printf("%02X", vol_uuid[i]);
-	printf("\n");
-
-	if (detect_only)
-		goto bail;
-		
-	ret = ocfs2_check_heartbeat(device, &mount_flags, node_names,
-                                    chb_notify, NULL);
-	if (ret) {
-		com_err(progname, ret, "while detecting heartbeat");
-		goto bail;
-	}
-
-	if (mount_flags & (OCFS2_MF_MOUNTED | OCFS2_MF_MOUNTED_CLUSTER)) {
-		printf("Nodes :");
-		ocfs2_print_live_nodes(node_names, num_nodes);
-	} else {
-		printf("Nodes : Not mounted\n");
-		goto bail;
-	}
-
-bail:
-	if (fs)
-		ocfs2_close(fs);
-
-	for (i = 0; i < num_nodes; ++i)
-		if (node_names[i])
-			ocfs2_free (&node_names[i]);
-
-	return ret;
-}
-
-/*
- * ocfs2_quick_detect()
- *
- */
-errcode_t ocfs2_quick_detect(char *device)
-{
-	errcode_t ret = 0;
-	ocfs2_filesys *fs = NULL;
-	uint8_t *vol_label = NULL;
-	uint8_t *vol_uuid = NULL;
-	ocfs1_vol_label *v1_lbl = NULL;
 	struct list_head dev_list;
-	struct list_head *pos;
+	struct list_head *pos1, *pos2, *pos3, *pos4;
+	ocfs2_nodes *node;
 	ocfs2_devices *dev;
-	char buf[512];
-	char uuid[40];
-	char *p;
-	int i;
 
-	INIT_LIST_HEAD(&dev_list);
+	INIT_LIST_HEAD(&(dev_list));
 
 	if (device) {
 		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
 		if (ret)
 			goto bail;
-		strncpy(dev->name, device, MAX_DEVNAME_LEN);
+		strncpy(dev->dev_name, device, sizeof(dev->dev_name));
 		list_add(&(dev->list), &dev_list);
 	} else {
 		ret = ocfs2_partition_list(&dev_list);
@@ -205,63 +114,107 @@ errcode_t ocfs2_quick_detect(char *device)
 		}
 	}
 
-	printf("%-20s  %-6s  %-32s  %-s\n", "Device", "Type", "GUID", "Label");
-
-	list_for_each(pos, &(dev_list)) {
-		dev = list_entry(pos, ocfs2_devices, list);
-		ret = ocfs2_open(dev->name, OCFS2_FLAG_RO, 0, 0, &fs);
-		if (ret == 0 || ret == OCFS2_ET_OCFS_REV) {
-			if (!ret) {
-				vol_label = OCFS2_RAW_SB(fs->fs_super)->s_label;
-				vol_uuid = OCFS2_RAW_SB(fs->fs_super)->s_uuid;
-			} else {
-				if (!ocfs2_get_ocfs1_label(dev->name, buf, sizeof(buf))) {
-					v1_lbl = (ocfs1_vol_label *)buf;
-					vol_label = v1_lbl->label;
-					vol_uuid = v1_lbl->vol_id;
-				} else {
-					vol_label = NULL;
-					vol_uuid = NULL;
-				}
-			}
-	
-			memset(uuid, 0, sizeof(uuid));		
-			for (i = 0, p = uuid; i < 16 && vol_uuid; i++, p += 2)
-				sprintf(p, "%02X", vol_uuid[i]);
-
-			printf("%-20s  %-6s  %-32s  %-s\n", dev->name,
-			       (!ret ? "ocfs2" : "ocfs"), uuid,
-			       (vol_label ? (char *)vol_label : " "));
-		}
-		if (!ret)
-			ocfs2_close(fs);
+	ret = ocfs2_check_heartbeats(&dev_list, quick_detect, chb_notify, NULL);
+	if (ret) {
+		com_err(progname, ret, "while detecting heartbeat");
+		goto bail;
 	}
+
+	if (quick_detect)
+		ocfs2_print_quick_detect(&dev_list);
+	else
+		ocfs2_print_full_detect(&dev_list);
 
 bail:
-	list_for_each(pos, &(dev_list)) {
-		dev = list_entry(pos, ocfs2_devices, list);
+	list_for_each_safe(pos1, pos2, &(dev_list)) {
+		dev = list_entry(pos1, ocfs2_devices, list);
+		list_for_each_safe(pos3, pos4, &(dev->node_list)) {
+			node = list_entry(pos3, ocfs2_nodes, list);
+			list_del(&(node->list));
+			ocfs2_free(&node);
+		}
 		list_del(&(dev->list));
+		ocfs2_free(&dev);
 	}
 
-	return 0;
+	return ret;
 }
 
 /*
- * ocfs2_print_live_nodes()
+ * ocfs2_print_full_detect()
  *
  */
-void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes)
+void ocfs2_print_full_detect(struct list_head *dev_list)
 {
-	int i;
-	char comma = '\0';
+	ocfs2_devices *dev;
+	struct list_head *pos;
 
-	for (i = 0; i < num_nodes; ++i) {
-		if (node_names[i]) {
-			printf("%c %s", comma, node_names[i]);
-			comma = ',';
+	printf("%-20s  %-5s  %s\n", "Device", "FS", "Nodes");
+	list_for_each(pos, dev_list) {
+		dev = list_entry(pos, ocfs2_devices, list);
+		if (dev->fs_type == 0)
+			continue;
+		printf("%-20s  %-5s  ", dev->dev_name,
+		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"));
+		if (list_empty(&(dev->node_list))) {
+			printf("Not mounted\n");
+			continue;
 		}
+		ocfs2_print_nodes(&(dev->node_list));
+		printf("\n");
 	}
-	printf("\n");
+	return ;
+}
+
+
+/*
+ * ocfs2_print_quick_detect()
+ *
+ */
+void ocfs2_print_quick_detect(struct list_head *dev_list)
+{
+	ocfs2_devices *dev;
+	struct list_head *pos;
+	char uuid[40];
+	char *p;
+	int i;
+
+	printf("%-20s  %-5s  %-32s  %-s\n", "Device", "FS", "GUID", "Label");
+	list_for_each(pos, dev_list) {
+		dev = list_entry(pos, ocfs2_devices, list);
+		if (dev->fs_type == 0)
+			continue;
+
+		memset(uuid, 0, sizeof(uuid));		
+		for (i = 0, p = uuid; i < 16; i++, p += 2)
+			sprintf(p, "%02X", dev->uuid[i]);
+
+		printf("%-20s  %-5s  %-32s  %-s\n", dev->dev_name,
+		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"), uuid,
+		       dev->label);
+	}
+
+	return ;
+}
+
+/*
+ * ocfs2_print_nodes()
+ *
+ */
+void ocfs2_print_nodes(struct list_head *node_list)
+{
+	ocfs2_nodes *node;
+	struct list_head *pos;
+	int begin = 1;
+
+	list_for_each(pos, node_list) {
+		node = list_entry(pos, ocfs2_nodes, list);
+		if (begin) {
+			printf("%s", node->node_name);
+			begin = 0;
+		}  else
+			printf(", %s", node->node_name);
+	}
 
 	return ;
 }
@@ -292,7 +245,7 @@ errcode_t ocfs2_partition_list (struct list_head *dev_list)
 		if (ret)
 			goto bail;
 
-		snprintf(dev->name, MAX_DEVNAME_LEN, "/dev/%s", name);
+		snprintf(dev->dev_name, sizeof(dev->dev_name), "/dev/%s", name);
 		list_add_tail(&(dev->list), dev_list);
 	}
 
@@ -300,29 +253,6 @@ bail:
 	if (proc)
 		fclose(proc);
 
-	return ret;
-}
-
-/*
- * ocfs2_get_ocfs1_label()
- *
- */
-int ocfs2_get_ocfs1_label(char *device, char *buf, int buflen)
-{
-	int fd = -1;
-	int ret = -1;
-	
-	fd = open(device, O_RDONLY);
-	if (fd == -1)
-		goto bail;
-
-	if (pread(fd, buf, buflen, 512) == -1)
-		goto bail;
-
-	ret = 0;
-bail:
-	if (fd > 0)
-		close(fd);
 	return ret;
 }
 
@@ -354,13 +284,17 @@ int read_options(int argc, char **argv)
 	}
 
 	while(1) {
-		c = getopt(argc, argv, "d");
+		c = getopt(argc, argv, "df");
 		if (c == -1)
 			break;
 
 		switch (c) {
-		case 'd':	/* detect only */
-			detect_only = 1;
+		case 'd':	/* quick detect*/
+			quick_detect = 1;
+			break;
+
+		case 'f':	/* full detect*/
+			quick_detect = 0;
 			break;
 
 		default:

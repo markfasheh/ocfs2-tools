@@ -44,6 +44,8 @@
 
 #include "byteorder.h"
 
+#include <kernel-list.h>
+
 #if OCFS2_FLAT_INCLUDES
 #include "ocfs2_err.h"
 
@@ -151,6 +153,8 @@ typedef struct _io_channel io_channel;
 typedef struct _ocfs2_extent_map ocfs2_extent_map;
 typedef struct _ocfs2_inode_scan ocfs2_inode_scan;
 typedef struct _ocfs2_bitmap ocfs2_bitmap;
+typedef struct _ocfs2_nodes ocfs2_nodes;
+typedef struct _ocfs2_devices ocfs2_devices;
 
 struct _ocfs2_filesys {
 	char *fs_devname;
@@ -178,6 +182,22 @@ struct _ocfs2_cached_inode {
 	ocfs2_extent_map *ci_map;
 };
 
+struct _ocfs2_nodes {
+	struct list_head list;
+	char node_name[MAX_NODE_NAME_LENGTH+1];
+	uint16_t node_num;
+};
+
+struct _ocfs2_devices {
+	struct list_head list;
+	char dev_name[100];
+	uint8_t label[64];
+	uint8_t uuid[16];
+	int mount_flags;
+	int fs_type;		/* 0=unknown, 1=ocfs, 2=ocfs2 */
+	void *private;
+	struct list_head node_list;
+};
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);
 errcode_t ocfs2_malloc0(unsigned long size, void *ptr);
@@ -328,18 +348,14 @@ errcode_t ocfs2_check_mount_point(const char *device, int *mount_flags,
 errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs, uint64_t blkno,
 				char **buf, int *len);
 
-errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
-				char **node_names,
-				ocfs2_chb_notify notify,
-				void *user_data);
+errcode_t ocfs2_check_heartbeat(char *device, int quick_detect,
+			       	int *mount_flags, struct list_head *nodes_list,
+                                ocfs2_chb_notify notify, void *user_data);
 
-void ocfs2_detect_live_nodes(ocfs2_filesys *fs, char *pub_buf,
-			     uint64_t *pub_times, int *node_stats,
-			     int first_time);
+errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int quick_detect,
+				 ocfs2_chb_notify notify, void *user_data);
 
-void ocfs2_live_node_names(ocfs2_filesys *fs, char *node_buf,
-			   int *node_stats,
-			   char **node_names);
+errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
+				uint8_t *uuid, uint16_t uuid_len);
 
 #endif  /* _FILESYS_H */
-

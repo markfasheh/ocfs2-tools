@@ -109,4 +109,8 @@ static __inline__ void list_splice(struct list_head *list, struct list_head *hea
 #define list_for_each(pos, head) \
         for (pos = (head)->next; pos != (head); pos = pos->next)
 
+#define list_for_each_safe(pos, n, head) \
+	        for (pos = (head)->next, n = pos->next; pos != (head); \
+		                     pos = n, n = pos->next)
+
 #endif
