@@ -268,13 +268,15 @@ bail:
  * read_file()
  *
  */
-void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf)
+void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf, int fdo)
 {
 	GArray *arr = NULL;
 	ocfs2_extent_rec *rec;
 	char *p;
 	__u64 off, foff, len;
 	int i;
+	char *newbuf = NULL;
+	__u32 newlen = 0;
 
 	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
 
@@ -290,11 +292,28 @@ void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf)
 		if ((foff + len) > size)
 			len = size - foff;
 
+		if (fd != -1) {
+			if (newlen <= len) {
+				safefree (newbuf);
+				if (!(newbuf = malloc (len)))
+					DBGFS_FATAL("%s", strerror(errno));
+				newlen = len;
+				p = newbuf;
+			}
+		}
+
 		if ((pread64(fd, p, len, off)) == -1)
 			DBGFS_FATAL("%s", strerror(errno));
 
-		p += len;
+		if (fd != -1) {
+			if (len)
+				if (!(write (fdo, p, len)))
+					DBGFS_FATAL("%s", strerror(errno));
+		} else
+			p += len;
 	}
+
+	safefree (newbuf);
 
 	if (arr)
 		g_array_free (arr, 1);
@@ -333,7 +352,7 @@ void process_dlm (int fd, int type)
 	if (!(dlmbuf = malloc (buflen)))
 		DBGFS_FATAL("%s", strerror(errno));
 
-	read_file (fd, &(inode->id2.i_list), buflen, dlmbuf);
+	read_file (fd, &(inode->id2.i_list), buflen, dlmbuf, -1);
 
 	switch (type) {
 	case CONFIG:
