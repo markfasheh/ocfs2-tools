@@ -20,15 +20,11 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 
 DEFINES = -DOCFS2_FLAT_INCLUDES
 
-CFILES =	mount.ocfs2.c
+CFILES = mount.ocfs2.c
 
 OBJS = $(subst .c,.o,$(CFILES))
 
 DIST_FILES = $(CFILES) 
-DIST_RULES = dist-subdircreate
-
-dist-subdircreate:
-	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 mount.ocfs2: $(OBJS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
