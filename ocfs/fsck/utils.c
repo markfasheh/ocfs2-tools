@@ -549,9 +549,9 @@ int check_global_bitmap(int fd)
 	/* clearing all the allocated bits in the global bitmap */
 	for (i = 0; i < ctxt.vol_bm_data->len; ++i) {
 		bm1 = &(g_array_index(ctxt.vol_bm_data, bitmap_data, i));
-		j = __test_and_clear_bit(bm1->bitnum, vol_bm);
+		j = __test_and_clear_bit(bm1->bitnum, (unsigned long *)vol_bm);
 		if (!j) {
-			if (!test_bit(bm1->bitnum, ctxt.vol_bm))
+			if (!test_bit(bm1->bitnum, (unsigned long *)ctxt.vol_bm))
 				g_array_append_val(bits, bm1->bitnum);
 		}
 	}
@@ -641,9 +641,9 @@ int check_node_bitmaps(int fd, GArray *bm_data, __u8 **node_bm,
 				  str, bm1->alloc_node, HILO(bm1->fss_off));
 			continue;
 		}
-		j = __test_and_clear_bit(bm1->bitnum, temp_bm[bm1->alloc_node]);
+		j = __test_and_clear_bit(bm1->bitnum, (unsigned long *)temp_bm[bm1->alloc_node]);
 		if (!j) {
-			if (!test_bit(bm1->bitnum, node_bm[bm1->alloc_node]))
+			if (!test_bit(bm1->bitnum, (unsigned long *)node_bm[bm1->alloc_node]))
 				LOG_ERROR("Bit %u is unset in the %s bitmap "
 					  "of node %d", bm1->bitnum, str,
 					  bm1->alloc_node);
