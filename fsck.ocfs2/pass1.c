@@ -364,9 +364,6 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		o2fsck_write_inode(ost, blkno, di);
 	}
 
-	if (di->i_links_count)
-		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
-					di->i_links_count);
 
 	/* offer to clear a non-directory root inode so that 
 	 * pass3:check_root() can re-create it */
@@ -375,12 +372,8 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		   "Root inode isn't a directory.  Clear it in "
 		   "preparation for fixing it?")) {
 
-		di->i_dtime = 0ULL;
-		di->i_links_count = 0ULL;
-		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
-				  di->i_links_count);
-
-		o2fsck_write_inode(ost, blkno, di);
+		clear = 1;
+		goto out;
 	}
 
 	if (di->i_dtime &&
@@ -410,6 +403,12 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 		/* i_size?  what other sanity testing for devices? */
 	}
+
+	/* put this after all opportunities to clear so we don't have to
+	 * unwind it */
+	if (di->i_links_count)
+		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
+					di->i_links_count);
 
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
 		verify_local_alloc(ost, di);

@@ -45,33 +45,75 @@ static char *whoami = "pass3";
 
 static void check_root(o2fsck_state *ost)
 {
+	ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+	errcode_t ret;
+	uint64_t blkno, old_root;
 	int was_set;
 
 	if (o2fsck_test_inode_allocated(ost, ost->ost_fs->fs_root_blkno)) {
 		ocfs2_bitmap_test(ost->ost_dir_inodes, 
 				ost->ost_fs->fs_root_blkno, &was_set);
-		if (!was_set) {
-			printf("The root inode exists but isn't a directory. "
-				"fsck should have cleaned this up in "
-				"a previous pass. Exiting.\n");
-			exit(FSCK_ERROR);
-		}
+		if (!was_set)
+			printf("The root inode exists but isn't a "
+			       "directory.\n");
 		return;
 	}
 
 	if (!prompt(ost, PY, PR_ROOT_DIR_MISSING,
-		    "The root inode %"PRIu64" doesn't exist. "
-			"Should it be created?", ost->ost_fs->fs_root_blkno)) {
-		printf("Aborting.\n");
-		exit(FSCK_ERROR);
+		    "The super block claims that inode %"PRIu64" is the root "
+		    "directory but it isn't allocated.  Create a new root "
+		    "directory and update the super block?",
+		    ost->ost_fs->fs_root_blkno))
+		return;
+
+	ret = ocfs2_new_inode(ost->ost_fs, &blkno, 0755 | S_IFDIR);
+	if (ret) {
+		com_err(whoami, ret, "while trying to allocate a new inode "
+			"for the root directory\n");
+		return;
 	}
 
-	/* XXX */
-	printf("I don't actually create anything yet..\n");
-	exit(FSCK_ERROR);
+	ret = ocfs2_expand_dir(ost->ost_fs, blkno, blkno);
+	if (ret) {
+		com_err(whoami, ret, "while trying to expand a new root "
+			"directory");
+		goto out;
+	}
 
-	/* set both icount refs to 2.  add dir info for it.  put it 
-	 * in used, dir bitmaps. */
+	o2fsck_icount_set(ost->ost_icount_in_inodes, blkno, 1);
+	o2fsck_icount_set(ost->ost_icount_refs, blkno, 1);
+	ret = o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 
+				    ost->ost_fs->fs_root_blkno,
+				    ost->ost_fs->fs_root_blkno);
+	if (ret) {
+		com_err(whoami, ret, "while recording a new root directory");
+		goto out;
+	}
+
+	old_root = sb->s_root_blkno;
+	ost->ost_fs->fs_root_blkno = blkno;
+	sb->s_root_blkno = blkno;
+
+	ret = ocfs2_write_super(ost->ost_fs);
+	if (ret) {
+		com_err(whoami, ret, "while writing the super block with a "
+			"new root directory inode");
+		ost->ost_fs->fs_root_blkno = old_root;
+		sb->s_root_blkno = old_root;
+		goto out;
+	}
+
+	blkno = 0;
+
+out:
+	if (blkno) {
+		ret = ocfs2_delete_inode(ost->ost_fs, blkno);
+		if (ret) {
+			com_err(whoami, ret, "while trying to clean up an "
+			        "an allocated inode after linking /lost+found "
+				"failed");
+		}
+	}
 }
 
 static void check_lostfound(o2fsck_state *ost)
@@ -88,7 +130,7 @@ static void check_lostfound(o2fsck_state *ost)
 
 	if (!prompt(ost, PY, PR_LOSTFOUND_MISSING,
 		    "/lost+found does not exist.  Create it so "
-		    "that we an possibly fill it with orphaned inodes?"))
+		    "that we can possibly fill it with orphaned inodes?"))
 		return;
 
 	ret = ocfs2_new_inode(ost->ost_fs, &blkno, 0755 | S_IFDIR);

@@ -475,7 +475,7 @@ may appear in lost+found.
 .SS "ROOT_DIR_MISSING"
 The super block contains a reference to the inode that serves as the root directory.  This reference points to an inode that isn't in use.
 
-Answering yes will, actually, cause fsck to exit and make you cranky.
+Answering yes will create a new inode and update the super block to refer to this inode as the root directory.
 
 .SS "LOSTFOUND_MISSING"
 The super block contains a reference to the inode that serves as the lost+found directory.  This reference points to an inode that isn't in use.
