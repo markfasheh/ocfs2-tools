@@ -1,30 +1,30 @@
-.TH "debugfs.ocfs2" "8" "Dec 2004" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
-\fBdebugfs.ocfs2\fR [\fB\-V\fR] [\fB\-?\fR] [\fB\-w\fR] [\fB\-f cmdfile\fR] \fIdevice\fR
+\fBdebugfs.ocfs2\fR [\fB\-f\fR \fIcmdfile\fR] [\fB\-V\fR] [\fB\-w\fR] [\fB\-?\fR] [\fIdevice\fR]
 .SH "DESCRIPTION"
 .PP 
-The \fBdebugfs.ocfs2\fR is an interactive file system debugger. It can be used to examine the state of an OCFS2 filesystem. \fIdevice\fR is the special file corresponding the device containing the OCFS2 filesystem (e.g /dev/hdxx).
+The \fBdebugfs.ocfs2\fR is an interactive file system debugger. It can be used to examine the state of an OCFS2 filesystem. \fIdevice\fR is the special file corresponding the device containing the OCFS2 filesystem (e.g \fI/dev/hdxx\fR).
 .SH "OPTIONS"
 .TP
-\fB\-f cmdfile\fR 
+\fB\-f, --file\fR \fIcmdfile\fR 
 Causes \fBdebugfs.ocfs2\fR to read in commands from \fIcmdfile\fR and execute them. It exits after all the commands are executed.
 
 .TP
-\fB\-w\fR 
+\fB\-w, --write\fR 
 Specifies that the filesystem should be opened in \fIread-write\fR mode. Without this option, the filesystem is opened in the \fIread-only\fR mode.
 
 .TP
-\fB\-V\fR 
+\fB\-V, --version\fR 
 Print version information and exit.
 
 .TP
-\fB\-?\fR 
+\fB\-?, --help\fR 
 Displays help and exit.
 
 .SH "SPECIFYING FILES"
-Many \fBdebugfs.ocfs2\fR commands take a \fIfilespec\fR as an argument to specify an inode (as opposed to a pathname) in the filesystem which is currently opened by \fBdebugfs.ocfs\fR. The \fIfilespec\fR argument may be specified in two forms. The first form is an inode number surrounded by angle brackets, e.g., <32>. The second form is a pathname; if the pathname is prefixed by a forward slash ('/'), then it is interpreted relative to the root of the filesystem which is currently opened by \fBdebugfs.ocfs2\fR. If not, the path is interpreted relative to the current working directory as maintained by \fBdebugfs.ocfs2\fR, which can be modified using the command \fIcd\fR. If the pathname is prefixed by a double forward slash ('//'), then it is interpreted relative to the root of the system directory of the filesystem opened by \fBdebugfs.ocfs2\fR.
+Many \fBdebugfs.ocfs2\fR commands take a \fIfilespec\fR as an argument to specify an inode (as opposed to a pathname) in the filesystem which is currently opened by \fBdebugfs.ocfs2\fR. The \fIfilespec\fR argument may be specified in two forms. The first form is an inode number surrounded by angle brackets, e.g., <32>. The second form is a pathname; if the pathname is prefixed by a forward slash ('/'), then it is interpreted relative to the root of the filesystem which is currently opened by \fBdebugfs.ocfs2\fR. If not, the path is interpreted relative to the current working directory as maintained by \fBdebugfs.ocfs2\fR, which can be modified using the command \fIcd\fR. If the pathname is prefixed by a double forward slash ('//'), then it is interpreted relative to the root of the system directory of the filesystem opened by \fBdebugfs.ocfs2\fR.
 
 .SH "COMMANDS"
 This is a list of the commands which debugfs.ocfs2 supports.
@@ -54,12 +54,12 @@ Show the currently open device.
 Dump the contents of the inode \fIfilespec\fR to the output file \fIoutfile\fR. If the \fI-p\fR is given, set the owner, group, timestamps and permissions information on \fIoutfile\fR to match those of \fIfilespec\fR.
 
 .TP
-\fIextent <block#>\fR
-Display the contents of the extent structure at \fI<block#>\fR.
+\fIextent block#\fR
+Display the contents of the extent structure at \fIblock#\fR.
 
 .TP
-\fIgroup <block#>\fR
-Display the contents of the group structure at \fI<block#>\fR.
+\fIgroup block#\fR
+Display the contents of the group structure at \fIblock#\fR.
 
 .TP
 \fIhelp, ?\fR
@@ -70,11 +70,11 @@ Print the list of commands understood by \fBdebugfs.ocfs2\fR.
 Change the current working directory of the \fBdebugfs.ocfs2\fR process to the \fIdirectory\fR on the native filesystem.
 
 .TP
-\fIlogdump <node#>\fR
-Display the contents of the journal for node \fI<node#>\fR.
+\fIlogdump node#\fR
+Display the contents of the journal for node \fInode#\fR.
 
 .TP
-\fIls [-l] filespec\fR
+\fIls [-l] \fIfilespec\fR
 Print the listing  of the files in the directory \fIfilespec\fR. The \fI-l\fR flag will list files in the long format.
 
 .TP
@@ -105,7 +105,7 @@ Display the contents of the super block.
 This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 
 .SH "SEE ALSO"
-.BR ocfs(5)
+.BR ocfs2(8)
 
 .SH "AUTHOR"
 Oracle Corporation
