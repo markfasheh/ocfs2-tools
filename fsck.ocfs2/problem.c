@@ -177,7 +177,7 @@ int prompt(o2fsck_state *ost, unsigned flags, unsigned code, const char *fmt,
 		exit(FSCK_ERROR);
 	}
 
-	part = snprintf(output, len, "[%.6u] ", code);
+	part = snprintf(output, len, "[%u] ", code);
 	if (part < 0) {
 		perror("vsnprintf failed when trying to bulid an output "
 		       "buffer");
