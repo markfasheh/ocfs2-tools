@@ -263,6 +263,7 @@ int main(int argc, char **argv)
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
+	initialize_o2cb_error_table();
 
 	ret = read_options(argc, argv);
 	if (ret)

@@ -37,6 +37,7 @@ int ocfs2_check_volume(State *s)
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
+	initialize_o2cb_error_table();
 
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {

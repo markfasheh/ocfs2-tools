@@ -147,4 +147,7 @@ ec	OCFS2_ET_ITERATION_COMPLETE,
 ec	OCFS2_ET_SYMLINK_LOOP,
 	"Too many symbolic links encountered"
 
+ec	OCFS2_ET_BAD_HEARTBEAT_FILE,
+	"Invalid heartbeat file"
+
 	end

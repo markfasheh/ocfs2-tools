@@ -18,6 +18,7 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
+ * Authors: Mark Fasheh
  */
 
 #include "ocfs2_hb_ctl.h"
@@ -130,6 +131,7 @@ int main(int argc, char **argv)
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
+	initialize_o2cb_error_table();
 
 	read_options(argc, argv, &hbo);
 
@@ -157,7 +159,7 @@ int main(int argc, char **argv)
 		break;
 
 	case HB_ACTION_START:
-		err = start_heartbeat(hbo.uuid_str, hbo.dev_str);
+		err = start_heartbeat(hbo.dev_str);
 		if (err) {
 			com_err(progname, err, "while starting heartbeat");
 			ret = -EINVAL;

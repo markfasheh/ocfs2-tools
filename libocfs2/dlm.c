@@ -134,19 +134,18 @@ bail:
 errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs)
 {
 	struct o2dlm_ctxt *dlm_ctxt = NULL;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 	errcode_t ret = 0;
-	char uuid[34];
-	char *p;
-	int i;
 
-	memset(uuid, 0, sizeof(uuid));
-	for (i = 0, p = uuid; i < 16; ++i, p += 2)
-		sprintf(p, "%02X", sb->s_uuid[i]);
-
-	ret = o2dlm_initialize(DEFAULT_DLMFS_PATH, uuid, &dlm_ctxt);
+	ret = ocfs2_start_heartbeat(fs);
 	if (ret)
 		goto bail;
+
+	ret = o2dlm_initialize(DEFAULT_DLMFS_PATH, fs->uuid_str, &dlm_ctxt);
+	if (ret) {
+		/* What to do with an error code? */
+		ocfs2_stop_heartbeat(fs);
+		goto bail;
+	}
 
 	fs->fs_dlm_ctxt = dlm_ctxt;
 
@@ -163,6 +162,8 @@ errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs)
 		goto bail;
 
 	fs->fs_dlm_ctxt = NULL;
+
+	ret = ocfs2_stop_heartbeat(fs);
 
 bail:
 	return ret;

@@ -15,8 +15,8 @@ CFLAGS = $(OPTS) $(WARNINGS)
 
 SBIN_PROGRAMS = sizetest.ocfs2
 
-INCLUDES = -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include
-DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\" -DO2DLM_FLAT_INCLUDES
+INCLUDES = -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
+DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\" -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
 
 CFILES = sizetest.c
 OBJS = $(subst .c,.o,$(CFILES))

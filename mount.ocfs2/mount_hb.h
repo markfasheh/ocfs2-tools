@@ -22,6 +22,6 @@
 
 extern char *progname;
 
-int start_heartbeat(char *hbuuid, char *device);
-int stop_heartbeat(const char *hbuuid);
-int get_uuid(char *dev, char *uuid);
+errcode_t start_heartbeat(char *device);
+errcode_t stop_heartbeat(const char *hbuuid);
+errcode_t get_uuid(char *dev, char *uuid);

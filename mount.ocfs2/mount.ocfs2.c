@@ -186,6 +186,7 @@ int main(int argc, char **argv)
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
+	initialize_o2cb_error_table();
 
 	read_options (argc, argv, &mo);
 
@@ -202,16 +203,16 @@ int main(int argc, char **argv)
 	if (verbose)
 		printf("device=%s hbuuid=%s\n", mo.dev, hbuuid);
 
-	ret = start_heartbeat(hbuuid, mo.dev);
+	ret = start_heartbeat(mo.dev);
 	if (ret < 0) {
-		fprintf(stderr, "%s: Error '%d' while starting heartbeat\n",
-			progname, (int)ret);
+		com_err(progname, ret, "while starting heartbeat");
 		goto bail;
 	}
 
 	ret = mount(mo.dev, mo.dir, "ocfs2", mo.flags, mo.xtra_opts);
 	if (ret) {
-		com_err(progname, errno, "while mounting %s on %s", mo.dev, mo.dir);
+		fprintf(stderr, "error %d while mounting %s on %s", errno, 
+			mo.dev, mo.dir);
 		goto bail;
 	}
 

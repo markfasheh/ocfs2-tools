@@ -190,6 +190,9 @@ errcode_t ocfs2_open(const char *name, int flags,
 {
 	ocfs2_filesys *fs;
 	errcode_t ret;
+	int i, len;
+	char *ptr;
+	unsigned char *raw_uuid;
 
 	ret = ocfs2_malloc0(sizeof(ocfs2_filesys), &fs);
 	if (ret)
@@ -318,6 +321,18 @@ errcode_t ocfs2_open(const char *name, int flags,
 	fs->fs_blocks = ocfs2_clusters_to_blocks(fs, fs->fs_clusters);
 	fs->fs_first_cg_blkno = 
 		OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group;
+
+	raw_uuid = OCFS2_RAW_SB(fs->fs_super)->s_uuid;
+	for (i = 0, ptr = fs->uuid_str; i < MAX_VOL_ID_LENGTH; i++) {
+		/* print with null */
+		len = snprintf(ptr, 3, "%02X", raw_uuid[i]);
+		if (len != 2) {
+			ret = OCFS2_ET_INTERNAL_FAILURE;
+			goto out;
+		}
+		/* then only advace past the last char */
+		ptr += 2;
+	}
 
 	*ret_fs = fs;
 	return 0;

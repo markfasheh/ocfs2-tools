@@ -23,7 +23,7 @@ LIBO2CB_CFLAGS = -I$(TOPDIR)/libo2cb/include
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
-LIBO2CB_CFLAGS = -I$(TOPDIR)/libo2dlm/include
+LIBO2DLM_CFLAGS = -I$(TOPDIR)/libo2dlm/include
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
 LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 
