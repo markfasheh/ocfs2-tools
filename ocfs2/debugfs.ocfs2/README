@@ -1,6 +1,40 @@
-Commands:
+debugfs.ocfs2 is a debugging tool for ocfs2 useful for printing on-disk
+structures in a readable style.  It performs the same task as debugocfs
+does for ocfs1 with one big difference, viz., user interface. debugfs.ocfs2
+uses the debugfs (ext2) style.
 
-open			Open a device
-close			Close a device
-show_super_stats -h	Dumps super block
-quit, q			Exit the program
+Currently, apart from being read-only, it does not provide any directory
+traversal functionality. What that means is that the user is expected to
+provide the inode block number to access any metadata on volume.
+
+"open <device>" opens the device. "stats" shows the super block information.
+"ls <blknum>" lists the directory at the block number. "nodes" prints the
+list of nodes configured on the device. "cat <blknum>" prints the contents
+of the file at that block number. "dump <blknum> <outfile>" copies the contents
+of the file into outfile. "logdump <blknum>" prints the contents of the journal
+file.
+
+One can either use the interactive mode, i.e., issue commands at a prompt, or
+the echo mode. (echo "stats" | debugfs.ocfs2 /dev/sdb1). The echo mode allows
+users to redirect the output to a file (very useful when reading the journal
+file).
+
+The current list of working commands are as follws:
+
+curdev                          Show current device
+open <device>                   Open a device
+close                           Close a device
+show_super_stats, stats [-h]    Show superblock
+show_inode_info, stat <blknum>  Show inode
+pwd                             Print working directory
+ls <blknum>                     List directory
+cat <blknum> [outfile]          Prints or concatenates file to stdout/outfile
+dump <blknum> <outfile>         Dumps file to outfile
+nodes                           List of nodes
+publish                         Publish blocks
+vote                            Vote blocks
+logdump <blknum>                Prints journal file
+help, ?                         This information
+quit, q                         Exit the program
+
+As always, comments  are welcome.
