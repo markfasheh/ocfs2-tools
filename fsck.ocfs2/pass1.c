@@ -209,6 +209,10 @@ errcode_t o2fsck_pass1(ocfs2_filesys *fs, o2fsck_state *ost)
 	for(;;) {
 		ret = ocfs2_get_next_inode(scan, &blkno, buf);
 		if (ret) {
+			/* we don't deal with corrupt inode allocation
+			 * files yet.  They won't be files for much longer.
+			 * In the future the intent is to clean up inode
+			 * allocation if scanning returns an error. */
 			com_err(whoami, ret,
 				"while getting next inode");
 			goto out_close_scan;
