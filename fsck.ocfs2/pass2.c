@@ -182,8 +182,7 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 			   struct ocfs2_dir_entry *dirent, int offset)
 {
 	char *chr = dirent->name;
-	int len = dirent->name_len;
-	int fix = 0;
+	int len = dirent->name_len, fix = 0, ret_flags = 0;
 
 	for(; len-- && (*chr == '/' || *chr == '\0'); chr++) {
 		/* XXX in %s parent name */
@@ -196,7 +195,10 @@ static int fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 				return 0;
 		}
 		*chr = '.';
+		ret_flags = OCFS2_DIRENT_CHANGED;
 	}
+
+	return ret_flags;
 }
 
 /* this could certainly be more clever to issue reads in groups */
