@@ -29,7 +29,7 @@ else
 BLKID_DEPS = $(TOPDIR)/ocfs2console/blkid/libblkid-internal.a
 
 BLKID_CFLAGS = -I$(TOPDIR)/ocfs2console
-BLKID_LIBS = -L$(TOPDIR)/ocfs2console/blkid -lblkid-internal -luuid
+BLKID_LIBS = -L$(TOPDIR)/ocfs2console/blkid -lblkid-internal $(UUID_LIBS)
 endif
 
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES -DG_DISABLE_DEPRECATED
