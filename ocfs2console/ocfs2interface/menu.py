@@ -19,6 +19,9 @@ import gtk
 
 from fsck import fsck_ok
 
+UNMOUNTED_ONLY = 42
+NEED_SELECTION = 43
+
 try:
     stock_about = gtk.STOCK_ABOUT
 except AttributeError:
@@ -38,8 +41,10 @@ help_menu_data = (
 
 if fsck_ok:
     task_menu_fsck_data = (
-        ('/Tasks/Chec_k...',       '<control>K', 'check',    'refresh'),
-        ('/Tasks/_Repair...',      '<control>R', 'repair',   'refresh', True),
+        ('/Tasks/Chec_k...',       '<control>K', 'check',    'refresh',
+         NEED_SELECTION),
+        ('/Tasks/_Repair...',      '<control>R', 'repair',   'refresh',
+         UNMOUNTED_ONLY),
         ('/Tasks/---',             None,         None,       0, '<Separator>')
     )
 else:
@@ -52,8 +57,10 @@ task_menu_head_data = (
 )
 
 task_menu_tail_data = (
-    ('/Tasks/Change _Label...',    None,         'relabel',  'refresh', True),
-    ('/Tasks/Edit _Node Count...', None,         'node_num', 'refresh', True),
+    ('/Tasks/Change _Label...',    None,         'relabel',  'refresh',
+     UNMOUNTED_ONLY),
+    ('/Tasks/Edit _Node Count...', None,         'node_num', 'refresh',
+     UNMOUNTED_ONLY),
     ('/Tasks/---',                 None,         None,       0, '<Separator>'),
     ('/Tasks/_Cluster Config...',  None,         'clconfig')
 )
@@ -76,7 +83,7 @@ class Menu:
 
             path, accel, callback, sub_callback, item_type, extra = data_list
 
-            if item_type is True:
+            if self.is_special(item_type):
                 del item[4:]
 
             if callback:
@@ -108,18 +115,31 @@ class Menu:
         item_factory = gtk.ItemFactory(gtk.MenuBar, '<main>', accel_group)
         item_factory.create_items(self.items)
 
-        menu_bar = item_factory.get_widget('<main>')
+        menubar = item_factory.get_widget('<main>')
 
-        widgets = []
+        self.unmounted_widgets = []
+        self.need_sel_widgets = []
         
         for data in menu_data:
-            if len(data) >= 5 and data[4] is True:
+            if len(data) >= 5 and self.is_special(data[4]):
                 path = data[0].replace('_', '')
-                widgets.append(item_factory.get_item('<main>%s' % path))
+                menuitem = item_factory.get_item('<main>%s' % path)
+
+                widget_list = self.get_special_list(data[4])
+                widget_list.append(menuitem)
 
         self.window.item_factory = item_factory
                   
-        return menu_bar, widgets
+        return menubar, self.need_sel_widgets, self.unmounted_widgets
+
+    def is_special(self, data):
+        return data in (UNMOUNTED_ONLY, NEED_SELECTION)
+
+    def get_special_list(self, data):
+        if data == UNMOUNTED_ONLY:
+            return self.unmounted_widgets
+        elif data == NEED_SELECTION:
+            return self.need_sel_widgets
 
 def main():
     def dummy(*args):

@@ -40,6 +40,8 @@ class PartitionView(gtk.TreeView):
 
         self.filter_entry = None
 
+        self.sel_widgets = []
+
         self.mount_widgets = []
         self.unmount_widgets = []
 
@@ -60,6 +62,8 @@ class PartitionView(gtk.TreeView):
 
     def on_select(self, sel):
         self.selected = True
+
+        self.set_widgets_sensitive(self.sel_widgets, True)
 
         device, mountpoint = self.get_sel_values()
 
@@ -98,6 +102,7 @@ class PartitionView(gtk.TreeView):
             else:
                 return cmp(d1, d2)
 
+        self.set_widgets_sensitive(self.sel_widgets, False)
         self.set_widgets_sensitive(self.mount_widgets, False)
         self.set_widgets_sensitive(self.unmount_widgets, False)
 
@@ -143,6 +148,9 @@ class PartitionView(gtk.TreeView):
         except TypeError:
             widget_list.append(widgets)
 
+    def add_sel_widgets(self, widgets):
+        self.add_to_widget_list(self.sel_widgets, widgets)
+
     def add_mount_widgets(self, widgets):
         self.add_to_widget_list(self.mount_widgets, widgets)
 
@@ -154,7 +162,23 @@ class PartitionView(gtk.TreeView):
             widget.set_sensitive(sensitive)
 
 def main():
-    console = Console()
+    def dummy(*args):
+        gtk.main_quit()
+
+    window = gtk.Window()
+    window.set_size_request(300, 200)
+    window.connect('delete_event', dummy)
+
+    scrl_win = gtk.ScrolledWindow()
+    window.add(scrl_win)
+
+    pv = PartitionView()
+    scrl_win.add(pv)
+
+    window.show_all()
+
+    pv.refresh_partitions()
+
     gtk.main()
 
 if __name__ == '__main__':

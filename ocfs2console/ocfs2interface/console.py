@@ -69,9 +69,10 @@ class Console(gtk.Window):
 
         menu = Menu(self)
 
-        menubar, unmounted_items = menu.get_widgets()
+        menubar, sel_items, unmounted_items = menu.get_widgets()
         vbox.pack_start(menubar, expand=False, fill=False)
 
+        self.pv.add_sel_widgets(sel_items)
         self.pv.add_unmount_widgets(unmounted_items)
 
         toolbar = Toolbar(self)
