@@ -54,7 +54,7 @@
 
 /* Object signatures */
 #define OCFS2_SUPER_BLOCK_SIGNATURE	"OCFSV2"
-#define OCFS2_FILE_ENTRY_SIGNATURE	"INODE01"
+#define OCFS2_INODE_SIGNATURE		"INODE01"
 #define OCFS2_EXTENT_BLOCK_SIGNATURE	"EXBLK01"
 
 /* Compatibility flags */

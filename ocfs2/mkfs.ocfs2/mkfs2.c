@@ -623,7 +623,7 @@ void format_file(system_file_disk_record *rec)
 
 	di = mapping + rec->fe_off;
 	memset(di, 0, blocksize);
-	strcpy (di->i_signature, OCFS2_FILE_ENTRY_SIGNATURE);
+	strcpy (di->i_signature, OCFS2_INODE_SIGNATURE);
 	di->i_generation = 0;
 	di->i_suballoc_node = cpu_to_le16(-1);
 	di->i_suballoc_blkno = cpu_to_le64(rec->fe_off >> blocksize_bits);
