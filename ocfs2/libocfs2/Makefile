@@ -83,6 +83,9 @@ $(CFILES): $(HFILES) $(HFILES_GEN)
 OBJS = $(subst .c,.o,$(CFILES)) \
 	ocfs2_err.o
 
+ocfs2_err.et: ocfs2_err.et.in
+	cd $(TOPDIR) && ./config.status
+
 ocfs2_err.c ocfs2_err.h: ocfs2_err.et
 	compile_et ocfs2_err.et
 
