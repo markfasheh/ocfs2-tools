@@ -31,7 +31,7 @@ endif
 CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
-BIN_PROGRAMS += unix_io openfs inode extents dir_iterate
+BIN_PROGRAMS += unix_io openfs inode extents dir_iterate lookup
 
 unix_io: unix_io.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
@@ -57,6 +57,11 @@ dir_iterate: dir_iterate.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
 		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
+
+lookup: lookup.c libocfs2.a
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
+		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
+		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 endif
 CFILES = 		\
 	unix_io.c	\
@@ -68,7 +73,8 @@ CFILES = 		\
 	mkjournal.c	\
 	extents.c	\
 	dirblock.c	\
-	dir_iterate.c
+	dir_iterate.c	\
+	lookup.c
 
 HFILES =				\
 	include/jfs_user.h		\

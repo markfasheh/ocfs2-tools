@@ -188,5 +188,9 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 					       void	*priv_data),
 				   void *priv_data);
 
+errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir,
+		       const char *name, int namelen, char *buf,
+		       uint64_t *inode);
+
 #endif  /* _FILESYS_H */
 

@@ -10,4 +10,5 @@ openfs
 inode
 extents
 dir_iterate
+lookup
 ocfs2_err.et

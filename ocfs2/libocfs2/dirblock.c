@@ -77,7 +77,7 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
 		dirent = (struct ocfs2_dir_entry *) p;
 #ifdef OCFS2_ENABLE_SWAPFS
 		if (do_swap) {
-			dirent->inode = le32_to_cpu(dirent->inode);
+			dirent->inode = le64_to_cpu(dirent->inode);
 			dirent->rec_len = le16_to_cpu(dirent->rec_len);
 		}
 #endif
@@ -125,12 +125,12 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
 		if ((dirent->rec_len < 8) ||
 		    (dirent->rec_len % 4)) {
 			ocfs2_free(&buf);
-			return (EXT2_ET_DIR_CORRUPTED);
+			return (OCFS2_ET_DIR_CORRUPTED);
 		}
 		p += dirent->rec_len;
 		if (do_swap) {
-			dirent->inode = ext2fs_swab32(dirent->inode);
-			dirent->rec_len = ext2fs_swab16(dirent->rec_len);
+			dirent->inode = cpu_to_le64(dirent->inode);
+			dirent->rec_len = cpu_to_le16(dirent->rec_len);
 		}
 	}
  	retval = io_write_block(fs->fs_io, block, 1, buf);
