@@ -398,8 +398,8 @@ struct ocfs2_bitmap_region *ocfs2_bitmap_lookup(ocfs2_bitmap *bitmap,
 		br = rb_entry(parent, struct ocfs2_bitmap_region, br_node);
 
 		if (bitno + total_bits <= br->br_start_bit) {
+			last_left = parent;
 			p = &(*p)->rb_left;
-			last_left = *p;
 			br = NULL;
 		} else if (bitno >= (br->br_start_bit + br->br_total_bits)) {
 			p = &(*p)->rb_right;

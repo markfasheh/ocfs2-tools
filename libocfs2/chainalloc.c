@@ -98,6 +98,9 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 	if (cr->cr_ag->bg_size != ocfs2_group_bitmap_size(fs->fs_blocksize))
 		goto out_free_cr;
 
+	if (gd_blkno == OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group)
+		gd_blkno = 0;
+
 	cb->cb_errcode = ocfs2_bitmap_alloc_region(bitmap,
 						   gd_blkno,
 						   cr->cr_ag->bg_bits,
