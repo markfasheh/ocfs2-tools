@@ -18,6 +18,11 @@ OBJS = $(subst .c,.o,$(CFILES))
 
 DIST_FILES = $(CFILES) $(HFILES) README
 
+DIST_RULES = dist-subdircreate
+
+dist-subdircreate:
+	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
+
 debugfs.ocfs2: $(OBJS)
 	$(LINK) $(GLIB_LIBS) -lreadline -lncurses
 
