@@ -21,7 +21,7 @@ def set_props(obj, **kwargs):
     for k, v in kwargs.items():
         obj.set_property(k, v)
 
-suffixes = ['K', 'MB', 'GB', 'TB']
+suffixes = ('K', 'MB', 'GB', 'TB')
 
 def format_bytes(bytes, show_bytes=False):
     if bytes == 1:
@@ -45,7 +45,8 @@ def error_box(parent, msg):
     dialog = gtk.MessageDialog(parent=parent,
                                flags=gtk.DIALOG_DESTROY_WITH_PARENT,
                                type=gtk.MESSAGE_ERROR,
-                               buttons=gtk.BUTTONS_OK, message_format=msg)
+                               buttons=gtk.BUTTONS_OK,
+                               message_format=msg)
     dialog.run()
     dialog.destroy()
 
@@ -77,4 +78,10 @@ def query_text(parent, prompt):
 
     dialog.destroy()
 
-    return text    
+    return text
+
+try:
+    set_alt_button_order = gtk.Dialog.set_alternative_button_order
+except AttributeError:
+    def set_alt_button_order(dialog, new_order):
+        pass

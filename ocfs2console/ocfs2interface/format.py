@@ -19,7 +19,7 @@ import gtk
 
 import ocfs2
 
-from guiutil import set_props, error_box, format_bytes
+from guiutil import set_props, error_box, format_bytes, set_alt_button_order
 from process import Process
 
 from fswidgets import BaseCombo, NumNodes, VolumeLabel, ClusterSize, BlockSize
@@ -62,6 +62,8 @@ def format_partition(parent, device):
     dialog = gtk.Dialog(parent=parent, title='Format',
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                                  gtk.STOCK_OK,     gtk.RESPONSE_OK))
+
+    set_alt_button_order(dialog, (gtk.RESPONSE_OK, gtk.RESPONSE_CANCEL))
 
     table = gtk.Table(rows=5, columns=2)
     set_props(table, row_spacing=4,
