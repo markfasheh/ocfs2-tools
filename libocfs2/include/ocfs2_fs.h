@@ -367,7 +367,7 @@ typedef struct _ocfs2_dinode {
 					   belongs to */
 	__u16 i_suballoc_bit;		/* Bit offset in suballocater
 					   block group */
-/*10*/	ocfs2_disk_lock i_disk_lock;	/* Lock structure */
+	__u32 i_reserved0;
 /*14*/	__u32 i_clusters;		/* Cluster count */
 /*18*/	__u32 i_uid;			/* Owner UID */
 	__u32 i_gid;			/* Owning GID */
@@ -383,8 +383,8 @@ typedef struct _ocfs2_dinode {
 	__u64 i_last_eb_blk;		/* Pointer to last extent
 					   block */
 /*60*/	__u32 i_fs_generation;		/* Generation per fs-instance */
-	__u32 i_reserved0;		/* Generation per fs-instance */
-/*68*/	__u64 i_reserved1[10];
+	__u32 i_reserved1;		/* Generation per fs-instance */
+/*68*/	__u64 i_reserved2[10];
 /*B8*/	union {
 		__u64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
@@ -397,6 +397,11 @@ typedef struct _ocfs2_dinode {
 			__u32 i_total;	/* Total bits (clusters)
 					   available */
 		} bitmap1;
+		struct {		/* Info for journal system
+					   inodes */
+			__u32 i_flags;	/* Mounted, version, etc.    */
+			__u32 i_j_pad;
+		} journal1;
 	} id1;				/* Inode type dependant 1 */
 /*C0*/	union {
 		ocfs2_super_block i_super;

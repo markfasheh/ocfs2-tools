@@ -28,6 +28,8 @@
 
 errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
 				 int *replayed);
+errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
+					int *should);
 
 #endif /* __O2FSCK_JOURNAL_H__ */
 

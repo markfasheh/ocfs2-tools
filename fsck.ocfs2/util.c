@@ -102,55 +102,24 @@ out:
 	return ret;
 }
 
-errcode_t o2fsck_read_publish(o2fsck_state *ost)
+#define BITCOUNT(x)     (((BX_(x)+(BX_(x)>>4)) & 0x0F0F0F0F) % 255)
+#define BX_(x)          ((x) - (((x)>>1)&0x77777777) \
+			     - (((x)>>2)&0x33333333) \
+			     - (((x)>>3)&0x11111111))
+unsigned long o2fsck_bitcount(void *bytes, size_t len)
 {
-	uint16_t i, max_nodes;
-	char *hb_buf = NULL;
-	uint64_t hb_ino;
-	errcode_t ret;
-	int buflen;
-	char *whoami = "read_publish";
+	uint32_t val;
+	unsigned long total = 0;
+	size_t this;
 
-	if (ost->ost_publish)
-		ocfs2_free(&ost->ost_publish);
-
-	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
-
-	ret = ocfs2_malloc0(sizeof(ocfs_publish) * max_nodes,
-			    &ost->ost_publish);
-	if (ret) {
-		com_err(whoami, ret, "while allocating an array to store each "
-			"node's publish block");
-		goto out;
+	while(len) {
+		val = 0;
+		this = ocfs2_min(len, sizeof(val));
+		memcpy(&val, bytes, this);
+		total += BITCOUNT(val);
+		len -= this;
 	}
-
-	ret = ocfs2_lookup_system_inode(ost->ost_fs, HEARTBEAT_SYSTEM_INODE,
-					0, &hb_ino);
-	if (ret) {
-		com_err(whoami, ret, "while looking up the dlm system inode");
-		goto out;
-	}
-
-	ret = ocfs2_read_whole_file(ost->ost_fs, hb_ino, &hb_buf, &buflen);
-	if (ret) {
-		com_err(whoami, ret, "while reading dlm file");
-		goto out;
-	}
-
-	/* I have no idea what that magic math is really doing. */
-	for (i = 0; i < max_nodes; i++) {
-		int b_bits = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_blocksize_bits;
-
-		memcpy(&ost->ost_publish[i],
-		       hb_buf + ((2 + 4 + max_nodes + i) << b_bits),
-		       sizeof(ocfs_publish));
-		if (ost->ost_publish[i].mounted)
-			ost->ost_stale_mounts = 1;
-	}
-out:
-	if (ret && ost->ost_publish)
-		ocfs2_free(&ost->ost_publish);
-	if (hb_buf)
-		ocfs2_free(&hb_buf);
-	return ret;
+	return total;
 }
+#undef BITCOUNT
+#undef BX_

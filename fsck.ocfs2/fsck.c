@@ -347,10 +347,6 @@ static errcode_t open_and_check(o2fsck_state *ost, char *filename,
 	if (ret)
 		goto out;
 
-	ret = o2fsck_read_publish(ost);
-	if (ret)
-		goto out;
-
 out:
 	return ret;
 }
@@ -359,11 +355,15 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 				       int open_flags, uint64_t blkno,
 				       uint64_t blksize)
 {	
-	int replayed = 0;
+	int replayed = 0, should = 0;
 	errcode_t ret = 0;
 	char *whoami = __FUNCTION__;
 
-	if (!ost->ost_stale_mounts)
+	ret = o2fsck_should_replay_journals(ost->ost_fs, ost->ost_publish,
+					    &should);
+	if (ret)
+		goto out;
+	if (!should)
 		goto out;
 
 	if (!(ost->ost_fs->fs_flags & OCFS2_FLAG_RW)) {

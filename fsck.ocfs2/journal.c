@@ -504,6 +504,57 @@ out:
 	return err;
 }
 
+errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
+					int *should)
+{
+	uint16_t i, max_nodes;
+	ocfs2_dinode *di;
+	char *buf = NULL;
+	uint64_t blkno;
+	errcode_t ret;
+
+	*should = 0;
+	max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating room to read journal "
+			    "blocks");
+		goto out;
+	}
+
+	di = (ocfs2_dinode *)buf;
+
+	for (i = 0; i < max_nodes; i++) {
+		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
+						&blkno);
+		if (ret) {
+			com_err(whoami, ret, "while looking up the journal "
+				"inode for node %d", i);
+			goto out;
+		}
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret) {
+			com_err(whoami, ret, "while reading cached inode "
+				"%"PRIu64" for node %d's journal", blkno, i);
+			goto out;
+		}
+		
+		verbosef("node %d JOURNAL_DIRTY_FL: %d\n", i,
+			 di->id1.journal1.i_flags & OCFS2_JOURNAL_DIRTY_FL);
+
+		if (di->id1.journal1.i_flags & OCFS2_JOURNAL_DIRTY_FL) 
+			*should = 1;
+	}
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+	
+}
+
 /* Try and replay the nodes journals if they're dirty.  This only returns
  * a non-zero error if the caller should not continue. */
 errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, ocfs_publish *pub,
