@@ -47,11 +47,11 @@ INSTALL_RULES = install-sbin-links install-man-links
 # are we still going to do argv[0] tricks?
 ##########################
 
-install-sbin-links: install-sbin-programs
-	cd $(DESTDIR)$(sbindir) \
-	&& rm -f mkfs.ocfs2 resizeocfs \
-	&& $(LN_S) mkfs.ocfs mkfs.ocfs2 \
-	&& $(LN_S) tuneocfs resizeocfs
+#install-sbin-links: install-sbin-programs
+#	cd $(DESTDIR)$(sbindir) \
+#	&& rm -f mkfs.ocfs2 resizeocfs \
+#	&& $(LN_S) mkfs.ocfs mkfs.ocfs2 \
+#	&& $(LN_S) tuneocfs resizeocfs
 
 #install-man-links: install-mans
 #	cd $(DESTDIR)$(mandir)/man8 \
