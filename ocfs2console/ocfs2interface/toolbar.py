@@ -18,9 +18,9 @@
 import gtk
 
 toolbar_data = (
-    ('Mount', gtk.STOCK_EXECUTE, 'mount'),
-    ('Unmount', gtk.STOCK_STOP, 'unmount'),
-    ('Refresh', gtk.STOCK_REFRESH, 'refresh')
+    ('Mount',   gtk.STOCK_EXECUTE, 'mount',   'refresh'),
+    ('Unmount', gtk.STOCK_STOP,    'unmount', 'refresh'),
+    ('Refresh', gtk.STOCK_REFRESH, 'refresh',  None)
 )
 
 class Toolbar:
@@ -32,13 +32,20 @@ class Toolbar:
         items = {}
 
         for data in toolbar_data:
-            label, stock_id, callback = data
+            label, stock_id, callback, sub_callback = data
 
             def make_cb():
                 cb = getattr(self.window, callback)
 
-                def cb_func(w):
-                    cb()
+                if sub_callback:
+                    sub_cb = getattr(self.window, sub_callback)
+
+                    def cb_func(w):
+                        cb()
+                        sub_cb()
+                else:
+                    def cb_func(w):
+                        cb()
 
                 return cb_func
 
