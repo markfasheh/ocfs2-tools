@@ -171,8 +171,10 @@ static void do_open (char **args)
 {
 	char *dev = args[1];
 	ocfs2_super_block *sb;
+	char *buf = NULL;
 	__u32 len;
 	char raw_dev[255];
+	ocfs2_dinode *inode;
 
 	if (gbls.device)
 		do_close (NULL);
@@ -231,7 +233,22 @@ static void do_open (char **args)
 	/* load sysfiles blknums */
 	read_sysdir (gbls.dev_fd, (char *)gbls.sysdirin);
 
+	/* get the max clusters/blocks */
+	len = 1 << gbls.blksz_bits;
+	if (!(buf = memalign(len, len)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	if (!read_inode (gbls.dev_fd, gbls.gblbm_blkno, buf, len)) {
+		inode = (ocfs2_dinode *)buf;
+		if (inode->i_flags & OCFS2_BITMAP_FL) {
+			gbls.max_clusters = inode->id1.bitmap1.i_total;
+			gbls.max_blocks = gbls.max_clusters <<
+					(gbls.clstrsz_bits - gbls.blksz_bits);
+		}
+	}
+
 bail:
+	safefree(buf);
 	return ;
 }					/* do_open */
 
@@ -296,6 +313,10 @@ static void do_ls (char **args)
 
 	if (opts) {
 		blknum = atoi(opts);
+		if (blknum > gbls.max_blocks) {
+			printf("block number is too large\n");
+			goto bail;
+		}
 		if ((read_inode (gbls.dev_fd, blknum, buf, len)) == -1) {
 			printf("Not an inode\n");
 			goto bail;
@@ -497,6 +518,10 @@ static void do_inode (char **args)
 
 	if (opts) {
 		blknum = atoi(opts);
+		if (blknum > gbls.max_blocks) {
+			printf("block number is too large\n");
+			goto bail;
+		}
 		if ((read_inode (gbls.dev_fd, blknum, buf, buflen)) == -1) {
 			printf("Not an inode\n");
 			goto bail;

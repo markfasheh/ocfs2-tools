@@ -111,7 +111,7 @@ int read_inode (int fd, __u64 blknum, char *buf, int buflen)
 	off = blknum << gbls.blksz_bits;
 
 	if ((pread64(fd, buf, buflen, off)) == -1)
-		DBGFS_FATAL("%s", strerror(errno));
+		DBGFS_FATAL("%s off=%llu", strerror(errno), off);
 
 	inode = (ocfs2_dinode *)buf;
 
@@ -240,6 +240,7 @@ void read_sysdir (int fd, char *sysdir)
 	struct ocfs2_dir_entry *rec;
 	GArray *dirarr = NULL;
 	char *dlm = ocfs2_system_inode_names[DLM_SYSTEM_INODE];
+	char *gblbm = ocfs2_system_inode_names[GLOBAL_BITMAP_SYSTEM_INODE];
 	unsigned int i, j;
 	char *journal[256];
 	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
@@ -268,6 +269,10 @@ void read_sysdir (int fd, char *sysdir)
 		rec = &(g_array_index(dirarr, struct ocfs2_dir_entry, i));
 		if (!strncmp (rec->name, dlm, strlen(dlm))) {
 			gbls.dlm_blkno = rec->inode;
+			continue;
+		}
+		if (!strncmp (rec->name, gblbm, strlen(gblbm))) {
+			gbls.gblbm_blkno = rec->inode;
 			continue;
 		}
 		for (j = 0; j < sb->s_max_nodes; ++j) {
