@@ -65,6 +65,7 @@ CFILES = 		\
 
 HFILES =				\
 	include/jfs_user.h		\
+	include/jfs_compat.h		\
 	include/kernel-jbd.h		\
 	include/kernel-list.h		\
 	include/ocfs2_fs.h		\
