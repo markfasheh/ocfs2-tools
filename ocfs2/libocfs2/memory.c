@@ -35,11 +35,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <et/com_err.h>
-#include "ocfs2_err.h"
-
-#include "unix_io.h"
-#include "memory.h"
+#include "filesys.h"
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr)
 {

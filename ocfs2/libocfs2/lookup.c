@@ -30,24 +30,7 @@
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
 #define _LARGEFILE64_SOURCE
 
-#include <stdio.h>
-#include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <time.h>
-
-#include <linux/types.h>
-
-#include <et/com_err.h>
-#include "ocfs2_err.h"
-
-#include "unix_io.h"
-#include "memory.h"
-#include "byteorder.h"
-
-#include "ocfs2_fs.h"
 
 #include "filesys.h"
 
@@ -102,6 +85,7 @@ errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir,
 
 
 #ifdef DEBUG_EXE
+#include <stdlib.h>
 #include <getopt.h>
 
 static uint64_t read_number(const char *num)

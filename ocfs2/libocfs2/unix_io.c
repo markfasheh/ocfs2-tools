@@ -31,11 +31,8 @@
 #define _XOPEN_SOURCE 600  /* Triggers ISOC99, UNIX98 in features.h */
 #define _LARGEFILE64_SOURCE
 
-#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
-#include <stdint.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -44,16 +41,6 @@
 #include <sys/resource.h>
 #include <sys/utsname.h>
 #endif
-
-#include <linux/types.h>
-
-#include <et/com_err.h>
-#include "ocfs2_err.h"
-
-#include "unix_io.h"
-#include "memory.h"
-
-#include "ocfs2_fs.h" /* For OCFS2_MIN_BLOCKSIZE */
 
 #include "filesys.h"
 

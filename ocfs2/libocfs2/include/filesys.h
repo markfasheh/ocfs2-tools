@@ -27,7 +27,34 @@
 #ifndef _FILESYS_H
 #define _FILESYS_H
 
+#ifndef _XOPEN_SOURCE
+# define _XOPEN_SOURCE 600
+#endif
+#ifndef _LARGEFILE64_SOURCE
+# define _LARGEFILE64_SOURCE
+#endif
+
+#include <stdio.h>
 #include <stdint.h>
+#include <sys/stat.h>
+
+#include <linux/types.h>
+
+#include <et/com_err.h>
+
+#include "unix_io.h"
+#include "memory.h"
+#include "byteorder.h"
+
+#if OCFS2_FLAT_INCLUDES
+#include "ocfs2_err.h"
+
+#include "ocfs2_fs.h"
+#else
+#include <ocfs2/ocfs2_err.h>
+
+#include <ocfs2/ocfs2_fs.h>
+#endif
 
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		OCFS2_FEATURE_INCOMPAT_SUPP
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP

@@ -30,32 +30,16 @@
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
 #define _LARGEFILE64_SOURCE
 
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <errno.h>
 
-/* I hate glibc and gcc ... this is a hack that will go away anyway */
+/* I hate glibc and gcc */
 #ifndef ULLONG_MAX
 # define ULLONG_MAX 18446744073709551615ULL
 #endif
 
-#include <linux/types.h>
-
-#include <et/com_err.h>
-#include "ocfs2_err.h"
-
-#include "unix_io.h"
-#include "memory.h"
-#include "byteorder.h"
-
-#include "ocfs2_fs.h"
-#include "ocfs1_fs_compat.h"
-
 #include "filesys.h"
+
+#include "ocfs1_fs_compat.h"
 
 
 static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)
@@ -283,6 +267,7 @@ out:
 #ifdef DEBUG_EXE
 #include <getopt.h>
 #include <limits.h>
+#include <stdlib.h>
 
 static int64_t read_number(const char *num)
 {

@@ -30,29 +30,14 @@
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
 #define _LARGEFILE64_SOURCE
 
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <errno.h>
-
-#include <linux/types.h>
-
-#include <et/com_err.h>
-#include "ocfs2_err.h"
-
-#include "jfs_user.h"
-
-#include "unix_io.h"
-#include "memory.h"
-#include "byteorder.h"
-
-#include "ocfs2_fs.h"
-#include "ocfs1_fs_compat.h"
 
 #include "filesys.h"
+
+/* jfs_compat.h defines these */
+#undef cpu_to_be32
+#undef be32_to_cpu
+#include "jfs_user.h"
 
 
 /*
