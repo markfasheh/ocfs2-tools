@@ -236,7 +236,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:npuvy")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:npuvVy")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -291,6 +291,10 @@ int main(int argc, char **argv)
 			case 'v':
 				verbose = 1;
 				break;
+
+			case 'V':
+				printf("$URL$ $Rev$\n");
+				exit(FSCK_USAGE);
 
 			default:
 				fsck_mask |= FSCK_USAGE;
