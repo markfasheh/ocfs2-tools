@@ -164,17 +164,22 @@ main(int argc, char **argv)
 
 		cmd = g_strdup_printf("mkdir -p %s", g_shell_quote(cdsl_path));
 
-		if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err, &ret,
-					       &error)) {
-			fprintf(stderr, "%s: Couldn't mkdir: %s\n", s->progname,
-				error->message);
-			exit(1);
-		}
+		if (s->verbose || s->dry_run)
+			printf("%s\n", cmd);
 
-		if (ret != 0) {
-			fprintf(stderr, "%s: mkdir error: %s\n", s->progname,
-				cmd_err);
-			exit(1);
+		if (!s->dry_run) {
+			if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err,
+						       &ret, &error)) {
+				fprintf(stderr, "%s: Couldn't mkdir: %s\n",
+					s->progname, error->message);
+				exit(1);
+			}
+
+			if (ret != 0) {
+				fprintf(stderr, "%s: mkdir error: %s\n",
+					s->progname, cmd_err);
+				exit(1);
+			}
 		}
 
 		g_free(cmd);
@@ -193,10 +198,16 @@ main(int argc, char **argv)
 			}
 		}
 
-		if (rename(s->fullname, cdsl_full) != 0) {
-			fprintf(stderr, "%s: could not rename %s: %s\n",
-				s->progname, s->filename, g_strerror(errno));
-			exit(1);
+		if (s->verbose || s->dry_run)
+			printf("mv %s %s\n", s->fullname, cdsl_full);
+
+		if (!s->dry_run) {
+			if (rename(s->fullname, cdsl_full) != 0) {
+				fprintf(stderr, "%s: could not rename %s: %s\n",
+					s->progname, s->filename,
+					g_strerror(errno));
+				exit(1);
+			}
 		}
 
 		g_free (cdsl_full);
@@ -205,10 +216,16 @@ main(int argc, char **argv)
 
 	target = g_build_filename(cdsl_target(s, path), s->filename, NULL);
 
-	if (symlink(target, s->fullname) != 0) {
-		fprintf(stderr, "%s: could not symlink %s to %s: %s\n",
-			s->progname, target, s->fullname, g_strerror(errno));
-		exit(1);
+	if (s->verbose || s->dry_run)
+		printf("ln -s %s %s\n", target, s->fullname);
+
+	if (!s->dry_run) {
+		if (symlink(target, s->fullname) != 0) {
+			fprintf(stderr, "%s: could not symlink %s to %s: %s\n",
+				s->progname, target, s->fullname,
+				g_strerror(errno));
+			exit(1);
+		}
 	}
 
 	g_free(target);
@@ -482,15 +499,22 @@ delete(State *s, const char *path)
 	cmd = g_strdup_printf("rm -rf %s", quoted);
 	g_free(quoted);
 
-	if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err, &ret, &error)) {
-		fprintf(stderr, "%s: Couldn't rm: %s\n", s->progname,
-			error->message);
-		exit(1);
-	}
+	if (s->verbose || s->dry_run)
+		printf("%s\n", cmd);
 
-	if (ret != 0) {
-		fprintf(stderr, "%s: rm error: %s\n", s->progname, cmd_err);
-		exit(1);
+	if (!s->dry_run) {
+		if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err, &ret,
+					       &error)) {
+			fprintf(stderr, "%s: Couldn't rm: %s\n", s->progname,
+				error->message);
+			exit(1);
+		}
+
+		if (ret != 0) {
+			fprintf(stderr, "%s: rm error: %s\n", s->progname,
+				cmd_err);
+			exit(1);
+		}
 	}
 
 	g_free(cmd);
