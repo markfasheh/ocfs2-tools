@@ -265,12 +265,16 @@ int inodestr_to_inode(char *str, uint64_t *blkno)
  * This routine is used whenever a command needs to turn a string into
  * an inode.
  *
+ * Code based on similar function in e2fsprogs-1.32/debugfs/util.c
+ *
  * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
  * redistributed under the terms of the GNU Public License.
  */
 errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
 			  uint64_t cwd_blkno, char *str, uint64_t *blkno)
 {
+	uint64_t root = root_blkno;
+
 	/*
 	 * If the string is of the form <ino>, then treat it as an
 	 * inode number.
@@ -279,12 +283,12 @@ errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
 		return 0;
 
 	/* // is short for system directory */
-	if (!strcmp(str, "//")) {
-		*blkno = fs->fs_sysdir_blkno;
-		return 0;
+	if (!strncmp(str, "//", 2)) {
+		root = fs->fs_sysdir_blkno;
+		++str;
 	}
 
-	return ocfs2_namei(fs, root_blkno, cwd_blkno, str, blkno);
+	return ocfs2_namei(fs, root, cwd_blkno, str, blkno);
 }
 
 /*

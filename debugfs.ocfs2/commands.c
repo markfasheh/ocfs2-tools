@@ -170,7 +170,7 @@ static int process_inode_args(char **args, uint64_t *blkno)
 		return -1;
 
 	if (!opts) {
-		fprintf(stderr, "usage: %s <filepath>\n", args[0]);
+		fprintf(stderr, "usage: %s <filespec>\n", args[0]);
 		return -1;
 	}
 
@@ -241,12 +241,7 @@ static int process_inodestr_args(char **args, uint64_t *blkno)
 	if (check_device_open())
 		return -1;
 
-	if (!args[1]) {
-		fprintf(stderr, "usage: %s <inode#>\n", args[0]);
-		return -1;
-	}
-
-	if (inodestr_to_inode(args[1], blkno)) {
+	if (!args[1] || inodestr_to_inode(args[1], blkno)) {
 		fprintf(stderr, "usage: %s <inode#>\n", args[0]);
 		return -1;
 	}
@@ -277,9 +272,9 @@ static int get_nodenum(char **args, uint16_t *nodenum)
 			else
 				fprintf(stderr, "%s: Invalid node number\n", args[0]);
 		} else
-			fprintf(stderr, "usage: %s [nodenum]\n", args[0]);
+			fprintf(stderr, "usage: %s <nodenum>\n", args[0]);
 	} else
-		fprintf(stderr, "usage: %s [nodenum]\n", args[0]);
+		fprintf(stderr, "usage: %s <nodenum>\n", args[0]);
 
 	return -1;
 }
@@ -386,7 +381,7 @@ static void do_open (char **args)
 		do_close (NULL);
 
 	if (dev == NULL) {
-		fprintf (stderr, "usage: %s [device]\n", args[0]);
+		fprintf (stderr, "usage: %s <device>\n", args[0]);
 		return ;
 	}
 
@@ -570,15 +565,15 @@ static void do_help (char **args)
 	printf ("open <device>\t\t\t\tOpen a device\n");
 	printf ("close\t\t\t\t\tClose a device\n");
 	printf ("stats [-h]\t\t\t\tShow superblock\n");
-	printf ("stat <filepath>\t\t\t\tShow inode\n");
+	printf ("stat <filespec>\t\t\t\tShow inode\n");
 //	printf ("pwd\t\t\t\tPrint working directory\n");
-	printf ("ls [-l] <filepath>\t\t\tList directory\n");
-	printf ("cd <filepath>\t\t\t\tChange directory\n");
-	printf ("lcd <filepath>\t\t\t\tChange directory on a mounted fs\n");
-	printf ("chroot <filepath>\t\t\tChange root\n");
-	printf ("cat <filepath>\t\t\t\tPrints file on stdout\n");
-	printf ("dump [-p] <filepath> <outfile>\t\tDumps file to outfile on a mounted fs\n");
-	printf ("rdump [-v] <filepath> <outdir>\t\tRecursively dumps from src to a dir on a mounted fs\n");
+	printf ("ls [-l] <filespec>\t\t\tList directory\n");
+	printf ("cd <filespec>\t\t\t\tChange directory\n");
+	printf ("lcd <filespec>\t\t\t\tChange directory on a mounted fs\n");
+	printf ("chroot <filespec>\t\t\tChange root\n");
+	printf ("cat <filespec>\t\t\t\tPrints file on stdout\n");
+	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
+	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted fs\n");
 	printf ("logdump <node#>\t\t\t\tPrints journal file for the node\n");
 	printf ("extent <inode#>\t\t\t\tShow extent block\n");
 	printf ("group <inode#>\t\t\t\tShow chain group\n");
@@ -750,7 +745,7 @@ static void do_dump (char **args)
 	uint64_t blkno;
 	int preserve = 0;
 	int ind;
-	const char *dump_usage = "Usage: dump [-p] <file> <output_file>";
+	const char *dump_usage = "usage: dump [-p] <filespec> <out_file>";
 	char *in_fn;
 	char *out_fn;
 	errcode_t ret;
@@ -774,7 +769,7 @@ static void do_dump (char **args)
 	out_fn = args[ind + 1];
 
 	if (!in_fn || !out_fn) {
-		fprintf(stderr, "usage: dump <file> <output_file>\n");
+		fprintf(stderr, "%s\n", dump_usage);
 		return ;
 	}
 
