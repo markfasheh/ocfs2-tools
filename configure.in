@@ -1,4 +1,4 @@
-AC_INIT(libocfs/Makefile)
+AC_INIT(load_ocfs/load_ocfs)
 
 PACKAGE=ocfs-tools
 VERSION=1.1
