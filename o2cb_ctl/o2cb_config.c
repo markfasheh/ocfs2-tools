@@ -105,7 +105,7 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     rc = -ERANGE;
     if ((val == ULONG_MAX) || (val >= INT_MAX))
         goto out_error;
-    node->n_number = val;
+    o2cb_node_set_number(node, val);
 
     rc = -EINVAL;
     addr = j_config_get_attribute(cfs, "ip_address");
@@ -662,3 +662,9 @@ void o2cb_node_set_port(O2CBNode *node, guint port)
     node->n_port = port;
 }  /* o2cb_node_set_port() */
 
+void o2cb_node_set_number(O2CBNode *node, guint num)
+{
+    g_return_if_fail(node != NULL);
+
+    node->n_number = num;
+}  /* o2cb_node_set_number() */

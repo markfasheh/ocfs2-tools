@@ -62,6 +62,7 @@ gint o2cb_node_set_name(O2CBNode *node, const gchar *name);
 gint o2cb_node_set_ip_string(O2CBNode *node, const gchar *addr);
 gint o2cb_node_set_ipv4(O2CBNode *node, struct in_addr *addr);
 void o2cb_node_set_port(O2CBNode *node, guint port);
+void o2cb_node_set_number(O2CBNode *node, guint num);
 
 #endif  /* _O2CB_CONFIG_H */
 

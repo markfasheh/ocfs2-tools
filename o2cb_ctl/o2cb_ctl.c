@@ -221,6 +221,8 @@ static const gchar *attr_string(O2CBContext *ctxt,
                 return def_value;
             return attr->oa_value;
         }
+
+        list = list->next;
     }
 
     return def_value;
@@ -265,6 +267,8 @@ static gboolean attr_boolean(O2CBContext *ctxt,
                     attr_name, attr->oa_value);
             return -EINVAL;
         }
+
+        list = list->next;
     }
 
     return def_value;
@@ -825,7 +829,7 @@ static gint run_create_clusters(O2CBContext *ctxt)
                 if (err != O2CB_ET_CLUSTER_EXISTS)
                 {
                     rc = -EIO;
-                    com_err(PROGNAME, err, "while setting cluster name");
+                    com_err(PROGNAME, err, "while creating cluster");
                     break;
                 }
             }
@@ -838,6 +842,151 @@ static gint run_create_clusters(O2CBContext *ctxt)
 
     return rc;
 }
+
+static gint run_create_nodes(O2CBContext *ctxt)
+{
+    gint rc;
+    O2CBCluster *cluster;
+    O2CBNode *node;
+    errcode_t err;
+    long num;
+    gchar *ptr;
+    gchar *name, *number, *local;
+    const gchar *cluster_name, *ip_address, *ip_port;
+
+    rc = -EINVAL;
+
+    if (ctxt->oc_objects->next)
+    {
+        fprintf(stderr,
+                PROGNAME ": Cannot create more than one node at a time\n");
+        goto out;
+    }
+
+    cluster_name = attr_string(ctxt, "cluster", NULL);
+    if (!cluster_name || !*cluster_name)
+    {
+        fprintf(stderr,
+                PROGNAME ": \"cluster\" attribute required to create a node\n");
+        goto out;
+    }
+
+    ip_address = attr_string(ctxt, "ip_address", NULL);
+    if (!ip_address || !*ip_address)
+    {
+        fprintf(stderr,
+                PROGNAME ": \"ip_address\" attribute required to create a node\n");
+        goto out;
+    }
+
+    ip_port = attr_string(ctxt, "ip_port", NULL);
+    if (!ip_port || !*ip_port)
+    {
+        fprintf(stderr,
+                PROGNAME ": \"ip_port\" attribute required to create a node\n");
+        goto out;
+    }
+    
+    rc = 0;
+
+    name = ctxt->oc_objects->data;
+
+    cluster = o2cb_config_get_cluster_by_name(ctxt->oc_config,
+                                              cluster_name);
+    if (!cluster)
+    {
+        rc = -ENOENT;
+        fprintf(stderr,
+                PROGNAME ": Cluster \"%s\" does not exist\n",
+                cluster_name);
+        goto out;
+    }
+
+    node = o2cb_cluster_get_node_by_name(cluster, name);
+    if (node)
+    {
+        rc = -EEXIST;
+        fprintf(stderr,
+                PROGNAME ": Node \"%s\" already exists\n",
+                name);
+        goto out;
+    }
+
+    node = o2cb_cluster_add_node(cluster, name);
+    if (!node)
+    {
+        rc = -ENOMEM;
+        fprintf(stderr,
+                PROGNAME ": Unable to add node \"%s\"\n",
+                name);
+        goto out;
+    }
+
+    rc = o2cb_node_set_ip_string(node, ip_address);
+    if (rc)
+    {
+        fprintf(stderr,
+                PROGNAME ": IP address \"%s\" is invalid\n",
+                ip_address);
+        goto out;
+    }
+
+    num = strtol(ip_port, &ptr, 10);
+    if (!ptr || *ptr || (num < 0) ||
+        (num > (guint16)-1))
+    {
+        rc = -ERANGE;
+        fprintf(stderr,
+                PROGNAME ": Port number \"%s\" is invalid\n",
+                ip_port);
+        goto out;
+    }
+
+    o2cb_node_set_port(node, num);
+
+    number = g_strdup(attr_string(ctxt, "number", NULL));
+    if (number)
+    {
+        num = strtol(number, &ptr, 10);
+        if (!ptr || *ptr || (num < 0) ||
+            (num > INT_MAX))
+        {
+            rc = -ERANGE;
+            fprintf(stderr,
+                    PROGNAME ": Node number \"%s\" is invalid\n",
+                    number);
+            g_free(number);
+            goto out;
+        }
+
+        o2cb_node_set_number(node, num);
+    }
+    else
+        number = g_strdup_printf("%d", o2cb_node_get_number(node));
+
+    if (ctxt->oc_modify_running)
+    {
+        local = o2cb_node_is_local(name);
+        err = o2cb_add_node(cluster_name, name, number,
+                            ip_address, ip_port, local);
+        if (err)
+        {
+            if (err != O2CB_ET_NODE_EXISTS)
+            {
+                rc = -EIO;
+                com_err(PROGNAME, err, "while creating node");
+            }
+        }
+        else
+            fprintf(stdout, "Node %s created\n", name);
+        g_free(local);
+    }
+
+    g_free(number);
+
+out:
+    return rc;
+}  /* run_create_nodes() */
 
 static gint run_create(O2CBContext *ctxt)
 {
@@ -860,10 +1009,9 @@ static gint run_create(O2CBContext *ctxt)
 
     if (ctxt->oc_type == O2CB_TYPE_NODE)
     {
-        rc = -ENOTSUP;
-        fprintf(stderr,
-                PROGNAME ": Node creation not yet supported\n");
-        goto out_error;
+        rc = run_create_nodes(ctxt);
+        if (rc)
+            goto out_error;
     }
     else if (ctxt->oc_type == O2CB_TYPE_CLUSTER)
     {
