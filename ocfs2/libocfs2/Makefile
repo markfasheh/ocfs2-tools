@@ -32,50 +32,18 @@ endif
 CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
-BIN_PROGRAMS += 	\
-	unix_io		\
-	openfs		\
-	inode		\
-	extents		\
-	extent_map	\
-	dir_iterate	\
-	lookup
+DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
+DEBUG_EXE_PROGRAMS = $(addprefix debug_,$(subst .c,,$(DEBUG_EXE_FILES)))
 
-unix_io: unix_io.c libocfs2.a
+BIN_PROGRAMS += $(DEBUG_EXE_PROGRAMS)
+
+debug_%: %.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
 		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 
-openfs: openfs.c libocfs2.a
-	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
-		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
-		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
-
-inode: inode.c libocfs2.a
-	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
-		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
-		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
-
-extents: extents.c libocfs2.a
-	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
-		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
-		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
-
-extent_map: extent_map.c libocfs2.a
-	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
-		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
-		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
-
-dir_iterate: dir_iterate.c libocfs2.a
-	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
-		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
-		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
-
-lookup: lookup.c libocfs2.a
-	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
-		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
-		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 endif
+
 CFILES = 		\
 	unix_io.c	\
 	memory.c	\

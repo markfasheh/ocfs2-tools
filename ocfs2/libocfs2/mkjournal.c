@@ -184,4 +184,11 @@ out:
 	return 0;
 }
 #endif
+
+#include <stdio.h>
+int main(int argc, char *argv[])
+{
+	fprintf(stdout, "Does nothing for now\n");
+	return 0;
+}
 #endif  /* DEBUG_EXE */
