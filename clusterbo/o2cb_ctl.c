@@ -586,6 +586,7 @@ static gint find_type_for_objects(O2CBContext *ctxt)
 
 static gint online_cluster(O2CBContext *ctxt)
 {
+    errcode_t ret;
     gint rc;
     gchar *name, *node_name;
     JIterator *iter;
@@ -630,9 +631,13 @@ static gint online_cluster(O2CBContext *ctxt)
     if (rc)
         goto out_error;
 
-    rc = o2cb_set_cluster_name(name);
-    if (rc)
+    rc = -EIO;
+    ret = o2cb_set_cluster_name(name);
+    if (ret)
+    {
+        com_err(PROGNAME, ret, "while setting cluster name");
         goto out_error;
+    }
 
     l = list;
     while (l)
@@ -674,7 +679,7 @@ static gint offline_cluster(O2CBContext *ctxt)
 
 static gint run_change_cluster(O2CBContext *ctxt)
 {
-    gint rc;
+    gint rc = 0;
     const gchar *val;
 
     if (attr_set(ctxt, "name"))
@@ -705,7 +710,7 @@ static gint run_change_cluster(O2CBContext *ctxt)
             rc = offline_cluster(ctxt);
     }
 
-    return 0;
+    return rc;
 }  /* run_change_cluster() */
 
 static gint run_change(O2CBContext *ctxt)
@@ -773,6 +778,7 @@ gint main(gint argc, gchar *argv[])
     int rc;
     O2CBContext ctxt = {0, };
 
+    initialize_o2cb_error_table();
     rc = parse_options(argc, argv, &ctxt);
     if (rc)
         print_usage(rc);

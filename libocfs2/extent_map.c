@@ -332,11 +332,13 @@ errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
 						    left_ent);
 		if (ret)
 			goto out_free;
+		left_ent = NULL;
 	}
 
 	ret = ocfs2_extent_map_insert_entry(em, new_ent);
 	if (ret)
 		goto out_free;
+	new_ent = NULL;
 
 	if (right_ent) {
 		ret = ocfs2_extent_map_insert_entry(em,
@@ -354,7 +356,8 @@ out_free:
 		ocfs2_free(&left_ent);
 	if (right_ent)
 		ocfs2_free(&right_ent);
-	ocfs2_free(&new_ent);
+	if (new_ent)
+		ocfs2_free(&new_ent);
 
 	return ret;
 }

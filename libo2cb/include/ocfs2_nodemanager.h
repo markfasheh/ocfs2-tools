@@ -75,7 +75,10 @@ typedef struct _nm_network_iface
 typedef struct _nm_node_info 
 {
 	__u16 node_num;
+	__u16 pad1;
+	__u32 pad2;
 	char node_name[NM_MAX_NAME_LEN+1];
+	char pad3[63];
 	nm_network_iface ifaces[NM_MAX_IFACES];
 } nm_node_info;
 
@@ -108,6 +111,7 @@ typedef struct _nm_op
 {
 	__u16 magic;
 	__u16 opcode;
+	__u32 pad1;
 	union {
 		__u16 index;
 		char name[NM_MAX_NAME_LEN+1];

@@ -48,8 +48,9 @@ typedef struct _hb_op
 {
 	__u16 magic;
 	__u16 opcode;
-	unsigned int fd;
+	__u32 fd;
 	char disk_uuid[CLUSTER_DISK_UUID_LEN+1];
+	char pad1[15];  /* Pad to the __u16 following it */
 	__u16 group_num;
 	__u32 bits;
 	__u32 blocks;

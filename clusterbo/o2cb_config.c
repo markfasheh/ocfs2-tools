@@ -110,7 +110,7 @@ static gint o2cb_config_fill_node(O2CBConfig *config,
     addr = j_config_get_attribute(cfs, "ip_address");
     if (!addr || !*addr)
         goto out_error;
-    rc = o2cb_node_set_ip_string(node, name);
+    rc = o2cb_node_set_ip_string(node, addr);
     if (rc)
         goto out_error;
 
@@ -141,15 +141,15 @@ static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
     gulong val;
     gchar *count, *ptr;
     JIterator *iter;
-    JConfigStanza *cfs;
+    JConfigStanza *c_cfs, *n_cfs;
     JConfigMatch match = {J_CONFIG_MATCH_VALUE, "cluster", NULL};
 
-    cfs = j_config_get_stanza_nth(cf, "cluster", 0);
-    if (!cfs)
+    c_cfs = j_config_get_stanza_nth(cf, "cluster", 0);
+    if (!c_cfs)
         return -ENOENT;
 
     rc = -ENOENT;
-    match.value = j_config_get_attribute(cfs, "name");
+    match.value = j_config_get_attribute(c_cfs, "name");
     if (!match.value && !*match.value)
         goto out_error;
 
@@ -165,8 +165,8 @@ static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
     rc = 0;
     while (j_iterator_has_more(iter))
     {
-        cfs = (JConfigStanza *)j_iterator_get_next(iter);
-        rc = o2cb_config_fill_node(config, cfs);
+        n_cfs = (JConfigStanza *)j_iterator_get_next(iter);
+        rc = o2cb_config_fill_node(config, n_cfs);
         if (rc)
             break;
     }
@@ -176,7 +176,7 @@ static gint o2cb_config_fill(O2CBConfig *config, JConfig *cf)
         goto out_error;
 
     rc = -EINVAL;
-    count = j_config_get_attribute(cfs, "node_count");
+    count = j_config_get_attribute(c_cfs, "node_count");
     if (!count || !*count)
         goto out_error;
     val = strtoul(count, &ptr, 10);
@@ -244,9 +244,28 @@ static gint o2cb_node_store(JConfig *cf, O2CBNode *node)
     gchar *val;
     JConfigStanza *cfs;
 
+    cfs = j_config_get_stanza_nth(cf, "cluster", 0);
+    if (!cfs)
+        return -EINVAL;
+
+    val = j_config_get_attribute(cfs, "name");
+    if (!val)
+        return -ENOMEM;
+    if (!*val)
+    {
+        g_free(val);
+        return -EINVAL;
+    }
+
     cfs = j_config_add_stanza(cf, "node");
     if (!cfs)
+    {
+        g_free(val);
         return -ENOMEM;
+    }
+
+    j_config_set_attribute(cfs, "cluster", val);
+    g_free(val);
 
     j_config_set_attribute(cfs, "name", node->n_name);
     j_config_set_attribute(cfs, "ip_address", node->n_addr);
