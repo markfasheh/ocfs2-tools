@@ -161,14 +161,108 @@ static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	return ret;
 }
 
-#if 0
-/* XXX should be a real helper somewhere? */
+/* we do this here instead of check_chain so that we can have two relatively
+ * digesitible routines instead of one enormous spaghetti-fed monster. we've
+ * already had a chance to repair the chains so any remaining damage is
+ * the fault of -n, etc, and can simply abort us */
 static void unlink_group_desc(o2fsck_state *ost,
 			      ocfs2_dinode *di,
-			      ocfs2_group_desc *bg)
+			      ocfs2_group_desc *bg,
+			      uint64_t blkno)
 {
+	ocfs2_chain_list *cl;
+	ocfs2_chain_rec *cr;
+	uint16_t i, max_count;
+	ocfs2_group_desc *link;
+	int unlink = 0;
+	char *buf = NULL;
+	uint64_t next_desc;
+	errcode_t ret;
+
+	cl = &di->id2.i_chain;
+	max_count = ocfs2_min(cl->cl_next_free_rec,
+		(__u16)ocfs2_chain_recs_per_inode(ost->ost_fs->fs_blocksize));
+
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating block buffers");
+		goto out;
+	}
+	link = (ocfs2_group_desc *)buf;
+
+	for (cr = cl->cl_recs, i = 0; i < max_count && cr->c_blkno;
+	     i++, cr++) {
+
+		if (cr->c_blkno == blkno) {
+			cr->c_blkno = bg->bg_next_group;
+			unlink = 1;
+			break;
+		}
+
+		next_desc = cr->c_blkno;
+		while(next_desc) {
+			ret = ocfs2_read_group_desc(ost->ost_fs, next_desc,
+						    (char *)link);
+			if (ret) {
+				com_err(whoami, ret, "while reading a "
+					"group descriptor from block %"PRIu64,
+					next_desc);
+				goto out;
+			}
+
+			if (link->bg_next_group != blkno) {
+				next_desc = link->bg_next_group;
+				continue;
+			}
+
+			link->bg_next_group = bg->bg_next_group;
+			ret = ocfs2_write_group_desc(ost->ost_fs, next_desc,
+						     (char *)link);
+			if (ret) {
+				com_err(whoami, ret, "while writing a group "
+					"descriptor to block %"PRIu64" "
+					"somewhere in chain %d in group "
+					"allocator inode %"PRIu64, 
+					next_desc, i, di->i_blkno);
+				ost->ost_saw_error = 1;
+				goto out;
+			}
+			/* we only try to remove it once.. to do more we'd
+			 * have to truncate chains at the offender rather than
+			 * just removing it as a link to avoid creating
+			 * chains that all reference the offender's children.
+			 * we'd also need to update the cr/inode counts
+			 * for each bg removed.. sounds weak. */
+			unlink = 1;
+			break;
+		}
+	}
+
+	if (!unlink)
+		goto out;
+
+	/* XXX this is kind of risky.. how can we trust next_free_rec? */
+	if (cl->cl_next_free_rec == i + 1 && cr->c_blkno == 0)
+		cl->cl_next_free_rec--;
+
+	cr->c_free -= bg->bg_free_bits_count;
+	cr->c_total -= bg->bg_bits;
+	di->id1.bitmap1.i_used -= bg->bg_bits - bg->bg_free_bits_count;
+	di->id1.bitmap1.i_total -= bg->bg_bits;
+
+	ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
+	if (ret) {
+		/* XXX ugh, undo the bitmap math? */
+		com_err(whoami, ret, "while writing inode alloc inode "
+			    "%"PRIu64, di->i_blkno);
+		ost->ost_saw_error = 1;
+		goto out;
+	}
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
 }
-#endif
 
 static void mark_group_used(o2fsck_state *ost, struct chain_state *cs,
 			    uint64_t blkno, int just_desc)
@@ -574,7 +668,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 	     blkno++) {
 		if (!prompt(ost, PY, 3, "Block %"PRIu64" is a group "
 			    "descriptor in the bitmap chain allocator but it "
-			    "isn't at one of the pre-determined location and "
+			    "isn't at one of the pre-determined locations and "
 			    "so shouldn't be in the allocator.  Remove it "
 			    "from the chain?", blkno)) {
 
@@ -590,8 +684,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 			continue;
 		}
 
-		/* poo, worry about this. */
-//		o2fsck_unlink_group_desc(ost, di, bg);
+		unlink_group_desc(ost, di, bg, blkno);
 	}
 
 	/* find the blocks that we think should have been in the chains

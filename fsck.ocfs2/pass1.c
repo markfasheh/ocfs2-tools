@@ -47,7 +47,6 @@
  * 	check many, many, more i_ fields for each inode type
  * 	make sure the inode's dtime/count/valid match in update_inode_alloc
  * 	more carefully track cluster use in conjunction with pass 0
- * 	handle local alloc inodes for realsies
  * 	free an inodes chains and extents and such if we free it
  */
 #include <string.h>
