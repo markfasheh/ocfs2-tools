@@ -1,0 +1,67 @@
+TOPDIR = ../..
+
+include $(TOPDIR)/Preamble.make
+
+WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
+           -Wmissing-declarations
+
+ifdef OCFS_DEBUG
+OPTS = -g
+endif
+
+CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
+
+SBIN_PROGRAMS = mkfs.ocfs2
+
+INCLUDES = -Iinc
+DEFINES = -DLINUX -DUSERSPACE_TOOL -DFORMAT_OCFS
+
+OPTIMIZE = -O2
+
+ifeq ($(OCFS_PROCESSOR),x86_64)
+  CFLAGS += -m64
+endif
+ifeq ($(OCFS_PROCESSOR),ia64)
+endif
+ifeq ($(OCFS_PROCESSOR),i686)
+  DEFINES += -D__ILP32__
+endif
+
+CFLAGS += $(OPTIMIZE)
+
+VERSION_FILES = mkfs2.c inc/jfs_compat.h inc/kernel-jbd.h inc/kernel-list.h
+VERSION_SRC = mkfs2.c
+VERSION_PREFIX = OCFS2
+
+DIST_RULES = dist-incdir
+
+#MANS = mkfs.ocfs2.8
+
+INSTALL_RULES = install-sbin-links install-man-links
+
+##########################
+# WARNING!!!
+# are we still going to do argv[0] tricks?
+##########################
+
+install-sbin-links: install-sbin-programs
+	cd $(DESTDIR)$(sbindir) \
+	&& rm -f mkfs.ocfs2 resizeocfs \
+	&& $(LN_S) mkfs.ocfs mkfs.ocfs2 \
+	&& $(LN_S) tuneocfs resizeocfs
+
+#install-man-links: install-mans
+#	cd $(DESTDIR)$(mandir)/man8 \
+#	&& rm -f mkfs.ocfs.8 resizeocfs.8 \
+#	&& $(LN_S) mkfs.ocfs.8 mkfs.ocfs2.8 \
+#	&& $(LN_S) tuneocfs.8 resizeocfs.8
+
+DIST_FILES = $(VERSION_FILES) $(VERSION_SRC) #mkfs.ocfs2.8.in
+
+mkfs.ocfs2: mkfs2.o
+	$(LINK) 
+
+dist-incdir:
+	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/inc
+
+include $(TOPDIR)/Postamble.make
