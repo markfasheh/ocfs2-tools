@@ -229,7 +229,7 @@ static void version(void)
 		memcpy(found, rest, sizeof(url) - (found - url));
 	}
 
-	printf("fsckb.ocfs2 version information from Subversion:\n"
+	printf("fsck.ocfs2 version information from Subversion:\n"
 	       " %s\n"
 	       " %s\n", url, rev);
 
