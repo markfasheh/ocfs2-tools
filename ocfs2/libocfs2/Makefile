@@ -32,7 +32,14 @@ endif
 CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
-BIN_PROGRAMS += unix_io openfs inode extents dir_iterate lookup
+BIN_PROGRAMS += 	\
+	unix_io		\
+	openfs		\
+	inode		\
+	extents		\
+	extent_map	\
+	dir_iterate	\
+	lookup
 
 unix_io: unix_io.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
@@ -54,6 +61,11 @@ extents: extents.c libocfs2.a
 		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
 		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 
+extent_map: extent_map.c libocfs2.a
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
+		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
+		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
+
 dir_iterate: dir_iterate.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
@@ -71,6 +83,8 @@ CFILES = 		\
 	closefs.c	\
 	freefs.c	\
 	inode.c		\
+	cached_inode.c	\
+	extent_map.c	\
 	mkjournal.c	\
 	extents.c	\
 	dirblock.c	\
@@ -78,7 +92,7 @@ CFILES = 		\
 	lookup.c	\
 	sysfile.c	\
 	link.c		\
-	unlink.c
+	unlink.c	
 
 HFILES =				\
 	include/jfs_user.h		\
@@ -90,7 +104,8 @@ HFILES =				\
 	include/ocfs1_fs_compat.h	\
 	include/byteorder.h		\
 	include/ocfs2.h			\
-	include/dir_iterate.h
+	include/dir_iterate.h		\
+	include/extent_map.h
 
 HFILES_GEN =		\
 	ocfs2_err.h

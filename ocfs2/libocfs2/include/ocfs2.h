@@ -128,7 +128,9 @@
 
 
 typedef struct _ocfs2_filesys ocfs2_filesys;
+typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
 typedef struct _io_channel io_channel;
+typedef struct _ocfs2_extent_map ocfs2_extent_map;
 
 struct _ocfs2_filesys {
 	char *fs_devname;
@@ -149,6 +151,12 @@ struct _ocfs2_filesys {
 	void *fs_private;
 };
 
+struct _ocfs2_cached_inode {
+	struct _ocfs2_filesys *ci_fs;
+	uint64_t ci_blkno;
+	ocfs2_dinode *ci_inode;
+	ocfs2_extent_map *ci_map;
+};
 
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);
@@ -183,6 +191,22 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 			    char *inode_buf);
 errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir);
+
+errcode_t ocfs2_read_cached_inode(ocfs2_filesys *fs, uint64_t blkno,
+				  ocfs2_cached_inode **ret_ci);
+errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
+				   ocfs2_cached_inode *cinode);
+errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
+				  ocfs2_cached_inode *cinode);
+
+errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode);
+errcode_t ocfs2_free_extent_map(ocfs2_filesys *fs,
+				ocfs2_cached_inode *cinode);
+errcode_t ocfs2_extent_map_add(ocfs2_cached_inode *cinode,
+			       ocfs2_extent_rec *rec);
+errcode_t ocfs2_extent_map_clear(ocfs2_cached_inode *cinode,
+				 uint32_t cpos, uint32_t clusters);
 
 errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 					  uint32_t size, int flags,

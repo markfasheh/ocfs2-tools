@@ -11,4 +11,5 @@ inode
 extents
 dir_iterate
 lookup
+extent_map
 ocfs2_err.et
