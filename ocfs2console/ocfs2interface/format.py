@@ -33,7 +33,7 @@ class Device(BaseCombo):
     def get_device(self):
         return self.get_choice().split(' ')[0]
 
-    label = 'Device'
+    label = 'Available _devices'
 
 class FormatVolumeLabel(VolumeLabel):
     def __init__(self):
@@ -68,27 +68,36 @@ def format_partition(parent, device):
     dialog.set_default_response(gtk.RESPONSE_OK)
 
     table = gtk.Table(rows=5, columns=2)
-    set_props(table, row_spacing=4,
-                     column_spacing=4,
-                     border_width=4,
+    set_props(table, row_spacing=6,
+                     column_spacing=6,
+                     border_width=6,
                      parent=dialog.vbox)
 
     widgets = []
     row = 0
 
     for widget_type in entries:
-        label = gtk.Label(widget_type.label + ':')
-        set_props(label, xalign=1.0)
-        table.attach(label, 0, 1, row, row + 1)
-
         widget = widget_type()
-        table.attach(widget, 1, 2, row, row + 1)
+
+        label = gtk.Label()
+        label.set_text_with_mnemonic(widget_type.label + ':')
+        label.set_mnemonic_widget(widget)
+        set_props(label, xalign=0.0)
+        table.attach(label, 0, 1, row, row + 1)
 
         if widget_type == Device:
             widget.fill(partitions, device)
 
         if isinstance(widget, gtk.Entry):
             widget.set_activates_default(True)
+
+        if isinstance(widget, gtk.SpinButton):
+            attach_widget = gtk.HBox()
+            attach_widget.pack_start(widget, expand=False, fill=False)
+        else:
+            attach_widget = widget
+
+        table.attach(attach_widget, 1, 2, row, row + 1)
 
         widgets.append(widget)
 

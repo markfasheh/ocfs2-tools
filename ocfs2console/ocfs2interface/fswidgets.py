@@ -96,7 +96,7 @@ class NumNodes(gtk.SpinButton):
 
         self.set_numeric(True)
 
-    label = 'Number of Nodes'
+    label = 'Number of _nodes'
 
     def get_arg(self):
         s = self.get_text()
@@ -110,7 +110,7 @@ class VolumeLabel(gtk.Entry):
     def __init__(self):
         gtk.Entry.__init__(self, max=ocfs2.MAX_VOL_LABEL_LEN)
 
-    label = 'Volume Label'
+    label = 'Volume _label'
 
     def get_arg(self):
         s = self.get_text()
@@ -126,7 +126,7 @@ class ClusterSize(ValueCombo):
                                   ocfs2.MAX_CLUSTERSIZE)
         self.arg = '-C'
 
-    label = 'Cluster Size'
+    label = 'Cluster _size'
 
 class BlockSize(ValueCombo):
     def __init__(self):
@@ -134,7 +134,7 @@ class BlockSize(ValueCombo):
                                   ocfs2.MAX_BLOCKSIZE)
         self.arg = '-b'
 
-    label = 'Block Size'
+    label = '_Block size'
 
 def main():
     import types
