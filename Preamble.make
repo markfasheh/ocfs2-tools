@@ -24,6 +24,8 @@ DEFINES =
 
 CFLAGS += $($(subst /,_,$(basename $@))_CFLAGS)
 CFLAGS += -pipe
+# protect with configure?
+CDEPFLAGS = -MD -MP
 
 LINK = $(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 

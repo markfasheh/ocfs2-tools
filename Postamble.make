@@ -37,7 +37,7 @@ LOCAL_CFLAGS = $($(subst /,_,$(basename $@))_CFLAGS)
 LOCAL_CPPFLAGS = $($(subst /,_,$(basename $@))_CPPFLAGS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) $(INCLUDES) $(DEFINES) $(VERMAGIC) -o $@ -c $<
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) $(INCLUDES) $(DEFINES) $(VERMAGIC) $(CDEPFLAGS) -o $@ -c $<
 
 %.p: %.c
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) $(INCLUDES) $(DEFINES) $(VERMAGIC) -E -o $@ -c $<
@@ -121,7 +121,7 @@ $(CLEAN_SUBDIRS):
 	$(MAKE) -C $(subst -clean,,$@) clean
 
 clean: clean-subdirs $(CLEAN_RULES)
-	rm -f *.o *.p core $(BIN_PROGRAMS) $(SBIN_PROGRAMS) $(LIBRARIES) stamp-md5
+	rm -f *.o *.p .*.d core $(BIN_PROGRAMS) $(SBIN_PROGRAMS) $(LIBRARIES) stamp-md5
 
 
 DIST_SUBDIRS = $(addsuffix -dist,$(SUBDIRS))
@@ -146,7 +146,12 @@ dist-copy: dist-mkdir $(DIST_ALL_FILES) $(DIST_RULES)
         done
 
 dist-all: dist-copy dist-subdirs
-	 
+
+LOCAL_DFILES := $(wildcard *.d)
+ifneq ($(LOCAL_DFILES),)
+.PHONY: $(LOCAL_DFILES)
+-include $(LOCAL_DFILES)
+endif
 
 ifeq (Cscope.make,$(wildcard Cscope.make))
 include Cscope.make
