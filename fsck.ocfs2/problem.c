@@ -211,12 +211,12 @@ int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 
 		if (c == 3) {
 			printf("ctl-c pressed, aborting.\n");
-			exit(FSCK_ERROR);
+			exit(FSCK_ERROR|FSCK_CANCELED);
 		}
 
 		if (c == 27) {
 			printf("ESC pressed, aborting.\n");
-			exit(FSCK_ERROR);
+			exit(FSCK_ERROR|FSCK_CANCELED);
 		}
 
 		c = tolower(c);
