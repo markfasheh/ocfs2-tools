@@ -9,7 +9,7 @@ ifdef OCFS_DEBUG
 OPTS += -g
 endif
 
-INCLUDES = -I. -Iinclude
+INCLUDES = -Iinclude
 
 LIBRARIES = libocfs2.a
 
@@ -78,7 +78,7 @@ HFILES =				\
 	include/extent_map.h
 
 HFILES_GEN =		\
-	ocfs2_err.h
+	include/ocfs2_err.h
 	
 $(CFILES): $(HFILES) $(HFILES_GEN)
 
@@ -87,6 +87,9 @@ OBJS = $(subst .c,.o,$(CFILES)) \
 
 ocfs2_err.et: ocfs2_err.et.in
 	cd $(TOPDIR) && ./config.status
+
+include/ocfs2_err.h: ocfs2_err.h
+	cp $< $@
 
 ocfs2_err.c ocfs2_err.h: ocfs2_err.et
 	compile_et ocfs2_err.et
