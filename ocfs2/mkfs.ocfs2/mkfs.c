@@ -38,7 +38,7 @@
 #include <malloc.h>
 #include <time.h>
 
-#include <linux/bitops.h>
+#include <asm/bitops.h>
 
 #include "ocfs2.h"
 

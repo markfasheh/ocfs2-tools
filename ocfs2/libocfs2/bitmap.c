@@ -30,7 +30,7 @@
 #include <string.h>
 #include <limits.h>
 
-#include <linux/bitops.h>
+#include <asm/bitops.h>
 
 #include "ocfs2.h"
 
