@@ -53,7 +53,7 @@ static void ocfs2_build_lock_name(ocfs2_filesys *fs, enum ocfs2_lock_type type,
 				  uint64_t blkno, uint32_t generation,
 				  char *lock_name)
 {
-	snprintf(lock_name, OCFS2_LOCK_ID_MAX_LEN, "%c%s%016llx%08x",
+	snprintf(lock_name, OCFS2_LOCK_ID_MAX_LEN, "%c%s%016"PRIx64"%08x",
 		 ocfs2_lock_type_char[type], OCFS2_LOCK_ID_PAD,
 		 blkno, generation);
 
