@@ -16,6 +16,10 @@ HFILES = include/main.h include/commands.h include/dump.h include/readfs.h inclu
 
 OBJS = $(subst .c,.o,$(CFILES))
 
+VERSION_FILES = $(CFILES) $(HFILES)
+VERSION_SRC = $(CFILES)
+VERSION_PREFIX = OCFS2
+
 MANS = debugfs.ocfs2.8
 
 DIST_FILES = $(CFILES) $(HFILES) README debugfs.ocfs2.8.in
