@@ -42,6 +42,15 @@
 #include <ocfs1_fs_compat.h>
 
 void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes);
+int read_options(int argc, char **argv);
+void usage(char *progname);
+
+int detect_only = 0;
+char *device = NULL;
+
+char *usage_string =
+"usage: %s [-d] device\n"
+"	-d detect only\n";
 
 /*
  * main()
@@ -49,7 +58,7 @@ void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes);
  */
 int main(int argc, char **argv)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	int mount_flags = 0;
 	char *node_names[OCFS2_NODE_MAP_MAX_NODES];
 	int i;
@@ -58,21 +67,27 @@ int main(int argc, char **argv)
 	uint8_t vol_uuid[16];
 	uint16_t num_nodes = OCFS2_NODE_MAP_MAX_NODES;
 
-	if (argc < 2) {
-		fprintf(stderr, "Usage: %s device\n", argv[0]);
-		return 0;
-	}
-
 	initialize_ocfs_error_table();
 
 	memset(node_names, 0, sizeof(node_names));
 	memset(vol_label, 0, sizeof(vol_label));
 	memset(vol_uuid, 0, sizeof(vol_uuid));
 
+	ret = read_options(argc, argv);
+	if (ret)
+		goto bail;
+
+	if (!device) {
+		fprintf(stderr, "Error: Device not specified.\n");
+		usage(argv[0]);
+		ret = 1;
+		goto bail;
+	}
+
 	/* open	fs */
-	ret = ocfs2_open(argv[1], O_DIRECT | OCFS2_FLAG_RO, 0, 0, &fs);
+	ret = ocfs2_open(device, O_DIRECT | OCFS2_FLAG_RO, 0, 0, &fs);
 	if (ret) {
-		com_err(argv[0], ret, "while opening \"%s\"", argv[1]);
+		com_err(argv[0], ret, "while opening \"%s\"", device);
 		goto bail;
 	}
 
@@ -80,17 +95,20 @@ int main(int argc, char **argv)
 	memcpy(vol_label, OCFS2_RAW_SB(fs->fs_super)->s_label, sizeof(vol_label));
 	memcpy(vol_uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid, sizeof(vol_uuid));
 
-	ret = ocfs2_check_heartbeat(argv[1], &mount_flags, node_names);
-	if (ret) {
-		com_err(argv[0], ret, "while detecting heartbeat");
-		goto bail;
-	}
-
 	printf("Label : %s\n", vol_label);
 	printf("Id    : ");
 	for (i = 0; i < 16; i++)
 		printf("%02X", vol_uuid[i]);
 	printf("\n");
+
+	if (detect_only)
+		goto bail;
+		
+	ret = ocfs2_check_heartbeat(device, &mount_flags, node_names);
+	if (ret) {
+		com_err(argv[0], ret, "while detecting heartbeat");
+		goto bail;
+	}
 
 	if (mount_flags & (OCFS2_MF_MOUNTED | OCFS2_MF_MOUNTED_CLUSTER)) {
 		printf("Nodes :");
@@ -108,7 +126,7 @@ bail:
 		if (node_names[i])
 			ocfs2_free (&node_names[i]);
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -128,3 +146,50 @@ void ocfs2_print_live_nodes(char **node_names, uint16_t num_nodes)
 	}
 	printf("\n");
 }
+
+/*
+ * usage()
+ *
+ */
+void usage(char *progname)
+{
+	printf(usage_string, progname);
+	return ;
+}				/* usage */
+
+/*
+ * read_options()
+ *
+ */
+int read_options(int argc, char **argv)
+{
+	int ret = 0;
+	int c;
+
+	if (argc < 2) {
+		usage(argv[0]);
+		ret = 1;					  
+		goto bail;
+	}
+
+	while(1) {
+		c = getopt(argc, argv, "d");
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 'd':	/* detect only */
+			detect_only = 1;
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	if (!ret && optind < argc && argv[optind])
+		device = argv[optind];
+
+bail:
+	return ret;
+}				/* read_options */
