@@ -92,7 +92,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 	eb = (ocfs2_extent_block *)buf;
 
 	if (eb->h_blkno != blkno &&
-	    prompt(ost, PY, "An extent block at %"PRIu64" in inode %"PRIu64" "
+	    prompt(ost, PY, 0, "An extent block at %"PRIu64" in inode %"PRIu64" "
 		   "claims to be located at block %"PRIu64".  Update the "
 		   "extent block's location?", blkno, di->i_blkno,
 		   eb->h_blkno)) {
@@ -101,7 +101,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 	}
 
 	if (eb->h_fs_generation != ost->ost_fs_generation) {
-		if (prompt(ost, PY, "An extent block at %"PRIu64" in inode "
+		if (prompt(ost, PY, 0, "An extent block at %"PRIu64" in inode "
 			   "%"PRIu64" has a generation of %x which doesn't "
 			   "match the volume's generation of %x.  Consider "
 			   "this extent block invalid?", blkno, di->i_blkno,
@@ -110,7 +110,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 			*is_valid = 0;
 			goto out;
 		}
-		if (prompt(ost, PY, "Update the extent block's generation to "
+		if (prompt(ost, PY, 0, "Update the extent block's generation to "
 			   "match the volume?")) {
 
 			eb->h_fs_generation = ost->ost_fs_generation;
@@ -166,7 +166,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		ei->ei_expected_depth = el->l_tree_depth - 1;
 		check_eb(ost, ei, di, er->e_blkno, &is_valid);
 		if (!is_valid && 
-		    prompt(ost, PY, "The extent record for cluster offset "
+		    prompt(ost, PY, 0, "The extent record for cluster offset "
 			   "%"PRIu32" in inode %"PRIu64" refers to an invalid "
 			   "extent block at %"PRIu64".  Clear the reference "
 			   "to this invalid block?", er->e_cpos, di->i_blkno,
@@ -183,7 +183,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 	first_block = ocfs2_clusters_to_blocks(ost->ost_fs, first_block);
 
 	if (first_block != er->e_blkno &&
-	    prompt(ost, PY, "The extent record for cluster offset %"PRIu32" "
+	    prompt(ost, PY, 0, "The extent record for cluster offset %"PRIu32" "
 		   "in inode %"PRIu64" refers to block %"PRIu64" which isn't "
 		   "aligned with the start of a cluster.  Point the extent "
 		   "record at block %"PRIu64" which starts this cluster?",
@@ -199,7 +199,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		       er->e_clusters;
 
 	if (last_cluster > ost->ost_fs->fs_clusters &&
-	    prompt(ost, PY, "The extent record for cluster offset %"PRIu32" "
+	    prompt(ost, PY, 0, "The extent record for cluster offset %"PRIu32" "
 		   "in inode %"PRIu64" refers to an extent that goes beyond "
 		   "the end of the volume.  Truncate the extent by %"PRIu32" "
 		   "clusters to fit it in the volume?", er->e_cpos, 
@@ -233,7 +233,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 
 	if (ei->ei_expect_depth && 
 	    el->l_tree_depth != ei->ei_expected_depth &&
-	    prompt(ost, PY, "Extent list in inode %"PRIu64" is recorded as "
+	    prompt(ost, PY, 0, "Extent list in inode %"PRIu64" is recorded as "
 		   "being at depth %u but we expect it to be at depth %u. "
 		   "update the list?", di->i_blkno, el->l_tree_depth,
 		   ei->ei_expected_depth)) {
@@ -243,7 +243,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 	}
 
 	if (el->l_count > max_recs &&
-	    prompt(ost, PY, "Extent list in inode %"PRIu64" claims to have %u "
+	    prompt(ost, PY, 0, "Extent list in inode %"PRIu64" claims to have %u "
 		   "records, but the maximum is %u. Fix the list's count?",
 		   di->i_blkno, el->l_count, max_recs)) {
 
@@ -255,7 +255,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		max_recs = el->l_count;
 
 	if (el->l_next_free_rec > max_recs) {
-		if (prompt(ost, PY, "Extent list in inode %"PRIu64" claims %u "
+		if (prompt(ost, PY, 0, "Extent list in inode %"PRIu64" claims %u "
 			   "as the next free chain record, but fsck believes "
 			   "the largest valid value is %u.  Clamp the next "
 			   "record value?", di->i_blkno, el->l_next_free_rec,
@@ -281,7 +281,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 
 		/* offer to remove records that point to nowhere */
 		if (ocfs2_block_out_of_range(ost->ost_fs, er->e_blkno) && 
-		    prompt(ost, PY, "Extent record %u in inode %"PRIu64" "
+		    prompt(ost, PY, 0, "Extent record %u in inode %"PRIu64" "
 			   "refers to a block that is out of range.  Remove "
 			   "this record from the extent list?", i,
 			   di->i_blkno)) {

@@ -1,0 +1,83 @@
+.TH "fsck.ocfs2" "8" "November 2004" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+fsck.ocfs2 \- Check an OCFS2 file system.
+.SH "SYNOPSIS"
+\fBfsck.ocfs2\fR [ \fB\-npuvy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
+.SH "DESCRIPTION"
+.PP 
+\fBfsck.ocfs2\fR is used to check an OCFS2 file system.
+
+\fIdevice\fR is the file where the file system is stored (e.g. \fI/dev/sda1\fR).  It will almost always be a device file but a regular file will work as well.
+
+.SH "OPTIONS"
+.TP
+\fB\-b\fR \fIsuperblock block\fR
+Normally, \fBfsck.ocfs2\fR will read the superblock from the first block of
+the device.  This option specifies an alternate block that the superblock
+should be read from.
+
+.TP
+\fB\-b\fR \fIblock size\fR
+The \fIblock size\fR, specified in bytes, can range from 512 to 4096.  A value of 0, the default, is used to indicate that the blocksize should be automatically detected.
+
+.TP
+\fB\-f\fR
+Force checking even if the file system is clean.  This currently has no
+effect as the file system is always checked.
+
+.TP
+\fB\-n\fR
+Give the 'no' answer to all questions that fsck will ask.  This guarantees
+that the file system will not be modified and the device will be opened
+read-only.  The output of \fBfsck.ocfs2\fR with this option can be redirected
+to produce a record of a file system's faults.
+
+.TP
+\fB\-p\fR
+Automatically repair ("preen") the file system without asking any questions.  This is currently identical to giving the \fB\-y\fR option.
+
+.TP
+\fB\-y\fR 
+Give the 'yes' answer to all questions that fsck will ask.  This will repair
+all faults that \fBfsck.ocfs2\fR finds but will not give the operator a chance to intervene if \fBfsck.ocfs2\fR decides that it wants to drastically repair the file system.
+
+.TP
+\fB\-v\fR 
+This option causes \fBfsck.ocfs2\fR to produce a very large amount of debugging output.
+
+.TP
+\fB\-V\fR 
+Print version information and exit.
+
+.SH EXIT CODE
+The exit code returned by \fBfsck.ocfs2\fR is the sum of the following conditions:
+.br
+\	0\	\-\ No errors
+.br
+\	1\	\-\ File system errors corrected
+.br
+\	2\	\-\ File system errors corrected, system should
+.br
+\	\	\ \ be rebooted
+.br
+\	4\	\-\ File system errors left uncorrected
+.br
+\	8\	\-\ Operational error
+.br
+\	16\	\-\ Usage or syntax error
+.br
+\	32\	\-\ E2fsck canceled by user request
+.br
+\	128\	\-\ Shared library error
+.br
+
+.SH "SEE ALSO"
+.BR ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation.  This man page entry derives some text, especially the exit code summary, from
+.BR e2fsck(8)
+by Theodore Ts’o <tytso@mit.edu>. 
+
+.SH "COPYRIGHT"
+Copyright \(co 2004 Oracle Corporation

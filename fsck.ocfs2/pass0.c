@@ -90,7 +90,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if (bg->bg_generation != ost->ost_fs_generation) {
-		if (prompt(ost, PY, "Group descriptor at block %"PRIu64" has "
+		if (prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" has "
 			   "a generation of %"PRIx32" which doesn't match the "
 			   "volume's generation of %"PRIx32".  Delete this "
 			   "group descriptor?", blkno, bg->bg_generation,
@@ -98,7 +98,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 
 			return 1;
 		}
-		if (prompt(ost, PY, "Update the descriptor's generation to "
+		if (prompt(ost, PY, 0, "Update the descriptor's generation to "
 			   "match the volume?")) {
 
 			bg->bg_generation = ost->ost_fs_generation;
@@ -110,7 +110,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	 * kinds of descs have valid generations for the inodes they
 	 * reference */
 	if ((bg->bg_parent_dinode != di->i_blkno) &&
-	    prompt(ost, PY, "Group descriptor at block %"PRIu64" is "
+	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" is "
 		   "referenced by inode %"PRIu64" but thinks its parent inode "
 		   "is %"PRIu64".  Fix the descriptor's parent inode?", blkno,
 		   di->i_blkno, bg->bg_parent_dinode)) {
@@ -119,7 +119,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if ((bg->bg_generation != di->i_generation) &&
-	    prompt(ost, PY, "Group descriptor at block %"PRIu64" is "
+	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" is "
 		   "referenced by inode %"PRIu64" who has a generation of "
 		   "%u, but the descriptor has a generation of %u.  Update "
 		   "the descriptor's generation?", blkno, di->i_blkno,
@@ -129,7 +129,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if ((bg->bg_blkno != blkno) &&
-	    prompt(ost, PY, "Group descriptor read from block %"PRIu64" "
+	    prompt(ost, PY, 0, "Group descriptor read from block %"PRIu64" "
 		   "claims to be located at block %"PRIu64".  Update its "
 		   "recorded block location?", blkno, di->i_blkno)) {
 		bg->bg_blkno = blkno;
@@ -137,7 +137,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if ((bg->bg_chain != cs->cs_chain_no) &&
-	    prompt(ost, PY, "Group descriptor at block %"PRIu64" was "
+	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" was "
 		   "found in chain %u but it claims to be in chain %u. Update "
 		   "the descriptor's recorded chain?", blkno, cs->cs_chain_no,
 		   bg->bg_chain)) {
@@ -146,7 +146,7 @@ static int check_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if ((bg->bg_free_bits_count > bg->bg_bits) &&
-	    prompt(ost, PY, "Group descriptor at block %"PRIu64" claims to "
+	    prompt(ost, PY, 0, "Group descriptor at block %"PRIu64" claims to "
 		   "have %u free bits which is more than its %u total bits. "
 		   "Drop its free bit count down to the total?", blkno,
 		   bg->bg_free_bits_count, bg->bg_bits)) {
@@ -192,11 +192,12 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 	memset(cbr, 0, sizeof(*cbr));
 
 	if (ocfs2_block_out_of_range(ost->ost_fs, blkno)) {
-		if (prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
-			   "points to block %"PRIu64" which is out of range. "
-			   "Truncate this chain by deleting this invalid "
-			   "block reference?", cs->cs_chain_no, di->i_blkno,
-			   blkno))  {
+		if (prompt(ost, PY, 8, "Chain %d in allocator at inode "
+			   "%"PRIu64" points to block %"PRIu64" which is out "
+			   "of range. Truncate this chain by deleting this "
+			   "invalid block reference?", cs->cs_chain_no,
+			   di->i_blkno, blkno))  {
+
 			cbr->cb_new_next_blkno = 1;
 			cbr->cb_next_blkno = 0;
 		} else {
@@ -208,7 +209,7 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 
 #if 0 /* XXX plausible + used test */
 	if (o2fsck_test_block_used(ost, blkno) &&
-	    prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
+	    prompt(ost, PY, 9, "Chain %d in allocator at inode %"PRIu64" "
 			   "points to block %"PRIu64" which has already been "
 			   "used by another part of the file system. "
 			   "Truncate this chain by deleting this invalid "
@@ -222,11 +223,12 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 	if (allowed) {
 		ocfs2_bitmap_test(allowed, blkno, &was_set);
 		if (!was_set &&
-		    prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" "
-			   "points to block %"PRIu64" which should not be "
-			   "found in the allocator.  Truncate this chain by "
-			   "deleting this invalid block reference?",
+		    prompt(ost, PY, 10, "Chain %d in allocator at inode "
+			   "%"PRIu64" points to block %"PRIu64" which should "
+			   "not be found in the allocator.  Truncate this "
+			   "chain by deleting this invalid block reference?",
 			   cs->cs_chain_no, di->i_blkno, blkno))  {
+
 			cbr->cb_new_next_blkno = 1;
 			/* will set next after reading */
 		} 
@@ -248,10 +250,12 @@ static void read_chain_block(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 	if (check_group_desc(ost, di, cs, bg, blkno) &&
-	    prompt(ost, PY, "Chain %d in allocator at inode %"PRIu64" refers "
-		   "to an invalid descriptor block at %"PRIu64".  Truncate "
-		   "the chain by removing this reference?", cs->cs_chain_no,
+	    prompt(ost, PY, 11, "Chain %d in allocator at inode %"PRIu64" "
+		   "refers to an invalid descriptor block at %"PRIu64". "
+		   "Truncate the chain by removing this reference?",
+		   cs->cs_chain_no,
 		   di->i_blkno, blkno)) {
+
 		cbr->cb_new_next_blkno = 1;
 		cbr->cb_next_blkno = 0;
 	}
@@ -356,7 +360,7 @@ new_head:
 
 	if (cs->cs_total_bits != chain->c_total ||
 	    cs->cs_free_bits != chain->c_free) {
-		if (prompt(ost, PY, "Chain %d in allocator inode %"PRIu64" "
+		if (prompt(ost, PY, 12, "Chain %d in allocator inode %"PRIu64" "
 			   "has %u bits marked free out of %d total bits "
 			   "but the block groups in the chain have %u "
 			   "free out of %u total.  Fix this by updating "
@@ -421,7 +425,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	/* make sure cl_count is clamped to the size of the inode */
 	if (cl->cl_count > max_count &&
-	    prompt(ost, PY, "Allocator inode %"PRIu64" claims to have %u "
+	    prompt(ost, PY, 4, "Allocator inode %"PRIu64" claims to have %u "
 		   "chains, but the maximum is %u. Fix the inode's count?",
 		   di->i_blkno, cl->cl_count, max_count)) {
 		cl->cl_count = max_count;
@@ -432,10 +436,10 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		max_count = cl->cl_count;
 
 	if (cl->cl_next_free_rec > max_count) {
-		if (prompt(ost, PY, "Allocator inode %"PRIu64" claims %u as "
-			   "the next free chain record, but fsck believes the "
-			   "largest valid value is %u.  Clamp the next record "
-			   "value?", di->i_blkno, cl->cl_next_free_rec,
+		if (prompt(ost, PY, 5, "Allocator inode %"PRIu64" claims %u "
+			   "as the next free chain record, but fsck believes "
+			   "the largest valid value is %u.  Clamp the next "
+			   "record value?", di->i_blkno, cl->cl_next_free_rec,
 			   max_count)) {
 			cl->cl_next_free_rec = cl->cl_count;
 			changed = 1;
@@ -465,7 +469,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 			continue;
 		}
 
-		if (prompt(ost, PY, "Chain %d in allocator inode %"PRIu64" "
+		if (prompt(ost, PY, 6, "Chain %d in allocator inode %"PRIu64" "
 			   "is empty.  Remove it from the chain record "
 			   "array in the inode and shift further chains "
 			   "into its place?", cs.cs_chain_no, di->i_blkno)) {
@@ -492,7 +496,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	if (di->id1.bitmap1.i_total != total || 
 	    (di->id1.bitmap1.i_used != total - free)) {
-		if (prompt(ost, PY, "Allocator inode %"PRIu64" has %u bits "
+		if (prompt(ost, PY, 7, "Allocator inode %"PRIu64" has %u bits "
 			   "marked used out of %d total bits but the chains "
 			   "have %u used out of %u total.  Fix this by "
 			   "updating the inode counts?", di->i_blkno,
@@ -581,7 +585,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 		 * that for now. */
 		ret = check_group_desc(ost, di, &cs, bg, blkno);
 		if (ret == OCFS2_ET_BAD_GROUP_DESC_MAGIC &&
-		    prompt(ost, PY, "Cluster group descriptor at block "
+		    prompt(ost, PY, 2, "Cluster group descriptor at block "
 			   "%"PRIu64" doesn't even have a valid signature. "
 			   "Initialize it and mark it for inclusion in the "
 			   "cluster group chain?", blkno)) {
@@ -617,7 +621,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 	     !ocfs2_bitmap_find_next_set(bitmap_descs, blkno, &blkno);
 	     blkno++) {
 
-		if (!prompt(ost, PY, "Block %"PRIu64" should be a group "
+		if (!prompt(ost, PY, 3, "Block %"PRIu64" should be a group "
 			    "descriptor for the bitmap chain allocator but it "
 			    "wasn't found in any chains.  Link it into the "
 			    "chain allocator?", blkno))

@@ -27,15 +27,15 @@
 /* prompt flags. */
 #define PY (1 << 0) /* default to yes when asked and no answer forced */
 #define PN  (1 << 1) /* default to no when asked and no answer forced */
-#define PF  (1 << 2) /* exit with FSCK_ERROR if 'n' is given */
 
 #include "fsck.h"
 
 /* returns non-zero for yes and zero for no.  The caller is expected to
  * provide a thorough description of the state and the action that will
  * be taken depending on the answer.  Without \n termination. */
-int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
-	 __attribute__ ((format (printf, 3, 4)));
+int prompt(o2fsck_state *ost, unsigned flags, unsigned code, 
+	   const char *fmt, ...)
+	 __attribute__ ((format (printf, 4, 5)));
 
 #endif /* __O2FSCK_PROBLEM_H__ */
 

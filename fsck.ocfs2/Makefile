@@ -50,8 +50,9 @@ HFILES = 	include/fsck.h		\
 		include/util.h
 
 OBJS = $(subst .c,.o,$(CFILES))
+MANS = fsck.ocfs2.8 fsck.ocfs2.checks.8
 
-DIST_FILES = $(CFILES) $(HFILES) 
+DIST_FILES = $(CFILES) $(HFILES) $(addsuffix .in,$(MANS))
 DIST_RULES = dist-subdircreate
 
 dist-subdircreate:

@@ -126,7 +126,7 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		 * bitmap and if the user wants us to keep tracking it and
 		 * write back the new map */
 		if (oldval != val && !ost->ost_write_inode_alloc_asked) {
-			yn = prompt(ost, PY, "fsck found an inode whose "
+			yn = prompt(ost, PY, 0, "fsck found an inode whose "
 				    "allocation does not match the chain "
 				    "allocators.  Fix the allocation of this "
 				    "and all future inodes?");
@@ -151,7 +151,7 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	/* make sure the inode's fields are consistent if it's allocated */
 	if (val == 1 && node != (uint16_t)di->i_suballoc_node &&
-	    prompt(ost, PY, "Inode %"PRIu64" indicates that it was allocated "
+	    prompt(ost, PY, 0, "Inode %"PRIu64" indicates that it was allocated "
 		   "from node %"PRIu16" but node %"PRIu16"'s chain allocator "
 		   "covers the inode.  Fix the inode's record of where it is "
 		   "allocated?",
@@ -179,7 +179,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		goto out;
 
 	if (di->i_fs_generation != ost->ost_fs_generation) {
-		if (prompt(ost, PY, "Inode read from block %"PRIu64" looks "
+		if (prompt(ost, PY, 0, "Inode read from block %"PRIu64" looks "
 			   "like it is valid but it has a generation of %x "
 			   "that doesn't match the current volume's "
 			   "generation of %x.  This is probably a harmless "
@@ -189,7 +189,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 			clear = 1;
 			goto out;
 		}
-		if (prompt(ost, PY, "Update the inode's generation to match "
+		if (prompt(ost, PY, 0, "Update the inode's generation to match "
 			  "the volume?")) {
 
 			di->i_fs_generation = ost->ost_fs_generation;
@@ -209,7 +209,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	 * fsck can do to fix it up */
 
 	if (di->i_blkno != blkno &&
-	    prompt(ost, PY, "Inode read from block %"PRIu64" has i_blkno set "
+	    prompt(ost, PY, 0, "Inode read from block %"PRIu64" has i_blkno set "
 		   "to %"PRIu64".  Set the inode's i_blkno value to reflect "
 		   "its location on disk?", blkno, di->i_blkno)) {
 		di->i_blkno = blkno;
@@ -223,7 +223,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 	/* offer to clear a non-directory root inode so that 
 	 * pass3:check_root() can re-create it */
 	if ((di->i_blkno == fs->fs_root_blkno) && !S_ISDIR(di->i_mode) && 
-	    prompt(ost, PY, "Root inode isn't a directory.  Clear it in "
+	    prompt(ost, PY, 0, "Root inode isn't a directory.  Clear it in "
 		   "preparation for fixing it?")) {
 		di->i_dtime = 0ULL;
 		di->i_links_count = 0ULL;
@@ -233,7 +233,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		o2fsck_write_inode(ost, blkno, di);
 	}
 
-	if (di->i_dtime && prompt(ost, PY, "Inode %"PRIu64" is in use but has "
+	if (di->i_dtime && prompt(ost, PY, 0, "Inode %"PRIu64" is in use but has "
 				  "a non-zero dtime.  Reset the dtime to 0?",  
 				   di->i_blkno)) {
 		di->i_dtime = 0ULL;
@@ -330,7 +330,7 @@ static void check_link_data(struct verifying_blocks *vb)
 		vb->vb_link_read_error);
 
 	if (vb->vb_link_read_error) {
-		if (prompt(ost, PY, "There was an error reading a data block "
+		if (prompt(ost, PY, 0, "There was an error reading a data block "
 			   "for symlink inode %"PRIu64".  Clear the inode?",
 			   di->i_blkno)) {
 			vb->vb_clear = 1;
@@ -340,7 +340,7 @@ static void check_link_data(struct verifying_blocks *vb)
 
 	/* XXX this could offer to null terminate */
 	if (!vb->vb_saw_link_null) {
-		if (prompt(ost, PY, "The target of symlink inode %"PRIu64" "
+		if (prompt(ost, PY, 0, "The target of symlink inode %"PRIu64" "
 			   "isn't null terminated.  Clear the inode?",
 			   di->i_blkno)) {
 			vb->vb_clear = 1;
@@ -351,7 +351,7 @@ static void check_link_data(struct verifying_blocks *vb)
 	expected = ocfs2_blocks_in_bytes(ost->ost_fs, vb->vb_link_len + 1);
 
 	if (di->i_size != vb->vb_link_len) {
-		if (prompt(ost, PY, "The target of symlink inode %"PRIu64" "
+		if (prompt(ost, PY, 0, "The target of symlink inode %"PRIu64" "
 			   "is %"PRIu64" bytes long on disk, but i_size is "
 			   "%"PRIu64" bytes long.  Update i_size to reflect "
 			   "the length on disk?",
@@ -365,7 +365,7 @@ static void check_link_data(struct verifying_blocks *vb)
 	/* maybe we don't shrink link target allocations, I don't know,
 	 * someone will holler if this is wrong :) */
 	if (vb->vb_num_blocks != expected) {
-		if (prompt(ost, PN, "The target of symlink inode %"PRIu64" "
+		if (prompt(ost, PN, 0, "The target of symlink inode %"PRIu64" "
 			   "fits in %"PRIu64" blocks but the inode has "
 			   "%"PRIu64" allocated.  Clear the inode?", 
 			   di->i_blkno, expected, vb->vb_num_blocks)) {
@@ -390,7 +390,7 @@ static int verify_block(ocfs2_filesys *fs,
 		vb->vb_errors++;
 #if 0 /* XXX ext2 does this by returning a value to libext2 which clears the 
 	 block from the inode's allocation */
-		if (prompt(ost, PY, "inode %"PRIu64" references bad physical "
+		if (prompt(ost, PY, 0, "inode %"PRIu64" references bad physical "
 			   "block %"PRIu64" at logical block %"PRIu64", "
 			   "should it be cleared?", di->i_blkno, bklno, 
 			   bcount)) {
@@ -401,7 +401,7 @@ static int verify_block(ocfs2_filesys *fs,
 	/* XXX this logic should be more sophisticated.  It's not really clear
 	 * what ext2 is trying to do in theirs. */
 	if (vb->vb_errors == 12) {
-		if (prompt(ost, PY, "inode %"PRIu64" has seen many errors, "
+		if (prompt(ost, PY, 0, "inode %"PRIu64" has seen many errors, "
 			   "should it be cleared?", di->i_blkno)) {
 			vb->vb_clear = 1;
 			return OCFS2_BLOCK_ABORT;
@@ -477,7 +477,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		check_link_data(&vb);
 
 	if (S_ISDIR(di->i_mode) && vb.vb_num_blocks == 0) {
-		if (prompt(ost, PY, "Inode %"PRIu64" is a zero length "
+		if (prompt(ost, PY, 0, "Inode %"PRIu64" is a zero length "
 			   "directory, clear it?", di->i_blkno)) {
 			vb.vb_clear = 1;
 		}
@@ -504,7 +504,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	/* i_size is checked for symlinks elsewhere */
 	if (!S_ISLNK(di->i_mode) && di->i_size > expected &&
-	    prompt(ost, PY, "Inode %"PRIu64" has a size of %"PRIu64" but has "
+	    prompt(ost, PY, 0, "Inode %"PRIu64" has a size of %"PRIu64" but has "
 		    "%"PRIu64" bytes of actual data. Correct the file size?",
 		    di->i_blkno, di->i_size, expected)) {
 		di->i_size = expected;
@@ -516,7 +516,7 @@ static void o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		expected = ocfs2_clusters_in_blocks(fs, vb.vb_last_block + 1);
 
 	if (di->i_clusters < expected &&
-	    prompt(ost, PY, "inode %"PRIu64" has %"PRIu32" clusters but its "
+	    prompt(ost, PY, 0, "inode %"PRIu64" has %"PRIu32" clusters but its "
 		   "blocks fit in %"PRIu64" clusters.  Correct the number of "
 		   "clusters?", di->i_blkno, di->i_clusters, expected)) {
 		di->i_clusters = expected;
@@ -598,7 +598,7 @@ static void write_cluster_alloc(o2fsck_state *ost)
 
 		if (!ost->ost_write_cluster_alloc_asked) {
 			int yn;
-			yn = prompt(ost, PY, "The cluster bitmap doesn't "
+			yn = prompt(ost, PY, 0, "The cluster bitmap doesn't "
 				    "match what fsck thinks should be in use "
 				    "and freed.  Update the bitmap on disk?");
 			ost->ost_write_cluster_alloc_asked = 1;

@@ -591,8 +591,8 @@ errcode_t o2fsck_replay_journals(o2fsck_state *ost)
 		if (!ji->ji_replay)
 			continue;
 
-		if (!prompt(ost, PY, "Node %d's journal needs to be replayed. "
-			    "Do so?", i)) {
+		if (!prompt(ost, PY, 1, "Node %d's journal needs to be "
+			    "replayed. Do so?", i)) {
 			journal_trouble = 1;
 			continue;
 		}

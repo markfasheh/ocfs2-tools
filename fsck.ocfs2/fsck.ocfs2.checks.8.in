@@ -1,0 +1,118 @@
+.TH "fsck.ocfs2" "8" "November 2004" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+fsck.ocfs2.checks \- Consistency checks that 
+.BR fsck.ocfs2(8)
+performs and its means for fixing inconsistencies.
+.SH "DESCRIPTION"
+.PP 
+.BR fsck.ocfs2(8)
+is used to check an OCFS2 file system.  It performs many consistenty checks and will offer to fix faults that it finds.  This man page lists the problems it may find and describes their fixes.  The problems are indexed by the error number that 
+.BR fsck.ocfs2(8)
+emits when it describes the problem and asks if it should be fixed.
+
+The prompts are constructed such that answering 'no' results in no changes to the file system.  This may result in errors later on that stop 
+.BR fsck.ocfs2(8)
+from proceeding.
+
+.SH "CHECKS"
+
+.SS "1"
+Each node's journals are usually empty after an orderly shut down of the
+file system.  A node was marked as not having shut down properly so its
+journal should be replayed.
+
+Answering yes replays the given node's journal.  Each block in the journal will be written
+to its intended location in the file system. 
+
+.SS "2"
+The group descriptors that make up the global bitmap chain allocator are
+static and should be found in specific chains in the allocator.  A given
+group descriptor wasn't found in the chain it should have been in.
+
+Answering yes relinks the given group descriptor into the head of the chain it
+should have been found in.
+
+.SS "3"
+The group descriptors that make up the global bitmap chain allocator are
+static and should be found in specific chains in the allocator.  A given
+group descriptor block existed on disk but wasn't linked into the global
+bitmap chain allocator.
+
+Answering yes links the given group descriptor into the global bitmap chain
+allocator.
+
+.SS "4"
+The chain list embedded in an inode is limited by the block size and the
+number of bytes consumed by the rest of the inode.  A chain list header was
+found which claimed that there are more entries in the list then could 
+fit in the inode.
+
+Answering yes resets the header's cl_count member to the maximum size allowed
+by the block size after accounting for the space consumed by the inode.
+
+.SS "5"
+This is identical to test 4 except that it is testing and fixing the pointer
+to the next free list entry recorded in the cl_next_free_rec member instead of
+the total number of entries. 
+
+.SS "6"
+Chain entries need to be packed such that there are no chains without 
+descriptors found before the chain that is marked as free by the chain header.
+A chain without descriptors was found found before that chain that was
+marked free.
+
+Answering yes will remove the unused chain and shift the remaining chains
+forward in the list.
+
+.SS "7"
+The inode that contains an embedded chain list has fields which record the
+total number of bits covered by the chain as well as the amount free.  These 
+fields didn't match what was found in the chain. 
+
+Answering yes updates the fields in the inode to reflect what was actually
+found by walking the chain.
+
+.SS "8"
+Chains are built by the chain headers and group descriptors which are linked
+together by block references.  A reference a block reference was found which
+can't possibly be valid because it was either too small or extended beyond the
+volume.
+
+Answering yes truncates the chain in question by zeroing the invalid block
+reference.  This shortens the chain in question and could result in more
+fixes later if the part of the chain that couldn't be referenced was valid
+at some point.
+
+.SS "10"
+The global bitmap chain allocator contains fixed blocks at predictable 
+offsets in the volume.  A group descriptor was found in this chain which
+wasn't at one of these predictable locations.
+
+Answering yes removes this unexpected group descriptor from the chain.  It's
+block will likely then be unused and marked as free in the bitmap later on.
+
+.SS "11"
+A reference was made to a group descriptor that is invalid, for whatever
+reason.
+
+Answering yes truncates the chain in question by removing the reference to
+this invalid group descriptor.  This has the same implications as answering
+yes to check 8. 
+
+.SS "12"
+A chain's header contains members which record the total number of bits in the
+chain as well as the number of bits that are free.  After walking through a
+chain it was found that the number of bits recorded in its header don't match
+what was found by totalling up the group descriptors.
+
+Answering yes updates the c_total and c_free members of the header to reflect
+what was found in the group descriptors in the chain.
+
+.SH "SEE ALSO"
+.BR ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation.
+
+.SH "COPYRIGHT"
+Copyright \(co 2004 Oracle Corporation

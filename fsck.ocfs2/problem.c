@@ -20,7 +20,7 @@
  * --
  *
  * prompt() asks the user whether a given problem should be fixed or not.
- * "problem.c" is derived from the baroque e2fsck origins for this concept.
+ * "problem.c" is derived from the baroque e2fsck origins of this concept.
  *
  * XXX
  * 	The significant gap here is in persistent answers.  Often one wants
@@ -146,12 +146,11 @@ static void print_wrapped(char *str)
  * and have a notion of grouping, as well.  The caller is expected to provide
  * a fully formed question that isn't terminated with a newline.
  */
-int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
+int prompt(o2fsck_state *ost, unsigned flags, unsigned code, const char *fmt,
+	   ...)
 {
 	va_list ap;
 	int c, ans = 0;
-	static char fatal[] = " If you answer no fsck will not be able to "
-			      "continue and will exit.";
 	static char yes[] = " <y> ", no[] = " <n> ";
 	char *output;
 	size_t len, part;
@@ -169,11 +168,8 @@ int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 		exit(FSCK_ERROR);
 	}
 
-	if (flags & PF)
-		len += sizeof(fatal); /* includes null */
-
 	if (flags & (PY|PN))
-		len += sizeof(yes); /* includes null */
+		len += sizeof(yes) + 10; /* includes code and null */
 
 	output = malloc(len);
 	if (output == NULL) {
@@ -181,17 +177,21 @@ int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 		exit(FSCK_ERROR);
 	}
 
-	va_start(ap, fmt);
-	part = vsnprintf(output, len, fmt, ap);
-	va_end(ap);
+	part = snprintf(output, len, "[%.6u] ", code);
 	if (part < 0) {
 		perror("vsnprintf failed when trying to bulid an output "
 		       "buffer");
 		exit(FSCK_ERROR);
 	}
 
-	if (flags & PF)
-		strcat(output, fatal);
+	va_start(ap, fmt);
+	part = vsnprintf(output + part, len - part, fmt, ap);
+	va_end(ap);
+	if (part < 0) {
+		perror("vsnprintf failed when trying to bulid an output "
+		       "buffer");
+		exit(FSCK_ERROR);
+	}
 
 	if (!ost->ost_ask) {
 		ans = ost->ost_answer ? 'y' : 'n';
@@ -246,11 +246,6 @@ int prompt(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 		printf(" %c\n", ans);
 	else
 		printf("%c\n", ans);
-
-	if (flags & PF) {
-		printf("fsck cannot continue.  Exiting.\n");
-		exit(FSCK_ERROR);
-	}
 
 	return ans == 'y';
 }
