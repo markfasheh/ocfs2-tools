@@ -20,8 +20,8 @@ Distribution: Oracle
 Vendor: Oracle Corporation
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: coreutils, net-tools, modutils, %{chkconfig_dep}, glib2 >= 2.0.6
-BuildRequires: glib2-devel >= 2.0.6, %{pygtk_name} >= 1.99.16, python-devel >= %{pyversion}
+Requires: coreutils, net-tools, modutils, %{chkconfig_dep}, glib2 >= 2.2.3
+BuildRequires: glib2-devel >= 2.2.3, %{pygtk_name} >= 1.99.16, python-devel >= %{pyversion}
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 
@@ -30,7 +30,7 @@ Tools to manage Oracle Cluster Filesystem 2 volumes.
 
 
 %package -n ocfs2console
-Summary: GUI frontend for OCFS2 management and debugging
+Summary: GUI frontend for OCFS2 management
 Group: System Environment/Kernel
 Requires: glib2 >= 2.0.6, %{pygtk_name} >= 1.99.16, python >= %{pyversion}
 AutoReqProv: No
@@ -55,7 +55,7 @@ make
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
 
-for tool in fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 clusterbo mount.ocfs2 ocfs2cdsl
+for tool in fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl mount.ocfs2 ocfs2cdsl
 do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
 done
@@ -64,6 +64,8 @@ for tool in ocfs2console
 do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
 done
+
+%{__python} /usr/lib/python2.3/compileall.py -q "$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface"
 
 
 %clean
@@ -92,7 +94,7 @@ chkconfig o2cb on
 
 
 %files -n ocfs2console
-%{_libdir}/python?.?/site-packages/ocfs2interface
+%{_libdir}/python%{pyversion}/site-packages/ocfs2interface
 /usr/sbin/ocfs2console
 /usr/share/man/man8/ocfs2console.8.gz
 
