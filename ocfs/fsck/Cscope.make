@@ -6,4 +6,5 @@ cscope:
 	find . -name '*.c' -print >>cscope.files
 	find . -name '*.h' -print >>cscope.files
 	find ../libocfs -name '*.h' -print >>cscope.files
+	find ../libocfs -name '*.c' -print >>cscope.files
 	cscope -b

@@ -784,11 +784,11 @@ int _fileflag_to_string_u32(GString **retval, void *top, typeinfo *info)
 int _string_to_fileflag_u32(char *newval, void *top, typeinfo *info)
 {
 	int ret = -1;
-	char **arr;
+	char **arr, **p;
 	__u32 flag;
 
 	flag = 0;
-	arr = g_strsplit(newval, " ", 0);
+	p = arr = g_strsplit(newval, " ", 0);
 
 	while (*arr!=NULL)
 	{  
@@ -826,7 +826,7 @@ int _string_to_fileflag_u32(char *newval, void *top, typeinfo *info)
 	}
 	G_STRUCT_MEMBER(__u32, top, info->off) = flag;
 	ret = 0;
-	g_strfreev(arr);
+	g_strfreev(p);
 	return ret;
 }
 
@@ -1315,9 +1315,9 @@ int _string_to_syncflag_u32(char *newval, void *top, typeinfo *info)
 {
 	__u32 sync = 0;
 	int ret = -1;
-	char **arr;
+	char **arr, **p;
 
-	arr = g_strsplit(newval, " ", 0);
+	p = arr = g_strsplit(newval, " ", 0);
 
 	while (*arr != NULL)
 	{
@@ -1338,7 +1338,7 @@ int _string_to_syncflag_u32(char *newval, void *top, typeinfo *info)
 	G_STRUCT_MEMBER(__u32, top, info->off) = sync;
 	ret = 0;
 bail:
-	g_strfreev(arr);
+	g_strfreev(p);
 	return ret;
 }
 
@@ -1373,10 +1373,10 @@ int _string_to_syncflag_u8(char *newval, void *top, typeinfo *info)
 {
 	__u8 sync = 0;
 	int ret = -1;
-	char **arr;
+	char **arr, **p;
 
 	sync = 0;
-	arr = g_strsplit(newval, " ", 0);
+	p = arr = g_strsplit(newval, " ", 0);
 
 	while (*arr != NULL)
 	{
@@ -1397,7 +1397,7 @@ int _string_to_syncflag_u8(char *newval, void *top, typeinfo *info)
 	G_STRUCT_MEMBER(__u8, top, info->off) = sync;
 	ret = 0;
 bail:
-	g_strfreev(arr);
+	g_strfreev(p);
 	return ret;
 
 }

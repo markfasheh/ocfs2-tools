@@ -148,11 +148,20 @@ int main(int argc, char **argv)
     if (!(GetDiskGeometry(file, &vol_size, &sect_size)))
 	goto bail;
 
+    if (opts.device_size) {
+	if (opts.device_size > vol_size) {
+		fprintf(stderr, "Error: Size specified is larger "
+			"than the device size.\nAborting.\n");
+		goto bail;
+	} else
+		vol_size = opts.device_size;
+    }
+	    
     if (vol_size < OCFS_MIN_VOL_SIZE) {
 	fprintf(stderr, "Error: %s at %lluMB is smaller than %uMB.\n"
 		"Aborting.\n", opts.device, (vol_size/(1024*1024)),
 	       	(OCFS_MIN_VOL_SIZE/(1024*1024)));
-	    goto bail;
+	goto bail;
     }
 
     /* close and reopen after binding to raw */
@@ -655,6 +664,9 @@ int ReadOptions(int argc, char **argv)
 {
 	int i;
 	int ret = 1;
+	char *p;
+	__u64 fac = 1;
+	long double size;
 
 	if (argc < 2) {
 		version(argv[0]);
@@ -746,6 +758,20 @@ int ReadOptions(int argc, char **argv)
 
 			case 'q':	/* quiet */
 				opts.quiet = true;
+				break;
+
+			case 'S':	/* device size */
+				++i;
+				if (i < argc && argv[i]) {
+					size = strtold(argv[i], &p);
+					if (p)
+						MULT_FACTOR(*p, fac);
+					opts.device_size = (__u64)(size * fac);
+				} else {
+					fprintf(stderr,"Invalid size.\n"
+						"Aborting.\n");
+					ret = 0;
+				}
 				break;
 
 			case 'u':	/* uid */

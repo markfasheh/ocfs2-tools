@@ -44,6 +44,8 @@ __u32 debug_exclude = 0;
 bool never_mounted = false;
 __u32 fs_version = 0;
 
+__u32 fs_num;
+
 ocfs_global_ctxt OcfsGlobalCtxt;
 ocfsck_context ctxt;
 extern void version(char *progname);

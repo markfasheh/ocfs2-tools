@@ -38,6 +38,12 @@
 #define  MISS_COUNT_VALUE        40
 #define  MIN_MISS_COUNT_VALUE    5
 
+/* values are in ms */
+#define  OCFS_MIN_DISKHB	500
+#define  OCFS_MAX_DISKHB	5000
+#define  OCFS_MIN_HBTIMEO	10000
+#define  OCFS_MAX_HBTIMEO	60000
+
 #define  OCFS_DEFAULT_DIR_NODE_SIZE  (1024 * 128)
 #define  OCFS_DEFAULT_FILE_NODE_SIZE (512)
 
@@ -106,6 +112,8 @@ enum {
 #define  OCFS_VOLUME_LOCK_OFFSET     (OCFS_SECTOR_SIZE)
 /* change this to some other sector, change format TODO */
 #define  OCFS_BITMAP_LOCK_OFFSET     (OCFS_SECTOR_SIZE * 2)
+
+#define  OCFS_MAX_BITMAP_SIZE          1024 * 1024
 
 #define  HEARTBEAT_METHOD_DISK       (1)
 #define  HEARTBEAT_METHOD_IPC        (2)

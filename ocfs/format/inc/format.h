@@ -207,6 +207,6 @@ int ocfs_create_root_directory (int file, ocfs_vol_disk_hdr *volhdr);
 __u32 ocfs_alloc_from_global_bitmap (__u64 file_size, ocfs_vol_disk_hdr *volhdr);
 int ocfs_update_bm_lock_stats(int file);
 int ocfs_init_global_alloc_bm (__u32 num_bits, int file, ocfs_vol_disk_hdr *volhdr);
-void ocfs_init_dirnode(ocfs_dir_node *dir, __u64 disk_off, __u32 bit_off);
+void ocfs_init_dirnode(ocfs_dir_node *dir, __u64 disk_off);
 
 #endif /* _FORMAT_H_ */

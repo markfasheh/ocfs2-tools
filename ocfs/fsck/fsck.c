@@ -41,6 +41,8 @@ __u32 debug_exclude = 0;
 bool never_mounted = false;
 __u32 fs_version = 0;
 
+__u32 fs_num = 0;
+
 ocfs_global_ctxt OcfsGlobalCtxt;
 ocfsck_context ctxt;
 extern void version(char *progname);
@@ -120,7 +122,7 @@ int parse_fsck_cmdline(int argc, char **argv)
 		ctxt.no_hb_chk = false;
 
 	if (ctxt.dev_is_file)
-		ctxt.no_hb_chk = false;
+		ctxt.no_hb_chk = true;
 
 	ret = 0;
 bail:
@@ -184,7 +186,7 @@ int edit_structure(ocfs_disk_structure *s, char *buf, int idx, int *changed, cha
 			break;
 		}
 	
-		// show current value and default value	
+		/* show current value and default value	*/
 		m = &(cls->members[fld]);
 		if (m->to_string(&cur, buf, &(m->type))==-1) {
 			ret = -1;
@@ -202,7 +204,7 @@ int edit_structure(ocfs_disk_structure *s, char *buf, int idx, int *changed, cha
 		       cur ? cur->str : "", 
 		       dflt ? dflt->str : "");
 
-		// get new value and validate it
+		/* get new value and validate it */
 		if (fgets(newval, USER_INPUT_MAX, stdin) == NULL) {
 			ret = -1;
 			break;
@@ -270,11 +272,13 @@ int fsck_initialize(char **buf)
 	else
 		ctxt.flags = O_RDONLY | O_LARGEFILE;
 
-	if (bind_raw(ctxt.device, &ctxt.raw_minor, ctxt.raw_device, sizeof(ctxt.raw_device)))
-		goto bail;
-
-	if (ctxt.verbose)
-		CLEAR_AND_PRINT("Bound %s to %s", ctxt.device, ctxt.raw_device);
+	if (!ctxt.dev_is_file) {
+		if (bind_raw(ctxt.device, &ctxt.raw_minor, ctxt.raw_device, sizeof(ctxt.raw_device)))
+			goto bail;
+		if (ctxt.verbose)
+			CLEAR_AND_PRINT("Bound %s to %s", ctxt.device, ctxt.raw_device);
+	} else
+		strncpy(ctxt.raw_device, ctxt.device, sizeof(ctxt.raw_device));
 
 	if ((fd = myopen(ctxt.raw_device, ctxt.flags)) == -1) {
 		LOG_ERROR("Error opening %s.\n%s.", ctxt.raw_device,
@@ -320,6 +324,7 @@ int fsck_initialize(char **buf)
 	ctxt.vol_bm_data = g_array_new(false, true, sizeof(bitmap_data));
 	ctxt.dir_bm_data = g_array_new(false, true, sizeof(bitmap_data));
 	ctxt.ext_bm_data = g_array_new(false, true, sizeof(bitmap_data));
+	ctxt.filenames = g_array_new(false, true, sizeof(str_data));
 
 	ret = 0;
 
@@ -343,7 +348,7 @@ int main(int argc, char **argv)
 	ocfs_layout_t *l;
 	int j;
 	GHashTable *bad = NULL;
-	int changed = 0;
+	str_data *fn;
 
 	memset(&ctxt, 0, sizeof(ctxt));
 	init_global_context();
@@ -412,6 +417,7 @@ int main(int argc, char **argv)
 				break;
 			if (ret != -1 && !ctxt.modify_all)
 				continue;
+#if 0
 			while (ctxt.write_changes) {
 				changed = 0;
 				if (edit_structure(s, buf, j, &changed, &option) != -1)
@@ -425,6 +431,7 @@ int main(int argc, char **argv)
 
 				break;
 			}
+#endif
 
 			if (bad)
 				g_hash_table_destroy(bad);
@@ -499,6 +506,14 @@ quiet_bail:
 
 	if (ctxt.ext_bm_data)
 		g_array_free(ctxt.ext_bm_data, true);
+
+	if (ctxt.filenames) {
+		for (i = 0; i < ctxt.filenames->len; ++i) {
+			fn = &(g_array_index(ctxt.filenames, str_data, i));
+			safefree(fn->str);
+		}
+		g_array_free(ctxt.filenames, true);
+	}
 
 	for (i = 0; i < OCFS_MAXIMUM_NODES; ++i)
 		free_aligned(ctxt.dir_bm[i]);

@@ -68,7 +68,7 @@ int check_outside_bounds(char *buf, int structsize)
  *	 __u32 last_node;
  *	 __u64 cfg_seq_num;
  */
-int verify_nodecfghdr (int fd, char *buf, int idx, GHashTable **bad)
+int verify_nodecfghdr (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	int ret = 0;
 	ocfs_node_config_hdr *hdr;
@@ -85,7 +85,7 @@ int verify_nodecfghdr (int fd, char *buf, int idx, GHashTable **bad)
 	if (check_outside_bounds(buf, sizeof(ocfs_node_config_hdr)) == -1)
 		LOG_WARNING("nonzero bytes after the disk structure");
 
-	ret = verify_disk_lock (fd, buf, idx, bad);
+	ret = verify_disk_lock (fd, buf, offset, idx, bad);
 
 	if (hdr->version != NODE_CONFIG_VER) {
 		mbr = find_class_member(cl, "version", &i);
@@ -110,7 +110,7 @@ int verify_nodecfghdr (int fd, char *buf, int idx, GHashTable **bad)
  *	ocfs_guid guid;
  *	ocfs_ipc_config_info ipc_config;
  */
-int verify_nodecfginfo (int fd, char *buf, int idx, GHashTable **bad)
+int verify_nodecfginfo (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	int ret = 0;
 	ocfs_disk_node_config_info *node;
@@ -125,7 +125,7 @@ int verify_nodecfginfo (int fd, char *buf, int idx, GHashTable **bad)
 	if (check_outside_bounds(buf, sizeof(ocfs_disk_node_config_info)) == -1)
 		LOG_WARNING("nonzero bytes after the disk structure");
 
-	ret = verify_disk_lock (fd, buf, idx, bad);
+	ret = verify_disk_lock (fd, buf, offset, idx, bad);
 
 	if (g_hash_table_size(*bad) == 0)
 		ret = 0;
@@ -137,17 +137,18 @@ int verify_nodecfginfo (int fd, char *buf, int idx, GHashTable **bad)
  * verify_system_file_entry()
  *
  */
-int verify_system_file_entry (int fd, char *buf, int idx, GHashTable **bad, char *fname, int type)
+int verify_system_file_entry (int fd, char *buf, __u64 offset, int idx, GHashTable **bad, char *fname, int type)
 {
 	int ret, i;
 	ocfs_file_entry *fe;
 	ocfs_class_member *mbr;
 	ocfs_class *cl;
+	int slot;
 
 	cl = &ocfs_file_entry_class;
 	fe = (ocfs_file_entry *)buf;
 
-	ret = verify_file_entry (fd, buf, idx, bad);
+	ret = verify_file_entry (fd, buf, offset, idx, bad);
 
 	if (strncmp(fe->filename, fname, strlen(fname)) != 0)
 	{
@@ -156,7 +157,8 @@ int verify_system_file_entry (int fd, char *buf, int idx, GHashTable **bad, char
 		ret = -1;
 	}
 
-	check_file_entry(fd, fe, fe->this_sector, true, "$");
+	slot = (((fe->this_sector - ctxt.hdr->data_start_off) / 512) % 32);
+	check_file_entry(fd, fe, fe->this_sector, slot, true, "$");
 
 	if (fe->disk_lock.curr_master != ((type+idx) % OCFS_MAXIMUM_NODES) &&
 	    fe->disk_lock.curr_master != OCFS_INVALID_NODE_NUM &&
@@ -251,97 +253,97 @@ static int load_sysfile_bitmap (int fd, char *buf, int idx, bool dirbm)
  * verify_dir_alloc_bitmap()
  *
  */
-int verify_dir_alloc_bitmap (int fd, char *buf, int idx, GHashTable **bad)
+int verify_dir_alloc_bitmap (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s%d", "DirBitMapFile", idx+OCFS_FILE_DIR_ALLOC_BITMAP);
 	load_sysfile_bitmap(fd, buf, idx, true);
-	return verify_system_file_entry (fd, buf, idx, bad, fname, OCFS_FILE_DIR_ALLOC_BITMAP);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, OCFS_FILE_DIR_ALLOC_BITMAP);
 }				/* verify_dir_alloc_bitmap */
 
 /*
  * verify_file_alloc_bitmap()
  *
  */
-int verify_file_alloc_bitmap (int fd, char *buf, int idx, GHashTable **bad)
+int verify_file_alloc_bitmap (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s%d", "ExtentBitMapFile", idx+OCFS_FILE_FILE_ALLOC_BITMAP);
 	load_sysfile_bitmap(fd, buf, idx, false);
-	return verify_system_file_entry (fd, buf, idx, bad, fname, OCFS_FILE_FILE_ALLOC_BITMAP);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, OCFS_FILE_FILE_ALLOC_BITMAP);
 }				/* verify_file_alloc_bitmap */
 
 /*
  * verify_dir_alloc()
  *
  */
-int verify_dir_alloc (int fd, char *buf, int idx, GHashTable **bad)
+int verify_dir_alloc (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s%d", "DirFile", idx+OCFS_FILE_DIR_ALLOC);
-	return verify_system_file_entry (fd, buf, idx, bad, fname, OCFS_FILE_DIR_ALLOC);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, OCFS_FILE_DIR_ALLOC);
 }				/* verify_dir_alloc */
 
 /*
  * verify_file_alloc()
  *
  */
-int verify_file_alloc (int fd, char *buf, int idx, GHashTable **bad)
+int verify_file_alloc (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s%d", "ExtentFile", idx+OCFS_FILE_FILE_ALLOC);
-	return verify_system_file_entry (fd, buf, idx, bad, fname, OCFS_FILE_FILE_ALLOC);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, OCFS_FILE_FILE_ALLOC);
 }				/* verify_file_alloc */
 
 /*
  * verify_vol_metadata()
  *
  */
-int verify_vol_metadata (int fd, char *buf, int idx, GHashTable **bad)
+int verify_vol_metadata (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s", "VolMetaDataFile");  // no file #
-	return verify_system_file_entry (fd, buf, idx, bad, fname, OCFS_FILE_VOL_META_DATA);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, OCFS_FILE_VOL_META_DATA);
 }				/* verify_vol_metadata */
 
 /*
  * verify_vol_metadata_log()
  *
  */
-int verify_vol_metadata_log (int fd, char *buf, int idx, GHashTable **bad)
+int verify_vol_metadata_log (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s", "VolMetaDataLogFile");  // no file #
-	return verify_system_file_entry (fd, buf, idx, bad, fname, OCFS_FILE_VOL_LOG_FILE);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, OCFS_FILE_VOL_LOG_FILE);
 }				/* verify_vol_metadata_log */
 
 /*
  * verify_cleanup_log()
  *
  */
-int verify_cleanup_log (int fd, char *buf, int idx, GHashTable **bad)
+int verify_cleanup_log (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s%d", "CleanUpLogFile", idx+CLEANUP_FILE_BASE_ID);
-	return verify_system_file_entry (fd, buf, idx, bad, fname, CLEANUP_FILE_BASE_ID);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, CLEANUP_FILE_BASE_ID);
 }				/* verify_cleanup_log */
 
 /*
  * verify_recover_log()
  *
  */
-int verify_recover_log (int fd, char *buf, int idx, GHashTable **bad)
+int verify_recover_log (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	char fname[30];
 	sprintf(fname, "%s%d", "RecoverLogFile", idx+LOG_FILE_BASE_ID);
-	return verify_system_file_entry (fd, buf, idx, bad, fname, LOG_FILE_BASE_ID);
+	return verify_system_file_entry (fd, buf, offset, idx, bad, fname, LOG_FILE_BASE_ID);
 }				/* verify_recover_log */
 
 /*
  * verify_volume_bitmap()
  *
  */
-int verify_volume_bitmap (int fd, char *buf, int idx, GHashTable **bad)
+int verify_volume_bitmap (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	return 0;
 }				/* verify_volume_bitmap */
@@ -350,7 +352,7 @@ int verify_volume_bitmap (int fd, char *buf, int idx, GHashTable **bad)
  * verify_publish_sector()
  *
  */
-int verify_publish_sector (int fd, char *buf, int idx, GHashTable **bad)
+int verify_publish_sector (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	int i;
 	ocfs_publish *pub;
@@ -386,7 +388,7 @@ int verify_publish_sector (int fd, char *buf, int idx, GHashTable **bad)
  * verify_vote_sector()
  *
  */
-int verify_vote_sector (int fd, char *buf, int idx, GHashTable **bad)
+int verify_vote_sector (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	int i;
 	ocfs_vote *vote;
@@ -414,17 +416,10 @@ int verify_vote_sector (int fd, char *buf, int idx, GHashTable **bad)
  * verify_dir_node()
  *
  */
-int verify_dir_node (int fd, char *buf, int idx, GHashTable **bad)
+int verify_dir_node (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	int ret = 0;
-//	ocfs_dir_node *dir;
 	ocfs_class *cl;
-//	int i;
-//	ocfs_class_member *mbr;
-//	int j;
-//	__u64 size = 0;
-//	__u64 off = 0;
-//	char tmpstr[255];
 
 	cl = &ocfs_dir_node_class;
 	*bad = g_hash_table_new(g_direct_hash, g_direct_equal);
@@ -433,7 +428,7 @@ int verify_dir_node (int fd, char *buf, int idx, GHashTable **bad)
 		LOG_WARNING("nonzero bytes after the disk structure");
 
 	/* ocfs_disk_lock disk_lock; */ 
-	ret = verify_disk_lock (fd, buf, idx, bad);
+	ret = verify_disk_lock (fd, buf, offset, idx, bad);
 
 	/* __u64 alloc_file_off;     */ 
 	/* __u32 alloc_node;         */ 
@@ -443,19 +438,35 @@ int verify_dir_node (int fd, char *buf, int idx, GHashTable **bad)
 	/* __s64 indx_node_ptr;      */ 
 	/* __s64 next_del_ent_node;  */ 
 	/* __s64 head_del_ent_node;  */ 
+
+	/* __u8 index[256];          */
+	check_dir_index(buf, offset);
+
 	/* __u8 first_del;           */
 	/* __u8 num_del;             */
+	ret = check_num_del(buf, offset);
+	if (ret) {
+		LOG_ERROR("Bad list of deleted entries found");
+		if (ctxt.write_changes) {
+			fix_num_del(buf, offset);
+			LOG_PRINT("Fixed");
+		} else
+			LOG_PRINT("To fix, rerun with -w");
+		ret = 0;
+	}
+
 	/* __u8 num_ents;	     */
 	/* __u8 depth;		     */
 	/* __u8 num_ent_used;	     */
 	/* __u8 dir_node_flags;	     */
 	/* __u8 sync_flags;          */
-	/* __u8 index[256];          */
 	/* __u8 index_dirty;         */
 	/* __u8 bad_off;             */
 	/* __u64 num_tot_files;      */
 	/* __u8 reserved[119];       */
 	/* __u8 file_ent[1];         */
+
+	fix_fe_offsets(buf, offset);
 
 	if (g_hash_table_size(*bad) == 0)
 		ret = 0;
@@ -467,7 +478,7 @@ int verify_dir_node (int fd, char *buf, int idx, GHashTable **bad)
  * verify_file_entry()
  *
  */
-int verify_file_entry (int fd, char *buf, int idx, GHashTable **bad)
+int verify_file_entry (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	int ret = 0;
 	ocfs_file_entry *fe;
@@ -487,7 +498,7 @@ int verify_file_entry (int fd, char *buf, int idx, GHashTable **bad)
 		LOG_WARNING("nonzero bytes after the disk structure");
 
 	/* ocfs_disk_lock disk_lock; */
-	ret = verify_disk_lock (fd, buf, idx, bad);
+	ret = verify_disk_lock (fd, buf, offset, idx, bad);
 
 	/* bool local_ext;     */
 	/* __s32 granularity;  */
@@ -505,7 +516,8 @@ int verify_file_entry (int fd, char *buf, int idx, GHashTable **bad)
 		g_hash_table_insert(*bad, GINT_TO_POINTER(i), GINT_TO_POINTER(1));
 	}
 
-	/* __s8 next_del; */
+	/* __s8 next_del; fix_fe_offset */
+
 	/* __u8 filename[OCFS_MAX_FILENAME_LENGTH]; */
 	/* __u16 filename_len; */
 	
@@ -547,9 +559,9 @@ int verify_file_entry (int fd, char *buf, int idx, GHashTable **bad)
 		}
 	}
 
-	/* __u64 dir_node_ptr; */
+	/* __u64 dir_node_ptr; fix_fe_offset */
 
-	/* __u64 this_sector;  */
+	/* __u64 this_sector;  fix_fe_offset */
 	if (!fe->this_sector) {
 		mbr = find_class_member(cl, "this_sector", &i);
 		g_hash_table_insert(*bad, GINT_TO_POINTER(i), GINT_TO_POINTER(1));
@@ -580,7 +592,7 @@ int verify_file_entry (int fd, char *buf, int idx, GHashTable **bad)
  * verify_extent_group()
  *
  */
-int verify_extent_group (int fd, char *buf, int idx, GHashTable **bad, int type, __u64 up_ptr)
+int verify_extent_group (int fd, char *buf, __u64 offset, int idx, GHashTable **bad, int type, __u64 up_ptr)
 {
 	ocfs_extent_group *ext;
 	ocfs_class *cl;
@@ -662,18 +674,18 @@ int verify_extent_group (int fd, char *buf, int idx, GHashTable **bad, int type,
  * verify_extent_header()
  *
  */
-int verify_extent_header (int fd, char *buf, int idx, GHashTable **bad)
+int verify_extent_header (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
-	return verify_extent_group(fd, buf, idx, bad, OCFS_EXTENT_HEADER, 0ULL);
+	return verify_extent_group(fd, buf, offset, idx, bad, OCFS_EXTENT_HEADER, 0ULL);
 }				/* verify_extent_header */
 
 /*
  * verify_extent_data()
  *
  */
-int verify_extent_data (int fd, char *buf, int idx, GHashTable **bad)
+int verify_extent_data (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
-	return verify_extent_group(fd, buf, idx, bad, OCFS_EXTENT_DATA, 0ULL);
+	return verify_extent_group(fd, buf, offset, idx, bad, OCFS_EXTENT_DATA, 0ULL);
 }				/* verify_extent_data */
 
 
@@ -704,7 +716,6 @@ int load_volume_bitmap(void)
 		goto bail;
 	}
 
-//	if (myread(ctxt.fd, ctxt.vol_bm, (ctxt.hdr->num_clusters + 7 / 8)) == -1) {
 	if (myread(ctxt.fd, ctxt.vol_bm, VOL_BITMAP_BYTES) == -1) {
 		LOG_INTERNAL();
 		goto bail;
@@ -725,7 +736,7 @@ int load_volume_bitmap(void)
  * verify_vol_disk_header()
  *
  */
-int verify_vol_disk_header(int fd, char *buf, int idx, GHashTable **bad)
+int verify_vol_disk_header(int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	int len, ret = -1;
 	__u64 j;
@@ -925,7 +936,7 @@ int verify_vol_disk_header(int fd, char *buf, int idx, GHashTable **bad)
  * verify_vol_label()
  *
  */
-int verify_vol_label (int fd, char *buf, int idx, GHashTable **bad)
+int verify_vol_label (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	ocfs_vol_label *lbl;
 
@@ -935,14 +946,14 @@ int verify_vol_label (int fd, char *buf, int idx, GHashTable **bad)
 		LOG_WARNING("nonzero bytes after the volume label structure");
 	}
 
-	return verify_disk_lock (fd, buf, idx, bad);
+	return verify_disk_lock (fd, buf, offset, idx, bad);
 }				/* verify_vol_label */
 
 /*
  * verify_disk_lock()
  *
  */
-int verify_disk_lock (int fd, char *buf, int idx, GHashTable **bad)
+int verify_disk_lock (int fd, char *buf, __u64 offset, int idx, GHashTable **bad)
 {
 	ocfs_disk_lock *lock;
 	ocfs_class *cl;

@@ -169,8 +169,10 @@ int read_print_struct(ocfs_disk_structure *s, char *buf, __u64 off, int idx,
 		      GHashTable **bad);
 void *mem_alloc(int len);
 int fsck_initialize(char **buf);
-int qsort_compare(const void *q1, const void *q2);
-void print_free_bits(GArray *bits, char *str);
+int comp_nums(const void *q1, const void *q2);
+int comp_bits(const void *q1, const void *q2);
+void find_unset_bits(__u8 *vol_bm, char *bitmap);
+void find_set_bits(__u8 *vol_bm, char *bitmap);
 int check_global_bitmap(int fd);
 int check_node_bitmaps(int fd, GArray *bm_data, __u8 **node_bm,
 		       __u32 *node_bm_sz, char *str);
@@ -178,7 +180,7 @@ void handle_one_cdsl_entry(int fd, ocfs_file_entry *fe, __u64 offset);
 int handle_leaf_extents (int fd, ocfs_alloc_ext *arr, int num, __u32 node,
 			 __u64 parent_offset);
 void traverse_dir_nodes(int fd, __u64 offset, char *path);
-void check_file_entry(int fd, ocfs_file_entry *fe, __u64 offset,
+void check_file_entry(int fd, ocfs_file_entry *fe, __u64 offset, int slot,
 		      bool systemfile, char *path);
 void traverse_extent(int fd, ocfs_extent_group * exthdr, int flag, void *buf,
 		     int *indx);
@@ -192,6 +194,9 @@ int read_publish(int file, __u64 publ_off, __u32 sect_size, void **buf);
 int get_node_names(int file, ocfs_vol_disk_hdr *volhdr, char **node_names,
 		   __u32 sect_size);
 void print_node_names(char **node_names, __u32 nodemap);
+void print_gbl_alloc_errs(void);
+void print_bit_ranges(GArray *bits, char *str1, char *str2);
+void print_filenames(GArray *files);
 
 ////////////////////////
 void ocfs_extent_map_init (ocfs_extent_map * map);
@@ -219,7 +224,8 @@ enum {
 	bm_extent,
 	bm_dir,
 	bm_symlink,
-	bm_filedata
+	bm_filedata,
+	bm_global
 };
 
 typedef struct _bitmap_data
@@ -228,7 +234,14 @@ typedef struct _bitmap_data
 	__s32 alloc_node;
 	__u64 fss_off;		/* file system structure offset */
 	__u64 parent_off;	/* offset of the fs structure housing the extent */
+	__u32 fnum;
 } bitmap_data;
+
+typedef struct _str_data
+{
+	__u32 num;
+	char *str;
+} str_data;
 
 typedef struct _ocfsck_context
 {
@@ -256,6 +269,7 @@ typedef struct _ocfsck_context
 	GArray *vol_bm_data;
 	GArray *dir_bm_data;
 	GArray *ext_bm_data;
+	GArray *filenames;
 } ocfsck_context;
 
 //int ocfs_lookup_file_allocation (ocfs_super * osb, ocfs_inode * oin,
@@ -281,6 +295,7 @@ int _print_class(char *buf, ocfs_class *cl, FILE *out, bool num, GHashTable *ht)
 int print_class(char *buf, ocfs_class *cl, FILE *out, GHashTable *ht);
 bitmap_data * add_bm_data(__u64 start, __u64 len, __s32 alloc_node, 
 			  __u64 parent_offset, int type);
+int add_str_data(GArray *sd, __u32 num, char *str);
 
 int read_one_sector(int fd, char *buf, __u64 offset, int idx);
 int write_one_sector(int fd, char *buf, __u64 offset, int idx);
@@ -289,5 +304,9 @@ int write_dir_node (int fd, char *buf, __u64 offset, int idx);
 int read_volume_bitmap (int fd, char *buf, __u64 offset, int idx);
 int write_volume_bitmap (int fd, char *buf, __u64 offset, int idx);
 
+int check_dir_index (char *dirbuf, __u64 dir_offset);
+int check_num_del (char *dirbuf, __u64 dir_offset);
+int fix_num_del (char *dirbuf, __u64 dir_offset);
+int fix_fe_offsets(char *dirbuf, __u64 dir_offset);
 
 #endif /* FSCK_H */

@@ -1,3 +1,30 @@
+
+/*
+ * system.c
+ *
+ * creates system files and root dir during format
+ *
+ * Copyright (C) 2004 Oracle.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 021110-1307, USA.
+ *
+ * Authors: Kurt Hackel
+ *
+ */
+
 #include <format.h>
 #include <signal.h>
 #include <libgen.h>
@@ -156,7 +183,7 @@ int ocfs_create_root_directory (int file, ocfs_vol_disk_hdr * volhdr)
 		goto bail;
 	
 	volhdr->root_off = (root_bit * volhdr->cluster_size) + volhdr->data_start_off;
-	ocfs_init_dirnode(dir, volhdr->root_off, root_bit);
+	ocfs_init_dirnode(dir, volhdr->root_off);
 	dir->dir_node_flags |= DIR_NODE_FLAG_ROOT;
 
 	if (!SetSeek(file, volhdr->root_off))
@@ -303,13 +330,13 @@ bail:
 }
 
 
-void ocfs_init_dirnode(ocfs_dir_node *dir, __u64 disk_off, __u32 bit_off)
+void ocfs_init_dirnode(ocfs_dir_node *dir, __u64 disk_off)
 {
 	memset(dir, 0, OCFS_DEFAULT_DIR_NODE_SIZE);
 	strcpy (dir->signature, OCFS_DIR_NODE_SIGNATURE);
 	dir->num_ents = 254;
 	dir->node_disk_off = disk_off;
-	dir->alloc_file_off = bit_off;
+	dir->alloc_file_off = disk_off;
 	dir->alloc_node = OCFS_INVALID_NODE_NUM;
 	dir->free_node_ptr = INVALID_NODE_POINTER;
 	dir->next_node_ptr = INVALID_NODE_POINTER;
@@ -328,7 +355,7 @@ int ocfs_init_sysfile (int file, ocfs_vol_disk_hdr *volhdr, __u32 file_id,
 	char *filename;
 	ocfs_local_alloc *alloc;
 	__u64 off;
-	__u32 orphan_bit;
+//	__u32 orphan_bit;
 	ocfs_dir_node *orphan_dir = NULL;
 	__u8 next_free_ext = 0;
 
@@ -382,8 +409,8 @@ int ocfs_init_sysfile (int file, ocfs_vol_disk_hdr *volhdr, __u32 file_id,
 		orphan_dir = (ocfs_dir_node *) MemAlloc(OCFS_DEFAULT_DIR_NODE_SIZE);
 		if (orphan_dir == NULL)
 			return 0;
-		orphan_bit = (__u32)((data - volhdr->data_start_off) / volhdr->cluster_size);
-		ocfs_init_dirnode(orphan_dir, data, orphan_bit);
+//		orphan_bit = (__u32)((data - volhdr->data_start_off) / volhdr->cluster_size);
+		ocfs_init_dirnode(orphan_dir, data);
 		DISK_LOCK_CURRENT_MASTER (orphan_dir) = file_id - OCFS_ORPHAN_DIR;
 		DISK_LOCK_FILE_LOCK (orphan_dir) = OCFS_DLM_ENABLE_CACHE_LOCK;
 		orphan_dir->dir_node_flags |= DIR_NODE_FLAG_ORPHAN;

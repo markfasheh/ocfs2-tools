@@ -35,6 +35,8 @@ extern int cnt_obj;
 extern bool int_err;
 extern bool prn_err;
 
+extern __u32 fs_num;
+
 /*
  * usage()
  *
@@ -104,11 +106,13 @@ int confirm_changes(__u64 off, ocfs_disk_structure *s, char *buf, int idx, GHash
 		*loc = '\0';
 
        	if (strcasecmp(yesno, "yes")==0 || strcasecmp(yesno, "y")==0) {
-		if (s->write(fd, buf, off, idx)==-1)
-			LOG_ERROR("failed to write data to disk");
+		if ((ret = s->write(fd, buf, off, idx)) == -1) {
+			LOG_INTERNAL();
+			goto bail;
+		}
 		else {
 			GHashTable *tmp = NULL;
-			ret = s->verify(fd, buf, idx, &tmp);
+			ret = s->verify(fd, buf, off, idx, &tmp);
 			if (tmp != NULL)
 				g_hash_table_destroy(tmp);
 		}
@@ -146,20 +150,10 @@ int read_print_struct(ocfs_disk_structure *s, char *buf, __u64 off, int idx, GHa
 		if (s->sig_match(buf, idx)==-EINVAL) {
 			LOG_ERROR("Bad signature found");
 			ret = -1;
-			if (ctxt.write_changes) {
-				if (!*bad)
-					*bad = g_hash_table_new(g_direct_hash, g_direct_equal);
-				ret = confirm_changes(off, s, buf, idx, *bad);
-				LOG_PRINT("Fixed");
-			} else
-				LOG_PRINT("To fix, rerun with -w");
-			/* restore the original if the new one was not written */
-			if (ret == -1)
-				memcpy(buf, saved_block, 512);
 		}
 	}
 
-	if (s->verify(fd, buf, idx, bad)==-1) {
+	if (s->verify(fd, buf, off, idx, bad)==-1) {
 		LOG_ERROR("structure failed verification");
 		ret = -1;
 	}
@@ -194,11 +188,15 @@ int get_device_size(int fd)
 		ctxt.device_size = buf.st_size;
 		goto finito;
 	} else if (S_ISCHR(buf.st_mode)) {
-		char *junk;
+		char *junk = NULL;
 		__u64 hi, lo, new, delta, last;
 		int ret;
 
 		junk = malloc_aligned(512);
+		if (!junk) {
+			LOG_INTERNAL();
+			goto bail;
+		}
 		hi = 0xfffffffffffffd00;
 		lo = 0ULL;
 		new = hi >> 1;
@@ -209,14 +207,14 @@ int get_device_size(int fd)
 			myseek64(fd, new, SEEK_SET);
 			ret = read(fd, junk, 512);
 			if (ret == 512) {
-				// go higher
+				/* go higher */
 				ctxt.device_size = (new + 512);
 				lo = new;
 				delta = (hi - lo) >> 1;
 				new = hi - delta;
 				new &= 0xfffffffffffffd00;
 			} else {
-				// go lower
+				/* go lower */
 				hi = new;
 				delta = (hi - lo) >> 1;
 				new = lo + delta;
@@ -233,6 +231,7 @@ int get_device_size(int fd)
 			ret = read(fd, junk, 512);
 			new += 512;
 		}
+		free_aligned(junk);
 		goto finito;
 	} else {
 		if (ioctl(fd, BLKGETSIZE, &numblks) == -1) {
@@ -455,27 +454,145 @@ void print_node_names(char **node_names, __u32 nodemap)
 }				/* print_node_names */
 
 /*
- * print_free_bits()
+ * print_gbl_alloc_errs()
  *
  */
-void print_free_bits(GArray *bits, char *str)
+void print_gbl_alloc_errs(void)
+{
+	bitmap_data *bm1;
+	bitmap_data *bm2;
+	str_data *s1;
+	str_data *s2;
+	GArray *cbl = NULL;
+	__u32 i, j, k;
+	GArray *files = NULL;
+	GString *gs = NULL;
+	char *newstr = NULL;
+
+	files = g_array_new(false, true, sizeof(__u32));
+	cbl = g_array_new(false, true, sizeof(str_data));
+	gs = g_string_new (NULL);
+
+	/* walk the list and check for any duplicates */
+	for (i = 0; i < ctxt.vol_bm_data->len;) {
+		bm1 = &(g_array_index(ctxt.vol_bm_data, bitmap_data, i));
+		for (k = 0, j = i + 1; j < ctxt.vol_bm_data->len; ++j, ++k) {
+			bm2 = &(g_array_index(ctxt.vol_bm_data, bitmap_data, j));
+			if (bm2->bitnum == bm1->bitnum) {
+				if (!ctxt.verbose)
+					g_array_append_val(files, bm2->fnum);
+				else {
+					newstr = g_strdup_printf(", %u.%u",
+								 HILO(bm2->parent_off));
+					g_string_append (gs, newstr);
+					safefree(newstr);
+				}
+				continue;
+			} else
+				break;
+		}
+		if (k) {
+			if (!ctxt.verbose)
+				g_array_append_val(files, bm1->fnum);
+			else {
+				newstr = g_strdup_printf("%u.%u", HILO(bm1->parent_off));
+				g_string_prepend(gs, newstr);
+				add_str_data(cbl, bm1->bitnum, gs->str);
+				safefree(newstr);
+				if (gs) {
+					g_string_free(gs, true);
+					gs = g_string_new (NULL);
+				}
+			}
+		}
+		i += k + 1;
+	}
+
+	if (files->len || cbl->len)
+		LOG_ERROR("Global bitmap corruption detected");
+	else
+		goto bail;
+
+	if (ctxt.verbose) {
+		for (i = 0; i < cbl->len;) {
+			s1 = &(g_array_index(cbl, str_data, i));
+			for (k = 0, j = i + 1; j < cbl->len; ++k, ++j) {
+				s2 = &(g_array_index(cbl, str_data, j));
+				if (s1->num + k + 1 != s2->num)
+					break;
+				if (strncmp(s1->str, s2->str, sizeof(s1->str)))
+					break;
+			}
+			if (k)
+				LOG_PRINT("Bits# %u-%u allocated to objects %s", s1->num, s1->num+k, s1->str);
+			else
+				LOG_PRINT("Bit# %u allocated to objects %s", s1->num, s1->str);
+			i += k + 1;
+		}
+		goto bail;
+	}
+
+	/* concise output */
+	LOG_PRINT("Global bitmap corruption involves the following objects:");
+	print_filenames(files);
+
+bail:
+	if (files)
+		g_array_free(files, true);
+	if (gs)
+		g_string_free(gs, true);
+	if (cbl) {
+		for (i = 0; i < cbl->len; ++i) {
+			s1 = &(g_array_index(cbl, str_data, i));
+			safefree(s1->str);
+		}
+		g_array_free(cbl, true);
+	}
+
+	return ;
+}				/* print_gbl_alloc_errs */
+
+/*
+ * print_filenames()
+ *
+ */
+void print_filenames(GArray *files)
+{
+	str_data *fs;
+	__u32 num, oldnum;
+	__u32 i;
+
+	qsort(files->data, files->len, sizeof(__u32), &comp_nums);
+
+	num = oldnum = ULONG_MAX;
+	for (i = 0; i < files->len; ++i) {
+		num = g_array_index(files, __u32, i);
+		if (num != oldnum) {
+			fs = &(g_array_index(ctxt.filenames, str_data, num));
+			LOG_PRINT("%s", fs->str);
+			oldnum = num;
+		}
+	}
+}				/* print_filenames */
+
+/*
+ * print_bit_ranges()
+ *
+ */
+void print_bit_ranges(GArray *bits, char *str1, char *str2)
 {
 	__u32 i, j, k;
 	__u32 bit1, bit2;
+	GString *gs = NULL;
+	char comma[3];
+	gchar newstr[50];
 
 	if (!bits)
 		goto bail;
 
-#if 0
-	for (i = 0; i < bits->len; ++i) {
-		bit1 = g_array_index(bits, __u32, i);
-		if (i == 0)
-			printf("\nbits: ");
-		printf("%d, ", bit1);
-	}
-	printf("\n");
-#endif
+	gs = g_string_new (NULL);
 
+	*comma = '\0';
 	for (i = 0; i < bits->len;) {
 		bit1 = g_array_index(bits, __u32, i);
 		for (k = 0, j = i + 1; j < bits->len; ++k, ++j) {
@@ -484,16 +601,105 @@ void print_free_bits(GArray *bits, char *str)
 				break;
 		}
 		if (k)
-			LOG_ERROR("Bits %u-%u are unset in the %s bitmap",
-				  bit1, bit1 + k, str);
+			sprintf(newstr, "%s%u-%u", comma, bit1, bit1 + k);
 		else
-			LOG_ERROR("Bit %u is unset in the %s bitmap", bit1, str);
+			sprintf(newstr, "%s%u", comma, bit1);
+		g_string_append (gs, newstr);
+		if (!i)
+			strcpy(comma, ", ");
 		i += k + 1;
 	}
 
+	LOG_PRINT("List of %s bits in the %s bitmap: %s", str1, str2, gs->str);
+
 bail:
+	if (gs)
+		g_string_free(gs, true);
 	return ;
-}				/* print_free_bits */
+}				/* print_bit_ranges */
+
+/*
+ * find_unset_bits()
+ *
+ */
+void find_unset_bits(__u8 *vol_bm, char *bitmap)
+{
+	__u32 i, j;
+	bitmap_data *bm;
+	GArray *bits = NULL;
+	GArray *files = NULL;
+	__u32 bitnum;
+	bitmap_data kbm;
+
+	bits = g_array_new(false, true, sizeof(__u32));
+	files = g_array_new(false, true, sizeof(__u32));
+
+	/* clearing all the allocated bits in the global bitmap */
+	for (i = 0; i < ctxt.vol_bm_data->len; ++i) {
+		bm = &(g_array_index(ctxt.vol_bm_data, bitmap_data, i));
+		j = __test_and_clear_bit(bm->bitnum, (unsigned long *)vol_bm);
+		if (!j) {
+			if (!test_bit(bm->bitnum, (unsigned long *)ctxt.vol_bm))
+				g_array_append_val(bits, bm->bitnum);
+		}
+	}
+
+	if (!bits->len)
+		goto bail;
+
+	LOG_WARNING("Global bitmap has unset bits");
+	print_bit_ranges(bits, "unset", bitmap);
+
+	for (i = 0; i < bits->len; ++i) {
+		bitnum = g_array_index(bits, __u32, i);
+
+		memset (&kbm, 0, sizeof(bitmap_data));
+		kbm.bitnum = bitnum;
+		kbm.alloc_node = OCFS_INVALID_NODE_NUM;
+		bm = bsearch(&kbm, ctxt.vol_bm_data->data, ctxt.vol_bm_data->len,
+			     sizeof(bitmap_data), &comp_bits);
+		g_array_append_val(files, bm->fnum);
+	}
+
+	LOG_PRINT("List of files affected by the unset bits:");
+	print_filenames(files);
+
+bail:
+	if (bits)
+		g_array_free(bits, true);
+	if (files)
+		g_array_free(files, true);
+	return ;
+}				/* find_unset_bits */
+
+/*
+ * find_set_bits()
+ *
+ */
+void find_set_bits(__u8 *vol_bm, char *bitmap)
+{
+	__u32 i, j;
+	GArray *bits = NULL;
+
+	bits = g_array_new(false, true, sizeof(__u32));
+
+	/* The first 1MB in the bitmap is for the system fe's */
+	j = VOL_BITMAP_BYTES / ctxt.hdr->cluster_size;
+
+	for (i = j; i < ctxt.hdr->num_clusters; ++i) {
+		if (test_bit(i, vol_bm))
+			g_array_append_val(bits, i);
+	}
+
+	if (bits) {
+		LOG_WARNING("Unused bits (wasted space) detected in the global bitmap.");
+		print_bit_ranges(bits, "unused", bitmap);
+	}
+
+	if (bits)
+		g_array_free(bits, true);
+	return ;
+}				/* find_set_bits */
 
 /*
  * check_global_bitmap()
@@ -502,42 +708,13 @@ bail:
 int check_global_bitmap(int fd)
 {
 	int ret = -1;
-	bitmap_data *bm1;
-	bitmap_data *bm2;
 	__u8 *vol_bm = NULL;
-	__u32 i;
-	__u32 j;
-	GArray *bits = NULL;
 	
-	bits = g_array_new(false, true, sizeof(__u32));
-
 	/* sorting the global bitmap data on alloc_node and bit_num */
 	qsort(ctxt.vol_bm_data->data, ctxt.vol_bm_data->len,
-	      sizeof(bitmap_data), &qsort_compare);
-#if 0
-	for (i = 0; i < ctxt.vol_bm_data->len; ++i) {
-		bm1 = &(g_array_index(ctxt.vol_bm_data, bitmap_data, i));
-		printf("BOO: bit=%u, num=%u, blk=%u.%u, fe=%u.%u\n", bm1->bitnum,
-		       bm1->num, HILO(bm1->fss_off), HILO(bm1->parent_off));
-	}
-#endif
+	      sizeof(bitmap_data), &comp_bits);
 
-	/* walk the list and check for any duplicates */
-	for (i = 0; i < ctxt.vol_bm_data->len; ++i) {
-		bm1 = &(g_array_index(ctxt.vol_bm_data, bitmap_data, i));
-		for (j = i + 1; j < ctxt.vol_bm_data->len; ++j) {
-			bm2 = &(g_array_index(ctxt.vol_bm_data, bitmap_data, j));
-			if (bm2->bitnum == bm1->bitnum) {
-				LOG_ERROR("Block %u.%u (bit# %u) allocated "
-					  "to File Entries %u.%u and %u.%u",
-					  HILO(bm1->fss_off), bm1->bitnum,
-					  HILO(bm1->parent_off),
-					  HILO(bm2->parent_off));
-				continue;
-			} else
-				break;
-		}
-	}
+	print_gbl_alloc_errs();
 
 	/* make a temp copy of the volume bitmap */
 	if ((vol_bm = malloc_aligned(VOL_BITMAP_BYTES)) == NULL) {
@@ -546,33 +723,15 @@ int check_global_bitmap(int fd)
 	} else
 		memcpy(vol_bm, ctxt.vol_bm, VOL_BITMAP_BYTES);
 
-	/* clearing all the allocated bits in the global bitmap */
-	for (i = 0; i < ctxt.vol_bm_data->len; ++i) {
-		bm1 = &(g_array_index(ctxt.vol_bm_data, bitmap_data, i));
-		j = __test_and_clear_bit(bm1->bitnum, (unsigned long *)vol_bm);
-		if (!j) {
-			if (!test_bit(bm1->bitnum, (unsigned long *)ctxt.vol_bm))
-				g_array_append_val(bits, bm1->bitnum);
-		}
-	}
+	find_unset_bits(vol_bm, "global");
 
-	print_free_bits(bits, "global");
-
-#ifdef STILL_DEBUGGING
+//#ifdef STILL_DEBUGGING
 	/* cross check... ensure no bit in the global bitmap is set */
-	/* The first 1MB in the bitmap is for the system fe's */
-	j = VOL_BITMAP_BYTES / ctxt.hdr->cluster_size;
-	for (i = j; i < ctxt.hdr->num_clusters; ++i) {
-		if (test_bit(i, vol_bm))
-			LOG_ERROR("Bit %u in the global bitmap is "
-				  "unaccounted", i);
-	}
-#endif
+	find_set_bits(vol_bm, "global");
+//#endif
 
 	ret = 0;
 bail:
-	if (bits)
-		g_array_free(bits, true);
 	free_aligned(vol_bm);
 	return ret;
 }				/* check_global_bitmap */
@@ -595,7 +754,7 @@ int check_node_bitmaps(int fd, GArray *bm_data, __u8 **node_bm,
 	__u32 j;
 
 	/* sorting the node bitmap data on alloc_node and bit_num */
-	qsort(bm_data->data, bm_data->len, sizeof(bitmap_data), &qsort_compare);
+	qsort(bm_data->data, bm_data->len, sizeof(bitmap_data), &comp_bits);
 #ifdef STILL_DEBUGGING
 	for (i = 0; i < bm_data->len; ++i) {
 		bm1 = &(g_array_index(bm_data, bitmap_data, i));
@@ -671,12 +830,25 @@ bail:
 	return ret;
 }				/* check_node_bitmaps */
 
-
 /*
- * qsort_compare()
+ * comp_nums()
  *
  */
-int qsort_compare(const void *q1, const void *q2)
+int comp_nums(const void *q1, const void *q2)
+{
+	__u32 *num1 = (__u32 *)q1;
+	__u32 *num2 = (__u32 *)q2;
+
+	return *num1 - *num2;
+}				/* comp_nums */
+
+
+
+/*
+ * comp_bits()
+ *
+ */
+int comp_bits(const void *q1, const void *q2)
 {
 	bitmap_data *bm1 = (bitmap_data *)q1;
 	bitmap_data *bm2 = (bitmap_data *)q2;
@@ -687,7 +859,7 @@ int qsort_compare(const void *q1, const void *q2)
 		ret = bm1->bitnum - bm2->bitnum;
 
 	return ret;
-}				/* qsort_compare */
+}				/* comp_bits */
 
 static int fe_compare_func(const void *m1, const void *m2);
 
@@ -740,17 +912,10 @@ void traverse_dir_nodes(int fd, __u64 offset, char *dirpath)
 	ocfs_disk_structure *fest;
 	GHashTable *bad;
 	ocfs_dir_node *dir;
-	__u8 *index = NULL;
-	int deleted_files;
    
 	dirst = &dirnode_t;
 	fest = &fileent_t;
 	bad = NULL;
-
-	if ((index = malloc(256)) == NULL) {
-		LOG_INTERNAL();
-		goto bail;
-	}
 
 	if ((dirbuf = malloc_aligned(DIR_NODE_SIZE)) == NULL) {
 		LOG_INTERNAL();
@@ -779,67 +944,11 @@ void traverse_dir_nodes(int fd, __u64 offset, char *dirpath)
 			goto bail;
 		}
 
-		/* check the dir->index integrity */
-		globaldir = dir;
-		memcpy(index, dir->index, dir->num_ent_used);
-		qsort(index, dir->num_ent_used, sizeof(__u8), fe_compare_func);
-
-		if (memcmp(index, dir->index, dir->num_ent_used) != 0) {
-			__u8 *idxtmp = NULL;
-
-			LOG_ERROR("Bad dir index found");
-			printf("\n");
-			for (i=0; i<254; ++i) {
-				if (dir->index[i] != index[i]) {
-					ocfs_file_entry *f1, *f2;
-					f1 = (ocfs_file_entry *)((char *)dirbuf + 512 + (dir->index[i]*512));
-					f2 = (ocfs_file_entry *)((char *)dirbuf + 512 + (index[i]*512));
-					printf("%d, %s: %d, %s\n", dir->index[i], f1->filename, index[i], f2->filename);
-				}
-			}
-			if (ctxt.write_changes) {
-				if ((idxtmp = malloc(256)) == NULL) {
-					LOG_INTERNAL();
-					goto bail;
-				}
-				memcpy(idxtmp, dir->index, 256);
-				memcpy(dir->index, index, dir->num_ent_used);
-				if (dirst->write(ctxt.fd, dirbuf, dir_offset, 0) == -1) {
-					LOG_ERROR("failed to write at offset %u.%u",
-						  HILO(dir_offset));
-					memcpy(dir->index, idxtmp, 256);
-				}
-				safefree(idxtmp);
-				LOG_PRINT("Fixed");
-			} else
-				LOG_PRINT("To fix, rerun with -w");
-		}
-
-		/* check the undeletable dir bug, BUG #3016598 */
-		for (i=0, deleted_files=0; i < dir->num_ent_used; i++) {
-			if (IS_FE_DELETED((FILEENT(dir, i))->sync_flags))
-				deleted_files++;
-		}
-		if (dir->num_ent_used && dir->num_ent_used == deleted_files) {
-			/* we hit the bug... fix by zeroing num_ent_used */
-			LOG_ERROR("Undeletable directory found");
-			if (ctxt.write_changes) {
-				dir->num_ent_used = 0;
-				if (dirst->write(ctxt.fd, dirbuf, dir_offset, 0)==-1) {
-					LOG_ERROR("failed to write at offset %u/%u", dir_offset);
-					dir->num_ent_used = 1;
-				}
-				LOG_PRINT("Fixed");
-			} else
-				LOG_PRINT("To fix, rerun with -w");
-		}
-
 		/* Add bitmap entry for the dirnode itself */
 		add_bm_data(dir->alloc_file_off, 1, dir->alloc_node, 
 			    dir_offset,
-			    (dir->alloc_node == OCFS_INVALID_NODE_NUM ? bm_filedata : bm_dir));
+			    (dir->alloc_node == OCFS_INVALID_NODE_NUM ? bm_global : bm_dir));
 
-		// TODO: add in directory editing here
 		for (i = 0; i < dir->num_ent_used; i++) {
 			off = dir_offset;
 			off += OCFS_SECTOR_SIZE;	/* move past the dirnode header */
@@ -854,23 +963,20 @@ void traverse_dir_nodes(int fd, __u64 offset, char *dirpath)
 				continue;
 			}
 
-			// TODO: add in file entry editing here
-
 			if (!IS_FE_DELETED(febuf->sync_flags))
-				check_file_entry(fd, febuf, off, false, dirpath);
+				check_file_entry(fd, febuf, off, dir->index[i], false, dirpath);
 		}
 
 		/* is there another directory chained off of this one? */
 		if (dir->next_node_ptr == -1)
-			break;		// nope, we're done
+			break;		/* nope, we're done */
 		else
-			dir_offset = dir->next_node_ptr;	// keep going
+			dir_offset = dir->next_node_ptr;	/* keep going */
 	}
 
 bail:
 	free_aligned(dirbuf);
 	free_aligned(febuf);
-	safefree(index);
 }				/* traverse_dir_nodes */
 
 /*
@@ -886,7 +992,7 @@ void handle_one_cdsl_entry(int fd, ocfs_file_entry *fe, __u64 offset)
  * check_file_entry()
  *
  */
-void check_file_entry(int fd, ocfs_file_entry *fe, __u64 offset,
+void check_file_entry(int fd, ocfs_file_entry *fe, __u64 offset, int slot,
 		      bool systemfile, char *dirpath)
 {
 	void *buf = NULL;
@@ -932,7 +1038,14 @@ void check_file_entry(int fd, ocfs_file_entry *fe, __u64 offset,
 		break;
 
 	case 3:
+		add_str_data(ctxt.filenames, ++fs_num, path);
+
+		if (ctxt.verbose) {
+			safefree(path);
+			path = g_strdup_printf("%s%s\t(%d)", dirpath, fe->filename, slot);
+		}
 		CLEAR_AND_PRINT(path);
+
 		if (fe->local_ext)
 			handle_leaf_extents(fd, fe->extents,
 					    OCFS_MAX_FILE_ENTRY_EXTENTS,
@@ -976,11 +1089,13 @@ bitmap_data * add_bm_data(__u64 start, __u64 len, __s32 alloc_node,
 	void *buf = NULL;
 	void *p;
 	int i;
+	__u32 fnum = 0;
 
 	switch (type) {
 	case bm_extent:
 		bitnum = start >> OCFS_LOG_SECTOR_SIZE;
 		num = len;
+		fnum = fs_num - 1;
 		break;
 
 	case bm_dir:
@@ -991,10 +1106,12 @@ bitmap_data * add_bm_data(__u64 start, __u64 len, __s32 alloc_node,
 	case bm_symlink:
 		break;
 
+	case bm_global:
 	case bm_filedata:
 		bitnum = (start - ctxt.hdr->data_start_off) >>
 				ctxt.cluster_size_bits;
 		num = len >> ctxt.cluster_size_bits;
+		fnum = fs_num - 1;
 		break;
 
 	default:
@@ -1003,6 +1120,9 @@ bitmap_data * add_bm_data(__u64 start, __u64 len, __s32 alloc_node,
 
 	if (num == 0)
 		goto bail;
+
+	if (type == bm_global)
+		fnum = ULONG_MAX;
 
 	if ((buf = malloc(sizeof(bitmap_data) * num)) == NULL) {
 		LOG_INTERNAL();
@@ -1015,6 +1135,7 @@ bitmap_data * add_bm_data(__u64 start, __u64 len, __s32 alloc_node,
 		bm->fss_off = start;
 		bm->alloc_node = alloc_node;
 		bm->parent_off = parent_offset;
+		bm->fnum = fnum;
 		p += sizeof(bitmap_data);
 	}
 
@@ -1029,6 +1150,7 @@ bitmap_data * add_bm_data(__u64 start, __u64 len, __s32 alloc_node,
 		g_array_append_vals(ctxt.ext_bm_data, bm, num);
 		break;
 
+	case bm_global:
 	case bm_filedata:
 		g_array_append_vals(ctxt.vol_bm_data, bm, num);
 		break;
@@ -1041,6 +1163,26 @@ bail:
 	return bm;
 }				/* add_bm_data */
 
+/*
+ * add_str_data()
+ *
+ */
+int add_str_data(GArray *sd, __u32 num, char *str)
+{
+	str_data *f;
+	
+	f = malloc(sizeof(str_data));
+	if (!f) {
+		LOG_INTERNAL();
+		return -1;
+	}
+
+	f->num = num;
+	f->str = strdup(str);
+	g_array_append_vals(sd, f, 1);
+
+	return 0;
+}				/* add_str_data */
 
 /*
  * handle_leaf_extents()
@@ -1108,8 +1250,6 @@ void traverse_extent(int fd, ocfs_extent_group * exthdr, int flag, void *buf,
 				  HILO(exthdr->extents[i].disk_off));
 			goto bail;
 		}
-
-		// TODO: add in extent editing here
 
 		/* check up_hdr_node_ptr */
 		if (exthdr->this_ext != ext->up_hdr_node_ptr) {
@@ -1197,7 +1337,6 @@ void traverse_fe_extents(int fd, ocfs_file_entry *fe, void *buf, int *indx)
 			goto bail;
 		}
 
-		// TODO: add in extent editing here
 		if (fe->this_sector != ext->up_hdr_node_ptr) {
 			LOG_ERROR("up_hdr_node_ptr %u.%u in extent %u.%u "
 				  "should be %u.%u", HILO(ext->up_hdr_node_ptr),
@@ -1294,3 +1433,267 @@ int check_fe_last_data_ext(ocfs_file_entry *fe, void *buf, int indx)
 
 	return ret;
 }				/* check_fe_last_data_ext */
+
+/*
+ * check_dir_index()
+ *
+ */
+int check_dir_index (char *dirbuf, __u64 dir_offset)
+{
+	ocfs_file_entry *fe = NULL;
+	ocfs_dir_node *dirnode = (ocfs_dir_node *)dirbuf;
+	int ret = 0;
+	__u8 i;
+	__u8 j;
+	__u8 offset;
+	__u8 ind1[256];
+	__u8 ind2[256];
+	ocfs_disk_structure *dirst = &dirnode_t;
+
+	memset(ind1, 0, 256);
+	memset(ind2, 0, 256);
+
+	/* Any erroneous/duplicates/deleted files in the index */
+	for (i = 0, j = 0; i < dirnode->num_ent_used; ++i) {
+		offset = dirnode->index[i];
+
+		/* erroneous */
+		if (offset > 253)
+			continue;
+
+		/* duplicates */
+		if (ind1[offset] == 0)
+			ind1[offset] = 1;
+		else
+			continue;
+
+		/* deleted */
+		fe = (ocfs_file_entry *) (FIRST_FILE_ENTRY (dirbuf) +
+					  (offset * OCFS_SECTOR_SIZE));
+		if (IS_FE_DELETED(fe->sync_flags))
+			continue;
+
+		/* good ones in ind2 */
+		ind2[j++] = offset;
+	}
+
+	/* Use new num_ents_used */
+	if (j != dirnode->num_ent_used) {
+		LOG_ERROR("Incorrect number of entries found in dirnode");
+		if (ctxt.write_changes) {
+			globaldir = dirnode;
+			qsort(ind2, j, sizeof(__u8), fe_compare_func);
+			memcpy(dirnode->index, ind2, 256);
+			dirnode->num_ent_used = j;
+
+			if (dirst->write(ctxt.fd, dirbuf, dir_offset, 0) == -1) {
+				LOG_INTERNAL();
+				exit(1);
+			} else
+				LOG_PRINT("Fixed");
+		} else
+			LOG_PRINT("To fix, rerun with -w");
+		goto bail;
+	}
+
+	/* Is the index in sorted order */
+	globaldir = dirnode;
+	memset(ind1, 0, 256);
+	memcpy(ind1, dirnode->index, dirnode->num_ent_used);
+	qsort(ind1, dirnode->num_ent_used, sizeof(__u8), fe_compare_func);
+
+	if (memcmp(ind1, dirnode->index, dirnode->num_ent_used) != 0) {
+		LOG_ERROR("Bad dir index found");
+		if (ctxt.write_changes) {
+			memcpy(dirnode->index, ind1, dirnode->num_ent_used);
+
+			if (dirst->write(ctxt.fd, dirbuf, dir_offset, 0) == -1) {
+				LOG_INTERNAL();
+				exit(1);
+			} else
+				LOG_PRINT("Fixed");
+		} else
+			LOG_PRINT("To fix, rerun with -w");
+	}
+bail:
+	return ret;
+}				/* check_dir_index */
+
+
+/*
+ * check_num_del()
+ *
+ */
+int check_num_del (char *dirbuf, __u64 dir_offset)
+{
+	ocfs_file_entry *fe = NULL;
+	ocfs_dir_node *dirnode = (ocfs_dir_node *)dirbuf;
+	int i;
+	int j;
+	int ret = 0;
+	__u8 offset;
+	__u8 ind[256];
+
+	if (dirnode->num_del == 0 && dirnode->num_ent_used == 0)
+		goto bail;
+
+	if (dirnode->num_del == 0 && dirnode->num_ent_used > 0) {
+		memset(ind, 0, 256);
+		for (i = 0; i < dirnode->num_ent_used; ++i) {
+			if (dirnode->index[i] >= dirnode->num_ent_used) {
+				ret = -1;
+				break;
+			}
+		}
+		goto bail;
+	}
+
+	/* num_del > 0 && dirnode->num_ents_used > 0 */
+	memset(ind, 0, 256);
+
+	offset = dirnode->first_del;
+	for (i = 0; i < dirnode->num_del; ++i) {
+		if (offset > 253) {
+			ret = -1;
+			break;
+		}
+
+		/* check if offset is in index and hence invalid */
+		for (j = 0; j < dirnode->num_ent_used; ++j) {
+			if (dirnode->index[j] == offset) {
+				ret = -1;
+				break;
+			}
+		}
+
+		/* check for circular list */
+		if (ind[offset]) {
+			ret = -1;
+			break;
+		} else
+			ind[offset] = 1;
+
+		fe = (ocfs_file_entry *) (FIRST_FILE_ENTRY (dirnode) +
+					  (offset * OCFS_SECTOR_SIZE));
+
+		/* file has to be deleted to be in the list */
+		if (fe->sync_flags) {
+			ret = -1;
+			break;
+		}
+
+		offset = (__u8)fe->next_del;
+	}
+
+bail:
+	return ret;
+}				/* check_num_del */
+
+
+/*
+ * fix_num_del()
+ *	Should be called after check_num_del()
+ */
+int fix_num_del (char *dirbuf, __u64 dir_offset)
+{
+	ocfs_dir_node *dirnode = (ocfs_dir_node *)dirbuf;
+	ocfs_file_entry *fe = NULL;
+	int i;
+	int j;
+	int num_del;
+	__u8 largest_off = 0;
+	__u8 ind[256];
+	__u8 offset;
+	__u64 feoff;
+	ocfs_disk_structure *dirst = &dirnode_t;
+	ocfs_disk_structure *fest = &fileent_t;
+
+	memset (ind, 0xFF, 256);
+	
+	/* largest offset in index */
+	for (i = 0; i < dirnode->num_ent_used; ++i)
+		largest_off = max(largest_off, dirnode->index[i]);
+
+	num_del = largest_off - dirnode->num_ent_used + 1;
+
+	if (!num_del)
+		goto bail;
+
+	fe = (ocfs_file_entry *) (FIRST_FILE_ENTRY (dirnode));
+
+	for (i = 0, j = 0; i < largest_off; ++i) {
+		if (IS_FE_DELETED(fe->sync_flags))
+			ind[j++] = i;
+		fe = (ocfs_file_entry *)((char *)fe + OCFS_SECTOR_SIZE);
+	}
+
+	if (j != num_del) {
+		LOG_ERROR("while fixing num_del");
+		exit(1);
+	}
+
+	/* write dirnode */
+	dirnode->num_del = num_del;
+	dirnode->first_del = ind[0];
+	if (dirst->write(ctxt.fd, dirbuf, dir_offset, 0) == -1) {
+		LOG_INTERNAL();
+		exit(1);
+	}
+
+	for (i = 0; i < j; ++i) {
+		offset = ind[i];
+		fe = (ocfs_file_entry *) (FIRST_FILE_ENTRY (dirnode) +
+					  (offset * OCFS_SECTOR_SIZE));
+		feoff = dir_offset + ((1 + offset) * OCFS_SECTOR_SIZE);
+		fe->next_del = ind[i+1];
+		/* write fe */
+		if (fest->write(ctxt.fd, (char *)fe, feoff, 0) == -1) {
+			LOG_INTERNAL();
+			exit(1);
+		}
+	}
+
+bail:
+	return 0;
+}				/* fix_num_del */
+
+/*
+ * fix_fe_offsets()
+ *
+ */
+int fix_fe_offsets(char *dirbuf, __u64 dir_offset)
+{
+	ocfs_dir_node *dirnode = (ocfs_dir_node *)dirbuf;
+	ocfs_disk_structure *fest = &fileent_t;
+	ocfs_file_entry *fe;
+	__u64 feoff;
+	__u8 off;
+	int i;
+
+	for (i = 0; i < dirnode->num_ent_used; ++i) {
+		off = dirnode->index[i];
+		fe = (ocfs_file_entry *) (FIRST_FILE_ENTRY (dirnode) +
+					  (off * OCFS_SECTOR_SIZE));
+		feoff = dir_offset + ((1 + off) * OCFS_SECTOR_SIZE);
+
+		if (IS_FE_DELETED(fe->sync_flags)) {
+			LOG_INTERNAL();
+			exit(1);
+		}
+
+		if (fe->this_sector != feoff ||
+		    fe->dir_node_ptr != dir_offset) {
+			if (ctxt.write_changes) {
+				fe->this_sector = feoff;
+				fe->dir_node_ptr = dir_offset;
+				/* write fe */
+				if (fest->write(ctxt.fd, (char *)fe, feoff, 0) == -1) {
+					LOG_INTERNAL();
+					exit(1);
+				}
+			}
+		}
+	}
+
+	return 0;
+}				/* fix_fe_offsets */

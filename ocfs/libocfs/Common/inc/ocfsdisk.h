@@ -133,7 +133,7 @@ typedef struct _ocfs_dir_node		// CLASS
 	ocfs_disk_lock disk_lock;	// DISKLOCK
 	__u8 signature[8];		// CHAR[8]
 	__u64 alloc_file_off;		// NUMBER RANGE(0,ULONG_LONG_MAX) 
-	__u32 alloc_node;		// NUMBER RANGE(0,31)
+	__u32 alloc_node;		// NODENUM
 	__u64 free_node_ptr;		// DISKPTR
 	__u64 node_disk_off;		// DISKPTR
 	__s64 next_node_ptr;		// DISKPTR 

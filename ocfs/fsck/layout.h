@@ -101,7 +101,7 @@ struct _ocfs_disk_structure
 	int (*sig_match) (char *buf, int idx);
 	int (*read) (int fd, char *buf, __u64 offset, int idx);
 	int (*write) (int fd, char *buf, __u64 offset, int idx);
-	int (*verify) (int fd, char *buf, int idx, GHashTable **bad);
+	int (*verify) (int fd, char *buf, __u64 offset, int idx, GHashTable **bad);
 	int (*output) (char *buf, int idx, GHashTable *bad, FILE *f);
 	int (*defaults) (char *buf, GString **out, int idx, int fld);
 };

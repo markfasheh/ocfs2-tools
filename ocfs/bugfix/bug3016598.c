@@ -95,7 +95,7 @@ bool find_the_bug(ocfs_dir_node *dir)
 	
 	/* check the undeletable dir bug, BUG #3016598 */
 	for (i=0, deleted_files=0; i < dir->num_ent_used; i++) {
-		if ((FILEENT(dir, i))->sync_flags & OCFS_SYNC_FLAG_MARK_FOR_DELETION)
+		if (IS_FE_DELETED((FILEENT(dir, i))->sync_flags))
 			deleted_files++;
 	}
 	if (dir->num_ent_used && dir->num_ent_used == deleted_files) {

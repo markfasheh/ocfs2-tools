@@ -52,8 +52,8 @@
 
 #define  IS_VALID_OSB(_osb)	((_osb)->obj_id.type == OCFS_TYPE_OSB)
 
-#define  IS_VALID_DISKHB(_hb)	((_hb) >= 500 && (_hb) <= 5000)
-#define  IS_VALID_HBTIMEO(_to)	((_to) >= 10000 && (_to) <= 60000)
+#define  IS_VALID_DISKHB(_hb)	((_hb) >= OCFS_MIN_DISKHB && (_hb) <= OCFS_MAX_DISKHB)
+#define  IS_VALID_HBTIMEO(_to)	((_to) >= OCFS_MIN_HBTIMEO && (_to) <= OCFS_MAX_HBTIMEO)
 
 #define  OCFS_GET_EXTENT(vbo, extent, k)                            \
               do {                                                  \
