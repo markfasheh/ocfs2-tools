@@ -713,8 +713,8 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
 					0, &blkno);
 	if (ret) {
-		com_err(whoami, ret, "while looking up the inode "
-			"allocator type %d for node %d\n", type, i);
+		com_err(whoami, ret, "while looking up the global bitmap "
+			"inode");
 		goto out;
 	}
 
