@@ -43,7 +43,7 @@ make
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
 
-for tool in fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 clusterbo mount.ocfs2 ocfs2cdsl
+for tool in fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 clusterbo mount.ocfs2 ocfs2cdsl
 do
   cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
 done
@@ -67,11 +67,11 @@ chkconfig o2cb on
 /usr/share
 /sbin/fsck.ocfs2
 /sbin/mkfs.ocfs2
-/sbin/mount.ocfs2
+/sbin/mounted.ocfs2
 /sbin/tunefs.ocfs2
 /sbin/debugfs.ocfs2
 /sbin/o2cb_ctl
-/sbin/mounted.ocfs2
+/sbin/mount.ocfs2
 /sbin/ocfs2cdsl
 /etc/init.d/o2cb
 
