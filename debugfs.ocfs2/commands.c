@@ -186,7 +186,7 @@ static int process_inode_args(char **args, uint64_t *blkno)
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
 			      args[1], blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, "");
+		com_err(gbls.progname, ret, " ");
 		return -1;
 	}
 
@@ -198,6 +198,8 @@ static int process_inode_args(char **args, uint64_t *blkno)
 	return 0;
 }
 
+/* only called by do_dump which is preprocessed out.. */
+#if 0
 /*
  * get_blknum()
  *
@@ -221,6 +223,7 @@ static errcode_t get_blknum(char *blkstr, uint64_t *blkno)
 
 	return ret;
 }
+#endif
 
 /*
  * get_nodenum()
@@ -443,7 +446,7 @@ static void do_cd (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, "");
+		com_err(gbls.progname, ret, " ");
 		return ;
 	}
 
@@ -466,7 +469,7 @@ static void do_chroot (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, "");
+		com_err(gbls.progname, ret, " ");
 		return ;
 	}
 
@@ -490,7 +493,7 @@ static void do_ls (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(gbls.progname, ret, "");
+		com_err(gbls.progname, ret, " ");
 		return ;
 	}
 
