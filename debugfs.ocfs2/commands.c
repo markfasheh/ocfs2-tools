@@ -64,6 +64,7 @@ static void do_logdump (char **args);
 static void do_group (char **args);
 static void do_extent (char **args);
 static void do_chroot (char **args);
+static void do_slots (char **args);
 
 extern gboolean allow_write;
 
@@ -109,9 +110,27 @@ static Command commands[] =
   { "logdump", do_logdump },
 
   { "group", do_group },
-  { "extent", do_extent }
+  { "extent", do_extent },
+
+  { "slots", do_slots }
 };
 
+/*
+ * handle_signal()
+ *
+ */
+void handle_signal (int sig)
+{
+	switch (sig) {
+	case SIGTERM:
+	case SIGINT:
+		if (gbls.device)
+			do_close (NULL);
+		exit(1);
+	}
+
+	return ;
+}
 
 /*
  * find_command()
@@ -285,7 +304,7 @@ static int get_nodenum(char **args, uint16_t *nodenum)
 			if (*nodenum < sb->s_max_nodes)
 				return 0;
 			else
-				fprintf(stderr, "Node number is too large\n");
+				fprintf(stderr, "%s: Invalid node number\n", args[0]);
 		} else
 			fprintf(stderr, "usage: %s [nodenum]\n", args[0]);
 	} else
@@ -435,6 +454,14 @@ static void do_open (char **args)
 			   strlen(sysfile), NULL, &gbls.hb_blkno);
 	if (ret)
 		gbls.hb_blkno = 0;
+
+	/* lookup slotmap file */
+	snprintf (sysfile, sizeof(sysfile),
+		  ocfs2_system_inodes[SLOT_MAP_SYSTEM_INODE].si_name);
+	ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
+			   strlen(sysfile), NULL, &gbls.slotmap_blkno);
+	if (ret)
+		gbls.slotmap_blkno = 0;
 
 	/* lookup journal files */
 	for (i = 0; i < sb->s_max_nodes; ++i) {
@@ -971,18 +998,33 @@ static void do_extent (char **args)
 }
 
 /*
- * handle_signal()
+ * do_slots()
  *
  */
-void handle_signal (int sig)
+static void do_slots (char **args)
 {
-	switch (sig) {
-	case SIGTERM:
-	case SIGINT:
-		if (gbls.device)
-			do_close (NULL);
-		exit(1);
+	FILE *out;
+	errcode_t ret;
+	char *buf = NULL;
+	uint32_t len = gbls.fs->fs_blocksize;
+
+	if (check_device_open())
+		return ;
+
+	/* read in the first block of the slot_map file */
+	ret = read_whole_file(gbls.fs, gbls.slotmap_blkno, &buf, &len);
+	if (ret) {
+		com_err(args[0], ret, " ");
+		goto bail;
 	}
+
+	out = open_pager ();
+	dump_slots (out, buf, len);
+	close_pager (out);
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
 
 	return ;
 }

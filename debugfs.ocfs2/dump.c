@@ -69,7 +69,7 @@ void dump_super_block(FILE *out, ocfs2_super_block *sb)
 	fprintf(out, "\n");
 
 	return ;
-}				/* dump_super_block */
+}
 
 /*
  * dump_local_alloc()
@@ -81,7 +81,7 @@ void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc)
 	       loc->la_bm_off, loc->la_size);
 
 	return ;
-}				/* dump_local_alloc */
+}
 
 /*
  * dump_inode()
@@ -92,7 +92,7 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	struct passwd *pw;
 	struct group *gr;
 	char *str;
-	__u16 mode;
+	uint16_t mode;
 	GString *flags = NULL;
 	char tmp_str[30];
 
@@ -180,7 +180,7 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	if (flags)
 		g_string_free (flags, 1);
 	return ;
-}				/* dump_inode */
+}
 
 
 /*
@@ -213,7 +213,7 @@ void dump_chain_list (FILE *out, ocfs2_chain_list *cl)
 
 bail:
 	return ;
-}				/* dump_chain_list */
+}
 
 void dump_extent_list (FILE *out, ocfs2_extent_list *ext)
 {
@@ -236,7 +236,7 @@ void dump_extent_list (FILE *out, ocfs2_extent_list *ext)
 
 bail:
 	return ;
-}				/* dump_extent_list */
+}
 
 /*
  * dump_extent_block()
@@ -251,7 +251,7 @@ void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 		 blk->h_blkno, blk->h_next_leaf_blk);
 
 	return ;
-}				/* dump_extent_block */
+}
 
 /*
  * dump_group_descriptor()
@@ -274,7 +274,7 @@ void dump_group_descriptor (FILE *out, ocfs2_group_desc *grp, int index)
 		(grp->bg_bits - grp->bg_free_bits_count), grp->bg_size);
 
 	return ;
-}				/* dump_group_descriptor */
+}
 
 /*
  * dump_dir_entry()
@@ -329,7 +329,7 @@ void dump_jbd_header (FILE *out, journal_header_t *header)
 	if (jstr)
 		g_string_free (jstr, 1);
 	return;
-}				/* dump_jbd_header */
+}
 
 /*
  * dump_jbd_superblock()
@@ -370,13 +370,13 @@ void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb)
 	fprintf (out, "\n");
 
 	return;
-}				/* dump_jbd_superblock */
+}
 
 /*
  * dump_jbd_block()
  *
  */
-void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
+void dump_jbd_block (FILE *out, journal_header_t *header, uint64_t blknum)
 {
 	int i;
 	int j;
@@ -386,7 +386,7 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
 	journal_block_tag_t *tag;
 	journal_revoke_header_t *revoke;
 	char *blk = (char *) header;
-	__u32 *blocknr;
+	uint32_t *blocknr;
 	char *uuid;
 	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 
@@ -438,8 +438,8 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
 
 		fprintf(out, "\tr_count:\t\t%d\n", ntohl(revoke->r_count));
 		count = (ntohl(revoke->r_count) - 
-			 sizeof(journal_revoke_header_t)) / sizeof(__u32);
-		blocknr = (__u32 *) &blk[sizeof(journal_revoke_header_t)];
+			 sizeof(journal_revoke_header_t)) / sizeof(uint32_t);
+		blocknr = (uint32_t *) &blk[sizeof(journal_revoke_header_t)];
 		for(i = 0; i < count; i++)
 			fprintf(out, "\trevoke[%d]:\t\t%u\n", i, ntohl(blocknr[i]));
 		break;
@@ -454,13 +454,13 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
 		g_string_free (tagflg, 1);
 
 	return;
-}				/* dump_jbd_block */
+}
 
 /*
  * dump_jbd_metadata()
  *
  */
-void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum)
+void dump_jbd_metadata (FILE *out, int type, char *buf, uint64_t blknum)
 {
 	fprintf (out, "\tBlock %"PRIu64": ", blknum);
 	switch (type) {
@@ -480,13 +480,13 @@ void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum)
 	}
 
 	return ;
-}				/* dump_jbd_metadata */
+}
 
 /*
  * dump_jbd_unknown()
  *
  */
-void dump_jbd_unknown (FILE *out, __u64 start, __u64 end)
+void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end)
 {
 	if (start == end - 1)
 		fprintf (out, "\tBlock %"PRIu64": ", start);
@@ -496,4 +496,25 @@ void dump_jbd_unknown (FILE *out, __u64 start, __u64 end)
 	fprintf (out, "Unknown -- Probably Data\n\n");
 
 	return ;
-}				/* dump_jbd_unknown */
+}
+
+/*
+ * dump_slots()
+ *
+ */
+void dump_slots (FILE *out, char *buf, uint32_t len)
+{
+	int16_t *slots = (int16_t *)buf;
+	uint32_t i;
+	uint32_t num_slots = (len / sizeof(uint16_t));
+	
+	fprintf (out, "\t%5s   %5s\n", "Slot#", "Node#");
+	
+	for (i = 0; i < num_slots; ++i) {
+		if (slots[i] != -1)
+			fprintf (out, "\t%5d   %5d\n",
+				 i, slots[i]);
+	}
+
+	return ;
+}

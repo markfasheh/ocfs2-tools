@@ -78,7 +78,7 @@ typedef struct _dbgfs_glbs {
 	uint64_t root_blkno;
 	uint64_t sysdir_blkno;
 	uint64_t hb_blkno;
-	uint64_t gblbm_blkno;
+	uint64_t slotmap_blkno;
 	uint64_t jrnl_blkno[256];
 } dbgfs_gbls;
 

@@ -385,8 +385,11 @@ bail:
 /*
  * read_whole_file()
  *
+ * read in buflen bytes or whole file if buflen = 0
+ *
  */
-errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf, uint32_t *buflen)
+errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf,
+			  uint32_t *buflen)
 {
 	errcode_t ret;
 	uint32_t got;
@@ -400,15 +403,17 @@ errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf, uint32_t 
 	if (ret)
 		goto bail;
 
+	if (!*buflen) {
+		*buflen = (((ci->ci_inode->i_size + fs->fs_blocksize - 1) >>
+			    OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits) <<
+			   OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
+	}
+
 	/* bail if file size is larger than reasonable :-) */
-	if (ci->ci_inode->i_size > 100 * 1024 * 1024) {
+	if (*buflen > 100 * 1024 * 1024) {
 		ret = OCFS2_ET_INTERNAL_FAILURE;
 		goto bail;
 	}
-
-	*buflen = (((ci->ci_inode->i_size + fs->fs_blocksize - 1) >>
-		    OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits) <<
-		   OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
 
 	ret = ocfs2_malloc_blocks(fs->fs_io,
 				  (*buflen >>

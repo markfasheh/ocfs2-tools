@@ -47,5 +47,6 @@ void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb);
 void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum);
 void dump_jbd_metadata (FILE *out, int type, char *buf, __u64 blknum);
 void dump_jbd_unknown (FILE *out, __u64 start, __u64 end);
-void traverse_chain(FILE *out, __u64 blknum);
+void dump_slots (FILE *out, char *buf, uint32_t len);
+
 #endif		/* __DUMP_H__ */
