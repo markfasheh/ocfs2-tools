@@ -38,114 +38,19 @@
 
 #include "ocfs2.h"
 
-
-struct expand_dir_struct {
-	ocfs2_dinode   *inode;
-	int		done;
-	int		newblocks;
-	errcode_t	err;
-};
-
 /*
- * expand_dir_proc()
+ * ocfs2_expand_dir()
  *
- *  TODO expand_dir_proc needs to extend the allocation when needed
  */
-static int expand_dir_proc(ocfs2_filesys *fs, uint64_t blocknr,
-			   uint64_t blockcnt, void *priv_data)
-{
-	struct expand_dir_struct *es = (struct expand_dir_struct *) priv_data;
-	ocfs2_dinode *inode;
-	uint64_t i_size_in_blks;
-	char *new_blk = NULL;
-	errcode_t ret;
-
-	inode = es->inode;
-
-	i_size_in_blks = inode->i_size >>
-	       			OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-
-	if (i_size_in_blks == 0) {
-		es->err = OCFS2_ET_DIR_CORRUPTED;
-		return OCFS2_BLOCK_ABORT;
-	}
-
-	if (i_size_in_blks == blockcnt) {
-		/* init new dir block */
-		ret = ocfs2_new_dir_block(fs, 0, 0, &new_blk);
-		if (ret) {
-			es->err = ret;
-			return OCFS2_BLOCK_ABORT;
-		}
-
-		/* write new dir block */
-		ret = ocfs2_write_dir_block(fs, blocknr, new_blk);
-		if (ret) {
-			es->err = ret;
-			return OCFS2_BLOCK_ABORT;
-		}
-		es->done = 1;
-	}
-
-	if (es->done)
-		return OCFS2_BLOCK_CHANGED | OCFS2_BLOCK_ABORT;
-	else
-		return 0;
-
-/***********************************************************************
-	struct expand_dir_struct *es = (struct expand_dir_struct *) priv_data;
-	blk_t	new_blk;
-	static blk_t	last_blk = 0;
-	char		*block;
-	errcode_t	ret;
-
-	if (*blocknr) {
-		last_blk = *blocknr;
-		return 0;
-	}
-	ret = ocfs2_new_block(fs, last_blk, 0, &new_blk);
-	if (ret) {
-		es->err = ret;
-		return OCFS2_BLOCK_ABORT;
-	}
-	if (blockcnt > 0) {
-		ret = ocfs2_new_dir_block(fs, 0, 0, &block);
-		if (ret) {
-			es->err = ret;
-			return OCFS2_BLOCK_ABORT;
-		}
-		es->done = 1;
-		ret = ocfs2_write_dir_block(fs, new_blk, block);
-	} else {
-		ret = ocfs2_malloc_block(fs->fs_io, (void **)&block);
-		if (ret) {
-			es->err = ret;
-			return OCFS2_BLOCK_ABORT;
-		}
-		memset(block, 0, fs->blocksize);
-		ret = io_channel_write_blk(fs->io, new_blk, 1, block);
-	}	
-	if (ret) {
-		es->err = ret;
-		return OCFS2_BLOCK_ABORT;
-	}
-	ext2fs_free_mem((void **) &block);
-	*blocknr = new_blk;
-	ext2fs_block_alloc_stats(fs, new_blk, +1);
-	es->newblocks++;
-
-	if (es->done)
-		return (OCFS2_BLOCK_CHANGED | OCFS2_BLOCK_ABORT);
-	else
-		return OCFS2_BLOCK_CHANGED;
-****************************************************************/
-}
-
 errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 {
 	errcode_t ret = 0;
-	struct expand_dir_struct es;
+	ocfs2_cached_inode *cinode = NULL;
 	ocfs2_dinode *inode;
+	uint64_t used_blks;
+	uint64_t totl_blks;
+	uint64_t new_blk;
+	int contig;
 	char *buf = NULL;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
@@ -154,49 +59,58 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs, uint64_t dir)
 	/* ensure it is a dir */
 	ret = ocfs2_check_directory(fs, dir);
 	if (ret)
-		return ret;
-
-	/* malloc block to read inode */
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		return ret;
-	else
-		inode = (ocfs2_dinode *)buf;
+		goto bail;
 
 	/* read inode */
-	ret = ocfs2_read_inode(fs, dir, (char *)inode);
+	ret = ocfs2_read_cached_inode(fs, dir, &cinode);
 	if (ret)
 		goto bail;
 
-	es.inode = inode;
-	es.done = 0;
-	es.err = 0;
-	es.newblocks = 0;
-
-	ret = ocfs2_block_iterate(fs, dir, OCFS2_BLOCK_FLAG_APPEND,
-				  expand_dir_proc, &es);
-	if (es.err)
-		return es.err;
-	if (!es.done)
-		return OCFS2_ET_EXPAND_DIR_ERR;
-
-	/*
-	 * Update the size and block count fields in the inode.
-	 */
-	ret = ocfs2_read_inode(fs, dir, (char *)inode);
+	ret = ocfs2_extent_map_init(fs, cinode);
 	if (ret)
 		goto bail;
 
+	inode = cinode->ci_inode;
+	used_blks = inode->i_size >>
+	       			OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	totl_blks = ocfs2_clusters_to_blocks(fs, inode->i_clusters);
+
+	if (used_blks >= totl_blks) {
+		/* TODO file needs to be extended */
+		ret = OCFS2_ET_EXPAND_DIR_ERR;
+		goto bail;
+	}
+
+	/* get the next free block */
+	ret = ocfs2_extent_map_get_blocks(cinode, used_blks, 1,
+					  &new_blk, &contig);
+	if (ret) 
+		goto bail;
+
+	/* init new dir block */
+	ret = ocfs2_new_dir_block(fs, 0, 0, &buf);
+	if (ret)
+		goto bail;
+
+	/* write new dir block */
+	ret = ocfs2_write_dir_block(fs, new_blk, buf);
+	if (ret)
+		goto bail;
+
+	/* increase the size */
 	inode->i_size += fs->fs_blocksize;
-//	inode->i_blocks += (fs->fs_blocksize / 512) * es.newblocks;
 
-	ret = ocfs2_write_inode(fs, dir, (char *)inode);
+	/* update the size of the inode */
+	ret = ocfs2_write_cached_inode(fs, cinode);
 	if (ret)
 		goto bail;
 
 bail:
 	if (buf)
-		ocfs2_free(&buf);
+		ocfs2_free(buf);
+
+	if (cinode)
+		ocfs2_free_cached_inode(fs, cinode);
 
 	return ret;
 }

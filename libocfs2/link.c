@@ -121,6 +121,10 @@ errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
 
+	if ((ino < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (ino > fs->fs_blocks))
+		return OCFS2_ET_INVALID_ARGUMENT;
+
 	ls.name = name;
 	ls.namelen = name ? strlen(name) : 0;
 	ls.inode = ino;
