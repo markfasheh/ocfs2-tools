@@ -39,7 +39,7 @@
 
 static const char *whoami = "pass1";
 
-static void mark_block_used(o2fsck_state *ost, uint64_t blkno)
+void o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno)
 {
 	int was_set;
 	ocfs2_bitmap_set(ost->ost_found_blocks, blkno, &was_set);
@@ -305,7 +305,7 @@ static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
 	struct verifying_blocks *vb = priv_data;
 	verbosef("found gd block %"PRIu64"\n", gd_blkno);
 	/* don't have bcount */
-	mark_block_used(vb->vb_ost, gd_blkno);
+	o2fsck_mark_block_used(vb->vb_ost, gd_blkno);
 	vb_saw_block(vb, vb->vb_num_blocks);
 	return 0;
 }
@@ -319,7 +319,7 @@ static int check_extent_blocks(ocfs2_filesys *fs, ocfs2_extent_rec *rec,
 
 	if (tree_depth > 0) {
 		verbosef("found extent block %"PRIu64"\n", rec->e_blkno);
-		mark_block_used(vb->vb_ost, rec->e_blkno);
+		o2fsck_mark_block_used(vb->vb_ost, rec->e_blkno);
 	}
 
 	return 0;
@@ -447,6 +447,8 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		/* scanners have to skip over uninitialized inodes */
 		if (!(di->i_flags & OCFS2_VALID_FL))
 			continue;
+
+		verbosef("found inode %"PRIu64"\n", blkno);
 
 		o2fsck_verify_inode_fields(fs, ost, blkno, di);
 

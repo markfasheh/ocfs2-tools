@@ -1,5 +1,5 @@
 /*
- * pass1.h
+ * journal.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
  *
@@ -21,13 +21,12 @@
  * Author: Zach Brown
  */
 
-#ifndef __O2FSCK_PASS1_H__
-#define __O2FSCK_PASS1_H__
+#ifndef __O2FSCK_JOURNAL_H__
+#define __O2FSCK_JOURNAL_H__
 
 #include "fsck.h"
 
-errcode_t o2fsck_pass1(o2fsck_state *ost);
-void o2fsck_mark_block_used(o2fsck_state *ost, uint64_t blkno);
+errcode_t o2fsck_replay_journals(o2fsck_state *ost);
 
-#endif /* __O2FSCK_PASS1_H__ */
+#endif /* __O2FSCK_JOURNAL_H__ */
 

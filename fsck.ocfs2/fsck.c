@@ -34,6 +34,7 @@
 
 #include "fsck.h"
 #include "icount.h"
+#include "journal.h"
 #include "pass1.h"
 #include "pass2.h"
 #include "pass3.h"
@@ -254,9 +255,8 @@ int main(int argc, char **argv)
 
 	/* XXX do we want checking for different revisions of ocfs2? */
 
-	/* XXX worry about the journal */
-
-	/* XXX should be verifying super-block bits here. */
+	/* XXX should be verifying super-block bits here. 
+	 * like s_max_nodes, journal recovery trusts it. */
 
 	/* ocfs2_open() already checked _incompat and _ro_compat */
 	if (OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_compat &
@@ -275,6 +275,8 @@ int main(int argc, char **argv)
 	printf("  bytes per block:    %u\n", ost->ost_fs->fs_blocksize);
 	printf("  number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
 	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
+
+	o2fsck_replay_journals(ost);
 
 	ret = o2fsck_pass1(ost);
 	if (ret)

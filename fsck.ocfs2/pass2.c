@@ -461,6 +461,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 				dbe->e_blkno);
 	}
 
+	verbosef("dir block %"PRIu64"\n", dbe->e_blkno);
+
 	while (offset < dd->fs->fs_blocksize) {
 		dirent = (struct ocfs2_dir_entry *)(dd->buf + offset);
 

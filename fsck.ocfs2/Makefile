@@ -17,6 +17,7 @@ CFILES =	fsck.c		\
 		dirblocks.c 	\
 		dirparents.c 	\
 		icount.c 	\
+		journal.c 	\
 		pass1.c 	\
 		pass2.c 	\
 		pass3.c 	\
@@ -29,6 +30,7 @@ HFILES = 	include/fsck.h		\
 		include/dirblocks.h	\
 		include/dirparents.h	\
 		include/icount.h	\
+		include/journal.h	\
 		include/pass1.h		\
 		include/pass2.h		\
 		include/pass3.h		\

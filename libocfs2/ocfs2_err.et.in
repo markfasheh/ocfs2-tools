@@ -56,6 +56,9 @@ ec	OCFS2_ET_RO_FILESYS,
 ec	OCFS2_ET_JOURNAL_TOO_SMALL,
 	"Journal must be at least 1024 blocks"
 
+ec	OCFS2_ET_BAD_JOURNAL_SUPERBLOCK_MAGIC,
+	"Bad magic number in journal superblock"
+
 ec	OCFS2_ET_INODE_NOT_VALID,
 	"Inode is not valid (active)"
 

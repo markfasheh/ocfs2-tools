@@ -4,9 +4,7 @@
 
 #include "kernel-list.h"
 #include <errno.h>
-#ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
-#endif
 
 // libocfs.h has these
 //#define printk printf

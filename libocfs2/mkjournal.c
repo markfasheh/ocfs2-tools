@@ -92,6 +92,99 @@ errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 	return 0;
 }
 
+errcode_t ocfs2_read_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
+					char *jsb_buf)
+{
+	errcode_t ret;
+	char *blk;
+	journal_superblock_t *disk, *jsb;
+	
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ret)
+		return ret;
+
+	ret = io_read_block(fs->fs_io, blkno, 1, blk);
+	if (ret)
+		goto out;
+
+	disk = (journal_superblock_t *)blk;
+	jsb = (journal_superblock_t *)jsb_buf;
+
+	if (disk->s_header.h_magic != htonl(JFS_MAGIC_NUMBER)) {
+		ret = OCFS2_ET_BAD_JOURNAL_SUPERBLOCK_MAGIC;
+		goto out;
+	}
+
+	memcpy(jsb_buf, blk, fs->fs_blocksize);
+
+	/* XXX incomplete */
+	jsb->s_header.h_magic = be32_to_cpu(disk->s_header.h_magic);
+	jsb->s_header.h_blocktype = be32_to_cpu(disk->s_header.h_blocktype);
+
+	jsb->s_blocksize = be32_to_cpu(disk->s_blocksize);
+	jsb->s_maxlen = be32_to_cpu(disk->s_maxlen);
+	jsb->s_first = be32_to_cpu(disk->s_first);
+	jsb->s_start = be32_to_cpu(disk->s_start);
+	jsb->s_sequence = be32_to_cpu(disk->s_sequence);
+	jsb->s_errno = be32_to_cpu(disk->s_errno);
+
+	ret = 0;
+out:
+	ocfs2_free(&blk);
+
+	return ret;
+}
+
+errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
+					 char *jsb_buf)
+{
+	errcode_t ret;
+	char *blk;
+	journal_superblock_t *disk, *jsb;
+	
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ret)
+		return ret;
+
+	disk = (journal_superblock_t *)blk;
+	jsb = (journal_superblock_t *)jsb_buf;
+
+	memcpy(blk, jsb_buf, fs->fs_blocksize);
+
+	/* XXX incomplete */
+	disk->s_header.h_magic = cpu_to_be32(jsb->s_header.h_magic);
+	disk->s_header.h_blocktype = cpu_to_be32(jsb->s_header.h_blocktype);
+
+	disk->s_blocksize = cpu_to_be32(jsb->s_blocksize);
+	disk->s_maxlen = cpu_to_be32(jsb->s_maxlen);
+	disk->s_first = cpu_to_be32(jsb->s_first);
+	disk->s_start = cpu_to_be32(jsb->s_start);
+	disk->s_sequence = cpu_to_be32(jsb->s_sequence);
+	disk->s_errno = cpu_to_be32(jsb->s_errno);
+
+	ret = io_write_block(fs->fs_io, blkno, 1, blk);
+	if (ret)
+		goto out;
+
+	fs->fs_flags |= OCFS2_FLAG_CHANGED;
+	ret = 0;
+out:
+	ocfs2_free(&blk);
+
+	return ret;
+}
+
 #ifdef DEBUG_EXE
 #if 0
 static uint64_t read_number(const char *num)
