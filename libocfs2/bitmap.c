@@ -31,8 +31,6 @@
 #include <limits.h>
 #include <inttypes.h>
 
-#include <asm/bitops.h>
-
 #include "ocfs2.h"
 
 #include "bitops.h"
