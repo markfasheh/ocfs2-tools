@@ -25,6 +25,8 @@
 #define __O2FSCK_FSCK_H__
 
 typedef struct _o2fsck_state {
+	oc2fs_filesys 	*ost_fs;
+
 	ocfs2_bitmap	*ost_used_inodes;
 	ocfs2_bitmap	*ost_bad_inodes;
 	ocfs2_bitmap	*ost_dir_inodes;
@@ -33,10 +35,10 @@ typedef struct _o2fsck_state {
 	ocfs2_bitmap	*ost_found_blocks;
 	ocfs2_bitmap	*ost_dup_blocks;
 
-	/* whether or not we should be asking questions of the user, and 
-	 * if not, what the answer should be instead. */
-	unsigned	ost_ask:1,
-			ost_answer:1;
+	/* flags */
+	unsigned	ost_ask:1,	/* confirm with the user */
+			ost_answer:1,	/* answer if we don't ask the user */
+			ost_force:1;	/* -f supplied; force check */
 } o2fsck_state;
 
 #endif /* __O2FSCK_FSCK_H__ */

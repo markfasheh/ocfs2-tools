@@ -77,6 +77,16 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 		goto bad;
 	}
 
+	/* offer to clear a non-directory root inode so that 
+	 * pass3:check_root() can re-create it */
+	if ((di->i_blkno == fs->fs_root_blkno) &&
+	    should_fix(ost, FIX_DEFYES, "Root inode isn't a directory.")) {
+		di->i_dtime = 0ULL;
+		di->i_links_count = 0ULL;
+		/* icount_store(links_count) */
+		o2fsck_write_inode(fs, blkno, di);
+	}
+
 	if (di->i_dtime) {
 		if (should_fix(ost, FIX_DEFYES, 
 		    "Inode %llu is in use but has a non-zero dtime.", 
@@ -178,6 +188,7 @@ errcode_t o2fsck_pass1(ocfs2_filesys *fs, o2fsck_state *ost)
 	char *buf;
 	ocfs2_dinode *di;
 	ocfs2_inode_scan *scan;
+	ocfs2_filesys *fs = ost->ost_fs;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {

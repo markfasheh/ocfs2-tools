@@ -106,10 +106,19 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, char *whoami,
 	return 0;
 }
 
+void exit_if_skipping(o2fsck_state *ost)
+{
+	if (ost->ost_force)
+		return;
+
+	/* XXX do something with s_state, _mnt_count, checkinterval,
+	 * etc. */
+	return;
+}
+
 int main(int argc, char **argv)
 {
 	char *filename;
-	ocfs2_filesys *fs;
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
 	int c, ret, rw = OCFS2_FLAG_RW;
@@ -145,6 +154,10 @@ int main(int argc, char **argv)
 					print_usage();
 					return 1;
 				}
+				break;
+
+			case 'f':
+				ost->ost_force = 1;
 				break;
 
 			case 'n':
@@ -183,25 +196,41 @@ int main(int argc, char **argv)
 	/* XXX we'll decide on a policy for using o_direct in the future.
 	 * for now we want to test against loopback files in ext3, say. */
 	ret = ocfs2_open(filename, rw | OCFS2_FLAG_BUFFERED, blkno,
-			 blksize, &fs);
+			 blksize, &ost->ost_fs);
 	if (ret) {
 		com_err(argv[0], ret,
 			"while opening file \"%s\"", filename);
 		goto out;
 	}
 
-	if (o2fsck_state_init(fs, argv[0], ost)) {
+	if (o2fsck_state_init(ost->ost_fs, argv[0], ost)) {
 		fprintf(stderr, "error allocating run-time state, exiting..\n");
 		return 1;
 	}
 
+	/* XXX do we want checking for different revisions of ocfs2? */
+
+	/* XXX worry about the journal */
+
 	/* XXX should be verifying super-block bits here. */
 
-	ret = o2fsck_pass1(fs, ost);
+	/* ocfs2_open() already checked _incompat and _ro_compat */
+	if (OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_compat &
+	    ~OCFS2_LIB_FEATURE_COMPAT_SUPP) {
+		com_err(argv[0], EXT2_ET_UNSUPP_FEATURE,
+		        "while checking _compat flags");
+		exit(FSCK_ERROR);
+	}
+
+	exit_if_skipping(ost);
+
+	/* XXX we don't use the bad blocks inode, do we? */
+
+	ret = o2fsck_pass1(ost);
 	if (ret)
 		com_err(argv[0], ret, "pass1 failed");
 
-	ret = ocfs2_close(fs);
+	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {
 		com_err(argv[0], ret,
 			"while closing file \"%s\"", filename);
