@@ -15,7 +15,7 @@ SBIN_PROGRAMS = ocfstool
 MANS = ocfstool.8
 
 DEFINES = -DOCFSTOOL_VERSION=\"$(VERSION)\"
-INCLUDES = $(GTK_CFLAGS) -I$(TOPDIR)/libocfs -I$(TOPDIR)/debugocfs
+INCLUDES = $(GTK_CFLAGS) -I$(TOPDIR)/ocfs/libocfs -I$(TOPDIR)/ocfs/debugocfs
 
 OPTIMIZE = -O2
 
@@ -55,6 +55,6 @@ OBJS = $(subst .c,.o,$(CFILES))
 DIST_FILES = $(CFILES) $(HFILES) ocfstool.8.in
 
 ocfstool: $(OBJS)
-	$(LINK) $(GTK_LIBS) -L$(TOPDIR)/debugocfs -ldebugocfs -L$(TOPDIR)/libocfs -locfs
+	$(LINK) $(GTK_LIBS) -L$(TOPDIR)/ocfs/debugocfs -ldebugocfs -L$(TOPDIR)/ocfs/libocfs -locfs
 
 include $(TOPDIR)/Postamble.make
