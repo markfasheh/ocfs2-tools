@@ -11,7 +11,7 @@ else
 OPTS = -O2
 endif
 
-CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
+CFLAGS = $(OPTS) $(WARNINGS) 
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a

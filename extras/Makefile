@@ -9,7 +9,7 @@ ifdef OCFS_DEBUG
 OPTS = -g
 endif
 
-CFLAGS = $(OPTS) -fno-strict-aliasing $(WARNINGS) 
+CFLAGS = $(OPTS) $(WARNINGS) 
 
 UNINST_PROGRAMS = find_hardlinks find_dup_extents find_inode_paths set_random_bits
 
