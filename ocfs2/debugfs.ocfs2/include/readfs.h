@@ -31,5 +31,8 @@ int read_inode (int fd, __u32 blknum, char *buf, int buflen);
 int traverse_extents (int fd, ocfs2_extent_list *ext, GArray *arr, int dump);
 void read_dir_block (struct ocfs2_dir_entry *dir, int len, GArray *arr);
 void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr);
+void read_sysdir (int fd, char *sysdir);
+void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf);
+void process_dlm (int fd, int type);
 
 #endif		/* __READFS_H__ */

@@ -62,7 +62,9 @@ static void do_lcd (char **args);
 static void do_curdev (char **args);
 static void do_super (char **args);
 static void do_inode (char **args);
-static void do_nodes (char **args);
+static void do_config (char **args);
+static void do_publish (char **args);
+static void do_vote (char **args);
 
 extern gboolean allow_write;
 
@@ -72,10 +74,12 @@ __u32 blksz_bits = 0;
 __u32 clstrsz_bits = 0;
 __u64 root_blkno = 0;
 __u64 sysdir_blkno = 0;
+__u64 dlm_blkno = 0;
 char *curdir = NULL;
 char *superblk = NULL;
 char *rootin = NULL;
 char *sysdirin = NULL;
+
 
 static Command commands[] =
 {
@@ -111,7 +115,9 @@ static Command commands[] =
   { "show_inode_info", do_inode },
   { "stat", do_inode },
 
-  { "show_nodes", do_nodes }
+  { "nodes", do_config },
+  { "publish", do_publish },
+  { "vote", do_vote }
 };
 
 
@@ -168,12 +174,16 @@ static void do_open (char **args)
 	if (device)
 		do_close (NULL);
 
-	if (dev == NULL)
+	if (dev == NULL) {
 		printf ("open requires a device argument\n");
+		goto bail;
+	}
 
 	dev_fd = open (dev, allow_write ? O_RDONLY : O_RDWR);
-	if (dev_fd == -1)
+	if (dev_fd == -1) {
 		printf ("could not open device %s\n", dev);
+		goto bail;
+	}
 
 	device = g_strdup (dev);
 
@@ -202,6 +212,10 @@ static void do_open (char **args)
 	if ((pread64(dev_fd, sysdirin, len, (sysdir_blkno << blksz_bits))) == -1)
 		DBGFS_FATAL("%s", strerror(errno));
 
+	/* load sysfiles blknums */
+	read_sysdir (dev_fd, sysdirin);
+
+bail:
 	return ;
 }					/* do_open */
 
@@ -361,6 +375,9 @@ static void do_help (char **args)
 //	printf ("lcd\t\t\t\tChange current local working directory\n");
 //	printf ("read\t\t\t\tRead a low level structure\n");
 //	printf ("write\t\t\t\tWrite a low level structure\n");
+	printf ("nodes\t\t\t\tList of nodes\n");
+	printf ("publish\t\t\t\tPublish blocks\n");
+	printf ("vote\t\t\t\tVote blocks\n");
 	printf ("help, ?\t\t\t\tThis information\n");
 	printf ("quit, q\t\t\t\tExit the program\n");
 }					/* do_help */
@@ -470,20 +487,34 @@ bail:
 }					/* do_inode */
 
 /*
- * do_nodes()
+ * do_config()
  *
  */
-static void do_nodes (char **args)
+static void do_config (char **args)
 {
-	char *opts = args[1];
-	__u32 nodenum;
-
-	if (opts)
-		nodenum = atoi(opts);
-	else
-		nodenum = ULONG_MAX;
-
-	/* get the dlm file */
+	process_dlm (dev_fd, CONFIG);
 
 	return ;
-}					/* do_nodes */
+}					/* do_config */
+
+/*
+ * do_publish()
+ *
+ */
+static void do_publish (char **args)
+{
+	process_dlm (dev_fd, PUBLISH);
+
+	return ;
+}					/* do_publish */
+
+/*
+ * do_vote()
+ *
+ */
+static void do_vote (char **args)
+{
+	process_dlm (dev_fd, VOTE);
+
+	return ;
+}					/* do_vote */

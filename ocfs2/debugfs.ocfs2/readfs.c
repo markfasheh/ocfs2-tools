@@ -31,6 +31,8 @@
 
 extern __u32 blksz_bits;
 extern __u32 clstrsz_bits;
+extern __u64 dlm_blkno;
+extern char *superblk;
 
 /*
  * read_super_block()
@@ -224,3 +226,132 @@ void read_dir (int fd, ocfs2_extent_list *ext, __u64 size, GArray *dirarr)
 
 	return ;
 }				/* read_dir */
+
+/*
+ * read_sysdir()
+ *
+ */
+void read_sysdir (int fd, char *sysdir)
+{
+	ocfs2_dinode *inode;
+	struct ocfs2_dir_entry *rec;
+	GArray *dirarr = NULL;
+	char *dlm = ocfs2_system_inode_names[DLM_SYSTEM_INODE];
+	int i;
+
+	inode = (ocfs2_dinode *)sysdir;
+
+	if (!S_ISDIR(inode->i_mode)) {
+		printf("No system directory on thei volume\n");
+		goto bail;
+	}
+
+	dirarr = g_array_new(0, 1, sizeof(struct ocfs2_dir_entry));
+
+	read_dir (fd, &(inode->id2.i_list), inode->i_size, dirarr);
+
+	for (i = 0; i < dirarr->len; ++i) {
+		rec = &(g_array_index(dirarr, struct ocfs2_dir_entry, i));
+		if (!strncmp (rec->name, dlm, strlen(dlm)))
+			dlm_blkno = rec->inode;
+	}
+
+bail:
+	if (dirarr)
+		g_array_free (dirarr, 1);
+
+
+	return ;
+}				/* read_sysdir */
+
+/*
+ * read_file()
+ *
+ */
+void read_file (int fd, ocfs2_extent_list *ext, __u64 size, char *buf)
+{
+	GArray *arr = NULL;
+	ocfs2_extent_rec *rec;
+	char *p;
+	__u64 off, foff, len;
+	int i;
+
+	arr = g_array_new(0, 1, sizeof(ocfs2_extent_rec));
+
+	traverse_extents (fd, ext, arr, 0);
+
+	p = buf;
+
+	for (i = 0; i < arr->len; ++i) {
+		rec = &(g_array_index(arr, ocfs2_extent_rec, i));
+		off = rec->e_blkno << blksz_bits;
+		foff = rec->e_cpos << clstrsz_bits;
+		len = rec->e_clusters << clstrsz_bits;
+		if ((foff + len) > size)
+			len = size - foff;
+
+		if ((pread64(fd, p, len, off)) == -1)
+			DBGFS_FATAL("%s", strerror(errno));
+
+		p += len;
+	}
+
+	if (arr)
+		g_array_free (arr, 1);
+
+	return ;
+}				/* read_file */
+
+/*
+ * process_dlm()
+ *
+ */
+void process_dlm (int fd, int type)
+{
+	char *buf = NULL;
+	__u32 buflen;
+	char *dlmbuf = NULL;
+	ocfs2_dinode *inode;
+	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+
+	/* get the dlm inode */
+	buflen = 1 << blksz_bits;
+	if (!(buf = malloc(buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	if ((read_inode (fd, dlm_blkno, buf, buflen)) == -1) {
+		printf("Invalid dlm system file\n");
+		goto bail;
+	}
+	inode = (ocfs2_dinode *)buf;
+
+	/* length of file to read */
+	buflen = 2 + 4 + (3 * sb->s_max_nodes);
+	buflen <<= blksz_bits;
+
+	/* alloc the buffer */
+	if (!(dlmbuf = malloc (buflen)))
+		DBGFS_FATAL("%s", strerror(errno));
+
+	read_file (fd, &(inode->id2.i_list), buflen, dlmbuf);
+
+	switch (type) {
+	case CONFIG:
+		dump_config (dlmbuf);
+		break;
+	case PUBLISH:
+		dump_publish (dlmbuf);
+		break;
+	case VOTE:
+		dump_vote (dlmbuf);
+		break;
+	default:
+		break;
+	}
+
+bail:
+	safefree (buf);
+	safefree (dlmbuf);
+
+	return ;
+}				/* process_dlm */

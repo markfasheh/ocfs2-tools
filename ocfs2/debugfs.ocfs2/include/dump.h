@@ -29,8 +29,12 @@
 void dump_super_block (ocfs2_super_block *sb);
 void dump_local_alloc (ocfs2_local_alloc *loc);
 void dump_inode (ocfs2_dinode *in);
+void dump_disk_lock (ocfs2_disk_lock *dl);
 void dump_extent_list (ocfs2_extent_list *ext);
 void dump_extent_block (ocfs2_extent_block *blk);
 void dump_dir_entry (GArray *arr);
+void dump_config (char *buf);
+void dump_publish (char *buf);
+void dump_vote (char *buf);
 
 #endif		/* __DUMP_H__ */

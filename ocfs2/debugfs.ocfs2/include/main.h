@@ -39,6 +39,10 @@
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 #include <glib.h>
 
@@ -49,6 +53,12 @@
 
 #include <ocfs2_fs.h>
 #include <ocfs1_fs_compat.h>
+
+enum {
+	CONFIG,
+	PUBLISH,
+	VOTE
+};
 
 #define safefree(_p)	do {if (_p) { free(_p); (_p) = NULL; } } while (0)
 

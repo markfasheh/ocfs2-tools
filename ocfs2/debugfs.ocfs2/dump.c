@@ -30,6 +30,7 @@
 #include <utils.h>
 
 extern char *superblk;
+extern __u32 blksz_bits;
 
 /*
  * dump_super_block()
@@ -64,7 +65,7 @@ void dump_super_block(ocfs2_super_block *sb)
 	printf("Label: %s\n", sb->s_label);
 	printf("UUID: ");
 	for (i = 0; i < 16; i++)
-		printf("%02X ", sb->s_uuid[i]);
+		printf("%02X", sb->s_uuid[i]);
 	printf("\n");
 
 	return ;
@@ -95,14 +96,8 @@ void dump_inode(ocfs2_dinode *in)
 	struct passwd *pw;
 	struct group *gr;
 	char *str;
-	ocfs2_disk_lock *dl = &(in->i_disk_lock);
-	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
-	int i;
-	int j;
-	int k;
 	__u16 mode;
 	GString *flags = NULL;
-	__u32 node_map;
 
 	if (S_ISREG(in->i_mode))
 		str = "regular";
@@ -159,19 +154,7 @@ void dump_inode(ocfs2_dinode *in)
 
 	printf("Links: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
-	printf("Lock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
-	       dl->dl_master, dl->dl_level, dl->dl_seq_num);
-
-	printf("Lock Node Map: ");
-	for (i = 0, j = 0; i < 8 && j < sb->s_max_nodes; ++i) {
-		if (i)
-			printf("               ");
-		node_map = dl->dl_node_map[i];
-		for (k = 0; k < 32 && j < sb->s_max_nodes; k++, j++)
-			printf ("%d%c", ((node_map & (1 << k)) ? 1 : 0),
-				(((k + 1) % 8) ? '\0' : ' '));
-		printf ("\n");
-	}
+	dump_disk_lock (&(in->i_disk_lock));
 
 	str = ctime((time_t*)&in->i_ctime);
 	printf("ctime: 0x%llx -- %s", in->i_ctime, str);
@@ -195,6 +178,33 @@ void dump_inode(ocfs2_dinode *in)
 		g_string_free (flags, 1);
 	return ;
 }				/* dump_inode */
+
+/*
+ * dump_disk_lock()
+ *
+ */
+void dump_disk_lock (ocfs2_disk_lock *dl)
+{
+	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	int i, j, k;
+	__u32 node_map;
+
+	printf("Lock Master: %u   Level: 0x%0x   Seqnum: %llu\n",
+	       dl->dl_master, dl->dl_level, dl->dl_seq_num);
+
+	printf("Lock Node Map: ");
+	for (i = 0, j = 0; i < 8 && j < sb->s_max_nodes; ++i) {
+		if (i)
+			printf("               ");
+		node_map = dl->dl_node_map[i];
+		for (k = 0; k < 32 && j < sb->s_max_nodes; k++, j++)
+			printf ("%d%c", ((node_map & (1 << k)) ? 1 : 0),
+				(((k + 1) % 8) ? '\0' : ' '));
+		printf ("\n");
+	}
+
+	return ;
+}				/* dump_disk_lock */
 
 /*
  * dump_extent_list()
@@ -258,3 +268,63 @@ void dump_dir_entry (GArray *arr)
 
 	return ;
 }				/* dump_dir_entry */
+
+/*
+ * dump_config()
+ *
+ */
+void dump_config (char *buf)
+{
+	char *p;
+	ocfs_node_config_hdr *hdr;
+	ocfs_node_config_info *node;
+	ocfs2_super_block *sb = &(((ocfs2_dinode *)superblk)->id2.i_super);
+	__u16 port;
+	char *addr;
+	struct in_addr ina;
+	int i;
+
+	hdr = (ocfs_node_config_hdr *)buf;
+
+	printf("Version: %u   Num Nodes: %u   Last Node: %u   SeqNum: %llu\n",
+	       hdr->version, hdr->num_nodes, hdr->last_node, hdr->cfg_seq_num);
+
+	dump_disk_lock (&(hdr->disk_lock));
+
+	printf("%-4s %-32s %-15s %-6s %s\n",
+	       "Node", "Name", "IP Addr", "Port", "UUID");
+
+	p = buf + (2 << blksz_bits);
+	for (i = 0; i < sb->s_max_nodes; ++i) {
+		node = (ocfs_node_config_info *)p;
+		port = htonl(node->ipc_config.ip_port);
+		ina.s_addr = node->ipc_config.addr_u.ip_addr4;
+		addr = inet_ntoa(ina);
+
+		printf("%-4u %-32s %-15s %-6u ", i, node->node_name, addr, port);
+		for (i = 0; i < 16; i++)
+			printf("%02X", sb->s_uuid[i]);
+		printf("\n");
+		p += (1 << blksz_bits);
+	}
+}				/* dump_config */
+
+/*
+ * dump_publish()
+ *
+ */
+void dump_publish (char *buf)
+{
+
+
+}				/* dump_publish */
+
+/*
+ * dump_vote()
+ *
+ */
+void dump_vote (char *buf)
+{
+
+
+}				/* dump_vote */
