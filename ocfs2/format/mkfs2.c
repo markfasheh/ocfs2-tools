@@ -403,7 +403,7 @@ funky_dir * alloc_directory(void)
 	return dir;
 }
 	
-void add_entry_to_directory(funky_dir *dir, char *name, __u64 ino, __u8 type)
+void add_entry_to_directory(funky_dir *dir, char *name, __u64 byte_off, __u8 type)
 {
 	struct ocfs2_dir_entry *de, *de1;
 	int new_rec_len;
@@ -459,7 +459,7 @@ void add_entry_to_directory(funky_dir *dir, char *name, __u64 ino, __u8 type)
 
 got_it:
 	de->name_len = strlen(name);
-	de->inode = cpu_to_le64(ino);
+	de->inode = cpu_to_le64(byte_off >> blocksize_bits);
 	de->file_type = type;
 	strcpy(de->name, name);
 	dir->last_off = ((char *)de - (char *)dir->buf);
