@@ -46,6 +46,7 @@
 #include <signal.h>
 #include <sys/raw.h>
 #include <linux/kdev_t.h>
+#include <inttypes.h>
 
 #include <glib.h>
 
@@ -54,6 +55,7 @@
 
 #include <linux/types.h>
 
+#include "ocfs2.h"
 #include "ocfs2_fs.h"
 #include "ocfs2_disk_dlm.h"
 #include "ocfs1_fs_compat.h"
@@ -65,27 +67,19 @@ enum {
 };
 
 typedef struct _dbgfs_glbs {
+	char *progname;
 	char *device;
-	int raw_minor;
-	int dev_fd;
-	__u32 blksz_bits;
-	__u32 clstrsz_bits;
-	__u64 root_blkno;
-	__u64 sysdir_blkno;
-	__u64 dlm_blkno;
-	__u64 gblbm_blkno;
-	__u64 journal_blkno[256];
-	__u64 max_clusters;
-	__u64 max_blocks;
+	ocfs2_filesys *fs;
 	char *curdir;
-	ocfs2_dinode *superblk;
-	ocfs2_dinode *rootin;
-	ocfs2_dinode *sysdirin;
+	char *blockbuf;
+	uint64_t max_clusters;
+	uint64_t max_blocks;
+	uint64_t root_blkno;
+	uint64_t sysdir_blkno;
+	uint64_t dlm_blkno;
+	uint64_t gblbm_blkno;
+	uint64_t jrnl_blkno[256];
 } dbgfs_gbls;
-
-void *memalign(size_t boundary, size_t size);
-
-#define safefree(_p)	do {if (_p) { free(_p); (_p) = NULL; } } while (0)
 
 #define DBGFS_FATAL(fmt, arg...)	({ fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \
 						   __FILE__, __LINE__, ##arg);  \
@@ -149,7 +143,7 @@ void *memalign(size_t boundary, size_t size);
 
 /* remaining headers */
 #include <commands.h>
-#include <readfs.h>
+#include <kernel-list.h>
 #include <utils.h>
 #include <journal.h>
 #include <dump.h>

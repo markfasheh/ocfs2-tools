@@ -34,7 +34,8 @@ void dump_extent_list (FILE *out, ocfs2_extent_list *ext);
 void dump_chain_list (FILE *out, ocfs2_chain_list *cl);
 void dump_extent_block (FILE *out, ocfs2_extent_block *blk);
 void dump_group_descriptor (FILE *out, ocfs2_group_desc *blk);
-void dump_dir_entry (FILE *out, GArray *arr);
+int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
+		     char *buf, void *priv_data);
 void dump_config (FILE *out, char *buf);
 void dump_publish (FILE *out, char *buf);
 void dump_vote (FILE *out, char *buf);

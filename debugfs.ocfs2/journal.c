@@ -36,7 +36,7 @@ void read_journal (FILE *out, char *buf, __u64 buflen)
 	char *block;
 	__u64 blocknum;
 	journal_header_t *header;
-	__u32 blksize = 1 << gbls.blksz_bits;
+	__u32 blksize = 1 << OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits;
 	__u64 len;
 	char *p;
 	__u64 last_unknown = 0;

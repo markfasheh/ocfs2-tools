@@ -24,7 +24,6 @@
  */
 
 #include <main.h>
-#include <inttypes.h>
 
 extern dbgfs_gbls gbls;
 
@@ -198,7 +197,7 @@ void dump_disk_lock (FILE *out, ocfs2_disk_lock *dl)
 }				/* dump_disk_lock */
 
 /*
- * dump_extent_list()
+ * dump_chain_list()
  *
  */
 void dump_chain_list (FILE *out, ocfs2_chain_list *cl)
@@ -267,28 +266,40 @@ void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 	return ;
 }				/* dump_extent_block */
 
-void traverse_chain(FILE *out, __u64 blknum)
+/*
+ * traverse_chain()
+ *
+ */
+void traverse_chain(FILE *out, __u64 blkno)
 {
 	ocfs2_group_desc *bg;
 	char *buf = NULL;
-	__u32 buflen;
+	errcode_t ret = 0;
 
-	buflen = 1 << gbls.blksz_bits;
-	if (!(buf = memalign(buflen, buflen)))
-		DBGFS_FATAL("%s", strerror(errno));
+	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
+	if (ret) {
+		com_err(gbls.progname, ret, "while allocating a block");
+		goto bail;
+	}
 
 	do {
-		if ((read_group (gbls.dev_fd, blknum, buf, buflen)) == -1) {
-			printf("Not a group descriptor\n");
+		ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
+		if (ret) {
+			com_err(gbls.progname, ret,
+				"while reading chain group in block %"PRIu64, blkno);
 			goto bail;
 		}
+
 		bg = (ocfs2_group_desc *)buf;
+
 		dump_group_descriptor(out, bg);
-		blknum = bg->bg_next_group;
-	} while (blknum);
+		blkno = bg->bg_next_group;
+	} while (blkno);
 	
 bail:
-	safefree (buf);
+	if (buf)
+		ocfs2_free(&buf);
+
 	return ;
 }
 
@@ -322,23 +333,20 @@ void dump_group_descriptor (FILE *out, ocfs2_group_desc *blk)
  * dump_dir_entry()
  *
  */
-void dump_dir_entry (FILE *out, GArray *arr)
+int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
+		     char *buf, void *priv_data)
 {
-	struct ocfs2_dir_entry *rec;
-	int i;
+	FILE *out = priv_data;
+	char tmp = rec->name[rec->name_len];
 
-	fprintf(out, "\t%-15s %-4s %-4s %-2s %-4s\n",
-		"Inode", "Rlen", "Nlen", "Ty", "Name");
-
-	for (i = 0; i < arr->len; ++i) {
-		rec = &(g_array_index(arr, struct ocfs2_dir_entry, i));
-		fprintf(out, "\t%-15"PRIu64" %-4u %-4u %-2u %s\n",
+	rec->name[rec->name_len] = '\0';
+	fprintf(out, "\t%-15"PRIu64" %-4u %-4u %-2u %s\n",
 			rec->inode, rec->rec_len,
 			rec->name_len, rec->file_type, rec->name);
-	}
+	rec->name[rec->name_len] = tmp;
 
-	return ;
-}				/* dump_dir_entry */
+	return 0;
+}
 
 /*
  * dump_config()
@@ -349,7 +357,7 @@ void dump_config (FILE *out, char *buf)
 	char *p;
 	ocfs_node_config_hdr *hdr;
 	ocfs_node_config_info *node;
-	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
+	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	__u16 port;
 	char addr[32];
 	struct in_addr ina;
@@ -366,7 +374,7 @@ void dump_config (FILE *out, char *buf)
 	fprintf(out, "\t%-3s %-32s %-15s %-6s %s\n",
 		"###", "Name", "IP Address", "Port", "UUID");
 
-	p = buf + (2 << gbls.blksz_bits);
+	p = buf + (2 << sb->s_blocksize_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		node = (ocfs_node_config_info *)p;
 		if (!*node->node_name)
@@ -382,7 +390,7 @@ void dump_config (FILE *out, char *buf)
 		for (j = 0; j < OCFS2_GUID_LEN; j++)
 			fprintf(out, "%c", node->guid.guid[j]);
 		fprintf(out, "\n");
-		p += (1 << gbls.blksz_bits);
+		p += (1 << sb->s_blocksize_bits);
 	}
 
 	return ;
@@ -397,14 +405,14 @@ void dump_publish (FILE *out, char *buf)
 	ocfs_publish *pub;
 	char *p;
 	GString *pub_flag;
-	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
+	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	__u32 i, j;
 
 	fprintf(out, "\t%-3s %-3s %-3s %-3s %-15s %-15s %-15s %-15s %-*s %-s\n",
 		"###", "Mnt", "Vot", "Dty", "LockId", "Seq", "Comm Seq", "Time",
 		sb->s_max_nodes, "Map", "Type");
 
-	p = buf + ((2 + 4 + sb->s_max_nodes) << gbls.blksz_bits);
+	p = buf + ((2 + 4 + sb->s_max_nodes) << sb->s_blocksize_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		pub = (ocfs_publish *)p;
 
@@ -425,10 +433,10 @@ void dump_publish (FILE *out, char *buf)
 
 		g_string_free (pub_flag, 1);
 
-		p += (1 << gbls.blksz_bits);
+		p += (1 << sb->s_blocksize_bits);
 	}
 
-	return ;	
+	return ;
 }				/* dump_publish */
 
 /*
@@ -440,13 +448,13 @@ void dump_vote (FILE *out, char *buf)
 	ocfs_vote *vote;
 	char *p;
 	GString *vote_flag;
-	ocfs2_super_block *sb = &((gbls.superblk)->id2.i_super);
+	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	__u32 i;
 
 	fprintf(out, "\t%-3s %-2s %-1s %-15s %-15s %-s\n",
 		"###", "NV", "O", "LockId", "Seq", "Type");
 
-	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << gbls.blksz_bits);
+	p = buf + ((2 + 4 + sb->s_max_nodes + sb->s_max_nodes) << sb->s_blocksize_bits);
 	for (i = 0; i < sb->s_max_nodes; ++i) {
 		vote = (ocfs_vote *)p;
 
@@ -458,7 +466,7 @@ void dump_vote (FILE *out, char *buf)
 			vote->vote_seq_num, vote_flag->str);
 
 		g_string_free (vote_flag, 1);
-		p += (1 << gbls.blksz_bits);
+		p += (1 << sb->s_blocksize_bits);
 	}
 
 	return ;
@@ -540,6 +548,7 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
 	char *blk = (char *) header;
 	__u32 *blocknr;
 	char *uuid;
+	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 
 	tagflg = g_string_new (NULL);
 
@@ -552,7 +561,7 @@ void dump_jbd_block (FILE *out, journal_header_t *header, __u64 blknum)
 
 		fprintf (out, "\t%3s %-15s %-s\n", "No.", "Blocknum", "Flags");
 
-		for (i = sizeof(journal_header_t); i < (1 << gbls.blksz_bits);
+		for (i = sizeof(journal_header_t); i < (1 << sb->s_blocksize_bits);
 		     i+=sizeof(journal_block_tag_t)) {
 			tag = (journal_block_tag_t *) &blk[i];
 
