@@ -43,6 +43,23 @@ case "$KVER" in
 2.4.19-64GB-SMP|2.4.19-4GB-SMP|2.4.19-4GB)
     MODPATH="/lib/modules/${KVER}/kernel/drivers/addon/${MODNAME}"
     ;;
+2.4.21-*)
+    BASEVER="2.4.21"
+    REM="${KVER#${BASEVER}-}"
+    EVER="${REM%%-*}"
+    ETYPE="${REM#${EVER}-}"
+    case "$ETYPE" in
+    default|smp|psmp|numa|itanium2|itanium2-smp)
+        ;;
+    *)
+        echo -n "Checking for United Linux Enterprise kernel:"
+        false
+        rc_status -v
+        rc_exit
+        ;;
+    esac
+    MODPATH="/lib/modules/${KVER}/kernel/drivers/addon/${MODNAME}"
+    ;;
 *)
     # Not a supported kernel
     exit 0
