@@ -54,6 +54,8 @@ make
 
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
+mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
+cp -f vendor/common/o2cb.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/o2cb
 
 for tool in fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl mount.ocfs2 ocfs2cdsl
 do
@@ -87,6 +89,7 @@ chkconfig o2cb on
 /sbin/mount.ocfs2
 /sbin/ocfs2cdsl
 /etc/init.d/o2cb
+/etc/sysconfig/o2cb
 /usr/share/man/man8/debugfs.ocfs2.8.gz
 /usr/share/man/man8/fsck.ocfs2.8.gz
 /usr/share/man/man8/fsck.ocfs2.checks.8.gz
