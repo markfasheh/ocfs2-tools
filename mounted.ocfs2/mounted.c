@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 
 	if (argc < 2) {
 		fprintf(stderr, "Usage: %s device\n", argv[0]);
-		goto bail;
+		return 0;
 	}
 
 	initialize_ocfs_error_table();
