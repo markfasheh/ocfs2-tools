@@ -625,6 +625,8 @@ int get_node_map(__u8 group_num, char *bitmap)
 	hb_op *op;
 	int ret = -EINVAL;
 	int retval;
+	u8 bytemap[NM_MAX_NODES];
+	int i;
 	
 	printf("getting node map...\n");
 	
@@ -649,10 +651,16 @@ int get_node_map(__u8 group_num, char *bitmap)
 		ret = retval;
 		goto done;
 	}
-	if (fread(bitmap, 1, (NM_MAX_NODES+7)/8, file) < (NM_MAX_NODES+7)/8) {
+	if (fread(bytemap, 1, NM_MAX_NODES, file) < NM_MAX_NODES) {
 		ret = -EINVAL;
 		goto done;
 	}
+
+	for (i = 0; i < NM_MAX_NODES; ++i) {
+		if (bytemap[i])
+			ocfs2_set_bit(i, bitmap);
+	}
+
 	ret = 0;
 done:
 	fclose(file);
