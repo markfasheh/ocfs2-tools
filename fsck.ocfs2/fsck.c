@@ -196,6 +196,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
 		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
 		print_usage();

@@ -27,33 +27,42 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <termios.h>
 
 #include "ocfs2.h"
 
 #include "problem.h"
 #include "util.h"
 
+/* 
+ * when a caller cares why read() failed we can bother to communicate
+ * the error.  
+ *
+ * XXX I wonder this termios junk is really the best way.  I bet we want
+ * to at least make a passing attempt to not be killed while we have
+ * the terminal all messed up.
+ */
 static int read_a_char(int fd)
 {
-	int c;
+	struct termios orig, new;
+	char c;
 	ssize_t ret;
 
+	/* turn off buffering and echoing and encourage single character
+	 * reads */
+	tcgetattr(0, &orig);
+	new = orig;
+	new.c_lflag &= ~(ICANON | ECHO);
+	new.c_cc[VMIN] = 1;
+	new.c_cc[VTIME] = 0;
+	tcsetattr (0, TCSANOW, &new);
+
 	ret = read(fd, &c, sizeof(c));
+
+	tcsetattr (0, TCSANOW, &orig);
+
 	if (ret != sizeof(c))
 		return EOF;
-	/*
-	 * Don't you mean:
-	 * top:
-	 * ret = read(fd, &c, 1);
-	 * if (ret == 0)
-	 * 	return EOF;
-	 * else if (ret < 0) {
-	 * 	if (errno == EINTR)
-	 * 		goto top;
-	 * 	else
-	 * 		return -errno;
-	 * }
-	 */
 
 	return c;
 }
@@ -93,6 +102,8 @@ int should_fix(o2fsck_state *ost, unsigned flags, const char *fmt, ...)
 
 	/* no curses, no nothin.  overly regressive? */
 	while ((c = read_a_char(fileno(stdin))) != EOF) {
+
+		printf("read '%c'\n", c);
 
 		/* XXX control-c, we're done? */
 		if (c == 3) {

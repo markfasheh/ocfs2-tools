@@ -184,7 +184,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 {
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
-	unsigned int offset = 0, this_flags, ret_flags = 0, rc;
+	unsigned int offset = 0, this_flags, ret_flags = 0;
 	errcode_t retval;
 
 	/* XXX there is no byte swapping story here, which is wrong.  we might
