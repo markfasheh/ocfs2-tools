@@ -31,7 +31,7 @@ endif
 CFLAGS += $(OPTIMIZE)
 
 ifneq ($(OCFS2_DEBUG_EXE),)
-BIN_PROGRAMS += unix_io openfs
+BIN_PROGRAMS += unix_io openfs inode
 
 unix_io: unix_io.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
@@ -39,6 +39,11 @@ unix_io: unix_io.c libocfs2.a
 		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
 
 openfs: openfs.c libocfs2.a
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
+		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
+		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^
+
+inode: inode.c libocfs2.a
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) $(VERMAGIC) \
 		$(COM_ERR_LIBS) -DDEBUG_EXE -o $@ $^

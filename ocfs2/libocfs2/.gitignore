@@ -7,4 +7,5 @@ ocfs2_err.h
 libocfs2.a
 unix_io
 openfs
+inode
 ocfs2_err.et

@@ -123,5 +123,5 @@ errcode_t ocfs2_malloc_blocks(io_channel *channel, int num_blocks,
 
 errcode_t ocfs2_malloc_block(io_channel *channel, void *ptr)
 {
-	return ocfs2_malloc_blocks(channel, 0, ptr);
+	return ocfs2_malloc_blocks(channel, 1, ptr);
 }
