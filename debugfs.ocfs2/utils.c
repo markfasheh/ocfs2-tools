@@ -284,34 +284,45 @@ errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
 /*
  * fix_perms()
  *
+ * Code based on similar function in e2fsprogs-1.32/debugfs/dump.c
+ *
+ * Copyright (C) 1994 Theodore Ts'o.  This file may be redistributed
+ * under the terms of the GNU Public License.
  */
-static errcode_t fix_perms(const ocfs2_dinode *di, int *fd, char *out_file)
+static errcode_t fix_perms(const ocfs2_dinode *di, int *fd, char *name)
 {
 	struct utimbuf ut;
 	int i;
 	errcode_t ret = 0;
 
-	i = fchmod(*fd, di->i_mode);
+	if (*fd != -1)
+		i = fchmod(*fd, di->i_mode);
+	else
+		i = chmod(name, di->i_mode);
 	if (i == -1) {
 		ret = errno;
 		goto bail;
 	}
 
-	i = fchown(*fd, di->i_uid, di->i_gid);
+	if (*fd != -1)
+		i = fchown(*fd, di->i_uid, di->i_gid);
+	else
+		i = chown(name, di->i_uid, di->i_gid);
 	if (i == -1) {
 		ret = errno;
 		goto bail;
 	}
 
-	close(*fd);
-	*fd = -1;
+	if (*fd != -1) {
+		close(*fd);
+		*fd = -1;
+	}
 
 	ut.actime = di->i_atime;
 	ut.modtime = di->i_mtime;
-	if (utime(out_file, &ut) == -1) {
+	if (utime(name, &ut) == -1)
 		ret = errno;
-		goto bail;
-	}
+
 bail:
 	return ret;
 }
@@ -504,4 +515,159 @@ void inode_time_to_str(uint64_t timeval, char *str, int len)
 		 tm->tm_hour, tm->tm_min);
 
 	return ;
+}
+
+
+/*
+ * rdump_symlink()
+ *
+ * Code based on similar function in e2fsprogs-1.32/debugfs/dump.c
+ *
+ * Copyright (C) 1994 Theodore Ts'o.  This file may be redistributed
+ * under the terms of the GNU Public License.
+ */
+static errcode_t rdump_symlink(ocfs2_filesys *fs, uint64_t blkno, char *name)
+{
+	char *buf = NULL;
+	uint32_t len = 0;
+	errcode_t ret;
+
+	ret = read_whole_file(fs, blkno, &buf, &len);
+	if (ret)
+		goto bail;
+
+	if (symlink(buf, name) == -1)
+		ret = errno;
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
+/*
+ * rdump_dirent()
+ *
+ * Code based on similar function in e2fsprogs-1.32/debugfs/dump.c
+ *
+ * Copyright (C) 1994 Theodore Ts'o.  This file may be redistributed
+ * under the terms of the GNU Public License.
+ */
+static int rdump_dirent(struct ocfs2_dir_entry *rec, int offset, int blocksize,
+			char *buf, void *priv_data)
+{
+	rdump_opts *rd = (rdump_opts *)priv_data;
+	char tmp = rec->name[rec->name_len];
+	errcode_t ret = 0;
+
+	rec->name[rec->name_len] = '\0';
+
+	if (!strncmp(rec->name, ".", 1) || !strncmp(rec->name, "..", 2))
+		goto bail;
+
+	ret = rdump_inode(rd->fs, rec->inode, rec->name, rd->fullname,
+			  rd->verbose);
+
+bail:
+	rec->name[rec->name_len] = tmp;
+
+	return ret;
+}
+
+/*
+ * rdump_inode()
+ *
+ * Code based on similar function in e2fsprogs-1.32/debugfs/dump.c
+ *
+ * Copyright (C) 1994 Theodore Ts'o.  This file may be redistributed
+ * under the terms of the GNU Public License.
+ */
+errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
+		      const char *dumproot, int verbose)
+{
+	char *fullname = NULL;
+	int len;
+	errcode_t ret;
+	char *buf = NULL;
+	char *dirbuf = NULL;
+	ocfs2_dinode *di;
+	int fd;
+	rdump_opts rd_opts = { NULL, NULL, NULL, 0 };
+
+	len = strlen(dumproot) + strlen(name) + 2;
+	ret = ocfs2_malloc(len, &fullname);
+	if (ret)
+		goto bail;
+
+	snprintf(fullname, len, "%s/%s", dumproot, name);
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_read_inode(fs, blkno, buf);
+	if (ret)
+		goto bail;
+	di = (ocfs2_dinode *)buf;
+
+	if (S_ISLNK(di->i_mode)) {
+		ret = rdump_symlink(fs, blkno, fullname);
+		if (ret)
+			goto bail;
+	} else if (S_ISREG(di->i_mode)) {
+		if (verbose)
+			fprintf(stdout, "%s\n", fullname);
+		fd = open(fullname, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+		if (fd == -1) {
+			ret = errno;
+			goto bail;
+		}
+
+		ret = dump_file(fs, blkno, fd, fullname, 1);
+		if (ret)
+			goto bail;
+	} else if (S_ISDIR(di->i_mode) && strncmp(name, ".", 1) &&
+		   strncmp(name, "..", 2)) {
+
+		if (verbose)
+			fprintf(stdout, "%s\n", fullname);
+		/* Create the directory with 0700 permissions, because we
+		 * expect to have to create entries it.  Then fix its perms
+		 * once we've done the traversal. */
+		if (mkdir(fullname, S_IRWXU) == -1) {
+			ret = errno;
+			goto bail;
+		}
+
+		ret = ocfs2_malloc_block(fs->fs_io, &dirbuf);
+		if (ret)
+			goto bail;
+
+		rd_opts.fs = fs;
+		rd_opts.buf = dirbuf;
+		rd_opts.fullname = fullname;
+		rd_opts.verbose = verbose;
+
+		ret = ocfs2_dir_iterate(fs, blkno, 0, NULL,
+					rdump_dirent, (void *)&rd_opts);
+		if (ret)
+			goto bail;
+
+		fd = -1;
+		ret = fix_perms(di, &fd, fullname);
+		if (ret)
+			goto bail;
+	}
+	/* else do nothing (don't dump device files, sockets, fifos, etc.) */
+
+bail:
+	if (fullname)
+		ocfs2_free(&fullname);
+	if (buf)
+		ocfs2_free(&buf);
+	if (dirbuf)
+		ocfs2_free(&dirbuf);
+
+	return ret;
 }

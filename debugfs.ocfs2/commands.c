@@ -54,6 +54,7 @@ static void do_write (char **args);
 static void do_quit (char **args);
 static void do_help (char **args);
 static void do_dump (char **args);
+static void do_rdump (char **args);
 static void do_cat (char **args);
 static void do_lcd (char **args);
 static void do_curdev (char **args);
@@ -64,7 +65,7 @@ static void do_logdump (char **args);
 static void do_group (char **args);
 static void do_extent (char **args);
 static void do_chroot (char **args);
-static void do_slots (char **args);
+static void do_slotmap (char **args);
 
 extern gboolean allow_write;
 
@@ -94,6 +95,7 @@ static Command commands[] =
   { "quit",   do_quit   },
   { "q",      do_quit   },
 
+  { "rdump",  do_rdump  },
   { "dump",   do_dump   },
   { "cat",    do_cat   },
 
@@ -112,7 +114,7 @@ static Command commands[] =
   { "group", do_group },
   { "extent", do_extent },
 
-  { "slots", do_slots }
+  { "slotmap", do_slotmap }
 };
 
 /*
@@ -657,12 +659,15 @@ static void do_help (char **args)
 //	printf ("pwd\t\t\t\tPrint working directory\n");
 	printf ("ls [-l] <filepath>\t\t\tList directory\n");
 	printf ("cd <filepath>\t\t\t\tChange directory\n");
+	printf ("lcd <filepath>\t\t\t\tChange directory on a mounted fs\n");
 	printf ("chroot <filepath>\t\t\tChange root\n");
 	printf ("cat <filepath>\t\t\t\tPrints file on stdout\n");
 	printf ("dump [-p] <filepath> <outfile>\t\tDumps file to outfile on a mounted fs\n");
+	printf ("rdump [-v] <filepath> <outdir>\t\tRecursively dumps from src to a dir on a mounted fs\n");
 	printf ("logdump <node#>\t\t\t\tPrints journal file for the node\n");
 	printf ("extent <inode#>\t\t\t\tShow extent block\n");
 	printf ("group <inode#>\t\t\t\tShow chain group\n");
+	printf ("slotmap\t\t\t\t\tShow slot map\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
 	printf ("quit, q\t\t\t\t\tExit the program\n");
 }
@@ -684,7 +689,22 @@ static void do_quit (char **args)
  */
 static void do_lcd (char **args)
 {
+	char *usage = "usage: lcd <dir on a mounted fs>";
 
+	if (check_device_open())
+		return ;
+
+	if (!args[1]) {
+		fprintf(stderr, "%s\n", usage);
+		return ;
+	}
+
+	if (chdir(args[1]) == -1) {
+		com_err(args[0], errno, "'%s'", args[1]);
+		return ;
+	}
+
+	return ;
 }
 
 /*
@@ -998,10 +1018,10 @@ static void do_extent (char **args)
 }
 
 /*
- * do_slots()
+ * do_slotmap()
  *
  */
-static void do_slots (char **args)
+static void do_slotmap (char **args)
 {
 	FILE *out;
 	errcode_t ret;
@@ -1025,6 +1045,96 @@ static void do_slots (char **args)
 bail:
 	if (buf)
 		ocfs2_free(&buf);
+
+	return ;
+}
+
+/*
+ * do_rdump()
+ *
+ */
+static void do_rdump(char **args)
+{
+	uint64_t blkno;
+	struct stat st;
+	char *p;
+	char *usage = "usage: rdump [-v] <srcdir> <dstdir>";
+	errcode_t ret;
+	int ind = 1;
+	int verbose = 0;
+	char tmp_str[40];
+
+	if (check_device_open())
+		return ;
+
+	if (!args[1]) {
+		fprintf(stderr, "%s\n", usage);
+		return ;
+	}
+
+	if (!strncmp(args[1], "-v", 2)) {
+		++ind;
+		++verbose;
+	}
+
+	if (!args[ind] || !args[ind+1]) {
+		fprintf(stderr, "%s\n", usage);
+		return ;
+	}
+
+	/* source */
+	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
+			      args[ind], &blkno);
+	if (ret) {
+		com_err(args[0], ret, " ");
+		return ;
+	}
+
+	/* destination... has to be a dir on a mounted fs */
+	if (stat(args[ind+1], &st) == -1) {
+		com_err(args[0], errno, "'%s'", args[ind+1]);
+		return ;
+	}
+
+	if (!S_ISDIR(st.st_mode)) {
+		com_err(args[0], OCFS2_ET_NO_DIRECTORY, "'%s'", args[ind+1]);
+		return ;
+	}
+
+	p = strrchr(args[ind], '/');
+	if (p)
+		p++;
+	else
+		p = args[ind];
+
+	/* I could traverse the dirs from the root and find the directory */
+	/* name... but this is debugfs, for crying out loud */
+	if (!strncmp(p, ".", 1) || !strncmp(p, "..", 2) || !strncmp(p, "/", 1)) {
+		time_t tt;
+		struct tm *tm;
+
+		time(&tt);
+		tm = localtime(&tt);
+		/* YYYY-MM-DD_HH:MI:SS */
+		snprintf(tmp_str, sizeof(tmp_str), "%4d-%2d-%2d_%02d:%02d:%02d",
+			 1900 + tm->tm_year, tm->tm_mon, tm->tm_mday,
+			 tm->tm_hour, tm->tm_min, tm->tm_sec);
+		p = tmp_str;
+	}
+
+	/* drop the trailing '/' in destination */
+	if (1) {
+		char *q = args[ind+1];
+		q = q + strlen(args[ind+1]) - 1;
+		if (*q == '/')
+			*q = '\0';
+	}
+
+	fprintf(stdout, "Copying to %s/%s\n", args[ind+1], p);
+
+	ret = rdump_inode(gbls.fs, blkno, p, args[ind+1], verbose);
+	if (ret)
+		com_err(args[0], ret, " ");
 
 	return ;
 }

@@ -26,6 +26,13 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+typedef struct _rdump_opts {
+	ocfs2_filesys *fs;
+	char *fullname;
+	char *buf;
+	int verbose;
+} rdump_opts;
+
 void get_vote_flag (__u32 flag, GString *str);
 void get_publish_flag (__u32 flag, GString *str);
 void get_journal_blktyp (__u32 jtype, GString *str);
@@ -41,5 +48,6 @@ errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf,
 			  uint32_t *buflen);
 void inode_perms_to_str(uint16_t mode, char *str, int len);
 void inode_time_to_str(uint64_t mtime, char *str, int len);
-
+errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
+		      const char *dumproot, int verbose);
 #endif		/* __UTILS_H__ */
