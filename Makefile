@@ -36,6 +36,7 @@ SUBDIRS += vendor
 
 DIST_FILES = \
 	COPYING		\
+	MAINTAINERS	\
 	README		\
 	README.O2CB	\
 	Config.make.in	\
