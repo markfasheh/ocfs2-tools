@@ -33,6 +33,7 @@ static void usage(const char *progname);
 static void version(const char *progname);
 static void fill_defaults(State *s);
 static int get_bits(State *s, int num);
+static uint64_t get_valid_size(uint64_t num, uint64_t lo, uint64_t hi);
 static void *do_malloc(State *s, size_t size);
 static void do_pwrite(State *s, const void *buf, size_t count, 
 		      uint64_t offset);
@@ -395,15 +396,15 @@ get_state(int argc, char **argv)
 			    val < OCFS2_MIN_BLOCKSIZE ||
 			    val > OCFS2_MAX_BLOCKSIZE) {
 				com_err(progname, 0,
-					"Invalid blocksize %s: "
-					"must be between %d and %d bytes",
-					optarg,
-					OCFS2_MIN_BLOCKSIZE,
+					"Specify a blocksize between %d and %d "
+					"in powers of 2", OCFS2_MIN_BLOCKSIZE,
 					OCFS2_MAX_BLOCKSIZE);
 				exit(1);
 			}
 
-			blocksize = (unsigned int) val;
+			blocksize = (unsigned int)
+					get_valid_size(val, OCFS2_MIN_BLOCKSIZE,
+						       OCFS2_MAX_BLOCKSIZE);
 			break;
 
 		case 'C':
@@ -413,15 +414,15 @@ get_state(int argc, char **argv)
 			    val < OCFS2_MIN_CLUSTERSIZE ||
 			    val > OCFS2_MAX_CLUSTERSIZE) {
 				com_err(progname, 0,
-					"Invalid cluster size %s: "
-					"must be between %d and %d bytes",
-					optarg,
-					OCFS2_MIN_CLUSTERSIZE,
+					"Specify a clustersize between %d and "
+					"%d in powers of 2", OCFS2_MIN_CLUSTERSIZE,
 					OCFS2_MAX_CLUSTERSIZE);
 				exit(1);
 			}
 
-			cluster_size = (unsigned int) val;
+			cluster_size = (unsigned int)
+					get_valid_size(val, OCFS2_MIN_CLUSTERSIZE,
+						       OCFS2_MAX_CLUSTERSIZE);
 			break;
 
 		case 'L':
@@ -822,6 +823,24 @@ get_bits(State *s, int num)
 	}
 
 	return bits;
+}
+
+static uint64_t
+get_valid_size(uint64_t num, uint64_t lo, uint64_t hi)
+{
+	uint64_t tmp = lo;
+
+	for ( ; lo <= hi; lo <<= 1) {
+		if (lo == num)
+			return num;
+
+		if (lo < num)
+			tmp = lo;
+		else
+			break;
+	}
+
+	return tmp;
 }
 
 static void *

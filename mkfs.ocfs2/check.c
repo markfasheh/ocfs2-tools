@@ -52,6 +52,11 @@ int ocfs2_check_volume(State *s)
 		if (ret) {
 			ocfs2_close(fs);
 			com_err(s->progname, ret, "while initializing the dlm");
+			fprintf(stderr,
+				"As this is an existing OCFS2 volume, it could be mounted on an another node in the cluster.\n"
+				"However, as %s is unable to initialize the dlm, it cannot detect if the volume is in use or not.\n"
+				"To skip this check, use --force or -F.\n",
+				s->progname);
 			return -1;
 		}
 
@@ -60,15 +65,17 @@ int ocfs2_check_volume(State *s)
 			ocfs2_shutdown_dlm(fs);
 			ocfs2_close(fs);
 			com_err(s->progname, ret, "while locking the cluster");
+			fprintf(stderr,
+				"This volume appears to be in use in the cluster.\n");
+				
 			return -1;
 		}
 
 		ocfs2_release_cluster(fs);
 		ocfs2_shutdown_dlm(fs);
 	} else {
-		fprintf(stdout, "Cluster check has been disabled by --force.\n"
-			"Please ensure that the volume is not mounted on any other node\n"
-			"else re-run %s without --force.\n", s->progname);
+		fprintf(stderr,
+			"WARNING: Cluster check disabled.\n");
 	}
 
 	ocfs2_close(fs);
