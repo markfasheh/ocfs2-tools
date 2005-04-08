@@ -702,6 +702,7 @@ fill_defaults(State *s)
 	errcode_t err;
 	uint32_t ret;
 	struct ocfs2_cluster_group_sizes cgs;
+	uint64_t tmp;
 
 	pagesize = getpagesize();
 
@@ -778,7 +779,8 @@ fill_defaults(State *s)
 	s->cluster_size_bits = get_bits(s, s->cluster_size);
 
 	s->volume_size_in_clusters = s->volume_size_in_bytes >> s->cluster_size_bits;
-	s->volume_size_in_blocks = (s->volume_size_in_clusters << s->cluster_size_bits) >> s->blocksize_bits;
+	tmp = (uint64_t)s->volume_size_in_clusters;
+	s->volume_size_in_blocks = (tmp << s->cluster_size_bits) >> s->blocksize_bits;
 	
 	s->reserved_tail_size = 0;
 
@@ -1109,7 +1111,9 @@ alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 	if (gd->bg_blkno == s->first_cluster_group_blkno)
 		*start = (uint64_t) start_bit;
 	else
-		*start = (uint64_t) start_bit + gd->bg_blkno;
+		*start = (uint64_t) start_bit +
+			((gd->bg_blkno << s->blocksize_bits) >> s->cluster_size_bits);
+
 	*start = *start << bitmap->unit_bits;
 	*num = ((uint64_t)num_bits) << bitmap->unit_bits;
 	gd->bg_free_bits_count -= num_bits;
