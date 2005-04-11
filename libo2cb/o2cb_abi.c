@@ -572,6 +572,23 @@ out:
 	return err;
 }
 
+static int is_dots(const char *name)
+{
+	size_t len = strlen(name);
+
+	if (len == 0)
+		return 0;
+
+	if (name[0] == '.') {
+		if (len == 1)
+			return 1;
+		if (len == 2 && name[1] == '.')
+			return 1;
+	}
+
+	return 0;
+}
+
 static errcode_t o2cb_list_dir(char *path, char ***objs)
 {
 	errcode_t ret;
@@ -611,6 +628,9 @@ static errcode_t o2cb_list_dir(char *path, char ***objs)
 	count = 0;
 	list = NULL;
 	while ((dirent = readdir(dir)) != NULL) {
+		if (is_dots(dirent->d_name))
+			continue;
+
 		tmp = malloc(sizeof(struct dlist));
 		if (!tmp)
 			goto out_free_list;
