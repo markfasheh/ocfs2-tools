@@ -149,7 +149,7 @@ static errcode_t fill_group_buffer(ocfs2_inode_scan *scan)
 	int num_blocks;
 
 	if (scan->cur_rec && (scan->count > scan->cur_rec->c_total))
-	    abort();
+		abort();
 
 	if (scan->cur_rec && (scan->bpos > (scan->cur_desc->bg_blkno +
 			  scan->cur_desc->bg_bits)))
