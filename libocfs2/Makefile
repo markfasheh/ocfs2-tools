@@ -43,55 +43,57 @@ debug_%: debug_%.o libocfs2.a $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 endif
 
 CFILES = 		\
-	unix_io.c	\
-	memory.c	\
-	openfs.c	\
+	alloc.c		\
+	bitmap.c	\
+	bitops.c	\
+	cached_inode.c	\
+	chain.c		\
+	chainalloc.c	\
+	checkhb.c	\
 	closefs.c	\
+	dirblock.c	\
+	dir_iterate.c	\
+	dir_scan.c	\
+	dlm.c		\
+	fileio.c	\
 	freefs.c	\
+	expanddir.c	\
+	extend_file.c	\
+	extents.c	\
+	extent_map.c	\
 	getsize.c	\
+	heartbeat.c	\
 	inode.c		\
 	inode_scan.c	\
 	ismounted.c	\
-	cached_inode.c	\
-	extent_map.c	\
-	mkjournal.c	\
-	extents.c	\
-	dirblock.c	\
-	dir_iterate.c	\
-	lookup.c	\
-	sysfile.c	\
-	link.c		\
-	unlink.c	\
-	bitmap.c	\
-	fileio.c	\
-	chain.c		\
-	chainalloc.c	\
-	alloc.c		\
-	checkhb.c	\
 	kernel-rbtree.c	\
-	bitops.c	\
-	expanddir.c	\
-	newdir.c	\
-	extend_file.c	\
+	link.c		\
+	lookup.c	\
+	memory.c	\
+	mkjournal.c	\
 	namei.c		\
+	newdir.c	\
+	openfs.c	\
+	sysfile.c	\
 	truncate.c	\
-	dlm.c		\
-	heartbeat.c
+	unix_io.c	\
+	unlink.c
 
 HFILES =				\
-	include/jfs_user.h		\
+	include/bitmap.h		\
+	include/bitops.h		\
+	include/byteorder.h		\
+	include/dir_iterate.h		\
+	include/dir_util.h		\
+	include/extent_map.h		\
 	include/jfs_compat.h		\
+	include/jfs_user.h		\
 	include/kernel-jbd.h		\
 	include/kernel-list.h		\
 	include/kernel-rbtree.h		\
-	include/ocfs2_fs.h		\
 	include/ocfs1_fs_compat.h	\
-	include/byteorder.h		\
-	include/ocfs2.h			\
-	include/dir_iterate.h		\
-	include/extent_map.h		\
-	include/bitmap.h		\
-	include/bitops.h
+	include/ocfs2_fs.h		\
+	include/ocfs2.h
 
 HFILES_GEN =		\
 	include/ocfs2_err.h

@@ -139,12 +139,14 @@
 #define OCFS2_CHAIN_ABORT	0x02
 #define OCFS2_CHAIN_ERROR	0x04
 
-
 /* Directory constants */
 #define OCFS2_DIRENT_DOT_FILE		1
 #define OCFS2_DIRENT_DOT_DOT_FILE	2
 #define OCFS2_DIRENT_OTHER_FILE		3
 #define OCFS2_DIRENT_DELETED_FILE	4
+
+/* Directory scan flags */
+#define OCFS2_DIR_SCAN_FLAG_EXCLUDE_DOTS	0x01
 
 /* Check if mounted flags */
 #define OCFS2_MF_MOUNTED         0x01
@@ -169,6 +171,7 @@ typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
 typedef struct _io_channel io_channel;
 typedef struct _ocfs2_extent_map ocfs2_extent_map;
 typedef struct _ocfs2_inode_scan ocfs2_inode_scan;
+typedef struct _ocfs2_dir_scan ocfs2_dir_scan;
 typedef struct _ocfs2_bitmap ocfs2_bitmap;
 typedef struct _ocfs2_nodes ocfs2_nodes;
 typedef struct _ocfs2_devices ocfs2_devices;
@@ -392,6 +395,12 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 void ocfs2_close_inode_scan(ocfs2_inode_scan *scan);
 errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,
 			       uint64_t *blkno, char *inode);
+
+errcode_t ocfs2_open_dir_scan(ocfs2_filesys *fs, uint64_t dir, int flags,
+			      ocfs2_dir_scan **ret_scan);
+void ocfs2_close_dir_scan(ocfs2_dir_scan *scan);
+errcode_t ocfs2_get_next_dir_entry(ocfs2_dir_scan *scan,
+				   struct ocfs2_dir_entry *dirent);
 
 errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
 				   const char *description,
