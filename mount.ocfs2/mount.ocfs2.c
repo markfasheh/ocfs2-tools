@@ -23,6 +23,8 @@
 #include "mount.ocfs2.h"
 #include "o2cb.h"
 
+#define OCFS2_FS_NAME		"ocfs2"
+
 int verbose = 0;
 int mount_quiet = 0;
 char *progname = NULL;
@@ -35,6 +37,7 @@ struct mount_options {
 	char *opts;
 	int flags;
 	char *xtra_opts;
+	char *type;
 };
 
 static void read_options(int argc, char **argv, struct mount_options *mo)
@@ -47,7 +50,7 @@ static void read_options(int argc, char **argv, struct mount_options *mo)
 		goto bail;
 
 	while(1) {
-		c = getopt(argc, argv, "vno:");
+		c = getopt(argc, argv, "vno:t:");
 		if (c == -1)
 			break;
 
@@ -63,6 +66,11 @@ static void read_options(int argc, char **argv, struct mount_options *mo)
 		case 'o':
 			if (optarg)
 				mo->opts = xstrdup(optarg);
+			break;
+
+		case 't':
+			if (optarg)
+				mo->type = xstrdup(optarg);
 			break;
 
 		default:
@@ -171,6 +179,11 @@ static int process_options(struct mount_options *mo)
 		return -1;
 	}
 
+	if (mo->type && strcmp(mo->type, OCFS2_FS_NAME)) {
+		com_err(progname, OCFS2_ET_UNKNOWN_FILESYSTEM, mo->type);
+		return -1;
+	}
+
 	if (mo->opts)
 		parse_opts(mo->opts, &mo->flags, &mo->xtra_opts);
 
@@ -263,27 +276,43 @@ int main(int argc, char **argv)
 	if (verbose)
 		printf("device=%s\n", mo.dev);
 
+	block_signals (SIG_BLOCK);
+
 	ret = start_heartbeat(hb_ctl_path, mo.dev);
 	if (ret) {
+		block_signals (SIG_UNBLOCK);
 		com_err(progname, 0, "Error when attempting to run %s: "
 			"\"%s\"\n", hb_ctl_path, strerror(ret));
 		goto bail;
 	}
 
-	ret = mount(mo.dev, mo.dir, "ocfs2", mo.flags & ~MS_NOSYS, mo.xtra_opts);
+	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS,
+		    mo.xtra_opts);
 	if (ret) {
+		block_signals (SIG_UNBLOCK);
 		fprintf(stderr, "error %d while mounting %s on %s", errno, 
 			mo.dev, mo.dir);
 		goto bail;
 	}
 
-	update_mtab_entry(mo.dev, mo.dir, "ocfs2", mo.opts, mo.flags, 0, 0);
+	update_mtab_entry(mo.dev, mo.dir, OCFS2_FS_NAME,
+			  fix_opts_string (mo.flags & ~MS_NOMTAB,
+					   mo.xtra_opts, NULL),
+			  mo.flags, 0, 0);
+
+	block_signals (SIG_UNBLOCK);
 
 bail:
-	free(mo.dev);
-	free(mo.dir);
-	free(mo.opts);
-	free(mo.xtra_opts);
+	if (mo.dev)
+		free(mo.dev);
+	if (mo.dir)
+		free(mo.dir);
+	if (mo.opts)
+		free(mo.opts);
+	if (mo.xtra_opts)
+		free(mo.xtra_opts);
+	if (mo.type)
+		free(mo.type);
 
 	return ret ? 1 : 0;
 }

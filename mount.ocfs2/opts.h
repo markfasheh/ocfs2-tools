@@ -44,3 +44,4 @@
 #define MS_OWNERSECURE	(MS_NOSUID|MS_NODEV)
 
 void parse_opts (char *options, int *flags, char **extra_opts);
+char *fix_opts_string (int flags, const char *extra_opts, const char *user);

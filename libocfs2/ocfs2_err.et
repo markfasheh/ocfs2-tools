@@ -150,4 +150,7 @@ ec	OCFS2_ET_SYMLINK_LOOP,
 ec	OCFS2_ET_BAD_HEARTBEAT_FILE,
 	"Invalid heartbeat file"
 
+ec	OCFS2_ET_UNKNOWN_FILESYSTEM,
+	"Unknown filesystem"
+
 	end

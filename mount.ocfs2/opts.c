@@ -229,3 +229,33 @@ void parse_opts (char *options, int *flags, char **extra_opts)
 	*flags |= mounttype;
 #endif
 }
+
+/* Try to build a canonical options string.  */
+char *fix_opts_string (int flags, const char *extra_opts, const char *user)
+{
+	const struct opt_map *om;
+	const struct string_opt_map *m;
+	char *new_opts;
+
+	new_opts = (flags & MS_RDONLY) ? "ro" : "rw";
+	for (om = opt_map; om->opt != NULL; om++) {
+		if (om->skip)
+			continue;
+		if (om->inv || !om->mask || (flags & om->mask) != om->mask)
+			continue;
+		new_opts = xstrconcat3(new_opts, ",", om->opt);
+		flags &= ~om->mask;
+	}
+	for (m = &string_opt_map[0]; m->tag; m++) {
+		if (!m->skip && *(m->valptr))
+			new_opts = xstrconcat4(new_opts, ",",
+					       m->tag, *(m->valptr));
+	}
+	if (extra_opts && *extra_opts) {
+		new_opts = xstrconcat3(new_opts, ",", extra_opts);
+	}
+	if (user) {
+		new_opts = xstrconcat3(new_opts, ",user=", user);
+	}
+	return new_opts;
+}
