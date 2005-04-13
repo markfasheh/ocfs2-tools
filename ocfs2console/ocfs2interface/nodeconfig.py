@@ -176,7 +176,6 @@ class ClusterConfig(Dialog):
         self.new_nodes = 0
 
         self.tv.set_model(self.store)
-        self.sel.select_iter(self.store.get_iter_first())
 
     def setup_treeview(self):
         self.tv = gtk.TreeView()
