@@ -25,13 +25,13 @@ import pango
 from cStringIO import StringIO
  
 import ocfs2
+import o2cb
 
 from guiutil import Dialog, set_props, error_box
 from process import Process
 from ipwidget import IPEditor, IPMissing, IPError
 
 CLUSTER_NAME = 'ocfs2'
-CONFIG_FS_PATH = '/config/cluster'
 
 O2CB_INIT = '/etc/init.d/o2cb'
 O2CB_CTL = 'o2cb_ctl'
@@ -56,6 +56,7 @@ fields = (
     (COLUMN_IP_PORT,  'IP Port',    gtk.SpinButton, str)
 )
 
+# Hate your ancient distros shipping old pygtks
 typemap = { bool: gobject.TYPE_BOOLEAN }
 
 class ConfigError(Exception):
@@ -65,7 +66,7 @@ class ClusterConfig(Dialog):
     def __init__(self, parent=None):
         self.new_nodes = 0
 
-        Dialog.__init__(self, parent=parent, title='Cluster Configurator',
+        Dialog.__init__(self, parent=parent, title='Node Configuration',
                         buttons=(gtk.STOCK_APPLY, gtk.RESPONSE_APPLY,
                                  gtk.STOCK_CLOSE, gtk.RESPONSE_CLOSE))
 
@@ -90,6 +91,7 @@ class ClusterConfig(Dialog):
         hbox.pack_start(scrl_win)
 
         self.setup_treeview()
+        label.set_mnemonic_widget(self.tv)
         scrl_win.add(self.tv)
 
         vbbox = gtk.VButtonBox()
@@ -361,7 +363,10 @@ class ClusterConfig(Dialog):
             widget = widget_type()
             table.attach(widget, 1, 2, row, row + 1)
 
-            if isinstance(widget, gtk.SpinButton):
+            if col == COLUMN_NAME:
+                #XXX widget.set_max_length(ocfs2.MAX_NODE_NAME_LENGTH)
+                pass
+            elif col == COLUMN_IP_PORT:
                 widget.set_numeric(True)
 
                 adjustment = gtk.Adjustment(PORT_DEFAULT,
@@ -456,8 +461,8 @@ class O2CBInit(O2CBProcess):
     o2cb_program = O2CB_INIT
     o2cb_title = 'Cluster Stack'
 
-def cluster_configurator(parent=None):
-    if not os.access(CONFIG_FS_PATH, os.F_OK):
+def node_config(parent=None):
+    if not os.access(o2cb.FORMAT_CLUSTER_DIR, os.F_OK):
         load_args = ('load',)
         o2cb_init = O2CBInit(load_args, 'Starting cluster stack...', parent)
         success, output, k = o2cb_init.reap()
@@ -485,6 +490,14 @@ def cluster_configurator(parent=None):
         if not success:
             return
 
+#    msg = ('Currently, the clustering software can only handle '
+#           'one cluster at a time. To keep things simple, you '
+#           'are expected to name your cluster "%s". Your '
+#           'configuration file contains a cluster named "%s". '
+#           'Please rename or delete that cluster, and restart '
+#           'the cluster stack before trying to run the cluster '
+#           'configurator again.' % (CLUSTER_NAME, cluster))
+
     query_args = '-I -t cluster -n %s -o' % CLUSTER_NAME
     o2cb_ctl = O2CBCtl(query_args, 'Querying cluster...', parent)
     success, output, k = o2cb_ctl.reap()
@@ -509,7 +522,7 @@ def cluster_configurator(parent=None):
     conf.run()
     conf.destroy()
 
-    if not os.access(os.path.join(CONFIG_FS_PATH, CLUSTER_NAME), os.F_OK):
+    if not os.access(o2cb.FORMAT_CLUSTER % CLUSTER_NAME, os.F_OK):
         online_args = ('online', CLUSTER_NAME),
         o2cb_init = O2CBInit(online_args, 'Starting OCFS2 cluster...', parent)
         success, output, k = o2cb_init.reap()
@@ -530,7 +543,7 @@ def cluster_configurator(parent=None):
 def main():
     from about import process_gui_args
     process_gui_args()
-    cluster_configurator()
+    node_config()
 
 if __name__ == '__main__':
     main()

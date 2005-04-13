@@ -17,7 +17,7 @@
 
 import gtk
 
-import ocfs2
+from plist import partition_list
 
 COLUMN_DEVICE, COLUMN_MOUNTPOINT = range(2)
 
@@ -80,7 +80,7 @@ class PartitionView(gtk.TreeView):
             if frame.child:
                 frame.child.destroy()
 
-            frame.add(info(device).widget)
+            frame.add(info(device))
             frame.show_all()
 
     def select_device(self, device):
@@ -122,8 +122,8 @@ class PartitionView(gtk.TreeView):
         store.set_sort_func(COLUMN_DEVICE, list_compare)
         store.set_sort_column_id(COLUMN_DEVICE, gtk.SORT_ASCENDING)
 
-        ocfs2.partition_list(self.add_partition, data=old_device,
-                             filter=filter, fstype='ocfs2', async=True)
+        partition_list(self.add_partition, old_device,
+                       filter=filter, fstype='ocfs2', async=True)
 
         if len(store):
             if not self.selected:

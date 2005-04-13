@@ -41,6 +41,12 @@ help_menu_data = (
      stock_about)
 )
 
+cluster_menu_data = (
+    ('/_Cluster',                            None,       None,  0, '<Branch>'),
+    ('/Cluster/_Configure Nodes...',         None,       'node_config'),
+    ('/Cluster/_Propagate Configuration...', None,       'push_config')
+)
+
 if fsck_ok:
     task_menu_fsck_data = (
         ('/Tasks/Chec_k...',       '<control>K', 'check',    'refresh',
@@ -61,15 +67,13 @@ task_menu_head_data = (
 task_menu_tail_data = (
     ('/Tasks/Change _Label...',    None,         'relabel',  'refresh',
      UNMOUNTED_ONLY),
-    ('/Tasks/Edit _Node Count...', None,         'node_num', 'refresh',
+    ('/Tasks/_Edit Node Count...', None,         'node_num', 'refresh',
      UNMOUNTED_ONLY),
-    ('/Tasks/---',                 None,         None,       0, '<Separator>'),
-    ('/Tasks/_Cluster Config...',  None,         'clconfig')
 )
 
 task_menu_data = task_menu_head_data + task_menu_fsck_data + task_menu_tail_data
 
-menu_data = file_menu_data + task_menu_data + help_menu_data
+menu_data = file_menu_data + cluster_menu_data + task_menu_data + help_menu_data
 
 class Menu:
     def __init__(self, window):

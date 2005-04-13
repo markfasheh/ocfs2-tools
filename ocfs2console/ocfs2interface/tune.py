@@ -30,12 +30,11 @@ class TuneVolumeLabel(VolumeLabel):
     def __init__(self, device=None):
         VolumeLabel.__init__(self)
 
-        if device:
-            try:
-                super = ocfs2.get_super(device)
-                self.set_text(super.s_label)
-            except ocfs2.error:
-                pass
+        try:
+            fs = ocfs2.Filesystem(device)
+            self.set_text(fs.fs_super.s_label)
+        except ocfs2.error:
+            pass
 
     title = 'Changing Label'
     action = 'Changing label'
@@ -46,9 +45,8 @@ class TuneNumNodes(NumNodes):
     def __init__(self, device=None):
         NumNodes.__init__(self)
 
-        if device:
-            super = ocfs2.get_super(device)
-            self.set_range(super.s_max_nodes, ocfs2.MAX_NODES)
+        fs = ocfs2.Filesystem(device)
+        self.set_range(fs.fs_super.s_max_nodes, ocfs2.MAX_NODES)
 
     title = 'Edit Node Count'
     action = 'Changing node count'
@@ -59,8 +57,10 @@ def tune_action(widget_type, parent, device):
     try:
         widget = widget_type(device)
     except ocfs2.error:
-        error_box(parent, 'Could not get current %s for device $s' %
-                          (widget_type.label.lower(), device))
+        desc = widget_type.label.replace('_', '')
+        desc = desc.lower()
+        error_box(parent, 'Could not get current %s for device %s' %
+                          (desc, device))
         return False
 
     dialog = Dialog(parent=parent, title=widget_type.title,

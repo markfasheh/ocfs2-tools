@@ -17,7 +17,7 @@
 
 import gtk
 
-from guiutil import set_props, error_box, query_text
+from guiutil import set_props, error_box
 
 from partitionview import PartitionView
 from menu import Menu
@@ -25,11 +25,12 @@ from toolbar import Toolbar
 from about import about, process_gui_args
 from mount import mount, unmount
 from format import format_partition
+from fsck import fsck_volume
 from tune import tune_label, tune_nodes
 from general import General
-from browser import Browser
-from clconfig import cluster_configurator
-from fsck import fsck_volume
+from bosa import Browser
+from nodeconfig import node_config
+from pushconfig import push_config
 
 info_items = (
     ('General',          General),
@@ -136,8 +137,11 @@ class Console(gtk.Window):
     def repair(self):
         fsck_volume(self, self.pv.get_device(), check=False)
 
-    def clconfig(self):
-        cluster_configurator(self)
+    def node_config(self):
+        node_config(self)
+
+    def push_config(self):
+        push_config(self)
 
 def main():
     from about import process_gui_args

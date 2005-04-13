@@ -19,79 +19,116 @@ import gtk
 
 import ocfs2
 
+from classlabel import class_label
 from guiutil import set_props, format_bytes
 
-fields = (
-    ('Version', 'version'),
-    ('Label', 's_label'),
-    ('UUID', 's_uuid'),
-    ('Maximum Nodes', 's_max_nodes'),
-    ('Cluster Size', 's_clustersize_bits'),
-    ('Block Size', 's_blocksize_bits'),
-    ('Free Space', 'freebits'),
-    ('Total Space', 'numbits'),
-)
+EMPTY_TEXT = 'N/A'
 
-class General:
+class Field(object):
+    def __init__(self, fs, super, dinode):
+        self.fs = fs
+        self.super = super
+        self.dinode = dinode
+
+    def get_text(self):
+        if self.super:
+            return self.real_get_text()
+        else:
+            return EMPTY_TEXT
+
+    text = property(get_text)
+
+    label = class_label
+
+class Version(Field):
+    def real_get_text(self):
+        return '%d.%d' % (self.super.s_major_rev_level,
+                          self.super.s_minor_rev_level)
+
+class Label(Field):
+    def real_get_text(self):
+        text = self.super.s_label
+
+        if not text:
+            text = EMPTY_TEXT
+
+        return text
+
+class UUID(Field):
+    def real_get_text(self):
+        return self.super.uuid_unparsed
+
+class MaximumNodes(Field):
+    def real_get_text(self):
+        return str(self.super.s_max_nodes)
+
+class FSSize(Field):
+    def real_get_text(self):
+        return format_bytes(getattr(self.fs, self.member))
+
+class ClusterSize(FSSize):
+    member = 'fs_clustersize'
+
+class BlockSize(FSSize):
+    member = 'fs_blocksize'
+
+class Space(Field):
+    def real_get_text(self):
+        if self.dinode:
+            block_bits = self.fs.fs_clustersize >> self.super.s_blocksize_bits
+            bytes = self.get_bits() * block_bits * self.fs.fs_blocksize
+            return format_bytes(bytes, show_bytes=True)
+        else:
+            return EMPTY_TEXT
+
+class FreeSpace(Space):
+    def get_bits(self):
+        return self.dinode.i_total - self.dinode.i_used
+
+class TotalSpace(Space):
+    def get_bits(self):
+        return self.dinode.i_total
+
+fields = (Version, Label, UUID, MaximumNodes,
+          ClusterSize, BlockSize,
+          FreeSpace, TotalSpace)
+
+class General(gtk.Table):
     def __init__(self, device=None):
-        self.widget = gtk.Table(rows=5, columns=2)
+        gtk.Table.__init__(self, rows=5, columns=2)
 
-        set_props(self.widget, row_spacing=4,
-                               column_spacing=4,
-                               border_width=4)
+        set_props(self, row_spacing=4,
+                        column_spacing=4,
+                        border_width=4)
 
-        super = None
-        numbits = 0
+        fs = super = dinode = None
 
         if device:
             try:
-                super = ocfs2.get_super(device)
-                numbits, freebits = ocfs2.get_space_usage(device)
+                fs = ocfs2.Filesystem(device)
+                super = fs.fs_super
 
-                clustersize = 1L << super.s_clustersize_bits
-                blocksize = 1L << super.s_blocksize_bits
+                blkno = fs.lookup_system_inode(ocfs2.GLOBAL_BITMAP_SYSTEM_INODE)
+                dinode = fs.read_cached_inode(blkno)
             except ocfs2.error:
                 pass
 
-        self.pos = 0
+        row = 0
 
-        for desc, member in fields:
-            if super:
-                if member == 'version':
-                    val = '%d.%d' % super[0:2]
-                elif member == 's_label':
-                    val = super.s_label
-                    if not val:
-                        val = 'N/A'
-                elif member == 'numbits' or member == 'freebits':
-                    if numbits:
-                        blocks = (vars()[member] * 
-                                  (clustersize >> super.s_blocksize_bits))
-                        val = format_bytes(blocks * blocksize, show_bytes=True)
-                    else:
-                        val = 'N/A'
-                else:
-                    val = getattr(super, member)
+        for field_type in fields:
+            field = field_type(fs, super, dinode)
 
-                    if member.endswith('_bits'):
-                        val = format_bytes(1 << val)
-            else:
-                val = 'N/A'
+            label = gtk.Label(field.label + ':')
+            set_props(label, xalign=1.0)
+            self.attach(label, 0, 1, row, row + 1,
+                        xoptions=gtk.FILL, yoptions=gtk.FILL)
 
-            self.add_field(desc, val)
+            label = gtk.Label(field.text)
+            set_props(label, xalign=0.0)
+            self.attach(label, 1, 2, row, row + 1,
+                        xoptions=gtk.FILL, yoptions=gtk.FILL)
 
-    def add_field(self, desc, val):
-        label = gtk.Label(desc + ':')
-        set_props(label, xalign=1.0)
-        self.widget.attach(label, 0, 1, self.pos, self.pos + 1,
-                           xoptions=gtk.FILL, yoptions=gtk.FILL)
-
-        label = gtk.Label(str(val))
-        set_props(label, xalign=0.0)
-        self.widget.attach(label, 1, 2, self.pos, self.pos + 1,
-                           xoptions=gtk.FILL, yoptions=gtk.FILL)
-
-        self.pos += 1
+            row += 1
 
 def main():
     import sys
@@ -102,7 +139,7 @@ def main():
     window = gtk.Window()
     window.connect('delete_event', dummy)
 
-    general = General(sys.argv[1]).widget
+    general = General(sys.argv[1])
     window.add(general)
 
     window.show_all()

@@ -17,7 +17,7 @@
 
 import gtk
 
-import ocfs2
+from plist import partition_list
 
 from guiutil import Dialog, set_props, error_box, format_bytes
 from process import Process
@@ -48,7 +48,7 @@ def format_partition(parent, device):
     def add_partition(device, fstype):
         partitions.append((device, fstype))
 
-    ocfs2.partition_list(add_partition, unmounted=True)
+    partition_list(add_partition, unmounted=True)
 
     if not partitions:
         error_box(parent, 'No unmounted partitions')

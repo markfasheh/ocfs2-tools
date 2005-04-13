@@ -25,12 +25,12 @@ def print_version():
 def print_usage(name):
     print '''Usage: %s [OPTION]...
 Options:
-  -C, --clusterconf  run cluster configurator only
+  -N, --node-config  run node configurator only
   -V, --version      print version information and exit
       --help         display this help and exit''' % name
 
 def process_args():
-    clusterconf = False
+    nodeconf = False
 
     for arg in sys.argv[1:]:
         if arg in ('--version', '-V'):
@@ -39,10 +39,10 @@ def process_args():
         elif arg in ('--help',):
             print_usage(sys.argv[0])
             sys.exit(0)
-        elif arg in ('--clusterconf', '-C'):
-            clusterconf = True
+        elif arg in ('--node-config', '-N'):
+            nodeconf = True
 
-    return clusterconf
+    return nodeconf
 
 def process_gui_args():
     if len(sys.argv) > 1 and sys.argv[1] not in ('--clusterconf', '-C'):

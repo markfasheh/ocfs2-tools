@@ -1,4 +1,7 @@
 *.d
 *.pyc
 *.pyo
+plistmodule.so
+gidlemodule.so
 ocfs2module.so
+o2cbmodule.so

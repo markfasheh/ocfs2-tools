@@ -50,37 +50,6 @@ def error_box(parent, msg):
     dialog.run()
     dialog.destroy()
 
-def query_text(parent, prompt):
-    dialog = gtk.Dialog(parent=parent,
-                        flags=gtk.DIALOG_DESTROY_WITH_PARENT,
-                        buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                                 gtk.STOCK_OK,     gtk.RESPONSE_OK))
-
-    table = gtk.Table(rows=1, columns=2)
-    set_props(table, row_spacing=4,
-                     column_spacing=4,
-                     border_width=4,
-                     parent=dialog.vbox)
-
-    label = gtk.Label(prompt + ':')
-    set_props(label, xalign=1.0)
-    table.attach(label, 0, 1, 0, 1)
-
-    entry = gtk.Entry()
-    entry.set_activates_default(True)
-    table.attach(entry, 1, 2, 0, 1)
-
-    dialog.show_all()
-
-    if dialog.run() == gtk.RESPONSE_OK:
-        text = entry.get_text()
-    else:
-        text = None
-
-    dialog.destroy()
-
-    return text
-
 def make_callback(obj, callback, sub_callback):
     cb = getattr(obj, callback)
 
