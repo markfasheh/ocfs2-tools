@@ -24,6 +24,7 @@ export LC_ALL=C
 LOAD_ACTIONS=("load_module configfs"
 		"mount_fs configfs /config"
 		"load_module ocfs2_nodemanager"
+		"load_module ocfs2_dlm"
 		"load_module ocfs2_dlmfs"
 		"mount_fs ocfs2_dlmfs /dlm")
 
