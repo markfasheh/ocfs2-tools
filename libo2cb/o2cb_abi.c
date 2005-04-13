@@ -572,7 +572,7 @@ out:
 	return err;
 }
 
-static int is_dots(const char *name)
+static inline int is_dots(const char *name)
 {
 	size_t len = strlen(name);
 
