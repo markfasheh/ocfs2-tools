@@ -16,25 +16,20 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
 import os
-import types
 
 import gtk
 import gobject
 import pango
 
-from cStringIO import StringIO
- 
 import ocfs2
 import o2cb
 
+import o2cb_ctl
+
 from guiutil import Dialog, set_props, error_box
-from process import Process
 from ipwidget import IPEditor, IPMissing, IPError
 
-CLUSTER_NAME = 'ocfs2'
-
-O2CB_INIT = '/etc/init.d/o2cb'
-O2CB_CTL = 'o2cb_ctl'
+DEFAULT_CLUSTER_NAME = 'ocfs2'
 
 PORT_DEFAULT = 7777
 PORT_MINIMUM = 1000
@@ -44,16 +39,24 @@ PORT_MAXIMUM = 30000
     COLUMN_NEW_NODE,
     COLUMN_NAME,
     COLUMN_NODE,
-    COLUMN_IP_ADDR,
+    COLUMN_IP_ADDRESS,
     COLUMN_IP_PORT
 ) = range(5)
 
+class Field:
+    def __init__(self, name, column, title, widget_type, field_type):
+        self.name = name
+        self.column = column
+        self.title = title
+        self.widget_type = widget_type
+        self.type = field_type
+
 fields = (
-    (COLUMN_NEW_NODE, 'Active',     None,           bool),
-    (COLUMN_NAME,     'Name',       gtk.Entry,      str),
-    (COLUMN_NODE,     'Node',       None,           int),
-    (COLUMN_IP_ADDR,  'IP Address', IPEditor,       str),
-    (COLUMN_IP_PORT,  'IP Port',    gtk.SpinButton, str)
+    Field('new_node',   COLUMN_NEW_NODE,   'Active',     None,           bool),
+    Field('name',       COLUMN_NAME,       'Name',       gtk.Entry,      str),
+    Field('node',       COLUMN_NODE,       'Node',       None,           int),
+    Field('ip_address', COLUMN_IP_ADDRESS, 'IP Address', IPEditor,       str),
+    Field('ip_port',    COLUMN_IP_PORT,    'IP Port',    gtk.SpinButton, str),
 )
 
 # Hate your ancient distros shipping old pygtks
@@ -63,8 +66,8 @@ class ConfigError(Exception):
     pass
 
 class ClusterConfig(Dialog):
-    def __init__(self, parent=None):
-        self.new_nodes = 0
+    def __init__(self, cluster_name=DEFAULT_CLUSTER_NAME, parent=None):
+        self.cluster_name = cluster_name
 
         Dialog.__init__(self, parent=parent, title='Node Configuration',
                         buttons=(gtk.STOCK_APPLY, gtk.RESPONSE_APPLY,
@@ -123,15 +126,24 @@ class ClusterConfig(Dialog):
         self.sel = self.tv.get_selection()
         self.sel.connect('changed', self.on_select)
 
+        self.load_cluster_state()
+
     def load_cluster_state(self):
-        query_args = '-I -t node -o'
-        o2cb_ctl = O2CBCtl(query_args, 'Querying nodes...', self)
-        success, output, k = o2cb_ctl.reap()
+        try:
+            nodes = o2cb_ctl.get_cluster_nodes(self.cluster_name, self)
+        except o2cb_ctl.CtlError, e:
+            raise ConfError, str(e)
 
-        if not success:
-            raise ConfError, output
+        store = gtk.ListStore(*[typemap.get(f.type, f.type) for f in fields])
 
-        self.store = gtk.ListStore(*[typemap.get(f[3], f[3]) for f in fields])
+        node_data = list((None,) * len(fields))
+
+        for node in nodes:
+            for field in fields:
+                val = node.get(field.name, False)
+                node_data[field.column] = field.type(val)
+
+            store.append(node_data)
 
         def node_compare(store, a, b):
             n1 = store[a][COLUMN_NODE]
@@ -144,59 +156,34 @@ class ClusterConfig(Dialog):
             else:
                 return cmp(abs(n1), abs(n2))
               
-        self.store.set_sort_func(COLUMN_NODE, node_compare)
-        self.store.set_sort_column_id(COLUMN_NODE, gtk.SORT_ASCENDING)
-
-        buffer = StringIO(output)
-
-        for line in buffer:
-            if line.startswith('#'):
-                continue
-
-            data = list((None,) * len(fields))
-
-            try:
-                data[COLUMN_NEW_NODE] = False
-
-                (data[COLUMN_NAME],
-                 cluster,
-                 data[COLUMN_NODE],
-                 data[COLUMN_IP_ADDR],
-                 data[COLUMN_IP_PORT],
-                 state) = line.split(':')
-
-                for i in range(0, len(fields)):
-                    data[i] = fields[i][3](data[i])
-            except ValueError:
-                continue
-
-            if cluster == CLUSTER_NAME:
-                self.store.append(data)
+        store.set_sort_func(COLUMN_NODE, node_compare)
+        store.set_sort_column_id(COLUMN_NODE, gtk.SORT_ASCENDING)
 
         self.new_nodes = 0
+        self.store = store
 
-        self.tv.set_model(self.store)
+        self.tv.set_model(store)
 
     def setup_treeview(self):
         self.tv = gtk.TreeView()
         self.tv.set_size_request(350, 200)
 
-        for col, title, widget_type, field_type in fields:
-            if col == COLUMN_NEW_NODE:
-                self.tv.insert_column_with_data_func(-1, title,
+        for field in fields:
+            if field.column == COLUMN_NEW_NODE:
+                self.tv.insert_column_with_data_func(-1, field.title,
                                                      gtk.CellRendererPixbuf(),
                                                      self.active_set_func)
-            elif col == COLUMN_NODE:
-                self.tv.insert_column_with_data_func(-1, title,
+            elif field.column == COLUMN_NODE:
+                self.tv.insert_column_with_data_func(-1, field.title,
                                                      gtk.CellRendererText(),
                                                      self.node_set_func)
             else:
                 cell_renderer = gtk.CellRendererText()
                 cell_renderer.set_property('style', pango.STYLE_ITALIC)
 
-                self.tv.insert_column_with_attributes(-1, title,
+                self.tv.insert_column_with_attributes(-1, field.title,
                                                       cell_renderer,
-                                                      text=col,
+                                                      text=field.column,
                                                       style_set=COLUMN_NEW_NODE)
 
     def active_set_func(self, tree_column, cell, model, iter):
@@ -263,7 +250,7 @@ class ClusterConfig(Dialog):
             return
 
         (attrs[COLUMN_NAME],
-         attrs[COLUMN_IP_ADDR],
+         attrs[COLUMN_IP_ADDRESS],
          attrs[COLUMN_IP_PORT]) = node_attrs
 
     def remove_node(self, b):
@@ -296,7 +283,7 @@ class ClusterConfig(Dialog):
         for row in self.store:
             if row[COLUMN_NEW_NODE]:
                 attrs.append((row[COLUMN_NAME],
-                              row[COLUMN_IP_ADDR],
+                              row[COLUMN_IP_ADDRESS],
                               row[COLUMN_IP_PORT]))
 
         return attrs
@@ -304,16 +291,9 @@ class ClusterConfig(Dialog):
     def apply_changes(self):
         success = False
 
-        for name, ip_addr, ip_port in self.new_node_attrs():
-            add_node_args = ('-C', '-n', name, '-t', 'node',
-                             '-a', 'cluster=%s' % CLUSTER_NAME,
-                             '-a', 'ip_address=%s' % ip_addr,
-                             '-a', 'ip_port=%s' % ip_port,
-                             '-i')
-
-            o2cb_ctl = O2CBCtl(add_node_args, 'Adding node %s...' % name, self)
-            success, output, k = o2cb_ctl.reap()
-
+        for name, ip_address, ip_port in self.new_node_attrs():
+            success, output, k = o2cb_ctl.add_node(name, self.cluster_name,
+                                                   ip_address, ip_port, self)
             if not success:
                 error_box(self, '%s\nCould not add node %s' % (output, name))
                 break
@@ -327,7 +307,7 @@ class ClusterConfig(Dialog):
 
         for row in self.store:
             name = row[COLUMN_NAME]
-            ip_addr = row[COLUMN_IP_ADDR]
+            ip_addr = row[COLUMN_IP_ADDRESS]
 
             existing_names[name] = 1
             existing_ip_addrs[ip_addr] = name
@@ -350,22 +330,22 @@ class ClusterConfig(Dialog):
         widgets = []
         row = 0
 
-        for col, title, widget_type, field_type in fields:
-            if widget_type is None:
+        for field in fields:
+            if field.widget_type is None:
                 widgets.append(None)
                 continue
 
-            label = gtk.Label(title + ':')
+            label = gtk.Label(field.title + ':')
             set_props(label, xalign=1.0)
             table.attach(label, 0, 1, row, row + 1)
 
-            widget = widget_type()
+            widget = field.widget_type()
             table.attach(widget, 1, 2, row, row + 1)
 
-            if col == COLUMN_NAME:
+            if field.column == COLUMN_NAME:
                 #XXX widget.set_max_length(ocfs2.MAX_NODE_NAME_LENGTH)
                 pass
-            elif col == COLUMN_IP_PORT:
+            elif field.column == COLUMN_IP_PORT:
                 widget.set_numeric(True)
 
                 adjustment = gtk.Adjustment(PORT_DEFAULT,
@@ -400,7 +380,7 @@ class ClusterConfig(Dialog):
                 continue
 
             try:
-                ip_addr = widgets[COLUMN_IP_ADDR].get_text()
+                ip_addr = widgets[COLUMN_IP_ADDRESS].get_text()
             except (IPMissing, IPError), msg:
                 error_box(dialog, msg[0])
                 continue
@@ -443,35 +423,16 @@ class ClusterConfig(Dialog):
             else: 
                 break
 
-class O2CBProcess(Process):
-    def __init__(self, args, desc, parent=None):
-        if isinstance(args, types.StringTypes):
-            command = '%s %s' % (self.o2cb_program, args)
-        else:
-            command = (self.o2cb_program,) + tuple(args)
-
-        Process.__init__(self, command, self.o2cb_title, desc, parent)
-
-class O2CBCtl(O2CBProcess):
-    o2cb_program = O2CB_CTL
-    o2cb_title = 'Cluster Control'
-
-class O2CBInit(O2CBProcess):
-    o2cb_program = O2CB_INIT
-    o2cb_title = 'Cluster Stack'
-
 def node_config(parent=None):
     if not os.access(o2cb.FORMAT_CLUSTER_DIR, os.F_OK):
-        load_args = ('load',)
-        o2cb_init = O2CBInit(load_args, 'Starting cluster stack...', parent)
-        success, output, k = o2cb_init.reap()
+        success, output, k = o2cb_ctl.init_load(parent)
 
         if success:
             msg_type = gtk.MESSAGE_INFO
             msg = ('The cluster stack has been started. It needs to be '
                    'running for any clustering functionality to happen. '
                    'Please run "%s enable" to have it started upon bootup.'
-                   % o2cb_init.o2cb_program)
+                   % o2cb_ctl.O2CB_INIT)
         else:
             msg_type = gtk.MESSAGE_WARNING
             msg = ('Could not start cluster stack. This must be resolved '
@@ -489,31 +450,14 @@ def node_config(parent=None):
         if not success:
             return
 
-#    msg = ('Currently, the clustering software can only handle '
-#           'one cluster at a time. To keep things simple, you '
-#           'are expected to name your cluster "%s". Your '
-#           'configuration file contains a cluster named "%s". '
-#           'Please rename or delete that cluster, and restart '
-#           'the cluster stack before trying to run the cluster '
-#           'configurator again.' % (CLUSTER_NAME, cluster))
-
-    query_args = '-I -t cluster -n %s -o' % CLUSTER_NAME
-    o2cb_ctl = O2CBCtl(query_args, 'Querying cluster...', parent)
-    success, output, k = o2cb_ctl.reap()
-
-    if not success:
-        create_args = '-C -n %s -t cluster -i' % CLUSTER_NAME
-        o2cb_ctl = O2CBCtl(query_args, 'Creating cluster...', parent)
-        success, output, k = o2cb_ctl.reap()
-
-        if not success:
-            error_box(parent, '%s\nCould not create cluster' % output)
-            return
-
-    conf = ClusterConfig(parent)
+    try:
+        cluster_name = o2cb_ctl.get_active_cluster_name(parent)
+    except o2cb_ctl.CtlError, e:
+        error_box(parent, str(e))
+        return
 
     try:
-        conf.load_cluster_state()
+        conf = ClusterConfig(cluster_name, parent)
     except ConfigError, e:
         error_box(parent, '%s: Could not query cluster configuration' % str(e))
         return
@@ -521,10 +465,8 @@ def node_config(parent=None):
     conf.run()
     conf.destroy()
 
-    if not os.access(o2cb.FORMAT_CLUSTER % CLUSTER_NAME, os.F_OK):
-        online_args = ('online', CLUSTER_NAME),
-        o2cb_init = O2CBInit(online_args, 'Starting OCFS2 cluster...', parent)
-        success, output, k = o2cb_init.reap()
+    if not os.access(o2cb.FORMAT_CLUSTER % cluster_name, os.F_OK):
+        success, output, k = o2cb_ctl.init_online(cluster_name, parent)
 
         if not success:
             msg = ('Could not bring OCFS2 cluster online. This must be '

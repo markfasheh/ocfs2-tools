@@ -88,6 +88,7 @@ PYSRC = \
 	mount.py		\
 	menu.py			\
 	nodeconfig.py		\
+	o2cb_ctl.py		\
 	partitionview.py	\
 	process.py		\
 	pushconfig.py		\

@@ -17,12 +17,33 @@
 
 import gobject
 
+import o2cb_ctl
+
 from terminal import TerminalDialog, terminal_ok as push_config_ok
 
 CONFIG_FILE = '/etc/ocfs2/cluster.conf'
 
-def push_config(parent):
-    commands = generate_commands(hosts)
+def get_hosts(parent=None):
+    cluster_name = o2cb_ctl.get_active_cluster_name(parent)
+
+    nodes = o2cb_ctl.get_cluster_nodes(cluster_name, parent)
+
+    return [node['name'] for node in nodes]
+
+def generate_commands(hosts):
+    hosts = get_hosts(parent)
+
+    commands = []
+
+    for host in hosts:
+        command = None
+
+def push_config(parent=None):
+    try:
+        commands = generate_commands(hosts)
+    except o2cb_ctl.CtlError, e:
+        error_box(parent, str(e))
+        return
 
     title = 'Propagate Cluster Configuration'
 
