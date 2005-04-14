@@ -164,6 +164,9 @@ class ClusterConfig(Dialog):
 
         self.tv.set_model(store)
 
+        if len(store):
+            self.sel.select_iter(self.store.get_iter_first())
+
     def setup_treeview(self):
         self.tv = gtk.TreeView()
         self.tv.set_size_request(350, 200)
