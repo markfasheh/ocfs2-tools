@@ -98,7 +98,7 @@ class Browser(gtk.VBox):
         else:
             self.make_empty_node()
 
-        self.connect('destroy', self.destroy)
+        self.connect('destroy', self.destroy_handler)
 
     def make_file_view(self):
         tv = gtk.TreeView(self.store)
@@ -151,7 +151,7 @@ class Browser(gtk.VBox):
 
             column += 1
 
-    def destroy(self, obj):
+    def destroy_handler(self, obj):
         pass
 
     def make_dentry_node(self, dentry, stock_id, parent=None):
