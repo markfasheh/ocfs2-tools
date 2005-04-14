@@ -80,5 +80,5 @@ int ocfs2_check_volume(State *s)
 
 	ocfs2_close(fs);
 
-	return 0;
+	return 1;
 }

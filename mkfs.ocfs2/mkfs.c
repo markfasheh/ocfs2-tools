@@ -53,7 +53,7 @@ static DirData *alloc_directory(State *s);
 static void add_entry_to_directory(State *s, DirData *dir, char *name,
 				   uint64_t byte_off, uint8_t type);
 static uint32_t blocks_needed(State *s);
-static uint32_t sys_blocks_needed(State *s);
+static uint32_t sys_blocks_needed(uint32_t num_nodes);
 static uint32_t system_dir_blocks_needed(State *s);
 static void check_32bit_blocks(State *s);
 static void format_superblock(State *s, SystemFileDiskRecord *rec,
@@ -74,6 +74,7 @@ static void generate_uuid(State *s);
 static void create_generation(State *s);
 static void init_record(State *s, SystemFileDiskRecord *rec, int type, int mode);
 static void print_state(State *s);
+static void clear_both_ends(State *s);
 static int ocfs2_clusters_per_group(int block_size,
 				    int cluster_size_bits);
 static AllocGroup * initialize_alloc_group(State *s, const char *name,
@@ -98,6 +99,34 @@ SystemFileInfo system_files[] = {
 	{ "local_alloc:%04d", SFI_LOCAL_ALLOC, 0, S_IFREG | 0644 }
 };
 
+
+static void
+handle_signal (int sig)
+{
+	switch (sig) {
+	case SIGTERM:
+	case SIGINT:
+		printf("\nProcess Interrupted.\n");
+		exit(1);
+	}
+
+	return ;
+}
+
+/* Call this with SIG_BLOCK to block and SIG_UNBLOCK to unblock */
+static void
+block_signals (int how)
+{
+     sigset_t sigs;
+
+     sigfillset(&sigs);
+     sigdelset(&sigs, SIGTRAP);
+     sigdelset(&sigs, SIGSEGV);
+     sigprocmask(how, &sigs, (sigset_t *) 0);
+
+     return ;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -120,24 +149,41 @@ main(int argc, char **argv)
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
+	if (signal(SIGTERM, handle_signal) == SIG_ERR) {
+		fprintf(stderr, "Could not set SIGTERM\n");
+		exit(1);
+	}
+
+	if (signal(SIGINT, handle_signal) == SIG_ERR) {
+		fprintf(stderr, "Could not set SIGINT\n");
+		exit(1);
+	}
+
 	s = get_state(argc, argv);
 
 	/* bail if volume already mounted on cluster, etc. */
-	if (ocfs2_check_volume(s))
+	switch (ocfs2_check_volume(s)) {
+	case -1:
 		return 1;
-
-	/* Abort? */
-	if (s->prompt) {
-		fprintf(stdout, "Proceed (y/N): ");
-		if (toupper(getchar()) != 'Y') {
-			printf("Aborting operation.\n");
-			return 1;
+	case 1:
+		if (s->prompt) {
+			fprintf(stdout, "Proceed (y/N): ");
+			if (toupper(getchar()) != 'Y') {
+				printf("Aborting operation.\n");
+				return 1;
+			}
 		}
+		break;
+	case 0:
+	default:
+		break;
 	}
 
 	open_device(s);
 
 	fill_defaults(s);
+
+	clear_both_ends(s);
 
 //	adjust_volume_size(s);
 
@@ -210,11 +256,12 @@ main(int argc, char **argv)
 	tmprec->chain_off =
 		tmprec->group->gd->bg_blkno << s->blocksize_bits;
 
+	fsync(s->fd);
 	if (!s->quiet)
 		printf("done\n");
 
 	if (!s->quiet)
-		printf("Writing superblock: ");
+		printf("Initializing superblock: ");
 
 	superblock_rec.fe_off = (uint64_t)OCFS2_SUPER_BLOCK_BLKNO << s->blocksize_bits;
 
@@ -283,9 +330,7 @@ main(int argc, char **argv)
 	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	tmprec->file_size = s->cluster_size;
 
-	format_leading_space(s);
-	format_superblock(s, &superblock_rec, &root_dir_rec, &system_dir_rec);
-
+	fsync(s->fd);
 	if (!s->quiet)
 		printf("done\n");
 
@@ -333,6 +378,18 @@ main(int argc, char **argv)
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
 	write_metadata(s, tmprec, NULL);
+
+	fsync(s->fd);
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Writing superblock: ");
+
+	block_signals(SIG_BLOCK);
+	format_leading_space(s);
+	format_superblock(s, &superblock_rec, &root_dir_rec, &system_dir_rec);
+	block_signals(SIG_UNBLOCK);
 
 	if (!s->quiet)
 		printf("done\n");
@@ -1274,20 +1331,17 @@ blocks_needed(State *s)
 {
 	uint32_t num;
 
-	num = LEADING_SPACE_BLOCKS;
-	num += SUPERBLOCK_BLOCKS;
-	num += FILE_ENTRY_BLOCKS;
-	num += AUTOCONF_BLOCKS(s->initial_nodes, 32);
-	num += PUBLISH_BLOCKS(s->initial_nodes, 32);
-	num += VOTE_BLOCKS(s->initial_nodes, 32);
-	num += (s->initial_nodes * NUM_LOCAL_SYSTEM_FILES);
-	num += SLOP_BLOCKS;
+	num = SUPERBLOCK_BLOCKS;
+	num += ROOTDIR_BLOCKS;
+	num += SYSDIR_BLOCKS;
+	num += LOSTDIR_BLOCKS;
+	num += sys_blocks_needed(MAX(32, s->initial_nodes));
 
 	return num;
 }
 
 static uint32_t
-sys_blocks_needed(State *s)
+sys_blocks_needed(uint32_t num_nodes)
 {
 	uint32_t num = 0;
 	uint32_t cnt = sizeof(system_files) / sizeof(SystemFileInfo);
@@ -1297,7 +1351,7 @@ sys_blocks_needed(State *s)
 		if (system_files[i].global)
 			++num;
 		else
-			num += s->initial_nodes;
+			num += num_nodes;
 	}
 
 	return num;
@@ -1310,8 +1364,8 @@ system_dir_blocks_needed(State *s)
 	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
 	int entries_per_block = s->blocksize / each;
 
-	bytes_needed = ((sys_blocks_needed(s) + entries_per_block -
-			1) / entries_per_block) << s->blocksize_bits;
+	bytes_needed = ((sys_blocks_needed(s->initial_nodes) +
+			 entries_per_block - 1) / entries_per_block) << s->blocksize_bits;
 
 	return (bytes_needed + s->cluster_size - 1) >> s->cluster_size_bits;
 }
@@ -1787,4 +1841,24 @@ print_state(State *s)
 	       "clusters)\n", s->nr_cluster_groups, s->tail_group_bits,
 	       s->global_cpg);
 	printf("Initial number of nodes: %u\n", s->initial_nodes);
+}
+
+static void
+clear_both_ends(State *s)
+{
+	char *buf = NULL;
+
+	buf = do_malloc(s, CLEAR_CHUNK);
+
+	memset(buf, 0, CLEAR_CHUNK);
+
+	/* start of volume */
+	do_pwrite(s, buf, CLEAR_CHUNK, 0);
+
+	/* end of volume */
+	do_pwrite(s, buf, CLEAR_CHUNK, (s->volume_size_in_bytes - CLEAR_CHUNK));
+
+	free(buf);
+
+	return ;
 }

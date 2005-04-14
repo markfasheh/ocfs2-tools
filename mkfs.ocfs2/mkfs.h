@@ -66,14 +66,12 @@ typedef unsigned short kdev_t;
 
 #define MIN_RESERVED_TAIL_BLOCKS    8
 
-#define LEADING_SPACE_BLOCKS    2
-#define SLOP_BLOCKS             0
-#define FILE_ENTRY_BLOCKS       8
-#define SUPERBLOCK_BLOCKS       1
-#define PUBLISH_BLOCKS(i,min)   (i<min ? min : i)
-#define VOTE_BLOCKS(i,min)      (i<min ? min : i)
-#define AUTOCONF_BLOCKS(i,min)  ((2+4) + (i<min ? min : i))
-#define NUM_LOCAL_SYSTEM_FILES  6
+#define SUPERBLOCK_BLOCKS       3
+#define ROOTDIR_BLOCKS		1
+#define SYSDIR_BLOCKS		1
+#define LOSTDIR_BLOCKS		1
+
+#define CLEAR_CHUNK		1048576
 
 #define OCFS2_OS_LINUX           0
 #define OCFS2_OS_HURD            1
