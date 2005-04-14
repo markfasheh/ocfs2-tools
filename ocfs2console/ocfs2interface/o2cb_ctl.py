@@ -113,8 +113,8 @@ def get_active_cluster_name(parent=None):
         if success:
             cluster_name = DEFAULT_CLUSTER_NAME
         else:
-            errmsg = '%s\nCould not create cluster' % (output,
-                                                       DEFAULT_CLUSTER_NAME)
+            errmsg = '%s\nCould not create cluster %s' % (output,
+                                                          DEFAULT_CLUSTER_NAME)
             raise CtlError, errmsg
 
     return cluster_name
