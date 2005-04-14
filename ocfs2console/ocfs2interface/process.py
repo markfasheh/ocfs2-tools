@@ -102,7 +102,7 @@ class Process:
             return True
 
         if self.count < self.threshold and not self.dialog:
-            self.make_progess_box()
+            self.make_progress_box()
 
         if self.dialog:
             self.pbar.pulse()
@@ -156,7 +156,7 @@ class Process:
         if cond & gtk.gdk.INPUT_READ:
             try:
                 self.output += fd.read(1024)
-            except IOError, e:
+            except IOError:
                 return False
 
         return True
