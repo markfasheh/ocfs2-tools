@@ -33,19 +33,19 @@ class CtlError(Exception):
 class O2CBProcess(Process):
     def __init__(self, args, desc, parent=None):
         if isinstance(args, types.StringTypes):
-            command = '%s %s' % (self.o2cb_program, args)
+            command = '%s %s' % (self.program, args)
         else:
-            command = (self.o2cb_program,) + tuple(args)
+            command = (self.program,) + tuple(args)
 
-        Process.__init__(self, command, self.o2cb_title, desc, parent)
+        Process.__init__(self, command, self.title, desc, parent)
 
 class O2CBCtl(O2CBProcess):
-    o2cb_program = O2CB_CTL
-    o2cb_title = 'Cluster Control'
+    program = O2CB_CTL
+    title = 'Cluster Control'
 
 class O2CBInit(O2CBProcess):
-    o2cb_program = O2CB_INIT
-    o2cb_title = 'Cluster Stack'
+    program = O2CB_INIT
+    title = 'Cluster Stack'
 
 def init_load(parent=None):
     args = ('load',)
