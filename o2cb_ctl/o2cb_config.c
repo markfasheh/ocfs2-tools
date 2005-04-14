@@ -363,7 +363,7 @@ gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
 
     if (!rc)
     {
-        rc = mkdir("/etc/ocfs2", 0644);
+        rc = mkdir("/etc/ocfs2", 0755);
         if (rc)
         {
             rc = -errno;
