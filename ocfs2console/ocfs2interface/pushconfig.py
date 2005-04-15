@@ -15,6 +15,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
+import socket
+
+import gtk
 import gobject
 
 import o2cb_ctl
@@ -23,25 +26,63 @@ from terminal import TerminalDialog, terminal_ok as push_config_ok
 
 CONFIG_FILE = '/etc/ocfs2/cluster.conf'
 
+command_template = '''set -e
+mkdir -p /etc/ocfs2
+cat > /etc/ocfs2/cluster.conf <<\_______EOF
+%(cluster_config)s
+_______EOF
+#/etc/init.d/o2cb online %(cluster_name)s
+'''
+
 def get_hosts(parent=None):
+    hostname = socket.gethostname()
+
     cluster_name = o2cb_ctl.get_active_cluster_name(parent)
 
     nodes = o2cb_ctl.get_cluster_nodes(cluster_name, parent)
 
-    return [node['name'] for node in nodes]
+    remote_nodes = [node['name'] for node in nodes if node['name'] != hostname]
 
-def generate_commands(hosts):
-    hosts = get_hosts(parent)
+    return cluster_name, remote_nodes
 
+def generate_command(cluster_name):
     commands = []
 
-    for host in hosts:
-        command = None
+    conf_file = open(CONFIG_FILE)
+    config_data = conf_file.read()
+    conf_file.close()
+
+    if config_data.endswith('\n'):
+        config_data = config_data[:-1]
+
+    info = {'cluster_config' : config_data,
+            'cluster_name'   : cluster_name}
+
+    return command_template % info
+
+def propagate(terminal, dialog, remote_command, host_iter):
+    try:
+        host = host_iter.next()
+    except StopIteration:
+        terminal.feed('Finished!\r\n')
+        dialog.finished = True
+        return
+
+    command = ('ssh', 'root@%s' % host, remote_command)
+
+    terminal.feed('Propagating cluster configuration to %s...\r\n' % host)
+    terminal.fork_command(command=command[0], argv=command)
 
 def push_config(parent=None):
     try:
-        commands = generate_commands(hosts)
+        cluster_name, hosts = get_hosts(parent)
     except o2cb_ctl.CtlError, e:
+        error_box(parent, str(e))
+        return
+
+    try:
+        command = generate_command(cluster_name)
+    except IOError, e:
         error_box(parent, str(e))
         return
 
@@ -50,12 +91,13 @@ def push_config(parent=None):
     dialog = TerminalDialog(parent=parent, title=title)
     terminal = dialog.terminal
 
-    terminal.connect('child-exited', child_exited, dialog)
-
-    command = None
-    gobject.idle_add(start_command, terminal, command, dialog)
-
+    dialog.finished = False
     dialog.show_all()
+
+    host_iter = iter(hosts)
+    terminal.connect('child-exited', propagate, dialog, command, host_iter)
+
+    propagate(terminal, dialog, command, host_iter)
 
     while 1:
         dialog.run()
@@ -63,8 +105,8 @@ def push_config(parent=None):
         if dialog.finished:
             break
 
-        msg = ('Cluster propagation is still running. You should not close '
-               'this window until it is finished')
+        msg = ('Cluster configuration propagation is still running. You '
+               'should not close this window until it is finished')
 
         info = gtk.MessageDialog(parent=dialog,
                                  flags=gtk.DIALOG_DESTROY_WITH_PARENT,
@@ -76,29 +118,8 @@ def push_config(parent=None):
  
     dialog.destroy()
 
-def start_command(terminal, command, dialog):
-    terminal.fork_command(command=command[0], argv=command)
-    return False
-
-def child_exited(terminal, dialog):
-    dialog.finished = True
-
-def fsck_command(device, check):
-    command = list(base_command)
-
-    if check:
-        command.append('-n')
-    else:
-        command.append('-y')
-
-    command.append("'%s'" % device)
-
-    realcommand = '%s; sleep 1' % ' '.join(command)
-
-    return ['/bin/sh', '-c', realcommand]
-
 def main():
-    push_config(None)
+    push_config()
 
 if __name__ == '__main__':
     main()
