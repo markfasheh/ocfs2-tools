@@ -22,6 +22,8 @@ import gobject
 
 import o2cb_ctl
 
+from guiutil import error_box
+
 from terminal import TerminalDialog, terminal_ok as push_config_ok
 
 CONFIG_FILE = '/etc/ocfs2/cluster.conf'
