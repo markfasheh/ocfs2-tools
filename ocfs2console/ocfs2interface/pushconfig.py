@@ -18,7 +18,6 @@
 import socket
 
 import gtk
-import gobject
 
 import o2cb_ctl
 
@@ -48,8 +47,6 @@ def get_hosts(parent=None):
     return cluster_name, remote_nodes
 
 def generate_command(cluster_name):
-    commands = []
-
     conf_file = open(CONFIG_FILE)
     config_data = conf_file.read()
     conf_file.close()
