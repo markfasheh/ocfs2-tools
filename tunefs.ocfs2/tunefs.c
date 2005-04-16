@@ -43,6 +43,7 @@
 #include <netinet/in.h>
 #include <inttypes.h>
 #include <ctype.h>
+#include <signal.h>
 
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
@@ -66,11 +67,9 @@ typedef struct _ocfs2_tune_opts {
 } ocfs2_tune_opts;
 
 ocfs2_tune_opts opts;
+ocfs2_filesys *fs_gbl = NULL;
+int cluster_locked = 0;
 
-/*
- * usage()
- *
- */
 static void usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-L volume-label] [-N number-of-nodes]\n"
@@ -80,19 +79,43 @@ static void usage(const char *progname)
 	exit(0);
 }
 
-/*
- * version()
- *
- */
 static void version(const char *progname)
 {
 	fprintf(stderr, "%s %s\n", progname, VERSION);
 }
 
-/*
- * get_number()
- *
- */
+static void handle_signal(int sig)
+{
+	switch (sig) {
+	case SIGTERM:
+	case SIGINT:
+		printf("\nProcess Interrupted.\n");
+
+		if (cluster_locked && fs_gbl && fs_gbl->fs_dlm_ctxt)
+			ocfs2_release_cluster(fs_gbl);
+
+		if (fs_gbl && fs_gbl->fs_dlm_ctxt)
+			ocfs2_shutdown_dlm(fs_gbl);
+
+		exit(1);
+	}
+
+	return ;
+}
+
+/* Call this with SIG_BLOCK to block and SIG_UNBLOCK to unblock */
+static void block_signals(int how)
+{
+     sigset_t sigs;
+
+     sigfillset(&sigs);
+     sigdelset(&sigs, SIGTRAP);
+     sigdelset(&sigs, SIGSEGV);
+     sigprocmask(how, &sigs, (sigset_t *) 0);
+
+     return ;
+}
+
 static int get_number(char *arg, uint64_t *res)
 {
 	char *ptr = NULL;
@@ -136,9 +159,8 @@ static int get_number(char *arg, uint64_t *res)
 }
 
 /* derived from e2fsprogs */
-static void
-parse_journal_opts(char *progname, const char *opts,
-		   uint64_t *journal_size_in_bytes)
+static void parse_journal_opts(char *progname, const char *opts,
+			       uint64_t *journal_size_in_bytes)
 {
 	char *options, *token, *next, *p, *arg;
 	int ret, journal_usage = 0;
@@ -198,10 +220,6 @@ parse_journal_opts(char *progname, const char *opts,
 	free(options);
 }
 
-/*
- * get_options()
- *
- */
 static void get_options(int argc, char **argv)
 {
 	int c;
@@ -314,10 +332,6 @@ static void get_options(int argc, char **argv)
 	return ;
 }
 
-/*
- * add_nodes()
- *
- */
 static errcode_t add_nodes(ocfs2_filesys *fs)
 {
 	errcode_t ret = 0;
@@ -380,10 +394,6 @@ bail:
 	return ret;
 }
 
-/*
- * get_default_journal_size()
- *
- */
 static errcode_t get_default_journal_size(ocfs2_filesys *fs, uint64_t *jrnl_size)
 {
 	errcode_t ret;
@@ -419,10 +429,6 @@ bail:
 	return ret;
 }
 
-/*
- * update_volume_label()
- *
- */
 static void update_volume_label(ocfs2_filesys *fs, int *changed)
 {
   	memset (OCFS2_RAW_SB(fs->fs_super)->s_label, 0,
@@ -435,15 +441,13 @@ static void update_volume_label(ocfs2_filesys *fs, int *changed)
 	return ;
 }
 
-/*
- * update_nodes()
- *
- */
 static errcode_t update_nodes(ocfs2_filesys *fs, int *changed)
 {
 	errcode_t ret = 0;
 
+	block_signals(SIG_BLOCK);
 	ret = add_nodes(fs);
+	block_signals(SIG_UNBLOCK);
 	if (ret)
 		return ret;
 
@@ -453,10 +457,6 @@ static errcode_t update_nodes(ocfs2_filesys *fs, int *changed)
 	return ret;
 }
 
-/*
- * update_journal_size()
- *
- */
 static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 {
 	errcode_t ret = 0;
@@ -494,8 +494,10 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 			continue;
 
 		printf("Extending %s...  ", jrnl_file);
+		block_signals(SIG_BLOCK);
 		ret = ocfs2_extend_allocation(fs, blkno,
 					      (num_clusters - di->i_clusters));
+		block_signals(SIG_UNBLOCK);
 		if (ret)
 			goto bail;
 
@@ -524,20 +526,12 @@ bail:
 	return ret;
 }
 
-/*
- * update_volume_size()
- *
- */
 static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 {
 	printf("TODO: update_volume_size\n");
 	return 0;
 }
 
-/*
- * main()
- *
- */
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
@@ -558,6 +552,16 @@ int main(int argc, char **argv)
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
+	if (signal(SIGTERM, handle_signal) == SIG_ERR) {
+		fprintf(stderr, "Could not set SIGTERM\n");
+		exit(1);
+	}
+
+	if (signal(SIGINT, handle_signal) == SIG_ERR) {
+		fprintf(stderr, "Could not set SIGINT\n");
+		exit(1);
+	}
+
 	memset (&opts, 0, sizeof(opts));
 
 	get_options(argc, argv);
@@ -567,6 +571,7 @@ int main(int argc, char **argv)
 		com_err(opts.progname, ret, " ");
 		goto close;
 	}
+	fs_gbl = fs;
 
 	ret = ocfs2_initialize_dlm(fs);
 	if (ret) {
@@ -574,11 +579,14 @@ int main(int argc, char **argv)
 		goto close;
 	}
 
+	block_signals(SIG_BLOCK);
 	ret = ocfs2_lock_down_cluster(fs);
 	if (ret) {
 		com_err(opts.progname, ret, " ");
 		goto close;
 	}
+	cluster_locked = 1;
+	block_signals(SIG_UNBLOCK);
 
 //	check_32bit_blocks (s);
 
@@ -694,21 +702,28 @@ int main(int argc, char **argv)
 
 	/* write superblock */
 	if (upd_label || upd_nodes || upd_vsize) {
+		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {
 			com_err(opts.progname, ret, "while writing superblock");
 			goto unlock;
 		}
+		block_signals(SIG_UNBLOCK);
 		printf("Wrote Superblock\n");
 	}
 
 unlock:
-	if (fs->fs_dlm_ctxt)
+	block_signals(SIG_BLOCK);
+	if (cluster_locked && fs->fs_dlm_ctxt)
 		ocfs2_release_cluster(fs);
+	cluster_locked = 0;
+	block_signals(SIG_UNBLOCK);
 
 close:
+	block_signals(SIG_BLOCK);
 	if (fs->fs_dlm_ctxt)
 		ocfs2_shutdown_dlm(fs);
+	block_signals(SIG_UNBLOCK);
 
 	if (fs)
 		ocfs2_close(fs);
