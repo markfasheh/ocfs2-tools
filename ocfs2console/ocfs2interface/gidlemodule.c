@@ -30,8 +30,11 @@
 
 typedef struct {
   PyObject_HEAD
-  GSource *idle;
-  gboolean attached;
+
+  GSource  *idle;
+  gboolean  attached;
+
+  PyObject *inst_dict;
 } Idle;
 
 
@@ -78,7 +81,7 @@ destroy_notify (gpointer user_data)
 }
 
 static gboolean
-handler_marshal(gpointer user_data)
+handler_marshal (gpointer user_data)
 {
   PyObject *tuple, *ret;
   gboolean res;
@@ -150,6 +153,20 @@ static PyMethodDef idle_methods[] = {
   {"set_callback", (PyCFunction)idle_set_callback, METH_VARARGS},
   {NULL, NULL}
 };
+
+static PyObject *
+idle_get_dict (Idle *self, void *closure)
+{
+  if (self->inst_dict == NULL)
+    {
+      self->inst_dict = PyDict_New ();
+      if (self->inst_dict == NULL)
+	return NULL;
+    }
+
+  Py_INCREF(self->inst_dict);
+  return self->inst_dict;
+}
 
 static PyObject *
 idle_get_priority (Idle *self, void *closure)
@@ -226,9 +243,11 @@ idle_get_id (Idle *self, void *closure)
 }
 
 static PyGetSetDef idle_getsets[] = {
+  {"__dict__", (getter)idle_get_dict, (setter)0},
   {"priority", (getter)idle_get_priority, (setter)idle_set_priority},
   {"can_recurse", (getter)idle_get_can_recurse, (setter)idle_set_can_recurse},
   {"id", (getter)idle_get_id, (setter)0},
+  {NULL}
 };
 
 static void
@@ -237,7 +256,11 @@ idle_dealloc (Idle *self)
   if (self->idle)
     g_source_unref (self->idle);
 
+  Py_XDECREF (self->inst_dict);
+
   PyObject_DEL (self);
+  
+  g_printerr ("idle bye\n");
 }
 
 static int
@@ -259,6 +282,8 @@ idle_init (Idle *self,
   g_source_set_priority (self->idle, priority);
 
   self->attached = FALSE;
+
+  self->inst_dict = NULL;
 
   return 0;
 }
@@ -284,7 +309,7 @@ static PyTypeObject Idle_Type = {
   0,					/* tp_getattro */
   0,					/* tp_setattro */
   0,					/* tp_as_buffer */
-  Py_TPFLAGS_DEFAULT,			/* tp_flags */
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
   NULL,					/* tp_doc */
   0,					/* tp_traverse */
   0,					/* tp_clear */
@@ -299,7 +324,7 @@ static PyTypeObject Idle_Type = {
   0,					/* tp_dict */
   0,					/* tp_descr_get */
   0,					/* tp_descr_set */
-  0,					/* tp_dictoffset */
+  offsetof (Idle, inst_dict),		/* tp_dictoffset */
   (initproc)idle_init,			/* tp_init */
   0,					/* tp_alloc */
   0,					/* tp_new */
