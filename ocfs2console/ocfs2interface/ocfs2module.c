@@ -987,6 +987,8 @@ fs_init (Filesystem *self,
   if (ret)
     {
       Py_DECREF (self->device);
+      self->device = NULL;
+
       PyErr_SetString (ocfs2_error, error_message (ret));
       return -1;
     }
