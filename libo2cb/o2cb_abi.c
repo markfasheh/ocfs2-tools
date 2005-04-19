@@ -742,8 +742,12 @@ errcode_t o2cb_get_hb_ctl_path(char *buf, int count)
 #define HB_CTL_PATH	"/proc/sys/fs/ocfs2/nm/hb_ctl_path"
 
 	fd = open(HB_CTL_PATH, O_RDONLY);
-	if (fd == -1)
-		return errno;
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return O2CB_ET_MODULE_NOT_LOADED;
+		else
+			return errno;
+	}
 
 	while (total < count) {
 		ret = read(fd, buf + total, count - total);
