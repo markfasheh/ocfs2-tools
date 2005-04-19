@@ -732,3 +732,43 @@ errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
 
 	return 0;
 }
+
+errcode_t o2cb_get_hb_ctl_path(char *buf, int count)
+{
+	int fd;
+	int total = 0;
+	int ret;
+
+#define HB_CTL_PATH	"/proc/sys/fs/ocfs2/nm/hb_ctl_path"
+
+	fd = open(HB_CTL_PATH, O_RDONLY);
+	if (fd == -1)
+		return errno;
+
+	while (total < count) {
+		ret = read(fd, buf + total, count - total);
+		if (ret < 0) {
+			ret = -errno;
+			if ((ret == -EAGAIN) || (ret == -EINTR))
+				continue;
+			total = ret;
+			break;
+		}
+		if (ret == 0)
+			break;
+		total += ret;
+	}
+
+	if (total < 0) {
+		close(fd);
+		return total;
+	}
+
+	buf[total] = '\0';
+	if (buf[total - 1] == '\n')
+		buf[total - 1] = '\0';
+
+	close(fd);
+
+	return 0;
+}

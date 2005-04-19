@@ -72,4 +72,6 @@ errcode_t o2cb_get_node_num(const char *cluster_name,
 			    const char *node_name,
 			    uint16_t *node_num);
 
+errcode_t o2cb_get_hb_ctl_path(char *buf, int count);
+
 #endif  /* _O2CB_H */

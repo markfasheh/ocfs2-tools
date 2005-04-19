@@ -260,7 +260,7 @@ int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	struct mount_options mo;
-	const char *hb_ctl_path = "/sbin/ocfs2_hb_ctl";
+	char hb_ctl_path[PATH_MAX];
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -276,6 +276,13 @@ int main(int argc, char **argv)
 	if (verbose)
 		printf("device=%s\n", mo.dev);
 
+	ret = o2cb_get_hb_ctl_path(hb_ctl_path, sizeof(hb_ctl_path));
+	if (ret) {
+		com_err(progname, 0, "\"%s\" probably because o2cb service not started",
+		       	strerror(ret));
+		goto bail;
+	}
+
 	block_signals (SIG_BLOCK);
 
 	ret = start_heartbeat(hb_ctl_path, mo.dev);
@@ -290,8 +297,8 @@ int main(int argc, char **argv)
 		    mo.xtra_opts);
 	if (ret) {
 		block_signals (SIG_UNBLOCK);
-		fprintf(stderr, "error %d while mounting %s on %s", errno, 
-			mo.dev, mo.dir);
+		fprintf(stderr, "\"%s\" while mounting %s on %s",
+			strerror(errno), mo.dev, mo.dir);
 		goto bail;
 	}
 
