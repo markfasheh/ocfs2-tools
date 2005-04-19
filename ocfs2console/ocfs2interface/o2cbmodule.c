@@ -492,10 +492,22 @@ remove_heartbeat_region_disk (PyObject *self,
   return Py_None;
 }
 
+static PyObject *
+get_hb_ctl_path (PyObject *self)
+{
+  errcode_t ret;
+  char      hb_ctl_path[PATH_MAX];
+
+  CHECK_ERROR (o2cb_get_hb_ctl_path (hb_ctl_path, sizeof (hb_ctl_path)));
+
+  return PyString_FromString (hb_ctl_path);
+}
+
 static PyMethodDef o2cb_methods[] = {
   {"list_clusters", (PyCFunction)list_clusters, METH_NOARGS},
   {"create_heartbeat_region_disk", (PyCFunction)create_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
   {"remove_heartbeat_region_disk", (PyCFunction)remove_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
+  {"get_hb_ctl_path", (PyCFunction)get_hb_ctl_path, METH_NOARGS},
   {NULL,       NULL}    /* sentinel */
 };
 
