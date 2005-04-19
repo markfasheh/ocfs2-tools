@@ -36,8 +36,6 @@ INFO_LABEL_FONT = pango.FontDescription('monospace')
     COLUMN_ITALIC
 ) = range(4)
 
-sample = ('-rw-r--r--', '1', 'manish', 'manish', '133194', '262144', 'Sep 29 12:46', 'closobo.c')
-
 STOCK_LOADING = gtk.STOCK_REFRESH
 STOCK_EMPTY = gtk.STOCK_STOP
 STOCK_ERROR = gtk.STOCK_DIALOG_ERROR
@@ -51,6 +49,8 @@ try:
     STOCK_DIRECTORY = gtk.STOCK_DIRECTORY
 except AttributeError:
     STOCK_DIRECTORY = gtk.STOCK_OPEN
+
+INVALID_DENTRY = 'poop'
 
 class InfoLabel(gtk.Label):
     def __init__(self, field_type):
@@ -69,6 +69,9 @@ class InfoLabel(gtk.Label):
         field = self.field_type(dentry, dinode)
         self.set_text(field.text)
 
+    def clear(self):
+        self.set_text('')
+
 class Browser(gtk.VBox):
     def __init__(self, device=None):
         self.device = device
@@ -85,23 +88,50 @@ class Browser(gtk.VBox):
         self.scrl_win.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         self.add(self.scrl_win)
 
-        self.store = gtk.TreeStore(str, gobject.TYPE_PYOBJECT,
-                                   str, gobject.TYPE_BOOLEAN)
-
+        self.make_dentry_store()
         self.make_file_view()
-
         self.make_ls_fields()
 
         self.connect('destroy', self.destroy_handler)
 
         self.refresh()
 
+    def make_dentry_store(self):
+        def tree_compare(store, a, b):
+            d1 = self.get_dentry(store, a)
+            d2 = self.get_dentry(store, b)
+
+            if d1 is d2:
+                return 0
+            elif d1 is INVALID_DENTRY:
+                return 1
+            elif d2 is INVALID_DENTRY:
+                return -1
+            elif d1 and not d2:
+                return 1
+            elif not d1 and d2:
+                return -1
+            elif d1.file_type != d2.file_type:
+                if d1.file_type == ocfs2.FT_DIR:
+                    return -1
+                elif d2.file_type == ocfs2.FT_DIR:
+                    return 1
+                else:
+                    return cmp(d1.name, d2.name)
+            else:
+                return cmp(d1.name, d2.name)
+
+        self.store = gtk.TreeStore(str, gobject.TYPE_PYOBJECT,
+                                   str, gobject.TYPE_BOOLEAN)
+
+        self.store.set_sort_func(COLUMN_NAME, tree_compare)
+        self.store.set_sort_column_id(COLUMN_NAME, gtk.SORT_ASCENDING)
+
     def make_file_view(self):
         tv = gtk.TreeView(self.store)
         self.scrl_win.add(tv)
 
-        set_props(tv, headers_visible=False,
-                      rules_hint=True)
+        set_props(tv, headers_visible=False)
 
         column = gtk.TreeViewColumn()
 
@@ -119,10 +149,9 @@ class Browser(gtk.VBox):
 
         tv.connect('test_expand_row', self.tree_expand_row)
         tv.connect('test_collapse_row', self.tree_collapse_row)
-        #tv.connect('row_activated', self.tree_row_activated)
 
-        #sel = tv.get_selection()
-        #sel.connect('changed', self.select)
+        sel = tv.get_selection()
+        sel.connect('changed', self.select_dentry)
 
     def make_ls_fields(self):
         table = gtk.Table(rows=2, columns=7)
@@ -167,7 +196,7 @@ class Browser(gtk.VBox):
         self.store.append(parent, ('Empty', None, STOCK_EMPTY, True))
 
     def make_error_node(self, parent=None):
-        self.store.append(parent, ('Error', None, STOCK_ERROR, True))
+        self.store.append(parent, ('Error', INVALID_DENTRY, STOCK_ERROR, True))
 
     def cleanup(self):
         if hasattr(self, 'levels'):
@@ -194,7 +223,6 @@ class Browser(gtk.VBox):
         else:
             self.make_empty_node()
 
-        
     def add_level(self, dentry=None, parent=None):
         if parent:
             iter = self.store.iter_children(parent)
@@ -226,11 +254,8 @@ class Browser(gtk.VBox):
         try:
             dentry = level.diriter.next()
         except (StopIteration, ocfs2.error), e:
-             print e
              self.destroy_level(level, isinstance(e, ocfs2.error))
              return False
-
-        print dentry
 
         if dentry.file_type == ocfs2.FT_DIR:
             self.make_dir_node(dentry, level.parent)
@@ -275,7 +300,40 @@ class Browser(gtk.VBox):
 
             level.collapsed = True
             level.background()
-        
+
+    def select_dentry(self, sel):
+        store, iter = sel.get_selected()
+
+        if store and iter:
+            dentry = self.get_dentry(store, iter)
+        else:
+            dentry = None
+
+        if dentry:
+            self.display_dentry(dentry)
+        else:
+            self.display_clear()
+
+    def display_dentry(self, dentry):
+        dinode = self.fs.read_cached_inode(dentry.inode)
+
+        for label in self.info_labels:
+            label.update(dentry, dinode)
+
+    def display_clear(self):
+        for label in self.info_labels:
+            label.clear()
+
+    def get_dentry(self, store, iter):
+        info_obj = store[iter][COLUMN_INFO_OBJECT]
+
+        if isinstance(info_obj, ocfs2.DirEntry):
+            return info_obj
+        elif isinstance(info_obj, TreeLevel):
+            return info_obj.dentry
+        else:
+            return None
+
 class TreeLevel(gidle.Idle):
     def __init__(self, diriter, dentry=None, parent=None):
         gidle.Idle.__init__(self)
