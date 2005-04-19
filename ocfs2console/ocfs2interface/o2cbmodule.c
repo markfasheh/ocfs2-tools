@@ -524,7 +524,6 @@ inito2cb (void)
 {
   PyObject *m;
 
-  Node_Type.tp_new = PyType_GenericNew;
   if (PyType_Ready (&Node_Type) < 0)
     return;
 

@@ -1151,19 +1151,15 @@ initocfs2 (void)
 {
   PyObject *m;
 
-  DInode_Type.tp_new = PyType_GenericNew;
   if (PyType_Ready (&DInode_Type) < 0)
     return;
 
-  DirEntry_Type.tp_new = PyType_GenericNew;
   if (PyType_Ready (&DirEntry_Type) < 0)
     return;
 
-  SuperBlock_Type.tp_new = PyType_GenericNew;
   if (PyType_Ready (&SuperBlock_Type) < 0)
     return;
 
-  DirScanIter_Type.tp_new = PyType_GenericNew;
   if (PyType_Ready (&DirScanIter_Type) < 0)
     return;
 
