@@ -21,7 +21,7 @@ import ocfs2
 
 from guiutil import set_props, format_bytes
 
-if hasattr(gtk, 'ComboBox'):
+if gtk.pygtk_version >= (2,4,0):
     class BaseCombo(gtk.ComboBox):
         def __init__(self):
             self.store = gtk.ListStore(str)

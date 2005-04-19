@@ -54,7 +54,7 @@ def about(parent):
 
     from guiutil import set_props
 
-    if hasattr(gtk, 'AboutDialog'):
+    if gtk.pygtk_version >= (2,4,0):
         copyright = 'Copyright (C) 2002, 2005 Oracle.  All rights reserved.'
         license = '''
 This program is free software; you can redistribute it and/or
