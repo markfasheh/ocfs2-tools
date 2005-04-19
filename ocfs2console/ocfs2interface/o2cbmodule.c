@@ -543,6 +543,9 @@ inito2cb (void)
       PyModule_AddObject (m, "error", o2cb_error);
     }
 
+  Py_INCREF (&Node_Type);
+  PyModule_AddObject (m, "Node", (PyObject *) &Node_Type);
+
   Py_INCREF (&Cluster_Type);
   PyModule_AddObject (m, "Cluster", (PyObject *) &Cluster_Type);
 

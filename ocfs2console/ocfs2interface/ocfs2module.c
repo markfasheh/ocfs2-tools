@@ -1179,6 +1179,18 @@ initocfs2 (void)
       PyModule_AddObject (m, "error", ocfs2_error);
     }
 
+  Py_INCREF (&DInode_Type);
+  PyModule_AddObject (m, "DInode", (PyObject *) &DInode_Type);
+
+  Py_INCREF (&DirEntry_Type);
+  PyModule_AddObject (m, "DirEntry", (PyObject *) &DirEntry_Type);
+
+  Py_INCREF (&SuperBlock_Type);
+  PyModule_AddObject (m, "SuperBlock", (PyObject *) &SuperBlock_Type);
+
+  Py_INCREF (&DirScanIter_Type);
+  PyModule_AddObject (m, "DirScanIter", (PyObject *) &DirScanIter_Type);
+
   Py_INCREF (&Filesystem_Type);
   PyModule_AddObject (m, "Filesystem", (PyObject *) &Filesystem_Type);
 
