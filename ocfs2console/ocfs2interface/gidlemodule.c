@@ -35,6 +35,7 @@ typedef struct {
   gboolean  attached;
 
   PyObject *inst_dict;
+  PyObject *weakreflist;
 } Idle;
 
 
@@ -253,14 +254,50 @@ static PyGetSetDef idle_getsets[] = {
 static void
 idle_dealloc (Idle *self)
 {
+  PyObject_ClearWeakRefs ((PyObject *) self);
+
+  PyObject_GC_UnTrack ((PyObject *) self);
+
   if (self->idle)
     g_source_unref (self->idle);
 
-  Py_XDECREF (self->inst_dict);
+  self->idle = NULL;
 
-  PyObject_DEL (self);
-  
-  g_printerr ("idle bye\n");
+  Py_XDECREF (self->inst_dict);
+  self->inst_dict = NULL;
+
+  PyObject_GC_Del (self);
+}
+
+static PyObject *
+idle_repr (Idle *self)
+{
+  gchar buf[256];
+
+  g_snprintf (buf, sizeof (buf), "<%sattached glib idle source at 0x%lx>",
+              self->attached ? "" : "un", (long)self);
+
+  return PyString_FromString (buf);
+}
+
+static long
+idle_hash (Idle *self)
+{
+  return (long)self->idle;
+}
+
+static int
+idle_clear (Idle *self)
+{
+  Py_XDECREF (self->inst_dict);
+  self->inst_dict = NULL;
+
+  if (self->idle)
+    g_source_unref (self->idle);
+
+  self->idle = NULL;
+
+  return 0;
 }
 
 static int
@@ -284,8 +321,15 @@ idle_init (Idle *self,
   self->attached = FALSE;
 
   self->inst_dict = NULL;
+  self->weakreflist = NULL;
 
   return 0;
+}
+
+static void
+idle_free (PyObject *op)
+{
+  PyObject_GC_Del (op);
 }
 
 static PyTypeObject Idle_Type = {
@@ -299,22 +343,23 @@ static PyTypeObject Idle_Type = {
   0,					/* tp_getattr */
   0,					/* tp_setattr */
   0,					/* tp_compare */
-  0,					/* tp_repr */
+  (reprfunc)idle_repr,			/* tp_repr */
   0,					/* tp_as_number */
   0,					/* tp_as_sequence */
   0,					/* tp_as_mapping */
-  0,					/* tp_hash */
+  (hashfunc)idle_hash,			/* tp_hash */
   0,					/* tp_call */
   0,					/* tp_str */
   0,					/* tp_getattro */
   0,					/* tp_setattro */
   0,					/* tp_as_buffer */
-  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /* tp_flags */
+  Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+    Py_TPFLAGS_HAVE_GC,			/* tp_flags */
   NULL,					/* tp_doc */
   0,					/* tp_traverse */
-  0,					/* tp_clear */
+  (inquiry)idle_clear,			/* tp_clear */
   0,					/* tp_richcompare */
-  0,					/* tp_weaklistoffset */
+  offsetof (Idle, weakreflist),		/* tp_weaklistoffset */
   0,					/* tp_iter */
   0,					/* tp_iternext */
   idle_methods,				/* tp_methods */
@@ -328,6 +373,7 @@ static PyTypeObject Idle_Type = {
   (initproc)idle_init,			/* tp_init */
   0,					/* tp_alloc */
   0,					/* tp_new */
+  (freefunc)idle_free,			/* tp_free */
 };
 
 static PyMethodDef gidle_methods[] = {
