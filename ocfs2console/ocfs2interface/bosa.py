@@ -21,6 +21,8 @@ import pango
 
 import ocfs2
 
+import gidle
+
 from guiutil import set_props
 
 from ls import fields
@@ -69,6 +71,8 @@ class InfoLabel(gtk.Label):
 
 class Browser(gtk.VBox):
     def __init__(self, device=None):
+        self.device = device
+
         gtk.VBox.__init__(self, spacing=4)
 
         label = gtk.Label('/')
@@ -88,17 +92,9 @@ class Browser(gtk.VBox):
 
         self.make_ls_fields()
 
-        self.fs = None
-
-        if device:
-            try:
-                self.fs = ocfs2.Filesystem(device)
-            except ocfs2.error:
-                self.make_error_node()
-        else:
-            self.make_empty_node()
-
         self.connect('destroy', self.destroy_handler)
+
+        self.refresh()
 
     def make_file_view(self):
         tv = gtk.TreeView(self.store)
@@ -121,9 +117,9 @@ class Browser(gtk.VBox):
 
         tv.append_column(column)
 
-        #tv.connect('test_expand_row', self.test_expand_row)
-        #tv.connect('test_collapse_row', self.test_collapse_row)
-        #tv.connect('row_activated', self.row_activated)
+        tv.connect('test_expand_row', self.tree_expand_row)
+        tv.connect('test_collapse_row', self.tree_collapse_row)
+        #tv.connect('row_activated', self.tree_row_activated)
 
         #sel = tv.get_selection()
         #sel.connect('changed', self.select)
@@ -152,17 +148,17 @@ class Browser(gtk.VBox):
             column += 1
 
     def destroy_handler(self, obj):
-        pass
+        self.cleanup()
 
     def make_dentry_node(self, dentry, stock_id, parent=None):
-        self.store.append(parent, (dentry.name, dentry, stock_id, False))
+        return self.store.append(parent, (dentry.name, dentry, stock_id, False))
 
     def make_file_node(self, dentry, parent=None):
         self.make_dentry_node(dentry, STOCK_FILE, parent)
 
     def make_dir_node(self, dentry, parent=None):
         iter = self.make_dentry_node(dentry, STOCK_DIRECTORY, parent)
-        self.store_append(iter, ('.', dentry, None, False))
+        self.store.append(iter, ('.', dentry, None, False))
 
     def make_loading_node(self, parent=None):
         self.store.append(parent, ('Loading...', None, STOCK_LOADING, True))
@@ -173,8 +169,31 @@ class Browser(gtk.VBox):
     def make_error_node(self, parent=None):
         self.store.append(parent, ('Error', None, STOCK_ERROR, True))
 
+    def cleanup(self):
+        if hasattr(self, 'levels'):
+            for level in self.levels:
+                level.destroy()
+
+        self.levels = []
+
     def refresh(self):
-        pass
+        self.cleanup()
+
+        self.store.clear()
+
+        self.fs = None
+
+        if self.device:
+            try:
+                self.fs = ocfs2.Filesystem(self.device)
+            except ocfs2.error:
+                self.make_error_node()
+
+            if self.fs:
+                self.add_level()
+        else:
+            self.make_empty_node()
+
         
     def add_level(self, dentry=None, parent=None):
         if parent:
@@ -187,22 +206,97 @@ class Browser(gtk.VBox):
             del self.store[iter]
 
         try:
-            level = TreeLevel(self, dentry)
+            diriter = self.fs.iterdir(dentry)
         except ocfs2.error:
-            self.make_erro_node(parent)
+            self.make_error_node(parent)
             return
 
         self.make_loading_node(parent)
 
-        
-        #self.levels.append(TreeLevel(self, dentry))
+        level = TreeLevel(diriter, dentry, parent)
+        self.levels.append(level)
 
-class TreeLevel:
-    def __init__(self, browser, dentry=None):
-        self.dentry = dentry
-        self.browser = browser
-        self.diriter = dentry.fs.iterdir(dentry)
+        if parent: 
+            self.store[parent][COLUMN_INFO_OBJECT] = level
+      
+        level.set_callback(self.populate_level, level)
+        level.attach()
+
+    def populate_level(self, level):
+        try:
+            dentry = level.diriter.next()
+        except (StopIteration, ocfs2.error), e:
+             print e
+             self.destroy_level(level, isinstance(e, ocfs2.error))
+             return False
+
+        print dentry
+
+        if dentry.file_type == ocfs2.FT_DIR:
+            self.make_dir_node(dentry, level.parent)
+        else:
+            self.make_file_node(dentry, level.parent)
+
+        return True
+
+    def destroy_level(self, level, error=False):
+        if error:
+            self.make_error_node(level.parent)
+        else:
+            children = self.store.iter_n_children(level.parent)
+
+            if children < 2:
+                self.make_empty_node(level.parent)
+
+        if level.parent:
+            self.store[level.parent][COLUMN_INFO_OBJECT] = level.dentry
+
+        iter = self.store.iter_children(level.parent)
+        self.store.remove(iter)
+
+        self.levels.remove(level)
+
+        del level.diriter
+
+    def tree_expand_row(self, tv, iter, path):
+        info_obj = self.store[iter][COLUMN_INFO_OBJECT]
+
+        if isinstance(info_obj, TreeLevel):
+            level.collapsed = False
+            level.foreground(level)
+        else:
+            self.add_level(info_obj, iter)
+
+    def tree_collapse_row(self, tv, iter, path):
+        info_obj = self.store[iter][COLUMN_INFO_OBJECT]
+
+        if isinstance(info_obj, TreeLevel):
+            level = info_obj
+
+            level.collapsed = True
+            level.background()
         
+class TreeLevel(gidle.Idle):
+    def __init__(self, diriter, dentry=None, parent=None):
+        gidle.Idle.__init__(self)
+
+        self.diriter = diriter
+        self.dentry = dentry
+
+        if parent:
+            self.parent = parent.copy()
+        else:
+            self.parent = None
+
+        self.collapsed = False
+
+    def foreground(self):
+        if not self.collapsed:
+            self.set_priority(gobject.PRIORITY_DEFAULT_IDLE)
+
+    def background(self):
+        level.set_priority(gobject.PRIORITY_LOW)
+
 def main():
     import sys
 
@@ -210,6 +304,7 @@ def main():
         gtk.main_quit()
 
     window = gtk.Window()
+    window.set_default_size(400, 300)
     window.connect('delete_event', dummy)
 
     browser = Browser(sys.argv[1])
