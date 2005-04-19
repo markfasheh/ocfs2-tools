@@ -150,7 +150,10 @@ def main():
     try:
         dentry = dentries[int(sys.argv[2])]
     except (IndexError, ValueError):
-        dentry = dentries[0]
+        try:
+            dentry = dentries[0]
+        except IndexError:
+            return
 
     dinode = fs.read_cached_inode(dentry.inode)
 
