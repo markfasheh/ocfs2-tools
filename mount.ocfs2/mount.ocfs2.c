@@ -40,6 +40,16 @@ struct mount_options {
 	char *type;
 };
 
+static void handle_signal(int sig)
+{
+	switch (sig) {
+	case SIGTERM:
+	case SIGINT:
+		printf("\nmount interrupted\n");
+		exit(1);
+	}
+}
+
 static void read_options(int argc, char **argv, struct mount_options *mo)
 {
 	int c;
@@ -204,7 +214,7 @@ static int check_for_hb_ctl(const char *hb_ctl_path)
 }
 
 static int run_hb_ctl(const char *hb_ctl_path,
-		      const char *device)
+		      const char *device, const char *arg)
 {
 	int ret = 0;
 	int child_status;
@@ -219,7 +229,7 @@ static int run_hb_ctl(const char *hb_ctl_path,
 
 	if (!child) {
 		argv[0] = (char *) hb_ctl_path;
-		argv[1] = "-S";
+		argv[1] = (char *) arg;
 		argv[2] = "-d";
 		argv[3] = (char *) device;
 		argv[4] = NULL;
@@ -251,9 +261,15 @@ static int start_heartbeat(const char *hb_ctl_path,
 	if (ret)
 		return ret;
 
-	ret = run_hb_ctl(hb_ctl_path, device);
+	ret = run_hb_ctl(hb_ctl_path, device, "-S");
 
 	return ret;
+}
+
+static int stop_heartbeat(const char *hb_ctl_path,
+			  const char *device)
+{
+	return run_hb_ctl(hb_ctl_path, device, "-K");
 }
 
 int main(int argc, char **argv)
@@ -261,10 +277,24 @@ int main(int argc, char **argv)
 	errcode_t ret = 0;
 	struct mount_options mo;
 	char hb_ctl_path[PATH_MAX];
+	char *extra = NULL;
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
+
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
+	if (signal(SIGTERM, handle_signal) == SIG_ERR) {
+		fprintf(stderr, "Could not set SIGTERM\n");
+		exit(1);
+	}
+
+	if (signal(SIGINT, handle_signal) == SIG_ERR) {
+		fprintf(stderr, "Could not set SIGINT\n");
+		exit(1);
+	}
 
 	memset(&mo, 0, sizeof(mo));
 	read_options (argc, argv, &mo);
@@ -278,8 +308,8 @@ int main(int argc, char **argv)
 
 	ret = o2cb_get_hb_ctl_path(hb_ctl_path, sizeof(hb_ctl_path));
 	if (ret) {
-		com_err(progname, 0, "\"%s\" probably because o2cb service not started",
-		       	strerror(ret));
+		com_err(progname, ret,
+			"probably because o2cb service not started");
 		goto bail;
 	}
 
@@ -293,12 +323,19 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
-	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS,
-		    mo.xtra_opts);
+	if (mo.xtra_opts && *mo.xtra_opts) {
+		extra = xstrndup(mo.xtra_opts,
+				 strlen(mo.xtra_opts) + strlen(OCFS2_HB_OK) + 1);
+		extra = xstrconcat3(extra, ",", OCFS2_HB_OK);
+	} else
+		extra = xstrndup(OCFS2_HB_OK, strlen(OCFS2_HB_OK));
+
+	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS, extra);
 	if (ret) {
+		stop_heartbeat(hb_ctl_path, mo.dev);
 		block_signals (SIG_UNBLOCK);
-		fprintf(stderr, "\"%s\" while mounting %s on %s",
-			strerror(errno), mo.dev, mo.dir);
+		com_err(progname, errno, "while mounting %s on %s",
+			mo.dev, mo.dir);
 		goto bail;
 	}
 
@@ -310,6 +347,8 @@ int main(int argc, char **argv)
 	block_signals (SIG_UNBLOCK);
 
 bail:
+	if (extra)
+		free(extra);
 	if (mo.dev)
 		free(mo.dev);
 	if (mo.dir)

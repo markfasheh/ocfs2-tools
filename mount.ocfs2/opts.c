@@ -237,7 +237,7 @@ char *fix_opts_string (int flags, const char *extra_opts, const char *user)
 	const struct string_opt_map *m;
 	char *new_opts;
 
-	new_opts = (flags & MS_RDONLY) ? "ro" : "rw";
+	new_opts = (flags & MS_RDONLY) ? xstrndup("ro", 2) : xstrndup("rw", 2);
 	for (om = opt_map; om->opt != NULL; om++) {
 		if (om->skip)
 			continue;

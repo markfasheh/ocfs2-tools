@@ -174,6 +174,8 @@ static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 	[LOCAL_ALLOC_SYSTEM_INODE]		{ "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, S_IFREG | 0644 }
 };
 
+/* Parameter passed from mount.ocfs2 to module */
+#define OCFS2_HB_OK		"hbok"
 
 /*
  * OCFS2 directory file types.  Only the low 3 bits are used.  The
