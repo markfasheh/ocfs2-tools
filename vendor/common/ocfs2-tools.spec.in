@@ -46,7 +46,7 @@ volumes.
 
 
 %build
-%configure --prefix=/usr --mandir=/usr/share/man
+%configure --disable-debug --prefix=/usr --mandir=/usr/share/man
 make
 
 
