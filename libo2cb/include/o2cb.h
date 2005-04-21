@@ -59,14 +59,32 @@ void o2cb_free_cluster_list(char **clusters);
 errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes);
 void o2cb_free_nodes_list(char **nodes);
 
-errcode_t o2cb_create_heartbeat_region_disk(const char *cluster_name,
-					    const char *region_name,
-					    const char *device_name,
-					    int block_bytes,
-					    uint64_t start_block,
-					    uint64_t blocks);
-errcode_t o2cb_remove_heartbeat_region_disk(const char *cluster_name,
-					    const char *region_name);
+struct o2cb_region_desc {
+	char		*r_name;
+	char		*r_device_name;
+	int		r_block_bytes;
+	uint64_t	r_start_block;
+	uint64_t	r_blocks;
+};
+
+/* Expected use case for the region descriptor is to allocate it on
+ * the stack and completely fill it before calling
+ * start_heartbeat_region. */
+errcode_t o2cb_start_heartbeat_region(const char *cluster_name,
+				      struct o2cb_region_desc *desc);
+errcode_t o2cb_stop_heartbeat_region(const char *cluster_name,
+				     const char *region_name);
+errcode_t o2cb_start_heartbeat_region_perm(const char *cluster_name,
+					   struct o2cb_region_desc *desc);
+errcode_t o2cb_stop_heartbeat_region_perm(const char *cluster_name,
+					  const char *region_name);
+
+errcode_t o2cb_get_region_ref(const char *region_name,
+			      int undo);
+errcode_t o2cb_put_region_ref(const char *region_name,
+			      int undo);
+errcode_t o2cb_num_region_refs(const char *region_name,
+			       int *num_refs);
 
 errcode_t o2cb_get_node_num(const char *cluster_name,
 			    const char *node_name,

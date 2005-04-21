@@ -31,6 +31,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -42,6 +44,8 @@
 #include "o2cb.h"
 
 #include "o2cb_abi.h"
+
+#include "o2cb_crc32.h"
 
 errcode_t o2cb_create_cluster(const char *cluster_name)
 {
@@ -369,12 +373,12 @@ static errcode_t _fake_default_cluster(char *cluster)
 	return 0;
 }
 
-errcode_t o2cb_create_heartbeat_region_disk(const char *cluster_name,
-					    const char *region_name,
-					    const char *device_name,
-					    int block_bytes,
-					    uint64_t start_block,
-					    uint64_t blocks)
+static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
+					      const char *region_name,
+					      const char *device_name,
+					      int block_bytes,
+					      uint64_t start_block,
+					      uint64_t blocks)
 {
 	char _fake_cluster_name[NAME_MAX];
 	char region_path[PATH_MAX];
@@ -516,8 +520,240 @@ out:
 	return err;
 }
 
-errcode_t o2cb_remove_heartbeat_region_disk(const char *cluster_name,
-					    const char *region_name)
+static errcode_t o2cb_destroy_sem_set(int semid)
+{
+	int error;
+	errcode_t ret = 0;
+
+	error = semctl(semid, 0, IPC_RMID);
+	if (error) {
+		switch(errno) {
+			case EPERM:
+			case EACCES:
+				ret = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			case EIDRM:
+				/* Someone raced us to it... can this
+				 * happen? */
+				ret = 0;
+				break;
+
+			default:
+				ret = O2CB_ET_INTERNAL_FAILURE;
+		}
+	}
+
+	return ret;
+}
+
+static errcode_t o2cb_get_semid(const char *region,
+				int *semid)
+{
+	int ret;
+	key_t key;
+
+	key = (key_t) o2cb_crc32(region);
+
+	ret = semget(key, 2, IPC_CREAT);
+	if (ret < 0)
+		return O2CB_ET_BAD_SEM;
+
+	*semid = ret;
+
+	return 0;
+}
+
+static inline errcode_t o2cb_semop_err(int err)
+{
+	errcode_t ret;
+
+	switch (err) {
+		case EACCES:
+			ret = O2CB_ET_PERMISSION_DENIED;
+			break;
+
+		case EIDRM:
+			/* Other paths depend on us returning this for EIDRM */
+			ret = O2CB_ET_NO_SEM;
+			break;
+
+		case EINVAL:
+			ret = O2CB_ET_SERVICE_UNAVAILABLE;
+			break;
+
+		case ENOMEM:
+			ret = O2CB_ET_NO_MEMORY;
+			break;
+
+		default:
+			ret = O2CB_ET_INTERNAL_FAILURE;
+	}
+	return ret;
+}
+
+static errcode_t o2cb_mutex_down(int semid)
+{
+	int err;
+	struct sembuf sops[2] = { 
+		{ .sem_num = 0, .sem_op = 0, .sem_flg = SEM_UNDO },
+		{ .sem_num = 0, .sem_op = 1, .sem_flg = SEM_UNDO }
+	};
+
+	err = semop(semid, sops, 2);
+	if (err)
+		return o2cb_semop_err(errno);
+
+	return 0;
+}
+
+/* We have coded our semaphore destruction such that you will legally
+ * only get EIDRM when waiting on the mutex. Use this function to look
+ * it up and return it locked - it knows how to loop around on
+ * EIDRM. */
+static errcode_t o2cb_mutex_down_lookup(const char *region,
+					int *semid)
+{
+	int tmpid;
+	errcode_t ret;
+
+	ret = O2CB_ET_NO_SEM;
+	while (ret == O2CB_ET_NO_SEM) {
+		ret = o2cb_get_semid(region, &tmpid);
+		if (ret)
+			return ret;
+
+		ret = o2cb_mutex_down(tmpid);
+		if (!ret) {
+			/* At this point, we're the only ones who can destroy
+			 * this sem set. */
+			*semid = tmpid;
+		}
+	}
+
+	return ret;
+}
+
+static errcode_t o2cb_mutex_up(int semid)
+{
+	int err;
+	struct sembuf sop = { .sem_num = 0,
+			      .sem_op = -1,
+			      .sem_flg = SEM_UNDO };
+
+	err = semop(semid, &sop, 1);
+	if (err)
+		return o2cb_semop_err(errno);
+
+	return 0;
+}
+
+static errcode_t __o2cb_get_ref(int semid,
+			      int undo)
+{
+	int err;
+	struct sembuf sop = { .sem_num = 1,
+			      .sem_op = 1,
+			      .sem_flg = undo ? SEM_UNDO : 0 };
+
+	err = semop(semid, &sop, 1);
+	if (err)
+		return o2cb_semop_err(errno);
+
+	return 0;
+}
+
+errcode_t o2cb_get_region_ref(const char *region_name,
+			      int undo)
+{
+	errcode_t ret, up_ret;
+	int semid;
+
+	ret = o2cb_mutex_down_lookup(region_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = __o2cb_get_ref(semid, undo);
+
+	/* XXX: Maybe try to drop ref if we get an error here? */
+	up_ret = o2cb_mutex_up(semid);
+	if (up_ret && !ret)
+		ret = up_ret;
+
+	return ret;
+}
+
+static errcode_t __o2cb_drop_ref(int semid,
+				 int undo)
+{
+	int err;
+	struct sembuf sop = { .sem_num = 1,
+			      .sem_op = -1,
+			      .sem_flg = undo ? SEM_UNDO : 0 };
+
+	err = semop(semid, &sop, 1);
+	if (err)
+		return o2cb_semop_err(errno);
+
+	return 0;
+}
+
+errcode_t o2cb_put_region_ref(const char *region_name,
+			      int undo)
+{
+	errcode_t ret, up_ret;
+	int semid;
+
+	ret = o2cb_mutex_down_lookup(region_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = __o2cb_drop_ref(semid, undo);
+
+	up_ret = o2cb_mutex_up(semid);
+	if (up_ret && !ret)
+		ret = up_ret;
+
+	return ret;
+}
+
+static errcode_t __o2cb_get_num_refs(int semid, int *num_refs)
+{
+	int ret;
+
+	ret = semctl(semid, 1, GETVAL, NULL);
+	if (ret == -1)
+		return o2cb_semop_err(errno);
+
+	*num_refs = ret;
+
+	return 0;
+}
+
+errcode_t o2cb_num_region_refs(const char *region_name,
+			       int *num_refs)
+{
+	errcode_t ret;
+	int semid;
+
+	ret = o2cb_get_semid(region_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = __o2cb_get_num_refs(semid, num_refs);
+
+	/* The semaphore set was destroyed underneath us. We treat
+	 * that as zero reference and return success. */
+	if (ret == O2CB_ET_NO_SEM) {
+		*num_refs = 0;
+		ret = 0;
+	}
+
+	return ret;
+}
+
+static errcode_t o2cb_remove_heartbeat_region(const char *cluster_name,
+					      const char *region_name)
 {
 	char _fake_cluster_name[NAME_MAX];
 	char region_path[PATH_MAX];
@@ -570,6 +806,116 @@ errcode_t o2cb_remove_heartbeat_region_disk(const char *cluster_name,
 
 out:
 	return err;
+}
+
+/* For ref counting purposes, we need to know whether this process
+ * called o2cb_create_heartbeat_region_disk. If it did, then we want
+ * to drop the reference taken during startup, otherwise that
+ * reference was dropped automatically at process shutdown so there's
+ * no need to drop one here. */
+static errcode_t __o2cb_stop_heartbeat_region(const char *cluster_name,
+					      const char *region_name,
+					      int undo)
+{
+	errcode_t ret, up_ret;
+	int hb_refs;
+	int semid;
+
+	ret = o2cb_mutex_down_lookup(region_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = __o2cb_get_num_refs(semid, &hb_refs);
+	if (ret)
+		goto up;
+
+	/* A previous process may have died and left us with no
+	 * references on the region. We avoid a negative error count
+	 * here and clean up the region as normal. */
+	if (hb_refs) {
+		ret = __o2cb_drop_ref(semid, undo);
+		if (ret)
+			goto up;
+
+		/* No need to call get_num_refs again -- this was
+		 * atomic so we know what the new value must be. */
+		hb_refs--;
+	}
+
+	if (!hb_refs) {
+		/* XXX: If this fails, shouldn't we still destroy the
+		 * semaphore set? */
+		ret = o2cb_remove_heartbeat_region(cluster_name, region_name);
+		if (ret)
+			goto up;
+
+		ret = o2cb_destroy_sem_set(semid);
+		if (ret)
+			goto up;
+
+		goto done;
+	}
+up:
+	up_ret = o2cb_mutex_up(semid);
+	if (up_ret && !ret) /* XXX: Maybe stop heartbeat here then? */
+		ret = up_ret;
+
+done:
+	return ret;
+}
+
+static errcode_t __o2cb_start_heartbeat_region(const char *cluster_name,
+					       struct o2cb_region_desc *desc,
+					       int undo)
+{
+	errcode_t ret, up_ret;
+	int semid;
+
+	ret = o2cb_mutex_down_lookup(desc->r_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = o2cb_create_heartbeat_region(cluster_name,
+					   desc->r_name,
+					   desc->r_device_name,
+					   desc->r_block_bytes,
+					   desc->r_start_block,
+					   desc->r_blocks);
+	if (ret && ret != O2CB_ET_REGION_EXISTS)
+		goto up;
+
+	ret = __o2cb_get_ref(semid, undo);
+	/* XXX: Maybe stop heartbeat on error here? */
+up:
+	up_ret = o2cb_mutex_up(semid);
+	if (up_ret && !ret)
+		ret = up_ret;
+
+	return ret;
+}
+
+errcode_t o2cb_start_heartbeat_region(const char *cluster_name,
+				      struct o2cb_region_desc *desc)
+{
+	return __o2cb_start_heartbeat_region(cluster_name, desc, 1);
+}
+
+errcode_t o2cb_stop_heartbeat_region(const char *cluster_name,
+				     const char *region_name)
+{
+	return __o2cb_stop_heartbeat_region(cluster_name, region_name, 1);
+}
+
+errcode_t o2cb_start_heartbeat_region_perm(const char *cluster_name,
+					   struct o2cb_region_desc *desc)
+{
+	return __o2cb_start_heartbeat_region(cluster_name, desc, 0);
+}
+
+errcode_t o2cb_stop_heartbeat_region_perm(const char *cluster_name,
+					  const char *region_name)
+{
+	return __o2cb_stop_heartbeat_region(cluster_name, region_name, 0);
 }
 
 static inline int is_dots(const char *name)

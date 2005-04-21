@@ -69,4 +69,10 @@ ec	O2CB_ET_INVALID_NODE_NUM,
 ec	O2CB_ET_MODULE_NOT_LOADED,
 	"Node manager kernel module is not loaded"
 
+ec	O2CB_ET_BAD_SEM,
+	"Could not access heartbeat region semaphore set"
+
+ec	O2CB_ET_NO_SEM,
+	"Region semaphore set destroyed"
+
 	end

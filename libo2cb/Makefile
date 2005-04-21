@@ -37,10 +37,12 @@ debug_%: debug_%.o libo2cb.a
 endif
 
 CFILES = 		\
-	o2cb_abi.c
+	o2cb_abi.c	\
+	o2cb_crc32.c
 
 HFILES =				\
 	include/o2cb_abi.h		\
+	include/o2cb_crc32.h		\
 	include/o2cb.h
 
 HFILES_GEN =		\
@@ -48,7 +50,7 @@ HFILES_GEN =		\
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2cb_err.o
-	
+
 $(OBJS): $(HFILES_GEN)
 
 include/o2cb_err.h: o2cb_err.h

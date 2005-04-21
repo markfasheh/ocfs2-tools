@@ -212,6 +212,7 @@ cluster_add_node (Cluster  *self,
   return node_new (self, node_name);
 }
 
+#if 0
 static PyObject *
 cluster_create_heartbeat_region_disk (Cluster  *self,
 				      PyObject *args,
@@ -264,11 +265,11 @@ cluster_remove_heartbeat_region_disk (Cluster  *self,
   Py_INCREF (Py_None);
   return Py_None;
 }
-
+#endif
 static PyMethodDef cluster_methods[] = {
   {"add_node", (PyCFunction)cluster_add_node, METH_VARARGS | METH_KEYWORDS},
-  {"create_heartbeat_region_disk", (PyCFunction)cluster_create_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
-  {"remove_heartbeat_region_disk", (PyCFunction)cluster_remove_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
+//  {"create_heartbeat_region_disk", (PyCFunction)cluster_create_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
+//  {"remove_heartbeat_region_disk", (PyCFunction)cluster_remove_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
   {NULL, NULL}
 };
 
@@ -442,6 +443,7 @@ cleanup:
   return list;
 }
 
+#if 0
 static PyObject *
 create_heartbeat_region_disk (PyObject *self,
 			      PyObject *args,
@@ -491,6 +493,7 @@ remove_heartbeat_region_disk (PyObject *self,
   Py_INCREF (Py_None);
   return Py_None;
 }
+#endif
 
 static PyObject *
 get_hb_ctl_path (PyObject *self)
@@ -505,8 +508,8 @@ get_hb_ctl_path (PyObject *self)
 
 static PyMethodDef o2cb_methods[] = {
   {"list_clusters", (PyCFunction)list_clusters, METH_NOARGS},
-  {"create_heartbeat_region_disk", (PyCFunction)create_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
-  {"remove_heartbeat_region_disk", (PyCFunction)remove_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
+//  {"create_heartbeat_region_disk", (PyCFunction)create_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
+//  {"remove_heartbeat_region_disk", (PyCFunction)remove_heartbeat_region_disk, METH_VARARGS | METH_KEYWORDS},
   {"get_hb_ctl_path", (PyCFunction)get_hb_ctl_path, METH_NOARGS},
   {NULL,       NULL}    /* sentinel */
 };

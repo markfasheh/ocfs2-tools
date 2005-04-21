@@ -57,7 +57,7 @@ static void read_options(int argc, char **argv, struct mount_options *mo)
 	progname = basename(argv[0]);
 
 	if (argc < 2)
-		goto bail;
+		return;
 
 	while(1) {
 		c = getopt(argc, argv, "vno:t:");
@@ -95,9 +95,6 @@ static void read_options(int argc, char **argv, struct mount_options *mo)
 
 	if (optind < argc && argv[optind])
 		mo->dir = xstrdup(argv[optind]);
-
-bail:
-	return ;
 }
 
 /*

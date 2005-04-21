@@ -34,16 +34,14 @@
 
 #include "ocfs2.h"
 
-static errcode_t ocfs2_get_heartbeat_params(ocfs2_filesys *fs,
-					    uint32_t *block_bits,
-					    uint32_t *cluster_bits,
-					    uint64_t *start_block,
-					    uint64_t *num_blocks)
+errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
+				    struct o2cb_region_desc *desc)
 {
 	errcode_t ret;
 	char *filename;
 	char *buf = NULL;
 	uint64_t blkno, blocks;
+	uint32_t block_bits, cluster_bits;
 	ocfs2_dinode *di;
 	ocfs2_extent_rec *rec;
 
@@ -70,42 +68,40 @@ static errcode_t ocfs2_get_heartbeat_params(ocfs2_filesys *fs,
 	}
 	rec = &(di->id2.i_list.l_recs[0]);
 
-	*block_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-	*cluster_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
-	*start_block = rec->e_blkno;
+	block_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	cluster_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 
-	blocks = rec->e_clusters << *cluster_bits;
-	blocks >>= *block_bits;
-	*num_blocks = blocks;
+	blocks = rec->e_clusters << cluster_bits;
+	blocks >>= block_bits;
+
+	/* clamp to NM_MAX_NODES */
+	if (blocks > 254)
+		blocks = 254;
+
+	desc->r_name = fs->uuid_str;
+	desc->r_device_name = fs->fs_devname;
+	desc->r_block_bytes = 1 << block_bits;
+	desc->r_start_block = rec->e_blkno;
+	desc->r_blocks = blocks;
 
 leave:
 	if (buf)
 		ocfs2_free(&buf);
+
 	return ret;
 }
 
 errcode_t ocfs2_start_heartbeat(ocfs2_filesys *fs)
 {
 	errcode_t ret;
-	uint32_t block_bits, cluster_bits;
-	uint64_t start_block, num_blocks;
+	struct o2cb_region_desc desc;
 
-	ret = ocfs2_get_heartbeat_params(fs, &block_bits, &cluster_bits,
-					 &start_block, &num_blocks);
+	ret = ocfs2_fill_heartbeat_desc(fs, &desc);	
 	if (ret)
 		goto leave;
 
-	/* clamp to NM_MAX_NODES */
-	if (num_blocks > 254)
-		num_blocks = 254;
-
         /* XXX: NULL cluster is a hack for right now */
-	ret = o2cb_create_heartbeat_region_disk(NULL,
-						fs->uuid_str,
-						fs->fs_devname,
-						1 << block_bits,
-						start_block,
-						num_blocks);
+	ret = o2cb_start_heartbeat_region(NULL, &desc);
 
 leave:
 	return ret;
@@ -113,9 +109,5 @@ leave:
 
 errcode_t ocfs2_stop_heartbeat(ocfs2_filesys *fs)
 {
-	errcode_t ret;
-
-	ret = o2cb_remove_heartbeat_region_disk(NULL, fs->uuid_str);
-
-	return ret;
+	return o2cb_stop_heartbeat_region(NULL, fs->uuid_str);
 }

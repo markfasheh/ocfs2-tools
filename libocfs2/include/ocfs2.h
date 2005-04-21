@@ -539,6 +539,9 @@ errcode_t ocfs2_follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			  uint64_t offset, uint32_t *got);
 
+errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
+				    struct o2cb_region_desc *desc);
+
 errcode_t ocfs2_start_heartbeat(ocfs2_filesys *fs);
 
 errcode_t ocfs2_stop_heartbeat(ocfs2_filesys *fs);

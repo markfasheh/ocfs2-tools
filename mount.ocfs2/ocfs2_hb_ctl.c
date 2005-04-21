@@ -48,12 +48,17 @@ static errcode_t start_heartbeat(char *device)
 {
 	errcode_t err;
 	ocfs2_filesys *fs = NULL;
+	struct o2cb_region_desc desc;
 
 	err = ocfs2_open(device, OCFS2_FLAG_RO, 0, 0, &fs);
 	if (err)
 		goto bail;
 
-	err = ocfs2_start_heartbeat(fs);
+	err = ocfs2_fill_heartbeat_desc(fs, &desc);
+	if (err)
+		goto bail;
+
+	err = o2cb_start_heartbeat_region_perm(NULL, &desc);
 
 bail:
 	if (fs)
@@ -66,16 +71,29 @@ static errcode_t stop_heartbeat(const char *hbuuid)
 {
 	errcode_t err;
 
-	err = o2cb_remove_heartbeat_region_disk(NULL, hbuuid);
+	err = o2cb_stop_heartbeat_region_perm(NULL, hbuuid);
+
+	return err;
+}
+
+static errcode_t print_hb_ref_info(const char *hbuuid)
+{
+	errcode_t err;
+	int num;
+
+	err = o2cb_num_region_refs(hbuuid, &num);
+	if (!err)
+		printf("%s: %d refs\n", hbuuid, num);
 
 	return err;
 }
 
 enum hb_ctl_action {
-	HB_ACTION_UKNOWN,
+	HB_ACTION_UNKNOWN,
 	HB_ACTION_USAGE,
 	HB_ACTION_START,
 	HB_ACTION_STOP,
+	HB_ACTION_REFINFO,
 };
 
 struct hb_ctl_options {
@@ -84,15 +102,14 @@ struct hb_ctl_options {
 	char *uuid_str;
 };
 
-static void read_options(int argc, char **argv, struct hb_ctl_options *hbo)
+static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 {
-	int c;
+	int c, ret;
 
-	if (argc < 4)
-		return;
+	ret = 0;
 
 	while(1) {
-		c = getopt(argc, argv, "SKd:u:h");
+		c = getopt(argc, argv, "ISKd:u:h");
 		if (c == -1)
 			break;
 
@@ -119,10 +136,19 @@ static void read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 				hbo->uuid_str = strdup(optarg);
 			break;
 
+		case 'I':
+			hbo->action = HB_ACTION_REFINFO;
+			break;
+
+		case '?':
+		case ':':
 		default:
+			ret = -1;
 			break;
 		}
 	}
+
+	return ret;
 }
 
 static int process_options(struct hb_ctl_options *hbo)
@@ -143,7 +169,14 @@ static int process_options(struct hb_ctl_options *hbo)
 			ret = -EINVAL;
 		break;
 
-	case HB_ACTION_UKNOWN:
+	case HB_ACTION_REFINFO:
+		/* Refinfo needs uuid or device */
+		if ((hbo->uuid_str && hbo->dev_str) ||
+		    (!hbo->uuid_str && !hbo->dev_str))
+			ret = -EINVAL;
+		break;
+
+	case HB_ACTION_UNKNOWN:
 		ret = -EINVAL;
 		break;
 
@@ -162,6 +195,8 @@ static void print_usage(int err)
 	fprintf(output, "Usage: %s -S -d <device>\n", progname);
 	fprintf(output, "       %s -K -d <device>\n", progname);
 	fprintf(output, "       %s -K -u <uuid>\n", progname);
+	fprintf(output, "       %s -I -d <device>\n", progname);
+	fprintf(output, "       %s -I -u <uuid>\n", progname);
 	fprintf(output, "       %s -h\n", progname);
 }
 
@@ -169,18 +204,27 @@ int main(int argc, char **argv)
 {
 	errcode_t err = 0;
 	int ret = 0;
-	struct hb_ctl_options hbo = { HB_ACTION_UKNOWN, NULL, NULL };
+	struct hb_ctl_options hbo = { HB_ACTION_UNKNOWN, NULL, NULL };
 	char hbuuid[33];
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
 
-	read_options(argc, argv, &hbo);
+	ret = read_options(argc, argv, &hbo);
+	if (ret) {
+		print_usage(1);
+		goto bail;
+	}
 
 	ret = process_options(&hbo);
 	if (ret) {
 		print_usage(1);
+		goto bail;
+	}
+
+	if (hbo.action == HB_ACTION_USAGE) {
+		print_usage(0);
 		goto bail;
 	}
 
@@ -213,6 +257,14 @@ int main(int argc, char **argv)
 		err = stop_heartbeat(hbo.uuid_str);
 		if (err) {
 			com_err(progname, err, "while stopping heartbeat");
+			ret = -EINVAL;
+		}
+		break;
+
+	case HB_ACTION_REFINFO:
+		err = print_hb_ref_info(hbo.uuid_str);
+		if (err) {
+			com_err(progname, err, "while reading reference counts");
 			ret = -EINVAL;
 		}
 		break;
