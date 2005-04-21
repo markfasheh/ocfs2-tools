@@ -1448,7 +1448,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_creator_os = cpu_to_le32(OCFS2_OS_LINUX);
 	di->id2.i_super.s_blocksize_bits = cpu_to_le32(s->blocksize_bits);
 	di->id2.i_super.s_clustersize_bits = cpu_to_le32(s->cluster_size_bits);
-	di->id2.i_super.s_max_nodes = cpu_to_le32(s->initial_nodes);
+	di->id2.i_super.s_max_nodes = cpu_to_le16(s->initial_nodes);
 	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group_blkno);
 
 	strcpy(di->id2.i_super.s_label, s->vol_label);
