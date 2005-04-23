@@ -43,8 +43,8 @@
 
 #include <glib.h>
 
+#include "ocfs2.h"
 
-#define OCFS_MAGIC 0xa156f7eb
 
 #define CDSL_BASE  ".cluster"
 
@@ -80,6 +80,8 @@ struct _State {
 	char *progname;
 
 	gboolean copy;
+	gboolean local;
+
 	gboolean force;
 	gboolean dry_run;
 
@@ -88,15 +90,21 @@ struct _State {
 
 	CDSLType type;
 
-	char *filename;
 	char *dirname;
+	char *quoted_dirname;
+
+	char *filename;
+	char *quoted_filename;
+
 	char *fullname;
+	char *quoted_fullname;
 };
 
 
 static State *get_state (int argc, char **argv);
 static void usage(const char *progname);
 static void version(const char *progname);
+static char *verify_ocfs2(State *s);
 static char *get_ocfs2_root(const char *path);
 static CDSLType cdsl_type_from_string(const char *str);
 static char *cdsl_path_expand(State *s);
@@ -114,48 +122,30 @@ main(int argc, char **argv)
 {
 	State *s;
 	char *fsroot, *path;
-	char *cmd, *cmd_err;
+	char *cmd, *cmd_err, *quoted;
 	int ret;
-	struct statfs sbuf;
 	gboolean exists;
 	char *cdsl_path, *cdsl_full;
-	char *target;
+	char *target, *quoted_target;
 	GError *error = NULL;
 
 	s = get_state(argc, argv);
 
-	if (statfs(s->dirname, &sbuf) != 0) {
-		fprintf(stderr, "%s: couldn't statfs %s: %s\n",
-			s->progname, s->dirname, g_strerror(errno));
-		exit(1);
-	}
-
-	if (sbuf.f_type != OCFS_MAGIC) {
-		fprintf(stderr, "%s: %s is not on an ocfs2 filesystem\n",
-			s->progname, s->filename);
-		exit(1);
-	}
-
-	fsroot = get_ocfs2_root(s->dirname);
-
-	if (fsroot == NULL) {
-		fprintf(stderr, "%s: %s is not on an ocfs2 filesystem\n",
-			s->progname, s->dirname);
-		exit(1);
-	}
+	fsroot = verify_ocfs2(s);
 
 	exists = g_file_test(s->fullname, G_FILE_TEST_EXISTS);
+
 	if (exists) {
 		if (!g_file_test(s->fullname,
 				 G_FILE_TEST_IS_REGULAR | G_FILE_TEST_IS_DIR)) {
-			fprintf(stderr, "%s: %s is not a file or directory\n",
-				s->progname, s->fullname);
+			com_err(s->progname, 0, "%s is not a file or directory",
+				s->quoted_fullname);
 			exit(1);
 		}
 	}
 	else if (s->copy) {
-		fprintf(stderr, "%s: %s does not exist, but copy requested\n",
-			s->progname, s->fullname);
+		com_err(s->progname, 0, "%s does not exist, but copy requested",
+			s->quoted_fullname);
 		exit(1);
 	}
 
@@ -165,9 +155,10 @@ main(int argc, char **argv)
 			exists = FALSE;
 		}
 		else {
-			fprintf(stderr, "%s: %s already exists, but copy (-c) "
-					"or force (-f) not given\n",
-				s->progname, s->fullname);
+			com_err(s->progname, 0,
+				"%s already exists, but copy (-c) or "
+				"force (-f) not given",
+				s->quoted_fullname);
 			exit(1);
 		}
 	}
@@ -178,7 +169,9 @@ main(int argc, char **argv)
 		cdsl_path = g_build_filename(fsroot, cdsl_path_expand(s),
 					     path, NULL);
 
-		cmd = g_strdup_printf("mkdir -p %s", g_shell_quote(cdsl_path));
+		quoted = g_shell_quote(cdsl_path);
+		cmd = g_strdup_printf("mkdir -p %s", quoted);
+		g_free(quoted);
 
 		if (s->verbose || s->dry_run)
 			printf("%s\n", cmd);
@@ -186,14 +179,15 @@ main(int argc, char **argv)
 		if (!s->dry_run) {
 			if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err,
 						       &ret, &error)) {
-				fprintf(stderr, "%s: Couldn't mkdir: %s\n",
-					s->progname, error->message);
+				com_err(s->progname, 0,
+					"could not run mkdir: %s",
+					error->message);
 				exit(1);
 			}
 
 			if (ret != 0) {
-				fprintf(stderr, "%s: mkdir error: %s\n",
-					s->progname, cmd_err);
+				com_err(s->progname, 0, "mkdir error: %s",
+					cmd_err);
 				exit(1);
 			}
 		}
@@ -206,22 +200,24 @@ main(int argc, char **argv)
 			if (s->force)
 				delete(s, cdsl_full);
 			else {
-				fprintf(stderr, "%s: CDSL already exists. "
-						"To replace, use the force "
-						"(-f) option\n",
-					s->progname);
+				com_err(s->progname, 0,
+					"CDSL already exists. To replace, use "
+					"the force (-f) option");
 				exit(1);
 			}
 		}
 
-		if (s->verbose || s->dry_run)
-			printf("mv %s %s\n", s->fullname, cdsl_full);
+		if (s->verbose || s->dry_run) {
+			quoted = g_shell_quote(cdsl_full);
+			printf("mv %s %s\n", s->quoted_fullname, quoted);
+			g_free(quoted);
+		}
 
 		if (!s->dry_run) {
 			if (rename(s->fullname, cdsl_full) != 0) {
-				fprintf(stderr, "%s: could not rename %s: %s\n",
-					s->progname, s->filename,
-					g_strerror(errno));
+				com_err(s->progname, errno,
+					"could not rename %s",
+					s->quoted_fullname);
 				exit(1);
 			}
 		}
@@ -231,19 +227,21 @@ main(int argc, char **argv)
 	}
 
 	target = g_build_filename(cdsl_target(s, path), s->filename, NULL);
+	quoted_target = g_shell_quote(target);
 
 	if (s->verbose || s->dry_run)
-		printf("ln -s %s %s\n", target, s->fullname);
+		printf("ln -s %s %s\n", quoted_target, s->quoted_fullname);
 
 	if (!s->dry_run) {
 		if (symlink(target, s->fullname) != 0) {
-			fprintf(stderr, "%s: could not symlink %s to %s: %s\n",
-				s->progname, target, s->fullname,
-				g_strerror(errno));
+			com_err(s->progname, errno,
+				"could not symlink %s to %s",
+				quoted_target, s->quoted_fullname);
 			exit(1);
 		}
 	}
 
+	g_free(quoted_target);
 	g_free(target);
 
 	return 0;
@@ -253,7 +251,7 @@ static State *
 get_state(int argc, char **argv)
 {
 	char *progname;
-	gboolean copy = FALSE, force = FALSE, dry_run = FALSE;
+	gboolean copy = FALSE, local = FALSE, force = FALSE, dry_run = FALSE;
 	gboolean quiet = FALSE, verbose = FALSE, show_version = FALSE;
 	CDSLType type = CDSL_TYPE_HOSTNAME;
 	char *filename, *dirname, *tmp;
@@ -263,6 +261,7 @@ get_state(int argc, char **argv)
 	static struct option long_options[] = {
 		{ "type", 1, 0, 't' },
 		{ "copy", 0, 0, 'c' },
+		{ "local", 0, 0, 'L' },
 		{ "force", 0, 0, 'f' },
 		{ "dry-run", 0, 0, 'n' },
 		{ "verbose", 0, 0, 'v' },
@@ -277,7 +276,7 @@ get_state(int argc, char **argv)
 		progname = g_strdup("ocfs2cdsl");
 
 	while (1) {
-		c = getopt_long(argc, argv, "t:acfnvqV", long_options, NULL);
+		c = getopt_long(argc, argv, "t:acLfnvqV", long_options, NULL);
 
 		if (c == -1)
 			break;
@@ -294,6 +293,9 @@ get_state(int argc, char **argv)
 			break;
 		case 'c':
 			copy = TRUE;
+			break;
+		case 'L':
+			local = TRUE;
 			break;
 		case 'f':
 			force = TRUE;
@@ -340,6 +342,9 @@ get_state(int argc, char **argv)
 	if (optind < argc)
 		usage(progname);
 
+	if (local)
+		copy = TRUE;
+
 	s = g_new0(State, 1);
 
 	s->progname = progname;
@@ -347,6 +352,8 @@ get_state(int argc, char **argv)
 	s->type     = type;
 
 	s->copy     = copy;
+	s->local    = local;
+
 	s->force    = force;
 	s->dry_run  = dry_run;
 
@@ -360,6 +367,10 @@ get_state(int argc, char **argv)
 
 	free(dirname);
 
+	s->quoted_dirname  = g_shell_quote(s->dirname);
+	s->quoted_filename = g_shell_quote(s->filename);
+	s->quoted_fullname = g_shell_quote(s->fullname);
+
 	return s;
 }
 
@@ -368,7 +379,7 @@ usage(const char *progname)
 {
 	const char * const *name;
 
-	fprintf(stderr, "Usage: %s [-cfnqvV] [-t", progname);
+	fprintf(stderr, "Usage: %s [-cLfnqvV] [-t", progname);
 
 	for (name = cdsl_names; *name; name++)
 		fprintf(stderr, " %s", *name);
@@ -380,7 +391,7 @@ usage(const char *progname)
 static void
 version(const char *progname)
 {
-	fprintf(stderr, "%s %s\n", progname, VERSION);
+	printf("%s %s\n", progname, VERSION);
 }
 
 static CDSLType
@@ -395,6 +406,35 @@ cdsl_type_from_string(const char *str)
 			break;
 
 	return type;
+}
+
+static char *
+verify_ocfs2(State *s)
+{
+	struct statfs sbuf;
+	char *fsroot;
+
+	if (statfs(s->dirname, &sbuf) != 0) {
+		com_err(s->progname, errno, "could not statfs %s",
+			s->quoted_dirname);
+		exit(1);
+	}
+
+	if (sbuf.f_type != OCFS2_SUPER_MAGIC) {
+		com_err(s->progname, 0, "%s is not on an ocfs2 filesystem",
+			s->quoted_fullname);
+		exit(1);
+	}
+
+	fsroot = get_ocfs2_root(s->dirname);
+
+	if (fsroot == NULL) {
+		com_err(s->progname, 0, "%s is not on an ocfs2 filesystem",
+			s->quoted_fullname);
+		exit(1);
+	}
+
+	return fsroot;
 }
 
 static char *
@@ -530,14 +570,13 @@ delete(State *s, const char *path)
 	if (!s->dry_run) {
 		if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err, &ret,
 					       &error)) {
-			fprintf(stderr, "%s: Couldn't rm: %s\n", s->progname,
+			com_err(s->progname, 0, "could not run rm: %s",
 				error->message);
 			exit(1);
 		}
 
 		if (ret != 0) {
-			fprintf(stderr, "%s: rm error: %s\n", s->progname,
-				cmd_err);
+			com_err(s->progname, 0, "rm error: %s", cmd_err);
 			exit(1);
 		}
 	}
@@ -554,8 +593,8 @@ get_node_num(State *s)
 	int i;
 
 	if (stat(s->dirname, &sbuf) != 0) {
-		fprintf(stderr, "%s: couldn't stat %s: %s\n",
-			s->progname, s->dirname, g_strerror(errno));
+		com_err(s->progname, errno, "could not stat %s",
+			s->quoted_dirname);
 		exit(1);
 	}
 
@@ -566,14 +605,12 @@ get_node_num(State *s)
 	f = fopen(path, "r");
 
 	if (f == NULL) {
-		fprintf(stderr, "%s: could not open %s: %s\n",
-			s->progname, path, g_strerror(errno));
+		com_err(s->progname, errno, "could not open %s", path);
 		exit(1);
 	}
 
 	if (fgets(buf, sizeof(buf), f) == NULL) {
-		fprintf(stderr, "%s: could not read node number: %s\n",
-			s->progname, g_strerror(errno));
+		com_err(s->progname, errno, "could not read node number");
 		exit(1);
 	}
 
@@ -589,8 +626,7 @@ get_node_num(State *s)
 	}
 
 	if (buf[0] == '\0') {
-		fprintf(stderr, "%s: invalid node number: %s\n",
-			s->progname, g_strerror(errno));
+		com_err(s->progname, 0, "could not read node number");
 		exit(1);
 	}
 
