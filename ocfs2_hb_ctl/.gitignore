@@ -1,4 +1,4 @@
 .*.sw?
-mount.ocfs2
+ocfs2_hb_ctl
 *.d
 cscope.*
