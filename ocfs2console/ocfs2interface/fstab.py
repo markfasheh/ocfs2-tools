@@ -63,28 +63,25 @@ class FSTab:
                 return entry
 
         return None
-    
-str_fields = ('spec', 'mountpoint', 'vfstype', 'options')
-int_fields = ('freq', 'passno')
-
-entry_fmt = ('\t'.join(['%%(%s)s' % f for f in str_fields]) + '\t' +
-             '\t'.join(['%%(%s)d' % f for f in int_fields]))
 
 class FSTabEntry:
     def __init__(self, spec, mountpoint, vfstype, options, freq=0, passno=0):
         symtab = locals()
 
-        for attr in str_fields:
-            setattr(self, attr, symtab[attr])
+        code = self.__init__.func_code
 
-        for attr in int_fields:
-            setattr(self, attr, int(symtab[attr]))
+        names = []
+        for attr in code.co_varnames[1:code.co_argcount]:
+            setattr(self, attr, symtab[attr])
+            names.append(attr)
+
+        self.entry_fmt = '\t'.join(['%%(%s)s' % f for f in names])
 
         if self.spec.startswith('UUID='):
             self.spec = 'UUID=' + self.spec[5:].lower()
 
     def __str__(self):
-        return entry_fmt % self.__dict__
+        return self.entry_fmt % self.__dict__
 
     def __repr__(self):
         return "<FSTabEntry: '%s'>" % str(self)
