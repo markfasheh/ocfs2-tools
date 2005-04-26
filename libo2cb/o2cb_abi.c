@@ -367,7 +367,7 @@ errcode_t o2cb_del_node(const char *cluster_name, const char *node_name)
 {
 	char node_path[PATH_MAX];
 	int ret;
-	errcode_t err;
+	errcode_t err = 0;
 
 	ret = snprintf(node_path, PATH_MAX - 1, O2CB_FORMAT_NODE,
 		       cluster_name, node_name);
