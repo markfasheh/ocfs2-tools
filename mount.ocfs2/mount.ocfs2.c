@@ -331,7 +331,7 @@ int main(int argc, char **argv)
 	if (ret) {
 		stop_heartbeat(hb_ctl_path, mo.dev);
 		block_signals (SIG_UNBLOCK);
-		com_err(progname, errno, "while mounting %s on %s",
+		com_err(progname, errno, "while mounting %s on %s\n",
 			mo.dev, mo.dir);
 		goto bail;
 	}
