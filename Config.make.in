@@ -19,6 +19,12 @@ sbindir = @sbindir@
 datadir = @datadir@
 sysconfdir = @sysconfdir@
 mandir = @mandir@
+
+root_prefix = @root_prefix@
+root_bindir = @root_bindir@
+root_sbindir = @root_sbindir@
+root_sysconfdir = @root_sysconfdir@
+
 pyexecdir = @pyexecdir@
 
 top_builddir = .

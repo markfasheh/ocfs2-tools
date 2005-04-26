@@ -2,6 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
+sbindir = $(root_sbindir)
 SBIN_PROGRAMS = fsck.ocfs2
 
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \

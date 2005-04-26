@@ -2,6 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
+sbindir = $(root_sbindir)
 SBIN_PROGRAMS = debugfs.ocfs2
 
 DEFINES = -DG_DISABLE_DEPRECATED -DLINUX -DDEBUGOCFS -DDEBUG

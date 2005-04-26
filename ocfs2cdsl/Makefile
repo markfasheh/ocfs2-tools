@@ -22,6 +22,7 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 CFLAGS = $(OPTS) $(WARNINGS) 
 
+sbindir = $(root_sbindir)
 SBIN_PROGRAMS = ocfs2cdsl
 
 DEFINES = -DVERSION=\"$(VERSION)\"

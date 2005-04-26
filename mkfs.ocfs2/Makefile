@@ -13,6 +13,7 @@ endif
 
 CFLAGS = $(OPTS) $(WARNINGS) 
 
+sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mkfs.ocfs2
 
 LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include

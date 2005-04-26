@@ -57,15 +57,7 @@ cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp -f vendor/common/o2cb.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/o2cb
 
-for tool in fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2cdsl
-do
-  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" sbindir=/sbin install; cd ..
-done
-
-for tool in ocfs2console
-do
-  cd $tool; make DESTDIR="$RPM_BUILD_ROOT" install; cd ..
-done
+make DESTDIR="$RPM_BUILD_ROOT" install
 
 %{__python} "%{_libdir}/python%{pyversion}/compileall.py" -q "$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface"
 
