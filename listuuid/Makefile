@@ -2,8 +2,6 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SBIN_PROGRAMS = listuuid
-
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libocfs2cluster/include \
 		-I$(TOPDIR)/libo2dlm/include \
