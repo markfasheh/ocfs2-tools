@@ -90,6 +90,47 @@ errcode_t o2cb_create_cluster(const char *cluster_name)
 	return err;
 }
 
+errcode_t o2cb_remove_cluster(const char *cluster_name)
+{
+	char path[PATH_MAX];
+	int ret;
+	errcode_t err = 0;
+
+	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_CLUSTER,
+		       cluster_name);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	ret = rmdir(path);
+	if (ret) {
+		switch (errno) {
+			case EACCES:
+			case EPERM:
+			case EROFS:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			case ENOMEM:
+				err = O2CB_ET_NO_MEMORY;
+				break;
+
+			case ENOTDIR:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			case ENOENT:
+				err = 0;
+				break;
+
+			default:
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+		}
+	}
+
+	return err;
+}
+
 static int do_read(int fd, void *bytes, size_t count)
 {
 	int total = 0;
@@ -317,6 +358,50 @@ errcode_t o2cb_add_node(const char *cluster_name,
 out_rmdir:
 	if (err)
 		rmdir(node_path);
+
+out:
+	return err;
+}
+
+errcode_t o2cb_del_node(const char *cluster_name, const char *node_name)
+{
+	char node_path[PATH_MAX];
+	int ret;
+	errcode_t err;
+
+	ret = snprintf(node_path, PATH_MAX - 1, O2CB_FORMAT_NODE,
+		       cluster_name, node_name);
+	if (ret <= 0 || ret == PATH_MAX - 1) {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	ret = rmdir(node_path);
+	if (ret) {
+		switch (errno) {
+			case EACCES:
+			case EPERM:
+			case EROFS:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			case ENOMEM:
+				err = O2CB_ET_NO_MEMORY;
+				break;
+
+			case ENOTDIR:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			case ENOENT:
+				err = 0;
+				break;
+
+			default:
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+		}
+	}
 
 out:
 	return err;

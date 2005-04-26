@@ -48,10 +48,13 @@
 #endif
 
 errcode_t o2cb_create_cluster(const char *cluster_name);
+errcode_t o2cb_remove_cluster(const char *cluster_name);
+
 errcode_t o2cb_add_node(const char *cluster_name,
 			const char *node_name, const char *node_num,
 			const char *ip_address, const char *ip_port,
 			const char *local);
+errcode_t o2cb_del_node(const char *cluster_name, const char *node_name);
 
 errcode_t o2cb_list_clusters(char ***clusters);
 void o2cb_free_cluster_list(char **clusters);

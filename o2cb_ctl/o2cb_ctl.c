@@ -915,9 +915,51 @@ out_error:
 
 static gint offline_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
 {
-    fprintf(stderr,
-            PROGNAME ": Offline of cluster not supported yet\n");
-    return -ENOTSUP;
+    errcode_t ret;
+    gint rc;
+    gchar *cluster_name = NULL;
+    char **node_name = NULL;
+    int i = 0;
+
+    rc = -ENOMEM;
+    cluster_name = o2cb_cluster_get_name(cluster);
+    if (!cluster_name)
+        goto out_error;
+
+    ret = o2cb_list_nodes(cluster_name, &node_name);
+    if (ret && ret != O2CB_ET_SERVICE_UNAVAILABLE) {
+        com_err(PROGNAME, ret, "while listing nodes in cluster '%s'",
+                cluster_name);
+        goto out_error;
+    }
+
+    rc = -EIO;
+    while(node_name && node_name[i] && *(node_name[i])) {
+        ret = o2cb_del_node(cluster_name, node_name[i]);
+        if (ret) {
+            com_err(PROGNAME, ret, "while deleting node '%s' in cluster '%s'",
+                    node_name[i], cluster_name);
+            goto out_error;
+        }
+        i++;
+    }
+
+    ret = o2cb_remove_cluster(cluster_name);
+    if (ret && ret != O2CB_ET_SERVICE_UNAVAILABLE) {
+        com_err(PROGNAME, ret, "while removing cluster '%s'", cluster_name);
+        goto out_error;
+    }
+
+    rc = 0;
+
+out_error:
+    if (node_name)
+        o2cb_free_nodes_list(node_name);
+
+    if (cluster_name)
+        g_free(cluster_name);
+
+    return rc;
 }  /* offline_cluster() */
 
 static gint run_change_cluster_one(O2CBContext *ctxt,

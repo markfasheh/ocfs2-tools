@@ -226,6 +226,75 @@ load_module()
     return 0
 }
 
+#
+# check_heartbeat()
+#
+# 0 is hb not active, 1 is hb active
+#
+check_heartbeat()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "check_heartbeat(): Requires an argument" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+
+    for i in "/config/cluster/${CLUSTER}/heartbeat/"*
+    do
+        HBUUID="`echo $i | cut -f6 -d/`"
+        if [ "${HBUUID}" = "*" ]
+        then
+            break;
+        else
+            return 1;
+        fi
+    done
+    return 0
+}
+
+#
+# clean_heartbeat()
+# Removes the inactive heartbeat regions
+# 
+clean_heartbeat()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "clean_heartbeat(): Requires an argument" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+
+    echo -n "Cleaning heartbeat on ${CLUSTER}: "
+
+    for i in "/config/cluster/${CLUSTER}/heartbeat/"*
+    do
+        HBUUID="`echo $i | cut -f6 -d/`"
+        if [ "${HBUUID}" = "*" ]
+        then
+            break;
+        fi
+        OUTPUT="`ocfs2_hb_ctl -I -u ${HBUUID} 2>&1`"
+        if [ $? != 0 ]
+        then
+            echo "Failed"
+            echo "${OUTPUT}" >&2
+            exit 1
+        fi
+
+        REF="`echo ${OUTPUT} | awk '/refs/ {print $2; exit;}' 2>&1`"
+        if [ $REF != 0 ]
+        then
+           echo "Failed"
+           echo "Error: Atleast one heartbeat region still active" >&2
+           exit 1
+        else
+           OUTPUT="`ocfs2_hb_ctl -K -u ${HBUUID} 2>&1`"
+        fi
+    done
+    echo "OK"
+}
 
 #
 # unload_module()
@@ -270,6 +339,31 @@ unload_module()
     return 0
 }
 
+#
+# check_load_module()
+#
+# 0 is not loaded, 1 is error, 2 is already loaded
+#
+check_load_module()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "check_load_module(): Requires an argument" >&2
+        return 1
+    fi
+    MODNAME="$1"
+
+    echo -n "Module \"$MODNAME\": "
+    MODOUT="`awk '$1 ~ /^'$MODNAME'$/{print $1,$3;exit}' < /proc/modules 2>/dev/null`"
+    if [ -z "$MODOUT" ]
+    then
+        echo "Not loaded"
+        return 0
+    fi
+    echo "Loaded"
+    return 2
+}
+
 
 #
 # mount_fs()
@@ -306,6 +400,27 @@ mount_fs()
     return 0
 }
 
+#
+# check_mount_fs()
+#
+# 0 is not mounted, 1 is error, 2 is already mounted
+#
+check_mount_fs()
+{
+    TYPE="$1"
+    FULL_MOUNT="$2"
+    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
+    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
+
+    echo -n "Filesystem \"$TYPE\": "
+    if [ -n "$MOUNTOUT" ]
+    then
+        echo "Mounted"
+        return 2
+    fi
+    echo "Not mounted"
+    return 0
+}
 
 #
 # unmount_fs()
@@ -344,6 +459,14 @@ load()
     done
 }
 
+load_status()
+{
+    for i in $(seq 0 $((${#LOAD_ACTIONS[*]} - 1)) ); do
+	eval "check_${LOAD_ACTIONS[i]}"
+    done
+    return "$?"
+}
+
 online()
 {
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
@@ -361,6 +484,31 @@ online()
     echo -n "Starting cluster ${CLUSTER}: "
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
     if_fail "$?" "$OUTPUT"
+}
+
+offline()
+{
+    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
+    if [ -z "$CLUSTER" ]
+    then
+        return
+    fi
+
+    clean_heartbeat $CLUSTER
+
+    echo -n "Stopping cluster ${CLUSTER}: "
+    check_heartbeat $CLUSTER
+    if [ $? != 0 ]
+    then
+        echo "Failed"
+        echo "Unable to stop cluster as heartbeat region still active" >&2
+    fi
+
+    OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=no 2>&1`"
+    if_fail "$?" "$OUTPUT"
+
+    unload_module ocfs2
+    if_fail "$?"
 }
 
 start()
@@ -384,6 +532,7 @@ unload()
 
 stop()
 {
+    offline "$2"
     unload
 }
 
@@ -396,8 +545,32 @@ configure()
 
 status()
 {
-	echo broken
-	exit
+    load_status
+    if [ $? = 1 ]
+    then
+        return 0;
+    fi
+
+    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
+    if [ -z "$CLUSTER" ]
+    then
+        return 1;
+    fi
+
+#TODO Add Cluster online check
+
+    echo -n "Checking heartbeat: "
+    check_heartbeat $CLUSTER
+    if [ $? = 0 ]
+    then
+        echo "Not active"
+        return 0;
+    else
+        echo "Active"
+    fi
+
+    exit 1
+
     echo -n "Checking if O2CB is loaded: "
     RC=0
     for MODSPEC in $MODULE_LIST
@@ -470,8 +643,12 @@ case "$1" in
         online "$2"
         ;;
 
+    offline)
+        offline "$2"
+        ;;
+
     unload)
-        # offline
+        offline "$2"
         unload
         ;;
 
@@ -500,7 +677,7 @@ case "$1" in
         ;;
 
     *)
-        echo "Usage: $0 {start|stop|restart|enable|disable|configure|load|unload|online|status}"
+        echo "Usage: $0 {start|stop|restart|enable|disable|configure|load|unload|online|offline|status}"
         exit 1
         ;;
 esac
