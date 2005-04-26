@@ -229,7 +229,7 @@ load_module()
 #
 # check_heartbeat()
 #
-# 0 is hb not active, 1 is hb active
+# 0 is hb not active, 1 is error, 2 is hb active
 #
 check_heartbeat()
 {
@@ -247,7 +247,7 @@ check_heartbeat()
         then
             break;
         else
-            return 1;
+            return 2;
         fi
     done
     return 0
@@ -287,7 +287,7 @@ clean_heartbeat()
         if [ $REF != 0 ]
         then
            echo "Failed"
-           echo "Error: Atleast one heartbeat region still active" >&2
+           echo "Atleast one heartbeat region still active" >&2
            exit 1
         else
            OUTPUT="`ocfs2_hb_ctl -K -u ${HBUUID} 2>&1`"
@@ -388,7 +388,7 @@ mount_fs()
         make_dir $FULL_MOUNT
         if_fail "$?"
     fi
-	
+
     echo -n "Mounting ${TYPE} filesystem at $FULL_MOUNT: "
     mount -t ${TYPE} ${TYPE} $FULL_MOUNT
     if [ $? != 0 ]
@@ -454,7 +454,7 @@ unmount_fs()
 load()
 {
     for i in $(seq 0 $((${#LOAD_ACTIONS[*]} - 1)) ); do
-	eval ${LOAD_ACTIONS[i]}
+        eval ${LOAD_ACTIONS[i]}
         if_fail "$?"
     done
 }
@@ -462,7 +462,7 @@ load()
 load_status()
 {
     for i in $(seq 0 $((${#LOAD_ACTIONS[*]} - 1)) ); do
-	eval "check_${LOAD_ACTIONS[i]}"
+        eval "check_${LOAD_ACTIONS[i]}"
     done
     return "$?"
 }
@@ -475,15 +475,46 @@ online()
         return
     fi
 
-    #
-    # FIXME FIXME FIXME
-    # Right now, there is no way to check if we're already online.
-    # So this will always fail the second time around.  Ugh.
-    #
+    check_online $CLUSTER
+    if [ $? = 2 ]
+    then
+        echo "Cluster ${CLUSTER} already online"
+        return
+    fi
 
     echo -n "Starting cluster ${CLUSTER}: "
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
     if_fail "$?" "$OUTPUT"
+}
+
+#
+# check_online()
+#
+# 0 is not online, 1 is error, 2 is online
+#
+check_online()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "check_online(): Requires an argument" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+
+    for i in "/config/cluster/${CLUSTER}/node/"*
+    do
+        NODE="`echo $i | cut -f6 -d/`"
+        if [ "${NODE}" = "*" ]
+        then
+            return 0
+        fi
+        LOCAL="`cat \"/config/cluster/${CLUSTER}/node/${NODE}/local\"`"
+        if [ $LOCAL = 1 ]
+        then
+            return 2
+        fi
+    done
+    return 0
 }
 
 offline()
@@ -525,7 +556,7 @@ start()
 unload()
 {
     for i in $(seq $((${#LOAD_ACTIONS[*]} - 1)) -1 0); do
-	eval "un${LOAD_ACTIONS[i]}"
+        eval "un${LOAD_ACTIONS[i]}"
         if_fail "$?"
     done
 }
@@ -546,7 +577,7 @@ configure()
 status()
 {
     load_status
-    if [ $? = 1 ]
+    if [ $? != 2 ]
     then
         return 0;
     fi
@@ -557,19 +588,27 @@ status()
         return 1;
     fi
 
-#TODO Add Cluster online check
+    echo -n "Checking cluster: "
+    check_online $CLUSTER
+    if [ $? = 2 ]
+    then
+       echo "Online"
+    else
+       echo "Offline"
+       return 0;
+    fi
 
     echo -n "Checking heartbeat: "
     check_heartbeat $CLUSTER
-    if [ $? = 0 ]
+    if [ $? = 2 ]
     then
+        echo "Active"
+    else
         echo "Not active"
         return 0;
-    else
-        echo "Active"
     fi
 
-    exit 1
+    return
 
     echo -n "Checking if O2CB is loaded: "
     RC=0
