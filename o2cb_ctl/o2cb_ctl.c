@@ -1361,6 +1361,9 @@ gint main(gint argc, gchar *argv[])
     int rc;
     O2CBContext ctxt = {0, };
 
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
+
     initialize_o2cb_error_table();
     rc = parse_options(argc, argv, &ctxt);
     if (rc)

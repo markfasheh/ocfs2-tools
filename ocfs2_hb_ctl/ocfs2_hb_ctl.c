@@ -207,6 +207,9 @@ int main(int argc, char **argv)
 	struct hb_ctl_options hbo = { HB_ACTION_UNKNOWN, NULL, NULL };
 	char hbuuid[33];
 
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();

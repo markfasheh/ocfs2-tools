@@ -484,6 +484,17 @@ online()
 
     echo -n "Starting cluster ${CLUSTER}: "
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
+    if [ $? = 0 ]
+    then
+        echo "OK"
+        return
+    else
+        echo "Failed"
+        echo "$OUTPUT"
+    fi
+
+    echo -n "Stopping cluster ${CLUSTER}: "
+    OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=no 2>&1`"
     if_fail "$?" "$OUTPUT"
 }
 
