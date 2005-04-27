@@ -1359,15 +1359,24 @@ out_error:
 gint main(gint argc, gchar *argv[])
 {
     int rc;
+    errcode_t ret;
     O2CBContext ctxt = {0, };
 
     setbuf(stdout, NULL);
     setbuf(stderr, NULL);
 
     initialize_o2cb_error_table();
+
     rc = parse_options(argc, argv, &ctxt);
     if (rc)
         print_usage(rc);
+
+    ret = o2cb_init();
+    if (ret) {
+	com_err(PROGNAME, ret, "Cannot initialize cluster\n");
+	rc = -EINVAL;
+	goto out_error;
+    }
 
     switch (ctxt.oc_op)
     {
@@ -1406,5 +1415,6 @@ gint main(gint argc, gchar *argv[])
         o2cb_config_free(ctxt.oc_config);
     clear_attrs(&ctxt);
 
+out_error:
     return rc;
 }  /* main() */

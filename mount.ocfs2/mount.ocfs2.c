@@ -300,6 +300,12 @@ int main(int argc, char **argv)
 	if (ret)
 		goto bail;
 
+	ret = o2cb_init();
+	if (ret) {
+		com_err(progname, ret, "Cannot initialize cluster\n");
+		goto bail;
+	}
+
 	if (verbose)
 		printf("device=%s\n", mo.dev);
 

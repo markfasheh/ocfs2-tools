@@ -231,6 +231,13 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
+	err = o2cb_init();
+	if (err) {
+		com_err(progname, err, "Cannot initialize cluster\n");
+		ret = -EINVAL;
+		goto bail;
+	}
+
 	if (!hbo.uuid_str) {
 		err = get_uuid(hbo.dev_str, hbuuid);
 		if (err) {

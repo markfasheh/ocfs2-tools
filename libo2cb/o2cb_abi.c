@@ -47,6 +47,8 @@
 
 #include "o2cb_crc32.h"
 
+#include "ocfs2_nodemanager.h"
+
 errcode_t o2cb_create_cluster(const char *cluster_name)
 {
 	char path[PATH_MAX];
@@ -405,6 +407,58 @@ errcode_t o2cb_del_node(const char *cluster_name, const char *node_name)
 
 out:
 	return err;
+}
+
+#define O2CB_NM_REVISION_PATH	"/proc/fs/ocfs2_nodemanager/interface_revision"
+errcode_t o2cb_init(void)
+{
+	int ret, fd;
+	unsigned int module_version;
+	errcode_t err;
+	char revision_string[16];
+
+	fd = open(O2CB_NM_REVISION_PATH, O_RDONLY);
+	if (fd == -1) {
+		switch (errno) {
+			default:
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+
+			case ENOTDIR:
+			case ENOENT:
+			case EISDIR:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			case EACCES:
+			case EPERM:
+			case EROFS:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+		}
+		return err;
+	}
+
+	ret = do_read(fd, revision_string, sizeof(revision_string) - 1);
+	close(fd);
+
+	if (ret < 0) {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		if (ret == -EIO)
+			err = O2CB_ET_IO;
+		return err;
+	}
+
+	revision_string[ret] = '\0';
+
+	ret = sscanf(revision_string, "%u\n", &module_version);
+	if (ret < 0)
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	if (NM_API_VERSION < module_version)
+		return O2CB_ET_BAD_VERSION;
+
+	return 0;
 }
 
 static errcode_t o2cb_set_region_attribute(const char *cluster_name,

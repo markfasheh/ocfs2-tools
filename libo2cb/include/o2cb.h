@@ -47,6 +47,8 @@
 #include <o2cb/o2cb_err.h>
 #endif
 
+errcode_t o2cb_init(void);
+
 errcode_t o2cb_create_cluster(const char *cluster_name);
 errcode_t o2cb_remove_cluster(const char *cluster_name);
 

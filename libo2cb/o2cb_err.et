@@ -75,4 +75,7 @@ ec	O2CB_ET_BAD_SEM,
 ec	O2CB_ET_NO_SEM,
 	"Region semaphore set destroyed"
 
+ec	O2CB_ET_BAD_VERSION,
+	"Revision of OCFS2-Tools is out of date."
+
 	end

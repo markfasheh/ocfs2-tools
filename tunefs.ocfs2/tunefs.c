@@ -566,6 +566,12 @@ int main(int argc, char **argv)
 
 	get_options(argc, argv);
 
+	ret = o2cb_init();
+	if (ret) {
+		com_err(opts.progname, ret, "Cannot initialize cluster\n");
+		exit(1);
+	}
+
 	ret = ocfs2_open(opts.device, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
 		com_err(opts.progname, ret, " ");

@@ -498,6 +498,12 @@ int main(int argc, char **argv)
 		}
 	}
 
+	ret = o2cb_init();
+	if (ret) {
+		com_err(whoami, ret, "Cannot initialize cluster\n");
+		fsck_mask |= FSCK_ERROR;
+		goto out;
+	}
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
 		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
