@@ -346,8 +346,7 @@ class ClusterConfig(Dialog):
             table.attach(widget, 1, 2, row, row + 1)
 
             if field.column == COLUMN_NAME:
-                #XXX widget.set_max_length(ocfs2.MAX_NODE_NAME_LENGTH)
-                pass
+                widget.set_max_length(o2cb.NM_MAX_NAME_LEN)
             elif field.column == COLUMN_IP_PORT:
                 widget.set_numeric(True)
 

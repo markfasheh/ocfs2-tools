@@ -28,7 +28,9 @@
 
 #include "o2cb.h"
 #include "o2cb_abi.h"
+#include "ocfs2_nodemanager.h"
 
+/* FIXME: right now we don't wrap the init function */
 
 typedef struct {
   PyObject_HEAD
@@ -532,6 +534,18 @@ add_constants (PyObject *m)
   ADD_STR_CONSTANT (HEARTBEAT_REGION_ATTR);
 
 #undef ADD_STR_CONSTANT
+
+#define ADD_INT_CONSTANT(name) \
+    PyModule_AddIntConstant (m, "NM_" #name, NM_ ## name)
+
+  ADD_INT_CONSTANT (API_VERSION);
+
+  ADD_INT_CONSTANT (MAX_NODES);
+  ADD_INT_CONSTANT (INVALID_SLOT_NUM);
+
+  ADD_INT_CONSTANT (MAX_NAME_LEN);
+
+#undef ADD_INT_CONSTANT
 }
 
 void
