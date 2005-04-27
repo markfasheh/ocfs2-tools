@@ -41,6 +41,7 @@ CFILES = 		\
 	o2cb_crc32.c
 
 HFILES =				\
+	include/ocfs2_nodemanager.h	\
 	include/o2cb_abi.h		\
 	include/o2cb_crc32.h		\
 	include/o2cb.h
