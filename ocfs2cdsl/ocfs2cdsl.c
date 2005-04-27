@@ -46,7 +46,8 @@
 #include "ocfs2.h"
 
 
-#define CDSL_BASE  ".cluster"
+#define CDSL_BASE       ".cluster"
+#define CDSL_COMMON_DIR "common"
 
 #define PROC_OCFS2 "/proc/fs/ocfs2"
 
@@ -81,6 +82,7 @@ struct _State {
 
 	gboolean copy;
 	gboolean local;
+	gboolean no_common;
 
 	gboolean force;
 	gboolean dry_run;
@@ -104,13 +106,21 @@ struct _State {
 static State *get_state (int argc, char **argv);
 static void usage(const char *progname);
 static void version(const char *progname);
+static void run_command(State *s, const char *cmd);
 static char *verify_ocfs2(State *s);
 static char *get_ocfs2_root(const char *path);
 static CDSLType cdsl_type_from_string(const char *str);
+static char *cdsl_common_path(State *s);
 static char *cdsl_path_expand(State *s);
+static char *cdsl_source_directory(State *s, const char *fsroot,
+				   const char *path);
 static char *cdsl_target(State *s, const char *path);
+static void copy(State *s, const char *src, const char *dest);
 static void delete(State *s, const char *path);
 static char *get_node_num(State *s);
+static void create_directory(State *s, const char *path);
+static void move_file_to_cdsl_store(State *s, const char *fsroot,
+				    const char *path);
 
 
 extern char *optarg;
@@ -122,12 +132,9 @@ main(int argc, char **argv)
 {
 	State *s;
 	char *fsroot, *path;
-	char *cmd, *cmd_err, *quoted;
-	int ret;
+	char *prefix, *store_file, *dir;
 	gboolean exists;
-	char *cdsl_path, *cdsl_full;
 	char *target, *quoted_target;
-	GError *error = NULL;
 
 	s = get_state(argc, argv);
 
@@ -136,6 +143,12 @@ main(int argc, char **argv)
 	exists = g_file_test(s->fullname, G_FILE_TEST_EXISTS);
 
 	if (exists) {
+		if (g_file_test(s->fullname, G_FILE_TEST_IS_SYMLINK)) {
+			com_err(s->progname, 0, "%s is already a symbolic link",
+				s->quoted_fullname);
+			exit(1);
+		}
+
 		if (!g_file_test(s->fullname,
 				 G_FILE_TEST_IS_REGULAR | G_FILE_TEST_IS_DIR)) {
 			com_err(s->progname, 0, "%s is not a file or directory",
@@ -144,7 +157,7 @@ main(int argc, char **argv)
 		}
 	}
 	else if (s->copy) {
-		com_err(s->progname, 0, "%s does not exist, but copy requested",
+		com_err(s->progname, 0, "%s does not exist, no file to copy",
 			s->quoted_fullname);
 		exit(1);
 	}
@@ -156,7 +169,7 @@ main(int argc, char **argv)
 		}
 		else {
 			com_err(s->progname, 0,
-				"%s already exists, but copy (-c) or "
+				"%s already exists, but copy not requested or "
 				"force (-f) not given",
 				s->quoted_fullname);
 			exit(1);
@@ -165,68 +178,30 @@ main(int argc, char **argv)
 
 	path = s->dirname + strlen(fsroot) + 1;
 
-	if (exists) {
-		cdsl_path = g_build_filename(fsroot, cdsl_path_expand(s),
-					     path, NULL);
+	if (exists)
+		move_file_to_cdsl_store(s, fsroot, path);
+	else {
+		dir = cdsl_source_directory(s, fsroot, path);
 
-		quoted = g_shell_quote(cdsl_path);
-		cmd = g_strdup_printf("mkdir -p %s", quoted);
-		g_free(quoted);
+		if (!s->no_common) {
+			prefix = cdsl_common_path(s);
+			store_file = g_build_filename(fsroot, prefix, path,
+						      s->filename, NULL);
+			g_free(prefix);
 
-		if (s->verbose || s->dry_run)
-			printf("%s\n", cmd);
+			if (g_file_test(store_file, G_FILE_TEST_EXISTS))
+				copy(s, store_file, dir);
 
-		if (!s->dry_run) {
-			if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err,
-						       &ret, &error)) {
-				com_err(s->progname, 0,
-					"could not run mkdir: %s",
-					error->message);
-				exit(1);
-			}
-
-			if (ret != 0) {
-				com_err(s->progname, 0, "mkdir error: %s",
-					cmd_err);
-				exit(1);
-			}
+			g_free(store_file);
 		}
 
-		g_free(cmd);
-
-		cdsl_full = g_build_filename(cdsl_path, s->filename, NULL);
-
-		if (g_file_test(cdsl_full, G_FILE_TEST_EXISTS)) {
-			if (s->force)
-				delete(s, cdsl_full);
-			else {
-				com_err(s->progname, 0,
-					"CDSL already exists. To replace, use "
-					"the force (-f) option");
-				exit(1);
-			}
-		}
-
-		if (s->verbose || s->dry_run) {
-			quoted = g_shell_quote(cdsl_full);
-			printf("mv %s %s\n", s->quoted_fullname, quoted);
-			g_free(quoted);
-		}
-
-		if (!s->dry_run) {
-			if (rename(s->fullname, cdsl_full) != 0) {
-				com_err(s->progname, errno,
-					"could not rename %s",
-					s->quoted_fullname);
-				exit(1);
-			}
-		}
-
-		g_free (cdsl_full);
-		g_free (cdsl_path);
+		g_free(dir);
 	}
 
-	target = g_build_filename(cdsl_target(s, path), s->filename, NULL);
+	dir = cdsl_target(s, path);
+	target = g_build_filename(dir, s->filename, NULL);
+	g_free(dir);
+
 	quoted_target = g_shell_quote(target);
 
 	if (s->verbose || s->dry_run)
@@ -251,7 +226,8 @@ static State *
 get_state(int argc, char **argv)
 {
 	char *progname;
-	gboolean copy = FALSE, local = FALSE, force = FALSE, dry_run = FALSE;
+	gboolean copy = FALSE, local = FALSE, no_common = FALSE;
+	gboolean force = FALSE, dry_run = FALSE;
 	gboolean quiet = FALSE, verbose = FALSE, show_version = FALSE;
 	CDSLType type = CDSL_TYPE_HOSTNAME;
 	char *filename, *dirname, *tmp;
@@ -262,6 +238,7 @@ get_state(int argc, char **argv)
 		{ "type", 1, 0, 't' },
 		{ "copy", 0, 0, 'c' },
 		{ "local", 0, 0, 'L' },
+		{ "no-common", 0, 0, 'N' },
 		{ "force", 0, 0, 'f' },
 		{ "dry-run", 0, 0, 'n' },
 		{ "verbose", 0, 0, 'v' },
@@ -276,7 +253,7 @@ get_state(int argc, char **argv)
 		progname = g_strdup("ocfs2cdsl");
 
 	while (1) {
-		c = getopt_long(argc, argv, "t:acLfnvqV", long_options, NULL);
+		c = getopt_long(argc, argv, "t:acLNfnvqV", long_options, NULL);
 
 		if (c == -1)
 			break;
@@ -285,9 +262,9 @@ get_state(int argc, char **argv)
 		case 't':
 			type = cdsl_type_from_string(optarg);
 			if (type == CDSL_TYPE_UNKNOWN) {
-				fprintf(stderr, "%s: '%s' not a recognized "
-						"type\n",
-					progname, optarg);
+				com_err(progname, 0,
+					"'%s' not a recognized type\n",
+					optarg);
 				exit(1);
 			}
 			break;
@@ -296,6 +273,9 @@ get_state(int argc, char **argv)
 			break;
 		case 'L':
 			local = TRUE;
+			break;
+		case 'N':
+			no_common = TRUE;
 			break;
 		case 'f':
 			force = TRUE;
@@ -333,9 +313,7 @@ get_state(int argc, char **argv)
 	g_free(tmp);
 
 	if (dirname == NULL) {
-		fprintf(stderr, "%s: %s: %s\n", progname,
-			g_path_get_dirname(filename),
-			g_strerror(errno));
+		com_err(progname, errno, g_path_get_dirname(filename));
 		exit(1);
 	}
 
@@ -347,23 +325,24 @@ get_state(int argc, char **argv)
 
 	s = g_new0(State, 1);
 
-	s->progname = progname;
+	s->progname  = progname;
 
-	s->type     = type;
+	s->type      = type;
 
-	s->copy     = copy;
-	s->local    = local;
+	s->copy      = copy;
+	s->local     = local;
+	s->no_common = no_common;
 
-	s->force    = force;
-	s->dry_run  = dry_run;
+	s->force     = force;
+	s->dry_run   = dry_run;
 
-	s->verbose  = verbose;
-	s->quiet    = quiet;
+	s->verbose   = verbose;
+	s->quiet     = quiet;
 
-	s->dirname  = g_strdup(dirname);
-	s->filename = g_path_get_basename(filename);
+	s->dirname   = g_strdup(dirname);
+	s->filename  = g_path_get_basename(filename);
 
-	s->fullname = g_build_filename(s->dirname, s->filename, NULL);
+	s->fullname  = g_build_filename(s->dirname, s->filename, NULL);
 
 	free(dirname);
 
@@ -384,7 +363,7 @@ usage(const char *progname)
 	for (name = cdsl_names; *name; name++)
 		fprintf(stderr, " %s", *name);
 
-	fprintf(stderr, "] [filename]\n");
+	fprintf(stderr, "] filename\n");
 	exit(1);
 }
 
@@ -394,18 +373,43 @@ version(const char *progname)
 	printf("%s %s\n", progname, VERSION);
 }
 
-static CDSLType
-cdsl_type_from_string(const char *str)
+static void
+run_command(State *s, const char *cmd)
 {
-	const char * const *name;
-	CDSLType type;
+	char *name, *space, *cmd_err;
+	int len, ret;
+	GError *error = NULL;
 
-	for (name = cdsl_names, type = CDSL_TYPE_HOSTNAME; *name;
-	     name++, type++)
-		if (strcmp(str, *name) == 0)
-			break;
+	space = strchr(cmd, ' ');
 
-	return type;
+	if (space) {
+		len = space - cmd;  	
+		name = g_new(char, space - cmd);
+		strncpy(name, cmd, len);
+		name[len] = '\0';
+	}
+	else
+		name = g_strdup(cmd);
+
+	if (s->verbose || s->dry_run)
+		printf("%s\n", cmd);
+
+	if (!s->dry_run) {
+		if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err,
+					       &ret, &error)) {
+			com_err(s->progname, 0,
+				"could not run %s: %s",
+				name, error->message);
+				exit(1);
+		}
+
+		if (ret != 0) {
+			com_err(s->progname, 0, "%s error: %s", name, cmd_err);
+			exit(1);
+		}
+
+		g_free(cmd_err);
+	}
 }
 
 static char *
@@ -476,6 +480,32 @@ get_ocfs2_root(const char *path)
 	return ret;
 }
 
+static CDSLType
+cdsl_type_from_string(const char *str)
+{
+	const char * const *name;
+	CDSLType type;
+
+	for (name = cdsl_names, type = CDSL_TYPE_HOSTNAME; *name;
+	     name++, type++)
+		if (strcmp(str, *name) == 0)
+			break;
+
+	return type;
+}
+
+static char *
+cdsl_common_path(State *s)
+{
+	const char *prefix;
+
+	g_assert(s->type < CDSL_TYPE_UNKNOWN);
+
+	prefix = cdsl_names[s->type];
+
+	return g_build_filename(CDSL_BASE, CDSL_COMMON_DIR, prefix, NULL);
+}
+
 static char *
 cdsl_path_expand(State *s)
 {
@@ -524,6 +554,20 @@ cdsl_path_expand(State *s)
 }
 
 static char *
+cdsl_source_directory(State *s, const char *fsroot, const char *path)
+{
+	char *prefix, *dir;
+
+	prefix = cdsl_path_expand(s);
+	dir = g_build_filename(fsroot, prefix, path, NULL);
+	g_free(prefix);
+
+	create_directory(s, dir);
+
+	return dir;
+}
+
+static char *
 cdsl_target(State *s, const char *path)
 {
 	const char *type;
@@ -554,33 +598,32 @@ cdsl_target(State *s, const char *path)
 }
 
 static void
+copy(State *s, const char *src, const char *dest)
+{
+	char *cmd, *quoted_src, *quoted_dest;
+
+	quoted_src = g_shell_quote(src);
+	quoted_dest = g_shell_quote(dest);
+
+	cmd = g_strdup_printf("cp -a %s %s", quoted_src, quoted_dest);
+
+	g_free(quoted_src);
+	g_free(quoted_dest);
+
+	run_command(s, cmd);
+	g_free(cmd);
+}
+
+static void
 delete(State *s, const char *path)
 {
-	char *cmd, *cmd_err, *quoted;
-	int ret;
-	GError *error = NULL;
+	char *cmd, *quoted;
 
 	quoted = g_shell_quote(path);
 	cmd = g_strdup_printf("rm -rf %s", quoted);
 	g_free(quoted);
 
-	if (s->verbose || s->dry_run)
-		printf("%s\n", cmd);
-
-	if (!s->dry_run) {
-		if (!g_spawn_command_line_sync(cmd, NULL, &cmd_err, &ret,
-					       &error)) {
-			com_err(s->progname, 0, "could not run rm: %s",
-				error->message);
-			exit(1);
-		}
-
-		if (ret != 0) {
-			com_err(s->progname, 0, "rm error: %s", cmd_err);
-			exit(1);
-		}
-	}
-
+	run_command(s, cmd);
 	g_free(cmd);
 }
 
@@ -631,4 +674,69 @@ get_node_num(State *s)
 	}
 
 	return g_strdup(buf);
+}
+
+static void
+create_directory(State *s, const char *path)
+{
+	char *cmd, *quoted;
+
+	quoted = g_shell_quote(path);
+	cmd = g_strdup_printf("mkdir -p %s", quoted);
+	g_free(quoted);
+
+	run_command(s, cmd);
+	g_free(cmd);
+}
+
+static void
+move_file_to_cdsl_store(State *s, const char *fsroot, const char *path)
+{
+	char *prefix, *cdsl_path, *cdsl_full, *quoted, *dir;
+
+	if (s->local)
+		prefix = cdsl_path_expand(s);
+	else
+		prefix = cdsl_common_path(s);
+
+	cdsl_path = g_build_filename(fsroot, prefix, path, NULL);
+	g_free(prefix);
+
+	create_directory(s, cdsl_path);
+
+	cdsl_full = g_build_filename(cdsl_path, s->filename, NULL);
+	g_free (cdsl_path);
+
+	if (g_file_test(cdsl_full, G_FILE_TEST_EXISTS)) {
+		if (s->force)
+			delete(s, cdsl_full);
+		else {
+			com_err(s->progname, 0,
+				"CDSL already exists. To replace, use the "
+				"force (-f) option");
+				exit(1);
+		}
+	}
+
+	if (s->verbose || s->dry_run) {
+		quoted = g_shell_quote(cdsl_full);
+		printf("mv %s %s\n", s->quoted_fullname, quoted);
+		g_free(quoted);
+	}
+
+	if (!s->dry_run) {
+		if (rename(s->fullname, cdsl_full) != 0) {
+			com_err(s->progname, errno, "could not rename %s",
+				s->quoted_fullname);
+			exit(1);
+		}
+	}
+
+	if (!s->local) {
+		dir = cdsl_source_directory(s, fsroot, path);
+		copy(s, cdsl_full, dir);
+		g_free(dir);
+	}
+	
+	g_free (cdsl_full);
 }
