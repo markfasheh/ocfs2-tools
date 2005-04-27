@@ -39,12 +39,6 @@ int ocfs2_check_volume(State *s)
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
 
-	ret = o2cb_init();
-	if (ret) {
-		com_err(s->progname, ret, "Cannot initialize cluster\n");
-		return -1;
-	}
-
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
 		if (ret == OCFS2_ET_OCFS_REV)
@@ -54,6 +48,13 @@ int ocfs2_check_volume(State *s)
 		fprintf(stdout, "Overwriting existing ocfs2 partition.\n");
 
 	if (!s->force) {
+		ret = o2cb_init();
+		if (ret) {
+			com_err(s->progname, ret,
+				"Cannot initialize cluster\n");
+			return -1;
+		}
+
 		ret = ocfs2_initialize_dlm(fs);
 		if (ret) {
 			ocfs2_close(fs);
