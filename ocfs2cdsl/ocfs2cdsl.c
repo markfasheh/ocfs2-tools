@@ -115,12 +115,14 @@ static char *cdsl_path_expand(State *s);
 static char *cdsl_source_directory(State *s, const char *fsroot,
 				   const char *path);
 static char *cdsl_target(State *s, const char *path);
+static gboolean cdsl_match(State *s, const char *path, const char *cdsl);
 static void copy(State *s, const char *src, const char *dest);
 static void delete(State *s, const char *path);
 static char *get_node_num(State *s);
 static void create_directory(State *s, const char *path);
-static void move_file_to_cdsl_store(State *s, const char *fsroot,
-				    const char *path);
+static void make_common_file(State *s, const char *fsroot, const char *path);
+static void copy_common_file(State *s, const char *fsroot, const char *path,
+			     const char *dir);
 
 
 extern char *optarg;
@@ -132,7 +134,7 @@ main(int argc, char **argv)
 {
 	State *s;
 	char *fsroot, *path;
-	char *prefix, *store_file, *dir;
+	char *filename, *dir;
 	gboolean exists;
 	char *target, *quoted_target;
 
@@ -140,18 +142,42 @@ main(int argc, char **argv)
 
 	fsroot = verify_ocfs2(s);
 
-	exists = g_file_test(s->fullname, G_FILE_TEST_EXISTS);
+	path = s->dirname + strlen(fsroot) + 1;
 
-	if (exists) {
-		if (g_file_test(s->fullname, G_FILE_TEST_IS_SYMLINK)) {
-			com_err(s->progname, 0, "%s is already a symbolic link",
+	dir = cdsl_target(s, path);
+	target = g_build_filename(dir, s->filename, NULL);
+	g_free(dir);
+
+	quoted_target = g_shell_quote(target);
+
+	if (g_file_test(s->fullname, G_FILE_TEST_IS_SYMLINK)) {
+		if (!s->copy && cdsl_match(s, s->fullname, target)) {
+			dir = cdsl_source_directory(s, fsroot, path);
+			filename = g_build_filename(dir, s->filename, NULL);
+
+			if (!g_file_test(filename, G_FILE_TEST_EXISTS))
+				copy_common_file(s, fsroot, path, dir);
+
+			g_free(filename);
+			g_free(dir);
+
+			exit(1);
+		}			 
+		else {
+			com_err(s->progname, 0,
+				"%s is already a symbolic link",
 				s->quoted_fullname);
 			exit(1);
 		}
+	}
 
+	exists = g_file_test(s->fullname, G_FILE_TEST_EXISTS);
+
+	if (exists) {
 		if (!g_file_test(s->fullname,
 				 G_FILE_TEST_IS_REGULAR | G_FILE_TEST_IS_DIR)) {
-			com_err(s->progname, 0, "%s is not a file or directory",
+			com_err(s->progname, 0,
+				"%s is not a file or a directory",
 				s->quoted_fullname);
 			exit(1);
 		}
@@ -176,33 +202,16 @@ main(int argc, char **argv)
 		}
 	}
 
-	path = s->dirname + strlen(fsroot) + 1;
-
 	if (exists)
-		move_file_to_cdsl_store(s, fsroot, path);
+		make_common_file(s, fsroot, path);
 	else {
 		dir = cdsl_source_directory(s, fsroot, path);
 
-		if (!s->no_common) {
-			prefix = cdsl_common_path(s);
-			store_file = g_build_filename(fsroot, prefix, path,
-						      s->filename, NULL);
-			g_free(prefix);
-
-			if (g_file_test(store_file, G_FILE_TEST_EXISTS))
-				copy(s, store_file, dir);
-
-			g_free(store_file);
-		}
+		if (!s->no_common)
+			copy_common_file(s, fsroot, path, dir);
 
 		g_free(dir);
 	}
-
-	dir = cdsl_target(s, path);
-	target = g_build_filename(dir, s->filename, NULL);
-	g_free(dir);
-
-	quoted_target = g_shell_quote(target);
 
 	if (s->verbose || s->dry_run)
 		printf("ln -s %s %s\n", quoted_target, s->quoted_fullname);
@@ -597,6 +606,24 @@ cdsl_target(State *s, const char *path)
 	return ret;
 }
 
+static gboolean
+cdsl_match(State *s, const char *path, const char *cdsl)
+{
+	char buf[PATH_MAX];
+	int n;
+
+	n = readlink(path, buf, sizeof(buf) - 1);
+
+	if (n < 0) {
+		com_err(s->progname, errno, "readlink");
+		exit(1);
+	}
+
+	buf[n] = '\0';
+
+	return strcmp(buf, cdsl) == 0;
+}
+
 static void
 copy(State *s, const char *src, const char *dest)
 {
@@ -690,7 +717,7 @@ create_directory(State *s, const char *path)
 }
 
 static void
-move_file_to_cdsl_store(State *s, const char *fsroot, const char *path)
+make_common_file(State *s, const char *fsroot, const char *path)
 {
 	char *prefix, *cdsl_path, *cdsl_full, *quoted, *dir;
 
@@ -739,4 +766,20 @@ move_file_to_cdsl_store(State *s, const char *fsroot, const char *path)
 	}
 	
 	g_free (cdsl_full);
+}
+
+static void
+copy_common_file(State *s, const char *fsroot, const char *path,
+		 const char *dir)
+{
+	char *prefix, *filename;
+
+	prefix = cdsl_common_path(s);
+	filename = g_build_filename(fsroot, prefix, path, s->filename, NULL);
+	g_free(prefix);
+
+	if (g_file_test(filename, G_FILE_TEST_EXISTS))
+		copy(s, filename, dir);
+
+	g_free(filename);
 }
