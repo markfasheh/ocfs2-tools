@@ -31,6 +31,12 @@
 
 #include "bitops.h"
 
+/*
+ * XXX: We're not endian safe at all, and have just hacked in big endian
+ * bitops for the arches we want to test on (ppc32 and s390x userland).
+ * Post-1.0, we have to revisit this.
+ */
+
 #ifndef _OCFS2_HAVE_ASM_BITOPS_
 
 /*
@@ -43,11 +49,21 @@
  * systems, as well as non-32 bit systems.
  */
 
-#ifdef __powerpc__
+#if defined(__powerpc__)
 int ocfs2_set_bit(int nr,void * addr)
 {
 	unsigned long mask = 1 << (nr & 0x1f);
 	unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
+	unsigned long old = *p;
+
+	*p = old | mask;
+	return (old & mask) != 0;
+}
+#elif defined(__s390x__)
+int ocfs2_set_bit(int nr,void * addr)
+{
+	unsigned long mask = 1UL << (nr & 0x3f);
+	unsigned long *p = ((unsigned long *)addr) + (nr >> 6);
 	unsigned long old = *p;
 
 	*p = old | mask;
@@ -67,11 +83,21 @@ int ocfs2_set_bit(int nr,void * addr)
 }
 #endif
 
-#ifdef __powerpc__
+#if defined(__powerpc__)
 int ocfs2_clear_bit(int nr, void * addr)
 {
 	unsigned long mask = 1 << (nr & 0x1f);
 	unsigned long *p = ((unsigned long *)addr) + (nr >> 5);
+	unsigned long old = *p;
+
+	*p = old & ~mask;
+	return (old & mask) != 0;
+}
+#elif defined(__s390x__)
+int ocfs2_clear_bit(int nr, void * addr)
+{
+	unsigned long mask = 1UL << (nr & 0x3f);
+	unsigned long *p = ((unsigned long *)addr) + (nr >> 6);
 	unsigned long old = *p;
 
 	*p = old & ~mask;
@@ -91,12 +117,19 @@ int ocfs2_clear_bit(int nr, void * addr)
 }
 #endif
 
-#ifdef __powerpc__
+#if defined(__powerpc__)
 int ocfs2_test_bit(int nr, const void * addr)
 {
 	const unsigned int *p = (const unsigned int *) addr;
 
 	return ((p[nr >> 5] >> (nr & 0x1f)) & 1) != 0;
+}
+#elif defined(__s390x__)
+int ocfs2_test_bit(int nr, const void * addr)
+{
+	const unsigned long *p = (const unsigned long *) addr;
+
+	return ((p[nr >> 6] >> (nr & 0x3f)) & 1UL) != 0;
 }
 #else
 int ocfs2_test_bit(int nr, const void * addr)
@@ -115,7 +148,7 @@ int ocfs2_test_bit(int nr, const void * addr)
 #if !defined(_OCFS2_HAVE_ASM_FINDBIT_)
 #include <strings.h>
 
-#ifdef __powerpc__
+#if defined(__powerpc__)
 static inline int __ilog2(unsigned long x)
 {
         int lz;
@@ -123,19 +156,96 @@ static inline int __ilog2(unsigned long x)
         asm ("cntlzw %0,%1" : "=r" (lz) : "r" (x));
         return 31 - lz;
 }
-                                                                                                                                                         
+
 static inline int ffz(unsigned int x)
 {
         if ((x = ~x) == 0)
                 return 32;
         return __ilog2(x & -x);
 }
-                                                                                                                                                         
+
 static inline int __ffs(unsigned long x)
 {
-        return __ilog2(x & -x);
+	return __ilog2(x & -x);
 }
-#endif	/* __powerpc__ */
+#elif defined(__s390x__)
+
+static const char const _zb_findmap[] = {
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,7,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,8
+};
+
+static const char const _sb_findmap[] = {
+	8,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	7,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0
+};
+
+static inline int ffz(unsigned long word)
+{
+	int bit = 0;
+
+	if ((word & 0xffffffff) == 0xffffffff) {
+		word >>= 32;
+		bit += 32;
+	}
+	if ((word & 0xffff) == 0xffff) {
+		word >>= 16;
+		bit += 16;
+	}
+	if ((word & 0xff) == 0xff) {
+		word >>= 8;
+		bit += 8;
+	}
+	return bit + _zb_findmap[word & 0xff];
+}
+
+static inline int __ffs(unsigned long word)
+{
+	int bit = 0;
+
+	if ((word & 0xffffffff) == 0) {
+		word >>= 32;
+		bit += 32;
+	}
+	if ((word & 0xffff) == 0) {
+		word >>= 16;
+		bit += 16;
+	}
+	if ((word & 0xff) == 0) {
+		word >>= 8;
+		bit += 8;
+	}
+	return bit + _sb_findmap[word & 0xff];
+}
+#endif
 
 int ocfs2_find_first_bit_set(void *addr, int size)
 {
@@ -147,7 +257,7 @@ int ocfs2_find_first_bit_clear(void *addr, int size)
 	return ocfs2_find_next_bit_clear(addr, size, 0);
 }
 
-#ifdef __powerpc__
+#if defined(__powerpc__)
 int ocfs2_find_next_bit_set(void *addr, int size, int offset)
 {
 	unsigned int *p = ((unsigned int *) addr) + (offset >> 5);
@@ -180,6 +290,44 @@ int ocfs2_find_next_bit_set(void *addr, int size, int offset)
 
 found_first:
 	tmp &= ~0UL >> (32 - size);
+	if (tmp == 0UL)        /* Are any bits set? */
+		return result + size; /* Nope. */
+found_middle:
+	return result + __ffs(tmp);
+}
+#elif defined(__s390x__)
+int ocfs2_find_next_bit_set(void *addr, int size, int offset)
+{
+	unsigned long *p = ((unsigned long *) addr) + (offset >> 6);
+	unsigned long result = offset & ~63UL;
+	unsigned long tmp;
+
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset &= 63UL;
+	if (offset) {
+		tmp = *p++;
+		tmp &= ~0UL << offset;
+		if (size < 64)
+			goto found_first;
+		if (tmp)
+			goto found_middle;
+		size -= 64;
+		result += 64;
+	}
+	while (size & ~63UL) {
+		if ((tmp = *p++) != 0)
+			goto found_middle;
+		result += 64;
+		size -= 64;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
+
+found_first:
+	tmp &= ~0UL >> (64 - size);
 	if (tmp == 0UL)        /* Are any bits set? */
 		return result + size; /* Nope. */
 found_middle:
@@ -223,9 +371,9 @@ int ocfs2_find_next_bit_set(void *addr, int size, int offset)
 
 	return (res + d0 - 1);
 }
-#endif	/* __powerpc__ */
+#endif
 
-#ifdef __powerpc__
+#if defined(__powerpc__)
 int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 {
 	unsigned int * p = ((unsigned int *) addr) + (offset >> 5);
@@ -251,6 +399,43 @@ int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 			goto found_middle;
 		result += 32;
 		size -= 32;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
+found_first:
+	tmp |= ~0UL << size;
+	if (tmp == ~0UL)        /* Are any bits zero? */
+		return result + size; /* Nope. */
+found_middle:
+	return result + ffz(tmp);
+}
+#elif defined(__s390x__)
+int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
+{
+	unsigned long * p = ((unsigned long *) addr) + (offset >> 6);
+	unsigned long result = offset & ~63UL;
+	unsigned long tmp;
+
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset &= 63UL;
+	if (offset) {
+		tmp = *p++;
+		tmp |= ~0UL >> (64-offset);
+		if (size < 64)
+			goto found_first;
+		if (~tmp)
+			goto found_middle;
+		size -= 64;
+		result += 64;
+	}
+	while (size & ~63UL) {
+		if (~(tmp = *p++))
+			goto found_middle;
+		result += 64;
+		size -= 64;
 	}
 	if (!size)
 		return result;
@@ -299,7 +484,7 @@ int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 
 	return (res + d0 - 1);
 }
-#endif	/* __powerpc__ */
+#endif
 
 #endif	
 
