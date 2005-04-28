@@ -1501,6 +1501,7 @@ gchar *j_config_get_attribute(JConfigStanza *cfs,
     
     s = (gchar *)g_hash_table_lookup(cfs->attrs, attr_name);
     s = g_strdup(s);
+    g_strchomp(s);
 
     return(s);
 }  /* j_config_get_attribute() */

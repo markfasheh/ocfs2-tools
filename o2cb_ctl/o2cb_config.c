@@ -99,7 +99,6 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     num_s = j_config_get_attribute(cfs, "number");
     if (!num_s || !*num_s)
         goto out_error;
-    g_strchomp(num_s);
     val = strtoul(num_s, &ptr, 10);
     if (!ptr || *ptr)
         goto out_error;
@@ -120,7 +119,6 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     port_s = j_config_get_attribute(cfs, "ip_port");
     if (!port_s || !*port_s)
         goto out_error;
-    g_strchomp(port_s);
     val = strtoul(port_s, &ptr, 10);
     if (!ptr || *ptr)
         goto out_error;
@@ -182,7 +180,6 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
     count = j_config_get_attribute(c_cfs, "node_count");
     if (!count || !*count)
         goto out_error;
-    g_strchomp(count);
     val = strtoul(count, &ptr, 10);
     if (!ptr || *ptr)
         goto out_error;
