@@ -40,7 +40,7 @@
 
 static char cbuf[COMMAND_MAX_LEN];
 
-#define DEFAULT_DLMFS_PATH "/dev/ocfs2/dlm/"
+#define DEFAULT_DLMFS_PATH "/dlm/"
 
 static char *dlmfs_path = NULL;
 static char *prog;
