@@ -60,7 +60,12 @@ DIST_FILES = \
 	documentation/users_guide.txt		\
 	documentation/samples/cluster.conf
 
-.PHONY: dist dist-bye dist-fresh distclean
+DIST_RULES = dist-subdircreate
+
+.PHONY: dist dist-subdircreate dist-bye dist-fresh distclean
+
+dist-subdircreate:
+	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/documentation/samples
 
 dist-bye:
 	-rm -rf $(DIST_TOPDIR)
