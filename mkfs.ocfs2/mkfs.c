@@ -1451,6 +1451,11 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_max_nodes = cpu_to_le16(s->initial_nodes);
 	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group_blkno);
 
+#ifdef CONFIG_ARCH_S390
+	di->id2.i_super.s_feature_incompat =
+		cpu_to_le32(OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN);
+#endif
+
 	strcpy(di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
 

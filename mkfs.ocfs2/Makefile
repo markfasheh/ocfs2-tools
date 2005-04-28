@@ -12,6 +12,7 @@ OPTS = -O2
 endif
 
 CFLAGS = $(OPTS) $(WARNINGS) 
+CPPFLAGS += $(B0RKEN_ENDIAN)
 
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mkfs.ocfs2

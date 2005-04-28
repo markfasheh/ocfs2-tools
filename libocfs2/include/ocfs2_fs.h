@@ -86,8 +86,19 @@
 	OCFS2_SB(sb)->s_feature_incompat &= ~(mask)
 
 #define OCFS2_FEATURE_COMPAT_SUPP	0
-#define OCFS2_FEATURE_INCOMPAT_SUPP	0
 #define OCFS2_FEATURE_RO_COMPAT_SUPP	0
+
+/* We're not big endian safe yet. But it has been decreed that the
+ * unwashed zLinux masses must be appeased, lest they storm the castle
+ * with rakes and pitchforks. Thus...
+ */
+#ifdef CONFIG_ARCH_S390
+#define OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN	0x0001
+
+#define OCFS2_FEATURE_INCOMPAT_SUPP	OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN
+#else
+#define OCFS2_FEATURE_INCOMPAT_SUPP	0
+#endif
 
 
 /*
