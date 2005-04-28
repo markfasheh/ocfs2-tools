@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <errno.h>
+#include <assert.h>
 #include <inttypes.h>
 
 #include <sys/statfs.h>
@@ -64,6 +65,15 @@ static errcode_t o2dlm_generate_random_value(int64_t *value)
 	return 0;
 }
 
+static void o2dlm_free_ctxt(struct o2dlm_ctxt *ctxt)
+{
+	if (ctxt->ct_hash)
+		free(ctxt->ct_hash);
+	free(ctxt);
+}
+
+#define O2DLM_DEFAULT_HASH_SIZE 4096
+
 static errcode_t o2dlm_alloc_ctxt(const char *mnt_path,
 				  const char *dirname,
 				  struct o2dlm_ctxt **dlm_ctxt)
@@ -71,7 +81,7 @@ static errcode_t o2dlm_alloc_ctxt(const char *mnt_path,
 	errcode_t err;
 	struct o2dlm_ctxt *ctxt;
 	int64_t rand;
-	int len;
+	int len, i;
 
 	err = o2dlm_generate_random_value(&rand);
 	if (err)
@@ -80,6 +90,17 @@ static errcode_t o2dlm_alloc_ctxt(const char *mnt_path,
 	ctxt = malloc(sizeof(*ctxt));
 	if (!ctxt)
 		return O2DLM_ET_NO_MEMORY;
+
+	ctxt->ct_hash_size = O2DLM_DEFAULT_HASH_SIZE;
+
+	ctxt->ct_hash = calloc(ctxt->ct_hash_size, sizeof(struct list_head));
+	if (!ctxt->ct_hash) {
+		err = O2DLM_ET_NO_MEMORY;
+		goto exit_and_free;
+	}
+
+	for(i = 0; i < ctxt->ct_hash_size; i++)
+		INIT_LIST_HEAD(&ctxt->ct_hash[i]);
 
 	len = snprintf(ctxt->ct_ctxt_lock_name, O2DLM_LOCK_ID_MAX_LEN,
 		       ".%016"PRIx64, rand);
@@ -90,8 +111,6 @@ static errcode_t o2dlm_alloc_ctxt(const char *mnt_path,
 		err = O2DLM_ET_OUTPUT_ERROR;
 		goto exit_and_free;
 	}
-
-	INIT_LIST_HEAD(&ctxt->ct_locks);
 
 	len = snprintf(ctxt->ct_domain_path, PATH_MAX + 1, "%s/%s",
 		       mnt_path, dirname);
@@ -107,13 +126,8 @@ static errcode_t o2dlm_alloc_ctxt(const char *mnt_path,
 	err = 0;
 exit_and_free:
 	if (err)
-		free(ctxt);
+		o2dlm_free_ctxt(ctxt);
 	return err;
-}
-
-static void o2dlm_free_ctxt(struct o2dlm_ctxt *ctxt)
-{
-	free(ctxt);
 }
 
 static errcode_t o2dlm_check_user_dlmfs(const char *dlmfs_path)
@@ -270,18 +284,66 @@ static errcode_t o2dlm_full_path(char *path,
 	return 0;
 }
 
+/* 
+ * Most of this hash function taken from dcache.h. It has the
+ * following copyright line at the top:
+ *	
+ * (C) Copyright 1997 Thomas Schoebel-Theuer,
+ * with heavy changes by Linus Torvalds
+ */
+static inline unsigned long
+partial_name_hash(unsigned long c, unsigned long prevhash)
+{
+	return (prevhash + (c << 4) + (c >> 4)) * 11;
+}
+
+static inline unsigned int o2dlm_hash_lockname(struct o2dlm_ctxt *ctxt,
+					       const char *name)
+{
+	unsigned long hash = 0;
+	unsigned int bucket;
+
+	while(*name)
+		hash = partial_name_hash(*name++, hash);
+
+	bucket = (unsigned int) hash % ctxt->ct_hash_size;
+
+	assert(bucket < ctxt->ct_hash_size);
+
+	return bucket;
+}
+
 static struct o2dlm_lock_res *o2dlm_find_lock_res(struct o2dlm_ctxt *ctxt,
 						  const char *lockid)
 {
 	struct o2dlm_lock_res *lockres;
 	struct list_head *p;
+	unsigned int bucket;
 
-	list_for_each(p, &ctxt->ct_locks) {
-		lockres = list_entry(p, struct o2dlm_lock_res, l_list);
+	bucket = o2dlm_hash_lockname(ctxt, lockid);
+
+	list_for_each(p, &ctxt->ct_hash[bucket]) {
+		lockres = list_entry(p, struct o2dlm_lock_res, l_bucket);
 		if (!strcmp(lockid, lockres->l_id))
 			return lockres;
 	}
 	return NULL;
+}
+
+static void o2dlm_insert_lock_res(struct o2dlm_ctxt *ctxt,
+				  struct o2dlm_lock_res *lockres)
+{
+	unsigned int bucket;
+
+	bucket = o2dlm_hash_lockname(ctxt, lockres->l_id);
+
+	list_add_tail(&lockres->l_bucket, &ctxt->ct_hash[bucket]);
+}
+
+static inline void o2dlm_remove_lock_res(struct o2dlm_lock_res *lockres)
+{
+	list_del(&lockres->l_bucket);
+	INIT_LIST_HEAD(&lockres->l_bucket);
 }
 
 static int o2dlm_translate_lock_flags(enum o2dlm_lock_level level,
@@ -316,7 +378,7 @@ static struct o2dlm_lock_res *o2dlm_new_lock_res(const char *id,
 	if (lockres) {
 		memset(lockres, 0, sizeof(*lockres));
 
-		INIT_LIST_HEAD(&lockres->l_list);
+		INIT_LIST_HEAD(&lockres->l_bucket);
 
 		strncpy(lockres->l_id, id, O2DLM_LOCK_ID_MAX_LEN);
 
@@ -381,7 +443,7 @@ static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
 	lockres->l_flags = lockflags;
 	lockres->l_fd = fd;
 
-	list_add_tail(&lockres->l_list, &ctxt->ct_locks);
+	o2dlm_insert_lock_res(ctxt, lockres);
 
 	free(path);
 
@@ -404,7 +466,7 @@ errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
 }
 
 static errcode_t o2dlm_unlock_lock_res(struct o2dlm_ctxt *ctxt,
-				      struct o2dlm_lock_res *lockres)
+				       struct o2dlm_lock_res *lockres)
 {
 	int ret, len = PATH_MAX + 1;
 	char *path;
@@ -449,7 +511,7 @@ errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
 	if (!lockres)
 		return O2DLM_ET_UNKNOWN_LOCK;
 
-	list_del(&lockres->l_list);
+	o2dlm_remove_lock_res(lockres);
 
 	ret = o2dlm_unlock_lock_res(ctxt, lockres);
 
@@ -575,22 +637,28 @@ close_and_free:
 
 errcode_t o2dlm_destroy(struct o2dlm_ctxt *ctxt)
 {
-	int ret;
+	int ret, i;
 	int error = 0;
 	struct o2dlm_lock_res *lockres;
-        struct list_head *p, *n;
+        struct list_head *p, *n, *bucket;
 
 	if (!ctxt)
 		return O2DLM_ET_INVALID_ARGS;
 
-	list_for_each_safe(p, n, &ctxt->ct_locks) {
-		lockres = list_entry(p, struct o2dlm_lock_res, l_list);
-		list_del(&lockres->l_list);
+	for(i = 0; i < ctxt->ct_hash_size; i++) {
+		bucket = &ctxt->ct_hash[i];
 
-		ret = o2dlm_unlock_lock_res(ctxt, lockres);
-		if (ret && (ret != O2DLM_ET_BUSY_LOCK))
-			error = O2DLM_ET_FAILED_UNLOCKS;
-		free(lockres);
+		list_for_each_safe(p, n, bucket) {
+			lockres = list_entry(p, struct o2dlm_lock_res,
+					     l_bucket);
+
+			o2dlm_remove_lock_res(lockres);
+
+			ret = o2dlm_unlock_lock_res(ctxt, lockres);
+			if (ret && (ret != O2DLM_ET_BUSY_LOCK))
+				error = O2DLM_ET_FAILED_UNLOCKS;
+			free(lockres);
+		}
 	}
 	if (error)
 		goto free_and_exit;

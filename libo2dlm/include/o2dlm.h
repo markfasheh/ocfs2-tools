@@ -62,7 +62,7 @@ enum o2dlm_lock_level
 
 struct o2dlm_lock_res
 {
-	struct list_head      l_list;  /* to hang us off the locks list */
+	struct list_head      l_bucket; /* to hang us off the locks list */
 	char                  l_id[O2DLM_LOCK_ID_MAX_LEN]; /* 32 byte,
 							    * null
 							    * terminated
@@ -74,7 +74,8 @@ struct o2dlm_lock_res
 
 struct o2dlm_ctxt
 {
-	struct list_head ct_locks;  /* the list of locks */
+	struct list_head *ct_hash;
+	unsigned int     ct_hash_size;
 	char             ct_domain_path[O2DLM_MAX_FULL_DOMAIN_PATH]; /* domain
 								      * dir */
 	char             ct_ctxt_lock_name[O2DLM_LOCK_ID_MAX_LEN];
