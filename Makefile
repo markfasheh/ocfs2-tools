@@ -37,26 +37,28 @@ endif
 SUBDIRS += vendor
 
 DIST_FILES = \
-	COPYING		\
-	CREDITS		\
-	MAINTAINERS	\
-	README		\
-	README.O2CB	\
-	Config.make.in	\
-	Preamble.make	\
-	Postamble.make	\
-	aclocal.m4	\
-	glib-2.0.m4	\
-	python.m4	\
-	pythondev.m4	\
-	runlog.m4	\
-	config.guess	\
-	config.sub	\
-	configure	\
-	configure.in	\
-	install-sh	\
-	mkinstalldirs	\
-	rpmarch.guess
+	COPYING					\
+	CREDITS					\
+	MAINTAINERS				\
+	README					\
+	README.O2CB				\
+	Config.make.in				\
+	Preamble.make				\
+	Postamble.make				\
+	aclocal.m4				\
+	glib-2.0.m4				\
+	python.m4				\
+	pythondev.m4				\
+	runlog.m4				\
+	config.guess				\
+	config.sub				\
+	configure				\
+	configure.in				\
+	install-sh				\
+	mkinstalldirs				\
+	rpmarch.guess				\
+	documentation/users_guide.txt		\
+	documentation/samples/cluster.conf
 
 .PHONY: dist dist-bye dist-fresh distclean
 

@@ -1,0 +1,262 @@
+OCFS2 Users Guide
+
+1.   Introduction
+2.   Installation
+3.   Configuration (/etc/ocfs2/cluster.conf)
+  3.1. Valid parameters:
+  3.2. /etc/ocfs2/cluster.conf sample
+  3.3. Generate the configuration file.
+    3.3.1. Using ocfs2console (GUI) interface.
+    3.3.2. Using o2cb_ctl command line Interface.
+  3.4. Starting the OCFS2 Clustering Services
+    3.4.1. Enabling automatic load on boot.
+    3.4.2. Performing manual load.
+    3.4.3. Stopping O2CB.
+4. Creating an OCFS2 partition.
+5. Mounting the OCFS2 partition.
+
+
+1. Introduction
+   ------------
+
+OCFS2 is a general purpose cluster filesystem. Unlike the initial release
+of OCFS, which supported only Oracle database workloads, OCFS2 provides
+full support as a general purpose filesystem.  OCFS2 is a complete rewrite
+of the previous version, designed to work as a seamless addition to the
+Linux kernel.
+
+2. Installation
+   ------------
+Three RPMs are required to install OCFS2. These RPMs can be obtained from
+the Oracle Open Source projects site, http://oss.oracle.com
+
+    ocfs2-tools (OCFS2 support tools)
+    ocfs2console (GUI Interface)
+    ocfs2 (kernel modules). 
+
+'ocfs2-tools' and 'ocfs2console' are generic for each architecture that
+OCFS2 supports (x86, ia64, x86_64 or ppc64). The 'ocfs2' package contains
+the kernel modules, which must match up exactly with the running kernel 
+version (`uname -r` including -smp/-bigsmp/-hugemem/etc.)
+
+The naming convention for these packages is:
+  ocfs2console-<VERSION>.<ARCH>.rpm  
+  ocfs2tools-<VERSION>.<ARCH>.rpm  
+     (e.g.: ocfs2console-0.99.699-1.i386.rpm)
+  ocfs2-<KERNEL RELEASE>-<VERSION>.<ARCH>.rpm
+     (e.g.: ocfs2-2.6.9-5.EL-0.99.2015-1.i686.rpm)
+
+3. Configuration (/etc/ocfs2/cluster.conf)
+   ---------------------------------------
+In OCFS2, the '/etc/ocfs.conf' file is replaced by 
+'/etc/ocfs2/cluster.conf'. This file should be the same on all nodes in the
+cluster, and changes to this file must be propagated to the other nodes in
+the cluster. If a new node is being added to the cluster, all existing
+nodes must have their 'cluster.conf' updated BEFORE mounting the ocfs2
+partition from the new node.
+
+OCFS2 provides and strongly recommends generating and editing this file
+using 'ocfs2console'. This file can also be created using 'o2cb_ctl'. Refer
+to the man pages for more details on these commands.
+
+The configuration file /etc/ocfs2/cluster.conf is in stanza format, with 
+one stanza describing the generic cluster attributes and one stanza for 
+each node.
+
+3.1. Valid parameters:
+     ================
+
+3.1. Valid parameters for the cluster stanza
+     =======================================
+
+node_count     - This parameter specifies the number of nodes in the 
+cluster. This parameter is exclusive for cluster stanza.
+
+name           - This parameter identifies the name of the cluster.
+
+3.1. Valid parameters for the node stanza
+     ====================================
+
+ip_port        - This parameter specifies what IP port will be used by the
+OCFS2 cluster stack to communicate to the other nodes.
+
+ip_address     - IP address of the OCFS2 interconnect inteface.
+
+number         - Node number in the cluster. For this parameter, there are
+two rules that needs to be followed. The node number has to be unique.
+
+name           - This parameter specifies the name of this node.
+
+cluster        - This is the name of the cluster. Has to match with the name
+specified in the cluster stanza.
+
+3.2. /etc/ocfs2/cluster.conf sample:
+     ==============================
+
+cluster:
+node_count = 3
+name = OCFS2CLUSTER
+
+node:
+ip_port = 7777
+ip_address = 139.185.118.107
+number = 0
+name = test1
+cluster = OCFS2CLUSTER
+
+node:
+ip_port = 7777
+ip_address = 139.185.118.106
+number = 1
+name = test2
+cluster = OCFS2CLUSTER
+
+3.3. Generate the configuration file.
+-------------------------------
+
+3.3.1. Using ocfs2console (GUI) interface.
+----------------------------------
+
+OCFS2 also provides a graphical utility for configuring and modifying your
+OCFS2 cluster. If your system has the graphical interface enabled, you can
+launch 'ocfs2console' to enter the graphical configuration utility.
+If X is running as non-root, make sure to enable X authentication to bring
+up this utility (this can be done using 'xhost +' or a more secure
+variation.  Afer becoming root, make sure to set the environment variable 
+DISPLAY to the active X display.
+
+For example:
+
+   myuser:/home/myuser> $ xhost +
+   access control disabled, clients can connect from any host
+   myuser:/home/myuser> $ su - root
+   Password:
+   root@localhost> # export DISPLAY=localhost:0.0
+   root@localhost> # ocfs2console
+
+When ocfs2console interface opens, proceed with the initial configuration.
+
+3.3.2. Using o2cb_ctl command line Interface.
+       -------------------------------------
+
+This not the recommended method for creating the configuration file, but it
+can be used by determined users who have read and understood the 'o2cb_ctl'
+man page. The entire process must be performed as root.
+
+The example below will show how to create the cluster "mycluster" with two
+nodes (node1 and node2).
+
+First, create the cluster:
+
+# o2cb_ctl -C -n mycluster -t cluster -a name=mycluster -a node_count=2
+
+Then, add two nodes:
+
+# o2cb_ctl -C -n node1 -t node -a number=0 -a ip_address=139.185.118.5 \
+-a ip_port=7777 -a cluster=mycluster
+# o2cb_ctl -C -n node2 -t node -a number=0 -a ip_address=139.185.118.5 \
+-a ip_port=7777 -a cluster=mycluster
+
+NOTE: During the initial creation of the configuration file, you should
+not make use of the o2cb_ctl parameter "-i" since there is no live
+configuration active.
+
+3.4. Starting the OCFS2 Clustering Services
+     ======================================
+
+O2CB is the module that provides the clustering services for OCFS2.
+It is reponsible for node heartbeat, node management and Distributed
+Lock Manager (DLM).
+
+3.4.1. Enabling automatic load on boot.
+       ===============================
+
+To enable the automatic load of the O2CB driver on boot, 
+execute the following script and answer the prompt. Make sure to enter
+the cluster name when asked or the load will fail at boot.
+
+# /etc/init.d/o2cb configure
+    Configuring the O2CB driver.
+
+    This will configure the on-boot properties of the O2CB driver.
+    The following questions will determine whether the driver is loaded on
+    boot.  The current values will be shown in brackets ('[]').  Hitting
+    <ENTER> without typing an answer will keep that current value.  Ctrl-C
+    will abort.
+
+    Load O2CB driver on boot (y/n) [n]: y
+    Cluster to start on boot (Enter "none" to clear) []:
+    Writing O2CB configuration: OK
+
+This will configure O2CB to be loaded on boot and will load the ocfs2
+modules on the next startup.
+
+3.4.2. Performing manual load.
+       ======================
+
+If you don't want to configure O2CB to start on boot and don't want to 
+configure a specific cluster to start by default, run the following
+commands to startup your ocfs2 cluster.
+
+# /etc/init.d/o2cb load
+# /etc/init.d/o2cb online mycluster
+
+This loads the modules and the live configuration of the cluster. This will
+not cause OCFS2 to load at boot time.
+
+3.4.3. Stopping O2CB.
+       =============
+
+To stop a cluster and unload the modules:
+
+# /etc/init.d/o2cb stop
+
+4. Creating an OCFS2 partition.
+   ---------------------------
+
+Again, all steps here must be performed as root.
+
+Create a new physical partition using fdisk (or parted if it is an ia64 
+architecture). There is a minimum size for OCFS2 partitions, to store
+metadata and per-node information on disk. To calculate the minimal 
+partition size for OCFS, use this formula:
+
+((<#nodes> * <journal size>) + 40Mb) + <user space)
+
+Format the newly created partition using ocfs2console (preferred method)
+or mkfs.ocfs2
+
+Below is an example of a device (/dev/sdf1) being formatted to be used to
+host database files, in a 3 node cluster. The man pages will have more
+information about selecting the best blocksize and cluster size based on
+your particular workload. This default is provided as a baseline for 
+database workloads.
+
+# mkfs.ocfs2 -b 4096 -C 128k -L DBF1 -N 3 /dev/sdf1
+
+For a filesystem with smaller files, like an ORACLE_HOME or root partition, 
+you will want to select a smaller metadata cluster size, as shown here:
+
+# mkfs.ocfs2 -b 4096 -C 4k -L DBF1 -N 3 /dev/sdf1
+
+NOTE: mkfs.ocfs2 will startup the cluster stack to check if the requested
+partition is currently in use (and therefore should not be formatted!). 
+You can override this behavior by passing the -F flag.
+
+5. Mounting the OCFS2 partition.
+   ----------------------------
+
+Once the new partition is properly formatted, the last thing to do is
+mount the partition. Before trying to mount, make sure the OCFS2 cluster
+services are running (the 'o2cb online' step).
+
+Mount an OCFS2 partition using:
+
+mount -t ocfs2 /dev/sdf1 /oradbf1
+
+Or, add the entries to the /etc/fstab file and issue the command
+"mount -a". The entry should be like:
+
+/dev/sdf1 /oradbf1 ocfs2 defaults 0 0
+
+NOTE: The first mount will automatically load the ocfs2 module.
