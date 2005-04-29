@@ -63,13 +63,13 @@ def propagate(terminal, dialog, remote_command, host_iter):
     try:
         host = host_iter.next()
     except StopIteration:
-        terminal.feed('Finished!\r\n')
+        terminal.feed('Finished!\r\n', -1)
         dialog.finished = True
         return
 
     command = ('ssh', 'root@%s' % host, remote_command)
 
-    terminal.feed('Propagating cluster configuration to %s...\r\n' % host)
+    terminal.feed('Propagating cluster configuration to %s...\r\n' % host, -1)
     terminal.fork_command(command=command[0], argv=command)
 
 def push_config(parent=None):
