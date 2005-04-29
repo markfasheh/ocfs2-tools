@@ -276,7 +276,12 @@ class Browser(gtk.VBox):
         if level.parent:
             self.store[level.parent][COLUMN_INFO_OBJECT] = level.dentry
 
-        iter = self.store.iter_children(level.parent)
+            # Argh, ancient pygtk can't handle None being passed to
+            # iter_children
+            iter = self.store.iter_children(level.parent)
+        else:
+            iter = self.store.get_iter_first()
+
         self.store.remove(iter)
 
         self.levels.remove(level)
