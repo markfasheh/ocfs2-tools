@@ -604,7 +604,7 @@ status()
         return 1;
     fi
 
-    echo -n "Checking cluster: "
+    echo -n "Checking cluster $CLUSTER: "
     check_online $CLUSTER
     if [ $? = 2 ]
     then
@@ -677,7 +677,7 @@ case "$1" in
         ;;
 
     status)
-        status
+        status $2
         ;;
 
     stop)
