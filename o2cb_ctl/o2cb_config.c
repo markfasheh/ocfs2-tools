@@ -82,6 +82,8 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     gulong val;
     gint rc;
 
+    num_s = addr = port_s = NULL;
+
     rc = -EINVAL;
     name = j_config_get_attribute(cfs, "name");
     if (!name || !*name)
@@ -92,8 +94,6 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     node = o2cb_cluster_add_node(cluster, name);
     if (!node)
         return -ENOMEM;
-
-    num_s = addr = port_s = NULL;
 
     rc = -EINVAL;
     num_s = j_config_get_attribute(cfs, "number");

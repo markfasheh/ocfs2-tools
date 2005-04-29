@@ -688,6 +688,7 @@ static gint run_info_nodes(O2CBContext *ctxt)
         if (!iter)
             return -ENOMEM;
 
+        cluster = NULL; /* For gcc */
         node = NULL;
         while (j_iterator_has_more(iter))
         {
