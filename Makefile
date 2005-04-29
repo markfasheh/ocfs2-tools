@@ -13,9 +13,11 @@ PYVERSION = $(shell echo $(pyexecdir) | sed -e 's/.*python\([0-9]\.[0-9]\).*/\1/
 ifeq ($(SUSEBUILD),yes)
 PYGTK_NAME = python-gtk
 CHKCONFIG_DEP = aaa_base
+COMPILE_PY = 0
 else
 PYGTK_NAME = pygtk2
 CHKCONFIG_DEP = chkconfig
+COMPILE_PY = 1
 endif
 
 TOOLSARCH = $(shell $(TOPDIR)/rpmarch.guess tools $(TOPDIR))
@@ -81,10 +83,10 @@ distclean: clean
 	rm -f Config.make config.status config.cache config.log
 
 srpm: dist
-	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOPDIR)/vendor/common/ocfs2-tools.spec
+	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --define "compile_py $(COMPILE_PY)" $(TOPDIR)/vendor/common/ocfs2-tools.spec
 
 rpm: srpm
-	$(RPMBUILD) --rebuild --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
+	$(RPMBUILD) --rebuild --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --define "compile_py $(COMPILE_PY)" $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
 
 def:
 	@echo $(TOOLSARCH)

@@ -59,7 +59,9 @@ cp -f vendor/common/o2cb.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/o2cb
 
 make DESTDIR="$RPM_BUILD_ROOT" install
 
+%if %{compile_py}
 %{__python} "%{_libdir}/python%{pyversion}/compileall.py" -q "$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface"
+%endif
 
 
 %clean
@@ -72,6 +74,8 @@ chkconfig o2cb on
 
 %files
 %defattr(-,root,root)
+%doc README.O2CB COPYING CREDITS MAINTAINERS
+%doc documentation/users_guide.txt
 /sbin/fsck.ocfs2
 /sbin/mkfs.ocfs2
 /sbin/mounted.ocfs2
