@@ -536,6 +536,11 @@ offline()
         return
     fi
 
+    if [ ! -e "/config/cluster/${CLUSTER}" ]
+    then
+        return
+    fi
+
     clean_heartbeat $CLUSTER
 
     echo -n "Stopping cluster ${CLUSTER}: "
