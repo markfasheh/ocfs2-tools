@@ -331,9 +331,8 @@ class ClusterConfig(Dialog):
                          parent=dialog.vbox)
 
         widgets = []
-        row = 0
 
-        for field in fields:
+        for row, field in enumerate(fields):
             if field.widget_type is None:
                 widgets.append(None)
                 continue
@@ -358,8 +357,6 @@ class ClusterConfig(Dialog):
                 widget.set_value(PORT_DEFAULT)
 
             widgets.append(widget)
-
-            row = row + 1
 
         if defaults:
             for w, d in zip(widgets, defaults):

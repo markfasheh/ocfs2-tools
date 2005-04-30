@@ -159,9 +159,7 @@ def main():
                      border_width=4,
                      parent=window)
 
-    row = 0
-
-    for widget_type in widgets:
+    for row, widget_type in enumerate(widgets):
         label = gtk.Label()
         label.set_text_with_mnemonic(widget_type.label + ':')
         set_props(label, xalign=1.0)
@@ -169,8 +167,6 @@ def main():
 
         widget = widget_type()
         table.attach(widget, 1, 2, row, row + 1)
-
-        row = row + 1
 
     window.show_all()
 

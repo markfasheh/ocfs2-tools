@@ -162,9 +162,7 @@ class Browser(gtk.VBox):
 
         self.info_labels = []
 
-        column = 0
-
-        for field in fields:
+        for column, field in enumerate(fields):
             label = gtk.Label(field.label)
             set_props(label, xalign=0.0)
             table.attach(label, column, column + 1, 0, 1)
@@ -173,8 +171,6 @@ class Browser(gtk.VBox):
             table.attach(label, column, column + 1, 1, 2)
 
             self.info_labels.append(label)
-
-            column += 1
 
     def destroy_handler(self, obj):
         self.cleanup()

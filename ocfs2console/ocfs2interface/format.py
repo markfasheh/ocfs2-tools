@@ -74,9 +74,8 @@ def format_partition(parent, device):
                      parent=dialog.vbox)
 
     widgets = []
-    row = 0
 
-    for widget_type in entries:
+    for row, widget_type in enumerate(entries):
         widget = widget_type()
 
         label = gtk.Label()
@@ -100,8 +99,6 @@ def format_partition(parent, device):
         table.attach(attach_widget, 1, 2, row, row + 1)
 
         widgets.append(widget)
-
-        row = row + 1
 
     widgets[0].grab_focus()
 

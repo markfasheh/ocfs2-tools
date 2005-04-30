@@ -113,9 +113,7 @@ class General(gtk.Table):
             except ocfs2.error:
                 pass
 
-        row = 0
-
-        for field_type in fields:
+        for row, field_type in enumerate(fields):
             field = field_type(fs, super, dinode)
 
             label = gtk.Label(field.label + ':')
@@ -127,8 +125,6 @@ class General(gtk.Table):
             set_props(label, xalign=0.0)
             self.attach(label, 1, 2, row, row + 1,
                         xoptions=gtk.FILL, yoptions=gtk.FILL)
-
-            row += 1
 
 def main():
     import sys
