@@ -15,8 +15,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
-import types
-
 from cStringIO import StringIO
 
 from process import Process
@@ -32,7 +30,7 @@ class CtlError(Exception):
 
 class O2CBProcess(Process):
     def __init__(self, args, desc, parent=None):
-        if isinstance(args, types.StringTypes):
+        if isinstance(args, basestring):
             command = '%s %s' % (self.program, args)
         else:
             command = (self.program,) + tuple(args)

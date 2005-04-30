@@ -16,7 +16,6 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 021110-1307, USA.
 
 import os
-import types
 import fcntl
 import popen2
 
@@ -30,7 +29,7 @@ TIMEOUT = 10000
 
 class Process:
     def __init__(self, command, title, desc, parent=None, spin_now=False):
-        if isinstance(command, types.StringTypes):
+        if isinstance(command, basestring):
             if len(command.split(None, 1)) < 2:
                 command = (command,)
 
