@@ -148,7 +148,7 @@ fi
 
 if test "x$enable_ocfs2console" = "xyes"; then
   dnl check for Python
-  AM_PATH_PYTHON(2.2, have_python=yes, have_python=no)
+  AM_PATH_PYTHON(2.3, have_python=yes, have_python=no)
 
   if test "x$have_python" = "xyes"; then
     AM_CHECK_PYTHON_HEADERS(have_pythondev=yes, have_pythondev=no)
