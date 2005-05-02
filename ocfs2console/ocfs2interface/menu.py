@@ -20,6 +20,7 @@ import gtk
 from guiutil import make_callback
 
 from fsck import fsck_ok
+from pushconfig import pushconfig_ok
 
 UNMOUNTED_ONLY = 42
 NEED_SELECTION = 43
@@ -41,11 +42,19 @@ help_menu_data = (
      stock_about)
 )
 
-cluster_menu_data = (
+if pushconfig_ok:
+    cluster_menu_push_config_data = (
+        ('/Cluster/_Propagate Configuration...', None,       'push_config'),
+    )
+else:
+    cluster_menu_push_config_data = ()
+
+cluster_menu_head_data = (
     ('/_Cluster',                            None,       None,  0, '<Branch>'),
-    ('/Cluster/_Configure Nodes...',         None,       'node_config'),
-    ('/Cluster/_Propagate Configuration...', None,       'push_config')
+    ('/Cluster/_Configure Nodes...',         None,       'node_config')
 )
+
+cluster_menu_data = cluster_menu_head_data + cluster_menu_push_config_data
 
 if fsck_ok:
     task_menu_fsck_data = (
