@@ -6,4 +6,5 @@ Config.make
 config.*
 autom4te.cache
 aclocal.m4
-
+ocfs2-tools-*.src.rpm
+ocfs2-tools-*.tar.gz

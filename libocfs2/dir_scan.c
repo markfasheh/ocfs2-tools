@@ -150,8 +150,12 @@ errcode_t ocfs2_open_dir_scan(ocfs2_filesys *fs, uint64_t dir, int flags,
 	if (ret)
 		goto bail_inode;
 
-	scan->total_blocks =
-		ocfs2_clusters_to_blocks(fs, scan->inode->ci_inode->i_clusters);
+	scan->total_blocks = scan->inode->ci_inode->i_size /
+		fs->fs_blocksize;
+	/*
+	 * Should we check i_size % blocksize?
+	 * total_blocks <= i_clusters?
+	 */
 
 	scan->total_bufsize = fs->fs_blocksize;
 
