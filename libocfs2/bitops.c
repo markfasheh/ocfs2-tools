@@ -170,7 +170,7 @@ static inline int __ffs(unsigned long x)
 }
 #elif defined(__s390x__)
 
-static const char const _zb_findmap[] = {
+static const char _zb_findmap[] = {
 	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
 	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,
 	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
@@ -189,7 +189,7 @@ static const char const _zb_findmap[] = {
 	0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,8
 };
 
-static const char const _sb_findmap[] = {
+static const char _sb_findmap[] = {
 	8,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
 	4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
 	5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
