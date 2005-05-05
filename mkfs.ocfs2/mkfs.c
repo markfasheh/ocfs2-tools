@@ -757,6 +757,8 @@ fill_defaults(State *s)
 {
 	size_t pagesize;
 	errcode_t err;
+	uint32_t blocksize;
+	int sectsize;
 	uint32_t ret;
 	struct ocfs2_cluster_group_sizes cgs;
 	uint64_t tmp;
@@ -765,34 +767,62 @@ fill_defaults(State *s)
 
 	s->pagesize_bits = get_bits(s, pagesize);
 
-	if (!s->blocksize)
-		s->blocksize = 4096;
+	err = ocfs2_get_device_sectsize(s->device_name, &sectsize);
+	if (err) {
+		com_err(s->progname, err,
+			"while getting hardware sector size of device %s",
+			s->device_name);
+		exit(1);
+	}
+
+	if (s->blocksize)
+		blocksize = s->blocksize;
+	else
+		blocksize = OCFS2_MAX_BLOCKSIZE;
+
+	if (blocksize < sectsize) {
+		com_err(s->progname, 0,
+			"the block device %s has a hardware sector size (%d) "
+			"that is larger than the selected block size (%u)",
+			s->device_name, sectsize, blocksize);
+		exit(1);
+	}
 
 	if (!s->volume_size_in_blocks) {
-		err = ocfs2_get_device_size(s->device_name, s->blocksize, &ret);
+		err = ocfs2_get_device_size(s->device_name, blocksize, &ret);
+		if (err) {
+			com_err(s->progname, err,
+				"while getting size of device %s",
+				s->device_name);
+			exit(1);
+		}
+
 		s->volume_size_in_blocks = ret;
 		if (s->specified_size_in_blocks) {
 			if (s->specified_size_in_blocks > 
 			    s->volume_size_in_blocks) {
-				printf("%"PRIu64" blocks were specified and "
-				       "this is greater than the %"PRIu64" "
-				       "blocks that make up %s.\n", 
-				       s->specified_size_in_blocks,
-				       s->volume_size_in_blocks, 
-				       s->device_name);
+				com_err(s->progname, 0,
+					"%"PRIu64" blocks were specified and "
+					"this is greater than the %"PRIu64" "
+					"blocks that make up %s.\n", 
+					s->specified_size_in_blocks,
+					s->volume_size_in_blocks, 
+					s->device_name);
 				exit(1);
 			}
 			s->volume_size_in_blocks = s->specified_size_in_blocks;
 		}
 	}
 
-	s->volume_size_in_bytes = s->volume_size_in_blocks * s->blocksize;
+	s->volume_size_in_bytes = s->volume_size_in_blocks * blocksize;
 
 	if (!s->blocksize) {
 		if (s->volume_size_in_bytes <= 1024 * 1024 * 3) {
-			s->blocksize = 512;
+			s->blocksize = OCFS2_MIN_BLOCKSIZE;
 		} else {
 			int shift = 30;
+
+			s->blocksize = OCFS2_MAX_BLOCKSIZE;
 
 			while (s->blocksize > 1024) {
 				if (s->volume_size_in_bytes >= 1U << shift)
