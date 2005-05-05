@@ -325,7 +325,7 @@ errcode_t ocfs2_check_if_mounted(const char *file, int *mount_flags)
 	return ocfs2_check_mount_point(file, mount_flags, NULL, 0);
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_EXE
 int main(int argc, char **argv)
 {
 	int	retval, mount_flags;

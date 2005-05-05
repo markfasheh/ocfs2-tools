@@ -255,7 +255,7 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 
 #endif /* WIN32 */
 
-#ifdef DEBUG
+#ifdef DEBUG_EXE
 int main(int argc, char **argv)
 {
 	uint32_t blocks;
