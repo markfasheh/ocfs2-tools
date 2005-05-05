@@ -430,6 +430,8 @@ errcode_t ocfs2_bitmap_clear_range(ocfs2_bitmap *bitmap, uint64_t len,
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 				uint32_t *retblocks);
 
+errcode_t ocfs2_get_device_sectsize(const char *file, int *sectsize);
+
 errcode_t ocfs2_check_if_mounted(const char *file, int *mount_flags);
 errcode_t ocfs2_check_mount_point(const char *device, int *mount_flags,
 		                  char *mtpt, int mtlen);

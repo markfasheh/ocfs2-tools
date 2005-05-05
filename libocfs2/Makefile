@@ -62,6 +62,7 @@ CFILES = 		\
 	extend_file.c	\
 	extents.c	\
 	extent_map.c	\
+	getsectsize.c	\
 	getsize.c	\
 	heartbeat.c	\
 	inode.c		\
