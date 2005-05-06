@@ -184,6 +184,67 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	return ret;
 }
 
+errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
+			   uint64_t offset, uint32_t *wrote)
+{
+	ocfs2_filesys	*fs = ci->ci_fs;
+	errcode_t	ret = 0;
+	char		*ptr = (char *) buf;
+	uint32_t	wanted_blocks;
+	uint32_t	contig_blocks;
+	uint64_t	v_blkno;
+	uint64_t	p_blkno;
+	uint32_t	tmp;
+	uint64_t	num_blocks;
+	int		bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+
+	/* o_direct requires aligned io */
+	tmp = fs->fs_blocksize - 1;
+	if ((count & tmp) || (offset & (uint64_t)tmp) ||
+	    ((unsigned long)ptr & tmp))
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	wanted_blocks = count >> bs_bits;
+	v_blkno = offset >> bs_bits;
+	*wrote = 0;
+
+	num_blocks = (ci->ci_inode->i_size + fs->fs_blocksize - 1) >> bs_bits;
+
+	if (v_blkno >= num_blocks)
+		return 0;
+
+	if (v_blkno + wanted_blocks > num_blocks)
+		wanted_blocks = (uint32_t) (num_blocks - v_blkno);
+
+	while(wanted_blocks) {
+		ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
+						  &p_blkno, &contig_blocks);
+		if (ret)
+			return ret;
+
+		if (contig_blocks > wanted_blocks)
+			contig_blocks = wanted_blocks;
+
+		ret = io_write_block(fs->fs_io, p_blkno, contig_blocks, ptr);
+		if (ret)
+			return ret;
+
+		*wrote += (contig_blocks << bs_bits);
+		wanted_blocks -= contig_blocks;
+
+		if (wanted_blocks) {
+			ptr += (contig_blocks << bs_bits);
+			v_blkno += (uint64_t)contig_blocks;
+		} else {
+			if (*wrote + offset > ci->ci_inode->i_size)
+				*wrote = (uint32_t) (ci->ci_inode->i_size - offset);
+			/* break */
+		}
+	}
+
+	return ret;
+}
+
 /*
  * FIXME: port the reset of e2fsprogs/lib/ext2fs/fileio.c
  */

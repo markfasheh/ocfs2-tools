@@ -40,6 +40,43 @@
 
 
 /*
+ * The code to init a journal superblock is also in
+ * mkfs.ocfs2/mkfs.c:replacement_journal_create().
+ * Please keep them in sync.
+ */
+errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
+					int buflen, uint32_t jrnl_size)
+{
+	int bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	journal_superblock_t *jsb = (journal_superblock_t *)buf;
+
+	if (buflen < fs->fs_blocksize)
+		return OCFS2_ET_INTERNAL_FAILURE;
+
+	memset(buf, 0, buflen);
+	jsb->s_header.h_magic     = htonl(JFS_MAGIC_NUMBER);
+	jsb->s_header.h_blocktype = htonl(JFS_SUPERBLOCK_V2);
+
+	jsb->s_blocksize = cpu_to_be32(fs->fs_blocksize);
+	jsb->s_maxlen    = cpu_to_be32(jrnl_size >> bs_bits);
+
+	if (fs->fs_blocksize == 512)
+		jsb->s_first = htonl(2);
+	else
+		jsb->s_first = htonl(1);
+
+	jsb->s_start    = htonl(1);
+	jsb->s_sequence = htonl(1);
+	jsb->s_errno    = htonl(0);
+	jsb->s_nr_users = htonl(1);
+
+	memcpy(jsb->s_uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
+	       sizeof(jsb->s_uuid));
+
+	return 0;
+}
+
+/*
  * This function automatically sets up the journal superblock and
  * returns it as an allocated block.
  */
@@ -47,29 +84,21 @@ errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 					  uint32_t size, int flags,
 					  char  **ret_jsb)
 {
-	errcode_t		retval;
-	journal_superblock_t	*jsb;
+	errcode_t retval;
+	char *buf = NULL;
 
+	*ret_jsb = NULL;
+
+	retval = OCFS2_ET_JOURNAL_TOO_SMALL;
 	if (size < 1024)
-		return OCFS2_ET_JOURNAL_TOO_SMALL;
+		goto bail;
 
-	if ((retval = ocfs2_malloc_block(fs->fs_io, &jsb)))
-		return retval;
+	if ((retval = ocfs2_malloc_block(fs->fs_io, &buf)))
+		goto bail;
 
-	memset(jsb, 0, fs->fs_blocksize);
-
-	jsb->s_header.h_magic = htonl(JFS_MAGIC_NUMBER);
-	jsb->s_header.h_blocktype = htonl(JFS_SUPERBLOCK_V2);
-	jsb->s_blocksize = htonl(fs->fs_blocksize);
-	jsb->s_maxlen = htonl(size);
-	jsb->s_nr_users = htonl(1);
-	if (fs->fs_blocksize == 512)
-		jsb->s_first = htonl(2);
-	else
-		jsb->s_first = htonl(1);
-	jsb->s_sequence = htonl(1);
-	memcpy(jsb->s_uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
-	       sizeof(OCFS2_RAW_SB(fs->fs_super)->s_uuid));
+	retval = ocfs2_init_journal_superblock(fs, buf, fs->fs_blocksize, size);
+	if (retval)
+		goto bail;
 
 #if 0 /* Someday */
 	/*
@@ -86,8 +115,12 @@ errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 	}
 #endif
 
-	*ret_jsb = (char *) jsb;
-	return 0;
+	*ret_jsb = buf;
+
+bail:
+	if (retval && buf)
+		ocfs2_free(&buf);
+	return retval;
 }
 
 errcode_t ocfs2_read_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,

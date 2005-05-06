@@ -96,11 +96,37 @@ static errcode_t ocfs2_load_allocator(ocfs2_filesys *fs,
 	return 0;
 }
 
+/*
+ * This function is duplicated in mkfs.ocfs2/mkfs.c.
+ * Please keep them in sync.
+ */
+static int ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
+{
+	int megabytes;
+
+	switch (block_size) {
+	case 4096:
+	case 2048:
+		megabytes = 4;
+		break;
+	case 1024:
+		megabytes = 2;
+		break;
+	case 512:
+	default:
+		megabytes = 1;
+		break;
+	}
+#define ONE_MB_SHIFT           20
+	return (megabytes << ONE_MB_SHIFT) >> cluster_size_bits;
+}
+
 static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
 			     uint64_t gd_blkno, uint64_t blkno, uint16_t mode,
 			     uint32_t flags)
 {
 	ocfs2_extent_list *fel;
+	int cs_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 
 	di->i_generation = fs->fs_super->i_generation;
 	di->i_fs_generation = fs->fs_super->i_fs_generation;
@@ -118,9 +144,24 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
 	di->i_dtime = 0;
 
 	di->i_flags = flags;
-	if (flags & (OCFS2_SUPER_BLOCK_FL |
-		     OCFS2_LOCAL_ALLOC_FL |
-		     OCFS2_CHAIN_FL))
+
+	if (flags & OCFS2_LOCAL_ALLOC_FL) {
+		di->id2.i_lab.la_size =
+			ocfs2_local_alloc_size(fs->fs_blocksize);
+		return ;
+	}
+
+	if (flags & OCFS2_CHAIN_FL) {
+		di->id2.i_chain.cl_count = 
+			ocfs2_chain_recs_per_inode(fs->fs_blocksize);
+		di->id2.i_chain.cl_cpg = 
+			ocfs2_clusters_per_group(fs->fs_blocksize, cs_bits);
+		di->id2.i_chain.cl_bpc = fs->fs_clustersize / fs->fs_blocksize;
+		di->id2.i_chain.cl_next_free_rec = 0;
+		return ;
+	}
+
+	if (flags & OCFS2_SUPER_BLOCK_FL)
 		return ;
 
 	fel = &di->id2.i_list;

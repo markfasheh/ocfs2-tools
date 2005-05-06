@@ -1493,6 +1493,11 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	free(di);
 }
 
+
+/*
+ * This function is in libocfs2/alloc.c. Needless to add, when
+ * changing code here, update the same in alloc.c too.
+ */
 static int 
 ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
 {
@@ -1730,6 +1735,11 @@ format_leading_space(State *s)
 	free(buf);
 }
 
+/*
+ * The code to init a journal superblock is also in
+ * libocfs2/mkjournal.c:ocfs2_init_journal_super_block().
+ * Please keep them in sync.
+ */
 static void
 replacement_journal_create(State *s, uint64_t journal_off)
 {
@@ -1756,6 +1766,9 @@ replacement_journal_create(State *s, uint64_t journal_off)
 	sb->s_start    = htonl(1);
 	sb->s_sequence = htonl(1);
 	sb->s_errno    = htonl(0);
+	sb->s_nr_users = htonl(1);
+
+	memcpy(sb->s_uuid, s->uuid, sizeof(sb->s_uuid));
 
 	do_pwrite(s, buf, s->journal_size_in_bytes, journal_off);
 	free(buf);

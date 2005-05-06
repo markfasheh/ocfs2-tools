@@ -3,6 +3,7 @@ cscope:
 	rm -f cscope.*
 	echo "-k" >> cscope.files
 	echo "-I include" >> cscope.files
-	find . -maxdepth 2 -name '*.c' -print >>cscope.files
-	find . -maxdepth 2 -name '*.h' -print >>cscope.files
+	find . -name '*.[ch]' >>cscope.files
+	find ../libocfs2/ -name '*.[ch]' >> cscope.files
+	find ../libo2dlm/ -name '*.[ch]' >> cscope.files
 	cscope -b

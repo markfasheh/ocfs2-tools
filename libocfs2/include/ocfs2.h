@@ -224,7 +224,8 @@ struct _ocfs2_devices {
 	uint32_t min_num;		/* minor number of the device */
 	errcode_t errcode;		/* error encountered reading device */
 	void *private;
-	uint8_t *node_nums;
+	uint16_t max_nodes;
+	uint8_t *node_nums;		/* list of mounted nodes */
 };
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);
@@ -293,6 +294,9 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      int *ret_count);
 errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
+
+errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
+					int buflen, uint32_t jrnl_size);
 
 errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 					  uint32_t size, int flags,
@@ -540,6 +544,9 @@ errcode_t ocfs2_follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t cwd,
 
 errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			  uint64_t offset, uint32_t *got);
+
+errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
+			   uint64_t offset, uint32_t *wrote);
 
 errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 				    struct o2cb_region_desc *desc);

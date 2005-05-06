@@ -48,9 +48,23 @@
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
 #include <ocfs1_fs_compat.h>
+
+/* jfs_compat.h defines these */
+#undef cpu_to_be32
+#undef be32_to_cpu
+typedef unsigned short kdev_t;
+#include <kernel-jbd.h>
+
 #include <kernel-list.h>
 
 #define SYSTEM_FILE_NAME_MAX   40
+
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+#ifndef MAX
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
 
 typedef struct _ocfs2_tune_opts {
 	uint16_t num_nodes;
@@ -394,34 +408,45 @@ bail:
 	return ret;
 }
 
-static errcode_t get_default_journal_size(ocfs2_filesys *fs, uint64_t *jrnl_size)
+static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_size)
 {
 	errcode_t ret;
-	char jrnl_node0[SYSTEM_FILE_NAME_MAX];
-	uint64_t blkno;
 	char *buf = NULL;
+	uint64_t blkno;
 	ocfs2_dinode *di;
-
-	snprintf (jrnl_node0, sizeof(jrnl_node0),
-		  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, 0);
-
-	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_node0,
-			   strlen(jrnl_node0), NULL, &blkno);
-	if (ret)
-		goto bail;
-
+	int i;
+	int cs_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+	uint16_t max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
-		return ret;
-
-	ret = ocfs2_read_inode(fs, blkno, buf);
-	if (ret)
 		goto bail;
 
-	di = (ocfs2_dinode *)buf;
-	*jrnl_size = (di->i_clusters <<
-		      OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits);
+	*dirty = 0;
+	*jrnl_size = 0;
+
+	for (i = 0; i < max_nodes; ++i) {
+		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
+						&blkno);
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret)
+			goto bail;
+
+		di = (ocfs2_dinode *)buf;
+
+		*jrnl_size = MAX(*jrnl_size, (di->i_clusters << cs_bits));
+
+		*dirty = di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL;
+		if (*dirty) {
+			com_err(opts.progname, 0,
+				"Node %d's journal is dirty. Run fsck.ocfs2 "
+				"to replay all dirty journals.", i);
+			break;
+		}
+	}
 bail:
 	if (buf)
 		ocfs2_free(&buf);
@@ -453,6 +478,70 @@ static errcode_t update_nodes(ocfs2_filesys *fs, int *changed)
 
 	OCFS2_RAW_SB(fs->fs_super)->s_max_nodes = opts.num_nodes;
 	*changed = 1;
+
+	return ret;
+}
+
+static errcode_t initialize_journal(ocfs2_filesys *fs, uint64_t blkno)
+{
+	errcode_t ret = 0;
+	journal_superblock_t *sb;
+	char *buf = NULL;
+	ocfs2_cached_inode *ci = NULL;
+	int bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	uint64_t offset;
+	uint32_t wrote;
+	uint32_t count;
+
+	ret = ocfs2_read_cached_inode(fs, blkno, &ci);
+	if (ret)
+		goto bail;
+
+	/* verify it is a journal file */
+	if (!(ci->ci_inode->i_flags & OCFS2_VALID_FL) ||
+	    !(ci->ci_inode->i_flags & OCFS2_SYSTEM_FL) ||
+	    !(ci->ci_inode->i_flags & OCFS2_JOURNAL_FL)) {
+		ret = OCFS2_ET_INTERNAL_FAILURE;
+		goto bail;
+	}
+
+	ret = ocfs2_extent_map_init(fs, ci);
+	if (ret)
+		goto bail;
+
+#define BUFLEN	1048576
+	ret = ocfs2_malloc_blocks(fs->fs_io, (BUFLEN >> bs_bits), &buf);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_init_journal_superblock(fs, buf, BUFLEN,
+					    ci->ci_inode->i_size);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_file_write(ci, buf, BUFLEN, 0, &wrote);
+	if (ret)
+		goto bail;
+
+	offset = wrote;
+	count = (uint32_t) (ci->ci_inode->i_size - offset);
+
+	memset(buf, 0, BUFLEN);
+
+	while (count) {
+		ret = ocfs2_file_write(ci, buf, MIN(BUFLEN, count),
+				       offset, &wrote);
+		if (ret)
+			goto bail;
+		offset += wrote;
+		count -= wrote;
+	}
+
+bail:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+	if (buf)
+		ocfs2_free(&buf);
 
 	return ret;
 }
@@ -513,6 +602,14 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		ret = ocfs2_write_inode(fs, blkno, buf);
 		if (ret)
 			goto bail;
+
+		printf("\r                                                     \r");
+		printf("Initializing %s...  ", jrnl_file);
+
+		ret = initialize_journal(fs, blkno);
+		if (ret)
+			goto bail;
+
 		printf("\r                                                     \r");
 	}
 
@@ -544,6 +641,7 @@ int main(int argc, char **argv)
 	uint64_t def_jrnl_size = 0;
 	uint64_t num_clusters;
 	uint64_t vol_size = 0;
+	int dirty = 0;
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -596,9 +694,8 @@ int main(int argc, char **argv)
 
 //	check_32bit_blocks (s);
 
-	/* get journal size of node 0 */
-	ret = get_default_journal_size(fs, &def_jrnl_size);
-	if (ret)
+	ret = journal_check(fs, &dirty, &def_jrnl_size);
+	if (ret || dirty)
 		goto unlock;
 
 	/* validate volume label */
