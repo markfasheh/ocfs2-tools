@@ -485,7 +485,6 @@ static errcode_t update_nodes(ocfs2_filesys *fs, int *changed)
 static errcode_t initialize_journal(ocfs2_filesys *fs, uint64_t blkno)
 {
 	errcode_t ret = 0;
-	journal_superblock_t *sb;
 	char *buf = NULL;
 	ocfs2_cached_inode *ci = NULL;
 	int bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
@@ -515,7 +514,7 @@ static errcode_t initialize_journal(ocfs2_filesys *fs, uint64_t blkno)
 		goto bail;
 
 	ret = ocfs2_init_journal_superblock(fs, buf, BUFLEN,
-					    ci->ci_inode->i_size);
+					    (ci->ci_inode->i_size >> bs_bits));
 	if (ret)
 		goto bail;
 

@@ -45,20 +45,22 @@
  * Please keep them in sync.
  */
 errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
-					int buflen, uint32_t jrnl_size)
+					int buflen, uint32_t jrnl_size_in_blks)
 {
-	int bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 	journal_superblock_t *jsb = (journal_superblock_t *)buf;
 
 	if (buflen < fs->fs_blocksize)
 		return OCFS2_ET_INTERNAL_FAILURE;
+
+	if (jrnl_size_in_blks < 1024)
+		return OCFS2_ET_JOURNAL_TOO_SMALL;
 
 	memset(buf, 0, buflen);
 	jsb->s_header.h_magic     = htonl(JFS_MAGIC_NUMBER);
 	jsb->s_header.h_blocktype = htonl(JFS_SUPERBLOCK_V2);
 
 	jsb->s_blocksize = cpu_to_be32(fs->fs_blocksize);
-	jsb->s_maxlen    = cpu_to_be32(jrnl_size >> bs_bits);
+	jsb->s_maxlen    = cpu_to_be32(jrnl_size_in_blks);
 
 	if (fs->fs_blocksize == 512)
 		jsb->s_first = htonl(2);
@@ -88,10 +90,6 @@ errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 	char *buf = NULL;
 
 	*ret_jsb = NULL;
-
-	retval = OCFS2_ET_JOURNAL_TOO_SMALL;
-	if (size < 1024)
-		goto bail;
 
 	if ((retval = ocfs2_malloc_block(fs->fs_io, &buf)))
 		goto bail;
