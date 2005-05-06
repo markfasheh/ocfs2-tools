@@ -50,12 +50,13 @@ char *usage_string =
 "	-d quick detect\n"
 "	-f full detect\n";
 
-static void ocfs2_print_nodes(uint8_t *nums, char **names)
+static void ocfs2_print_nodes(ocfs2_devices *dev, char **names)
 {
-	int i = 0;
+	int i;
 	uint8_t n;
+	uint8_t *nums = dev->node_nums;
 
-	while (nums[i] != OCFS2_MAX_NODES) {
+	for (i = 0; i < dev->max_nodes && nums[i] != OCFS2_MAX_NODES; ++i) {
 		if (i)
 			printf(", ");
 		n = nums[i];
@@ -63,10 +64,7 @@ static void ocfs2_print_nodes(uint8_t *nums, char **names)
 			printf("%s", names[n]);
 		else
 			printf("%d", n);
-		++i;
 	}
-
-	return ;
 }
 
 
@@ -115,7 +113,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 				printf("Not mounted\n");
 				continue;
 			}
-			ocfs2_print_nodes(dev->node_nums, nodes);
+			ocfs2_print_nodes(dev, nodes);
 			printf("\n");
 		}
 	}
@@ -125,8 +123,6 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 
 	if (cluster_names)
 		o2cb_free_cluster_list(cluster_names);
-
-	return ;
 }
 
 
@@ -148,8 +144,6 @@ static void ocfs2_print_quick_detect(struct list_head *dev_list)
 		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"), uuid,
 		       dev->label);
 	}
-
-	return ;
 }
 
 static errcode_t ocfs2_partition_list (struct list_head *dev_list)
@@ -189,7 +183,6 @@ bail:
 static void usage(char *progname)
 {
 	printf(usage_string, progname);
-	return ;
 }
 
 

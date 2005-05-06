@@ -89,7 +89,6 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 {
 	ocfs2_filesys *fs = NULL;
 	errcode_t ret = 0;
-	uint16_t num_nodes;
 	struct list_head *pos;
 	ocfs2_devices *dev = NULL;
 	char *device= NULL;
@@ -113,18 +112,19 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 			goto bail;
 
 		/* get label/uuid for ocfs2 */
-		num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+		dev->max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
 		memcpy(dev->label, OCFS2_RAW_SB(fs->fs_super)->s_label,
 		       sizeof(dev->label));
 		memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
 		       sizeof(dev->uuid));
 
-		ret = ocfs2_malloc((sizeof(uint8_t) * num_nodes), &dev->node_nums);
+		ret = ocfs2_malloc((sizeof(uint8_t) * dev->max_nodes),
+				   &dev->node_nums);
 		if (ret)
 			goto bail;
 
 		memset(dev->node_nums, OCFS2_MAX_NODES,
-		       (sizeof(uint8_t) * num_nodes));
+		       (sizeof(uint8_t) * dev->max_nodes));
 
 		/* read slotmap to get nodes on which the volume is mounted */
 		ret = ocfs2_read_slotmap(fs, dev->node_nums);
