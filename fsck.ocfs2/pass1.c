@@ -622,10 +622,18 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		.vb_di = di,
 	};
 
+	/*
+	 * ISLNK && clusters == 0 is the only sign of an inode that doesn't
+	 * have an extent list when i_flags would have us believe it did.  
+	 * We might be able to be very clever about discovering the 
+	 * difference between i_symlink and i_list, but we don't try yet.
+	 */
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
 		ret = 0;
 	else if (di->i_flags & OCFS2_CHAIN_FL)
 		ret = ocfs2_chain_iterate(fs, blkno, check_gd_block, &vb);
+	else if (S_ISLNK(di->i_mode) && di->i_clusters == 0) 
+		ret = 0;
 	else {
 		ret = o2fsck_check_extents(ost, di);
 		if (ret == 0)

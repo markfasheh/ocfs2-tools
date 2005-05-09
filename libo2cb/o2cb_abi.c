@@ -616,7 +616,7 @@ static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 	if (err)
 		goto out_rmdir;
 
-	fd = open(device_name, O_RDWR);
+	fd = open64(device_name, O_RDWR);
 	if (fd < 0) {
 		switch (errno) {
 			default:

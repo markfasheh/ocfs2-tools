@@ -530,13 +530,13 @@ int main(int argc, char **argv)
 	if (open_flags & OCFS2_FLAG_RW) {
 		ret = ocfs2_initialize_dlm(ost->ost_fs);
 		if (ret) {
-			com_err(whoami, ret, " ");
+			com_err(whoami, ret, "while initializing the DLM");
 			goto close;
 		}
 
 		ret = ocfs2_lock_down_cluster(ost->ost_fs);
 		if (ret) {
-			com_err(whoami, ret, " ");
+			com_err(whoami, ret, "while locking down the cluster");
 			goto close;
 		}
 	}
