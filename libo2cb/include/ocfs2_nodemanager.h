@@ -28,7 +28,7 @@
 #ifndef _OCFS2_NODEMANAGER_H
 #define _OCFS2_NODEMANAGER_H
 
-#define NM_API_VERSION		1
+#define NM_API_VERSION		2
 
 #define NM_MAX_NODES		255
 #define NM_INVALID_SLOT_NUM	255

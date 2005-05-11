@@ -25,10 +25,6 @@
  * Authors: Mark Fasheh, Zach Brown
  */
 
-#define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
-#define _LARGEFILE64_SOURCE
-
-#define __USE_MISC
 #include <string.h>
 #include <inttypes.h>
 
@@ -40,10 +36,17 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	errcode_t ret;
 	char *filename;
 	char *buf = NULL;
-	uint64_t blkno, blocks;
+	uint64_t blkno, blocks, start_block;
 	uint32_t block_bits, cluster_bits;
+	int sectsize, sectsize_bits;
 	ocfs2_dinode *di;
 	ocfs2_extent_rec *rec;
+
+	ret = ocfs2_get_device_sectsize(fs->fs_devname, &sectsize);
+	if (ret)
+		goto leave;
+
+	sectsize_bits = ffs(sectsize) - 1;
 
 	filename = ocfs2_system_inodes[HEARTBEAT_SYSTEM_INODE].si_name;
 
@@ -71,17 +74,26 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	block_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 	cluster_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 
+	if (block_bits < sectsize_bits) {
+		ret = OCFS2_ET_BLOCK_SIZE_TOO_SMALL_FOR_HARDWARE;
+		goto leave;
+	}
+
 	blocks = rec->e_clusters << cluster_bits;
 	blocks >>= block_bits;
 
 	/* clamp to NM_MAX_NODES */
+	/* XXX: hmmbo, NM_MAX_NODES is 255 */
 	if (blocks > 254)
 		blocks = 254;
 
+	start_block = rec->e_blkno << block_bits;
+	start_block >>= sectsize_bits;
+
 	desc->r_name = fs->uuid_str;
 	desc->r_device_name = fs->fs_devname;
-	desc->r_block_bytes = 1 << block_bits;
-	desc->r_start_block = rec->e_blkno;
+	desc->r_block_bytes = sectsize;
+	desc->r_start_block = start_block;
 	desc->r_blocks = blocks;
 
 leave:
