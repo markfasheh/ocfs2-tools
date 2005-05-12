@@ -25,7 +25,7 @@
 
 #include "o2cb.h"
 
-char *progname = "ocfs2_hb_ctl";
+static char *progname = "ocfs2_hb_ctl";
 
 static errcode_t get_uuid(char *dev, char *uuid)
 {

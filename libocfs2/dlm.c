@@ -44,9 +44,9 @@ enum ocfs2_lock_type {
 };
 
 static char ocfs2_lock_type_char[OCFS_NUM_LOCK_TYPES] = {
-	[OCFS_TYPE_META]	'M',
-	[OCFS_TYPE_DATA] 	'D',
-	[OCFS_TYPE_SUPER]       'S'
+	[OCFS_TYPE_META]  = 'M',
+	[OCFS_TYPE_DATA]  = 'D',
+	[OCFS_TYPE_SUPER] = 'S'
 };
 
 static void ocfs2_build_lock_name(ocfs2_filesys *fs, enum ocfs2_lock_type type,

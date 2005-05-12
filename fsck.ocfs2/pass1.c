@@ -670,7 +670,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		di->i_links_count = 0;
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 				  di->i_links_count);
-		di->i_dtime = time(0);
+		di->i_dtime = time(NULL);
 		o2fsck_write_inode(ost, di->i_blkno, di);
 		/* XXX clear valid flag and stuff? */
 	}

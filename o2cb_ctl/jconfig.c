@@ -185,7 +185,7 @@ static void j_config_foreach_stanza_append(gpointer key,
  *
  * Returns a new JConfigCtxt.
  */
-JConfigCtxt *j_config_new_context()
+JConfigCtxt *j_config_new_context(void)
 {
     JConfigCtxt *cfc;
 
@@ -790,7 +790,7 @@ attribute_free:
  * 
  * Allocates a new JConfig structure
  */
-static JConfig *j_config_config_new()
+static JConfig *j_config_config_new(void)
 {
     JConfig *cf;
     
@@ -815,7 +815,7 @@ static JConfig *j_config_config_new()
  * 
  * Allocates a new JConfigStanza structure
  */
-static JConfigStanza *j_config_stanza_new()
+static JConfigStanza *j_config_stanza_new(void)
 {
     JConfigStanza *cfs;
     
@@ -1712,7 +1712,7 @@ gchar *j_config_dump_memory(JConfig *cf)
     gchar *output_text;
     GString *output;
 
-    g_return_val_if_fail(cf != NULL, FALSE);
+    g_return_val_if_fail(cf != NULL, NULL);
 
     output = g_string_new(NULL);
     if (output == NULL)

@@ -169,20 +169,20 @@ enum {
 static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 	/* Global system inodes (single copy) */
 	/* The first two are only used from userspace mfks/tunefs */
-	[BAD_BLOCK_SYSTEM_INODE]		{ "bad_blocks", 0, S_IFREG | 0644 },
-	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	{ "global_inode_alloc", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
+	[BAD_BLOCK_SYSTEM_INODE]		= { "bad_blocks", 0, S_IFREG | 0644 },
+	[GLOBAL_INODE_ALLOC_SYSTEM_INODE] 	= { "global_inode_alloc", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
 
 	/* These are used by the running filesystem */
-	[SLOT_MAP_SYSTEM_INODE]			{ "slot_map", 0, S_IFREG | 0644 },
-	[HEARTBEAT_SYSTEM_INODE]		{ "heartbeat", OCFS2_HEARTBEAT_FL, S_IFREG | 0644 },
-	[GLOBAL_BITMAP_SYSTEM_INODE]		{ "global_bitmap", 0, S_IFREG | 0644 },
+	[SLOT_MAP_SYSTEM_INODE]			= { "slot_map", 0, S_IFREG | 0644 },
+	[HEARTBEAT_SYSTEM_INODE]		= { "heartbeat", OCFS2_HEARTBEAT_FL, S_IFREG | 0644 },
+	[GLOBAL_BITMAP_SYSTEM_INODE]		= { "global_bitmap", 0, S_IFREG | 0644 },
 
 	/* Node-specific system inodes (one copy per node) */
-	[ORPHAN_DIR_SYSTEM_INODE]		{ "orphan_dir:%04d", 0, S_IFDIR | 0755 },
-	[EXTENT_ALLOC_SYSTEM_INODE]		{ "extent_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
-	[INODE_ALLOC_SYSTEM_INODE]		{ "inode_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
-	[JOURNAL_SYSTEM_INODE]			{ "journal:%04d", OCFS2_JOURNAL_FL, S_IFREG | 0644 },
-	[LOCAL_ALLOC_SYSTEM_INODE]		{ "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, S_IFREG | 0644 }
+	[ORPHAN_DIR_SYSTEM_INODE]		= { "orphan_dir:%04d", 0, S_IFDIR | 0755 },
+	[EXTENT_ALLOC_SYSTEM_INODE]		= { "extent_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
+	[INODE_ALLOC_SYSTEM_INODE]		= { "inode_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
+	[JOURNAL_SYSTEM_INODE]			= { "journal:%04d", OCFS2_JOURNAL_FL, S_IFREG | 0644 },
+	[LOCAL_ALLOC_SYSTEM_INODE]		= { "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, S_IFREG | 0644 }
 };
 
 /* Parameter passed from mount.ocfs2 to module */
@@ -219,13 +219,13 @@ static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 
 #define S_SHIFT			12
 static unsigned char ocfs_type_by_mode[S_IFMT >> S_SHIFT] = {
-	[S_IFREG >> S_SHIFT]    OCFS2_FT_REG_FILE,
-	[S_IFDIR >> S_SHIFT]    OCFS2_FT_DIR,
-	[S_IFCHR >> S_SHIFT]    OCFS2_FT_CHRDEV,
-	[S_IFBLK >> S_SHIFT]    OCFS2_FT_BLKDEV,
-	[S_IFIFO >> S_SHIFT]    OCFS2_FT_FIFO,
-	[S_IFSOCK >> S_SHIFT]   OCFS2_FT_SOCK,
-	[S_IFLNK >> S_SHIFT]    OCFS2_FT_SYMLINK,
+	[S_IFREG >> S_SHIFT]  = OCFS2_FT_REG_FILE,
+	[S_IFDIR >> S_SHIFT]  = OCFS2_FT_DIR,
+	[S_IFCHR >> S_SHIFT]  = OCFS2_FT_CHRDEV,
+	[S_IFBLK >> S_SHIFT]  = OCFS2_FT_BLKDEV,
+	[S_IFIFO >> S_SHIFT]  = OCFS2_FT_FIFO,
+	[S_IFSOCK >> S_SHIFT] = OCFS2_FT_SOCK,
+	[S_IFLNK >> S_SHIFT]  = OCFS2_FT_SYMLINK,
 };
 
 

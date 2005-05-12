@@ -49,16 +49,16 @@ enum ocfs2_lock_type {
 #define OCFS2_LOCK_ID_PAD "000000"
 
 static char ocfs2_lock_type_char[OCFS_NUM_LOCK_TYPES] = {
-	[OCFS_TYPE_META]	'M',
-	[OCFS_TYPE_DATA] 	'D',
-	[OCFS_TYPE_SUPER]       'S'
+	[OCFS_TYPE_META]  = 'M',
+	[OCFS_TYPE_DATA]  = 'D',
+	[OCFS_TYPE_SUPER] = 'S'
 };
 /* End paste from kernel module */
 
 static char * ocfs2_lock_type_string[OCFS_NUM_LOCK_TYPES] = {
-	[OCFS_TYPE_META]	"Metadata",
-	[OCFS_TYPE_DATA] 	"Data",
-	[OCFS_TYPE_SUPER]       "Superblock"
+	[OCFS_TYPE_META]  = "Metadata",
+	[OCFS_TYPE_DATA]  = "Data",
+	[OCFS_TYPE_SUPER] = "Superblock"
 };
 
 static void usage(char *program)

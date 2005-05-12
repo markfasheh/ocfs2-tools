@@ -134,7 +134,7 @@ errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 
 	retval = ocfs2_dir_iterate(fs, dir,
                                    OCFS2_DIRENT_FLAG_INCLUDE_EMPTY,
-                                   0, link_proc, &ls);
+                                   NULL, link_proc, &ls);
 	if (retval)
 		return retval;
 

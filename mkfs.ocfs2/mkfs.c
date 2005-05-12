@@ -86,7 +86,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 extern char *optarg;
 extern int optind, opterr, optopt;
 
-SystemFileInfo system_files[] = {
+static SystemFileInfo system_files[] = {
 	{ "bad_blocks", SFI_OTHER, 1, S_IFREG | 0644 },
 	{ "global_inode_alloc", SFI_CHAIN, 1, S_IFREG | 0644 },
 	{ "slot_map", SFI_OTHER, 1, S_IFREG | 0644 },

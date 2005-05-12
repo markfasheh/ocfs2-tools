@@ -41,11 +41,11 @@
 #include <ocfs1_fs_compat.h>
 #include <kernel-list.h>
 
-int quick_detect = 0;
-char *device = NULL;
-char *progname = NULL;
+static int quick_detect = 0;
+static char *device = NULL;
+static char *progname = NULL;
 
-char *usage_string =
+static char *usage_string =
 "usage: %s [-d] [-f] [device]\n"
 "	-d quick detect\n"
 "	-f full detect\n";

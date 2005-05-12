@@ -80,9 +80,9 @@ typedef struct _ocfs2_tune_opts {
 	int fd;
 } ocfs2_tune_opts;
 
-ocfs2_tune_opts opts;
-ocfs2_filesys *fs_gbl = NULL;
-int cluster_locked = 0;
+static ocfs2_tune_opts opts;
+static ocfs2_filesys *fs_gbl = NULL;
+static int cluster_locked = 0;
 
 static void usage(const char *progname)
 {

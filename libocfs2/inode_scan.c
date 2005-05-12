@@ -211,7 +211,7 @@ static int get_next_inode_alloc(ocfs2_inode_scan *scan)
 	scan->next_rec = 0;
 	scan->count = 0;
 	scan->cur_blkno = 0;
-	scan->cur_rec = 0;
+	scan->cur_rec = NULL;
 	scan->blocks_left =
 		cinode->ci_inode->id1.bitmap1.i_total;
 

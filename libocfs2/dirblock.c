@@ -73,7 +73,7 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
 {
 	errcode_t	retval;
 	char		*p, *end;
-	char		*buf = 0;
+	char		*buf = NULL;
 	struct ocfs2_dir_entry *dirent;
 
 	retval = ocfs2_malloc_block(fs->fs_io, &buf);

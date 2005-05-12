@@ -64,14 +64,14 @@ typedef enum {
 } CDSLType;
 
 static const char * const cdsl_names[] = {
-	[CDSL_TYPE_HOSTNAME]	"hostname",
-	[CDSL_TYPE_MACH]	"mach",
-	[CDSL_TYPE_OS]		"os",
-	[CDSL_TYPE_NODENUM]	"mach",
-	[CDSL_TYPE_SYS]		"sys",
-	[CDSL_TYPE_UID]		"uid",
-	[CDSL_TYPE_GID]		"gid",
-	[CDSL_TYPE_UNKNOWN]	NULL
+	[CDSL_TYPE_HOSTNAME] = "hostname",
+	[CDSL_TYPE_MACH]     = "mach",
+	[CDSL_TYPE_OS]       = "os",
+	[CDSL_TYPE_NODENUM]  = "mach",
+	[CDSL_TYPE_SYS]      = "sys",
+	[CDSL_TYPE_UID]      = "uid",
+	[CDSL_TYPE_GID]      = "gid",
+	[CDSL_TYPE_UNKNOWN]  = NULL
 };
 
 
@@ -519,7 +519,7 @@ static char *
 cdsl_path_expand(State *s)
 {
 	const char *prefix;
-	char *val, *ret;;
+	char *val, *ret;
 	struct utsname buf;
 
 	uname(&buf);
