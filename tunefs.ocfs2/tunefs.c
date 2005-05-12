@@ -354,6 +354,7 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 	uint64_t blkno;
 	int i, j;
 	char *display_str = NULL;
+	int ftype;
 
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
 		for (j = old_num; j < opts.num_nodes; ++j) {
@@ -375,9 +376,19 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 			if (ret)
 				goto bail;
 
+			ftype = (S_ISDIR(ocfs2_system_inodes[i].si_mode) ?
+				 OCFS2_FT_DIR : OCFS2_FT_REG_FILE);
+
+			/* if dir, alloc space to it */
+			if (ftype == OCFS2_FT_DIR) {
+				ret = ocfs2_expand_dir(fs, blkno, fs->fs_sysdir_blkno);
+				if (ret)
+					goto bail;
+			}
+
 			/* Add the inode to the system dir */
 			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname, blkno,
-					 OCFS2_FT_REG_FILE);
+					 ftype);
 			if (!ret)
 				goto next_file;
 			if (ret == OCFS2_ET_DIR_NO_SPACE) {
@@ -385,8 +396,7 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 						       fs->fs_sysdir_blkno);
 				if (!ret)
 					ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
-							 fname, blkno,
-							 OCFS2_FT_REG_FILE);
+							 fname, blkno, ftype);
 			} else
 				goto bail;
 next_file:

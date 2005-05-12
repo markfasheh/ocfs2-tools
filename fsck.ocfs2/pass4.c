@@ -146,22 +146,26 @@ static errcode_t replay_orphan_dir(o2fsck_state *ost)
 	char name[PATH_MAX];
 	uint64_t ino;
 	int bytes;
+	int i;
+	int num_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
 
-	bytes = ocfs2_sprintf_system_inode_name(name, PATH_MAX,
-			ORPHAN_DIR_SYSTEM_INODE, 0);
-	if (bytes < 1) {
-		ret = OCFS2_ET_INTERNAL_FAILURE;
-		goto out;
+	for (i = 0; i < num_nodes; ++i) {
+		bytes = ocfs2_sprintf_system_inode_name(name, PATH_MAX,
+				ORPHAN_DIR_SYSTEM_INODE, i);
+		if (bytes < 1) {
+			ret = OCFS2_ET_INTERNAL_FAILURE;
+			goto out;
+		}
+
+		ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_sysdir_blkno,
+				   name, bytes, NULL, &ino);
+		if (ret)
+			goto out;
+
+		ret = ocfs2_dir_iterate(ost->ost_fs, ino,
+					OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,
+					replay_orphan_iterate, ost);
 	}
-
-	ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_sysdir_blkno, name,
-			   bytes, NULL, &ino);
-	if (ret)
-		goto out;
-
-	ret = ocfs2_dir_iterate(ost->ost_fs, ino,
-				OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,
-				replay_orphan_iterate, ost);
 
 out:
 	return ret;

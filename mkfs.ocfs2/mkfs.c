@@ -92,7 +92,7 @@ SystemFileInfo system_files[] = {
 	{ "slot_map", SFI_OTHER, 1, S_IFREG | 0644 },
 	{ "heartbeat", SFI_HEARTBEAT, 1, S_IFREG | 0644 },
 	{ "global_bitmap", SFI_CLUSTER, 1, S_IFREG | 0644 },
-	{ "orphan_dir", SFI_OTHER, 1, S_IFDIR | 0755 },
+	{ "orphan_dir:%04d", SFI_OTHER, 0, S_IFDIR | 0755 },
 	{ "extent_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
 	{ "inode_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
 	{ "journal:%04d", SFI_JOURNAL, 0, S_IFREG | 0644 },
@@ -138,7 +138,7 @@ main(int argc, char **argv)
 	SystemFileDiskRecord system_dir_rec;
 	SystemFileDiskRecord lostfound_dir_rec;
 	int i, j, num;
-	DirData *orphan_dir;
+	DirData *orphan_dir[OCFS2_MAX_NODES];
 	DirData *root_dir;
 	DirData *system_dir;
 	DirData *lostfound_dir;
@@ -212,7 +212,8 @@ main(int argc, char **argv)
 
 	root_dir = alloc_directory(s);
 	system_dir = alloc_directory(s);
-	orphan_dir = alloc_directory(s);
+	for (i = 0; i < s->initial_nodes; ++i)
+		orphan_dir[i] = alloc_directory(s);
 	lostfound_dir = alloc_directory(s);
 
 	need = (s->volume_size_in_clusters + 7) >> 3;
@@ -320,11 +321,13 @@ main(int argc, char **argv)
 	alloc_bytes_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	tmprec->file_size = need;
 
-	tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][0];
-	orphan_dir->record = tmprec;
-	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
-	add_entry_to_directory(s, orphan_dir, ".", tmprec->fe_off, OCFS2_FT_DIR);
-	add_entry_to_directory(s, orphan_dir, "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
+	for (i = 0; i < s->initial_nodes; ++i) {
+		tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][i];
+		orphan_dir[i]->record = tmprec;
+		alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
+		add_entry_to_directory(s, orphan_dir[i], ".", tmprec->fe_off, OCFS2_FT_DIR);
+		add_entry_to_directory(s, orphan_dir[i], "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
+	}
 
 	tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
 	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
@@ -373,7 +376,8 @@ main(int argc, char **argv)
 
 	write_directory_data(s, root_dir);
 	write_directory_data(s, system_dir);
-	write_directory_data(s, orphan_dir);
+	for (i = 0; i < s->initial_nodes; ++i)
+		write_directory_data(s, orphan_dir[i]);
 	write_directory_data(s, lostfound_dir);
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
