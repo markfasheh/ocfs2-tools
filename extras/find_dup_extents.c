@@ -189,7 +189,11 @@ static errcode_t run_scan(struct walk_extents *we, int test)
 
 			if ((di->i_flags & OCFS2_SYSTEM_FL) &&
 			    (di->i_flags & (OCFS2_SUPER_BLOCK_FL |
-					    OCFS2_LOCAL_ALLOC_FL)))
+					    OCFS2_LOCAL_ALLOC_FL |
+					    OCFS2_CHAIN_FL)))
+				continue;
+
+			if (!di->i_clusters && S_ISLNK(di->i_mode))
 				continue;
 
 			we->blkno = blkno;
