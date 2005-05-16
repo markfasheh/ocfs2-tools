@@ -507,9 +507,9 @@ get_state(int argc, char **argv)
 					"Initial nodes must be no more than %d",
 					OCFS2_MAX_NODES);
 				exit(1);
-			} else if (initial_nodes < 2) {
+			} else if (initial_nodes < 1) {
 				com_err(progname, 0,
-					"Initial nodes must be at least 2");
+					"Initial nodes must be at least 1");
 				exit(1);
 			}
 
