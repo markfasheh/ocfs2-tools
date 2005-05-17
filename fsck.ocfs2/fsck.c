@@ -80,6 +80,7 @@ static void print_usage(void)
 		" -n		Check but don't change the file system\n"
 		" -y		Answer 'yes' to all repair questions\n"
 		" -f		Force checking even if file system is clean\n"
+		" -F		Ignore cluster locking (dangerous!)\n"
 		"\n"
 		"Less critical flags:\n"
 		" -b superblock	Treat given block as the super block\n"
@@ -432,7 +433,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:fGnuvVy")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:fFGnuvVy")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -456,6 +457,10 @@ int main(int argc, char **argv)
 					print_usage();
 					goto out;
 				}
+				break;
+
+			case 'F':
+				ost->ost_skip_o2cb = 1;
 				break;
 
 			case 'f':
@@ -498,11 +503,15 @@ int main(int argc, char **argv)
 		}
 	}
 
-	ret = o2cb_init();
-	if (ret) {
-		com_err(whoami, ret, "Cannot initialize cluster\n");
-		fsck_mask |= FSCK_ERROR;
-		goto out;
+	if (ost->ost_skip_o2cb)
+		printf("-F given, *not* checking with the cluster DLM.\n");
+	else {
+		ret = o2cb_init();
+		if (ret) {
+			com_err(whoami, ret, "Cannot initialize cluster\n");
+			fsck_mask |= FSCK_ERROR;
+			goto out;
+		}
 	}
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
@@ -527,7 +536,7 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	if (open_flags & OCFS2_FLAG_RW) {
+	if (open_flags & OCFS2_FLAG_RW && !ost->ost_skip_o2cb) {
 		ret = ocfs2_initialize_dlm(ost->ost_fs);
 		if (ret) {
 			com_err(whoami, ret, "while initializing the DLM");

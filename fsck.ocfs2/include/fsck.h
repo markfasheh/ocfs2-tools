@@ -57,6 +57,7 @@ typedef struct _o2fsck_state {
 	unsigned	ost_ask:1,	/* confirm with the user */
 			ost_answer:1,	/* answer if we don't ask the user */
 			ost_force:1,	/* -f supplied; force check */
+			ost_skip_o2cb:1,/* -F: ignore cluster services */
 			ost_write_inode_alloc_asked:1,
 			ost_write_inode_alloc:1,
 			ost_write_error:1,
