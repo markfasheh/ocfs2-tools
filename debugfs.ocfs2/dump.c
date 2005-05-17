@@ -84,6 +84,28 @@ void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc)
 }
 
 /*
+ * dump_truncate_log()
+ *
+ */
+void dump_truncate_log (FILE *out, ocfs2_truncate_log *tl)
+{
+	int i;
+
+	fprintf(out, "\tTotal Records: %u   Used: %u\n",
+		le16_to_cpu(tl->tl_count), le16_to_cpu(tl->tl_used));
+
+	fprintf(out, "\t##   %-10s   %-10s\n", "Start Cluster",
+		"Num Clusters");
+
+	for(i = 0; i < le16_to_cpu(tl->tl_used); i++)
+		fprintf(out, "\t%-2d   %-10u   %-10u\n",
+			i, le32_to_cpu(tl->tl_recs[i].t_start),
+			le32_to_cpu(tl->tl_recs[i].t_clusters));
+
+	return ;
+}
+
+/*
  * dump_fast_symlink()
  *
  */
@@ -149,6 +171,8 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		g_string_append (flags, "Heartbeat ");
 	if (in->i_flags & OCFS2_CHAIN_FL)
 		g_string_append (flags, "Chain ");
+	if (in->i_flags & OCFS2_DEALLOC_FL)
+		g_string_append (flags, "Dealloc ");
 
 	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u\n",
 	        in->i_blkno, mode, in->i_generation);

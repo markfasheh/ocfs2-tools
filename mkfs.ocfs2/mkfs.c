@@ -96,7 +96,8 @@ static SystemFileInfo system_files[] = {
 	{ "extent_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
 	{ "inode_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
 	{ "journal:%04d", SFI_JOURNAL, 0, S_IFREG | 0644 },
-	{ "local_alloc:%04d", SFI_LOCAL_ALLOC, 0, S_IFREG | 0644 }
+	{ "local_alloc:%04d", SFI_LOCAL_ALLOC, 0, S_IFREG | 0644 },
+	{ "truncate_log:%04d", SFI_TRUNCATE_LOG, 0, S_IFREG | 0644 }
 };
 
 
@@ -1561,6 +1562,12 @@ format_file(State *s, SystemFileDiskRecord *rec)
 		goto write_out;
 	}
 
+	if (rec->flags & OCFS2_DEALLOC_FL) {
+		di->id2.i_dealloc.tl_count =
+			cpu_to_le16(ocfs2_truncate_recs_per_inode(s->blocksize));
+		goto write_out;
+	}
+
 	if (rec->flags & OCFS2_BITMAP_FL) {
 		di->id1.bitmap1.i_used = cpu_to_le32(rec->bi.used_bits);
 		di->id1.bitmap1.i_total = cpu_to_le32(rec->bi.total_bits);
@@ -1870,6 +1877,9 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int mode)
 		rec->cluster_bitmap = 1;
 	case SFI_CHAIN:
 		rec->flags |= (OCFS2_BITMAP_FL|OCFS2_CHAIN_FL);
+		break;
+	case SFI_TRUNCATE_LOG:
+		rec->flags |= OCFS2_DEALLOC_FL;
 		break;
 	case SFI_OTHER:
 		break;

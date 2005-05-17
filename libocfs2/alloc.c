@@ -127,6 +127,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
 {
 	ocfs2_extent_list *fel;
 	int cs_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+	unsigned int tl_recs;
 
 	di->i_generation = fs->fs_super->i_generation;
 	di->i_fs_generation = fs->fs_super->i_fs_generation;
@@ -158,6 +159,12 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
 			ocfs2_clusters_per_group(fs->fs_blocksize, cs_bits);
 		di->id2.i_chain.cl_bpc = fs->fs_clustersize / fs->fs_blocksize;
 		di->id2.i_chain.cl_next_free_rec = 0;
+		return ;
+	}
+
+	if (flags & OCFS2_DEALLOC_FL) {
+		tl_recs = ocfs2_truncate_recs_per_inode(fs->fs_blocksize);
+		di->id2.i_dealloc.tl_count = cpu_to_le16(tl_recs);
 		return ;
 	}
 

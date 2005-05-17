@@ -699,6 +699,8 @@ static void do_stat (char **args)
 		ret = traverse_chains(gbls.fs, &(inode->id2.i_chain), out);
 	else if (S_ISLNK(inode->i_mode) && !inode->i_clusters)
 		dump_fast_symlink(out, inode->id2.i_symlink);
+	else if (inode->i_flags & OCFS2_DEALLOC_FL)
+		dump_truncate_log(out, &(inode->id2.i_dealloc));
 	else
 		ret = traverse_extents(gbls.fs, &(inode->id2.i_list), out);
 

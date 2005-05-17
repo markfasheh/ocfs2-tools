@@ -35,6 +35,7 @@ typedef struct _list_dir_opts {
 
 void dump_super_block (FILE *out, ocfs2_super_block *sb);
 void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc);
+void dump_truncate_log (FILE *out, ocfs2_truncate_log *tl);
 void dump_inode (FILE *out, ocfs2_dinode *in);
 void dump_extent_list (FILE *out, ocfs2_extent_list *ext);
 void dump_chain_list (FILE *out, ocfs2_chain_list *cl);

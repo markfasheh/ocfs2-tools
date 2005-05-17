@@ -116,6 +116,7 @@
 #define OCFS2_JOURNAL_FL	(0x00000100)	/* Node journal */
 #define OCFS2_HEARTBEAT_FL	(0x00000200)	/* Heartbeat area */
 #define OCFS2_CHAIN_FL		(0x00000400)	/* Chain allocator */
+#define OCFS2_DEALLOC_FL	(0x00000800)	/* Truncate log */
 
 /*
  * Journal Flags (ocfs2_dinode.id1.journal1.i_flags)
@@ -163,6 +164,7 @@ enum {
 	INODE_ALLOC_SYSTEM_INODE,
 	JOURNAL_SYSTEM_INODE,
 	LOCAL_ALLOC_SYSTEM_INODE,
+	TRUNCATE_LOG_SYSTEM_INODE,
 	NUM_SYSTEM_INODES
 };
 
@@ -182,7 +184,8 @@ static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 	[EXTENT_ALLOC_SYSTEM_INODE]		= { "extent_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
 	[INODE_ALLOC_SYSTEM_INODE]		= { "inode_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
 	[JOURNAL_SYSTEM_INODE]			= { "journal:%04d", OCFS2_JOURNAL_FL, S_IFREG | 0644 },
-	[LOCAL_ALLOC_SYSTEM_INODE]		= { "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, S_IFREG | 0644 }
+	[LOCAL_ALLOC_SYSTEM_INODE]		= { "local_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_LOCAL_ALLOC_FL, S_IFREG | 0644 },
+	[TRUNCATE_LOG_SYSTEM_INODE]		= { "truncate_log:%04d", OCFS2_DEALLOC_FL, S_IFREG | 0644 }
 };
 
 /* Parameter passed from mount.ocfs2 to module */
@@ -253,6 +256,11 @@ typedef struct _ocfs2_chain_rec {
 	__u64 c_blkno;	/* Physical disk offset (blocks) of 1st group */
 } ocfs2_chain_rec;
 
+typedef struct _ocfs2_truncate_rec {
+	__u32 t_start;		/* 1st cluster in this log */
+	__u32 t_clusters;	/* Number of total clusters covered */
+} ocfs2_truncate_rec;
+
 /*
  * On disk extent list for OCFS2 (node in the tree).  Note that this
  * is contained inside ocfs2_dinode or ocfs2_extent_block, so the
@@ -285,6 +293,18 @@ typedef struct _ocfs2_chain_list {
 	__u64 cl_reserved1;
 /*10*/	ocfs2_chain_rec cl_recs[0];	/* Chain records */
 } ocfs2_chain_list;
+
+/*
+ * On disk deallocation log for OCFS2.  Note that this is
+ * contained inside ocfs2_dinode, so the offsets are relative to
+ * ocfs2_dinode.id2.i_dealloc.
+ */
+typedef struct _ocfs2_truncate_log {
+/*00*/	__u16 tl_count;			/* Total records in this log */
+	__u16 tl_used;			/* Number of records in use */
+	__u32 tl_reserved1;
+/*08*/	ocfs2_truncate_rec tl_recs[0];	/* Truncate records */
+} ocfs2_truncate_log;
 
 /*
  * On disk extent block (indirect block) for OCFS2
@@ -403,11 +423,12 @@ typedef struct _ocfs2_dinode {
 		} journal1;
 	} id1;				/* Inode type dependant 1 */
 /*C0*/	union {
-		ocfs2_super_block i_super;
-		ocfs2_local_alloc i_lab;
-		ocfs2_chain_list  i_chain;
-		ocfs2_extent_list i_list;
-		__u8              i_symlink[0];
+		ocfs2_super_block  i_super;
+		ocfs2_local_alloc  i_lab;
+		ocfs2_chain_list   i_chain;
+		ocfs2_extent_list  i_list;
+		ocfs2_truncate_log i_dealloc;
+		__u8               i_symlink[0];
 	} id2;
 /* Actual on-disk size is one block */
 } ocfs2_dinode;
@@ -503,6 +524,16 @@ static inline int ocfs2_group_bitmap_size(struct super_block *sb)
 
 	return size;
 }
+
+static inline int ocfs2_truncate_recs_per_inode(struct super_block *sb)
+{
+	int size;
+
+	size = sb->s_blocksize -
+		offsetof(struct _ocfs2_dinode, id2.i_dealloc.tl_recs);
+
+	return size / sizeof(struct _ocfs2_truncate_rec);
+}
 #else
 static inline int ocfs2_fast_symlink_chars(int blocksize)
 {
@@ -557,6 +588,16 @@ static inline int ocfs2_group_bitmap_size(int blocksize)
 		offsetof(struct _ocfs2_group_desc, bg_bitmap);
 
 	return size;
+}
+
+static inline int ocfs2_truncate_recs_per_inode(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct _ocfs2_dinode, id2.i_dealloc.tl_recs);
+
+	return size / sizeof(struct _ocfs2_truncate_rec);
 }
 #endif  /* __KERNEL__ */
 
