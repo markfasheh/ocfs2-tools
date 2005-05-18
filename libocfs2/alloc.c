@@ -277,6 +277,7 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 	char *buf;
 	ocfs2_dinode *di;
 	int node;
+	ocfs2_cached_inode **inode_alloc;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -288,14 +289,17 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 	di = (ocfs2_dinode *)buf;
 	node = di->i_suballoc_node;
 
-	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE,
-				   node,
-				   &fs->fs_inode_allocs[node]);
+	if (node == -1)
+		inode_alloc = &fs->fs_system_inode_alloc;
+	else
+		inode_alloc = &fs->fs_inode_allocs[node];
+
+	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE, node,
+				   inode_alloc);
 	if (ret)
 		goto out;
 
-	ret = ocfs2_chain_free_with_io(fs, fs->fs_inode_allocs[node],
-				       ino);
+	ret = ocfs2_chain_free_with_io(fs, *inode_alloc, ino);
 	if (ret)
 		goto out;
 
