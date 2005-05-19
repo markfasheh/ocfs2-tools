@@ -142,7 +142,7 @@ out:
 
 static errcode_t replay_orphan_dir(o2fsck_state *ost)
 {
-	errcode_t ret;
+	errcode_t ret = OCFS2_ET_CORRUPT_SUPERBLOCK;
 	char name[PATH_MAX];
 	uint64_t ino;
 	int bytes;
