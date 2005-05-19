@@ -296,6 +296,44 @@ a chance to just reset the local allocator inode.
 Answering yes clears the local allocator.  No information is lost but the global
 bitmap allocator may need to be updated to reflect clusters that were reserved for the local allocator but were free.
 
+.SS "DEALLOC_COUNT"
+The given truncate log inode contains a count that is greater than the 
+value that is possible given the size of the inode.
+
+Answering yes resets the count value to the possible maximum.
+
+.SS "DEALLOC_USED"
+The given truncate log inode claims to have more records in use than
+it is possible to store in the inode.
+
+Answering yes resets the record of the number used to the maximum 
+value possible.
+
+.SS "TRUNCATE_REC_START_RANGE"
+A truncate record was found which claims to start at a cluster that is beyond
+the number of clusters in the volume.
+
+Answering yes will clear the truncate record.  This may result in previously
+freed space being marked as allocated.  This will be fixed up later as the
+allocator is updated to match what is used by the file system.
+
+.SS "TRUNCATE_REC_WRAP"
+Clusters are recorded as 32bit values.  A truncate record was found which claims
+to have enough clusters to cause this value to wrap.  This could never be the case and
+is a sure sign of corruption.
+
+Answering yes will clear the truncate record.  This may result in previously
+freed space being marked as allocated.  This will be fixed up later as the
+allocator is updated to match what is used by the file system.
+
+.SS "TRUNCATE_REC_RANGE"
+A truncate record was found which claims to reference a region of clusters which
+partially extends beyond the number of clusters in the volume.
+
+Answering yes will clear the truncate record.  This may result in previously
+freed space being marked as allocated.  This will be fixed up later as the
+allocator is updated to match what is used by the file system.
+
 .SS "INODE_GEN"
 Inodes are created with a generation number to match the generation
 number of the volume at the time of creation.  An Inode was found which

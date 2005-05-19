@@ -85,7 +85,7 @@ static void check_root(o2fsck_state *ost)
 	o2fsck_icount_set(ost->ost_icount_refs, blkno, 1);
 	ret = o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 
 				    ost->ost_fs->fs_root_blkno,
-				    ost->ost_fs->fs_root_blkno);
+				    ost->ost_fs->fs_root_blkno, 0);
 	if (ret) {
 		com_err(whoami, ret, "while recording a new root directory");
 		goto out;
@@ -165,7 +165,7 @@ static void check_lostfound(o2fsck_state *ost)
 	o2fsck_icount_set(ost->ost_icount_refs, blkno, 2);
 	ret = o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 
 				    ost->ost_fs->fs_root_blkno,
-				    ost->ost_fs->fs_root_blkno);
+				    ost->ost_fs->fs_root_blkno, 0);
 	if (ret) {
 		com_err(whoami, ret, "while recording a new /lost+found "
 			"directory");
@@ -373,6 +373,22 @@ static errcode_t connect_directory(o2fsck_state *ost,
 		break;
 	}
 
+	/* 
+	 * orphan dirs are a magically awesome special case.  they have
+	 * their i_link_count increased when subdirs are added but
+	 * the subdirs '..' entry isn't updated to point to the orphan
+	 * dir.  we alter our book-keeping to it look like the '..'
+	 * was reasonable on disk.
+	 */
+	if (dir->dp_in_orphan_dir) {
+		/* previous '..' entry is garbage */
+		if (dir->dp_dot_dot)
+			o2fsck_icount_delta(ost->ost_icount_refs,
+					    dir->dp_dot_dot, -1);
+		/* pretend '..' pointed to the orphan dir */
+		dir->dp_dot_dot = dir->dp_dirent;
+		o2fsck_icount_delta(ost->ost_icount_refs, dir->dp_dot_dot, 1);
+	}
 	if (dir->dp_dirent != dir->dp_dot_dot) {
 		fix = prompt(ost, PY, PR_DIR_DOTDOT,
 			     "Directory inode %"PRIu64" is "

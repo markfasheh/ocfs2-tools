@@ -41,7 +41,8 @@
 errcode_t o2fsck_add_dir_parent(struct rb_root *root,
 				uint64_t ino,
 				uint64_t dot_dot,
-				uint64_t dirent)
+				uint64_t dirent,
+				unsigned in_orphan_dir)
 {
 	struct rb_node ** p = &root->rb_node;
 	struct rb_node * parent = NULL;
@@ -59,6 +60,7 @@ errcode_t o2fsck_add_dir_parent(struct rb_root *root,
 	dp->dp_dirent = dirent;
 	dp->dp_connected = 0;
 	dp->dp_loop_no = 0;
+	dp->dp_in_orphan_dir = in_orphan_dir ? 1 : 0;
 
 	while (*p)
 	{

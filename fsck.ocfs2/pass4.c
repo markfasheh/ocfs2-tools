@@ -131,8 +131,17 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 		goto out;
 	}
 
+	/* this matches a special case in o2fsck_verify_inode_fields() where
+	 * orphan dir members are recorded as having 1 link count, even
+	 * though they have 0 on disk */
 	o2fsck_icount_delta(ost->ost_icount_in_inodes, dirent->inode, -1);
-	o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -1);
+
+	/* dirs have this dirent ref and their '.' dirent */
+	if (dirent->file_type == OCFS2_FT_DIR)
+		o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -2);
+	else
+		o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -1);
+
 	dirent->inode = 0;
 	ret_flags |= OCFS2_DIRENT_CHANGED;
 
@@ -213,7 +222,7 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 			printf("fsck's internal inode link count tracking "
 			       "isn't consistent. (ref_ret = %d ref_blkno = "
 			       "%"PRIu64" inode_ret = %d inode_blkno = "
-			       "%"PRIu64"\n", (int)ref_ret, ref_blkno,
+			       "%"PRIu64")\n", (int)ref_ret, ref_blkno,
 			       (int)inode_ret, inode_blkno);
 			ret = OCFS2_ET_INTERNAL_FAILURE;
 			break;

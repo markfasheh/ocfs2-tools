@@ -311,6 +311,104 @@ out:
 	return ret;
 }
 
+/* this just makes sure the truncate log contains consistent data, it doesn't
+ * do anything with it yet */
+static errcode_t verify_truncate_log(o2fsck_state *ost, ocfs2_dinode *di)
+{
+	ocfs2_truncate_log *tl = &di->id2.i_dealloc;
+	uint16_t max, i;
+	int changed = 0;
+	errcode_t ret = 0;
+
+	verbosef("tl_count %u tl_used %u (tl_reserved1 %u)\n", tl->tl_count,
+		 tl->tl_used, tl->tl_reserved1);
+
+	max = ocfs2_truncate_recs_per_inode(ost->ost_fs->fs_blocksize);
+
+	if (tl->tl_count > max &&
+	    prompt(ost, PY, PR_DEALLOC_COUNT,
+		   "Truncate log inode %"PRIu64" claims space for %u records but only %u "
+		   "records are possible.  Set the inode's count to the maximum?",
+		   di->i_blkno, tl->tl_count, max)) {
+
+		tl->tl_count = max;
+		changed = 1;
+	}
+
+	if (tl->tl_used > tl->tl_count &&
+	    prompt(ost, PY, PR_DEALLOC_USED,
+		   "Truncate log inode %"PRIu64" claims to be using %u records but the "
+		   "inode can only hold %u records.  Change the number used to reflect "
+		   "the maximum possible in the inode?", di->i_blkno, tl->tl_used,
+		   tl->tl_count)) {
+
+		tl->tl_used = tl->tl_count;
+		changed = 1;
+	}
+
+	for (i = 0; i < ocfs2_min(max, tl->tl_used); i++) {
+		ocfs2_truncate_rec *tr = &tl->tl_recs[i];
+		int zero = 0;
+
+		verbosef("t_start %u t_clusters %u\n", tr->t_start,
+		         tr->t_clusters);
+
+		if (tr->t_start == 0)
+			continue;
+
+		if (tr->t_start >= ost->ost_fs->fs_clusters &&
+	            prompt(ost, PY, PR_TRUNCATE_REC_START_RANGE,
+			   "Truncate record at offset %u in truncate log "
+			   "inode %"PRIu64" starts at cluster %u but there "
+			   "are %u clusters in the volume. Remove this record "
+			   "from the log?", i, di->i_blkno, tr->t_start,
+			   ost->ost_fs->fs_clusters)) {
+				zero = 1;
+		}
+
+		if (tr->t_start + tr->t_clusters < tr->t_start &&
+	            prompt(ost, PY, PR_TRUNCATE_REC_WRAP,
+			   "Truncate record at offset %u in truncate log "
+			   "inode %"PRIu64" starts at cluster %u and contains "
+			   "%u clusters.  It can't have this many clusters "
+			   "as that overflows the number of possible clusters "
+			   "in a volume.  Remove this record from the log?",
+			   i, di->i_blkno, tr->t_start, tr->t_clusters)) {
+				zero = 1;
+		}
+
+		if (tr->t_start + tr->t_clusters > ost->ost_fs->fs_clusters &&
+	            prompt(ost, PY, PR_TRUNCATE_REC_RANGE,
+			   "Truncate record at offset %u in truncate log "
+			   "inode %"PRIu64" starts at cluster %u and contains "
+			   "%u clusters.  It can't have this many clusters "
+			   "as this volume only has %u clusters. Remove this "
+			   "record from the log?",
+			   i, di->i_blkno, tr->t_start, tr->t_clusters,
+			   ost->ost_fs->fs_clusters)) {
+				zero = 1;
+		}
+
+		if (zero) {
+			tr->t_start = 0;
+			tr->t_clusters = 0;
+			changed = 1;
+		}
+	}
+
+	if (changed) {
+		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
+		if (ret) {
+			com_err(whoami, ret, "while writing truncate log inode "
+				    "%"PRIu64, di->i_blkno);
+			ost->ost_write_error = 1;
+			ret = 0;
+		}
+	}
+
+	return ret;
+}
+
 /* Check the basics of the ocfs2_dinode itself.  If we find problems
  * we clear the VALID flag and the caller will see that and update
  * inode allocations and write the inode to disk. 
@@ -388,7 +486,8 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	if (S_ISDIR(di->i_mode)) {
 		ocfs2_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
-		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0);
+		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0,
+				      di->i_flags & OCFS2_ORPHANED_FL);
 	} else if (S_ISREG(di->i_mode)) {
 		ocfs2_bitmap_set(ost->ost_reg_inodes, blkno, NULL);
 	} else if (S_ISLNK(di->i_mode)) {
@@ -419,6 +518,8 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
 		verify_local_alloc(ost, di);
+	else if (di->i_flags & OCFS2_DEALLOC_FL)
+		verify_truncate_log(ost, di);
 
 out:
 	/* XXX when we clear we need to also free whatever blocks may have
@@ -628,7 +729,8 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	 * We might be able to be very clever about discovering the 
 	 * difference between i_symlink and i_list, but we don't try yet.
 	 */
-	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
+	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL ||
+	    di->i_flags & OCFS2_DEALLOC_FL)
 		ret = 0;
 	else if (di->i_flags & OCFS2_CHAIN_FL)
 		ret = ocfs2_chain_iterate(fs, blkno, check_gd_block, &vb);
@@ -792,6 +894,76 @@ static void mark_local_allocs(o2fsck_state *ost)
 		}
 	}
 out:
+	if (buf)
+		ocfs2_free(&buf);
+	return;
+}
+
+/* 
+ * Clusters that are in the truncate logs should still be allocated.  We just
+ * make sure our accounting realizes this and let the kernel replay the logs
+ * and free them.  This will change someday when fsck learns to fully practice
+ * recovery isntead of just making sure that the system is in a coherent
+ * recoverable state.
+ */
+static void mark_truncate_logs(o2fsck_state *ost)
+{
+	uint16_t node, max_nodes, i, max;
+	ocfs2_truncate_log *tl;
+	uint64_t blkno;
+	ocfs2_dinode *di;
+	char *buf = NULL;
+	errcode_t ret;
+
+	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	max = ocfs2_truncate_recs_per_inode(ost->ost_fs->fs_blocksize);
+
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating an inode buffer to "
+			"use accounting for records in truncate logs");
+		goto out;
+	}
+
+	di = (ocfs2_dinode *)buf; 
+
+	for (node = 0; node < max_nodes; node++) {
+		ret = ocfs2_lookup_system_inode(ost->ost_fs,
+						TRUNCATE_LOG_SYSTEM_INODE,
+						node, &blkno);
+		if (ret) {
+			com_err(whoami, ret, "while looking up truncate log "
+				"inode %"PRIu64" to account for its records",
+				blkno);
+			goto out;
+		}
+
+		ret = ocfs2_read_inode(ost->ost_fs, blkno, buf);
+		if (ret) {
+			com_err(whoami, ret, "while reading truncate log "
+				"inode %"PRIu64" to account for its records",
+				blkno);
+			goto out;
+		}
+
+		tl = &di->id2.i_dealloc;
+
+		for (i = 0; i < ocfs2_min(tl->tl_used, max); i++) {
+			ocfs2_truncate_rec *tr = &tl->tl_recs[i];
+
+			if (tr->t_start == 0)
+				continue;
+
+			verbosef("rec [%u, %u] at off %u\n", tr->t_start, tr->t_clusters,
+				 i);
+
+			o2fsck_mark_clusters_allocated(ost, tr->t_start,
+						       tr->t_clusters);
+		}
+	}
+out:
+	if (buf)
+		ocfs2_free(&buf);
 	return;
 }
 
@@ -1017,6 +1189,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 	}
 
 	mark_local_allocs(ost);
+	mark_truncate_logs(ost);
 	write_cluster_alloc(ost);
 	write_inode_alloc(ost);
 

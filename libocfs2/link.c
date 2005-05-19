@@ -105,9 +105,6 @@ static int link_proc(struct ocfs2_dir_entry *dirent,
  * Note: the low 3 bits of the flags field are used as the directory
  * entry filetype.
  */
-#ifdef __TURBOC__
- #pragma argsused
-#endif
 errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name, 
 		     uint64_t ino, int flags)
 {

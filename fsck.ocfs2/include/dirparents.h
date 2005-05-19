@@ -37,13 +37,15 @@ typedef struct _o2fsck_dir_parent {
 	/* used by pass3 to walk the dir_parent structs and ensure 
 	 * connectivity */
 	uint64_t	dp_loop_no;
-	int		dp_connected;
+	unsigned	dp_connected:1,
+			dp_in_orphan_dir:1;
 } o2fsck_dir_parent;
 
 errcode_t o2fsck_add_dir_parent(struct rb_root *root,
 				uint64_t ino,
 				uint64_t dot_dot,
-				uint64_t dirent);
+				uint64_t dirent,
+				unsigned in_orphan_dir);
 
 o2fsck_dir_parent *o2fsck_dir_parent_lookup(struct rb_root *root, 
 						uint64_t ino);
