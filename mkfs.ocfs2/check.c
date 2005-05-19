@@ -51,7 +51,7 @@ int ocfs2_check_volume(State *s)
 		ret = o2cb_init();
 		if (ret) {
 			com_err(s->progname, ret,
-				"Cannot initialize cluster\n");
+				"while initializing the cluster");
 			return -1;
 		}
 

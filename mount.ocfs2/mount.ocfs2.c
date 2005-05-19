@@ -302,7 +302,7 @@ int main(int argc, char **argv)
 
 	ret = o2cb_init();
 	if (ret) {
-		com_err(progname, ret, "Cannot initialize cluster\n");
+		com_err(progname, ret, "Cannot initialize cluster");
 		goto bail;
 	}
 
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
 	if (ret) {
 		block_signals (SIG_UNBLOCK);
 		com_err(progname, 0, "Error when attempting to run %s: "
-			"\"%s\"\n", hb_ctl_path, strerror(ret));
+			"\"%s\"", hb_ctl_path, strerror(ret));
 		goto bail;
 	}
 
@@ -337,7 +337,7 @@ int main(int argc, char **argv)
 	if (ret) {
 		stop_heartbeat(hb_ctl_path, mo.dev);
 		block_signals (SIG_UNBLOCK);
-		com_err(progname, errno, "while mounting %s on %s\n",
+		com_err(progname, errno, "while mounting %s on %s",
 			mo.dev, mo.dir);
 		goto bail;
 	}
