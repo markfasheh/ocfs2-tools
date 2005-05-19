@@ -402,8 +402,10 @@ typedef struct _ocfs2_dinode {
 	__u64 i_last_eb_blk;		/* Pointer to last extent
 					   block */
 /*60*/	__u32 i_fs_generation;		/* Generation per fs-instance */
-	__u32 i_reserved1;		/* Generation per fs-instance */
-/*68*/	__u64 i_reserved2[10];
+	__u32 i_atime_nsec;
+	__u32 i_ctime_nsec;
+	__u32 i_mtime_nsec;
+/*70*/	__u64 i_reserved1[9];
 /*B8*/	union {
 		__u64 i_pad1;		/* Generic way to refer to this
 					   64bit union */

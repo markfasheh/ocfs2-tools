@@ -199,6 +199,13 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	str = ctime((time_t*)&in->i_dtime);
 	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", in->i_dtime, str);
 
+	fprintf(out, "\tctime_nsec: 0x%x -- %u\n",
+		le32_to_cpu(in->i_ctime_nsec), le32_to_cpu(in->i_ctime));
+	fprintf(out, "\tatime_nsec: 0x%x -- %u\n",
+		le32_to_cpu(in->i_atime_nsec), le32_to_cpu(in->i_atime_nsec));
+	fprintf(out, "\tmtime_nsec: 0x%x -- %u\n",
+		le32_to_cpu(in->i_mtime_nsec), le32_to_cpu(in->i_mtime_nsec));
+
 	fprintf(out, "\tLast Extblk: %"PRIu64"\n", in->i_last_eb_blk);
 	if (in->i_suballoc_node == -1)
 		strcpy(tmp_str, "Global");
