@@ -437,6 +437,8 @@ typedef struct _ocfs2_dinode {
 
 /*
  * On-disk directory entry structure for OCFS2
+ *
+ * Packed as this structure could be accessed unaligned on 64-bit platforms
  */
 struct ocfs2_dir_entry {
 /*00*/	__u64   inode;                  /* Inode number */
@@ -445,7 +447,7 @@ struct ocfs2_dir_entry {
 	__u8    file_type;
 /*0C*/	char    name[OCFS2_MAX_FILENAME_LEN];   /* File name */
 /* Actual on-disk length specified by rec_len */
-};
+} __attribute__ ((packed));
 
 /*
  * On disk allocator group structure for OCFS2
