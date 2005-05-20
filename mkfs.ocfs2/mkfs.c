@@ -82,6 +82,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint64_t blkno,
 					   uint16_t chain, uint16_t cpg,
 					   uint16_t bpc);
+static void create_lost_found_dir(State *s);
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -137,12 +138,10 @@ main(int argc, char **argv)
 	SystemFileDiskRecord superblock_rec;
 	SystemFileDiskRecord root_dir_rec;
 	SystemFileDiskRecord system_dir_rec;
-	SystemFileDiskRecord lostfound_dir_rec;
 	int i, j, num;
 	DirData *orphan_dir[OCFS2_MAX_NODES];
 	DirData *root_dir;
 	DirData *system_dir;
-	DirData *lostfound_dir;
 	uint64_t need;
 	SystemFileDiskRecord *tmprec;
 	char fname[SYSTEM_FILE_NAME_MAX];
@@ -159,6 +158,10 @@ main(int argc, char **argv)
 		fprintf(stderr, "Could not set SIGINT\n");
 		exit(1);
 	}
+
+	initialize_ocfs_error_table();
+	initialize_o2dl_error_table();
+	initialize_o2cb_error_table();
 
 	s = get_state(argc, argv);
 
@@ -186,8 +189,6 @@ main(int argc, char **argv)
 
 	clear_both_ends(s);
 
-//	adjust_volume_size(s);
-
 	generate_uuid (s);
 
 	create_generation(s);
@@ -199,7 +200,6 @@ main(int argc, char **argv)
 	init_record(s, &superblock_rec, SFI_OTHER, S_IFREG | 0644);
 	init_record(s, &root_dir_rec, SFI_OTHER, S_IFDIR | 0755);
 	init_record(s, &system_dir_rec, SFI_OTHER, S_IFDIR | 0755);
-	init_record(s, &lostfound_dir_rec, SFI_OTHER, S_IFDIR | 0755);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		num = system_files[i].global ? 1 : s->initial_nodes;
@@ -215,7 +215,6 @@ main(int argc, char **argv)
 	system_dir = alloc_directory(s);
 	for (i = 0; i < s->initial_nodes; ++i)
 		orphan_dir[i] = alloc_directory(s);
-	lostfound_dir = alloc_directory(s);
 
 	need = (s->volume_size_in_clusters + 7) >> 3;
 	need = ((need + s->cluster_size - 1) >> s->cluster_size_bits) << s->cluster_size_bits;
@@ -277,17 +276,6 @@ main(int argc, char **argv)
 	add_entry_to_directory(s, root_dir, ".", root_dir_rec.fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, root_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
 
-	alloc_from_bitmap (s, 1, s->global_bm,
-			   &lostfound_dir_rec.extent_off,
-			   &lostfound_dir_rec.extent_len);
-
-	lostfound_dir_rec.fe_off = alloc_inode(s, &lostfound_dir_rec.suballoc_bit);
-	lostfound_dir->record = &lostfound_dir_rec;
-
-	add_entry_to_directory(s, lostfound_dir, ".", lostfound_dir_rec.fe_off, OCFS2_FT_DIR);
-	add_entry_to_directory(s, lostfound_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
-	add_entry_to_directory(s, root_dir, "lost+found", lostfound_dir_rec.fe_off, OCFS2_FT_DIR);
-
 	need = system_dir_blocks_needed(s) << s->blocksize_bits;
 	alloc_bytes_from_bitmap(s, need, s->global_bm,
 				&system_dir_rec.extent_off,
@@ -343,7 +331,6 @@ main(int argc, char **argv)
 
 	format_file(s, &root_dir_rec);
 	format_file(s, &system_dir_rec);
-	format_file(s, &lostfound_dir_rec);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		num = system_files[i].global ? 1 : s->initial_nodes;
@@ -379,7 +366,6 @@ main(int argc, char **argv)
 	write_directory_data(s, system_dir);
 	for (i = 0; i < s->initial_nodes; ++i)
 		write_directory_data(s, orphan_dir[i]);
-	write_directory_data(s, lostfound_dir);
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
 	write_metadata(s, tmprec, NULL);
@@ -395,6 +381,14 @@ main(int argc, char **argv)
 	format_leading_space(s);
 	format_superblock(s, &superblock_rec, &root_dir_rec, &system_dir_rec);
 	block_signals(SIG_UNBLOCK);
+
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Writing lost+found: ");
+
+	create_lost_found_dir(s);
 
 	if (!s->quiet)
 		printf("done\n");
@@ -1923,4 +1917,39 @@ clear_both_ends(State *s)
 	free(buf);
 
 	return ;
+}
+
+static void create_lost_found_dir(State *s)
+{
+	errcode_t ret;
+	ocfs2_filesys *fs = NULL;
+	uint64_t lost_found_blkno;
+
+	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		com_err(s->progname, ret, "while opening new file system");
+		exit(1);
+	}
+
+	ret = ocfs2_new_inode(fs, &lost_found_blkno, S_IFDIR | 0755);
+	if (ret) {
+		com_err(s->progname, ret, "while creating lost+found");
+		exit(1);
+	}
+
+	ret = ocfs2_expand_dir(fs, lost_found_blkno, fs->fs_root_blkno);
+	if (ret) {
+		com_err(s->progname, ret, "while adding lost+found dir data");
+		exit(1);
+	}
+
+	ret = ocfs2_link(fs, fs->fs_root_blkno, "lost+found", lost_found_blkno,
+			 OCFS2_FT_DIR);
+	if (ret) {
+		com_err(s->progname, ret, "while linking lost+found to the "
+			"root directory");
+		exit(1);
+	}
+
+	ocfs2_close(fs);
 }
