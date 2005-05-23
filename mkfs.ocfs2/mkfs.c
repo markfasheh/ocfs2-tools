@@ -831,8 +831,12 @@ fill_defaults(State *s)
 			}
 		}
 
-		err = ocfs2_get_device_size(s->device_name, s->blocksize, &ret);
-		s->volume_size_in_blocks = ret;
+		if (!s->specified_size_in_blocks) {
+			err = ocfs2_get_device_size(s->device_name,
+						    s->blocksize, &ret);
+			s->volume_size_in_blocks = ret;
+		} else
+			s->volume_size_in_blocks = s->specified_size_in_blocks;
 
 		s->volume_size_in_bytes =
 			s->volume_size_in_blocks * s->blocksize;
