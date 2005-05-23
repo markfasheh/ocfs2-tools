@@ -53,7 +53,7 @@ static DirData *alloc_directory(State *s);
 static void add_entry_to_directory(State *s, DirData *dir, char *name,
 				   uint64_t byte_off, uint8_t type);
 static uint32_t blocks_needed(State *s);
-static uint32_t sys_blocks_needed(uint32_t num_nodes);
+static uint32_t sys_blocks_needed(uint32_t num_slots);
 static uint32_t system_dir_blocks_needed(State *s);
 static void check_32bit_blocks(State *s);
 static void format_superblock(State *s, SystemFileDiskRecord *rec,
@@ -69,7 +69,7 @@ static void format_leading_space(State *s);
 static void replacement_journal_create(State *s, uint64_t journal_off);
 static void open_device(State *s);
 static void close_device(State *s);
-static int initial_nodes_for_volume(uint64_t size);
+static int initial_slots_for_volume(uint64_t size);
 static void generate_uuid(State *s);
 static void create_generation(State *s);
 static void init_record(State *s, SystemFileDiskRecord *rec, int type, int mode);
@@ -139,7 +139,7 @@ main(int argc, char **argv)
 	SystemFileDiskRecord root_dir_rec;
 	SystemFileDiskRecord system_dir_rec;
 	int i, j, num;
-	DirData *orphan_dir[OCFS2_MAX_NODES];
+	DirData *orphan_dir[OCFS2_MAX_SLOTS];
 	DirData *root_dir;
 	DirData *system_dir;
 	uint64_t need;
@@ -202,7 +202,7 @@ main(int argc, char **argv)
 	init_record(s, &system_dir_rec, SFI_OTHER, S_IFDIR | 0755);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
-		num = system_files[i].global ? 1 : s->initial_nodes;
+		num = system_files[i].global ? 1 : s->initial_slots;
 		record[i] = do_malloc(s, sizeof(SystemFileDiskRecord) * num);
 
 		for (j = 0; j < num; j++) {
@@ -213,7 +213,7 @@ main(int argc, char **argv)
 
 	root_dir = alloc_directory(s);
 	system_dir = alloc_directory(s);
-	for (i = 0; i < s->initial_nodes; ++i)
+	for (i = 0; i < s->initial_slots; ++i)
 		orphan_dir[i] = alloc_directory(s);
 
 	need = (s->volume_size_in_clusters + 7) >> 3;
@@ -286,7 +286,7 @@ main(int argc, char **argv)
 	add_entry_to_directory(s, system_dir, "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
-		num = (system_files[i].global) ? 1 : s->initial_nodes;
+		num = (system_files[i].global) ? 1 : s->initial_slots;
 
 		for (j = 0; j < num; j++) {
 			record[i][j].fe_off = alloc_inode(s, &(record[i][j].suballoc_bit));
@@ -305,12 +305,12 @@ main(int argc, char **argv)
 		tmprec->fe_off >> s->blocksize_bits;
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
-	need = (OCFS2_MAX_NODES + 1) << s->blocksize_bits;
+	need = (NM_MAX_NODES + 1) << s->blocksize_bits;
 
 	alloc_bytes_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	tmprec->file_size = need;
 
-	for (i = 0; i < s->initial_nodes; ++i) {
+	for (i = 0; i < s->initial_slots; ++i) {
 		tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][i];
 		orphan_dir[i]->record = tmprec;
 		alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
@@ -333,7 +333,7 @@ main(int argc, char **argv)
 	format_file(s, &system_dir_rec);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
-		num = system_files[i].global ? 1 : s->initial_nodes;
+		num = system_files[i].global ? 1 : s->initial_slots;
 		for (j = 0; j < num; j++) {
 			tmprec = &(record[i][j]);
 			if (system_files[i].type == SFI_JOURNAL) {
@@ -364,7 +364,7 @@ main(int argc, char **argv)
 
 	write_directory_data(s, root_dir);
 	write_directory_data(s, system_dir);
-	for (i = 0; i < s->initial_nodes; ++i)
+	for (i = 0; i < s->initial_slots; ++i)
 		write_directory_data(s, orphan_dir[i]);
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
@@ -408,7 +408,7 @@ get_state(int argc, char **argv)
 	unsigned int blocksize = 0;
 	unsigned int cluster_size = 0;
 	char *vol_label = NULL;
-	unsigned int initial_nodes = 0;
+	unsigned int initial_slots = 0;
 	char *dummy;
 	State *s;
 	int c;
@@ -423,7 +423,7 @@ get_state(int argc, char **argv)
 		{ "block-size", 1, 0, 'b' },
 		{ "cluster-size", 1, 0, 'C' },
 		{ "label", 1, 0, 'L' },
-		{ "nodes", 1, 0, 'N' },
+		{ "node-slots", 1, 0, 'N' },
 		{ "verbose", 0, 0, 'v' },
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
@@ -495,16 +495,18 @@ get_state(int argc, char **argv)
 			break;
 
 		case 'N':
-			initial_nodes = strtoul(optarg, &dummy, 0);
+			initial_slots = strtoul(optarg, &dummy, 0);
 
-			if (initial_nodes > OCFS2_MAX_NODES || *dummy != '\0') {
+			if (initial_slots > OCFS2_MAX_SLOTS || *dummy != '\0') {
 				com_err(progname, 0,
-					"Initial nodes must be no more than %d",
-					OCFS2_MAX_NODES);
+					"Initial node slots must be no more "
+					"than %d",
+					OCFS2_MAX_SLOTS);
 				exit(1);
-			} else if (initial_nodes < 1) {
+			} else if (initial_slots < 1) {
 				com_err(progname, 0,
-					"Initial nodes must be at least 1");
+					"Initial node slots must be at "
+					"least 1");
 				exit(1);
 			}
 
@@ -583,7 +585,7 @@ get_state(int argc, char **argv)
 	s->blocksize     = blocksize;
 	s->cluster_size  = cluster_size;
 	s->vol_label     = vol_label;
-	s->initial_nodes = initial_nodes;
+	s->initial_slots = initial_slots;
 
 	s->device_name   = strdup(device_name);
 
@@ -705,8 +707,10 @@ parse_journal_opts(char *progname, const char *opts,
 static void
 usage(const char *progname)
 {
-	fprintf(stderr, "Usage: %s [-b block-size] [-C cluster-size] [-L volume-label]\n"
-			"\t[-N number-of-nodes] [-J journal-options] [-FqvV] device [blocks-count]\n",
+	fprintf(stderr, "Usage: %s [-b block-size] [-C cluster-size] "
+			"[-N number-of-node-slots]\n"
+			"\t[-L volume-label] [-J journal-options] [-FqvV] "
+			"device [blocks-count]\n",
 			progname);
 	exit(0);
 }
@@ -732,7 +736,7 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 		/* mke2fs knows about free blocks at this point, but
 		 * we don't so lets just take a wild guess as to what
 		 * the fs overhead we're looking at will be. */
-		if ((j_blocks * s->initial_nodes + 1024) > 
+		if ((j_blocks * s->initial_slots + 1024) > 
 		    s->volume_size_in_blocks) {
 			fprintf(stderr, 
 				"Journal size too big for filesystem.\n");
@@ -886,9 +890,9 @@ fill_defaults(State *s)
 	printf("nr_cluster_groups = %u\n", s->nr_cluster_groups);
 	printf("tail_group_bits = %u\n", s->tail_group_bits);
 #endif
-	if (!s->initial_nodes) {
-		s->initial_nodes =
-			initial_nodes_for_volume(s->volume_size_in_bytes);
+	if (!s->initial_slots) {
+		s->initial_slots =
+			initial_slots_for_volume(s->volume_size_in_bytes);
 	}
 
 	if (!s->vol_label) {
@@ -1368,13 +1372,13 @@ blocks_needed(State *s)
 	num += ROOTDIR_BLOCKS;
 	num += SYSDIR_BLOCKS;
 	num += LOSTDIR_BLOCKS;
-	num += sys_blocks_needed(MAX(32, s->initial_nodes));
+	num += sys_blocks_needed(MAX(32, s->initial_slots));
 
 	return num;
 }
 
 static uint32_t
-sys_blocks_needed(uint32_t num_nodes)
+sys_blocks_needed(uint32_t num_slots)
 {
 	uint32_t num = 0;
 	uint32_t cnt = sizeof(system_files) / sizeof(SystemFileInfo);
@@ -1384,7 +1388,7 @@ sys_blocks_needed(uint32_t num_nodes)
 		if (system_files[i].global)
 			++num;
 		else
-			num += num_nodes;
+			num += num_slots;
 	}
 
 	return num;
@@ -1397,7 +1401,7 @@ system_dir_blocks_needed(State *s)
 	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
 	int entries_per_block = s->blocksize / each;
 
-	bytes_needed = ((sys_blocks_needed(s->initial_nodes) +
+	bytes_needed = ((sys_blocks_needed(s->initial_slots) +
 			 entries_per_block - 1) / entries_per_block) << s->blocksize_bits;
 
 	return (bytes_needed + s->cluster_size - 1) >> s->cluster_size_bits;
@@ -1457,7 +1461,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	memset(di, 0, s->blocksize);
 
 	strcpy(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE);
-	di->i_suballoc_node = cpu_to_le16((__u16)-1);
+	di->i_suballoc_slot = cpu_to_le16((__u16)OCFS2_INVALID_SLOT);
 	di->i_suballoc_bit = cpu_to_le16((__u16)-1);
 	di->i_generation = cpu_to_le32(s->vol_generation);
 	di->i_fs_generation = cpu_to_le32(s->vol_generation);
@@ -1481,7 +1485,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_creator_os = cpu_to_le32(OCFS2_OS_LINUX);
 	di->id2.i_super.s_blocksize_bits = cpu_to_le32(s->blocksize_bits);
 	di->id2.i_super.s_clustersize_bits = cpu_to_le32(s->cluster_size_bits);
-	di->id2.i_super.s_max_nodes = cpu_to_le16(s->initial_nodes);
+	di->id2.i_super.s_max_slots = cpu_to_le16(s->initial_slots);
 	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group_blkno);
 
 #ifdef CONFIG_ARCH_S390
@@ -1541,7 +1545,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
 	di->i_generation = cpu_to_le32(s->vol_generation);
 	di->i_fs_generation = cpu_to_le32(s->vol_generation);
-	di->i_suballoc_node = cpu_to_le16(-1);
+	di->i_suballoc_slot = cpu_to_le16((__u16)OCFS2_INVALID_SLOT);
         di->i_suballoc_bit = cpu_to_le16(rec->suballoc_bit);
 	di->i_blkno = rec->fe_off >> s->blocksize_bits;
 	di->i_uid = 0;
@@ -1805,7 +1809,7 @@ close_device(State *s)
 }
 
 static int
-initial_nodes_for_volume(uint64_t size)
+initial_slots_for_volume(uint64_t size)
 {
 	int i, shift = ONE_GB_SHIFT;
 	int defaults[4] = { 2, 4, 8, 16 };
@@ -1900,7 +1904,7 @@ print_state(State *s)
 	printf("%u cluster groups (tail covers %u clusters, rest cover %u "
 	       "clusters)\n", s->nr_cluster_groups, s->tail_group_bits,
 	       s->global_cpg);
-	printf("Initial number of nodes: %u\n", s->initial_nodes);
+	printf("Initial number of node slots: %u\n", s->initial_slots);
 }
 
 static void

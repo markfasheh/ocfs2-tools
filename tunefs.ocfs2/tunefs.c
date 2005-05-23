@@ -67,7 +67,7 @@ typedef unsigned short kdev_t;
 #endif
 
 typedef struct _ocfs2_tune_opts {
-	uint16_t num_nodes;
+	uint16_t num_slots;
 	uint64_t vol_size;
 	uint64_t jrnl_size;
 	char *vol_label;
@@ -86,7 +86,8 @@ static int cluster_locked = 0;
 
 static void usage(const char *progname)
 {
-	fprintf(stderr, "usage: %s [-L volume-label] [-N number-of-nodes]\n"
+	fprintf(stderr, "usage: %s [-N number-of-node-slots] "
+			"[-L volume-label]\n"
 			"\t[-J journal-options] [-S volume-size] [-qvV] "
 			"device\n",
 			progname);
@@ -244,7 +245,7 @@ static void get_options(int argc, char **argv)
 
 	static struct option long_options[] = {
 		{ "label", 1, 0, 'L' },
-		{ "nodes", 1, 0, 'N' },
+		{ "node-slots", 1, 0, 'N' },
 		{ "verbose", 0, 0, 'v' },
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
@@ -281,17 +282,19 @@ static void get_options(int argc, char **argv)
 			break;
 
 		case 'N':
-			opts.num_nodes = strtoul(optarg, &dummy, 0);
+			opts.num_slots = strtoul(optarg, &dummy, 0);
 
-			if (opts.num_nodes > OCFS2_MAX_NODES ||
+			if (opts.num_slots > OCFS2_MAX_SLOTS ||
 			    *dummy != '\0') {
 				com_err(opts.progname, 0,
-					"Number of nodes must be no more than %d",
-					OCFS2_MAX_NODES);
+					"Number of node slots must be no more "
+					"than %d",
+					OCFS2_MAX_SLOTS);
 				exit(1);
-			} else if (opts.num_nodes < 2) {
+			} else if (opts.num_slots < 2) {
 				com_err(opts.progname, 0,
-					"Initial nodes must be at least 2");
+					"Number of node slots must be at "
+					"least 2");
 				exit(1);
 			}
 			break;
@@ -346,10 +349,10 @@ static void get_options(int argc, char **argv)
 	return ;
 }
 
-static errcode_t add_nodes(ocfs2_filesys *fs)
+static errcode_t add_slots(ocfs2_filesys *fs)
 {
 	errcode_t ret = 0;
-	uint16_t old_num = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	uint16_t old_num = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	char fname[SYSTEM_FILE_NAME_MAX];
 	uint64_t blkno;
 	int i, j;
@@ -357,7 +360,7 @@ static errcode_t add_nodes(ocfs2_filesys *fs)
 	int ftype;
 
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
-		for (j = old_num; j < opts.num_nodes; ++j) {
+		for (j = old_num; j < opts.num_slots; ++j) {
 			sprintf(fname, ocfs2_system_inodes[i].si_name, j);
 			asprintf(&display_str, "Adding %s...", fname);
 			printf("%s", display_str);
@@ -426,7 +429,7 @@ static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_siz
 	ocfs2_dinode *di;
 	int i;
 	int cs_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
-	uint16_t max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -435,7 +438,7 @@ static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_siz
 	*dirty = 0;
 	*jrnl_size = 0;
 
-	for (i = 0; i < max_nodes; ++i) {
+	for (i = 0; i < max_slots; ++i) {
 		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
 						&blkno);
 		if (ret)
@@ -452,8 +455,8 @@ static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_siz
 		*dirty = di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL;
 		if (*dirty) {
 			com_err(opts.progname, 0,
-				"Node %d's journal is dirty. Run fsck.ocfs2 "
-				"to replay all dirty journals.", i);
+				"Node slot %d's journal is dirty. Run "
+				"fsck.ocfs2 to replay all dirty journals.", i);
 			break;
 		}
 	}
@@ -476,17 +479,17 @@ static void update_volume_label(ocfs2_filesys *fs, int *changed)
 	return ;
 }
 
-static errcode_t update_nodes(ocfs2_filesys *fs, int *changed)
+static errcode_t update_slots(ocfs2_filesys *fs, int *changed)
 {
 	errcode_t ret = 0;
 
 	block_signals(SIG_BLOCK);
-	ret = add_nodes(fs);
+	ret = add_slots(fs);
 	block_signals(SIG_UNBLOCK);
 	if (ret)
 		return ret;
 
-	OCFS2_RAW_SB(fs->fs_super)->s_max_nodes = opts.num_nodes;
+	OCFS2_RAW_SB(fs->fs_super)->s_max_slots = opts.num_slots;
 	*changed = 1;
 
 	return ret;
@@ -561,7 +564,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 	char jrnl_file[40];
 	uint64_t blkno;
 	int i;
-	uint16_t max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	uint32_t num_clusters;
 	char *buf = NULL;
 	ocfs2_dinode *di;
@@ -573,7 +576,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < max_nodes; ++i) {
+	for (i = 0; i < max_slots; ++i) {
 		snprintf (jrnl_file, sizeof(jrnl_file),
 			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
 
@@ -643,7 +646,7 @@ int main(int argc, char **argv)
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
 	int upd_label = 0;
-	int upd_nodes = 0;
+	int upd_slots = 0;
 	int upd_jrnls = 0;
 	int upd_vsize = 0;
 	uint16_t tmp;
@@ -713,15 +716,16 @@ int main(int argc, char **argv)
 		       OCFS2_RAW_SB(fs->fs_super)->s_label, opts.vol_label);
 	}
 
-	/* validate num nodes */
-	if (opts.num_nodes) {
-		tmp = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
-		if (opts.num_nodes > tmp) {
-			printf("Changing number of nodes from %d to %d\n",
-			       tmp, opts.num_nodes);
+	/* validate num slots */
+	if (opts.num_slots) {
+		tmp = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+		if (opts.num_slots > tmp) {
+			printf("Changing number of node slots from %d to %d\n",
+			       tmp, opts.num_slots);
 		} else {
-			printf("ERROR: Nodes (%d) has to be larger than "
-			       "configured nodes (%d)\n", opts.num_nodes, tmp);
+			printf("ERROR: Node slots (%d) has to be larger than "
+			       "configured node slots (%d)\n", 
+			       opts.num_slots, tmp);
 			goto unlock;
 		}
 
@@ -741,7 +745,7 @@ int main(int argc, char **argv)
 			printf("Changing journal size %"PRIu64" to %"PRIu64"\n",
 			       def_jrnl_size, opts.jrnl_size);
 		else {
-			if (!opts.num_nodes) {
+			if (!opts.num_slots) {
 				printf("ERROR: Journal size %"PRIu64" has to be larger "
 				       "than %"PRIu64"\n", opts.jrnl_size, def_jrnl_size);
 				goto unlock;
@@ -779,22 +783,24 @@ int main(int argc, char **argv)
 			printf("Changed volume label\n");
 	}
 
-	/* update number of nodes */
-	if (opts.num_nodes) {
-		ret = update_nodes(fs, &upd_nodes);
+	/* update number of slots */
+	if (opts.num_slots) {
+		ret = update_slots(fs, &upd_slots);
 		if (ret) {
-			com_err(opts.progname, ret, "while updating nodes");
+			com_err(opts.progname, ret,
+				"while updating node slots");
 			goto unlock;
 		}
-		if (upd_nodes)
-			printf("Added nodes\n");
+		if (upd_slots)
+			printf("Added node slots\n");
 	}
 
 	/* update journal size */
 	if (opts.jrnl_size) {
 		ret = update_journal_size(fs, &upd_jrnls);
 		if (ret) {
-			com_err(opts.progname, ret, "while updating journal size");
+			com_err(opts.progname, ret,
+				"while updating journal size");
 			goto unlock;
 		}
 		if (upd_jrnls)
@@ -813,7 +819,7 @@ int main(int argc, char **argv)
 	}
 
 	/* write superblock */
-	if (upd_label || upd_nodes || upd_vsize) {
+	if (upd_label || upd_slots || upd_vsize) {
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {

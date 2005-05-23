@@ -28,15 +28,16 @@
 #define MAX_CORRUPT		12
 
 char *progname = NULL;
-char *device = NULL;
-uint16_t nodenum = 0;
-int corrupt[MAX_CORRUPT];
+
+static char *device = NULL;
+static uint16_t slotnum = 0;
+static int corrupt[MAX_CORRUPT];
 
 struct corrupt_funcs {
-	void (*func) (ocfs2_filesys *fs, int code, uint16_t nodenum);
+	void (*func) (ocfs2_filesys *fs, int code, uint16_t slotnum);
 };
 
-struct corrupt_funcs cf[] = {
+static struct corrupt_funcs cf[] = {
 	{ NULL },		/* 00 */
 	{ NULL },		/* 01 */
 	{ NULL },		/* 02 */
@@ -61,7 +62,7 @@ static void usage (char *progname)
 {
 	g_print ("Usage: %s [OPTION]... [DEVICE]\n", progname);
 	g_print ("	-c <corrupt code>\n");
-	g_print ("	-n <node number>\n");
+	g_print ("	-n <node slot number>\n");
 	exit (0);
 }					/* usage */
 
@@ -123,8 +124,8 @@ static int read_options(int argc, char **argv)
 			}
 			break;
 
-		case 'n':	/* nodenum */
-			nodenum = strtoul(optarg, NULL, 0);
+		case 'n':	/* slotnum */
+			slotnum = strtoul(optarg, NULL, 0);
 			break;
 
 		default:
@@ -182,7 +183,7 @@ int main (int argc, char **argv)
 	for (i = 1; i <= MAX_CORRUPT; ++i) {
 		if (corrupt[i]) {
 			if (cf[i].func)
-				cf[i].func(fs, i, nodenum);
+				cf[i].func(fs, i, slotnum);
 			else
 				fprintf(stderr, "Unimplemented corrupt code = %d\n", i);
 		}

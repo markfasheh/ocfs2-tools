@@ -12,8 +12,8 @@ tunefs.ocfs2 \- Change OCFS2 partition parameters.
 \fIvolume\-label\fR specifiy the new label name of a device. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
 
 .TP
-\fB\-N\fR \fInumber\-of\-nodes\fR
-\fInumber\-of\-nodes\fR specify the number of nodes that will be sharing a specific OCFS2 partition. The maximum value allowed for \fInumber\-of\-nodes\fR is 255. Note that one can increase the number of nodes, but not decrease it. Future versions may allow decrease of the number of nodes.
+\fB\-N\fR \fInumber\-of\-node\-slots\fR
+\fInumber\-of\-node\-slots\fR specify the maximum number of nodes that can simultaneously mount the specific OCFS2 partition. The maximum value allowed for \fInumber\-of\-node\-slots\fR is 255. Note that one can increase the number of node slots, but not decrease it. Future versions may allow decrease of the number of node slots.
 
 .TP
 \fB\-J\fR \fIjournal\-options\fR

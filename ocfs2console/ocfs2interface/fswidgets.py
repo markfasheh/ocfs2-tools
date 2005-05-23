@@ -89,14 +89,14 @@ class ValueCombo(BaseCombo):
         else:
             return None
 
-class NumNodes(gtk.SpinButton):
+class NumSlots(gtk.SpinButton):
     def __init__(self):
-        adjustment = gtk.Adjustment(4, 2, ocfs2.MAX_NODES, 1, 10)
+        adjustment = gtk.Adjustment(4, 1, ocfs2.MAX_SLOTS, 1, 10)
         gtk.SpinButton.__init__(self, adjustment=adjustment)
 
         self.set_numeric(True)
 
-    label = 'Number of _nodes'
+    label = 'Number of _node slots'
 
     def get_arg(self):
         s = self.get_text()

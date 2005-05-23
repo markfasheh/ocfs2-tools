@@ -50,7 +50,7 @@ static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, uint8_t *node_nums)
 	uint64_t slotmap_blkno;
 	int16_t *slots;
 	int i, j;
-	uint32_t num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	uint32_t num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 
 	slotmap_len = strlen(slotmap);
 
@@ -112,19 +112,19 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 			goto bail;
 
 		/* get label/uuid for ocfs2 */
-		dev->max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+		dev->max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 		memcpy(dev->label, OCFS2_RAW_SB(fs->fs_super)->s_label,
 		       sizeof(dev->label));
 		memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
 		       sizeof(dev->uuid));
 
-		ret = ocfs2_malloc((sizeof(uint8_t) * dev->max_nodes),
+		ret = ocfs2_malloc((sizeof(uint8_t) * dev->max_slots),
 				   &dev->node_nums);
 		if (ret)
 			goto bail;
 
-		memset(dev->node_nums, OCFS2_MAX_NODES,
-		       (sizeof(uint8_t) * dev->max_nodes));
+		memset(dev->node_nums, OCFS2_MAX_SLOTS,
+		       (sizeof(uint8_t) * dev->max_slots));
 
 		/* read slotmap to get nodes on which the volume is mounted */
 		ret = ocfs2_read_slotmap(fs, dev->node_nums);
@@ -132,7 +132,7 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 			dev->errcode = ret;
 			ret = 0;
 		} else {
-			if (dev->node_nums[0] != OCFS2_MAX_NODES)
+			if (dev->node_nums[0] != OCFS2_MAX_SLOTS)
 				dev->mount_flags |= OCFS2_MF_MOUNTED_CLUSTER;
 		}
 		ocfs2_close(fs);

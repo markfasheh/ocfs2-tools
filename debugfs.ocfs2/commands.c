@@ -264,25 +264,27 @@ static int process_inodestr_args(char **args, uint64_t *blkno)
 }
 
 /*
- * get_nodenum()
+ * get_slotnum()
  *
  */
-static int get_nodenum(char **args, uint16_t *nodenum)
+static int get_slotnum(char **args, uint16_t *slotnum)
 {
 	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	char *endptr;
 
 	if (args[1]) {
-		*nodenum = strtoul(args[1], &endptr, 0);
+		*slotnum = strtoul(args[1], &endptr, 0);
 		if (!*endptr) {
-			if (*nodenum < sb->s_max_nodes)
+			if (*slotnum < sb->s_max_slots)
 				return 0;
 			else
-				fprintf(stderr, "%s: Invalid node number\n", args[0]);
+				fprintf(stderr,
+					"%s: Invalid node slot number\n",
+					args[0]);
 		} else
-			fprintf(stderr, "usage: %s <nodenum>\n", args[0]);
+			fprintf(stderr, "usage: %s <slotnum>\n", args[0]);
 	} else
-		fprintf(stderr, "usage: %s <nodenum>\n", args[0]);
+		fprintf(stderr, "usage: %s <slotnum>\n", args[0]);
 
 	return -1;
 }
@@ -438,7 +440,7 @@ static void do_open (char **args)
 		gbls.slotmap_blkno = 0;
 
 	/* lookup journal files */
-	for (i = 0; i < sb->s_max_nodes; ++i) {
+	for (i = 0; i < sb->s_max_slots; ++i) {
 		snprintf (sysfile, sizeof(sysfile),
 			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
 		ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
@@ -579,7 +581,7 @@ static void do_help (char **args)
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
 	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
-	printf ("logdump <node#>\t\t\t\tPrints journal file for the node\n");
+	printf ("logdump <slot#>\t\t\t\tPrints journal file for the node slot\n");
 	printf ("ls [-l] <filespec>\t\t\tList directory\n");
 	printf ("open <device>\t\t\t\tOpen a device\n");
 	printf ("quit, q\t\t\t\t\tExit the program\n");
@@ -848,16 +850,16 @@ static void do_logdump (char **args)
 	uint64_t blkno = 0;
 	int32_t len = 0;
 	FILE *out;
-	uint16_t nodenum;
+	uint16_t slotnum;
 	errcode_t ret = 0;
 
 	if (check_device_open())
 		return ;
 
-	if (get_nodenum(args, &nodenum))
+	if (get_slotnum(args, &slotnum))
 		return ;
 
-	blkno = gbls.jrnl_blkno[nodenum];
+	blkno = gbls.jrnl_blkno[slotnum];
 	ret = read_whole_file(gbls.fs, blkno, &logbuf, &len);
 	if (ret) {
 		com_err(args[0], ret, " ");

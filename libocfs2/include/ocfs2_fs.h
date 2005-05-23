@@ -111,9 +111,9 @@
 /* System inode flags */
 #define OCFS2_SYSTEM_FL		(0x00000010)	/* System inode */
 #define OCFS2_SUPER_BLOCK_FL	(0x00000020)	/* Super block */
-#define OCFS2_LOCAL_ALLOC_FL	(0x00000040)	/* Node local alloc bitmap */
+#define OCFS2_LOCAL_ALLOC_FL	(0x00000040)	/* Slot local alloc bitmap */
 #define OCFS2_BITMAP_FL		(0x00000080)	/* Allocation bitmap */
-#define OCFS2_JOURNAL_FL	(0x00000100)	/* Node journal */
+#define OCFS2_JOURNAL_FL	(0x00000100)	/* Slot local journal */
 #define OCFS2_HEARTBEAT_FL	(0x00000200)	/* Heartbeat area */
 #define OCFS2_CHAIN_FL		(0x00000400)	/* Chain allocator */
 #define OCFS2_DEALLOC_FL	(0x00000800)	/* Truncate log */
@@ -131,14 +131,14 @@
 /* Limit of space in ocfs2_dir_entry */
 #define OCFS2_MAX_FILENAME_LEN		255
 
-/* Limit of node map bits in ocfs2_disk_lock */
-#define OCFS2_MAX_NODES			255
+/* Maximum slots on an ocfs2 file system */
+#define OCFS2_MAX_SLOTS			255
+
+/* Slot map indicator for an empty slot */
+#define OCFS2_INVALID_SLOT		-1
 
 #define OCFS2_VOL_UUID_LEN		16
 #define OCFS2_MAX_VOL_LABEL_LEN		64
-
-#define OCFS2_MAX_CLUSTER_NAME_LEN	64
-
 
 /* Journal limits (in bytes) */
 #define OCFS2_MIN_JOURNAL_SIZE		(4 * 1024 * 1024)
@@ -179,7 +179,7 @@ static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 	[HEARTBEAT_SYSTEM_INODE]		= { "heartbeat", OCFS2_HEARTBEAT_FL, S_IFREG | 0644 },
 	[GLOBAL_BITMAP_SYSTEM_INODE]		= { "global_bitmap", 0, S_IFREG | 0644 },
 
-	/* Node-specific system inodes (one copy per node) */
+	/* Slot-specific system inodes (one copy per slot) */
 	[ORPHAN_DIR_SYSTEM_INODE]		= { "orphan_dir:%04d", 0, S_IFDIR | 0755 },
 	[EXTENT_ALLOC_SYSTEM_INODE]		= { "extent_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
 	[INODE_ALLOC_SYSTEM_INODE]		= { "inode_alloc:%04d", OCFS2_BITMAP_FL | OCFS2_CHAIN_FL, S_IFREG | 0644 },
@@ -313,9 +313,9 @@ typedef struct _ocfs2_extent_block
 {
 /*00*/	__u8 h_signature[8];		/* Signature for verification */
 	__u64 h_reserved1;
-/*10*/	__s16 h_suballoc_node;		/* Node suballocator this
+/*10*/	__s16 h_suballoc_slot;		/* Slot suballocator this
 					   extent_header belongs to */
-	__u16 h_suballoc_bit;		/* Bit offset in suballocater
+	__u16 h_suballoc_bit;		/* Bit offset in suballocator
 					   block group */
 	__u32 h_fs_generation;		/* Must match super block */
 	__u64 h_blkno;			/* Offset on disk, in blocks */
@@ -351,8 +351,8 @@ typedef struct _ocfs2_super_block {
 					   directory dinode */
 	__u32 s_blocksize_bits;		/* Blocksize for this fs */
 	__u32 s_clustersize_bits;	/* Clustersize for this fs */
-/*40*/	__u16 s_max_nodes;		/* Max nodes in this cluster before
-					   tunefs required */
+/*40*/	__u16 s_max_slots;		/* Max number of simultaneous mounts
+					   before tunefs required */
 	__u16 s_reserved1;
 	__u32 s_reserved2;
 	__u64 s_first_cluster_group;	/* Block offset of 1st cluster
@@ -363,8 +363,8 @@ typedef struct _ocfs2_super_block {
 } ocfs2_super_block;
 
 /*
- * Local allocation bitmap for OCFS2 nodes
- * Node that it exists inside an ocfs2_dinode, so all offsets are
+ * Local allocation bitmap for OCFS2 slots
+ * Note that it exists inside an ocfs2_dinode, so all offsets are
  * relative to the start of ocfs2_dinode.id2.
  */
 typedef struct _ocfs2_local_alloc
@@ -382,9 +382,9 @@ typedef struct _ocfs2_local_alloc
 typedef struct _ocfs2_dinode {
 /*00*/	__u8 i_signature[8];		/* Signature for validation */
 	__u32 i_generation;		/* Generation number */
-	__s16 i_suballoc_node;		/* Node suballocater this inode
+	__s16 i_suballoc_slot;		/* Slot suballocator this inode
 					   belongs to */
-	__u16 i_suballoc_bit;		/* Bit offset in suballocater
+	__u16 i_suballoc_bit;		/* Bit offset in suballocator
 					   block group */
 /*10*/	__u32 i_reserved0;
 	__u32 i_clusters;		/* Cluster count */
@@ -613,14 +613,14 @@ static inline int ocfs2_system_inode_is_global(int type)
 }
 
 static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
-						  int type, int node)
+						  int type, int slot)
 {
 	int chars;
 
         /*
          * Global system inodes can only have one copy.  Everything
          * after OCFS_LAST_GLOBAL_SYSTEM_INODE in the system inode
-         * list has a copy per node.
+         * list has a copy per slot.
          */
 	if (type <= OCFS2_LAST_GLOBAL_SYSTEM_INODE)
 		chars = snprintf(buf, len,
@@ -628,7 +628,7 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
 	else
 		chars = snprintf(buf, len,
 				 ocfs2_system_inodes[type].si_name,
-				 node);
+				 slot);
 
 	return chars;
 }

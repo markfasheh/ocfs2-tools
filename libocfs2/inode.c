@@ -67,7 +67,7 @@ out_buf:
 void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di)
 {
 	di->i_generation    = le32_to_cpu(di->i_generation);
-	di->i_suballoc_node = le16_to_cpu(di->i_suballoc_node);
+	di->i_suballoc_slot = le16_to_cpu(di->i_suballoc_slot);
 	di->i_suballoc_bit  = le16_to_cpu(di->i_suballoc_bit);
 	di->i_fs_generation = le32_to_cpu(di->i_fs_generation);
 
@@ -87,7 +87,7 @@ void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di)
 void ocfs2_swap_inode_to_le(ocfs2_dinode *di)
 {
 	di->i_generation    = cpu_to_le32(di->i_generation);
-	di->i_suballoc_node = cpu_to_le16(di->i_suballoc_node);
+	di->i_suballoc_slot = cpu_to_le16(di->i_suballoc_slot);
 	di->i_suballoc_bit  = cpu_to_le16(di->i_suballoc_bit);
 	di->i_fs_generation = cpu_to_le32(di->i_fs_generation);
 

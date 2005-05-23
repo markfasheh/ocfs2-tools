@@ -26,6 +26,6 @@
 #ifndef __CORRUPT_H
 #define __CORRUPT_H
 
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t nodenum);
+void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
 
 #endif		/* __CORRUPT_H */

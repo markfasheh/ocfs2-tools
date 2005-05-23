@@ -156,9 +156,9 @@ static errcode_t replay_orphan_dir(o2fsck_state *ost)
 	uint64_t ino;
 	int bytes;
 	int i;
-	int num_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	int num_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
 
-	for (i = 0; i < num_nodes; ++i) {
+	for (i = 0; i < num_slots; ++i) {
 		bytes = ocfs2_sprintf_system_inode_name(name, PATH_MAX,
 				ORPHAN_DIR_SYSTEM_INODE, i);
 		if (bytes < 1) {

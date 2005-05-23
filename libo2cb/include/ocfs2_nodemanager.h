@@ -31,7 +31,7 @@
 #define NM_API_VERSION		2
 
 #define NM_MAX_NODES		255
-#define NM_INVALID_SLOT_NUM	255
+#define NM_INVALID_NODE_NUM	255
 
 /* host name, group name, cluster name all 64 bytes */
 #define NM_MAX_NAME_LEN          64    // __NEW_UTS_LEN

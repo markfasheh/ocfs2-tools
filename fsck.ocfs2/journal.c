@@ -23,7 +23,7 @@
  * Boston, MA 021110-1307, USA.
  *
  * --
- * This replays the jbd journals for each node.  First all the journals are
+ * This replays the jbd journals for each slot.  First all the journals are
  * walked to detect inconsistencies.  Only journals with no problems will be
  * replayed.  IO errors during replay will just result in partial journal
  * replay, just like jbd does in the kernel.  Journals that don't pass
@@ -55,7 +55,7 @@
 static const char *whoami = "journal recovery";
 
 struct journal_info {
-	int			ji_node;
+	int			ji_slot;
 	unsigned		ji_replay:1;
 
 	uint64_t		ji_ino;
@@ -247,17 +247,17 @@ static errcode_t lookup_journal_block(ocfs2_filesys *fs,
 					  &contig);
 	if (ret) {
 		com_err(whoami, ret, "while looking up logical block "
-			"%"PRIu64" in node %d's journal", blkoff, ji->ji_node);
+			"%"PRIu64" in slot %d's journal", blkoff, ji->ji_slot);
 		goto out;
 	}
 
 	if (check_dup) {
 		ocfs2_bitmap_set(ji->ji_used_blocks, *blkno, &was_set);
 		if (was_set)  {
-			printf("Logical block %"PRIu64" in node %d's journal "
+			printf("Logical block %"PRIu64" in slot %d's journal "
 			       "maps to block %"PRIu64" which has already "
 			       "been used in another journal.\n", blkoff,
-			       ji->ji_node, *blkno);
+			       ji->ji_slot, *blkno);
 			ret = OCFS2_ET_DUPLICATE_BLOCK;
 		}
 	}
@@ -281,8 +281,8 @@ static errcode_t read_journal_block(ocfs2_filesys *fs,
 
 	err = io_read_block(fs->fs_io, blkno, 1, buf);
 	if (err)
-		com_err(whoami, err, "while reading block %"PRIu64" of node "
-			"%d's journal", blkno, ji->ji_node);
+		com_err(whoami, err, "while reading block %"PRIu64" of slot "
+			"%d's journal", blkno, ji->ji_slot);
 
 	return err;
 }
@@ -348,7 +348,7 @@ out:
 	return ret;
 }
 
-static errcode_t walk_journal(ocfs2_filesys *fs, int node, 
+static errcode_t walk_journal(ocfs2_filesys *fs, int slot, 
 			      struct journal_info *ji, char *buf, int recover)
 {
 	errcode_t err, ret = 0;
@@ -443,9 +443,9 @@ static errcode_t walk_journal(ocfs2_filesys *fs, int node,
 		ji->ji_set_final_seq = 1;
 		ji->ji_final_seq = next_seq;
 	} else if (ji->ji_final_seq != next_seq) {
-		printf("Replaying node %d's journal stopped at seq %"PRIu32" "
+		printf("Replaying slot %d's journal stopped at seq %"PRIu32" "
 		       "but an initial scan indicated that it should have "
-		       "stopped at seq %"PRIu32"\n", ji->ji_node, next_seq,
+		       "stopped at seq %"PRIu32"\n", ji->ji_slot, next_seq,
 		       ji->ji_final_seq);
 		if (ret == 0)
 			err = OCFS2_ET_IO;
@@ -454,7 +454,7 @@ static errcode_t walk_journal(ocfs2_filesys *fs, int node,
 	return ret;
 }
 
-static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
+static errcode_t prep_journal_info(ocfs2_filesys *fs, int slot,
 			           struct journal_info *ji)
 {
 	errcode_t err;
@@ -462,21 +462,21 @@ static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
 
 	err = ocfs2_malloc_blocks(fs->fs_io, 1, &ji->ji_jsb);
 	if (err)
-		com_err(whoami, err, "while allocating space for node %d's "
-			    "journal superblock", node);
+		com_err(whoami, err, "while allocating space for slot %d's "
+			    "journal superblock", slot);
 
 	err = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE,
-					node, &ji->ji_ino);
+					slot, &ji->ji_ino);
 	if (err) {
 		com_err(whoami, err, "while looking up the journal inode for "
-			"node %d", node);
+			"slot %d", slot);
 		goto out;
 	}
 
 	err = ocfs2_read_cached_inode(fs, ji->ji_ino, &ji->ji_cinode);
 	if (err) {
 		com_err(whoami, err, "while reading cached inode %"PRIu64" "
-			"for node %d's journal", ji->ji_ino, node);
+			"for slot %d's journal", ji->ji_ino, slot);
 		goto out;
 	}
 
@@ -499,15 +499,15 @@ static errcode_t prep_journal_info(ocfs2_filesys *fs, int node,
 	err = ocfs2_read_journal_superblock(fs, ji->ji_jsb_block, 
 					    (char *)ji->ji_jsb);
 	if (err) {
-		com_err(whoami, err, "while reading block %"PRIu64" as node "
+		com_err(whoami, err, "while reading block %"PRIu64" as slot "
 			"%d's journal super block", ji->ji_jsb_block,
-			ji->ji_node);
+			ji->ji_slot);
 		goto out;
 	}
 
 	ji->ji_replay = 1;
 
-	verbosef("node: %d jsb start %u maxlen %u\n", node,
+	verbosef("slot: %d jsb start %u maxlen %u\n", slot,
 		 ji->ji_jsb->s_start, ji->ji_jsb->s_maxlen);
 out:
 	return err;
@@ -526,7 +526,7 @@ out:
  */
 errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 {
-	uint16_t i, max_nodes;
+	uint16_t i, max_slots;
 	char *buf = NULL;
 	uint64_t blkno;
 	errcode_t ret;
@@ -535,7 +535,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 	journal_superblock_t *jsb;
 
 	*should = 0;
-	max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
@@ -546,12 +546,12 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 
 	jsb = (journal_superblock_t *)buf;
 
-	for (i = 0; i < max_nodes; i++) {
+	for (i = 0; i < max_slots; i++) {
 		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
 						&blkno);
 		if (ret) {
 			com_err(whoami, ret, "while looking up the journal "
-				"inode for node %d", i);
+				"inode for slot %d", i);
 			goto out;
 		}
 
@@ -562,7 +562,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 		ret = ocfs2_read_cached_inode(fs, blkno, &cinode);
 		if (ret) {
 			com_err(whoami, ret, "while reading cached inode "
-				"%"PRIu64" for node %d's journal", blkno, i);
+				"%"PRIu64" for slot %d's journal", blkno, i);
 			goto out;
 		}
 
@@ -574,7 +574,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 
 		is_dirty = cinode->ci_inode->id1.journal1.ij_flags &
 			   OCFS2_JOURNAL_DIRTY_FL;
-		verbosef("node %d JOURNAL_DIRTY_FL: %d\n", i, is_dirty);
+		verbosef("slot %d JOURNAL_DIRTY_FL: %d\n", i, is_dirty);
 		if (!is_dirty)
 			continue;
 
@@ -582,7 +582,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 						  &contig);
 		if (ret) {
 			com_err(whoami, ret, "while looking up the journal "
-				"super block in node %d's journal", i);
+				"super block in slot %d's journal", i);
 			goto out;
 		}
 
@@ -591,7 +591,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 		ret = ocfs2_read_journal_superblock(fs, blkno, buf);
 		if (ret) {
 			com_err(whoami, ret, "while reading the journal "
-				"super block in node %d's journal", i);
+				"super block in slot %d's journal", i);
 			goto out;
 		}
 
@@ -608,7 +608,7 @@ out:
 	
 }
 
-/* Try and replay the nodes journals if they're dirty.  This only returns
+/* Try and replay the slots journals if they're dirty.  This only returns
  * a non-zero error if the caller should not continue. */
 errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 {
@@ -617,10 +617,10 @@ errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 	journal_superblock_t *jsb;
 	char *buf = NULL;
 	int journal_trouble = 0;
-	uint16_t i, max_nodes;
+	uint16_t i, max_slots;
 	ocfs2_bitmap *used_blocks = NULL;
 
-	max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 
 	ret = ocfs2_block_bitmap_new(fs, "journal blocks",
 				     &used_blocks);
@@ -636,46 +636,46 @@ errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 		goto out;
 	}
 
-	ret = ocfs2_malloc0(sizeof(struct journal_info) * max_nodes, &jis);
+	ret = ocfs2_malloc0(sizeof(struct journal_info) * max_slots, &jis);
 	if (ret) {
 		com_err(whoami, ret, "while allocating an array of block "
 			 "numbers for journal replay");
 		goto out;
 	}
 
-	printf("Checking each node's journal.\n");
+	printf("Checking each slot's journal.\n");
 
-	for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
+	for (i = 0, ji = jis; i < max_slots; i++, ji++) {
 		ji->ji_used_blocks = used_blocks;
 		ji->ji_revoke = RB_ROOT;
-		ji->ji_node = i;
+		ji->ji_slot = i;
 
 		/* sets ji->ji_replay */
 		err = prep_journal_info(fs, i, ji);
 		if (err) {
-			printf("Node %d seems to have a corrupt journal.\n",
+			printf("Slot %d seems to have a corrupt journal.\n",
 			       i);
 			journal_trouble = 1;
 			continue;
 		}
 
 		if (!ji->ji_replay) {
-			verbosef("node %d is clean\n", i);
+			verbosef("slot %d is clean\n", i);
 			continue;
 		}
 
 		err = walk_journal(fs, i, ji, buf, 0);
 		if (err) {
-			printf("Node %d's journal can not be replayed.\n", i);
+			printf("Slot %d's journal can not be replayed.\n", i);
 			journal_trouble = 1;
 		}
 	}
 
-	for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
+	for (i = 0, ji = jis; i < max_slots; i++, ji++) {
 		if (!ji->ji_replay)
 			continue;
 
-		printf("Replaying node %d's journal.\n", i);
+		printf("Replaying slot %d's journal.\n", i);
 
 		err = walk_journal(fs, i, ji, buf, 1);
 		if (err) {
@@ -698,11 +698,11 @@ errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 						     ji->ji_jsb_block,
 						     (char *)ji->ji_jsb);
 		if (err) {
-			com_err(whoami, err, "while writing node %d's journal "
+			com_err(whoami, err, "while writing slot %d's journal "
 				"super block", i);
 			journal_trouble = 1;
 		} else {
-			printf("Node %d's journal replayed successfully.\n",
+			printf("Slot %d's journal replayed successfully.\n",
 			       i);
 			*replayed = 1;
 		}
@@ -719,7 +719,7 @@ errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 
 out:
 	if (jis) {
-		for (i = 0, ji = jis; i < max_nodes; i++, ji++) {
+		for (i = 0, ji = jis; i < max_slots; i++, ji++) {
 			if (ji->ji_jsb)
 				ocfs2_free(&ji->ji_jsb);
 			if (ji->ji_cinode)

@@ -67,7 +67,7 @@ static errcode_t ocfs2_get_journal_blkno(ocfs2_filesys *fs, uint64_t *jrnl_blkno
 	int i;
 	errcode_t ret = 0;
 
-	for (i = 0; i < sb->s_max_nodes; ++i) {
+	for (i = 0; i < sb->s_max_slots; ++i) {
 		snprintf (sysfile, sizeof(sysfile),
 			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
 		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, sysfile,
@@ -83,7 +83,7 @@ bail:
 errcode_t ocfs2_lock_down_cluster(ocfs2_filesys *fs)
 {
 	ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
-	uint64_t jrnl_blkno[OCFS2_MAX_NODES];
+	uint64_t jrnl_blkno[OCFS2_MAX_SLOTS];
 	ocfs2_cached_inode *ci;
 	errcode_t ret = 0;
 	int i;
@@ -96,7 +96,7 @@ errcode_t ocfs2_lock_down_cluster(ocfs2_filesys *fs)
 	if (ret)
 		goto bail;
 
-	for (i = 0; i < sb->s_max_nodes; ++i) {
+	for (i = 0; i < sb->s_max_slots; ++i) {
 		ret = ocfs2_read_cached_inode(fs, jrnl_blkno[i], &ci);
 		if (ret) {
 			ocfs2_super_unlock(fs);

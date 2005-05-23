@@ -106,7 +106,7 @@ static void print_ocfs2_extent_block(void)
 
 	SHOW_OFFSET(ocfs2_extent_block, h_signature);
 	SHOW_OFFSET(ocfs2_extent_block, h_reserved1);
-	SHOW_OFFSET(ocfs2_extent_block, h_suballoc_node);
+	SHOW_OFFSET(ocfs2_extent_block, h_suballoc_slot);
 	SHOW_OFFSET(ocfs2_extent_block, h_suballoc_bit);
 	SHOW_OFFSET(ocfs2_extent_block, h_fs_generation);
 	SHOW_OFFSET(ocfs2_extent_block, h_blkno);
@@ -138,7 +138,7 @@ static void print_ocfs2_super_block(void)
 	SHOW_OFFSET(ocfs2_super_block, s_system_dir_blkno);
 	SHOW_OFFSET(ocfs2_super_block, s_blocksize_bits);
 	SHOW_OFFSET(ocfs2_super_block, s_clustersize_bits);
-	SHOW_OFFSET(ocfs2_super_block, s_max_nodes);
+	SHOW_OFFSET(ocfs2_super_block, s_max_slots);
 	SHOW_OFFSET(ocfs2_super_block, s_reserved1);
 	SHOW_OFFSET(ocfs2_super_block, s_reserved2);
 	SHOW_OFFSET(ocfs2_super_block, s_first_cluster_group);
@@ -169,7 +169,7 @@ static void print_ocfs2_dinode(void)
 
 	SHOW_OFFSET(ocfs2_dinode, i_signature);
 	SHOW_OFFSET(ocfs2_dinode, i_generation);
-	SHOW_OFFSET(ocfs2_dinode, i_suballoc_node);
+	SHOW_OFFSET(ocfs2_dinode, i_suballoc_slot);
 	SHOW_OFFSET(ocfs2_dinode, i_suballoc_bit);
 	SHOW_OFFSET(ocfs2_dinode, i_reserved0);
 	SHOW_OFFSET(ocfs2_dinode, i_clusters);
@@ -186,8 +186,10 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(ocfs2_dinode, i_blkno);
 	SHOW_OFFSET(ocfs2_dinode, i_last_eb_blk);
 	SHOW_OFFSET(ocfs2_dinode, i_fs_generation);
+	SHOW_OFFSET(ocfs2_dinode, i_atime_nsec);
+	SHOW_OFFSET(ocfs2_dinode, i_ctime_nsec);
+	SHOW_OFFSET(ocfs2_dinode, i_mtime_nsec);
 	SHOW_OFFSET(ocfs2_dinode, i_reserved1);
-	SHOW_OFFSET(ocfs2_dinode, i_reserved2);
 
 	SHOW_OFFSET(ocfs2_dinode, id1.i_pad1);
 	SHOW_OFFSET(ocfs2_dinode, id1.dev1.i_rdev);

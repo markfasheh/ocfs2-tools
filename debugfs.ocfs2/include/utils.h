@@ -35,7 +35,7 @@ typedef struct _rdump_opts {
 
 void get_vote_flag (uint32_t flag, GString *str);
 void get_publish_flag (uint32_t flag, GString *str);
-void get_journal_blktyp (uint32_t jtype, GString *str);
+void get_journal_block_type (uint32_t jtype, GString *str);
 void get_tag_flag (uint32_t flags, GString *str);
 FILE *open_pager(int interactive);
 void close_pager(FILE *stream);
@@ -51,4 +51,5 @@ void inode_time_to_str(uint64_t mtime, char *str, int len);
 errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 		      const char *dumproot, int verbose);
 void crunch_strsplit(char **args);
+
 #endif		/* __UTILS_H__ */

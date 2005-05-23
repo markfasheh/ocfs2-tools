@@ -812,7 +812,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	ocfs2_dinode *di = NULL;
 	ocfs2_filesys *fs = ost->ost_fs;
 	ocfs2_cached_inode **ci;
-	int max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	int i, type;
 
 	printf("Pass 0a: Checking cluster allocation chains\n");
@@ -824,7 +824,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	}
 	di = (ocfs2_dinode *)blocks;
 
-	ret = ocfs2_malloc0(max_nodes * sizeof(ocfs2_cached_inode *), 
+	ret = ocfs2_malloc0(max_slots * sizeof(ocfs2_cached_inode *), 
 			    &ost->ost_inode_allocs);
 	if (ret) {
 		com_err(whoami, ret, "while cached inodes for each node");
@@ -862,7 +862,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	type = GLOBAL_INODE_ALLOC_SYSTEM_INODE;
 	i = -1;
 
-	for ( ; i < max_nodes; i++, type = INODE_ALLOC_SYSTEM_INODE) {
+	for ( ; i < max_slots; i++, type = INODE_ALLOC_SYSTEM_INODE) {
 		ret = ocfs2_lookup_system_inode(fs, type, i, &blkno);
 		if (ret) {
 			com_err(whoami, ret, "while looking up the inode "
@@ -914,7 +914,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 
 	printf("Pass 0c: Checking extent block allocation chains\n");
 
-	for (i = 0; i < max_nodes; i++) {
+	for (i = 0; i < max_slots; i++) {
 		ret = ocfs2_lookup_system_inode(fs, EXTENT_ALLOC_SYSTEM_INODE,
 						i, &blkno);
 		if (ret) {

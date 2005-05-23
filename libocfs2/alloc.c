@@ -71,15 +71,14 @@ static errcode_t ocfs2_chain_free_with_io(ocfs2_filesys *fs,
 }
 
 static errcode_t ocfs2_load_allocator(ocfs2_filesys *fs,
-				      int type, int node_num,
+				      int type, int slot_num,
 				      ocfs2_cached_inode **alloc_cinode)
 {
 	errcode_t ret;
 	uint64_t blkno;
 
 	if (!*alloc_cinode) {
-		ret = ocfs2_lookup_system_inode(fs, type, node_num,
-						&blkno);
+		ret = ocfs2_lookup_system_inode(fs, type, slot_num, &blkno);
 		if (ret)
 			return ret;
 		ret = ocfs2_read_cached_inode(fs, blkno, alloc_cinode);
@@ -121,7 +120,7 @@ static int ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
 	return (megabytes << ONE_MB_SHIFT) >> cluster_size_bits;
 }
 
-static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
+static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t slot,
 			     uint64_t gd_blkno, uint64_t blkno, uint16_t mode,
 			     uint32_t flags)
 {
@@ -132,7 +131,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t node,
 	di->i_generation = fs->fs_super->i_generation;
 	di->i_fs_generation = fs->fs_super->i_fs_generation;
 	di->i_blkno = blkno;
-	di->i_suballoc_node = node;
+	di->i_suballoc_slot = slot;
 	di->i_suballoc_bit = (uint16_t)(blkno - gd_blkno);
 	di->i_uid = di->i_gid = 0;
 	di->i_mode = mode;
@@ -182,7 +181,7 @@ static void ocfs2_init_eb(ocfs2_filesys *fs, ocfs2_extent_block *eb,
 {
 	strcpy(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE);
 	eb->h_blkno = blkno;
-	eb->h_suballoc_node = 0;
+	eb->h_suballoc_slot = 0;
 	eb->h_suballoc_bit = (uint16_t)(blkno - gd_blkno);
 	eb->h_list.l_count = ocfs2_extent_recs_per_eb(fs->fs_blocksize);
 }
@@ -276,7 +275,7 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 	errcode_t ret;
 	char *buf;
 	ocfs2_dinode *di;
-	int node;
+	int slot;
 	ocfs2_cached_inode **inode_alloc;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
@@ -287,14 +286,14 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 	if (ret)
 		goto out;
 	di = (ocfs2_dinode *)buf;
-	node = di->i_suballoc_node;
+	slot = di->i_suballoc_slot;
 
-	if (node == -1)
+	if (slot == OCFS2_INVALID_SLOT)
 		inode_alloc = &fs->fs_system_inode_alloc;
 	else
-		inode_alloc = &fs->fs_inode_allocs[node];
+		inode_alloc = &fs->fs_inode_allocs[slot];
 
-	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE, node,
+	ret = ocfs2_load_allocator(fs, INODE_ALLOC_SYSTEM_INODE, slot,
 				   inode_alloc);
 	if (ret)
 		goto out;
@@ -315,21 +314,22 @@ out:
 errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 				     int *is_allocated)
 {
-	uint16_t node, max_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_nodes;
+	int16_t slot;
+	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	ocfs2_cached_inode **ci;
 	int type;
 	errcode_t ret = OCFS2_ET_INTERNAL_FAILURE;
 
-	for (node = ~0; node != max_nodes; node++) {
-		if (node == (uint16_t)~0) {
+	for (slot = OCFS2_INVALID_SLOT; slot != max_slots; slot++) {
+		if (slot == OCFS2_INVALID_SLOT) {
 			type = GLOBAL_INODE_ALLOC_SYSTEM_INODE;
 			ci = &fs->fs_system_inode_alloc;
 		} else {
 			type = INODE_ALLOC_SYSTEM_INODE;
-			ci = &fs->fs_inode_allocs[node];
+			ci = &fs->fs_inode_allocs[slot];
 		}
 
-		ret = ocfs2_load_allocator(fs, type, node, ci);
+		ret = ocfs2_load_allocator(fs, type, slot, ci);
 		if (ret)
 			break;
 
@@ -378,7 +378,7 @@ errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno)
 	errcode_t ret;
 	char *buf;
 	ocfs2_extent_block *eb;
-	int node;
+	int slot;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -388,16 +388,14 @@ errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno)
 	if (ret)
 		goto out;
 	eb = (ocfs2_extent_block *)buf;
-	node = eb->h_suballoc_node;
+	slot = eb->h_suballoc_slot;
 
-	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE,
-				   node,
-				   &fs->fs_eb_allocs[node]);
+	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE, slot,
+				   &fs->fs_eb_allocs[slot]);
 	if (ret)
 		goto out;
 
-	ret = ocfs2_chain_free_with_io(fs, fs->fs_eb_allocs[node],
-				       blkno);
+	ret = ocfs2_chain_free_with_io(fs, fs->fs_eb_allocs[slot], blkno);
 	if (ret)
 		goto out;
 

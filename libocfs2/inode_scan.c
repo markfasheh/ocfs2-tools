@@ -258,7 +258,7 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 	ocfs2_inode_scan *scan;
 	uint64_t blkno;
 	errcode_t ret;
-	int i, node_num;
+	int i, slot_num;
 
 	ret = ocfs2_malloc0(sizeof(struct _ocfs2_inode_scan), &scan);
 	if (ret)
@@ -266,9 +266,9 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 
 	scan->fs = fs;
 
-	/* One inode alloc per node, one global inode alloc */
+	/* One inode alloc per slot, one global inode alloc */
 	scan->num_inode_alloc =
-		OCFS2_RAW_SB(fs->fs_super)->s_max_nodes + 1;
+		OCFS2_RAW_SB(fs->fs_super)->s_max_slots + 1;
 	ret = ocfs2_malloc0(sizeof(ocfs2_cached_inode *) *
 			    scan->num_inode_alloc,
 			    &scan->inode_alloc);
@@ -303,10 +303,10 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 		goto out_cleanup;
 
 	for (i = 1; i < scan->num_inode_alloc; i++) {
-		node_num = i - 1;
+		slot_num = i - 1;
 		ret = ocfs2_lookup_system_inode(fs,
 						INODE_ALLOC_SYSTEM_INODE,
-						node_num,
+						slot_num,
 						&blkno);
 		if (ret)
 			goto out_cleanup;

@@ -22,7 +22,7 @@ from plist import partition_list
 from guiutil import Dialog, set_props, error_box, format_bytes
 from process import Process
 
-from fswidgets import BaseCombo, NumNodes, VolumeLabel, ClusterSize, BlockSize
+from fswidgets import BaseCombo, NumSlots, VolumeLabel, ClusterSize, BlockSize
 
 base_command = ('mkfs.ocfs2', '-x')
 
@@ -40,7 +40,7 @@ class FormatVolumeLabel(VolumeLabel):
         VolumeLabel.__init__(self)
         self.set_text('oracle')
 
-entries = (Device, FormatVolumeLabel, ClusterSize, NumNodes, BlockSize)
+entries = (Device, FormatVolumeLabel, ClusterSize, NumSlots, BlockSize)
 
 def format_partition(parent, device):
     partitions = []

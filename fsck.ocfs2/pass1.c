@@ -74,7 +74,7 @@ void o2fsck_free_inode_allocs(o2fsck_state *ost)
 
 	ocfs2_free_cached_inode(ost->ost_fs, ost->ost_global_inode_alloc);
 
-	for (i = 0; i < OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;i++)
+	for (i = 0; i < OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots; i++)
 		ocfs2_free_cached_inode(ost->ost_fs, ost->ost_inode_allocs[i]);
 }
 
@@ -84,7 +84,8 @@ void o2fsck_free_inode_allocs(o2fsck_state *ost)
 static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di, 
 			       uint64_t blkno, int val)
 {
-	uint16_t node, max_nodes, yn;
+	int16_t slot;
+	uint16_t max_slots, yn;
 	errcode_t ret = OCFS2_ET_INTERNAL_FAILURE;
 	ocfs2_cached_inode *cinode;
 	int oldval;
@@ -94,15 +95,15 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 	if (ost->ost_write_inode_alloc_asked && !ost->ost_write_inode_alloc)
 		return;
 
-	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	max_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
 
-	for (node = ~0; node != max_nodes; node++, 
+	for (slot = OCFS2_INVALID_SLOT; slot != max_slots; slot++, 
 					   ret = OCFS2_ET_INTERNAL_FAILURE) {
 
-		if (node == (uint16_t)~0)
+		if (slot == OCFS2_INVALID_SLOT)
 			cinode = ost->ost_global_inode_alloc;
 		else
-			cinode = ost->ost_inode_allocs[node];
+			cinode = ost->ost_inode_allocs[slot];
 
 		/* we might have had trouble reading the chains in pass 0 */
 		if (cinode == NULL)
@@ -114,8 +115,8 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		       	if (ret != OCFS2_ET_INVALID_BIT)
 				com_err(whoami, ret, "while trying to set "
 					"inode %"PRIu64"'s allocation to '%d' "
-					"in node %u's chain", blkno, val,
-					node);
+					"in slot %"PRId16"'s chain", blkno,
+					val, slot);
 			continue;
 		}
 
@@ -123,7 +124,7 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		 * didn't use 'int' but rather some real boolean construct */
 		oldval = !!oldval;
 
-		/* this node covers the inode.  see if we've changed the 
+		/* this slot covers the inode.  see if we've changed the 
 		 * bitmap and if the user wants us to keep tracking it and
 		 * write back the new map */
 		if (oldval != val && !ost->ost_write_inode_alloc_asked) {
@@ -142,24 +143,24 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 	if (ret) {
 		com_err(whoami, ret, "while trying to set inode %"PRIu64"'s "
-			"allocation to '%d'.  None of the nodes chain "
+			"allocation to '%d'.  None of the slots chain "
 			"allocator's had a group covering the inode.",
 			blkno, val);
 		goto out;
 	}
 
-	verbosef("updated inode %"PRIu64" alloc to %d in node %"PRIu16"\n",
-		 blkno, val, node);
+	verbosef("updated inode %"PRIu64" alloc to %d in slot %"PRId16"\n",
+		 blkno, val, slot);
 
 	/* make sure the inode's fields are consistent if it's allocated */
-	if (val == 1 && node != (uint16_t)di->i_suballoc_node &&
+	if (val == 1 && slot != di->i_suballoc_slot &&
 	    prompt(ost, PY, PR_INODE_SUBALLOC,
 		   "Inode %"PRIu64" indicates that it was allocated "
-		   "from node %"PRIu16" but node %"PRIu16"'s chain allocator "
+		   "from slot %"PRId16" but slot %"PRId16"'s chain allocator "
 		   "covers the inode.  Fix the inode's record of where it is "
 		   "allocated?",
-		   blkno, di->i_suballoc_node, node)) {
-		di->i_suballoc_node = node;
+		   blkno, di->i_suballoc_slot, slot)) {
+		di->i_suballoc_slot = slot;
 		o2fsck_write_inode(ost, di->i_blkno, di);
 	}
 out:
@@ -813,7 +814,8 @@ out:
  */
 static void mark_local_allocs(o2fsck_state *ost)
 {
-	uint16_t node, max_nodes;
+	int16_t slot;
+	uint16_t max_slots;
 	char *buf = NULL;
 	errcode_t ret;
 	uint64_t blkno, start, end;
@@ -821,7 +823,7 @@ static void mark_local_allocs(o2fsck_state *ost)
 	ocfs2_local_alloc *la = &di->id2.i_lab;
 	int bit;
 
-	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	max_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
 
 	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
 	if (ret) {
@@ -832,10 +834,10 @@ static void mark_local_allocs(o2fsck_state *ost)
 
 	di = (ocfs2_dinode *)buf; 
 
-	for (node = 0; node < max_nodes; node++) {
+	for (slot = 0; slot < max_slots; slot++) {
 		ret = ocfs2_lookup_system_inode(ost->ost_fs,
 						LOCAL_ALLOC_SYSTEM_INODE,
-						node, &blkno);
+						slot, &blkno);
 		if (ret) {
 			com_err(whoami, ret, "while looking up local alloc "
 				"inode %"PRIu64" to verify its bitmap",
@@ -874,7 +876,7 @@ static void mark_local_allocs(o2fsck_state *ost)
 			continue;
 
 		/* bits that are clear in the local alloc haven't been 
-		 * used by the node yet, they must still be set in the
+		 * used by the slot yet, they must still be set in the
 		 * main bitmap.  bits that are set might have been used
 		 * and already freed in the main bitmap. */
 		for(bit = 0; bit < di->id1.bitmap1.i_total; bit++) {
@@ -908,14 +910,15 @@ out:
  */
 static void mark_truncate_logs(o2fsck_state *ost)
 {
-	uint16_t node, max_nodes, i, max;
+	int16_t slot;
+	uint16_t max_slots, i, max;
 	ocfs2_truncate_log *tl;
 	uint64_t blkno;
 	ocfs2_dinode *di;
 	char *buf = NULL;
 	errcode_t ret;
 
-	max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	max_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
 	max = ocfs2_truncate_recs_per_inode(ost->ost_fs->fs_blocksize);
 
 	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
@@ -927,10 +930,10 @@ static void mark_truncate_logs(o2fsck_state *ost)
 
 	di = (ocfs2_dinode *)buf; 
 
-	for (node = 0; node < max_nodes; node++) {
+	for (slot = 0; slot < max_slots; slot++) {
 		ret = ocfs2_lookup_system_inode(ost->ost_fs,
 						TRUNCATE_LOG_SYSTEM_INODE,
-						node, &blkno);
+						slot, &blkno);
 		if (ret) {
 			com_err(whoami, ret, "while looking up truncate log "
 				"inode %"PRIu64" to account for its records",
@@ -1095,16 +1098,16 @@ out:
 
 static void write_inode_alloc(o2fsck_state *ost)
 {
-	int max_nodes = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes;
+	int max_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
 	ocfs2_cached_inode **ci;
 	errcode_t ret;
-	int i = -1;
+	int i;
 
 	if (!ost->ost_write_inode_alloc)
 		return;
 
-	for ( ; i < max_nodes; i++) {
-		if (i == -1)
+	for (i = -1; i < max_slots; i++) {
+		if (i == OCFS2_INVALID_SLOT)
 			ci = &ost->ost_global_inode_alloc;
 		else
 			ci = &ost->ost_inode_allocs[i];
@@ -1112,11 +1115,11 @@ static void write_inode_alloc(o2fsck_state *ost)
 		if (*ci == NULL)
 			continue;
 
-		verbosef("writing node %d's allocator\n", i);
+		verbosef("writing slot %d's allocator\n", i);
 
 		ret = ocfs2_write_chain_allocator(ost->ost_fs, *ci);
 		if (ret)
-			com_err(whoami, ret, "while trying to write back node "
+			com_err(whoami, ret, "while trying to write back slot "
 				"%d's inode allocator", i);
 	}
 

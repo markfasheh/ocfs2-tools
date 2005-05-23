@@ -37,14 +37,14 @@
 static void ocfs2_swap_extent_block_to_cpu(ocfs2_extent_block *eb)
 {
 	eb->h_blkno         = le64_to_cpu(eb->h_blkno);
-	eb->h_suballoc_node = le16_to_cpu(eb->h_suballoc_node);
+	eb->h_suballoc_slot = le16_to_cpu(eb->h_suballoc_slot);
 	eb->h_suballoc_bit  = le16_to_cpu(eb->h_suballoc_bit);
 }
 
 static void ocfs2_swap_extent_block_to_le(ocfs2_extent_block *eb)
 {
 	eb->h_blkno         = cpu_to_le64(eb->h_blkno);
-	eb->h_suballoc_node = cpu_to_le16(eb->h_suballoc_node);
+	eb->h_suballoc_slot = cpu_to_le16(eb->h_suballoc_slot);
 	eb->h_suballoc_bit  = cpu_to_le16(eb->h_suballoc_bit);
 }
 

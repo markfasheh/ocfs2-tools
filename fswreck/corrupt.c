@@ -31,7 +31,7 @@ extern char *progname;
  * corrupt_chains()
  *
  */
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t nodenum)
+void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum)
 {
 	errcode_t ret;
 	uint64_t blkno;
@@ -58,11 +58,11 @@ void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t nodenum)
 		break;
 	case Y: 
 		snprintf(sysfile, sizeof(sysfile),
-			 ocfs2_system_inodes[EXTENT_ALLOC_SYSTEM_INODE].si_name, nodenum);
+			 ocfs2_system_inodes[EXTENT_ALLOC_SYSTEM_INODE].si_name, slotnum);
 		break;
 	case Z:
 		snprintf(sysfile, sizeof(sysfile),
-			 ocfs2_system_inodes[INODE_ALLOC_SYSTEM_INODE].si_name, nodenum);
+			 ocfs2_system_inodes[INODE_ALLOC_SYSTEM_INODE].si_name, slotnum);
 		break;
 #endif
 	default:

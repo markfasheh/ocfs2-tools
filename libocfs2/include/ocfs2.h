@@ -155,10 +155,6 @@
 #define OCFS2_MF_SWAP            0x08
 #define OCFS2_MF_MOUNTED_CLUSTER 0x16
 
-/* Some constants used in heartbeat */
-#define OCFS2_NODE_MAP_MAX_NODES	256
-#define OCFS2_HBT_WAIT			10
-
 /* check_heartbeats progress states */
 #define OCFS2_CHB_START		1
 #define OCFS2_CHB_WAITING	2
@@ -173,7 +169,6 @@ typedef struct _ocfs2_extent_map ocfs2_extent_map;
 typedef struct _ocfs2_inode_scan ocfs2_inode_scan;
 typedef struct _ocfs2_dir_scan ocfs2_dir_scan;
 typedef struct _ocfs2_bitmap ocfs2_bitmap;
-typedef struct _ocfs2_nodes ocfs2_nodes;
 typedef struct _ocfs2_devices ocfs2_devices;
 
 struct _ocfs2_filesys {
@@ -224,7 +219,7 @@ struct _ocfs2_devices {
 	uint32_t min_num;		/* minor number of the device */
 	errcode_t errcode;		/* error encountered reading device */
 	void *private;
-	uint16_t max_nodes;
+	uint16_t max_slots;
 	uint8_t *node_nums;		/* list of mounted nodes */
 };
 
@@ -386,7 +381,7 @@ errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir,
 		       uint64_t *inode);
 
 errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
-				    int node_num, uint64_t *blkno);
+				    int slot_num, uint64_t *blkno);
 
 errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 		     uint64_t ino, int flags);

@@ -144,10 +144,10 @@ void get_publish_flag (uint32_t flag, GString *str)
 }
 
 /*
- * get_journal_blktyp()
+ * get_journal_block_type()
  *
  */
-void get_journal_blktyp (uint32_t jtype, GString *str)
+void get_journal_block_type (uint32_t jtype, GString *str)
 {
 	switch (jtype) {
 	case JFS_DESCRIPTOR_BLOCK:

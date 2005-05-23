@@ -30,7 +30,7 @@
 #include "ocfs2.h"
 
 errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
-				    int node_num, uint64_t *blkno)
+				    int slot_num, uint64_t *blkno)
 {
 	errcode_t ret;
 	char *buf;
@@ -40,7 +40,7 @@ errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
 		return ret;
 
 	ocfs2_sprintf_system_inode_name(buf, OCFS2_MAX_FILENAME_LEN, 
-					type, node_num);
+					type, slot_num);
 
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, buf,
 			   strlen(buf), NULL, blkno);

@@ -93,7 +93,7 @@ static void ocfs2_swap_super_to_cpu(ocfs2_dinode *di)
 	sb->s_system_dir_blkno    = le64_to_cpu(sb->s_system_dir_blkno);
 	sb->s_blocksize_bits      = le32_to_cpu(sb->s_blocksize_bits);
 	sb->s_clustersize_bits    = le32_to_cpu(sb->s_clustersize_bits);
-	sb->s_max_nodes           = le16_to_cpu(sb->s_max_nodes);
+	sb->s_max_slots           = le16_to_cpu(sb->s_max_slots);
 	sb->s_first_cluster_group = le64_to_cpu(sb->s_first_cluster_group);
 }
 
@@ -119,7 +119,7 @@ static void ocfs2_swap_super_to_le(ocfs2_dinode *di)
 	sb->s_system_dir_blkno    = cpu_to_le64(sb->s_system_dir_blkno);
 	sb->s_blocksize_bits      = cpu_to_le32(sb->s_blocksize_bits);
 	sb->s_clustersize_bits    = cpu_to_le32(sb->s_clustersize_bits);
-	sb->s_max_nodes           = cpu_to_le16(sb->s_max_nodes);
+	sb->s_max_slots           = cpu_to_le16(sb->s_max_slots);
 	sb->s_first_cluster_group = cpu_to_le64(sb->s_first_cluster_group);
 }
 
@@ -287,16 +287,16 @@ errcode_t ocfs2_open(const char *name, int flags,
 	if (!OCFS2_RAW_SB(fs->fs_super)->s_root_blkno ||
 	    !OCFS2_RAW_SB(fs->fs_super)->s_system_dir_blkno)
 		goto out;
-	if (OCFS2_RAW_SB(fs->fs_super)->s_max_nodes > OCFS2_MAX_NODES)
+	if (OCFS2_RAW_SB(fs->fs_super)->s_max_slots > OCFS2_MAX_SLOTS)
 		goto out;
 
-	ret = ocfs2_malloc0(OCFS2_RAW_SB(fs->fs_super)->s_max_nodes *
+	ret = ocfs2_malloc0(OCFS2_RAW_SB(fs->fs_super)->s_max_slots *
 			    sizeof(ocfs2_cached_inode *), 
 			    &fs->fs_inode_allocs);
 	if (ret)
 		goto out;
 
-	ret = ocfs2_malloc0(OCFS2_RAW_SB(fs->fs_super)->s_max_nodes *
+	ret = ocfs2_malloc0(OCFS2_RAW_SB(fs->fs_super)->s_max_slots *
 			    sizeof(ocfs2_cached_inode *), 
 			    &fs->fs_eb_allocs);
 	if (ret)

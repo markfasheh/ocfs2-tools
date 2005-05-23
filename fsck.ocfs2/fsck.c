@@ -161,8 +161,8 @@ static errcode_t check_superblock(o2fsck_state *ost)
 	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 	errcode_t ret = 0;
 
-	if (sb->s_max_nodes == 0) {
-		printf("The superblock max_nodes field is set to 0.\n");
+	if (sb->s_max_slots == 0) {
+		printf("The superblock max_slots field is set to 0.\n");
 		ret = OCFS2_ET_CORRUPT_SUPERBLOCK;
 	}
 
@@ -559,8 +559,8 @@ int main(int argc, char **argv)
 	printf("  bytes per block:    %u\n", ost->ost_fs->fs_blocksize);
 	printf("  number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
 	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
-	printf("  max nodes:          %u\n\n", 
-	       OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_nodes);
+	printf("  max slots:          %u\n\n", 
+	       OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots);
 
 	ret = maybe_replay_journals(ost, filename, open_flags, blkno, blksize);
 	if (ret) {

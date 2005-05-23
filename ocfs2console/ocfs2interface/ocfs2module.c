@@ -143,7 +143,7 @@ static PyGetSetDef dinode_getsets[] = {
 static PyMemberDef dinode_members[] = {
   DINODE_STR_MEMBER (signature),
   DINODE_U32_MEMBER (generation),
-  DINODE_S16_MEMBER (suballoc_node),
+  DINODE_S16_MEMBER (suballoc_slot),
   DINODE_U16_MEMBER (suballoc_bit),
   DINODE_U32_MEMBER (clusters),
   DINODE_U32_MEMBER (uid),
@@ -392,7 +392,7 @@ static PyMemberDef super_members[] = {
   SUPER_U32_MEMBER (feature_ro_compat),
   SUPER_U32_MEMBER (blocksize_bits),
   SUPER_U32_MEMBER (clustersize_bits),
-  SUPER_U16_MEMBER (max_nodes),
+  SUPER_U16_MEMBER (max_slots),
   {"s_label", T_STRING_INPLACE, offsetof (SuperBlock, super.s_label), RO},
   {"fs", T_OBJECT, offsetof (SuperBlock, fs_obj), RO},
   {0}
@@ -684,17 +684,17 @@ fs_lookup_system_inode (Filesystem *self,
                         PyObject   *kwargs)
 {
   errcode_t ret;
-  int       type, node_num = -1;
+  int       type, slot_num = OCFS2_INVALID_SLOT;
   uint64_t  blkno;
 
-  static char *kwlist[] = { "type", "node_num", NULL };
+  static char *kwlist[] = { "type", "slot_num", NULL };
 
   if (!PyArg_ParseTupleAndKeywords (args, kwargs,
 				    "i|i:lookup_system_inode", kwlist,
-				    &type, &node_num))
+				    &type, &slot_num))
     return NULL;
 
-  CHECK_ERROR (ocfs2_lookup_system_inode(self->fs, type, node_num, &blkno));
+  CHECK_ERROR (ocfs2_lookup_system_inode(self->fs, type, slot_num, &blkno));
 
   return PyLong_FromUnsignedLongLong (blkno);
 }
@@ -1082,12 +1082,12 @@ add_constants (PyObject *m)
 
   ADD_INT_CONSTANT (MAX_FILENAME_LEN);
 
-  ADD_INT_CONSTANT (MAX_NODES);
+  ADD_INT_CONSTANT (MAX_SLOTS);
+
+  ADD_INT_CONSTANT (INVALID_SLOT);
 
   ADD_INT_CONSTANT (VOL_UUID_LEN);
   ADD_INT_CONSTANT (MAX_VOL_LABEL_LEN);
-
-  ADD_INT_CONSTANT (MAX_CLUSTER_NAME_LEN);
 
   ADD_INT_CONSTANT (MIN_JOURNAL_SIZE);
   ADD_INT_CONSTANT (MAX_JOURNAL_SIZE);
@@ -1140,8 +1140,6 @@ add_constants (PyObject *m)
   ADD_INT_CONSTANT (JOURNAL_SYSTEM_INODE);
   ADD_INT_CONSTANT (LOCAL_ALLOC_SYSTEM_INODE);
   ADD_INT_CONSTANT (NUM_SYSTEM_INODES);
-
-  //ADD_INT_CONSTANT (MAX_NODE_NAME_LEN);
 
 #undef ADD_INT_CONSTANT
 }

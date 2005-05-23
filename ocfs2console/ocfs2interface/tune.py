@@ -22,7 +22,7 @@ import ocfs2
 from guiutil import Dialog, set_props, error_box, format_bytes
 from process import Process
 
-from fswidgets import NumNodes, VolumeLabel
+from fswidgets import NumSlots, VolumeLabel
 
 base_command = ('tunefs.ocfs2', '-x')
 
@@ -41,15 +41,15 @@ class TuneVolumeLabel(VolumeLabel):
 
     empty_ok = True
 
-class TuneNumNodes(NumNodes):
+class TuneNumSlots(NumSlots):
     def __init__(self, device=None):
-        NumNodes.__init__(self)
+        NumSlots.__init__(self)
 
         fs = ocfs2.Filesystem(device)
-        self.set_range(fs.fs_super.s_max_nodes, ocfs2.MAX_NODES)
+        self.set_range(fs.fs_super.s_max_nodes, ocfs2.MAX_SLOTS)
 
-    title = 'Edit Node Count'
-    action = 'Changing node count'
+    title = 'Edit Node Slot Count'
+    action = 'Changing node slot count'
 
     empty_ok = False
 

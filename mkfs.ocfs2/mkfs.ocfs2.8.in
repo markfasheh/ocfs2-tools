@@ -17,11 +17,11 @@ mkfs.ocfs2 \- Build an OCFS2 file system.
 
 .TP
 \fB\-L\fR \fIvolume\-label\fR
-\fIVolume\-label\fR is usefull when the \fILABEL\fR option is used to mount the partitions. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
+\fIVolume\-label\fR is useful when the \fILABEL\fR option is used to mount the partitions. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
 
 .TP
-\fB\-N\fR \fInumber\-of\-nodes\fR 
-\fInumber\-of\-nodes\fR specify the max number of nodes where the partition will be mounted. The maximum \fInumber\-of\-nodes\fR allowed is 255. That will allow a better control of allocated space and make OCFS2 more efficient.
+\fB\-N\fR \fInumber\-of\-node\-slots\fR 
+\fInumber\-of\-node\-slots\fR specify the maximum number of nodes that can simultaneously mount the partition. The maximum \fInumber\-of\-node\-slots\fR allowed is 255. That will allow a better control of allocated space and make OCFS2 more efficient.
 
 .TP
 \fB\-J\fR \fIjournal\-options\fR 

@@ -210,7 +210,7 @@ struct _State {
 
 	uint64_t reserved_tail_size;
 
-	unsigned int initial_nodes;
+	unsigned int initial_slots;
 
 	uint64_t journal_size_in_bytes;
 

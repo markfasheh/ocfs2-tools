@@ -60,7 +60,7 @@ void dump_super_block(FILE *out, ocfs2_super_block *sb)
 	fprintf(out, "\tBlock Size Bits: %u   Cluster Size Bits: %u\n",
 	       sb->s_blocksize_bits, sb->s_clustersize_bits);
 
-	fprintf(out, "\tMax Nodes: %u\n", sb->s_max_nodes);
+	fprintf(out, "\tMax Node Slots: %u\n", sb->s_max_slots);
 
 	fprintf(out, "\tLabel: %s\n", sb->s_label);
 	fprintf(out, "\tUUID: ");
@@ -207,11 +207,11 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		le32_to_cpu(in->i_mtime_nsec), le32_to_cpu(in->i_mtime_nsec));
 
 	fprintf(out, "\tLast Extblk: %"PRIu64"\n", in->i_last_eb_blk);
-	if (in->i_suballoc_node == -1)
+	if (in->i_suballoc_slot == OCFS2_INVALID_SLOT)
 		strcpy(tmp_str, "Global");
 	else
-		sprintf(tmp_str, "%d", in->i_suballoc_node);
-	fprintf(out, "\tSub Alloc Node: %s   Sub Alloc Bit: %u\n",
+		sprintf(tmp_str, "%d", in->i_suballoc_slot);
+	fprintf(out, "\tSub Alloc Slot: %s   Sub Alloc Bit: %u\n",
 		tmp_str, in->i_suballoc_bit);
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
@@ -293,8 +293,8 @@ bail:
  */
 void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
 {
-	fprintf (out, "\tSubAlloc Bit: %u   SubAlloc Node: %u\n",
-		 blk->h_suballoc_bit, blk->h_suballoc_node);
+	fprintf (out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u\n",
+		 blk->h_suballoc_bit, blk->h_suballoc_slot);
 
 	fprintf (out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
 		 blk->h_blkno, blk->h_next_leaf_blk);
@@ -370,7 +370,7 @@ void dump_jbd_header (FILE *out, journal_header_t *header)
 	GString *jstr = NULL;
 
 	jstr = g_string_new (NULL);
-	get_journal_blktyp (ntohl(header->h_blocktype), jstr);
+	get_journal_block_type (ntohl(header->h_blocktype), jstr);
 
 	fprintf (out, "\tSeq: %u   Type: %d (%s)\n", ntohl(header->h_sequence),
 		 ntohl(header->h_blocktype), jstr->str);
