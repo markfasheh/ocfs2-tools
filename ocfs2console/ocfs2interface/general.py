@@ -60,7 +60,7 @@ class UUID(Field):
 
 class MaximumNodes(Field):
     def real_get_text(self):
-        return str(self.super.s_max_nodes)
+        return str(self.super.s_max_slots)
 
 class FSSize(Field):
     def real_get_text(self):

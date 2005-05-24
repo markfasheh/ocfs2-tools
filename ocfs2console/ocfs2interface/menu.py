@@ -74,9 +74,9 @@ task_menu_head_data = (
 )
 
 task_menu_tail_data = (
-    ('/Tasks/Change _Label...',    None,         'relabel',  'refresh',
+    ('/Tasks/Change _Label...',         None,    'relabel',  'refresh',
      UNMOUNTED_ONLY),
-    ('/Tasks/_Edit Node Count...', None,         'node_num', 'refresh',
+    ('/Tasks/_Edit Node Slot Count...', None,    'slot_num', 'refresh',
      UNMOUNTED_ONLY),
 )
 

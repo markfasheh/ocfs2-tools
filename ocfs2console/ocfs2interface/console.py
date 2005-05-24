@@ -26,7 +26,7 @@ from about import about, process_gui_args
 from mount import mount, unmount
 from format import format_partition
 from fsck import fsck_volume
-from tune import tune_label, tune_nodes
+from tune import tune_label, tune_slots
 from general import General
 from bosa import Browser
 from nodeconfig import node_config
@@ -128,8 +128,8 @@ class Console(gtk.Window):
     def relabel(self):
         tune_label(self, self.pv.get_device())
 
-    def node_num(self):
-        tune_nodes(self, self.pv.get_device())
+    def slot_num(self):
+        tune_slots(self, self.pv.get_device())
 
     def check(self):
         fsck_volume(self, self.pv.get_device(), check=True)

@@ -46,7 +46,7 @@ class TuneNumSlots(NumSlots):
         NumSlots.__init__(self)
 
         fs = ocfs2.Filesystem(device)
-        self.set_range(fs.fs_super.s_max_nodes, ocfs2.MAX_SLOTS)
+        self.set_range(fs.fs_super.s_max_slots, ocfs2.MAX_SLOTS)
 
     title = 'Edit Node Slot Count'
     action = 'Changing node slot count'
@@ -140,15 +140,15 @@ def tune_action(widget_type, parent, device):
 def tune_label(parent, device):
     tune_action(TuneVolumeLabel, parent, device)
 
-def tune_nodes(parent, device):
-    tune_action(TuneNumNodes, parent, device)
+def tune_slots(parent, device):
+    tune_action(TuneNumSlots, parent, device)
 
 def main():
     import sys
     device = sys.argv[1]
 
     tune_label(None, device)
-    tune_nodes(None, device)
+    tune_slots(None, device)
 
 if __name__ == '__main__':
     main()
