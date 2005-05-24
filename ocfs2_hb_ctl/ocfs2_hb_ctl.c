@@ -24,8 +24,18 @@
 #include "ocfs2_hb_ctl.h"
 
 #include "o2cb.h"
+#include <signal.h>
 
 static char *progname = "ocfs2_hb_ctl";
+
+void block_signals (int how) {
+     sigset_t sigs;
+
+     sigfillset (&sigs);
+     sigdelset(&sigs, SIGTRAP);
+     sigdelset(&sigs, SIGSEGV);
+     sigprocmask (how, &sigs, (sigset_t *) 0);
+}
 
 static errcode_t get_uuid(char *dev, char *uuid)
 {
@@ -249,6 +259,8 @@ int main(int argc, char **argv)
 		hbo.uuid_str = hbuuid;
 	}
 
+	block_signals(SIG_BLOCK);
+
 	switch(hbo.action) {
 	case HB_ACTION_USAGE:
 		ret = 0;
@@ -282,6 +294,7 @@ int main(int argc, char **argv)
 	default:
 		abort();
 	}
+	block_signals(SIG_UNBLOCK);
 
 bail:
 	return ret ? 1 : 0;
