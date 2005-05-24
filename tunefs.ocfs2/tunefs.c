@@ -126,9 +126,7 @@ static void block_signals(int how)
      sigfillset(&sigs);
      sigdelset(&sigs, SIGTRAP);
      sigdelset(&sigs, SIGSEGV);
-     sigprocmask(how, &sigs, (sigset_t *) 0);
-
-     return ;
+     sigprocmask(how, &sigs, NULL);
 }
 
 static int get_number(char *arg, uint64_t *res)

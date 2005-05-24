@@ -28,13 +28,14 @@
 
 static char *progname = "ocfs2_hb_ctl";
 
-void block_signals (int how) {
+static void block_signals(int how)
+{
      sigset_t sigs;
 
-     sigfillset (&sigs);
+     sigfillset(&sigs);
      sigdelset(&sigs, SIGTRAP);
      sigdelset(&sigs, SIGSEGV);
-     sigprocmask (how, &sigs, (sigset_t *) 0);
+     sigprocmask(how, &sigs, NULL);
 }
 
 static errcode_t get_uuid(char *dev, char *uuid)
