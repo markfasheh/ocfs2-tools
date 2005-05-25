@@ -2,6 +2,8 @@ OCFS2 Users Guide
 
 1.   Introduction
 2.   Installation
+  2.1 Installing from source
+  2.2 Installing from RPM
 3.   Configuration (/etc/ocfs2/cluster.conf)
   3.1. Valid parameters:
   3.2. /etc/ocfs2/cluster.conf sample
@@ -12,13 +14,13 @@ OCFS2 Users Guide
     3.4.1. Enabling automatic load on boot.
     3.4.2. Performing manual load.
     3.4.3. Stopping O2CB.
+  3.5 If o2cb.init does not work on your platform
 4. Creating an OCFS2 partition.
 5. Mounting the OCFS2 partition.
 
 
 1. Introduction
    ------------
-
 OCFS2 is a general purpose cluster filesystem. Unlike the initial release
 of OCFS, which supported only Oracle database workloads, OCFS2 provides
 full support as a general purpose filesystem.  OCFS2 is a complete rewrite
@@ -27,8 +29,38 @@ Linux kernel.
 
 2. Installation
    ------------
-Three RPMs are required to install OCFS2. These RPMs can be obtained from
-the Oracle Open Source projects site, http://oss.oracle.com
+If you are using an official OCFS2 release then the only supported
+method for installation is from RPM.
+
+2.2. Installing from source
+     ======================
+You can always get the latest OCFS2 kernel source via the subversion tree:
+    http://oss.oracle.com/projects/ocfs2/src/trunk/
+
+Additionally, we provide a set of git tree's to pull from at:
+    http://oss.oracle.com/git/ocfs2.git/
+    http://oss.oracle.com/git/ocfs2-dev.git/
+
+The ocfs2-dev.git tree can be considered our development tree which is
+kept as up to date with the subversion tree as possible. ocfs2.git is
+a ready-for-submission tree of clean patch sets.
+
+You'll also want to get the latest ocfs2-tools subversion tree:
+    http://oss.oracle.com/projects/ocfs2-tools/src/trunk/
+
+Additionally we make tarballs available at:
+    http://oss.oracle.com/projects/ocfs2-tools/files/source/
+
+Installing ocfs2-tools is done via the standard autoconf setup of
+"./configure && make && make install". You will likely want to use the
+init script provided in vendor/common/o2cb.init - it was written for
+SLES9 and RHEL4 but may work on other platforms.
+
+2.2. Installing from RPM
+     ===================
+Three RPMs are required to install OCFS2. These RPMs can be obtained
+from the ocfs2-tools download site,
+http://oss.oracle.com/projects/ocfs2-tools/files/
 
     ocfs2-tools (OCFS2 support tools)
     ocfs2console (GUI Interface)
@@ -46,14 +78,15 @@ The naming convention for these packages is:
   ocfs2-<KERNEL RELEASE>-<VERSION>.<ARCH>.rpm
      (e.g.: ocfs2-2.6.9-5.EL-0.99.2015-1.i686.rpm)
 
+
 3. Configuration (/etc/ocfs2/cluster.conf)
    ---------------------------------------
-In OCFS2, the '/etc/ocfs.conf' file is replaced by 
-'/etc/ocfs2/cluster.conf'. This file should be the same on all nodes in the
-cluster, and changes to this file must be propagated to the other nodes in
-the cluster. If a new node is being added to the cluster, all existing
-nodes must have their 'cluster.conf' updated BEFORE mounting the ocfs2
-partition from the new node.
+The main configuration file for OCFS2 is '/etc/ocfs2/cluster.conf'.
+This file should be the same on all nodes in the cluster, and changes
+to this file must be propagated to the other nodes in the cluster. If
+a new node is being added to the cluster, all existing nodes must have
+their 'cluster.conf' updated BEFORE mounting the ocfs2 partition from
+the new node.
 
 OCFS2 provides and strongly recommends generating and editing this file
 using 'ocfs2console'. This file can also be created using 'o2cb_ctl'. Refer
@@ -210,6 +243,34 @@ not cause OCFS2 to load at boot time.
 To stop a cluster and unload the modules:
 
 # /etc/init.d/o2cb stop
+
+3.5 If o2cb.init does not work on your platform
+    ===========================================
+
+Create your pseudo file system mount points:
+
+# mkdir /config /dlm
+
+Install the modules. Modprobe makes this easy:
+
+# modprobe ocfs2_dlmfs
+
+This will load configfs, ocfs2_nodemanager, ocfs2_dlm, ocfs2_dlmfs.
+
+Mount your configfs file system:
+# mount -t configfs none /config
+
+Mount your dlmfs file system:
+# mount -t ocfs2_dlmfs none /dlm
+
+Start your cluster (fill in 'CLUSTERNAME'):
+# o2cb_ctl -H -n CLUSTERNAME -t cluster -a online=yes
+
+You can now mount your OCFS2 partitions (see step 5)
+
+To stop the OCFS2 cluster services, make sure that all OCFS2
+file systems are unmounted and then execute:
+# o2cb_ctl -H -n CLUSTERNAME -t cluster -a online=no
 
 4. Creating an OCFS2 partition.
    ---------------------------
