@@ -153,18 +153,12 @@ cluster = OCFS2CLUSTER
 OCFS2 also provides a graphical utility for configuring and modifying your
 OCFS2 cluster. If your system has the graphical interface enabled, you can
 launch 'ocfs2console' to enter the graphical configuration utility.
-If X is running as non-root, make sure to enable X authentication to bring
-up this utility (this can be done using 'xhost +' or a more secure
-variation.  Afer becoming root, make sure to set the environment variable 
-DISPLAY to the active X display.
+If X is running as non-root, you can use 'ssh -X root@localhost' to become
+root. This will allow you to run X applications as root on your current
+display.
 
-For example:
-
-   myuser:/home/myuser> $ xhost +
-   access control disabled, clients can connect from any host
-   myuser:/home/myuser> $ su - root
+   myuser:/home/myuser> $ ssh -X root@localhost
    Password:
-   root@localhost> # export DISPLAY=localhost:0.0
    root@localhost> # ocfs2console
 
 When ocfs2console interface opens, proceed with the initial configuration.
