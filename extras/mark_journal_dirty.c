@@ -34,7 +34,7 @@
 
 #include "ocfs2.h"
 
-static int debug = 1;
+static int debug = 0;
 
 static void print_usage(void)
 {
