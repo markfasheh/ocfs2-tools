@@ -223,9 +223,9 @@ class ClusterConfig(Dialog):
         self.set_response_sensitive(gtk.RESPONSE_APPLY, state)
             
     def add_node(self, b):
-        if len(self.store) == o2cb.NM_MAX_NODES:
+        if len(self.store) == o2cb.O2NM_MAX_NODES:
             error_box(self, 'Cannot have more than %d nodes in a cluster' %
-                            o2cb.NM_MAX_NODES)
+                            o2cb.O2NM_MAX_NODES)
             return
 
         node_attrs = self.node_query(title='Add Node')
@@ -345,7 +345,7 @@ class ClusterConfig(Dialog):
             table.attach(widget, 1, 2, row, row + 1)
 
             if field.column == COLUMN_NAME:
-                widget.set_max_length(o2cb.NM_MAX_NAME_LEN)
+                widget.set_max_length(o2cb.O2NM_MAX_NAME_LEN)
             elif field.column == COLUMN_IP_PORT:
                 widget.set_numeric(True)
 

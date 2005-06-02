@@ -305,7 +305,7 @@ main(int argc, char **argv)
 		tmprec->fe_off >> s->blocksize_bits;
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
-	need = (NM_MAX_NODES + 1) << s->blocksize_bits;
+	need = (O2NM_MAX_NODES + 1) << s->blocksize_bits;
 
 	alloc_bytes_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	tmprec->file_size = need;

@@ -56,7 +56,7 @@ static void ocfs2_print_nodes(ocfs2_devices *dev, char **names)
 	uint8_t n;
 	uint8_t *nums = dev->node_nums;
 
-	for (i = 0; i < dev->max_slots && nums[i] != NM_MAX_NODES; ++i) {
+	for (i = 0; i < dev->max_slots && nums[i] != O2NM_MAX_NODES; ++i) {
 		if (i)
 			printf(", ");
 		n = nums[i];
@@ -74,7 +74,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 	struct list_head *pos;
 	char **node_names = NULL;
 	char **cluster_names = NULL;
-	char *nodes[NM_MAX_NODES];
+	char *nodes[O2NM_MAX_NODES];
 	int i = 0;
 	uint16_t num;
 
@@ -90,7 +90,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 			if (o2cb_get_node_num(*cluster_names, node_names[i],
 					      &num))
 				break;
-			if (num >= NM_MAX_NODES)
+			if (num >= O2NM_MAX_NODES)
 				break;
 			nodes[num] = node_names[i];
 			++i;
@@ -109,7 +109,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 			fflush(stdout);
 			com_err("Unknown", dev->errcode, " ");
 		} else {
-			if (dev->node_nums[0] == NM_MAX_NODES) {
+			if (dev->node_nums[0] == O2NM_MAX_NODES) {
 				printf("Not mounted\n");
 				continue;
 			}

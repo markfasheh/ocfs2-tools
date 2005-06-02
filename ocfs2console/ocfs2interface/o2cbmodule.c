@@ -535,7 +535,7 @@ add_constants (PyObject *m)
 #undef ADD_STR_CONSTANT
 
 #define ADD_INT_CONSTANT(name) \
-    PyModule_AddIntConstant (m, "NM_" #name, NM_ ## name)
+    PyModule_AddIntConstant (m, "O2NM_" #name, O2NM_ ## name)
 
   ADD_INT_CONSTANT (API_VERSION);
 

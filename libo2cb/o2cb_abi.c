@@ -455,7 +455,7 @@ errcode_t o2cb_init(void)
 	if (ret < 0)
 		return O2CB_ET_INTERNAL_FAILURE;
 
-	if (NM_API_VERSION < module_version)
+	if (O2NM_API_VERSION < module_version)
 		return O2CB_ET_BAD_VERSION;
 
 	return 0;

@@ -82,8 +82,8 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	blocks = rec->e_clusters << cluster_bits;
 	blocks >>= block_bits;
 
-	if (blocks > NM_MAX_NODES)
-		blocks = NM_MAX_NODES;
+	if (blocks > O2NM_MAX_NODES)
+		blocks = O2NM_MAX_NODES;
 
 	start_block = rec->e_blkno << block_bits;
 	start_block >>= sectsize_bits;
