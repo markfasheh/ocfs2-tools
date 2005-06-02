@@ -221,7 +221,7 @@ static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 #define OCFS2_LINK_MAX		32000
 
 #define S_SHIFT			12
-static unsigned char ocfs_type_by_mode[S_IFMT >> S_SHIFT] = {
+static unsigned char ocfs2_type_by_mode[S_IFMT >> S_SHIFT] = {
 	[S_IFREG >> S_SHIFT]  = OCFS2_FT_REG_FILE,
 	[S_IFDIR >> S_SHIFT]  = OCFS2_FT_DIR,
 	[S_IFCHR >> S_SHIFT]  = OCFS2_FT_CHRDEV,
@@ -633,10 +633,10 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
 	return chars;
 }
 
-static inline void ocfs_set_de_type(struct ocfs2_dir_entry *de,
+static inline void ocfs2_set_de_type(struct ocfs2_dir_entry *de,
 				    umode_t mode)
 {
-	de->file_type = ocfs_type_by_mode[(mode & S_IFMT)>>S_SHIFT];
+	de->file_type = ocfs2_type_by_mode[(mode & S_IFMT)>>S_SHIFT];
 }
 
 #endif  /* _OCFS2_FS_H */

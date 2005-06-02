@@ -94,7 +94,7 @@ errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 	}
 
 	dinode = (ocfs2_dinode *)buf; 
-	*type = ocfs_type_by_mode[(dinode->i_mode & S_IFMT)>>S_SHIFT];
+	*type = ocfs2_type_by_mode[(dinode->i_mode & S_IFMT)>>S_SHIFT];
 
 out:
 	if (buf)
