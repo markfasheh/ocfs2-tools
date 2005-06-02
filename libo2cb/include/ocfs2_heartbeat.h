@@ -1,10 +1,9 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2_nodemanager.h
+ * ocfs2_heartbeat.h
  *
- * Header describing the interface between userspace and the kernel
- * for the ocfs2_nodemanager module.
+ * On-disk structures for ocfs2_heartbeat
  *
  * Copyright (C) 2002, 2004 Oracle.  All rights reserved.
  *
@@ -22,18 +21,19 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
- *
  */
 
-#ifndef _OCFS2_NODEMANAGER_H
-#define _OCFS2_NODEMANAGER_H
+#ifndef _OCFS2_HEARTBEAT_H
+#define _OCFS2_HEARTBEAT_H
 
-#define NM_API_VERSION		3
+struct o2hb_disk_heartbeat_block {
+	__u64 hb_seq;
+	__u8  hb_node;
+	__u8  hb_pad1[3];
+	__u32 hb_cksum;
+};
 
-#define NM_MAX_NODES		255
-#define NM_INVALID_NODE_NUM	255
+#define O2HB_DEFAULT_TIMEOUT_MS		2000
+#define O2HB_DEFAULT_NODE_DOWN_MISSES	10
 
-/* host name, group name, cluster name all 64 bytes */
-#define NM_MAX_NAME_LEN          64    // __NEW_UTS_LEN
-
-#endif /* _OCFS2_NODEMANAGER_H */
+#endif /* _OCFS2_HEARTBEAT_H */

@@ -88,11 +88,13 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	start_block = rec->e_blkno << block_bits;
 	start_block >>= sectsize_bits;
 
-	desc->r_name = fs->uuid_str;
-	desc->r_device_name = fs->fs_devname;
-	desc->r_block_bytes = sectsize;
-	desc->r_start_block = start_block;
-	desc->r_blocks = blocks;
+	desc->r_name			= fs->uuid_str;
+	desc->r_device_name		= fs->fs_devname;
+	desc->r_block_bytes		= sectsize;
+	desc->r_start_block		= start_block;
+	desc->r_blocks			= blocks;
+	desc->r_timeout_ms		= O2HB_DEFAULT_TIMEOUT_MS;
+	desc->r_node_down_misses	= O2HB_DEFAULT_NODE_DOWN_MISSES;
 
 leave:
 	if (buf)

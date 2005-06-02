@@ -44,9 +44,11 @@
 #if O2CB_FLAT_INCLUDES
 #include "o2cb_err.h"
 #include "ocfs2_nodemanager.h"
+#include "ocfs2_heartbeat.h"
 #else
 #include <o2cb/o2cb_err.h>
 #include <o2cb/ocfs2_nodemanager.h>
+#include <o2cb/ocfs2_heartbeat.h>
 #endif
 
 errcode_t o2cb_init(void);
@@ -72,6 +74,8 @@ struct o2cb_region_desc {
 	int		r_block_bytes;
 	uint64_t	r_start_block;
 	uint64_t	r_blocks;
+	unsigned int	r_timeout_ms;
+	unsigned int	r_node_down_misses;
 };
 
 /* Expected use case for the region descriptor is to allocate it on
