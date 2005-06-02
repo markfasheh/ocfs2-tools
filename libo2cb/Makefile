@@ -42,6 +42,7 @@ CFILES = 		\
 
 HFILES =				\
 	include/ocfs2_nodemanager.h	\
+	include/ocfs2_heartbeat.h	\
 	include/o2cb_abi.h		\
 	include/o2cb_crc32.h		\
 	include/o2cb.h
