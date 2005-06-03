@@ -4,4 +4,6 @@ find_dup_extents
 find_inode_paths
 set_random_bits
 decode_lockres
+mark_journal_dirty
+encode_lockres
 *.d
