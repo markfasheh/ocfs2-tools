@@ -362,6 +362,31 @@ errcode_t ocfs2_chain_free_range(ocfs2_filesys *fs,
 	return ocfs2_bitmap_clear_range(cinode->ci_chains, len, start_bit);
 }
 
+struct find_gd_state {
+	ocfs2_filesys *fs;
+	uint64_t bitno;
+	uint64_t gd_blkno;
+	int found;
+};
+
+static errcode_t chainalloc_find_gd(struct ocfs2_bitmap_region *br,
+				    void *private_data)
+{
+	struct chainalloc_region_private *cr = br->br_private;
+	struct find_gd_state *state = private_data;
+
+	if ((state->bitno >= br->br_start_bit) &&
+	    (state->bitno < (br->br_start_bit + br->br_total_bits))) {
+		state->found = 1;
+		state->gd_blkno = cr->cr_ag->bg_blkno;
+		if (state->gd_blkno == OCFS2_RAW_SB(state->fs->fs_super)->s_first_cluster_group)
+			state->gd_blkno = 0;
+		return OCFS2_ET_ITERATION_COMPLETE;
+	}
+
+	return 0;
+}
+
 errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 			    ocfs2_cached_inode *cinode,
 			    uint64_t *gd_blkno,
@@ -369,6 +394,7 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	int oldval;
+	struct find_gd_state state;
 
 	if (!cinode->ci_chains)
 		return OCFS2_ET_INVALID_ARGUMENT;
@@ -383,7 +409,19 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 	if (oldval)
 		return OCFS2_ET_INTERNAL_FAILURE;
 
-	return 0;
+	state = (struct find_gd_state) {
+	       .fs	= fs,
+	       .bitno	= *bitno,
+	};
+	ret = ocfs2_bitmap_foreach_region(cinode->ci_chains,
+					  chainalloc_find_gd, &state);
+	if (!ret) {
+		if (state.found)
+			*gd_blkno = state.gd_blkno;
+		else
+			ret = OCFS2_ET_INTERNAL_FAILURE;
+	}
+	return ret;
 }
 
 errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
