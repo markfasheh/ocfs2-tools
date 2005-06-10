@@ -98,6 +98,7 @@ chkconfig o2cb on
 
 
 %files -n ocfs2console
+%defattr(-,root,root)
 %{_libdir}/python%{pyversion}/site-packages/ocfs2interface
 /usr/sbin/ocfs2console
 /usr/share/man/man8/ocfs2console.8.gz
