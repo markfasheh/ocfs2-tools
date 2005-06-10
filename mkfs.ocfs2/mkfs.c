@@ -943,10 +943,11 @@ static void *
 do_malloc(State *s, size_t size)
 {
 	void *buf;
+	int ret;
 
-	buf = malloc(size);
+	ret = posix_memalign(&buf, OCFS2_MAX_BLOCKSIZE, size);
 
-	if (buf == NULL) {
+	if (ret != 0) {
 		com_err(s->progname, 0,
 			"Could not allocate %lu bytes of memory",
 			(unsigned long)size);
@@ -1790,7 +1791,7 @@ replacement_journal_create(State *s, uint64_t journal_off)
 static void
 open_device(State *s)
 {
-	s->fd = open64(s->device_name, O_RDWR);
+	s->fd = open64(s->device_name, O_RDWR | O_DIRECT);
 
 	if (s->fd == -1) {
 		com_err(s->progname, 0,
