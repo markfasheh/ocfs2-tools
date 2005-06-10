@@ -110,6 +110,24 @@ fi
 AC_SUBST(OCFS2_DEBUG_EXE)
 AC_MSG_RESULT($enable_debugexe)
 
+AC_MSG_CHECKING(whether to build fsck dynamically)
+AC_ARG_ENABLE([dynamic-fsck], [  --enable-dynamic-fsck=[yes/no]    Build fsck dynamically [default=no]],,enable_dynamic_fsck=no)
+OCFS2_DYNAMIC_FSCK=
+if test "x$enable_dynamic_fsck" = "xyes"; then
+    OCFS2_DYNAMIC_FSCK=yes
+fi
+AC_SUBST(OCFS2_DYNAMIC_FSCK)
+AC_MSG_RESULT($enable_dynamic_fsck)
+
+AC_MSG_CHECKING(whether to build cluster control tools dynamically)
+AC_ARG_ENABLE([dynamic-ctl], [  --enable-dynamic-ctl=[yes/no]    Build cluster control tools dynamically [default=no]],,enable_dynamic_ctl=no)
+OCFS2_DYNAMIC_CTL=
+if test "x$enable_dynamic_ctl" = "xyes"; then
+    OCFS2_DYNAMIC_CTL=yes
+fi
+AC_SUBST(OCFS2_DYNAMIC_CTL)
+AC_MSG_RESULT($enable_dynamic_ctl)
+
 GLIB_REQUIRED_VERSION=2.2.3
 GTK_REQUIRED_VERSION=2.2.4
 PYGTK_REQUIRED_VERSION=1.99.16

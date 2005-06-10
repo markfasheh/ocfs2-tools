@@ -21,6 +21,10 @@ else
 OPTS += -O2
 endif
 
+ifndef OCFS2_DYNAMIC_FSCK
+LDFLAGS += -static
+endif
+
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
