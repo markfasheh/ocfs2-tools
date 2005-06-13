@@ -142,7 +142,10 @@ main(int argc, char **argv)
 
 	fsroot = verify_ocfs2(s);
 
-	path = s->dirname + strlen(fsroot) + 1;
+	path = s->dirname + strlen(fsroot);
+
+	if (!(fsroot[0] == '/' && fsroot[1] == '\0'))
+		path += 1;
 
 	dir = cdsl_target(s, path);
 	target = g_build_filename(dir, s->filename, NULL);
@@ -455,7 +458,7 @@ get_ocfs2_root(const char *path)
 {
 	struct mntent *mnt;
 	FILE *fp;
-	int len;
+	int len, found_len = 0;
 	char *found = NULL, *found_type = NULL;
 	char *ret = NULL;
 
@@ -468,7 +471,11 @@ get_ocfs2_root(const char *path)
 		len = strlen(mnt->mnt_dir);
 
 		if (strncmp(mnt->mnt_dir, path, len) == 0) {
-			if (path[len] == '/' || path[len] == '\0') {
+			if (len > found_len && (len == 1 ||
+						path[len] == '/' ||
+						path[len] == '\0')) {
+				found_len = len;
+
 				g_free(found);
 				found = g_strdup(mnt->mnt_dir);
 
