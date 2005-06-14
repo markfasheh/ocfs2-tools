@@ -129,8 +129,6 @@ AC_SUBST(OCFS2_DYNAMIC_CTL)
 AC_MSG_RESULT($enable_dynamic_ctl)
 
 GLIB_REQUIRED_VERSION=2.2.3
-GTK_REQUIRED_VERSION=2.2.4
-PYGTK_REQUIRED_VERSION=1.99.16
 
 AM_PATH_GLIB_2_0($GLIB_REQUIRED_VERSION, have_glib=yes, have_glib=no)
 
@@ -172,7 +170,7 @@ if test "x$enable_ocfs2console" = "xyes"; then
     AM_CHECK_PYTHON_HEADERS(have_pythondev=yes, have_pythondev=no)
 
     if test "x$have_pythondev" = "xyes"; then
-      if $PYTHON -c 'import pygtk' >/dev/null 2>&1; then
+      if $PYTHON -c 'import gobject' >/dev/null 2>&1; then
         BUILD_OCFS2CONSOLE=yes
         OCFS2_BLKID
       else
@@ -182,7 +180,7 @@ if test "x$enable_ocfs2console" = "xyes"; then
       AC_MSG_WARN([could not find Python headers, ocfs2console will not be built])
     fi
   else
-    AC_MSG_WARN([could not find Python 2.2 or higher, ocfs2console will not be built])
+    AC_MSG_WARN([could not find Python 2.3 or higher, ocfs2console will not be built])
   fi
 fi
 
