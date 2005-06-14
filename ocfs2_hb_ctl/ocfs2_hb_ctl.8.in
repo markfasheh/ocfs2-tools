@@ -1,0 +1,68 @@
+.TH "ocfs2_hb_ctl" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+ocfs2_hb_ctl \- Start/stop the ocfs2 heartbeat.
+.SH "SYNOPSIS"
+.B ocfs2_hb_ctl 
+\fB-S\fR \fB-d\fR \fI<device>\fR
+.br
+.B ocfs2_hb_ctl 
+\fB-K\fR \fB-d\fR \fI<device>\fR
+.br
+.B ocfs2_hb_ctl 
+\fB-K\fR \fB-u\fR \fI<uuid>\fR
+.br
+.B ocfs2_hb_ctl 
+\fB-I\fR \fB-d\fR \fI<device>\fR
+.br
+.B ocfs2_hb_ctl 
+\fB-I\fR \fB-u\fR \fI<uuid>\fR
+.br
+.B ocfs2_hb_ctl 
+\fB-h\fR
+.br
+.SH "DESCRIPTION"
+.PP 
+\fBocfs2_hb_ctl\fR is used to start/stop the heartbeat. It can use either a \fIdevice\fR or \fIuuid\fR.
+.SH "OPTIONS"
+.TP
+\fB\-S\fR
+Start the hearbeat of a \fIdevice\fR. This operation can't be performed using \fIuuid\fR.
+
+.TP
+\fB\-K\fR
+Stop the hearbeat of a \fIdevice\fR. This operation can be performed by using either \fIdevice\fR or \fIuuid\fR.
+
+.TP
+\fB\-I\fR
+Prints out ref counts for the region. This operation can be performed by using either \fIdevice\fR or \fIuuid\fR.
+
+.TP
+\fB\-d\fR
+Specifies region by \fIdevice\fR.
+
+.TP
+\fB\-u\fR
+Specifies region by \fIuuid\fR.
+
+.TP
+\fB\-h\fR
+Displays help and exit.
+
+.TP
+\fBuuid\fR
+Ocfs2 writes a signature to the device when it is formatted (\fBmkfs.ocfs2\fR). To obtain the uuid of a specific \fIdevice\fR, one can use the command.
+.HP 
+mounted.ocfs2 -d /dev/sdxx
+
+.SH "BUGS"
+Stuff.
+
+.SH "SEE ALSO"
+.BR 
+o2cb_ctl(8), mounted.ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2002, 2004 Oracle Corporation

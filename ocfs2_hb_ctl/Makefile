@@ -36,7 +36,9 @@ HFILES = $(subst .c,.h,$(CFILES))
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES) $(HFILES)
+MANS = ocfs2_hb_ctl.8
+
+DIST_FILES = $(CFILES) $(HFILES) ocfs2_hb_ctl.8.in
 
 all: ocfs2_hb_ctl
 

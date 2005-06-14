@@ -5,7 +5,7 @@ ocfs2cdsl \- Create context dependent symbolic link (CDSL).
 \fBocfs2cdsl\fR [\fB-cfnqvV\fR] [\fB\-t\fR \fIhostname|mach|os|nodenum\fR] \fIfilename\fR
 .SH "DESCRIPTION"
 .PP 
-\fBocfs2cdsl\fR is used to create context dependent symbolic link for \fIfilename\fR (file or directory) for a node. A CDSL \fIfilename\fR will have its own image for a specific node, but a common name in the OCFS2. 
+\fBocfs2cdsl\fR is used to create context dependent symbolic link for \fIfilename\fR (file or directory) for a node. A CDSL \fIfilename\fR will have its own image for a specific node, but a common name in the OCFS2. It is very important that the \fBocfs2ctl\fR command to be issued on all nodes that are part of the cluster and to any subsequent nodes that are added. If the \fBocfs2cdsl\fR command is not executed in some of the nodes, the cdsl directory will not be accessible by them.
 
 .SH "OPTIONS"
 
