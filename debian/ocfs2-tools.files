@@ -7,5 +7,3 @@ sbin/o2cb_ctl
 sbin/mount.ocfs2
 sbin/ocfs2cdsl
 sbin/ocfs2_hb_ctl
-etc/init.d/o2cb
-etc/sysconfig/o2cb

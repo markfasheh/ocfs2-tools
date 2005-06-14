@@ -17,8 +17,10 @@
 # Force LC_ALL=C
 export LC_ALL=C
 
-# Source configuration
+# Source configuration, Red Hat and Novell
 [ -f /etc/sysconfig/o2cb ] && . /etc/sysconfig/o2cb
+# Source configuration, Debian
+[ -f /etc/default/o2cb ] && . /etc/default/o2cb
 
 # XXX some description of what this does
 LOAD_ACTIONS=("load_module configfs"

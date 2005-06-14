@@ -1,4 +1,5 @@
 .*.sw?
 ocfs2_hb_ctl
+ocfs2_hb_ctl.8
 *.d
 cscope.*

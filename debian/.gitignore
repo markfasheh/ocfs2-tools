@@ -4,3 +4,7 @@ files
 tmp
 dsh
 *.substvars
+ocfs2-tools.o2cb.default
+ocfs2console
+ocfs2-tools.o2cb.init
+ocfs2-tools
