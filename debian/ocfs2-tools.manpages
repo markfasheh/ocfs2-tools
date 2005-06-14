@@ -1,0 +1,8 @@
+debian/tmp/usr/share/man/man8/debugfs.ocfs2.8
+debian/tmp/usr/share/man/man8/fsck.ocfs2.8
+debian/tmp/usr/share/man/man8/fsck.ocfs2.checks.8
+debian/tmp/usr/share/man/man8/mkfs.ocfs2.8
+debian/tmp/usr/share/man/man8/tunefs.ocfs2.8
+debian/tmp/usr/share/man/man8/mounted.ocfs2.8
+debian/tmp/usr/share/man/man8/o2cb_ctl.8
+debian/tmp/usr/share/man/man8/ocfs2cdsl.8

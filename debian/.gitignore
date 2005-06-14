@@ -1,0 +1,6 @@
+.*.sw?
+files
+*.debhelper
+tmp
+dsh
+*.substvars

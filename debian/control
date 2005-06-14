@@ -1,0 +1,23 @@
+Source: ocfs2-tools
+Section: admin
+Priority: optional
+Maintainer: Joel Becker <joel.becker@oracle.com>
+Standards-Version: 3.5.6
+Build-Depends: python-gtk2-dev (>= 2.0), python (>= 2.3), python (<< 2.4), python2.3-dev, libglib2.0-dev (>= 2.2.4), libreadline4-dev, comerr-dev, uuid-dev, debhelper (>= 3.0.5)
+
+Package: ocfs2-tools
+Architecture: any
+Depends: ${shlibs:Depends}
+Section: admin
+Conflicts:
+Description: Tools for managing the OCFS2 filesystem.
+ Tools to manage the OCFS2 filesystem, including mkfs, tunefs, fsck,
+ debugfs, and the utilities to control the O2CB clustering stack.
+
+Package: ocfs2console
+Architecture: any
+Depends: ${shlibs:Depends}, ${python:Depends}, ocfs2-tools (= ${Source-Version})
+Section: admin
+Conflicts:
+Description: The ocfs2console GUI
+ ocfs2console is a GUI for creating and managing OCFS2 filesystems.
