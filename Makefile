@@ -38,6 +38,24 @@ endif
 
 SUBDIRS += vendor
 
+DEBIAN_FILES =					\
+	debian/README.Debian			\
+	debian/changelog			\
+	debian/compat				\
+	debian/control				\
+	debian/ocfs2-tools.copyright		\
+	debian/ocfs2-tools.docs			\
+	debian/ocfs2-tools.files		\
+	debian/ocfs2-tools.manpages		\
+	debian/ocfs2-tools.prerm		\
+	debian/ocfs2-tools.postinst		\
+	debian/ocfs2console.copyright		\
+	debian/ocfs2console.files		\
+	debian/ocfs2console.manpages		\
+	debian/ocfs2console.prerm		\
+	debian/ocfs2console.postinst		\
+	debian/rules
+
 DIST_FILES = \
 	COPYING					\
 	CREDITS					\
@@ -60,7 +78,8 @@ DIST_FILES = \
 	mkinstalldirs				\
 	rpmarch.guess				\
 	documentation/users_guide.txt		\
-	documentation/samples/cluster.conf
+	documentation/samples/cluster.conf	\
+	$(DEBIAN_FILES)
 
 DIST_RULES = dist-subdircreate
 
@@ -68,6 +87,7 @@ DIST_RULES = dist-subdircreate
 
 dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/documentation/samples
+	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/debian
 
 dist-bye:
 	-rm -rf $(DIST_TOPDIR)

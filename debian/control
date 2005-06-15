@@ -11,7 +11,7 @@ Depends: ${shlibs:Depends}
 Section: admin
 Suggests: ocfs2console
 Conflicts:
-Description: Tools for managing the OCFS2 filesystem.
+Description: Tools for managing the OCFS2 filesystem
  Tools to manage the OCFS2 filesystem, including mkfs, tunefs, fsck,
  debugfs, and the utilities to control the O2CB clustering stack.
 
@@ -21,6 +21,6 @@ Depends: ${shlibs:Depends}, ${python:Depends}, ocfs2-tools (= ${Source-Version})
 Section: admin
 Conflicts:
 Description: The ocfs2console GUI
-  A GUI frontend for managing OCFS2 volumes on the system. One can mount
-  and unmount volumes, format, view overview information and individual
-  files, and view and modify the current cluster configuration.
+ A GUI frontend for managing OCFS2 volumes on the system. One can mount
+ and unmount volumes, format, view overview information and individual
+ files, and view and modify the current cluster configuration.
