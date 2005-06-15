@@ -25,11 +25,11 @@ elif [ -f /etc/default/o2cb ]
 then
     # Debian
     CONFIGURATION=/etc/default/o2cb
-elif [ -d /etc/default ]
+elif [ -d /etc/sysconfig ]
 then
-    CONFIGURATION=/etc/default/o2cb
-else
     CONFIGURATION=/etc/sysconfig/o2cb
+else
+    CONFIGURATION=/etc/default/o2cb
 fi
 
 # Source configuration, 
