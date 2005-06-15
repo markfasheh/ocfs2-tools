@@ -43,8 +43,7 @@ install: build
 
 	$(MAKE) DESTDIR=`pwd`/debian/tmp install
 
-# We're using compat of 3
-#	dh_install
+	dh_install
 
 # This single target is used to build all the packages, all at once, or
 # one at a time. So keep in mind: any options passed to commands here will
@@ -55,7 +54,7 @@ binary-common:
 	dh_testroot
 
 	# debhelper V3 compat level
-	dh_movefiles
+	#dh_movefiles
 
 	dh_installchangelogs
 	dh_installdocs

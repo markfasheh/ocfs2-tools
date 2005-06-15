@@ -1,0 +1,9 @@
+debian/tmp/sbin/fsck.ocfs2
+debian/tmp/sbin/mkfs.ocfs2
+debian/tmp/sbin/mounted.ocfs2
+debian/tmp/sbin/tunefs.ocfs2
+debian/tmp/sbin/debugfs.ocfs2
+debian/tmp/sbin/o2cb_ctl
+debian/tmp/sbin/mount.ocfs2
+debian/tmp/sbin/ocfs2cdsl
+debian/tmp/sbin/ocfs2_hb_ctl
