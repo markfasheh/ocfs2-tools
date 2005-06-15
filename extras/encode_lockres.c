@@ -66,6 +66,7 @@ int main(int argc, char **argv)
 {
 	uint64_t blkno;
 	uint32_t generation;
+	unsigned long long tmp;
 	char type;
 	int i;
 
@@ -76,7 +77,8 @@ int main(int argc, char **argv)
 
 	type = argv[1][0];
 	blkno = atoll(argv[2]);
-	generation = atoi(argv[3]);
+	tmp = atoll(argv[3]);
+	generation = (uint32_t) tmp;
 
 	for (i = 0; i < OCFS_NUM_LOCK_TYPES; i++)
 		if (type == ocfs2_lock_type_char[i])
