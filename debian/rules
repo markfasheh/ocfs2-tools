@@ -75,8 +75,8 @@ binary-common:
 	dh_compress
 	dh_fixperms
 #	dh_makeshlibs 
-	dh_installdeb
 	dh_python
+	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
