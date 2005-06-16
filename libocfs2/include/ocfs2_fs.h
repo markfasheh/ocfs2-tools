@@ -100,6 +100,13 @@
 #define OCFS2_FEATURE_INCOMPAT_SUPP	0
 #endif
 
+/*
+ * Heartbeat-only devices are missing journals and other files.  The
+ * filesystem driver can't load them, but the library can.  Never put
+ * this in OCFS2_FEATURE_INCOMPAT_SUPP, *ever*.
+ */
+#define OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV	0x0002
+
 
 /*
  * Flags on ocfs2_dinode.i_flags
@@ -619,7 +626,7 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
 
         /*
          * Global system inodes can only have one copy.  Everything
-         * after OCFS_LAST_GLOBAL_SYSTEM_INODE in the system inode
+         * after OCFS2_LAST_GLOBAL_SYSTEM_INODE in the system inode
          * list has a copy per slot.
          */
 	if (type <= OCFS2_LAST_GLOBAL_SYSTEM_INODE)

@@ -129,6 +129,26 @@ block_signals (int how)
      return ;
 }
 
+/* Is this something to skip for heartbeat-only devices */
+static int hb_dev_skip(State *s, int system_inode)
+{
+	int ret = 0;
+
+	if (s->hb_dev) {
+		switch (system_inode) {
+			case GLOBAL_BITMAP_SYSTEM_INODE:
+			case GLOBAL_INODE_ALLOC_SYSTEM_INODE:
+			case HEARTBEAT_SYSTEM_INODE:
+				break;
+
+			default:
+				ret = 1;
+		}
+	}
+
+	return ret;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -286,8 +306,10 @@ main(int argc, char **argv)
 	add_entry_to_directory(s, system_dir, "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
-		num = (system_files[i].global) ? 1 : s->initial_slots;
+		if (hb_dev_skip(s, i))
+			continue;
 
+		num = (system_files[i].global) ? 1 : s->initial_slots;
 		for (j = 0; j < num; j++) {
 			record[i][j].fe_off = alloc_inode(s, &(record[i][j].suballoc_bit));
 			sprintf(fname, system_files[i].name, j);
@@ -310,17 +332,29 @@ main(int argc, char **argv)
 	alloc_bytes_from_bitmap(s, need, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
 	tmprec->file_size = need;
 
-	for (i = 0; i < s->initial_slots; ++i) {
-		tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][i];
-		orphan_dir[i]->record = tmprec;
-		alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
-		add_entry_to_directory(s, orphan_dir[i], ".", tmprec->fe_off, OCFS2_FT_DIR);
-		add_entry_to_directory(s, orphan_dir[i], "..", system_dir_rec.fe_off, OCFS2_FT_DIR);
+	if (!hb_dev_skip(s, ORPHAN_DIR_SYSTEM_INODE)) {
+		for (i = 0; i < s->initial_slots; ++i) {
+			tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][i];
+			orphan_dir[i]->record = tmprec;
+			alloc_from_bitmap(s, 1, s->global_bm,
+					  &tmprec->extent_off,
+					  &tmprec->extent_len);
+			add_entry_to_directory(s, orphan_dir[i], ".",
+					       tmprec->fe_off,
+					       OCFS2_FT_DIR);
+			add_entry_to_directory(s, orphan_dir[i], "..",
+					       system_dir_rec.fe_off,
+					       OCFS2_FT_DIR);
+		}
 	}
 
-	tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
-	alloc_from_bitmap(s, 1, s->global_bm, &tmprec->extent_off, &tmprec->extent_len);
-	tmprec->file_size = s->cluster_size;
+	if (!hb_dev_skip(s, SLOT_MAP_SYSTEM_INODE)) {
+		tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
+		alloc_from_bitmap(s, 1, s->global_bm,
+				  &tmprec->extent_off,
+				  &tmprec->extent_len);
+		tmprec->file_size = s->cluster_size;
+	}
 
 	fsync(s->fd);
 	if (!s->quiet)
@@ -333,9 +367,13 @@ main(int argc, char **argv)
 	format_file(s, &system_dir_rec);
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
+		if (hb_dev_skip(s, i))
+			continue;
+
 		num = system_files[i].global ? 1 : s->initial_slots;
 		for (j = 0; j < num; j++) {
 			tmprec = &(record[i][j]);
+
 			if (system_files[i].type == SFI_JOURNAL) {
 				alloc_bytes_from_bitmap(s, s->journal_size_in_bytes,
 							s->global_bm,
@@ -359,13 +397,18 @@ main(int argc, char **argv)
 
 	write_group_data(s, s->system_group);
 
-	tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
-	write_slot_map_data(s, tmprec);
+	if (!hb_dev_skip(s, SLOT_MAP_SYSTEM_INODE)) {
+		tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
+		write_slot_map_data(s, tmprec);
+	}
 
 	write_directory_data(s, root_dir);
 	write_directory_data(s, system_dir);
-	for (i = 0; i < s->initial_slots; ++i)
-		write_directory_data(s, orphan_dir[i]);
+	
+	if (!hb_dev_skip(s, ORPHAN_DIR_SYSTEM_INODE)) {
+		for (i = 0; i < s->initial_slots; ++i)
+			write_directory_data(s, orphan_dir[i]);
+	}
 
 	tmprec = &(record[HEARTBEAT_SYSTEM_INODE][0]);
 	write_metadata(s, tmprec, NULL);
@@ -385,13 +428,15 @@ main(int argc, char **argv)
 	if (!s->quiet)
 		printf("done\n");
 
-	if (!s->quiet)
-		printf("Writing lost+found: ");
+	if (!s->hb_dev) {
+		if (!s->quiet)
+			printf("Writing lost+found: ");
 
-	create_lost_found_dir(s);
+		create_lost_found_dir(s);
 
-	if (!s->quiet)
-		printf("done\n");
+		if (!s->quiet)
+			printf("done\n");
+	}
 
 	close_device(s);
 
@@ -412,7 +457,7 @@ get_state(int argc, char **argv)
 	char *dummy;
 	State *s;
 	int c;
-	int verbose = 0, quiet = 0, force = 0, xtool = 0;
+	int verbose = 0, quiet = 0, force = 0, xtool = 0, hb_dev = 0;
 	int show_version = 0;
 	char *device_name;
 	int ret;
@@ -428,6 +473,7 @@ get_state(int argc, char **argv)
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
 		{ "journal-options", 0, 0, 'J'},
+		{ "heartbeat-device", 0, 0, 'H'},
 		{ "force", 0, 0, 'F'},
 		{ 0, 0, 0, 0}
 	};
@@ -438,7 +484,7 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:C:L:N:J:vqVFx", long_options, 
+		c = getopt_long(argc, argv, "b:C:L:N:J:vqVFHx", long_options, 
 				NULL);
 
 		if (c == -1)
@@ -515,6 +561,10 @@ get_state(int argc, char **argv)
 		case 'J':
 			parse_journal_opts(progname, optarg,
 					   &journal_size_in_bytes);
+			break;
+
+		case 'H':
+			hb_dev = 1;
 			break;
 
 		case 'v':
@@ -594,6 +644,8 @@ get_state(int argc, char **argv)
 	s->format_time   = time(NULL);
 
 	s->journal_size_in_bytes = journal_size_in_bytes;
+
+	s->hb_dev = hb_dev;
 
 	return s;
 }
@@ -709,7 +761,7 @@ usage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s [-b block-size] [-C cluster-size] "
 			"[-N number-of-node-slots]\n"
-			"\t[-L volume-label] [-J journal-options] [-FqvV] "
+			"\t[-L volume-label] [-J journal-options] [-HFqvV] "
 			"device [blocks-count]\n",
 			progname);
 	exit(0);
@@ -725,6 +777,9 @@ version(const char *progname)
 static uint64_t figure_journal_size(uint64_t size, State *s)
 {
 	unsigned int j_blocks;
+
+	if (s->hb_dev)
+		return 0;
 
 	if (s->volume_size_in_blocks < 2048) {
 		fprintf(stderr,	"Filesystem too small for a journal\n");
@@ -777,6 +832,12 @@ fill_defaults(State *s)
 			s->device_name);
 		exit(1);
 	}
+	if (!sectsize)
+		sectsize = OCFS2_MIN_BLOCKSIZE;
+
+	/* Heartbeat devices use the minimum size, unless specified */
+	if (!s->blocksize && s->hb_dev)
+		s->blocksize = sectsize;
 
 	if (s->blocksize)
 		blocksize = s->blocksize;
@@ -798,6 +859,30 @@ fill_defaults(State *s)
 				"while getting size of device %s",
 				s->device_name);
 			exit(1);
+		}
+		
+		if (s->hb_dev) {
+			uint64_t dev_size = 0;
+
+			/* Blocks for system dir, root dir,
+			 * global allocator*/
+			dev_size = 4;
+			/* Blocks for hb region */
+			dev_size += OCFS2_MAX_SLOTS;
+			/* Slop for superblock + cluster bitmap */
+			dev_size += 10;
+
+			/* Convert to bytes */
+			dev_size *= blocksize;
+
+			/* Convert to megabytes */
+			dev_size = (dev_size + (1024 * 1024) - 1) >> ONE_MB_SHIFT;
+			dev_size <<= ONE_MB_SHIFT;
+
+			dev_size /= blocksize;
+
+			if (ret > dev_size)
+				ret = dev_size;
 		}
 
 		s->volume_size_in_blocks = ret;
@@ -1456,6 +1541,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 		  SystemFileDiskRecord *root_rec, SystemFileDiskRecord *sys_rec)
 {
 	ocfs2_dinode *di;
+	uint32_t incompat;
 	uint64_t super_off = rec->fe_off;
 
 	di = do_malloc(s, s->blocksize);
@@ -1489,10 +1575,14 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_max_slots = cpu_to_le16(s->initial_slots);
 	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group_blkno);
 
+	incompat = 0;
 #ifdef CONFIG_ARCH_S390
-	di->id2.i_super.s_feature_incompat =
-		cpu_to_le32(OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN);
+	incompat |= OCFS2_FEATURE_INCOMPAT_BORKEN_ENDIAN;
 #endif
+	if (s->hb_dev)
+		incompat |= OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
+
+	di->id2.i_super.s_feature_incompat = cpu_to_le32(incompat);
 
 	strcpy(di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
@@ -1901,10 +1991,14 @@ print_state(State *s)
 	printf("Volume size=%"PRIu64" (%u clusters) (%"PRIu64" blocks)\n",
 	       s->volume_size_in_bytes, s->volume_size_in_clusters,
 	       s->volume_size_in_blocks);
-	printf("Journal size=%"PRIu64"\n", s->journal_size_in_bytes);
 	printf("%u cluster groups (tail covers %u clusters, rest cover %u "
 	       "clusters)\n", s->nr_cluster_groups, s->tail_group_bits,
 	       s->global_cpg);
+	if (s->hb_dev)
+		printf("Heartbeat device\n");
+	else
+		printf("Journal size=%"PRIu64"\n",
+		       s->journal_size_in_bytes);
 	printf("Initial number of node slots: %u\n", s->initial_slots);
 }
 

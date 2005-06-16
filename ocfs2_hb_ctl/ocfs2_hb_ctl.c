@@ -43,7 +43,9 @@ static errcode_t get_uuid(char *dev, char *uuid)
 	ocfs2_filesys *fs = NULL;
 	errcode_t ret;
 
-	ret = ocfs2_open(dev, OCFS2_FLAG_RO, 0, 0, &fs);
+	ret = ocfs2_open(dev,
+                         OCFS2_FLAG_RO | OCFS2_FLAG_HEARTBEAT_DEV_OK,
+                         0, 0, &fs);
 	if (ret)
 		goto out;
 

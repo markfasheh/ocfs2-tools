@@ -396,6 +396,7 @@ static void do_open (char **args)
 	}
 
 	flags = gbls.allow_write ? OCFS2_FLAG_RW : OCFS2_FLAG_RO;
+        flags |= OCFS2_FLAG_HEARTBEAT_DEV_OK;
 	ret = ocfs2_open(dev, flags, 0, 0, &gbls.fs);
 	if (ret) {
 		gbls.fs = NULL;

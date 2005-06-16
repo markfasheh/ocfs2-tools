@@ -15,7 +15,7 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 
-	./configure --disable-debug --prefix=/usr --mandir=/usr/share/man
+	./configure --disable-debug --enable-dynamic-ctl --enable-dynamic-fsck --prefix=/usr --mandir=/usr/share/man
 	$(MAKE)
 
 	touch build-stamp

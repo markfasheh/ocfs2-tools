@@ -704,6 +704,11 @@ case "$1" in
         start
         ;;
 
+    force-reload)
+        stop
+        start
+        ;;
+
     load)
         load
         ;;
@@ -747,7 +752,7 @@ case "$1" in
         ;;
 
     *)
-        echo "Usage: $0 {start|stop|restart|enable|disable|configure|load|unload|online|offline|status}"
+        echo "Usage: $0 {start|stop|restart|force-reload|enable|disable|configure|load|unload|online|offline|status}"
         exit 1
         ;;
 esac

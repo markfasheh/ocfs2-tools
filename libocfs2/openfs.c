@@ -276,6 +276,12 @@ errcode_t ocfs2_open(const char *name, int flags,
 	     ~OCFS2_LIB_FEATURE_RO_COMPAT_SUPP))
 		goto out;
 
+	ret = OCFS2_ET_UNSUPP_FEATURE;
+	if (!(flags & OCFS2_FLAG_HEARTBEAT_DEV_OK) &&
+	    (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
+	     OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV))
+		goto out;
+
 	ret = OCFS2_ET_CORRUPT_SUPERBLOCK;
 	if (!OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits)
 		goto out;

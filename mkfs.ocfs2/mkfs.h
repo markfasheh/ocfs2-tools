@@ -194,6 +194,7 @@ struct _State {
 	int quiet;
 	int force;
 	int prompt;
+	int hb_dev;
 
 	uint32_t blocksize;
 	uint32_t blocksize_bits;

@@ -63,19 +63,20 @@
 #include <o2dlm.h>
 #include <o2cb.h>
 
-#define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		OCFS2_FEATURE_INCOMPAT_SUPP
+#define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		(OCFS2_FEATURE_INCOMPAT_SUPP | OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV)
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP
 
 /* Flags for the ocfs2_filesys structure */
-#define OCFS2_FLAG_RO		0x00
-#define OCFS2_FLAG_RW		0x01
-#define OCFS2_FLAG_CHANGED	0x02
-#define OCFS2_FLAG_DIRTY	0x04
-#define OCFS2_FLAG_SWAP_BYTES	0x08
-#define OCFS2_FLAG_BUFFERED	0x10
-#define OCFS2_FLAG_NO_REV_CHECK 0x20	/* Do not check the OCFS
-					   vol_header structure for
-					   revision info */
+#define OCFS2_FLAG_RO			0x00
+#define OCFS2_FLAG_RW			0x01
+#define OCFS2_FLAG_CHANGED		0x02
+#define OCFS2_FLAG_DIRTY		0x04
+#define OCFS2_FLAG_SWAP_BYTES		0x08
+#define OCFS2_FLAG_BUFFERED		0x10
+#define OCFS2_FLAG_NO_REV_CHECK		0x20	/* Do not check the OCFS
+						   vol_header structure
+						   for revision info */
+#define OCFS2_FLAG_HEARTBEAT_DEV_OK	0x40
 
 /* Return flags for the extent iterator functions */
 #define OCFS2_EXTENT_CHANGED	0x01
