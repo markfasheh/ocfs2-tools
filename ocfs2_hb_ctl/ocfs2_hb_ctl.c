@@ -63,7 +63,8 @@ static errcode_t start_heartbeat(char *device)
 	ocfs2_filesys *fs = NULL;
 	struct o2cb_region_desc desc;
 
-	err = ocfs2_open(device, OCFS2_FLAG_RO, 0, 0, &fs);
+	err = ocfs2_open(device, OCFS2_FLAG_RO | OCFS2_FLAG_HEARTBEAT_DEV_OK,
+			 0, 0, &fs);
 	if (err)
 		goto bail;
 
