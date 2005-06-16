@@ -45,15 +45,15 @@ DEBIAN_FILES =					\
 	debian/control				\
 	debian/ocfs2-tools.copyright		\
 	debian/ocfs2-tools.docs			\
-	debian/ocfs2-tools.files		\
+	debian/ocfs2-tools.install		\
 	debian/ocfs2-tools.manpages		\
-	debian/ocfs2-tools.prerm		\
 	debian/ocfs2-tools.postinst		\
+	debian/ocfs2-tools.prerm		\
 	debian/ocfs2console.copyright		\
-	debian/ocfs2console.files		\
+	debian/ocfs2console.install		\
 	debian/ocfs2console.manpages		\
-	debian/ocfs2console.prerm		\
 	debian/ocfs2console.postinst		\
+	debian/ocfs2console.prerm		\
 	debian/rules
 
 DIST_FILES = \
