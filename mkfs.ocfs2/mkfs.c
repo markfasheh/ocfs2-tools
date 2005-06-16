@@ -864,6 +864,12 @@ fill_defaults(State *s)
 		if (s->hb_dev) {
 			uint64_t dev_size = 0;
 
+			if ((ret * blocksize) > (2 * 1024 * 1024)) {
+				fprintf(stderr,
+					"%s: Warning: Volume larger than required for a heartbeat device\n",
+					s->progname);
+			}
+
 			/* Blocks for system dir, root dir,
 			 * global allocator*/
 			dev_size = 4;
