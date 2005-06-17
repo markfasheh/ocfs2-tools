@@ -57,7 +57,7 @@
 #define OCFS2_MAX_BLOCKSIZE		OCFS2_MIN_CLUSTERSIZE
 
 /* Filesystem magic number */
-#define OCFS2_SUPER_MAGIC		0xa156f7eb
+#define OCFS2_SUPER_MAGIC		0x7461636f
 
 /* Object signatures */
 #define OCFS2_SUPER_BLOCK_SIGNATURE	"OCFSV2"
