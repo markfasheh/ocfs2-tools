@@ -1,8 +1,14 @@
+ocfs2-tools (0.99.12-1) unstable; urgency=low
+
+  * New release.
+
+ -- Joel Becker <joel.becker@oracle.com>  Fri, 17 Jun 2006 00:10:42 -0700
+
 ocfs2-tools (0.99.11-1) unstable; urgency=low
 
   * Initial debian file.
 
- -- Joel Becker <joel.becker@oracle.com>  Mon, 13 Jun 2004 23:17:35 -0800
+ -- Joel Becker <joel.becker@oracle.com>  Mon, 13 Jun 2006 23:17:35 -0700
 
 
 Local variables:
