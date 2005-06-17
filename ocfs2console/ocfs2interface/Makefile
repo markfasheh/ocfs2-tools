@@ -4,7 +4,7 @@ include $(TOPDIR)/Preamble.make
 
 WARNINGS = -Wall
 
-ifdef OCFS_DEBUG
+ifdef OCFS2_DEBUG
 OPTS = -g
 endif
 OPTS = -g

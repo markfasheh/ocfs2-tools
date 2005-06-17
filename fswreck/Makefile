@@ -10,7 +10,7 @@ DEFINES += -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES -DVE
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
 INCLUDES += $(GLIB_CFLAGS)
 
-ifdef OCFS_DEBUG
+ifdef OCFS2_DEBUG
 CFLAGS = -Wall -O -ggdb
 else
 CFLAGS = -Wall -O2

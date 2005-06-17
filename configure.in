@@ -66,11 +66,11 @@ AC_SUBST(root_sysconfdir)
 
 AC_MSG_CHECKING(for debugging)
 AC_ARG_ENABLE(debug, [  --enable-debug=[yes/no]         Turn on debugging [default=yes]],,enable_debug=yes)
-OCFS_DEBUG=
+OCFS2_DEBUG=
 if test "x$enable_debug" = "xyes"; then
-  OCFS_DEBUG=yes
+  OCFS2_DEBUG=yes
 fi
-AC_SUBST(OCFS_DEBUG)
+AC_SUBST(OCFS2_DEBUG)
 AC_MSG_RESULT($enable_debug)
 
 COM_ERR_LIBS=

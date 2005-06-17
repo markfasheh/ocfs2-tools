@@ -5,7 +5,7 @@ include $(TOPDIR)/Preamble.make
 WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
            -Wmissing-declarations
 
-ifdef OCFS_DEBUG
+ifdef OCFS2_DEBUG
 OPTS = -O -ggdb
 else
 OPTS = -O2

@@ -5,7 +5,7 @@ include $(TOPDIR)/Preamble.make
 WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
 	-Wmissing-declarations
 
-ifdef OCFS_DEBUG
+ifdef OCFS2_DEBUG
 OPTS += -ggdb
 else
 OPTS += -O2
@@ -94,6 +94,7 @@ HFILES =				\
 	include/kernel-list.h		\
 	include/kernel-rbtree.h		\
 	include/ocfs1_fs_compat.h	\
+	include/ocfs2_lockid.h		\
 	include/ocfs2_fs.h		\
 	include/ocfs2.h
 

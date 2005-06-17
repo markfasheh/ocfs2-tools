@@ -34,10 +34,10 @@
 
 /* Begin paste from kernel module */
 enum ocfs2_lock_type {
-	OCFS_TYPE_META = 0,
-	OCFS_TYPE_DATA,
-	OCFS_TYPE_SUPER,
-	OCFS_NUM_LOCK_TYPES
+	OCFS2_TYPE_META = 0,
+	OCFS2_TYPE_DATA,
+	OCFS2_TYPE_SUPER,
+	OCFS2_NUM_LOCK_TYPES
 };
 
 /* lock ids are made up in the following manner:
@@ -49,10 +49,10 @@ enum ocfs2_lock_type {
 #define OCFS2_LOCK_ID_MAX_LEN  32
 #define OCFS2_LOCK_ID_PAD "000000"
 
-static char ocfs2_lock_type_char[OCFS_NUM_LOCK_TYPES] = {
-	[OCFS_TYPE_META]	'M',
-	[OCFS_TYPE_DATA] 	'D',
-	[OCFS_TYPE_SUPER]       'S'
+static char ocfs2_lock_type_char[OCFS2_NUM_LOCK_TYPES] = {
+	[OCFS2_TYPE_META]	'M',
+	[OCFS2_TYPE_DATA] 	'D',
+	[OCFS2_TYPE_SUPER]       'S'
 };
 /* End paste from kernel module */
 
@@ -80,11 +80,11 @@ int main(int argc, char **argv)
 	tmp = atoll(argv[3]);
 	generation = (uint32_t) tmp;
 
-	for (i = 0; i < OCFS_NUM_LOCK_TYPES; i++)
+	for (i = 0; i < OCFS2_NUM_LOCK_TYPES; i++)
 		if (type == ocfs2_lock_type_char[i])
 			break;
 
-	if (i == OCFS_NUM_LOCK_TYPES) {
+	if (i == OCFS2_NUM_LOCK_TYPES) {
 		fprintf(stderr, "Invalid lock type '%c'\n", type);
 		return 1;
 	}

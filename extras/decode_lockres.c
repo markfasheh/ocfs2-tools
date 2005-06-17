@@ -33,10 +33,10 @@
 
 /* Begin paste from kernel module */
 enum ocfs2_lock_type {
-	OCFS_TYPE_META = 0,
-	OCFS_TYPE_DATA,
-	OCFS_TYPE_SUPER,
-	OCFS_NUM_LOCK_TYPES
+	OCFS2_TYPE_META = 0,
+	OCFS2_TYPE_DATA,
+	OCFS2_TYPE_SUPER,
+	OCFS2_NUM_LOCK_TYPES
 };
 
 /* lock ids are made up in the following manner:
@@ -48,17 +48,17 @@ enum ocfs2_lock_type {
 #define OCFS2_LOCK_ID_MAX_LEN  32
 #define OCFS2_LOCK_ID_PAD "000000"
 
-static char ocfs2_lock_type_char[OCFS_NUM_LOCK_TYPES] = {
-	[OCFS_TYPE_META]  = 'M',
-	[OCFS_TYPE_DATA]  = 'D',
-	[OCFS_TYPE_SUPER] = 'S'
+static char ocfs2_lock_type_char[OCFS2_NUM_LOCK_TYPES] = {
+	[OCFS2_TYPE_META]  = 'M',
+	[OCFS2_TYPE_DATA]  = 'D',
+	[OCFS2_TYPE_SUPER] = 'S'
 };
 /* End paste from kernel module */
 
-static char * ocfs2_lock_type_string[OCFS_NUM_LOCK_TYPES] = {
-	[OCFS_TYPE_META]  = "Metadata",
-	[OCFS_TYPE_DATA]  = "Data",
-	[OCFS_TYPE_SUPER] = "Superblock"
+static char * ocfs2_lock_type_string[OCFS2_NUM_LOCK_TYPES] = {
+	[OCFS2_TYPE_META]  = "Metadata",
+	[OCFS2_TYPE_DATA]  = "Data",
+	[OCFS2_TYPE_SUPER] = "Superblock"
 };
 
 static void usage(char *program)
@@ -71,12 +71,12 @@ static const char *get_lock_type_string(char c)
 {
 	enum ocfs2_lock_type t;
 
-	if (c == ocfs2_lock_type_char[OCFS_TYPE_META])
-		t = OCFS_TYPE_META;
-	else if (c == ocfs2_lock_type_char[OCFS_TYPE_DATA])
-		t = OCFS_TYPE_DATA;
-	else if (c == ocfs2_lock_type_char[OCFS_TYPE_SUPER])
-		t = OCFS_TYPE_SUPER;
+	if (c == ocfs2_lock_type_char[OCFS2_TYPE_META])
+		t = OCFS2_TYPE_META;
+	else if (c == ocfs2_lock_type_char[OCFS2_TYPE_DATA])
+		t = OCFS2_TYPE_DATA;
+	else if (c == ocfs2_lock_type_char[OCFS2_TYPE_SUPER])
+		t = OCFS2_TYPE_SUPER;
 	else
 		return NULL;
 

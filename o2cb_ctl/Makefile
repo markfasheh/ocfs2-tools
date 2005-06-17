@@ -13,7 +13,7 @@ LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 LIBO2CB_LIBS  = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
-ifdef OCFS_DEBUG
+ifdef OCFS2_DEBUG
 OPTS += -ggdb
 else
 OPTS += -O2
