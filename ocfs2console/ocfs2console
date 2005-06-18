@@ -1,6 +1,3 @@
-#!/usr/bin/python
-
-# XXX: for production
 #!/usr/bin/python -W ignore::DeprecationWarning
 
 from ocfs2interface.about import process_args
