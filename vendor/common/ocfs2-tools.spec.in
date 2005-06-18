@@ -17,7 +17,7 @@ Group: System Environment/Kernel
 Source: ocfs2-tools-@DIST_VERSION@.tar.gz
 URL: http://oss.oracle.com/projects/ocfs2-tools/
 Distribution: Oracle
-Vendor: Oracle Corporation
+Vendor: Oracle
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
 Requires: coreutils, net-tools, modutils, e2fsprogs, %{chkconfig_dep}, glib2 >= 2.2.3
