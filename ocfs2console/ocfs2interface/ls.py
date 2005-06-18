@@ -53,6 +53,8 @@ file_type = {
 }
 
 class Mode(Field):
+    width_chars = 10
+
     def real_get_text(self):
         text = ['-'] * 10
 
@@ -85,8 +87,11 @@ class Links(Field):
     label = '# Links'
     dinode_member = 'i_links_count'
     right_justify = True
+    width_chars = 5
 
 class ID2Name(Field):
+    width_chars = 8
+
     def real_get_text(self):
         idnum = getattr(self.dinode, self.dinode_member)
 
@@ -105,15 +110,17 @@ class Group(ID2Name):
 
 class Size(Field):
     dinode_member = 'i_size'
-    right_justify = True
+    width_chars = 15
 
 class AllocSize(Field):
-    right_justify = True
+    width_chars = 15
 
     def real_get_text(self):
         return str(self.dinode.i_clusters * self.dinode.fs.fs_clustersize)
 
 class Timestamp(Field):
+    width_chars = 12
+
     # Ported from GNU coreutils ls
     time_formats = ('%b %e  %Y', '%b %e %H:%M')
 
@@ -133,7 +140,7 @@ class Name(Field):
     def real_get_text(self):
         return self.dentry.name
     
-fields = (Mode, Links, Owner, Group, Size, AllocSize, Timestamp, Name)
+fields = (Mode, Links, Owner, Group, Size, AllocSize, Timestamp)
 
 def main():
     import sys

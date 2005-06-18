@@ -42,8 +42,8 @@ class Console(gtk.Window):
         gtk.Window.__init__(self)
 
         set_props(self, title='OCFS2 Console',
-                        default_width=520,
-                        default_height=420,
+                        default_width=600,
+                        default_height=460,
                         border_width=0)
 
         self.connect('delete_event', self.cleanup)

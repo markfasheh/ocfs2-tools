@@ -55,6 +55,7 @@ INVALID_DENTRY = 'poop'
 class InfoLabel(gtk.Label):
     def __init__(self, field_type):
         gtk.Label.__init__(self)
+        self.set_selectable(True)
 
         self.field_type = field_type
 
@@ -64,6 +65,20 @@ class InfoLabel(gtk.Label):
              set_props(self, xalign=0.0)
 
         self.modify_font(INFO_LABEL_FONT)
+
+        if hasattr(field_type, 'width_chars'):
+            context = self.get_pango_context()
+
+            desc = INFO_LABEL_FONT.copy()
+            desc.set_size(context.get_font_description().get_size())
+
+            metrics = context.get_metrics(desc, context.get_language())
+
+            char_width = metrics.get_approximate_char_width()
+            digit_width = metrics.get_approximate_digit_width()
+            char_pixels = pango.PIXELS(max(char_width, digit_width))
+
+            self.set_size_request(char_pixels * field_type.width_chars, -1)
 
     def update(self, dentry, dinode):
         field = self.field_type(dentry, dinode)
@@ -79,7 +94,9 @@ class Browser(gtk.VBox):
         gtk.VBox.__init__(self, spacing=4)
 
         label = gtk.Label('/')
-        set_props(label, xalign=0.0)
+        set_props(label, xalign=0.0,
+                         selectable=True,
+                         wrap=True)
         self.pack_start(label, expand=False)
 
         self.path_label = label
@@ -164,11 +181,21 @@ class Browser(gtk.VBox):
 
         for column, field in enumerate(fields):
             label = gtk.Label(field.label)
-            set_props(label, xalign=0.0)
-            table.attach(label, column, column + 1, 0, 1)
+
+            if field.right_justify:
+                set_props(label, xalign=1.0)
+            else:
+                set_props(label, xalign=0.0)
+
+            xoptions = yoptions = gtk.FILL
+            xpadding = 2
+
+            table.attach(label, column, column + 1, 0, 1,
+                         xoptions, yoptions, xpadding)
 
             label = InfoLabel(field)
-            table.attach(label, column, column + 1, 1, 2)
+            table.attach(label, column, column + 1, 1, 2,
+                         xoptions, yoptions, xpadding)
 
             self.info_labels.append(label)
 
@@ -314,6 +341,10 @@ class Browser(gtk.VBox):
             self.display_dentry(dentry)
         else:
             self.display_clear()
+            if iter:
+                iter = store.iter_parent(iter)
+
+        self.path_label.set_text(self.get_fs_path(store, iter))
 
     def display_dentry(self, dentry):
         dinode = self.fs.read_cached_inode(dentry.inode)
@@ -334,6 +365,18 @@ class Browser(gtk.VBox):
             return info_obj.dentry
         else:
             return None
+
+    def get_fs_path(self, store, iter):
+        parts = []
+
+        while iter:
+            dentry = self.get_dentry(store, iter)
+            parts.append(dentry.name)
+            iter = store.iter_parent(iter)
+
+        parts.reverse()
+
+        return '/' + '/'.join(parts)
 
 class TreeLevel(gidle.Idle):
     def __init__(self, diriter, dentry=None, parent=None):
