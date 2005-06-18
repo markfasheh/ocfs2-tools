@@ -126,6 +126,8 @@ class ClusterConfig(Dialog):
         self.sel = self.tv.get_selection()
         self.sel.connect('changed', self.on_select)
 
+        self.tv.connect('row_activated', self.on_row_activated)
+
         self.load_cluster_state()
 
     def load_cluster_state(self):
@@ -215,7 +217,12 @@ class ClusterConfig(Dialog):
 
         self.can_edit(editable)
 
+    def on_row_activated(self, tv, path, col):
+        if self.node_editable:
+            self.edit_node(None)
+
     def can_edit(self, state):
+        self.node_editable = state
         self.edit_button.set_sensitive(state)
         self.remove_button.set_sensitive(state)
 
