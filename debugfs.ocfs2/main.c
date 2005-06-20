@@ -29,6 +29,13 @@
 
 extern dbgfs_gbls gbls;
 
+static int logmode = 0;
+struct log_entry {
+	char *mask;
+	char *action;
+};
+static GList *loglist = NULL;
+
 /*
  * usage()
  *
@@ -36,6 +43,7 @@ extern dbgfs_gbls gbls;
 static void usage (char *progname)
 {
 	g_print ("usage: %s [-f cmdfile] [-V] [-w] [-?] [device]\n", progname);
+	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
 	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
 	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
 	g_print ("\t-V, --version\t\tShow version\n");
@@ -52,6 +60,52 @@ static void print_version (char *progname)
 	fprintf(stderr, "%s %s\n", progname, VERSION);
 }					/* print_version */
 
+static void process_one_list(GList *list, char *action)
+{
+	GList *tmp;
+	struct log_entry *entry;
+
+
+	while (list) {
+		tmp = loglist;
+		while (tmp) {
+			entry = tmp->data;
+			if (!strcmp(entry->mask, list->data))
+				break;
+			tmp = tmp->next;
+		}
+
+		if (tmp) {
+			entry->action = action;
+		} else {
+			entry = g_new(struct log_entry, 1);
+			entry->action = action;
+			entry->mask = list->data;
+			loglist = g_list_append(loglist, entry);
+		}
+
+		list = list->next;
+	}
+}
+
+static void fill_log_list(int argc, char **argv, int startind)
+{
+	int i;
+	GList *tmplist = NULL;
+
+	for (i = startind; i < argc; i++) {
+		if (!strcmp(argv[i], "allow")) {
+			process_one_list(tmplist, "allow");
+		} else if (!strcmp(argv[i], "deny")) {
+			process_one_list(tmplist, "deny");
+		} else if (!strcmp(argv[i], "off")) {
+			process_one_list(tmplist, "off");
+		} else {
+			tmplist = g_list_append(tmplist, argv[i]);
+		}
+	}
+}
+
 /*
  * get_options()
  *
@@ -64,11 +118,12 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		{ "version", 0, 0, 'V' },
 		{ "help", 0, 0, '?' },
 		{ "write", 0, 0, '?' },
+                { "log", 0, 0, 'l' },
 		{ 0, 0, 0, 0}
 	};
 
 	while (1) {
-		c = getopt_long(argc, argv, "f:V?w", long_options, NULL);
+		c = getopt_long(argc, argv, "lf:V?w", long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -80,6 +135,10 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 				exit(1);
 			}
 			break;
+
+                case 'l':
+                        logmode++;
+                        break;
 
 		case 'w':
 			opts->allow_write = 1;
@@ -102,8 +161,12 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		}
 	}
 
-	if (optind < argc)
-		opts->device = strdup(argv[optind]);
+	if (optind < argc) {
+		if (!logmode)
+			opts->device = strdup(argv[optind]);
+		else
+			fill_log_list(argc, argv, optind);
+        }
 
 	return ;
 }
@@ -143,6 +206,44 @@ static char * get_line (FILE *stream)
 	return line;
 }					/* get_line */
 
+#define LOG_CTL "/proc/fs/ocfs2_nodemanager/log_mask"
+
+static int set_logmode(struct log_entry *entry)
+{
+	FILE *f;
+
+	f = fopen(LOG_CTL, "w");
+	if (!f) {
+		fprintf(stderr, "%s: Unable to open \"%s\": %s\n",
+			gbls.progname, LOG_CTL, strerror(errno));
+		return 1;
+	}
+	fprintf(f, "%s %s\n", entry->mask, entry->action);
+	fclose(f);
+
+	return 0;
+}
+
+static void run_logmode(void)
+{
+	GList *tmp;
+	char *current_mask;
+
+	if (loglist) {
+		tmp = loglist;
+		while (tmp) {
+			if (set_logmode(tmp->data))
+				break;
+			tmp = tmp->next;
+		}
+	} else {
+		if (g_file_get_contents(LOG_CTL, &current_mask, NULL,
+					NULL)) {
+			fprintf(stdout, "%s", current_mask);
+		}
+	}
+}
+
 /*
  * main()
  *
@@ -172,6 +273,11 @@ int main (int argc, char **argv)
 	gbls.progname = basename(argv[0]);
 
 	get_options(argc, argv, &opts);
+	if (logmode) {
+		run_logmode();
+		goto bail;
+	}
+
 	gbls.allow_write = opts.allow_write;
 	if (!opts.cmd_file)
 		gbls.interactive++;
