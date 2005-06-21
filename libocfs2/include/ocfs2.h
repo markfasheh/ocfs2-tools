@@ -150,11 +150,12 @@
 #define OCFS2_DIR_SCAN_FLAG_EXCLUDE_DOTS	0x01
 
 /* Check if mounted flags */
-#define OCFS2_MF_MOUNTED         0x01
-#define OCFS2_MF_ISROOT          0x02
-#define OCFS2_MF_READONLY        0x04
-#define OCFS2_MF_SWAP            0x08
-#define OCFS2_MF_MOUNTED_CLUSTER 0x16
+#define OCFS2_MF_MOUNTED		1
+#define OCFS2_MF_ISROOT			2
+#define OCFS2_MF_READONLY		4
+#define OCFS2_MF_SWAP			8
+#define OCFS2_MF_BUSY			16
+#define OCFS2_MF_MOUNTED_CLUSTER	32
 
 /* check_heartbeats progress states */
 #define OCFS2_CHB_START		1

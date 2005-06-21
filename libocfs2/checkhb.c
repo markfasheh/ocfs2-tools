@@ -83,6 +83,7 @@ static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, uint8_t *node_nums)
  * 	OCFS2_MF_ISROOT
  * 	OCFS2_MF_READONLY
  * 	OCFS2_MF_SWAP
+ * 	OCFS2_MF_BUSY
  * 	OCFS2_MF_MOUNTED_CLUSTER	if mounted on cluster
  */
 errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
