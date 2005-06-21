@@ -314,9 +314,10 @@ partition_walk (gpointer key,
 	  else
 	    info.mountpoint = NULL;
 
-	  if (wdata->unmounted && !(flags & OCFS2_MF_BUSY))
+	  if (wdata->unmounted)
 	    {
-	      if ((info.mountpoint == NULL) && !used_unmounted (info.fstype))
+	      if ((info.mountpoint == NULL) && !used_unmounted (info.fstype) &&
+		  !(flags & OCFS2_MF_BUSY))
 		wdata->func (&info, wdata->data);
 	    }
 	  else
