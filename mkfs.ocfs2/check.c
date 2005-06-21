@@ -34,6 +34,37 @@ int ocfs2_check_volume(State *s)
 {
 	ocfs2_filesys *fs = NULL;
 	errcode_t ret;
+	int mount_flags;
+
+	ret = ocfs2_check_if_mounted(s->device_name, &mount_flags);
+	if (ret) {
+		com_err(s->progname, ret,
+			"while determining whether %s is mounted.",
+			s->device_name);
+		return -1;
+	}
+
+	if (mount_flags & OCFS2_MF_MOUNTED) {
+		fprintf(stderr, "%s is mounted; ", s->device_name);
+		if (s->force) {
+			fputs("overwriting anyway. Hope /etc/mtab is "
+			      "incorrect.\n", stderr);
+			return 1;
+		}
+		fputs("will not make a ocfs2 volume here!\n", stderr);
+		return -1;
+	}
+
+	if (mount_flags & OCFS2_MF_BUSY) {
+		fprintf(stderr, "%s is apparently in use by the system; ",
+			s->device_name);
+		if (s->force) {
+			fputs("format forced anyway.\n", stderr);
+			return 1;
+		}
+		fputs("will not make a ocfs2 volume here!\n", stderr);
+		return -1;
+	}
 
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
