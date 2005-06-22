@@ -801,7 +801,7 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 	}
 
 	if (s->volume_size_in_blocks < 32768)
-		j_blocks = 1024;
+		j_blocks = OCFS2_MIN_JOURNAL_SIZE / s->blocksize;
 	else if (s->volume_size_in_blocks < 262144)
 		j_blocks = 4096;
 	else
@@ -2037,19 +2037,19 @@ static void create_lost_found_dir(State *s)
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
 		com_err(s->progname, ret, "while opening new file system");
-		exit(1);
+		goto bail;
 	}
 
 	ret = ocfs2_new_inode(fs, &lost_found_blkno, S_IFDIR | 0755);
 	if (ret) {
 		com_err(s->progname, ret, "while creating lost+found");
-		exit(1);
+		goto bail;
 	}
 
 	ret = ocfs2_expand_dir(fs, lost_found_blkno, fs->fs_root_blkno);
 	if (ret) {
 		com_err(s->progname, ret, "while adding lost+found dir data");
-		exit(1);
+		goto bail;
 	}
 
 	ret = ocfs2_link(fs, fs->fs_root_blkno, "lost+found", lost_found_blkno,
@@ -2057,8 +2057,13 @@ static void create_lost_found_dir(State *s)
 	if (ret) {
 		com_err(s->progname, ret, "while linking lost+found to the "
 			"root directory");
-		exit(1);
+		goto bail;
 	}
 
 	ocfs2_close(fs);
+	return ;
+
+bail:
+	clear_both_ends(s);
+	exit(1);
 }
