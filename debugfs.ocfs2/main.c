@@ -42,11 +42,12 @@ static GList *loglist = NULL;
  */
 static void usage (char *progname)
 {
-	g_print ("usage: %s [-f cmdfile] [-V] [-w] [-?] [device]\n", progname);
 	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
+	g_print ("usage: %s [-f cmdfile] [-V] [-w] [-n] [-?] [device]\n", progname);
 	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
 	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
 	g_print ("\t-V, --version\t\tShow version\n");
+	g_print ("\t-n, --noprompt\t\tHide prompt\n");
 	g_print ("\t-?, --help\t\tShow this help\n");
 	exit (0);
 }					/* usage */
@@ -118,12 +119,13 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		{ "version", 0, 0, 'V' },
 		{ "help", 0, 0, '?' },
 		{ "write", 0, 0, '?' },
-                { "log", 0, 0, 'l' },
+		{ "log", 0, 0, 'l' },
+		{ "noprompt", 0, 0, 'n' },
 		{ 0, 0, 0, 0}
 	};
 
 	while (1) {
-		c = getopt_long(argc, argv, "lf:V?w", long_options, NULL);
+		c = getopt_long(argc, argv, "lf:V?wn", long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -142,6 +144,10 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 
 		case 'w':
 			opts->allow_write = 1;
+			break;
+
+		case 'n':
+			opts->no_prompt = 1;
 			break;
 
 		case '?':
@@ -175,7 +181,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
  * get_line()
  *
  */
-static char * get_line (FILE *stream)
+static char * get_line (FILE *stream, int no_prompt)
 {
 	char *line;
 	static char buf[1024];
@@ -194,8 +200,10 @@ static char * get_line (FILE *stream)
 				break;
 		}
 	} else {
-		fprintf(stderr, "%s", PROMPT);
-		line = readline (NULL);
+		if (no_prompt)
+			line = readline(NULL);
+		else
+			line = readline(PROMPT);
 
 		if (line && *line) {
 			g_strchug(line);
@@ -299,11 +307,11 @@ int main (int argc, char **argv)
 	}
 
 	while (1) {
-		line = get_line(cmd);
+		line = get_line(cmd, opts.no_prompt);
 
 		if (line) {
-			if (!gbls.interactive)
-				fprintf (stderr, "%s%s\n", PROMPT, line);
+			if (!gbls.interactive && !opts.no_prompt)
+				fprintf (stdout, "%s%s\n", PROMPT, line);
 			do_command (line);
 			if (gbls.interactive)
 				free (line);
