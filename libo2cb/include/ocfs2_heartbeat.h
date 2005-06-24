@@ -33,7 +33,4 @@ struct o2hb_disk_heartbeat_block {
 	__u32 hb_cksum;
 };
 
-#define O2HB_DEFAULT_TIMEOUT_MS		2000
-#define O2HB_DEFAULT_NODE_DOWN_MISSES	10
-
 #endif /* _OCFS2_HEARTBEAT_H */

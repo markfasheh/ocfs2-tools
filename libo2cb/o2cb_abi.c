@@ -517,9 +517,7 @@ static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 					      const char *device_name,
 					      int block_bytes,
 					      uint64_t start_block,
-					      uint64_t blocks,
-					      unsigned int timeout_ms,
-					      unsigned int dead_iter)
+					      uint64_t blocks)
 {
 	char _fake_cluster_name[NAME_MAX];
 	char region_path[PATH_MAX];
@@ -615,28 +613,6 @@ static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 
 	err = o2cb_set_region_attribute(cluster_name, region_name,
 					"blocks", num_buf);
-	if (err)
-		goto out_rmdir;
-
-	ret = snprintf(num_buf, NAME_MAX - 1, "%u", timeout_ms);
-	if (ret <= 0 || ret == PATH_MAX - 1) {
-		err = O2CB_ET_INTERNAL_FAILURE;
-		goto out_rmdir;
-	}
-
-	err = o2cb_set_region_attribute(cluster_name, region_name,
-					"timeout_ms", num_buf);
-	if (err)
-		goto out_rmdir;
-
-	ret = snprintf(num_buf, NAME_MAX - 1, "%u", dead_iter);
-	if (ret <= 0 || ret == PATH_MAX - 1) {
-		err = O2CB_ET_INTERNAL_FAILURE;
-		goto out_rmdir;
-	}
-
-	err = o2cb_set_region_attribute(cluster_name, region_name,
-					"dead_iter", num_buf);
 	if (err)
 		goto out_rmdir;
 
@@ -1043,9 +1019,7 @@ static errcode_t __o2cb_start_heartbeat_region(const char *cluster_name,
 					   desc->r_device_name,
 					   desc->r_block_bytes,
 					   desc->r_start_block,
-					   desc->r_blocks,
-					   desc->r_timeout_ms,
-					   desc->r_node_down_misses);
+					   desc->r_blocks);
 	if (ret && ret != O2CB_ET_REGION_EXISTS)
 		goto up;
 

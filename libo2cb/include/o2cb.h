@@ -74,8 +74,6 @@ struct o2cb_region_desc {
 	int		r_block_bytes;
 	uint64_t	r_start_block;
 	uint64_t	r_blocks;
-	unsigned int	r_timeout_ms;
-	unsigned int	r_node_down_misses;
 };
 
 /* Expected use case for the region descriptor is to allocate it on

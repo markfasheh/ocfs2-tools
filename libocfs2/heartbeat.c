@@ -93,8 +93,6 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	desc->r_block_bytes		= sectsize;
 	desc->r_start_block		= start_block;
 	desc->r_blocks			= blocks;
-	desc->r_timeout_ms		= O2HB_DEFAULT_TIMEOUT_MS;
-	desc->r_node_down_misses	= O2HB_DEFAULT_NODE_DOWN_MISSES;
 
 leave:
 	if (buf)
