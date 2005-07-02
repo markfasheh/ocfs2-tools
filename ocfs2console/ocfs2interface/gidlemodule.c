@@ -112,6 +112,8 @@ idle_set_callback (Idle *self,
   PyObject *first, *callback, *cbargs = NULL, *data;
   gint len;
 
+  CHECK_DESTROYED (self, NULL);
+
   len = PyTuple_Size (args);
   if (len < 1)
     {
@@ -130,7 +132,7 @@ idle_set_callback (Idle *self,
 
   if (!PyCallable_Check (callback))
     {
-      PyErr_SetString(PyExc_TypeError, "first argument not callable");
+      PyErr_SetString (PyExc_TypeError, "first argument not callable");
       return NULL;
     }
 
@@ -280,12 +282,6 @@ idle_repr (Idle *self)
   return PyString_FromString (buf);
 }
 
-static long
-idle_hash (Idle *self)
-{
-  return (long)self->idle;
-}
-
 static int
 idle_clear (Idle *self)
 {
@@ -347,7 +343,7 @@ static PyTypeObject Idle_Type = {
   0,					/* tp_as_number */
   0,					/* tp_as_sequence */
   0,					/* tp_as_mapping */
-  (hashfunc)idle_hash,			/* tp_hash */
+  0,					/* tp_hash */
   0,					/* tp_call */
   0,					/* tp_str */
   0,					/* tp_getattro */
