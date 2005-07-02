@@ -394,10 +394,10 @@ class TreeLevel(gidle.Idle):
 
     def foreground(self):
         if not self.collapsed:
-            self.set_priority(gobject.PRIORITY_DEFAULT_IDLE)
+            self.priority = gobject.PRIORITY_DEFAULT_IDLE
 
     def background(self):
-        level.set_priority(gobject.PRIORITY_LOW)
+        self.priority = gobject.PRIORITY_LOW
 
 def main():
     import sys
