@@ -855,15 +855,15 @@ fs_dir_scan (Filesystem *self,
 
 static PyMethodDef fs_methods[] = {
   {"flush", (PyCFunction)fs_flush, METH_NOARGS},
-  {"clusters_to_blocks", (PyCFunction)fs_clusters_to_blocks, METH_VARARGS | METH_KEYWORDS},
-  {"blocks_to_clusters", (PyCFunction)fs_blocks_to_clusters, METH_VARARGS | METH_KEYWORDS},
-  {"blocks_in_bytes", (PyCFunction)fs_blocks_in_bytes, METH_VARARGS | METH_KEYWORDS},
-  {"clusters_in_blocks", (PyCFunction)fs_clusters_in_blocks, METH_VARARGS | METH_KEYWORDS},
-  {"block_out_of_range", (PyCFunction)fs_block_out_of_range, METH_VARARGS | METH_KEYWORDS},
-  {"lookup_system_inode", (PyCFunction)fs_lookup_system_inode, METH_VARARGS | METH_KEYWORDS},
-  {"read_cached_inode", (PyCFunction)fs_read_cached_inode, METH_VARARGS | METH_KEYWORDS},
-  {"dir_iterate", (PyCFunction)fs_dir_iterate, METH_VARARGS | METH_KEYWORDS},
-  {"iterdir", (PyCFunction)fs_dir_scan, METH_VARARGS | METH_KEYWORDS},
+  {"clusters_to_blocks", (PyCFunction)fs_clusters_to_blocks, METH_KEYWORDS},
+  {"blocks_to_clusters", (PyCFunction)fs_blocks_to_clusters, METH_KEYWORDS},
+  {"blocks_in_bytes", (PyCFunction)fs_blocks_in_bytes, METH_KEYWORDS},
+  {"clusters_in_blocks", (PyCFunction)fs_clusters_in_blocks, METH_KEYWORDS},
+  {"block_out_of_range", (PyCFunction)fs_block_out_of_range, METH_KEYWORDS},
+  {"lookup_system_inode", (PyCFunction)fs_lookup_system_inode, METH_KEYWORDS},
+  {"read_cached_inode", (PyCFunction)fs_read_cached_inode, METH_KEYWORDS},
+  {"dir_iterate", (PyCFunction)fs_dir_iterate, METH_KEYWORDS},
+  {"iterdir", (PyCFunction)fs_dir_scan, METH_KEYWORDS},
   {NULL, NULL}
 };
 

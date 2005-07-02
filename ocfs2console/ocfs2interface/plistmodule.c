@@ -140,7 +140,7 @@ partition_list (PyObject *self,
 }
 
 static PyMethodDef plist_methods[] = {
-  {"partition_list", (PyCFunction)partition_list, METH_VARARGS | METH_KEYWORDS},
+  {"partition_list", (PyCFunction)partition_list, METH_KEYWORDS},
   {NULL,       NULL}    /* sentinel */
 };
 
