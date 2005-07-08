@@ -1,3 +1,9 @@
+ocfs2-tools (0.99.16-1) unstable; urgency=low
+
+  * New release.
+
+ -- Joel Becker <joel.becker@oracle.com>  Fri,  8 Jul 2006 14:53:00 -0700
+
 ocfs2-tools (0.99.13-1) unstable; urgency=low
 
   * New release.
