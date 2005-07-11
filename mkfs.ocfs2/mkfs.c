@@ -1583,7 +1583,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 
 	incompat = 0;
 #ifdef CONFIG_ARCH_S390
-	incompat |= OCFS2_FEATURE_INCOMPAT_BORKEN_ENDIAN;
+	incompat |= OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN;
 #endif
 	if (s->hb_dev)
 		incompat |= OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
