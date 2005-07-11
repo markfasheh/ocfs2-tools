@@ -21,7 +21,11 @@ import pango
 
 import ocfs2
 
-import gidle
+try:
+    IdleBase = gobject.Idle
+except AttributeError:
+    import gidle
+    IdleBase = gidle.Idle
 
 from guiutil import set_props
 
@@ -378,9 +382,9 @@ class Browser(gtk.VBox):
 
         return '/' + '/'.join(parts)
 
-class TreeLevel(gidle.Idle):
+class TreeLevel(IdleBase):
     def __init__(self, diriter, dentry=None, parent=None):
-        gidle.Idle.__init__(self)
+        IdleBase.__init__(self)
 
         self.diriter = diriter
         self.dentry = dentry
