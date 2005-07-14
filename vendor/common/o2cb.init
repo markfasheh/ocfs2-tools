@@ -255,17 +255,20 @@ check_heartbeat()
     fi
     CLUSTER="$1"
 
-    for i in "/config/cluster/${CLUSTER}/heartbeat/"*
-    do
-        HBUUID="`echo $i | cut -f6 -d/`"
-        if [ "${HBUUID}" = "*" ]
-        then
-            break;
-        else
+    RC=0
+    if [ -d "/config/cluster/${CLUSTER}/heartbeat/" ]
+    then
+        ls -1 "/config/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
+        do
             return 2;
+        done;
+        if [ $? = 2 ]
+        then
+            RC=2
         fi
-    done
-    return 0
+    fi
+
+    return $RC
 }
 
 #
@@ -283,13 +286,14 @@ clean_heartbeat()
 
     echo -n "Cleaning heartbeat on ${CLUSTER}: "
 
-    for i in "/config/cluster/${CLUSTER}/heartbeat/"*
+    if [ ! -d "/config/cluster/${CLUSTER}/heartbeat/" ]
+    then
+        echo "OK"
+        return
+    fi
+
+    ls -1 "/config/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
     do
-        HBUUID="`echo $i | cut -f6 -d/`"
-        if [ "${HBUUID}" = "*" ]
-        then
-            break;
-        fi
         OUTPUT="`ocfs2_hb_ctl -I -u ${HBUUID} 2>&1`"
         if [ $? != 0 ]
         then
@@ -308,6 +312,10 @@ clean_heartbeat()
            OUTPUT="`ocfs2_hb_ctl -K -u ${HBUUID} 2>&1`"
         fi
     done
+    if [ $? = 1 ]
+    then
+        exit 1
+    fi
     echo "OK"
 }
 
@@ -487,6 +495,7 @@ online()
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
     if [ -z "$CLUSTER" ]
     then
+        echo "Cluster not known"
         return
     fi
 
@@ -527,20 +536,23 @@ check_online()
     fi
     CLUSTER="$1"
 
-    for i in "/config/cluster/${CLUSTER}/node/"*
-    do
-        NODE="`echo $i | cut -f6 -d/`"
-        if [ "${NODE}" = "*" ]
+    RC=0
+    if [ -d "/config/cluster/${CLUSTER}/node/" ]
+    then
+        ls -1 "/config/cluster/${CLUSTER}/node/" | while read NODE
+        do
+            LOCAL="`cat \"/config/cluster/${CLUSTER}/node/${NODE}/local\"`"
+            if [ $LOCAL = 1 ]
+            then
+                return 2
+            fi
+        done
+        if [ $? = 2 ]
         then
-            return 0
+            RC=2
         fi
-        LOCAL="`cat \"/config/cluster/${CLUSTER}/node/${NODE}/local\"`"
-        if [ $LOCAL = 1 ]
-        then
-            return 2
-        fi
-    done
-    return 0
+    fi
+    return $RC
 }
 
 offline()
@@ -581,11 +593,24 @@ start()
     fi
 
     load
-    online "$2"
+    online "$1"
 }
 
 unload()
 {
+    if [ -d "/config/cluster/" ]
+    then
+        ls -1 /config/cluster/ | while read CLUSTER
+        do
+            echo "Unable to unload modules as Cluster ${CLUSTER} is still online" >&2
+            exit 1
+        done
+        if [ $? = 1 ]
+        then
+            exit 1
+        fi
+    fi
+
     for i in $(seq $((${#LOAD_ACTIONS[*]} - 1)) -1 0); do
         eval "un${LOAD_ACTIONS[i]}"
         if_fail "$?"
@@ -594,7 +619,7 @@ unload()
 
 stop()
 {
-    offline "$2"
+    offline "$1"
     unload
 }
 
@@ -688,25 +713,25 @@ status()
 
 case "$1" in
     start)
-        start
+        start "$2"
         ;;
 
     status)
-        status $2
+        status "$2"
         ;;
 
     stop)
-        stop
+        stop "$2"
         ;;
 
     restart)
-        stop
-        start
+        stop "$2"
+        start "$2"
         ;;
 
     force-reload)
-        stop
-        start
+        stop "$2"
+        start "$2"
         ;;
 
     load)
