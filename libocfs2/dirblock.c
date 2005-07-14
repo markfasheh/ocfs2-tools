@@ -93,10 +93,10 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
 			return OCFS2_ET_DIR_CORRUPTED;
 		}
 
+		p += dirent->rec_len;
+
 		dirent->inode = cpu_to_le64(dirent->inode);
 		dirent->rec_len = cpu_to_le16(dirent->rec_len);
-
-		p += dirent->rec_len;
 	}
 
  	retval = io_write_block(fs->fs_io, block, 1, buf);
