@@ -60,7 +60,7 @@ cp -f vendor/common/o2cb.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/o2cb
 make DESTDIR="$RPM_BUILD_ROOT" install
 
 %if %{compile_py}
-%{__python} "%{_libdir}/python%{pyversion}/compileall.py" -q "$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface"
+%{__python} -c "import compileall; compileall.compile_dir('$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface', ddir='%{_libdir}/python%{pyversion}/site-packages/ocfs2interface')"
 %endif
 
 
