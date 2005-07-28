@@ -28,11 +28,12 @@
 #define MS_OWNER	0x10000000
 #define MS_GROUP	0x08000000
 #define MS_PAMCONSOLE   0x04000000
+#define MS_NETDEV	0x00040000
 #define MS_COMMENT	0x00020000
 #define MS_LOOP		0x00010000
 
 /* Options that we keep the mount system call from seeing.  */
-#define MS_NOSYS	(MS_NOAUTO|MS_USERS|MS_USER|MS_COMMENT|MS_LOOP|MS_PAMCONSOLE)
+#define MS_NOSYS	(MS_NOAUTO|MS_USERS|MS_USER|MS_COMMENT|MS_LOOP|MS_PAMCONSOLE|MS_NETDEV)
 
 /* Options that we keep from appearing in the options field in the mtab.  */
 #define MS_NOMTAB	(MS_REMOUNT|MS_NOAUTO|MS_USERS|MS_USER|MS_PAMCONSOLE)

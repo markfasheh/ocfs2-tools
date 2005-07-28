@@ -61,7 +61,7 @@ static const struct opt_map opt_map[] = {
   { "noowner",	0, 1, MS_OWNER  },	/* Device owner has no special privs */
   { "group",    0, 0, MS_GROUP  },	/* Let the group of the device mount */
   { "nogroup",  0, 1, MS_GROUP  },	/* Device group has no special privs */
-  { "_netdev",	0, 0, MS_COMMENT},	/* Device accessible only via network */
+  { "_netdev",	0, 0, MS_NETDEV },	/* Device accessible only via network */
   { "comment",  0, 0, MS_COMMENT},	/* fstab comment only (kudzu,_netdev)*/
 
   /* add new options here */

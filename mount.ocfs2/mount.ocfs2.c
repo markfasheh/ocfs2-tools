@@ -343,7 +343,7 @@ int main(int argc, char **argv)
 	}
 
 	update_mtab_entry(mo.dev, mo.dir, OCFS2_FS_NAME,
-			  fix_opts_string (mo.flags & ~MS_NOMTAB,
+			  fix_opts_string (((mo.flags & ~MS_NOMTAB) | MS_NETDEV),
 					   mo.xtra_opts, NULL),
 			  mo.flags, 0, 0);
 
