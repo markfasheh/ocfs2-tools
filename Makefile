@@ -77,6 +77,7 @@ DIST_FILES = \
 	install-sh				\
 	mkinstalldirs				\
 	rpmarch.guess				\
+	documentation/ocfs2_faq.txt		\
 	documentation/users_guide.txt		\
 	documentation/samples/cluster.conf	\
 	$(DEBIAN_FILES)
