@@ -22,8 +22,7 @@ The \fIblock size\fR, specified in bytes, can range from 512 to 4096.  A value o
 
 .TP
 \fB\-f\fR
-Force checking even if the file system is clean.  This currently has no
-effect as the file system is always checked.
+Force checking even if the file system is clean. 
 
 .TP
 \fB\-F\fR
