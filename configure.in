@@ -7,16 +7,16 @@ PACKAGE=ocfs2-tools
 AC_SUBST(PACKAGE)
 
 # Adjust these for the software version.
-MAJOR_VERSION=0
-MINOR_VERSION=99
-MICRO_VERSION=16
-EXTRA_VERSION=BETA17
+MAJOR_VERSION=1
+MINOR_VERSION=0
+MICRO_VERSION=0
+EXTRA_VERSION=
 
 # Adjust this only to bump the RPM packaging version
 RPM_VERSION=1
 
 DIST_VERSION=$MAJOR_VERSION.$MINOR_VERSION.$MICRO_VERSION
-VERSION=$DIST_VERSION-$EXTRA_VERSION
+VERSION=$DIST_VERSION
 
 AC_SUBST(MAJOR_VERSION)
 AC_SUBST(MINOR_VERSION)
@@ -65,7 +65,7 @@ AC_SUBST(root_sbindir)
 AC_SUBST(root_sysconfdir)
 
 AC_MSG_CHECKING(for debugging)
-AC_ARG_ENABLE(debug, [  --enable-debug=[yes/no]         Turn on debugging [default=yes]],,enable_debug=yes)
+AC_ARG_ENABLE(debug, [  --enable-debug=[yes/no]         Turn on debugging [default=yes]],,enable_debug=no)
 OCFS2_DEBUG=
 if test "x$enable_debug" = "xyes"; then
   OCFS2_DEBUG=yes

@@ -17,7 +17,7 @@
 
 import sys
 
-OCFS2TOOL_VERSION = '0.9.0'
+OCFS2TOOL_VERSION = '1.0.0'
 
 def print_version():
     print 'OCFS2Console version %s' % OCFS2TOOL_VERSION
