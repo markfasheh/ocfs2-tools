@@ -1,0 +1,199 @@
+
+[ The Scope of Heartbeat ]
+
+
+[ Introduction ]
+
+This document describes how a cluster-wide heartbeat interacts with the
+quorum and fencing requirements of quorate shared resources, such as
+shared-disk filesystems.  This document does not describe the
+implementation details of quorum decisions, but rather tries to clarify
+heartbeat's role in the process
+
+
+[ Terms ]
+
+"heartbeat"
+-----------
+A method by which cluster nodes can notify others they are alive.
+Heartbeat is a liveness test *only*.  If one node is seen via one
+heartbeat method and not another, it still allows a second node to
+determine the first node is running.  This definition, and the
+implications thereof, are the reason for this document.
+
+"method"
+--------
+The method by which nodes nodify each other.  Common methods include
+writing to a shared disk, communication over a network, or a direct
+serial cable link.
+
+"heartbeat region" or "region"
+------------------------------
+A specific place that heartbeat is, well, heartbeating.  A region uses
+one particular method on one particular resource.  A cluster may have
+multiple regions at once, offering redundancy.
+
+"fencing"
+---------
+Disabling a node's ability to access a shared resource.  When problems
+occur, some nodes must not be allowed to access and possibly damage a
+shared resource.  Fencing prevents this from happening.  The most common
+form of fencing in Linux is STONITH, short for "Shoot The Other Node In
+The Head."  This is the most extreme method of fencing, as it forces a
+complete reset of the fenced node.
+
+
+[ Rationale ]
+
+What happens when a node stops heartbeating on a region?  How do
+consumers of the cluster's resources decide what to do next?  This is a
+complex problem, and the true source of complexity in designing clusters
+and clustered applications.
+
+The real question is, what do consumer applications want and need?  In
+the end, they don't care whether the other node is up or down.  It
+absolutely does not matter to them.  A consumer application only cares
+whether it can share access to a resource in a safe and consistent
+fashion.
+
+For emphasis: A consumer application ONLY CARES whether it can share
+access to a resource in a safe and consistent fashion.
+
+From the perspective of a consumer application, quorum and fencing are
+useful for enforcing that safety.  How they accomplish that goal is
+relatively unimportant.  Whether the other nodes are alive or dead is
+unimportant.
+
+Shared Resource Scenarios
+-------------------------
+Look at a shared-disk filesystem.  The shared resource is the disk.  The
+filesystem driver is the consumer application on each node.  Under
+normal operation, the filesystem driver arbitrates access to the shared
+disk.  Each node takes its turn, respecting what the other nodes are
+doing.
+
+Assume, for the moment, that the heartbeat method and region are
+separate and independant of the shared disk (network heartbeat, a
+different heartbeat disk, etc).  Let's look at a few scenarios.  In the
+scenarios, "happynode" is a node that is running normally.  "sadnode" is
+the node that has just had a problem.
+
+o Losing Access to the Shared Resource 
+--------------------------------------
+What if sadnode loses access to the shared disk?  That is, a normal
+write operation to the disk receives an I/O error.  On happynode,
+access to this shared disk is proceeding just fine.  Note that all forms
+of communication are functioning properly.  The heartbeat shows all
+nodes are alive everywhere.  Network communication between the
+filesystem drivers is also working.  happynode has no way of knowing
+that sadnode has a problem.
+
+In other words, heartbeat cannot do anything here.  Nor should it.
+There is nothing useful for it to do.  happynode and sadnode can still
+successfully arbitrate access to the resource, and that access is still
+safe.
+
+What about sadnode's inability to write to the share disk?  That has to
+be handled, of course.  sadnode's immediate response must be like any
+other filesystem: take the filesystem to read-only mode.  Any pending
+writes and updates must be discarded.  This is how all filesystems
+everywhere work, because without the ability to write to the disk, the
+updates cannot be committed to storage.
+
+But now, sadnode holds some locks and other state that it cannot write
+out.  happynode needs to know this, so that happynode can recover
+sadnode's state.  The naive approach is to fence sadnode.  This is
+especially disasterous in the case of STONITH, as all of sadnode's
+responsibilities are aborted.  Fencing is not needed, as sadnode has
+prevented itself from writing.  If sadnode notifies happynode that it
+has gone read-only, happynode has all the information needed to start
+recovery.
+
+sadnode and happynode can now continue.  Access to the shared disk is
+still safe.  While sadnode is no longer taking part in arbitration,
+sadnode is also not making any changes.  This means that happynode's
+accesses are safe.  sadnode's other processes can continue as if nothing
+has happened, and online reintroduction of sadnode to the shared
+resource could even commence after some intervention to repair the
+fault.
+
+o Losing Access to one Heartbeat Region of Many
+-----------------------------------------------
+What if sadnode no longer successfully access one of many heartbeat
+regions?  That is, a write operation to the region either fails silently
+or returns an I/O error.  The end result is that happynode sees no more
+heartbeats from sadnode on the one region.  happynode and sadnode still
+see each other on a different heartbeat region.  The filesystem drivers
+can still communicate.  The nodes can still arbitrate safe access to the
+shared disk.
+
+There is nothing to do here except log the error.  All operation can
+continue normally.  There is no danger to any operation.  Fencing of any
+sort would be detrimental.
+
+o Losing Access to all Heartbeat Regions
+----------------------------------------
+What if sadnode only had one heartbeat region and could no longer
+successfully access it?  Or if sadnode had many and could access none.
+That is, write operations fail silently or return an error.  The end
+result is that happynode sees no heartbeats from sadnode.
+
+This is virtually indistinguishable from sadnode crashing completely.
+sadnode may well have gotten I/O errors and done everything it can to
+clean itself up.  However, there is no way for happynode to know if
+sadnode is alive and unable to heartbeat or dead and crashed.
+
+Here, fencing is the only appropriate thing.  Because happynode does not
+know sadnode's state, happynode cannot consider access to the shared
+disk to be safe.  Arbitration cannot happen.  As such, sadnode must be
+prevented from accessing the shared disk.
+
+What form fencing takes is unimportant from the perspective of the
+filesystem driver.  All that the driver cares is that sadnode cannot
+access the shared disk.  Once that is assured, happynode can recover
+sadnode's state and continue with normal operation.
+
+Things are very different from the system perspective.  The form of
+fencing is very important.  A STONITH approach is strongly discourgaged.
+sadnode may have many responsibilities, only a few of which are affected
+by this cluster problem.  Some I/O subsystems support fencing at that
+level.  That is, sadnode would be prevented from sending I/O requests to
+the I/O subsystem.  So, sadnode would be unable to access the shared
+disks, but would be able to continue all processes that do not use the
+shared disks.  This prevents sadnode from unsafe access to the shared
+resource and allows online repair of the problem.
+
+o Losing Communication to Peers
+-------------------------------
+In this scenario, heartbeat is working fine, but happynode's consumer
+application is unable to talk to sadnode.  Without the ability to
+communicate, happynode and sadnode cannot arbitrate access to the shared
+disk.
+
+Again, fencing is required (though the STONITH vs I/O fencing argument
+still applies).  However, we now have an important question to ask:
+which node is having the problem?  In our example, it is sadnode.
+Perhaps the ethernet cable was pulled.  Perhaps sadnode's switch has
+failed.  The problem is that the software doesn't know.  Each node
+thinks they are OK, but the other guy is missing.
+
+This is where quorum comes in.  There must be some way to decide which
+node is happynode and which is sadnode.  It becomes more important (and
+more complex) when there are more than two nodes.
+
+Somehow, a decision is reached, and the losing node or nodes are fenced.
+The remaining happynodes recover the sadnode state, and continue on with
+life.
+
+Conclusion
+----------
+Notice that, in all three scenarios above, the question of specific
+heartbeat regions was completely unimportant.  From the perspective of
+the consumer application, all heartbeat is good for is node up/down
+information.  As long as the node appears in one heartbeat region, the
+higher-level logic knows that the machine is running.  The rest of the
+decisions can be made without heartbeat's interaction.
+
+Thus, it is unimportant whether a heartbeat region is on the shared
+resource itself or not.  It is also unimportant when heartbeating to one
+of many regions fails.

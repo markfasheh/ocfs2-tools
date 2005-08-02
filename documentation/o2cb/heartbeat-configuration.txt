@@ -1,0 +1,175 @@
+
+[ Heartbeat Configuration ]
+
+
+[ Introduction ]
+
+This document describes the way O2CB handles configuration of
+heartbeating from the perspective of a running cluster.  O2CB tries to
+make the most of simple invocations, so the administrator doesn't
+have all that much to do.  This document tries to be high-level,
+describing what is done but not the exact command sytaxes, etc.  At the
+end is an appendix that actually maps concepts to syntaxes (because it
+needs to be documented somewhere).
+
+
+[ Terms ]
+
+"heartbeat"
+-----------
+A method by which O2CB nodes can notify others they are alive.  O2CB
+considers heartbeat a liveness test *only*.  If one node is seen via
+one heartbeat method and not another, it allows another node to
+determine the first node is running.  Any decisions on fencing, quorum,
+etc can be made by other layers.
+
+"method"
+--------
+The method by which nodes notify each other.  Currently "disk" is the
+only supported method, though others have been proposed.  A cluster
+may have more than one method in use at a time.
+
+"heartbeat region" or "region"
+------------------------------
+A specific place that heartbeat is, well, heartbeating.  A region uses
+one particular method (again, only "disk" is currently supported).  A
+cluster may have multiple regions at once, offering redundancy.
+
+"UUID"
+------
+A UUID, or Universally Unique Identifier, is how heartbeat names
+regions.  How a UUID maps to the actual resource is up to the method and
+layout of the resource.
+
+"local heartbeat" or "local"
+----------------------------
+Consumers of heartbeat expect to start their own heartbeat region that
+is "local" to the resources they are using or managing.  No heartbeat
+is started at O2CB startup.  The consumers are wholly responsible for
+the state of heartbeat when they require it.
+
+"global heartbeat" or "global"
+------------------------------
+All consumers of heartbeat are expecting the heartbeat to be started
+at O2CB startup.  They will make no effort to start heartbeat of their
+own accord.  This requires the administrator to configure specific
+regions to be started when the cluster is brought online.  
+
+"layout" and "layout driver"
+----------------------------
+O2CB has no idea what the resource backing a heartbeat region looks
+like, nor should it.  There can be multiple ways of doing it, and
+codifying it in O2CB is folly.  For local heartbeat, the consumer knows
+their own resource, and can act accordingly.  However, global heartbeat 
+must know who understands the resource.  The way a region maps to the
+resource is called the layout, and the program that understands the
+mapping is the layout driver.  O2CB can ask the layout driver to
+start and stop the region, and need know nothing else about the
+backing resource.  O2CB refers to the region exclusively by UUID, and it
+is up to the layout driver to determine the resource refered to.
+Currently, the only known layout is that provided by OCFS2.  
+
+
+[ Rationale ]
+
+Administrators and users want configuration to be easy or nonexistent.
+They would often rather avoid something than learn complex steps.  O2CB
+takes this to heart, and administrators should choose local heartbeat
+for simple setups.  In fact, administrators using the ocfs2console
+utility to configure their cluster will have local heartbeat enabled
+unless they choose otherwise.  Local heartbeat requires no manual steps
+for each heartbeat region.  The heartbeat consumers create, start, stop,
+and otherwise manage their own heartbeat needs.  Administrators can just
+let it work.
+
+Take OCFS2 for example.  An administrator wants to do the normal
+filesystem tasks: mkfs, mount, and umount.  OCFS2 knows how to create a
+heartbeat region inside the filesystem (in other words, an ocfs2 layout
+of this particular hearbeat disk resource) during mkfs.  At mount, OCFS2
+knows how to start heartbeat on that region.  At umount, OCFS2 knows how
+to stop heartbeat.  The heartbeat is completely hidden behind the normal
+operation of the filesystem.  O2CB does nothing other than make sure the
+heartbeat subsystem is loaded.
+
+The problem is that local heartbeat doesn't always scale.  One OCFS2
+filesystem has one heartbeat region.  But 30 OCFS2 filesystems have 30
+heartbeat regions, one per.  Each filesystem (that is, disk resource)
+has no idea the other regions exist.  Every heartbeat interval, 30
+heartbeats happen, and 30 regions have collect the heartbeats from other
+nodes.  This takes a toll on the I/O subsystem, and becomes noticable to
+system resource usage.
+
+Enter the global heartbeat.  O2CB is now responsible for starting and
+stopping heartbeat regions.  Consumers need not (and must not) manage
+heartbeat regions.  They can assume (though they should verify it) that
+heartbeat is working.  Now, one region on one resource can provide the
+node liveness information to all consumers.  Multiple resources can be
+used for redundancy, but the number is tied to the requirements of the
+installation, not to the number of total resources.
+
+However, this creates some required configuration.  A local heartbeat
+can be automatically managed by the consumer, because the consumer knows
+intrinsically what to do.  But O2CB cannot know which regions are to be
+started.  O2CB cannot know which two resources to use out of 30.  The
+administrator must tell O2CB what regions to use.
+
+The administrator has two tasks to perform.  First, they must select
+global heartbeating.  Second, they must add at least one region to the
+global heartbeat.  They do this by specifying the affected cluster, the
+UUID of the region, and the layout of the region.  In some cases, a
+device may be specified at configuration time, allowing the layout
+driver to resolve the device->UUID mapping for O2CB.
+
+In turn, O2CB must be able to start a region based on its UUID and
+layout.  The layout driver is responsible for taking the UUID,
+determining the resource it describes, and starting heartbeat on that
+region.  The requirements section of this document mostly concerns
+itself with this interaction.
+
+
+[ Requirements ]
+
+A cluster MUST have a heartbeat configuration.  If not, O2CB WILL error
+when asked about the cluster's heartbeat.
+
+If the cluster is in local mode, O2CB WILL ensure the heartbeat
+subsystem driver is loaded, but WILL NOT make any attempt to
+start, stop, or manage heartbeat regions.  Consumer software MUST
+manage, start, and stop regions associated with a particular resource.
+
+If the cluster is in global mode, O2CB WILL start configured heartbeat
+regions when the cluster is brought online, and WILL stop configured
+heartbeat regions when the cluster is brought offline.  Consumer
+software MUST NOT attempt to start, stop, or manage regions that are
+configured for use by O2CB.
+
+Consumer software MUST provide a layout driver.  The driver program
+MUST be named <layout>_hb_ctl, where <layout> is replaced by the layout
+named in the heartbeat configuration.  That driver MUST be able to start
+and stop a region given only the UUID.
+
+The layout driver MAY provide the ability to map a device name to a
+UUID.  If this is provided, O2CB WILL add a region by device name.
+
+
+[ Determining the Heartbeat Mode From Consumer Programs ]
+
+Consumers that require heartbeat must check the mode before starting a
+region.  They can ask the heartbeat configuration via the o2cb_hb_config
+program.  See the manual page for o2cb_hb_config for the appropriate
+syntax.
+
+[ Layout Driver Interaction ]
+
+A layout driver is an executable program.  It must support the following
+syntax:
+
+o To start a region: <layout>_hb_ctl -S -u <uuid>
+o To stop a region:  <layout>_hb_ctl -K -u <uuid>
+
+If the layout driver provides the ability to map a device name to a
+UUID, it must support the following syntax:
+
+o To resolve <device> to a UUID: <layout>_hb_ctl -L -d <device>
+
+This command must output the UUID on a single line.

@@ -53,6 +53,7 @@ enum hb_ctl_action {
 	HB_ACTION_START,
 	HB_ACTION_STOP,
 	HB_ACTION_REFINFO,
+	HB_ACTION_LIST,
 };
 
 struct hb_ctl_options {
@@ -310,6 +311,66 @@ static errcode_t print_hb_ref_info(struct hb_ctl_options *hbo)
 	return err;
 }
 
+static errcode_t list_dev(const char *dev,
+			  struct hb_ctl_options *hbo)
+{
+	int len;
+	char *device;
+
+	if (region_desc) {
+		fprintf(stderr, "We have a descriptor already!\n");
+		free_desc();
+	}
+	
+	len = strlen(DEV_PREFIX) + strlen(dev) + 1;
+	device = malloc(sizeof(char) * len);
+	if (!device)
+		return OCFS2_ET_NO_MEMORY;
+	snprintf(device, len, DEV_PREFIX "%s", dev);
+
+	/* Any problem with getting the descriptor is NOT FOUND */
+	if (get_desc(device))
+		goto out;
+
+	fprintf(stdout, "%s:%s\n", region_desc->r_name, device);
+
+	free_desc();
+
+out:
+	free(device);
+
+	/* Always return NOT_FOUND, which means continue */
+	return OCFS2_ET_FILE_NOT_FOUND;
+}
+
+static int run_list(struct hb_ctl_options *hbo)
+{
+	int ret = 0;
+	errcode_t err;
+	char hbuuid[33];
+
+	if (hbo->dev_str) {
+		err = get_uuid(hbo->dev_str, hbuuid);
+		if (err) {
+			com_err(progname, err,
+				"while reading uuid from device \"%s\"",
+				hbo->dev_str);
+			ret = -EINVAL;
+		} else {
+			fprintf(stdout, "%s\n", hbuuid);
+		}
+	} else {
+		err = scan_devices(list_dev, hbo);
+		if (err && (err != OCFS2_ET_FILE_NOT_FOUND)) {
+			com_err(progname, err,
+				"while listing devices");
+			ret = -EIO;
+		}
+	}
+
+	return ret;
+}
+
 static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 {
 	int c, ret;
@@ -317,7 +378,7 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 	ret = 0;
 
 	while(1) {
-		c = getopt(argc, argv, "ISKd:u:h");
+		c = getopt(argc, argv, "ISKLd:u:h");
 		if (c == -1)
 			break;
 
@@ -332,6 +393,10 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 
 		case 'S':
 			hbo->action = HB_ACTION_START;
+			break;
+
+		case 'L':
+			hbo->action = HB_ACTION_LIST;
 			break;
 
 		case 'd':
@@ -385,6 +450,11 @@ static int process_options(struct hb_ctl_options *hbo)
 			ret = -EINVAL;
 		break;
 
+	case HB_ACTION_LIST:
+		if (hbo->uuid_str)
+			ret = -EINVAL;
+		break;
+
 	case HB_ACTION_UNKNOWN:
 		ret = -EINVAL;
 		break;
@@ -407,6 +477,7 @@ static void print_usage(int err)
 	fprintf(output, "       %s -K -u <uuid>\n", progname);
 	fprintf(output, "       %s -I -d <device>\n", progname);
 	fprintf(output, "       %s -I -u <uuid>\n", progname);
+	fprintf(output, "       %s -L [-d <device>]\n", progname);
 	fprintf(output, "       %s -h\n", progname);
 }
 
@@ -438,6 +509,11 @@ int main(int argc, char **argv)
 
 	if (hbo.action == HB_ACTION_USAGE) {
 		print_usage(0);
+		goto bail;
+	}
+
+	if (hbo.action == HB_ACTION_LIST) {
+		ret = run_list(&hbo);
 		goto bail;
 	}
 
