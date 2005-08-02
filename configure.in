@@ -7,10 +7,10 @@ PACKAGE=ocfs2-tools
 AC_SUBST(PACKAGE)
 
 # Adjust these for the software version.
-MAJOR_VERSION=0
-MINOR_VERSION=99
-MICRO_VERSION=16
-EXTRA_VERSION=BETA17
+MAJOR_VERSION=1
+MINOR_VERSION=1
+MICRO_VERSION=0
+EXTRA_VERSION=ALPHA
 
 # Adjust this only to bump the RPM packaging version
 RPM_VERSION=1
