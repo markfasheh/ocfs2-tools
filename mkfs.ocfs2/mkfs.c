@@ -1582,9 +1582,6 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group_blkno);
 
 	incompat = 0;
-#ifdef CONFIG_ARCH_S390
-	incompat |= OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN;
-#endif
 	if (s->hb_dev)
 		incompat |= OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
 

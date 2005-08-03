@@ -10,12 +10,12 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
  * License, version 2,  as published by the Free Software Foundation.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
@@ -86,19 +86,8 @@
 	OCFS2_SB(sb)->s_feature_incompat &= ~(mask)
 
 #define OCFS2_FEATURE_COMPAT_SUPP	0
-#define OCFS2_FEATURE_RO_COMPAT_SUPP	0
-
-/* We're not big endian safe yet. But it has been decreed that the
- * unwashed zLinux masses must be appeased, lest they storm the castle
- * with rakes and pitchforks. Thus...
- */
-#ifdef CONFIG_ARCH_S390
-#define OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN	0x0001
-
-#define OCFS2_FEATURE_INCOMPAT_SUPP	OCFS2_FEATURE_INCOMPAT_B0RKEN_ENDIAN
-#else
 #define OCFS2_FEATURE_INCOMPAT_SUPP	0
-#endif
+#define OCFS2_FEATURE_RO_COMPAT_SUPP	0
 
 /*
  * Heartbeat-only devices are missing journals and other files.  The
@@ -255,7 +244,7 @@ typedef struct _ocfs2_extent_rec {
 	__u32 e_clusters;	/* Clusters covered by this extent */
 	__u64 e_blkno;		/* Physical disk offset, in blocks */
 /*10*/
-} ocfs2_extent_rec;	
+} ocfs2_extent_rec;
 
 typedef struct _ocfs2_chain_rec {
 	__u32 c_free;	/* Number of free bits in this chain. */
