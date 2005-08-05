@@ -50,7 +50,7 @@ Verbose mode.
 Show version and exit.
 
 .SH "SEE ALSO"
-.BR mkfs.ocfs(8)
+.BR mkfs.ocfs2(8)
 .BR fsck.ocfs2(8)
 .BR debugfs.ocfs2(8)
 .BR mounted.ocfs2(8)
