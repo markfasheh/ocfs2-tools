@@ -1,6 +1,6 @@
 .TH "ocfs2_hb_ctl" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-ocfs2_hb_ctl \- Start/stop the ocfs2 heartbeat.
+ocfs2_hb_ctl \- Starts and stops the \fIOCFS2\fR heartbeat on a given device.
 .SH "SYNOPSIS"
 .B ocfs2_hb_ctl 
 \fB-S\fR \fB-d\fR \fI<device>\fR
@@ -22,27 +22,30 @@ ocfs2_hb_ctl \- Start/stop the ocfs2 heartbeat.
 .br
 .SH "DESCRIPTION"
 .PP 
-\fBocfs2_hb_ctl\fR is used to start/stop the heartbeat. It can use either a \fIdevice\fR or \fIuuid\fR.
+\fBocfs2_hb_ctl\fR is used to start and stop the heartbeat on an \fIOCFS2\fR device.
+One can either specify a device name or the device uuid. Users are strongly urged not
+to use this tool directly. \fImount.ocfs2\fR uses this tool to start the heartbeat
+and the module uses it to stop it during umount.
 .SH "OPTIONS"
 .TP
 \fB\-S\fR
-Start the hearbeat of a \fIdevice\fR. This operation can't be performed using \fIuuid\fR.
+Starts the hearbeat of a \fIdevice\fR. The device name must be specified.
 
 .TP
 \fB\-K\fR
-Stop the hearbeat of a \fIdevice\fR. This operation can be performed by using either \fIdevice\fR or \fIuuid\fR.
+Stops the hearbeat of a \fIdevice\fR. One can specify either the device name or the device uuid.
 
 .TP
 \fB\-I\fR
-Prints out ref counts for the region. This operation can be performed by using either \fIdevice\fR or \fIuuid\fR.
+Prints out the hearbeat reference counts for the region. Once can specify either the device name or the device uuid.
 
 .TP
 \fB\-d\fR
-Specifies region by \fIdevice\fR.
+Specify region by device name.
 
 .TP
 \fB\-u\fR
-Specifies region by \fIuuid\fR.
+Specify region by device uuid.
 
 .TP
 \fB\-h\fR
@@ -50,19 +53,22 @@ Displays help and exit.
 
 .TP
 \fBuuid\fR
-Ocfs2 writes a signature to the device when it is formatted (\fBmkfs.ocfs2\fR). To obtain the uuid of a specific \fIdevice\fR, one can use the command.
+\fImkfs.ocfs2\fR creates and populates the superblock with an \fIuuid\fR. To list the \fIuuid\fR of
+device sda1, do:
 .HP 
-mounted.ocfs2 -d /dev/sdxx
-
-.SH "BUGS"
-Stuff.
+	# mounted.ocfs2 -d /dev/sda1
 
 .SH "SEE ALSO"
-.BR 
-o2cb_ctl(8), mounted.ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR ocfs2console(8)
+.BR ocfs2cdsl(8)
+.BR debugfs.ocfs2(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2004, 2005 Oracle. All rights reserved.
