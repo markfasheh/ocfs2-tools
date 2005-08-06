@@ -5,8 +5,8 @@
 General
 -------
 
-Q01 How do I get started?
-A01 a) Download and install the module and tools rpms.
+Q01	How do I get started?
+A01	a) Download and install the module and tools rpms.
 	b) Create cluster.conf and propagate to all nodes.
 	c) Configure and start the O2CB cluster service.
 	d) Format the volume.
@@ -16,8 +16,8 @@ A01 a) Download and install the module and tools rpms.
 Download and Install
 --------------------
 
-Q01 How do I download the rpms?
-A01 If you are on Novell's SLES9, upgrade to SP2 and you will have the
+Q01	How do I download the rpms?
+A01	If you are on Novell's SLES9, upgrade to SP2 and you will have the
 	required module installed. However, you will be required to install
 	ocfs2-tools and ocfs2console rpms from the distribution.
 	If you are on Red Hat's EL4, download and install the appropriate module
@@ -25,26 +25,46 @@ A01 If you are on Novell's SLES9, upgrade to SP2 and you will have the
 	module refers to one matching the kernel flavor, uniprocessor, smp or
 	hugemem.
 
-Q02 How do I install the rpms?
-A02 You can install all three rpms in one go using:
-	rpm -ivh ocfs2-tools-X.i386.rpm ocfs2console-X.i386.rpm ocfs2-2.6.9-11.ELsmp-X.i686.rpm
+Q02	How do I install the rpms?
+A02	You can install all three rpms in one go using:
+	rpm -ivh ocfs2-tools-X.i386.rpm ocfs2console-X.i386.rpm
+		ocfs2-2.6.9-11.ELsmp-X.i686.rpm
 	If you need to upgrade, do:
 	rpm -Uvh ocfs2-2.6.9-11.ELsmp-Y.i686.rpm
 
-Q03 Do I need to install the console?
-A03 No, the console is recommended but not required.
+Q03	Do I need to install the console?
+A03	No, the console is recommended but not required.
 
 Q04	What are the dependencies for installing ocfs2console?
-A04	ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or later,
-	pygtk2 (EL4) or python-gtk (SLES9) 1.99.16 or later, python 1.99.16 or later
-	and ocfs2-tools.
+A04	ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or
+	later, pygtk2 (EL4) or python-gtk (SLES9) 1.99.16 or later,
+	python 1.99.16 or later and ocfs2-tools.
+
+Q05	What modules are installed with the OCFS2 package?
+A05	a) configfs.ko
+	b) ocfs2.ko
+	c) ocfs2_dlm.ko
+	d) ocfs2_dlmfs.ko
+	e) ocfs2_nodemanager.ko
+
+Q06	What tools are installed with the tools package?
+A06	a) mkfs.ocfs2
+	b) fsck.ocfs2
+	c) tunefs.ocfs2
+	d) debugfs.ocfs2
+	e) mount.ocfs2
+	f) mounted.ocfs2
+	g) ocfs2cdsl
+	h) ocfs2_hb_ctl
+	i) o2cb_ctl
+	j) ocfs2console - installed with the console package
 ==============================================================================
 
 Configure
 ---------
 
-Q01 How do I populate /etc/ocfs2/cluster.conf?
-A01 If you have installed the console, use it to create this
+Q01	How do I populate /etc/ocfs2/cluster.conf?
+A01	If you have installed the console, use it to create this
 	configuration file. For details, refer to the user's guide.
 	If you do not have the console installed, check the Appendix in the
 	User's guide for a sample cluster.conf and the details of all the
@@ -57,15 +77,15 @@ A01 If you have installed the console, use it to create this
 O2CB Cluster Service
 --------------------
 
-Q01 How do I configure the cluster service?
-A01 # /etc/init.d/o2cb configure
+Q01	How do I configure the cluster service?
+A01	# /etc/init.d/o2cb configure
 	Enter 'y' if you want the service to load on boot and the name of
 	the cluster (as listed in /etc/ocfs2/cluster.conf).
 
 Q02	How do I start the cluster service?
-A02	a) Load the modules as:
+A02	a) To load the modules, do:
 		# /etc/init.d/o2cb load
-	b) Online it as:
+	b) To Online it, do:
 		# /etc/init.d/o2cb online [cluster_name]
 	If you have configured the cluster to load on boot, you could
 	combine the two as follows:
@@ -73,10 +93,10 @@ A02	a) Load the modules as:
 	The cluster name is not required if you have specified the name
 	during configuration.
 
-Q03 How do I stop the cluster service?
-A03	a) Offline it as:
+Q03	How do I stop the cluster service?
+A03	a) To offline it, do:
 		# /etc/init.d/o2cb offline [cluster_name]
-	b) Unload the modules as:
+	b) To unload the modules, do:
 		# /etc/init.d/o2cb unload
 	If you have configured the cluster to load on boot, you could
 	combine the two as follows:
@@ -85,7 +105,7 @@ A03	a) Offline it as:
 	during configuration.
 
 Q04	How can I learn the status of the cluster?
-A04	Use the status command as follows:
+A04	To learn the status of the cluster, do:
 		# /etc/init.d/o2cb status
 
 Q05	I am unable to get the cluster online. What could be wrong?
@@ -97,9 +117,9 @@ A05	Check whether the node name in the cluster.conf exactly matches the
 Format
 ------
 
-Q01 How do I format a volume?
-A01	You could either use the console or use mkfs.ocfs2 directly to format the
-	volume.  For console, refer to the user's guide.
+Q01	How do I format a volume?
+A01	You could either use the console or use mkfs.ocfs2 directly to format
+	the volume.  For console, refer to the user's guide.
 		# mkfs.ocfs2 -L "oracle_home" /dev/sdX
 	The above formats the volume with default block and cluster sizes,
 	which are computed based upon the size of the volume.
@@ -107,7 +127,7 @@ A01	You could either use the console or use mkfs.ocfs2 directly to format the
 	The above formats the volume for 4 nodes with a 4K block size and a
 	32K cluster size.
 
-Q02	What does the number of node slots during format mean?
+Q02	What does the number of node slots during format refer to?
 A02	The number of node slots specifies the number of nodes that can
 	concurrently mount the volume. This number is specified during
 	format and can be increased using tunefs.ocfs2. This number cannot
@@ -120,8 +140,8 @@ A03	OCFS2 allocates system files, like Journal, for each node slot.
 	increased, there is no need to specify a much larger number than one
 	plans for mounting the volume.
 
-Q04 Does the number of node slots have to be the same for all volumes?
-A04 No. This number can be different for each volume.
+Q04	Does the number of node slots have to be the same for all volumes?
+A04	No. This number can be different for each volume.
 
 Q05	What block size should I use?
 A05	A block size is the smallest unit of space addressable by the file
@@ -131,16 +151,18 @@ A05	A block size is the smallest unit of space addressable by the file
 	block is never recommended.
 
 Q06	What cluster size should I use?
-A06 A cluster size is the smallest unit of space allocated to a file to
+A06	A cluster size is the smallest unit of space allocated to a file to
 	hold the data. OCFS2 supports cluster sizes of 4K, 8K, 16K, 32K,
 	64K, 128K, 256K, 512K and 1M. For database volumes, a cluster size
 	of 128K or larger is recommended. For Oracle home, 32K to 64K.
 
-Q07	Any advantage of labeling the volumes?
-A07	As in a shared disk environment, the disk names (/dev/sdX) could
-	change from boot to boot, labeling becomes a must for easy identification.
-	You could also mount volumes by label using the (mount -L "label"
-	command). The label is changeable using the tunefs.ocfs2 utility.
+Q07	Any advantage of labelling the volumes?
+A07	As in a shared disk environment, the disk name (/dev/sdX) for a
+	particular device be different on different nodes, labelling becomes
+	a must for easy identification.
+	You could also use labels to identify volumes during mount.
+		# mount -L "label" /dir
+	The volume label is changeable using the tunefs.ocfs2 utility.
 ==============================================================================
 
 Mount
@@ -159,8 +181,8 @@ A02	To mount by label do:
 Q03	What entry to I add to /etc/fstab to mount an ocfs2 volume?
 A03	Add the following:
 		/dev/sdX	/dir	ocfs2	noauto,_netdev	0	0
-	The _netdev option indicates that the devices needs to be mounted after the
-	network is up.
+	The _netdev option indicates that the devices needs to be mounted after
+	the network is up.
 
 Q04	What all do I need to do to automount OCFS2 volumes on boot?
 A04	a) Enable o2cb service using:
@@ -180,10 +202,10 @@ A05	a) Enter mount without arguments, or
 	mount command reads the /etc/mtab to show the information.
 
 Q06	What are the /config and /dlm mountpoints for?
-A06	OCFS2 comes bundled with two in-memory filesystems configfs and ocfs2_dlmfs.
-	configfs is used by the ocfs2 tools to communicate to the in-kernel
-	node manager the list of nodes in the cluster and to the in-kernel
-	heartbeat thread the resource to heartbeat on.
+A06	OCFS2 comes bundled with two in-memory filesystems configfs and
+	ocfs2_dlmfs. configfs is used by the ocfs2 tools to communicate to the
+	in-kernel node manager the list of nodes in the cluster and to the
+	in-kernel heartbeat thread the resource to heartbeat on.
 	ocfs2_dlmfs is used by ocfs2 tools to communicate with the in-kernel
 	dlm to take and release clusterwide locks on resources.
 ==============================================================================
@@ -207,4 +229,52 @@ Q03	Does that mean I cannot have my data file and Oracle home on the
 A03	Yes. The volume containing the Oracle data files, redo-logs, etc.
 	should never be on the same volume as the distribution (including the
 	trace logs like, alert.log).
+==============================================================================
+
+Moving data from OCFS (Release 1) and OCFS2
+-------------------------------------------
+
+Q01	Can I mount OCFS volumes as OCFS2?
+A01	No. OCFS and OCFS2 are not on-disk compatible. We had to break the
+	compatibility in order to add many of the new features. At the same
+	time, we have added enough flexibility in the new disk layout so as to
+	maintain backward compatibility in the future.
+
+Q02	Can OCFS volumes and OCFS2 volumes be mounted on the same machine
+	simultaneously?
+A02	No. OCFS only works on 2.4 linux kernels (Red Hat's AS2.1/EL3 and SuSE's
+	SLES8).  OCFS2, on the other hand, only works on the 2.6 kernels
+	(Red Hat's EL4 and SuSE's SLES9).
+
+Q03	Can I access my OCFS volume on 2.6 kernels (SLES9/RHEL4)?
+A03	Yes, you can access the OCFS volume on 2.6 kernels using FSCat
+	tools, fsls and fscp. These tools can access the OCFS volumes at the
+	device layer, to list and copy the files to another filesystem.
+	FSCat tools are available on oss.oracle.com.
+
+Q04	Can I in-place convert my OCFS volume to OCFS2?
+A04	No. The on-disk layout of OCFS and OCFS2 are sufficiently different
+	that it would require a third disk (as a temporary buffer) inorder to
+	in-place upgrade the volume. With that in mind, it was decided not to
+	develop such a tool but instead provide tools to copy data from OCFS
+	without one having to mount it.
+
+Q05	What is the quickest way to move data from OCFS to OCFS2?
+A05	Quickest would mean having to perform the minimal number of copies.
+	If you have the current backup on a non-OCFS volume accessible from
+	the 2.6 kernel install, then all you would need to do is to retore
+	the backup on the OCFS2 volume(s). If you do not have a backup but
+	have a setup in which the system containing the OCFS2 volumes can
+	access the disks containing the OCFS volume, you can use the FSCat
+	tools to extract data from the OCFS volume and copy onto OCFS2.
+==============================================================================
+
+Coreutils
+---------
+
+Q01	Like with OCFS (Release 1), do I need to use o_direct enabled tools
+	to perform cp, mv, tar, etc.?
+A01	No. OCFS2 does not need the o_direct enabled tools. The file system
+	allows processes to open files in both o_direct and bufferred mode
+	concurrently.
 ==============================================================================
