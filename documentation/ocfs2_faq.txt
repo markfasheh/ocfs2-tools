@@ -278,3 +278,80 @@ A01	No. OCFS2 does not need the o_direct enabled tools. The file system
 	allows processes to open files in both o_direct and bufferred mode
 	concurrently.
 ==============================================================================
+
+PROC interface
+--------------
+
+Q01	How do I know what version number of the OCFS2?
+A01	# cat /proc/fs/ocfs2/version
+	OCFS2 1.0.0 Tue Aug  2 17:38:59 PDT 2005 (build e7bd36709a2c1cb875cf2d533a018f20)
+
+root@ca-test32:~# mounted.ocfs2 -d
+Device                FS     UUID                                  Label
+/dev/sdb1             ocfs2  e70c75a0-a08c-480a-bf50-ebda4191da30 mm_v2_dbf1
+/dev/sdb2             ocfs2  f49163e8-6288-43c4-a792-e9401fde45fa mm_v2_ctrl
+/dev/sdb3             ocfs2  2d441be2-adb6-4c52-9e19-9a7c2c485dc4 mm_v2_ocfs2
+/dev/sdb5             ocfs2  8607eae9-8e4f-4495-84e8-8db0bc9da60c mm_v2_log1
+/dev/sdb6             ocfs2  acfb7b7d-a277-4741-9791-620ea9b82670 mm_v2_log2
+/dev/sdf1             ocfs2  84749537-df45-4a97-aa28-fad63760b674 ocfs2test
+/dev/sdi2             ocfs2  5c30cc8d-ee31-414c-bc6c-a8685d738262
+/dev/sdq1             ocfs2  dca2901b-241f-406e-80e9-85dd6b452d1a oracle_home
+/dev/sdcf1            ocfs2  663764bd-1eed-4b3c-aa48-a98f0be0e574 ocfs2test
+/dev/sdcf2            ocfs2  8e2d9c21-ef47-4fea-8ac5-2306cc60455e mm_v2_log2
+/dev/sdcg1            ocfs2  663764bd-1eed-4b3c-aa48-a98f0be0e574 ocfs2test
+
+
+root@ca-test32:~# mounted.ocfs2 -f
+Device                FS     Nodes
+/dev/sdb1             ocfs2  ca-test91
+/dev/sdb2             ocfs2  ca-test91
+/dev/sdb3             ocfs2  ca-test91
+/dev/sdb5             ocfs2  ca-test91
+/dev/sdb6             ocfs2  ca-test91, ca-test90
+/dev/sdf1             ocfs2  Not mounted
+/dev/sdi2             ocfs2  ca-test34, ca-test35
+/dev/sdq1             ocfs2  Not mounted
+/dev/sdcf1            ocfs2  Not mounted
+/dev/sdcf2            ocfs2  Not mounted
+/dev/sdcg1            ocfs2  Not mounted
+/dev/sdcg2            ocfs2  Not mounted
+/dev/sdch1            ocfs2  ca-test30
+/dev/sdci1            ocfs2  ca-test30
+/dev/sdcj1            ocfs2  ca-test31, ca-test33, ca-test32, ca-test30
+/dev/sdcj2            ocfs2  ca-test31, ca-test33, ca-test32, ca-test30
+/dev/sdck1            ocfs2  ca-test31, ca-test33, ca-test32, ca-test30
+/dev/sdck2            ocfs2  ca-test31, ca-test33, ca-test32, ca-test30
+/dev/sdcl1            ocfs2  ca-test31, ca-test33, ca-test32, ca-test30
+/dev/sdcl2            ocfs2  ca-test31, ca-test33, ca-test32, ca-test30
+
+
+
+
+root@ca-test32:/ocfs2/archives# ocfs2cdsl  agent.ora
+root@ca-test32:/ocfs2/archives# ll
+total 8
+drwxr-xr-x  2 root root 4096 Aug  8 11:41 .
+drwxr-xr-x  5 root root 4096 Aug  8 11:41 ..
+lrwxrwxrwx  1 root root   50 Aug  8 11:41 agent.ora -> ../.cluster/hostname/{hostname}/archives/agent.ora
+
+
+
+
+
+
+root@ca-test32:/ocfs2/archives# cp /root/.bash_profile bash_profile
+root@ca-test32:/ocfs2/archives# ll
+total 9
+drwxr-xr-x  2 root root 4096 Aug  8 11:50 .
+drwxr-xr-x  5 root root 4096 Aug  8 11:41 ..
+lrwxrwxrwx  1 root root   50 Aug  8 11:41 agent.ora -> ../.cluster/hostname/{hostname}/archives/agent.ora
+-rw-r--r--  1 root root  191 Aug  8 11:50 bash_profile
+root@ca-test32:/ocfs2/archives# ocfs2cdsl -c bash_profile
+root@ca-test32:/ocfs2/archives# ll
+total 8
+drwxr-xr-x  2 root root 4096 Aug  8 11:50 .
+drwxr-xr-x  5 root root 4096 Aug  8 11:41 ..
+lrwxrwxrwx  1 root root   50 Aug  8 11:41 agent.ora -> ../.cluster/hostname/{hostname}/archives/agent.ora
+lrwxrwxrwx  1 root root   53 Aug  8 11:50 bash_profile -> ../.cluster/hostname/{hostname}/archives/bash_profile
+
+
