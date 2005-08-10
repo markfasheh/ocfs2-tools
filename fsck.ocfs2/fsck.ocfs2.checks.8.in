@@ -183,6 +183,23 @@ marked free.
 Answering yes will remove the unused chain and shift the remaining chains
 forward in the list.
 
+.SS "CHAIN_I_CLUSTERS"
+Chain allocator inodes have an i_clusters value that represents the number
+of clusters used by the allocator.  An inode was found whose i_clusters
+value doesn't match the number of clusters its chains cover.
+
+Answering yes updates i_clusters in the inode to reflect what was actually
+found by walking the chain.
+
+.SS "CHAIN_I_SIZE"
+Chain allocator inodes multiply the number of bytes per cluster
+by the their i_clusters value and store it in i_size.  An inode was found
+which didn't have the correct value in its i_size.
+
+Answering yes updates i_size to be the product of i_clusters and the cluster
+size.  Nothing else uses this value, and previous versions of tools didn't
+calculate it properly, so don't be too worried if this error appears.
+
 .SS "CHAIN_GROUP_BITS"
 The inode that contains an embedded chain list has fields which record the
 total number of bits covered by the chain as well as the amount free.  These 
@@ -422,6 +439,17 @@ A directory was found which doesn't contain any blocks.
 
 Answering yes to this question clears the directorie's inode and so
 deletes the directory.
+
+.SS "INODE_SIZE"
+Certain inodes record the size of the data they reference in an i_size field.
+This can be the number of bytes in a file, directory, or symlink target
+which are stored in data mapped by extents of clusters.  This error occurs
+when the extent lists are walked and the amount of data found does not match
+what is stored in i_size.
+
+Answering yes to this question updates the inode's i_size to match the amount
+of data referenced by the extent lists.  It is vitally important that i_size
+matches the extent lists and so answering yes is strongly encouraged.
 
 .SS "INODE_CLUSTERS"
 Inodes contain a record of how many clusters are allocated to them.  An inode

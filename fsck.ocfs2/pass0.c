@@ -245,6 +245,8 @@ static void unlink_group_desc(o2fsck_state *ost,
 	cr->c_total -= bg->bg_bits;
 	di->id1.bitmap1.i_used -= bg->bg_bits - bg->bg_free_bits_count;
 	di->id1.bitmap1.i_total -= bg->bg_bits;
+	di->i_clusters -= (bg->bg_bits / cl->cl_bpc);
+	di->i_size = (uint64_t)di->i_clusters * ost->ost_fs->fs_clustersize;
 
 	ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 	if (ret) {
@@ -451,6 +453,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 	uint32_t free = 0, total = 0;
 	int changed = 0, trust_next_free = 1;
 	errcode_t ret = 0;
+	uint64_t chain_bytes;
 
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		   strlen(OCFS2_INODE_SIGNATURE))) {
@@ -543,6 +546,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		};
 		ret = check_chain(ost, di, &cs, cr, buf1, buf2, &changed,
 				  allowed, forbidden);
+		/* XXX what?  not checking ret? */
 
 		if (cr->c_blkno != 0) {
 			free += cs.cs_free_bits;
@@ -595,6 +599,30 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 
 			   changed = 1;
 		}
+	}
+
+	total /= cl->cl_bpc;
+
+	if (di->i_clusters != total &&
+	    prompt(ost, PY, PR_CHAIN_I_CLUSTERS,
+		   "Allocator inode %"PRIu64" has %"PRIu32" clusters "
+		   "represtented in its allocator chains but has an "
+		   "i_clusters value of %"PRIu32". Fix this by updating "
+		   "i_clusters?", di->i_blkno, total, di->i_clusters)) {
+		di->i_clusters = total;
+		changed = 1;
+	}
+
+	chain_bytes = (uint64_t)total * ost->ost_fs->fs_clustersize;
+	if (di->i_size != chain_bytes &&
+	    prompt(ost, PY, PR_CHAIN_I_SIZE,
+		   "Allocator inode %"PRIu64" has %"PRIu32" clusters "
+		   "represtented in its allocator chain which accounts for "
+		   "%"PRIu64" total bytes, but its i_size is %"PRIu64". "
+		   "Fix this by updating i_size?", di->i_blkno,
+		   di->id1.bitmap1.i_total, chain_bytes, di->i_size)) {
+		di->i_size = chain_bytes;
+		changed = 1;
 	}
 
 	if (changed) {
@@ -781,6 +809,9 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
 
 		di->id1.bitmap1.i_used += bg->bg_bits - bg->bg_free_bits_count;
 		di->id1.bitmap1.i_total += bg->bg_bits;
+		di->i_clusters += (bg->bg_bits / di->id2.i_chain.cl_bpc);
+		di->i_size = (uint64_t)di->i_clusters *
+			     ost->ost_fs->fs_clustersize;
 
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
