@@ -32,35 +32,41 @@
 
 #include "ocfs2.h"
 
-
-errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
-                               void *buf)
+static void ocfs2_swap_dir_entry(struct ocfs2_dir_entry *dirent)
 {
-	errcode_t	retval;
+	if (cpu_is_little_endian)
+		return;
+
+	dirent->inode = bswap_64(dirent->inode);
+	dirent->rec_len = bswap_16(dirent->rec_len);
+}
+
+static errcode_t ocfs2_swap_dir_entries_direction(void *buf, uint64_t bytes,
+						  int to_cpu)
+{
 	char		*p, *end;
 	struct ocfs2_dir_entry *dirent;
 	unsigned int	name_len, rec_len;
-
- 	retval = io_read_block(fs->fs_io, block, 1, buf);
-	if (retval)
-		return retval;
+	errcode_t retval = 0;
 
 	p = (char *) buf;
-	end = (char *) buf + fs->fs_blocksize;
+	end = (char *) buf + bytes;
 	while (p < end-12) {
 		dirent = (struct ocfs2_dir_entry *) p;
 
-		dirent->inode = le64_to_cpu(dirent->inode);
-		dirent->rec_len = le16_to_cpu(dirent->rec_len);
+		if (to_cpu)
+			ocfs2_swap_dir_entry(dirent);
 		name_len = dirent->name_len;
 		rec_len = dirent->rec_len;
+		if (!to_cpu)
+			ocfs2_swap_dir_entry(dirent);
 
 		if ((rec_len < 12) || (rec_len % 4)) {
 			rec_len = 12;
 			retval = OCFS2_ET_DIR_CORRUPTED;
 		}
 
-		if (((name_len & 0xFF) + 12) > dirent->rec_len)
+		if (((name_len & 0xFF) + 12) > rec_len)
 			retval = OCFS2_ET_DIR_CORRUPTED;
 
 		p += rec_len;
@@ -68,13 +74,32 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
 	return retval;
 }
 
+errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes)
+{
+	return ocfs2_swap_dir_entries_direction(buf, bytes, 0);
+}
+errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes)
+{
+	return ocfs2_swap_dir_entries_direction(buf, bytes, 1);
+}
+
+errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
+                               void *buf)
+{
+	errcode_t	retval;
+
+ 	retval = io_read_block(fs->fs_io, block, 1, buf);
+	if (retval)
+		return retval;
+
+	return ocfs2_swap_dir_entries_to_cpu(buf, fs->fs_blocksize);
+}
+
 errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
                                 void *inbuf)
 {
 	errcode_t	retval;
-	char		*p, *end;
 	char		*buf = NULL;
-	struct ocfs2_dir_entry *dirent;
 
 	retval = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (retval)
@@ -82,24 +107,12 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
 
 	memcpy(buf, inbuf, fs->fs_blocksize);
 
-	p = buf;
-	end = buf + fs->fs_blocksize;
-	while (p < end-12) {
-		dirent = (struct ocfs2_dir_entry *) p;
-
-		if ((dirent->rec_len < 12) ||
-		    (dirent->rec_len % 4)) {
-			ocfs2_free(&buf);
-			return OCFS2_ET_DIR_CORRUPTED;
-		}
-
-		p += dirent->rec_len;
-
-		dirent->inode = cpu_to_le64(dirent->inode);
-		dirent->rec_len = cpu_to_le16(dirent->rec_len);
-	}
-
+	retval = ocfs2_swap_dir_entries_from_cpu(buf, fs->fs_blocksize);
+	if (retval)
+		goto out;
+	
  	retval = io_write_block(fs->fs_io, block, 1, buf);
+out:
 	ocfs2_free(&buf);
 	return retval;
 }

@@ -47,6 +47,7 @@ static void do_cd (char **args);
 static void do_ls (char **args);
 static void do_quit (char **args);
 static void do_help (char **args);
+static void do_hb (char **args);
 static void do_dump (char **args);
 static void do_rdump (char **args);
 static void do_cat (char **args);
@@ -72,6 +73,7 @@ static Command commands[] = {
 	{ "extent",	do_extent },
 	{ "group",	do_group },
 	{ "help",	do_help },
+	{ "hb",		do_hb },
 	{ "?",		do_help },
 	{ "lcd",	do_lcd },
 	{ "logdump",	do_logdump },
@@ -714,7 +716,6 @@ static void do_stat (char **args)
 
 	return ;
 }
-#if 0
 /*
  * do_hb()
  *
@@ -725,12 +726,9 @@ static void do_hb (char **args)
 	FILE *out;
 	int len;
 	errcode_t ret;
-	void (*dump_func) (FILE *out, char *buf);
 
 	if (check_device_open())
 		return ;
-
-	DBGFS_FATAL("internal");
 
 	ret = ocfs2_read_whole_file(gbls.fs, gbls.hb_blkno, &hbbuf, &len);
 	if (ret) {
@@ -738,8 +736,8 @@ static void do_hb (char **args)
 		goto bail;
 	}
 
-	out = open_pager();
-	dump_func(out, hbbuf);
+	out = open_pager(gbls.interactive);
+	dump_hb(out, hbbuf, len);
 	close_pager(out);
 
 bail:
@@ -748,7 +746,6 @@ bail:
 
 	return ;
 }
-#endif
 
 /*
  * do_dump()

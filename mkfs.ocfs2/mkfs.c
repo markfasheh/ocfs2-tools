@@ -1077,7 +1077,7 @@ initialize_alloc_group(State *s, const char *name,
 	memset(group->gd, 0, s->blocksize);
 
 	strcpy(group->gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
-	group->gd->bg_generation = cpu_to_le32(s->vol_generation);
+	group->gd->bg_generation = s->vol_generation;
 	group->gd->bg_size = (uint32_t)ocfs2_group_bitmap_size(s->blocksize);
 	group->gd->bg_bits = cpg * bpc;
 	group->gd->bg_chain = chain;
@@ -1396,15 +1396,15 @@ add_entry_to_directory(State *s, DirData *dir, char *name, uint64_t byte_off,
 
 	if (dir->buf) {
 		de = (struct ocfs2_dir_entry *)(dir->buf + dir->last_off);
-		rec_len = le16_to_cpu(de->rec_len);
+		rec_len = de->rec_len;
 		real_len = OCFS2_DIR_REC_LEN(de->name_len);
 
-		if ((le64_to_cpu(de->inode) == 0 && rec_len >= new_rec_len) ||
+		if ((de->inode == 0 && rec_len >= new_rec_len) ||
 		    (rec_len >= real_len + new_rec_len)) {
-			if (le64_to_cpu(de->inode)) {
+			if (de->inode) {
 				de1 =(struct ocfs2_dir_entry *) ((char *) de + real_len);
-				de1->rec_len = cpu_to_le16(le16_to_cpu(de->rec_len) - real_len);
-				de->rec_len = cpu_to_le16(real_len);
+				de1->rec_len = de->rec_len - real_len;
+				de->rec_len = real_len;
 				de = de1;
 			}
 
@@ -1438,12 +1438,12 @@ add_entry_to_directory(State *s, DirData *dir, char *name, uint64_t byte_off,
 
 	de = (struct ocfs2_dir_entry *)p;
 	de->inode = 0;
-	de->rec_len = cpu_to_le16(s->blocksize);
+	de->rec_len = s->blocksize;
 
 got_it:
 	de->name_len = strlen(name);
 
-	de->inode = cpu_to_le64(byte_off >> s->blocksize_bits);
+	de->inode = byte_off >> s->blocksize_bits;
 
 	de->file_type = type;
 
@@ -1554,10 +1554,10 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	memset(di, 0, s->blocksize);
 
 	strcpy(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE);
-	di->i_suballoc_slot = cpu_to_le16((__u16)OCFS2_INVALID_SLOT);
-	di->i_suballoc_bit = cpu_to_le16((__u16)-1);
-	di->i_generation = cpu_to_le32(s->vol_generation);
-	di->i_fs_generation = cpu_to_le32(s->vol_generation);
+	di->i_suballoc_slot = (__u16)OCFS2_INVALID_SLOT;
+	di->i_suballoc_bit = (__u16)-1;
+	di->i_generation = s->vol_generation;
+	di->i_fs_generation = s->vol_generation;
 
 	di->i_atime = 0;
 	di->i_ctime = s->format_time;
@@ -1565,31 +1565,32 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->i_blkno = super_off >> s->blocksize_bits;
 	di->i_flags = OCFS2_VALID_FL | OCFS2_SYSTEM_FL | OCFS2_SUPER_BLOCK_FL;
 	di->i_clusters = s->volume_size_in_clusters;
-	di->id2.i_super.s_major_rev_level = cpu_to_le16(OCFS2_MAJOR_REV_LEVEL);
-	di->id2.i_super.s_minor_rev_level = cpu_to_le16(OCFS2_MINOR_REV_LEVEL);
-	di->id2.i_super.s_root_blkno = cpu_to_le64(root_rec->fe_off >> s->blocksize_bits);
-	di->id2.i_super.s_system_dir_blkno = cpu_to_le64(sys_rec->fe_off >> s->blocksize_bits);
+	di->id2.i_super.s_major_rev_level = OCFS2_MAJOR_REV_LEVEL;
+	di->id2.i_super.s_minor_rev_level = OCFS2_MINOR_REV_LEVEL;
+	di->id2.i_super.s_root_blkno = root_rec->fe_off >> s->blocksize_bits;
+	di->id2.i_super.s_system_dir_blkno = sys_rec->fe_off >> s->blocksize_bits;
 	di->id2.i_super.s_mnt_count = 0;
-	di->id2.i_super.s_max_mnt_count = cpu_to_le16(OCFS2_DFL_MAX_MNT_COUNT);
+	di->id2.i_super.s_max_mnt_count = OCFS2_DFL_MAX_MNT_COUNT;
 	di->id2.i_super.s_state = 0;
 	di->id2.i_super.s_errors = 0;
-	di->id2.i_super.s_lastcheck = cpu_to_le64(s->format_time);
-	di->id2.i_super.s_checkinterval = cpu_to_le32(OCFS2_DFL_CHECKINTERVAL);
-	di->id2.i_super.s_creator_os = cpu_to_le32(OCFS2_OS_LINUX);
-	di->id2.i_super.s_blocksize_bits = cpu_to_le32(s->blocksize_bits);
-	di->id2.i_super.s_clustersize_bits = cpu_to_le32(s->cluster_size_bits);
-	di->id2.i_super.s_max_slots = cpu_to_le16(s->initial_slots);
-	di->id2.i_super.s_first_cluster_group = cpu_to_le64(s->first_cluster_group_blkno);
+	di->id2.i_super.s_lastcheck = s->format_time;
+	di->id2.i_super.s_checkinterval = OCFS2_DFL_CHECKINTERVAL;
+	di->id2.i_super.s_creator_os = OCFS2_OS_LINUX;
+	di->id2.i_super.s_blocksize_bits = s->blocksize_bits;
+	di->id2.i_super.s_clustersize_bits = s->cluster_size_bits;
+	di->id2.i_super.s_max_slots = s->initial_slots;
+	di->id2.i_super.s_first_cluster_group = s->first_cluster_group_blkno;
 
 	incompat = 0;
 	if (s->hb_dev)
 		incompat |= OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
 
-	di->id2.i_super.s_feature_incompat = cpu_to_le32(incompat);
+	di->id2.i_super.s_feature_incompat = incompat;
 
 	strcpy(di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
 
+	ocfs2_swap_inode_from_cpu(di);
 	do_pwrite(s, di, s->blocksize, super_off);
 	free(di);
 }
@@ -1637,10 +1638,10 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	memset(di, 0, s->blocksize);
 
 	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
-	di->i_generation = cpu_to_le32(s->vol_generation);
-	di->i_fs_generation = cpu_to_le32(s->vol_generation);
-	di->i_suballoc_slot = cpu_to_le16((__u16)OCFS2_INVALID_SLOT);
-        di->i_suballoc_bit = cpu_to_le16(rec->suballoc_bit);
+	di->i_generation = s->vol_generation;
+	di->i_fs_generation = s->vol_generation;
+	di->i_suballoc_slot = (__u16)OCFS2_INVALID_SLOT;
+        di->i_suballoc_bit = rec->suballoc_bit;
 	di->i_blkno = rec->fe_off >> s->blocksize_bits;
 	di->i_uid = 0;
 	di->i_gid = 0;
@@ -1660,13 +1661,13 @@ format_file(State *s, SystemFileDiskRecord *rec)
 
 	if (rec->flags & OCFS2_DEALLOC_FL) {
 		di->id2.i_dealloc.tl_count =
-			cpu_to_le16(ocfs2_truncate_recs_per_inode(s->blocksize));
+			ocfs2_truncate_recs_per_inode(s->blocksize);
 		goto write_out;
 	}
 
 	if (rec->flags & OCFS2_BITMAP_FL) {
-		di->id1.bitmap1.i_used = cpu_to_le32(rec->bi.used_bits);
-		di->id1.bitmap1.i_total = cpu_to_le32(rec->bi.total_bits);
+		di->id1.bitmap1.i_used = rec->bi.used_bits;
+		di->id1.bitmap1.i_total = rec->bi.total_bits;
 	}
 
 	if (rec->cluster_bitmap) {
@@ -1732,6 +1733,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	}
 
 write_out:
+	ocfs2_swap_inode_from_cpu(di);
 	do_pwrite(s, di, s->blocksize, rec->fe_off);
 	free(di);
 }
@@ -1774,6 +1776,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 		 * blkno until now. */
 		gd->bg_parent_dinode = parent_blkno;
 		memcpy(buf, gd, s->blocksize);
+		ocfs2_swap_group_desc((ocfs2_group_desc *)buf);
 		do_pwrite(s, buf, s->cluster_size,
 			  gd->bg_blkno << s->blocksize_bits);
 	}
@@ -1783,14 +1786,22 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 static void
 write_group_data(State *s, AllocGroup *group)
 {
-	do_pwrite(s, group->gd, s->blocksize,
-		  group->gd->bg_blkno << s->blocksize_bits);
+	uint64_t blkno = group->gd->bg_blkno;
+	ocfs2_swap_group_desc(group->gd);
+	do_pwrite(s, group->gd, s->blocksize, blkno << s->blocksize_bits);
+	ocfs2_swap_group_desc(group->gd);
 }
 
 static void
 write_directory_data(State *s, DirData *dir)
 {
+	if (dir->buf)
+		ocfs2_swap_dir_entries_from_cpu(dir->buf,
+						dir->record->file_size);
 	write_metadata(s, dir->record, dir->buf);
+	if (dir->buf)
+		ocfs2_swap_dir_entries_to_cpu(dir->buf,
+					      dir->record->file_size);
 }
 
 static void
@@ -1807,8 +1818,9 @@ write_slot_map_data(State *s, SystemFileDiskRecord *slot_map_rec)
 	memset(slot_map, 0, slot_map_rec->extent_len);
 
 	for(i = 0; i < num; i++)
-		slot_map[i] = cpu_to_le16(-1);
+		slot_map[i] = -1;
 
+	ocfs2_swap_slot_map(slot_map, num);
 	do_pwrite(s, slot_map, slot_map_rec->extent_len,
 		  slot_map_rec->extent_off);
 
@@ -1858,25 +1870,25 @@ replacement_journal_create(State *s, uint64_t journal_off)
 
 	sb = buf;
 
-	sb->s_header.h_magic     = htonl(JFS_MAGIC_NUMBER);
-	sb->s_header.h_blocktype = htonl(JFS_SUPERBLOCK_V2);
+	sb->s_header.h_magic     = JFS_MAGIC_NUMBER;
+	sb->s_header.h_blocktype = JFS_SUPERBLOCK_V2;
 
-	sb->s_blocksize = cpu_to_be32(s->blocksize);
-	sb->s_maxlen =
-		cpu_to_be32(s->journal_size_in_bytes >> s->blocksize_bits);
+	sb->s_blocksize = s->blocksize;
+	sb->s_maxlen = s->journal_size_in_bytes >> s->blocksize_bits;
 
 	if (s->blocksize == 512)
-		sb->s_first = htonl(2);
+		sb->s_first = 2;
 	else
-		sb->s_first = htonl(1);
+		sb->s_first = 1;
 
-	sb->s_start    = htonl(1);
-	sb->s_sequence = htonl(1);
-	sb->s_errno    = htonl(0);
-	sb->s_nr_users = htonl(1);
+	sb->s_start    = 1;
+	sb->s_sequence = 1;
+	sb->s_errno    = 0;
+	sb->s_nr_users = 1;
 
 	memcpy(sb->s_uuid, s->uuid, sizeof(sb->s_uuid));
 
+	ocfs2_swap_journal_superblock(sb);
 	do_pwrite(s, buf, s->journal_size_in_bytes, journal_off);
 	free(buf);
 }

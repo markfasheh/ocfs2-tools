@@ -52,12 +52,10 @@
 
 #include "ocfs1_fs_compat.h"
 
-typedef unsigned short kdev_t;
-
 #include <signal.h>
 #include <libgen.h>
 
-#include "kernel-jbd.h"
+#include "jbd.h"
 
 
 #ifndef MAX

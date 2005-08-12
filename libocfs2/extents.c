@@ -34,18 +34,68 @@
 
 #include "ocfs2.h"
 
-static void ocfs2_swap_extent_block_to_cpu(ocfs2_extent_block *eb)
+static void ocfs2_swap_extent_list_primary(ocfs2_extent_list *el)
 {
-	eb->h_blkno         = le64_to_cpu(eb->h_blkno);
-	eb->h_suballoc_slot = le16_to_cpu(eb->h_suballoc_slot);
-	eb->h_suballoc_bit  = le16_to_cpu(eb->h_suballoc_bit);
+	el->l_tree_depth = bswap_16(el->l_tree_depth);
+	el->l_count = bswap_16(el->l_count);
+	el->l_next_free_rec = bswap_16(el->l_next_free_rec);
 }
 
-static void ocfs2_swap_extent_block_to_le(ocfs2_extent_block *eb)
+static void ocfs2_swap_extent_list_secondary(ocfs2_extent_list *el)
 {
-	eb->h_blkno         = cpu_to_le64(eb->h_blkno);
-	eb->h_suballoc_slot = cpu_to_le16(eb->h_suballoc_slot);
-	eb->h_suballoc_bit  = cpu_to_le16(eb->h_suballoc_bit);
+	uint16_t i;
+
+	for(i = 0; i < el->l_next_free_rec; i++) {
+		ocfs2_extent_rec *rec = &el->l_recs[i];
+
+		rec->e_cpos = bswap_32(rec->e_cpos);
+		rec->e_clusters = bswap_32(rec->e_clusters);
+		rec->e_blkno = bswap_64(rec->e_blkno);
+	}
+}
+
+void ocfs2_swap_extent_list_from_cpu(ocfs2_extent_list *el)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_extent_list_secondary(el);
+	ocfs2_swap_extent_list_primary(el);
+}
+void ocfs2_swap_extent_list_to_cpu(ocfs2_extent_list *el)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_extent_list_primary(el);
+	ocfs2_swap_extent_list_secondary(el);
+}
+
+static void ocfs2_swap_extent_block_header(ocfs2_extent_block *eb)
+{
+
+	eb->h_suballoc_slot = bswap_16(eb->h_suballoc_slot);
+	eb->h_suballoc_bit  = bswap_16(eb->h_suballoc_bit);
+	eb->h_fs_generation = bswap_32(eb->h_fs_generation);
+	eb->h_blkno         = bswap_64(eb->h_blkno);
+	eb->h_next_leaf_blk = bswap_64(eb->h_next_leaf_blk);
+}
+
+static void ocfs2_swap_extent_block_from_cpu(ocfs2_extent_block *eb)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_extent_block_header(eb);
+	ocfs2_swap_extent_list_from_cpu(&eb->h_list);
+}
+static void ocfs2_swap_extent_block_to_cpu(ocfs2_extent_block *eb)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_extent_block_header(eb);
+	ocfs2_swap_extent_list_to_cpu(&eb->h_list);
 }
 
 errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
@@ -121,7 +171,7 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 	memcpy(blk, eb_buf, fs->fs_blocksize);
 
 	eb = (ocfs2_extent_block *) blk;
-	ocfs2_swap_extent_block_to_le(eb);
+	ocfs2_swap_extent_block_from_cpu(eb);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)

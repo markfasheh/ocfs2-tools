@@ -62,46 +62,149 @@ out_buf:
 	return ret;
 }
 
-
-/* FIXME swap rest of inode as kernel is updated */
-void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di)
+static void ocfs2_swap_inode_third(ocfs2_dinode *di)
 {
-	di->i_generation    = le32_to_cpu(di->i_generation);
-	di->i_suballoc_slot = le16_to_cpu(di->i_suballoc_slot);
-	di->i_suballoc_bit  = le16_to_cpu(di->i_suballoc_bit);
-	di->i_fs_generation = le32_to_cpu(di->i_fs_generation);
 
-	if (S_ISCHR(di->i_mode) || S_ISBLK(di->i_mode))
-		di->id1.dev1.i_rdev = le64_to_cpu(di->id1.dev1.i_rdev);
-	else if (di->i_flags & OCFS2_JOURNAL_FL)
-		di->id1.journal1.ij_flags =
-			le32_to_cpu(di->id1.journal1.ij_flags);
-	else if (di->i_flags & OCFS2_BITMAP_FL) {
-		di->id1.bitmap1.i_total = 
-			le32_to_cpu(di->id1.bitmap1.i_total);
-		di->id1.bitmap1.i_used = 
-			le32_to_cpu(di->id1.bitmap1.i_used);
-	} 
+	if (di->i_flags & OCFS2_CHAIN_FL) {
+		ocfs2_chain_list *cl = &di->id2.i_chain;
+		uint16_t i;
+
+		for (i = 0; i < cl->cl_next_free_rec; i++) {
+			ocfs2_chain_rec *rec = &cl->cl_recs[i];
+
+			rec->c_free  = bswap_32(rec->c_free);
+			rec->c_total = bswap_32(rec->c_total);
+			rec->c_blkno = bswap_64(rec->c_blkno);
+		}
+
+	} else if (di->i_flags & OCFS2_DEALLOC_FL) {
+		ocfs2_truncate_log *tl = &di->id2.i_dealloc;
+		uint16_t i;
+
+		for(i = 0; i < tl->tl_count; i++) {
+			ocfs2_truncate_rec *rec = &tl->tl_recs[i];
+
+			rec->t_start    = bswap_32(rec->t_start);
+			rec->t_clusters = bswap_32(rec->t_clusters);
+		}
+	}
 }
 
-void ocfs2_swap_inode_to_le(ocfs2_dinode *di)
+static void ocfs2_swap_inode_second(ocfs2_dinode *di)
 {
-	di->i_generation    = cpu_to_le32(di->i_generation);
-	di->i_suballoc_slot = cpu_to_le16(di->i_suballoc_slot);
-	di->i_suballoc_bit  = cpu_to_le16(di->i_suballoc_bit);
-	di->i_fs_generation = cpu_to_le32(di->i_fs_generation);
-
 	if (S_ISCHR(di->i_mode) || S_ISBLK(di->i_mode))
-		di->id1.dev1.i_rdev = cpu_to_le64(di->id1.dev1.i_rdev);
-	else if (di->i_flags & OCFS2_JOURNAL_FL)
-		di->id1.journal1.ij_flags =
-			cpu_to_le32(di->id1.journal1.ij_flags);
+		di->id1.dev1.i_rdev = bswap_64(di->id1.dev1.i_rdev);
 	else if (di->i_flags & OCFS2_BITMAP_FL) {
-		di->id1.bitmap1.i_total = 
-			cpu_to_le32(di->id1.bitmap1.i_total);
-		di->id1.bitmap1.i_used = 
-			cpu_to_le32(di->id1.bitmap1.i_used);
+		di->id1.bitmap1.i_used = bswap_32(di->id1.bitmap1.i_used);
+		di->id1.bitmap1.i_total = bswap_32(di->id1.bitmap1.i_total);
+	} else if (di->i_flags & OCFS2_JOURNAL_FL)
+		di->id1.journal1.ij_flags = bswap_32(di->id1.journal1.ij_flags);
+
+	/* we need to be careful to swap the union member that is in use.
+	 * first the ones that are explicitly marked with flags.. */ 
+	if (di->i_flags & OCFS2_SUPER_BLOCK_FL) {
+		ocfs2_super_block *sb = &di->id2.i_super;
+
+		sb->s_major_rev_level     = bswap_16(sb->s_major_rev_level);
+		sb->s_minor_rev_level     = bswap_16(sb->s_minor_rev_level);
+		sb->s_mnt_count           = bswap_16(sb->s_mnt_count);
+		sb->s_max_mnt_count       = bswap_16(sb->s_max_mnt_count);
+		sb->s_state               = bswap_16(sb->s_state);
+		sb->s_errors              = bswap_16(sb->s_errors);
+		sb->s_checkinterval       = bswap_32(sb->s_checkinterval);
+		sb->s_lastcheck           = bswap_64(sb->s_lastcheck);
+		sb->s_creator_os          = bswap_32(sb->s_creator_os);
+		sb->s_feature_compat      = bswap_32(sb->s_feature_compat);
+		sb->s_feature_ro_compat   = bswap_32(sb->s_feature_ro_compat);
+		sb->s_feature_incompat    = bswap_32(sb->s_feature_incompat);
+		sb->s_root_blkno          = bswap_64(sb->s_root_blkno);
+		sb->s_system_dir_blkno    = bswap_64(sb->s_system_dir_blkno);
+		sb->s_blocksize_bits      = bswap_32(sb->s_blocksize_bits);
+		sb->s_clustersize_bits    = bswap_32(sb->s_clustersize_bits);
+		sb->s_max_slots           = bswap_16(sb->s_max_slots);
+		sb->s_first_cluster_group = bswap_64(sb->s_first_cluster_group);
+
+	} else if (di->i_flags & OCFS2_LOCAL_ALLOC_FL) {
+		ocfs2_local_alloc *la = &di->id2.i_lab;
+
+		la->la_bm_off = bswap_32(la->la_bm_off);
+		la->la_size   = bswap_16(la->la_size);
+
+	} else if (di->i_flags & OCFS2_CHAIN_FL) {
+		ocfs2_chain_list *cl = &di->id2.i_chain;
+
+		cl->cl_cpg           = bswap_16(cl->cl_cpg);
+		cl->cl_bpc           = bswap_16(cl->cl_bpc);
+		cl->cl_count         = bswap_16(cl->cl_count);
+		cl->cl_next_free_rec = bswap_16(cl->cl_next_free_rec);
+
+	} else if (di->i_flags & OCFS2_DEALLOC_FL) {
+		ocfs2_truncate_log *tl = &di->id2.i_dealloc;
+
+		tl->tl_count = bswap_16(tl->tl_count);
+		tl->tl_used  = bswap_16(tl->tl_used);
 	}
+}
+
+static void ocfs2_swap_inode_first(ocfs2_dinode *di)
+{
+	di->i_generation    = bswap_32(di->i_generation);
+	di->i_suballoc_slot = bswap_16(di->i_suballoc_slot);
+	di->i_suballoc_bit  = bswap_16(di->i_suballoc_bit);
+	di->i_clusters      = bswap_32(di->i_clusters);
+	di->i_uid           = bswap_32(di->i_uid);
+	di->i_gid           = bswap_32(di->i_gid);
+	di->i_size          = bswap_64(di->i_size);
+	di->i_mode          = bswap_16(di->i_mode);
+	di->i_links_count   = bswap_16(di->i_links_count);
+	di->i_flags         = bswap_32(di->i_flags);
+	di->i_atime         = bswap_64(di->i_atime);
+	di->i_ctime         = bswap_64(di->i_ctime);
+	di->i_mtime         = bswap_64(di->i_mtime);
+	di->i_dtime         = bswap_64(di->i_dtime);
+	di->i_blkno         = bswap_64(di->i_blkno);
+	di->i_last_eb_blk   = bswap_64(di->i_last_eb_blk);
+	di->i_fs_generation = bswap_32(di->i_fs_generation);
+	di->i_atime_nsec    = bswap_32(di->i_atime_nsec);
+	di->i_ctime_nsec    = bswap_32(di->i_ctime_nsec);
+	di->i_mtime_nsec    = bswap_32(di->i_mtime_nsec);
+}
+
+static int has_extents(ocfs2_dinode *di)
+{
+	/* inodes flagged with other stuff in id2 */
+	if (di->i_flags & (OCFS2_SUPER_BLOCK_FL | OCFS2_LOCAL_ALLOC_FL |
+			   OCFS2_CHAIN_FL | OCFS2_DEALLOC_FL))
+		return 0;
+	/* i_flags doesn't indicate when id2 is a fast symlink */
+	if (S_ISLNK(di->i_mode) && di->i_size && di->i_clusters == 0)
+		return 0;
+
+	return 1;
+}
+
+void ocfs2_swap_inode_from_cpu(ocfs2_dinode *di)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	if (has_extents(di))
+		ocfs2_swap_extent_list_from_cpu(&di->id2.i_list);
+	ocfs2_swap_inode_third(di);
+	ocfs2_swap_inode_second(di);
+	ocfs2_swap_inode_first(di);
+}
+
+void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_inode_first(di);
+	ocfs2_swap_inode_second(di);
+	ocfs2_swap_inode_third(di);
+	if (has_extents(di))
+		ocfs2_swap_extent_list_to_cpu(&di->id2.i_list);
 }
 
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
@@ -163,7 +266,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 	memcpy(blk, inode_buf, fs->fs_blocksize);
 
 	di = (ocfs2_dinode *)blk;
-	ocfs2_swap_inode_to_le(di);
+	ocfs2_swap_inode_from_cpu(di);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)

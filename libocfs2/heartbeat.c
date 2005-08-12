@@ -30,6 +30,16 @@
 
 #include "ocfs2.h"
 
+void ocfs2_swap_disk_heartbeat_block(struct o2hb_disk_heartbeat_block *hb)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	hb->hb_seq        = bswap_64(hb->hb_seq);
+	hb->hb_cksum      = bswap_32(hb->hb_cksum);
+	hb->hb_generation = bswap_64(hb->hb_generation);
+}
+
 errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 				    struct o2cb_region_desc *desc)
 {

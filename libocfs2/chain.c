@@ -29,14 +29,19 @@
 
 #include "ocfs2.h"
 
-static void ocfs2_group_desc_to_cpu(ocfs2_group_desc *gd)
+void ocfs2_swap_group_desc(ocfs2_group_desc *gd)
 {
-	gd->bg_generation = le32_to_cpu(gd->bg_generation);
-}
+	if (cpu_is_little_endian)
+		return;
 
-static void ocfs2_group_desc_to_le(ocfs2_group_desc *gd)
-{
-	gd->bg_generation = cpu_to_le32(gd->bg_generation);
+	gd->bg_size = bswap_16(gd->bg_size);
+	gd->bg_bits = bswap_16(gd->bg_bits);
+	gd->bg_free_bits_count = bswap_16(gd->bg_free_bits_count);
+	gd->bg_chain = bswap_16(gd->bg_chain);
+	gd->bg_generation = bswap_32(gd->bg_generation);
+	gd->bg_next_group = bswap_64(gd->bg_next_group);
+	gd->bg_parent_dinode = bswap_64(gd->bg_parent_dinode);
+	gd->bg_blkno = bswap_64(gd->bg_blkno);
 }
 
 errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
@@ -68,7 +73,7 @@ errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	memcpy(gd_buf, blk, fs->fs_blocksize);
 
 	gd = (ocfs2_group_desc *)gd_buf;
-	ocfs2_group_desc_to_cpu(gd);
+	ocfs2_swap_group_desc(gd);
 
 	ret = 0;
 out:
@@ -98,7 +103,7 @@ errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	memcpy(blk, gd_buf, fs->fs_blocksize);
 
 	gd = (ocfs2_group_desc *)blk;
-	ocfs2_group_desc_to_le(gd);
+	ocfs2_swap_group_desc(gd);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)

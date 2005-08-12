@@ -1,11 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * bitops.h
- *
- * Bitmap frobbing routines for the OCFS2 userspace library.
- *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2005 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,23 +16,18 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
- *
- * Authors: Joel Becker
- *
- *  This code is a port of e2fsprogs/lib/ext2fs/bitops.h
- *  Copyright (C) 1993, 1994, 1995, 1996 Theodore Ts'o.
  */
 
-#ifndef _BITOPS_H
-#define _BITOPS_H
+#define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
+#define _LARGEFILE64_SOURCE
 
-extern int ocfs2_set_bit(int nr,void * addr);
-extern int ocfs2_clear_bit(int nr, void * addr);
-extern int ocfs2_test_bit(int nr, const void * addr);
+#include "ocfs2.h"
 
-extern int ocfs2_find_first_bit_set(void *addr, int size);
-extern int ocfs2_find_first_bit_clear(void *addr, int size);
-extern int ocfs2_find_next_bit_set(void *addr, int size, int offset);
-extern int ocfs2_find_next_bit_clear(void *addr, int size, int offset);
+void ocfs2_swap_slot_map(int16_t *map, loff_t num_slots)
+{
+	if (cpu_is_big_endian)
+		return;
 
-#endif
+	for ( ; num_slots; num_slots--, map++)
+		*map = bswap_16(*map);
+}

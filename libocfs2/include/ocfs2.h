@@ -52,12 +52,12 @@
 
 #if OCFS2_FLAT_INCLUDES
 #include "ocfs2_err.h"
-
 #include "ocfs2_fs.h"
+#include "jbd.h"
 #else
 #include <ocfs2/ocfs2_err.h>
-
 #include <ocfs2/ocfs2_fs.h>
+#include <ocfs2/jbd.h>
 #endif
 
 #include <o2dlm.h>
@@ -253,8 +253,8 @@ errcode_t ocfs2_flush(ocfs2_filesys *fs);
 errcode_t ocfs2_close(ocfs2_filesys *fs);
 void ocfs2_freefs(ocfs2_filesys *fs);
 
+void ocfs2_swap_inode_from_cpu(ocfs2_dinode *di);
 void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di);
-void ocfs2_swap_inode_to_le(ocfs2_dinode *di);
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf);
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
@@ -268,6 +268,8 @@ errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
 errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode);
 
+void ocfs2_swap_extent_list_from_cpu(ocfs2_extent_list *el);
+void ocfs2_swap_extent_list_to_cpu(ocfs2_extent_list *el);
 errcode_t ocfs2_extent_map_init(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
 void ocfs2_extent_map_free(ocfs2_cached_inode *cinode);
@@ -292,9 +294,9 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
 
+void ocfs2_swap_journal_superblock(journal_superblock_t *jsb);
 errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
 					int buflen, uint32_t jrnl_size);
-
 errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 					  uint32_t size, int flags,
 					  char **ret_jsb);
@@ -350,6 +352,8 @@ errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
 						void *priv_data),
 				    void *priv_data);
 
+errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
+errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
 			       void *buf);
 errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
@@ -440,6 +444,7 @@ errcode_t ocfs2_check_mount_point(const char *device, int *mount_flags,
 errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs, uint64_t blkno,
 				char **buf, int *len);
 
+void ocfs2_swap_disk_heartbeat_block(struct o2hb_disk_heartbeat_block *hb);
 errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
 				struct list_head *nodes_list);
 
@@ -448,6 +453,7 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list);
 errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
 				uint8_t *uuid, uint16_t uuid_len);
 
+void ocfs2_swap_group_desc(ocfs2_group_desc *gd);
 errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 				char *gd_buf);
 
@@ -568,6 +574,8 @@ errcode_t ocfs2_meta_lock(ocfs2_filesys *fs, ocfs2_cached_inode *inode,
 			  enum o2dlm_lock_level level, int flags);
 
 errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs, ocfs2_cached_inode *ci);
+
+void ocfs2_swap_slot_map(int16_t *map, loff_t num_slots);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will

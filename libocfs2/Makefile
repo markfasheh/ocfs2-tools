@@ -75,6 +75,7 @@ CFILES = 		\
 	namei.c		\
 	newdir.c	\
 	openfs.c	\
+	slot_map.c	\
 	sysfile.c	\
 	truncate.c	\
 	unix_io.c	\
@@ -87,9 +88,7 @@ HFILES =				\
 	include/dir_iterate.h		\
 	include/dir_util.h		\
 	include/extent_map.h		\
-	include/jfs_compat.h		\
-	include/jfs_user.h		\
-	include/kernel-jbd.h		\
+	include/jbd.h			\
 	include/kernel-list.h		\
 	include/kernel-rbtree.h		\
 	include/ocfs1_fs_compat.h	\

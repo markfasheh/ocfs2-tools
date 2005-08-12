@@ -129,10 +129,13 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		 * write back the new map */
 		if (oldval != val && !ost->ost_write_inode_alloc_asked) {
 			yn = prompt(ost, PY, PR_INODE_ALLOC_REPAIR,
-				    "fsck found an inode whose "
-				    "allocation does not match the chain "
-				    "allocators.  Fix the allocation of this "
-				    "and all future inodes?");
+				    "Inode %"PRIu64" is marked as %s but its "
+				    "position in the inode allocator is "
+				    "marked as %s.  Fix the allocation of this "
+				    "and all future inodes?", blkno,
+				    val ? "valid" : "invalid",
+				    oldval ? "in use" : "free");
+
 			ost->ost_write_inode_alloc_asked = 1;
 			ost->ost_write_inode_alloc = !!yn;
 			if (!ost->ost_write_inode_alloc)
@@ -149,8 +152,8 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		goto out;
 	}
 
-	verbosef("updated inode %"PRIu64" alloc to %d in slot %"PRId16"\n",
-		 blkno, val, slot);
+	verbosef("updated inode %"PRIu64" alloc to %d from %d in slot "
+		  "%"PRId16"\n", blkno, val, oldval, slot);
 
 	/* make sure the inode's fields are consistent if it's allocated */
 	if (val == 1 && slot != di->i_suballoc_slot &&
@@ -1148,24 +1151,29 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 		valid = 0;
 
-		/* we never consider inodes who don't have a signature.
-		 * We only consider inodes whose generations don't match
-		 * if the user has asked us to */
+		/* we never consider inodes who don't have a signature */
 		if (!memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
-			    strlen(OCFS2_INODE_SIGNATURE)) &&
-		    (ost->ost_fix_fs_gen ||
-		    (di->i_fs_generation == ost->ost_fs_generation))) {
+			    strlen(OCFS2_INODE_SIGNATURE))) {
 
-			if (di->i_flags & OCFS2_VALID_FL)
-				o2fsck_verify_inode_fields(fs, ost, blkno, di);
+			ocfs2_swap_inode_to_cpu(di);
 
-			if (di->i_flags & OCFS2_VALID_FL) {
-				ret = o2fsck_check_blocks(fs, ost, blkno, di);
-				if (ret)
-					goto out;
+			 /* We only consider inodes whose generations don't
+			  * match if the user has asked us to */
+			if ((ost->ost_fix_fs_gen ||
+			    (di->i_fs_generation == ost->ost_fs_generation))) {
+
+				if (di->i_flags & OCFS2_VALID_FL)
+					o2fsck_verify_inode_fields(fs, ost,
+								   blkno, di);
+				if (di->i_flags & OCFS2_VALID_FL) {
+					ret = o2fsck_check_blocks(fs, ost,
+								  blkno, di);
+					if (ret)
+						goto out;
+				}
+
+				valid = di->i_flags & OCFS2_VALID_FL;
 			}
-
-			valid = di->i_flags & OCFS2_VALID_FL;
 		}
 
 		update_inode_alloc(ost, di, blkno, valid);
