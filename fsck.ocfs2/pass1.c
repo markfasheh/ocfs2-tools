@@ -698,22 +698,10 @@ static int verify_block(ocfs2_filesys *fs,
 	return 0;
 }
 
-/* XXX this is only really building up the vb data so that the caller can
- * verify the chain allocator inode's fields.  I wonder if we shouldn't have
- * already done that in pass 0. */
-static int check_gd_block(ocfs2_filesys *fs, uint64_t gd_blkno, int chain_num,
-			   void *priv_data)
-{
-	struct verifying_blocks *vb = priv_data;
-	verbosef("found gd block %"PRIu64"\n", gd_blkno);
-	/* XXX should arguably be verifying that pass 0 marked the group desc
-	 * blocks found */
-	/* don't have bcount */
-	vb_saw_block(vb, vb->vb_num_blocks);
-	return 0;
-}
-
-
+/*
+ * this verifies i_size and i_clusters for inodes that use i_list to
+ * reference extents of data.
+ */
 static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 				     uint64_t blkno, ocfs2_dinode *di)
 {
@@ -724,27 +712,20 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		.vb_di = di,
 	};
 
-	/*
-	 * ISLNK && clusters == 0 is the only sign of an inode that doesn't
-	 * have an extent list when i_flags would have us believe it did.  
-	 * We might be able to be very clever about discovering the 
-	 * difference between i_symlink and i_list, but we don't try yet.
-	 */
-	if (di->i_flags & OCFS2_LOCAL_ALLOC_FL ||
-	    di->i_flags & OCFS2_DEALLOC_FL)
-		ret = 0;
-	else if (di->i_flags & OCFS2_CHAIN_FL)
-		ret = ocfs2_chain_iterate(fs, blkno, check_gd_block, &vb);
-	else if (S_ISLNK(di->i_mode) && di->i_clusters == 0) 
-		ret = 0;
-	else {
-		ret = o2fsck_check_extents(ost, di);
-		if (ret == 0)
-			ret = ocfs2_block_iterate_inode(fs, di, 0,
-							verify_block, &vb);
-		if (vb.vb_ret)
-			ret = vb.vb_ret;
-	}
+	/* don't bother to verify for inodes that don't have i_list,
+	 * we have to trust i_mode/i_clusters to tell us that a symlink
+	 * has put target data in the union instead of i_list */
+	if ((di->i_flags & (OCFS2_SUPER_BLOCK_FL | OCFS2_LOCAL_ALLOC_FL |
+			    OCFS2_BITMAP_FL | OCFS2_CHAIN_FL |
+			    OCFS2_DEALLOC_FL)) ||
+	    (S_ISLNK(di->i_mode) && di->i_clusters == 0))
+		return 0;
+
+	ret = o2fsck_check_extents(ost, di);
+	if (ret == 0)
+		ret = ocfs2_block_iterate_inode(fs, di, 0, verify_block, &vb);
+	if (vb.vb_ret)
+		ret = vb.vb_ret;
 
 	if (ret) {
 		com_err(whoami, ret, "while iterating over the blocks for "
@@ -778,19 +759,18 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		/* XXX clear valid flag and stuff? */
 	}
 
-#if 0 /* boy, this is just broken */
 	if (vb.vb_num_blocks > 0)
 		expected = (vb.vb_last_block + 1) * fs->fs_blocksize;
 
 	/* i_size is checked for symlinks elsewhere */
 	if (!S_ISLNK(di->i_mode) && di->i_size > expected &&
-	    prompt(ost, PY, 0, "Inode %"PRIu64" has a size of %"PRIu64" but has "
-		    "%"PRIu64" bytes of actual data. Correct the file size?",
+	    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64" has a size of "
+		   "%"PRIu64" but has %"PRIu64" bytes of actual data. "
+		   "Correct the file size?",
 		    di->i_blkno, di->i_size, expected)) {
 		di->i_size = expected;
 		o2fsck_write_inode(ost, blkno, di);
 	}
-#endif
 
 	if (vb.vb_num_blocks > 0)
 		expected = ocfs2_clusters_in_blocks(fs, vb.vb_last_block + 1);
