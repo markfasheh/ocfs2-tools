@@ -1,62 +1,82 @@
 .TH "mkfs.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-mkfs.ocfs2 \- Build an OCFS2 file system.
+mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
 \fBmkfs.ocfs2\fR [ \fB\-b\fR \fIblock\-size\fR ] [ \fB\-C\fR \fIcluster\-size\fR ] [ \fB\-L\fR \fIvolume\-label\fR ] [ \fB\-N\fR \fInumber\-of\-nodes\fR ] [ \fB\-J\fR \fIjournal\-options\fR ] [ \fB\-F\fR ] [ \fB\-q\fR ] [ \fB\-v\fR ] [ \fB\-V\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
-\fBmkfs.ocfs2\fR is used to build an OCFS2 file system on a \fIdevice\fR, usually a partition in a shared disk. In order to prevent data loss, \fBmkfs.ocfs2\fR will not format a specified device if a node has it mounted. Different than OCFS, there is no need to mount the partition exclusively after formatting it.
+\fBmkfs.ocfs2\fR is used to create an \fIOCFS2\fR file system on a \fIdevice\fR, 
+usually a partition on a shared disk. In order to prevent data loss,
+\fBmkfs.ocfs2\fR will not format an existing \fIOCFS2\fR volume if that
+volume is mounted on any node in the cluster. This tool requires the \fIO2CB\fR
+cluster service to be up.
+
 .SH "OPTIONS"
 .TP
 \fB\-b\fR \fIblock\-size\fR
-\fIBlock size\fR can be specified in bytes or kbytes. The value of the /fIblock\-size\fR can range from 512 to 4096 bytes (512-4k).
+Valid block size values are 512, 1K, 2K and 4K bytes per block. If omitted,
+a value will be hueristically determined by the file system size.  A block size
+of 512 bytes is never recommended. Choose 1K, 2K or 4K.
 
 .TP
 \fB\-C\fR \fIcluster\-size\fR
-\fIcluster\-size\fR are specified in kbytes and range from 4k to 1M. The size of the \fIcluster\-size\fR will determine the maximum filesystem size possible for the OCFS2 (32Gb\-8Tb). For database files, 128k \fIcluster\-size\fR is still recommended. For use as a generic filesystem, 4k \fIcluster\-size\fR is recommended.
+Valid cluster size values are 4K, 8K, 16K, 32K, 64K, 128K, 256K,
+512K and 1M. If omitted, a value will be hueristically determined by the
+file system size. For volumes expected to store large files, like database files,
+a \fIcluster\-size\fR of 128K or more is recommended. For others, 16K\-64K.
 
 .TP
 \fB\-L\fR \fIvolume\-label\fR
-\fIVolume\-label\fR is useful when the \fILABEL\fR option is used to mount the partitions. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
+Set the volume label for the file system. This is 
+useful for mounting\-by\-label. Limit the label length to under 64 bytes.
 
 .TP
-\fB\-N\fR \fInumber\-of\-node\-slots\fR 
-\fInumber\-of\-node\-slots\fR specify the maximum number of nodes that can simultaneously mount the partition. The maximum \fInumber\-of\-node\-slots\fR allowed is 255. That will allow a better control of allocated space and make OCFS2 more efficient.
+\fB\-N\fR \fInumber\-of\-node\-slots\fR
+Valid number ranges from 1 to 255. This number specifies the maximum
+number of nodes that can concurrently mount the partition. If omitted,
+the number defaults to 4. This number can be later increased using \fItunefs.ocfs2\fR.
 
 .TP
 \fB\-J\fR \fIjournal\-options\fR 
-Create the journal using options specified on the command\-line. Journal options are comma separated, and may take an argument using the equals ('=') sign.
-The following journal options are supported:
+Create the journal using options specified on the command\-line. Journal
+options are comma separated, and may take an argument using the equals
+('=') sign. The following journal options are supported:
 .RS 1.2i
 .TP
 \fBsize\fR=\fIjournal\-size\fR
-Create a journal of size \fIjournal\-size\fR. Valid sizes range from 4Mb to 500Mb.
+Create a journal of size \fIjournal\-size\fR. Minimum size is 4M.
+If omitted, a value is heuristically determined by the file system size.
 .RE
 
 .TP
-\fB\-F\fR 
-Force the execution of \fBmkfs.ocfs2\fR. This parameter should be used if the partition was previously used by OCFS2 or when the OCFS2 cluster service is not running.
+\fB\-F\fR
+For existing \fIOCFS2\fR volumes, \fImkfs.ocfs2\fR ensures the volume
+is not mounted on any node in the cluster before formatting. For that to
+work, \fImkfs.ocfs2\fR expects the \fIO2CB\fR cluster service to be running.
+Specify this option to disable this check.
 
 .TP
 \fB\-q\fR 
-Execute \fBmkfs.ocfs2\fR in quiet mode. 
+Quiet mode. 
 
 .TP
 \fB\-v\fR 
-Execute \fBmkfs.ocfs2\fR in verbose mode.
+Verbose mode.
 
 .TP
 \fB\-V\fR 
 Print version and exit.
 
-.SH "BUGS"
-Stuff.
-
 .SH "SEE ALSO"
-.BR ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR ocfs2console(8)
+.BR ocfs2cdsl(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2004, 2005 Oracle. All rights reserved.

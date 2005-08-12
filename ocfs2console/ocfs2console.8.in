@@ -1,24 +1,25 @@
 .TH OCFS2CONSOLE 8 "January 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH NAME
-ocfs2console - GUI frontend for OCFS2 management
+ocfs2console - GUI console for \fIOCFS2\fR.
 .SH SYNOPSIS
 .B ocfs2console
 
 .SH DESCRIPTION
 .PP
-\fBocfs2console\fP is a GUI frontend for managing OCFS2 volumes on
-the system. One can mount and unmount volumes, format, view overview
-information and individual files, and view and modify the current cluster
-configuration.
-
-.SH BUGS
-Stuff.
+\fBocfs2console\fP is a GUI front\-end for managing \fIOCFS2\fR volumes.
+This tool is especially recommended to configure the \fIO2CB\fR cluster.
+One can also use this tool to format, tune, mount and umount \fIOCFS2\fR volumes.
 
 .SH SEE ALSO
-.BR ocfs2(5)
+.BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR ocfs2cdsl(8)
 
 .SH AUTHORS
-Oracle
+Oracle Corporation
 
 .SH COPYRIGHT
-Copyright \(co 2002, 2005 Oracle
+Copyright \(co 2004, 2005 Oracle. All rights reserved.

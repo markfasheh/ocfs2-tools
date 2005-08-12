@@ -1,28 +1,54 @@
 .TH "mounted.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-mounted.ocfs2 \- detect and print nodes that have an OCFS2 partition mounted.
+mounted.ocfs2 \- Detects all \fIOCFS2\fR volumes on a system.
 .SH "SYNOPSIS"
 \fBmounted.ocfs2\fR [\fB\-d\fR] [\fB\-f\fR] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
-\fBmounted.ocfs2\fR is used to verify if there are nodes that have a specific OCFS2 \fIdevice\fR mounted.
+\fBmounted.ocfs2\fR is used to list all \fIOCFS2\fR volumes on a system.
+It can also list all the nodes that have mounted an \fIOCFS2\fR device or
+all \fIOCFS2\fR devices. The tools assumes that the nodes detected on
+the system are part of the same cluster as the one specified in
+\fI/etc/ocfs2/cluster.conf\fR.
+
 .SH "OPTIONS"
 .TP
 \fB\-d\fR
-Perform a quick detection of the \fIdevice\fR. With this option, only the label and uuid will be displayed.
+Performs a quick detection of the \fIdevice\fR or all, if none specified.
+Lists the \fIOCFS2\fR volumes along with their labels and uuids.
 
 .TP
 \fB\-f\fR
-Perform a full detection of the \fIdevice\fR. With this option, the node name will be displayed in addition to the label and uuid.
+Performs a full detection of the \fIdevice\fR or all, if none specified.
+Lists the \fIOCFS2\fR volumes along with the list of nodes mounting the
+volume. If the \fIO2CB\fR cluster service is up, it lists the node names,
+else the global node numbers.
 
-.SH "BUGS"
-Stuff.
+.SH "EXAMPLES"
+[root@node1 ~]# mounted.ocfs2 -d
+.br
+Device           FS     UUID                                  Label
+.br
+/dev/sdb1        ocfs2  26d5dcdf-6d87-45a7-b01a-b98a7791bd61  logs_0405
+.br
+
+[root@node1 ~]# mounted.ocfs2 -f
+.br
+Device           FS     Nodes
+.br
+/dev/sdb1        ocfs2  node15, node1
+.br
 
 .SH "SEE ALSO"
-.BR ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR ocfs2console(8)
+.BR ocfs2cdsl(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2004, 2005 Oracle. All rights reserved.

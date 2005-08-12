@@ -5,17 +5,29 @@ ocfs2cdsl \- Create context dependent symbolic link (CDSL).
 \fBocfs2cdsl\fR [\fB-cfnqvV\fR] [\fB\-t\fR \fIhostname|mach|os|nodenum\fR] \fIfilename\fR
 .SH "DESCRIPTION"
 .PP 
-\fBocfs2cdsl\fR is used to create context dependent symbolic link for \fIfilename\fR (file or directory) for a node. A CDSL \fIfilename\fR will have its own image for a specific node, but a common name in the OCFS2. It is very important that the \fBocfs2ctl\fR command to be issued on all nodes that are part of the cluster and to any subsequent nodes that are added. If the \fBocfs2cdsl\fR command is not executed in some of the nodes, the cdsl directory will not be accessible by them.
+\fBocfs2cdsl\fR is used to create a context dependent symbolic link for
+\fIfilename\fR (file or directory) for a node. A CDSL \fIfilename\fR will
+have its own image for a specific node, but a common name in the OCFS2. It
+is very important that the \fBocfs2ctl\fR command to be issued on all nodes
+that are part of the cluster and to any subsequent nodes that are added. If
+the \fBocfs2cdsl\fR command is not executed in some of the nodes, the cdsl
+directory will not be accessible by them.
 
 .SH "OPTIONS"
 
 .TP
 \fB\-t\fR \fIhostname|mach|os|nodenum\fR
-\fIhostname|mach|os|nodenum\fR - One of these options should be specified in order to create the CDSL. As for information, \fIhostname\fR would be the same as the output of "uname -n", \fImach\fR would be the output of "uname -m", \fIos\fR would the the output of "uname -o" and \fInodenum\fR would be the global node number for the hostname in the \fI/etc/ocfs2/cluster.conf\fR file.
+\fIhostname|mach|os|nodenum\fR - One of these options should be specified
+in order to create the CDSL. As for information, \fIhostname\fR would be
+the same as the output of "uname -n", \fImach\fR would be the output of
+"uname -m", \fIos\fR would the the output of "uname -o" and \fInodenum\fR
+would be the global node number for the hostname in the
+\fI/etc/ocfs2/cluster.conf\fR file.
 
 .TP
 \fB\-c\fR
-During the creation of the CDSL, if the file does exist, the data will be copied to the new location.
+During the creation of the CDSL, if the file does exist, the data will be
+copied to the new location.
 
 .TP
 \fB\-f\fR
@@ -23,7 +35,8 @@ Force the execution of the command.
 
 .TP
 \fB\-n\fR
-Will perform a check of all options and motions, but will not perform any change on disk.
+Will perform a check of all options and motions, but will not perform any
+change on disk.
 
 .TP
 \fB\-q\fR
@@ -39,19 +52,35 @@ Print version and exit.
 
 .SH "EXAMPLE"
 
-If one wants to have a shared ORACLE_HOME installed on an OCFS2 partition, and wants to have node specific configuration \fIfilename\fR in the same shared ORACLE_HOME, one can have the \fIfilename\fR created by ocfs2cdsl. A good example would be the directory $ORACLE_HOME/network/agent. Node1 could have its own view of the directory, which is different from Node2 view, but having the exact same full pathname.
+If one wants to have a shared ORACLE_HOME installed on an OCFS2 partition,
+and wants to have node specific configuration \fIfilename\fR in the same
+shared ORACLE_HOME, one can have the \fIfilename\fR created by ocfs2cdsl.
+A good example would be the directory $ORACLE_HOME/network/agent. Node1
+could have its own view of the directory, which is different from Node2
+view, but having the exact same full pathname.
+.br
 
-ocfs2cdsl -c -t hostname $ORACLE_HOME/network/agent
-.TP
-In the example above, a CDSL directoy will be created and the contents of the \fIagent\fR directoy will copied to the new location. If the same is to be executed on all nodes, and assuming that no changes are made to the directory, each one of the nodes would have the exact same view of the \fIagent\fR directory. In case of change in the \fIagent\fR directory after the creation of the CDSL, only the node performing the change would be able to see it. All other nodes would still have the same initial view of the \fIagent\fR directory.
-.SH "BUGS"
-Stuff.
+	# ocfs2cdsl -c -t hostname $ORACLE_HOME/network/agent
+
+.br
+In the example above, a CDSL directory will be created and the contents of the
+\fIagent\fR directory will copied to the new location. If the same is to be executed
+on all nodes, and assuming that no changes are made to the directory, each one of the
+nodes would have the exact same view of the \fIagent\fR directory. In case of change
+in the \fIagent\fR directory after the creation of the CDSL, only the node performing
+the change would be able to see it. All other nodes would still have the same initial
+view of the \fIagent\fR directory.
 
 .SH "SEE ALSO"
-.BR ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR ocfs2console(8)
+.BR debugfs.ocfs2(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2005 Oracle Corporation
+Copyright \(co 2004, 2005 Oracle. All rights reserved.

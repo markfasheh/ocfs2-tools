@@ -1,6 +1,6 @@
 .TH "o2cb_ctl" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-o2cb_ctl \- Control program for the OCFS2 Cluster Software.
+o2cb_ctl \- Control program for the \fIO2CB\fR cluster service.
 .SH "SYNOPSIS"
 .B o2cb_ctl 
 \fB\-C\fR \fB\-n\fR \fIobject\fR \fB\-t\fR type\fR [\fB\-i\fR] [\fB\-a\fR \fIattribute\fR ]
@@ -22,7 +22,9 @@ o2cb_ctl \- Control program for the OCFS2 Cluster Software.
 
 .SH "DESCRIPTION"
 .PP 
-\fBo2cb_ctl\fR is the control program for he OCFS2 Cluster Software. Oracle strongly recommends users to make use of \fIocfs2console\fR. \fBo2cb_ctl\fR is used to configure, modify and start the OCFS2 Cluster Software (file \fI/etc/ocfs2/cluster.conf\fR). One should be careful when configuring the cluster to make sure all nodes have the exact same copy of the file \fI/etc/ocfs2/cluster.conf\fR or the cluster will not work properly.
+\fBo2cb_ctl\fR is the control program for the \fIO2CB\fR cluster service.
+One is strongly recommended not to use this tool directly but instead
+use \fIocfs2console\fR to do the same.
 
 .SH "OPTIONS"
 
@@ -54,19 +56,30 @@ Print version and exit.
 
 .TP
 \fB\-a\fR \fI<attribute>\fR
-With \fB\-C\fR, \fI<attribute>\fR is in format "parameter=value", where the parameter is a valid parameter that can be set in the file \fI/etc/ocfs2/cluster.conf\fR.  With \fB\-I\fR, \fI<attribute>\fR may be "parameter", indicating an attribute to be listed in the output, or it may be "parameter==value", indicating that only objects matching "parameter=value" are to be displayed.
+With \fB\-C\fR, \fI<attribute>\fR is in format "parameter=value", where
+the parameter is a valid parameter that can be set in the file
+\fI/etc/ocfs2/cluster.conf\fR.  With \fB\-I\fR, \fI<attribute>\fR may be
+"parameter", indicating an attribute to be listed in the output, or it
+may be "parameter==value", indicating that only objects matching
+"parameter=value" are to be displayed.
 
 .TP
 \fB\-i\fR
-Valid only with \fB\-C\fR. When creating something (\fInode\fR or \fIcluster\fR), it will also install it in the live cluster. If the parameter is not specified, then only update the \fI/etc/ocfs2/cluster.conf\fR.
+Valid only with \fB\-C\fR. When creating something (\fInode\fR or
+\fIcluster\fR), it will also install it in the live cluster. If the
+parameter is not specified, then only update the
+\fI/etc/ocfs2/cluster.conf\fR.
 
 .TP
 \fB\-n\fR \fIobject\fR
-\fIobject\fR is usually the node name or cluster name. In the \fI/etc/ocfs2/cluster.conf\fR file, it would be the value of the name parameter for any of the sections (\fIcluster\fR or \fInode\fR).
+\fIobject\fR is usually the node name or cluster name. In the
+\fI/etc/ocfs2/cluster.conf\fR file, it would be the value of the name
+parameter for any of the sections (\fIcluster\fR or \fInode\fR).
 
 .TP
 \fB\-o\fR
-Valid only with \fB\-I\fR. Using this parameter, if one asks o2cb_ctl to list all nodes, it will output it in a format suitable for shell parsing.
+Valid only with \fB\-I\fR. Using this parameter, if one asks o2cb_ctl to
+list all nodes, it will output it in a format suitable for shell parsing.
 
 .TP
 \fB\-t\fR \fItype\fR
@@ -74,20 +87,26 @@ Valid only with \fB\-I\fR. Using this parameter, if one asks o2cb_ctl to list al
 
 .TP
 \fB\-u\fR
-Valid only with \fB\-D\fR. When deleting something (\fInode\fR or \fIcluster\fR), it will also remove it from the live cluster. If the parameter is not specified, then only update the \fI/etc/ocfs2/cluster.conf\fR.
+Valid only with \fB\-D\fR. When deleting something (\fInode\fR or
+\fIcluster\fR), it will also remove it from the live cluster. If the
+parameter is not specified, then only update the
+\fI/etc/ocfs2/cluster.conf\fR.
 
 .TP
 \fB\-z\fR
-Valid only with \fB\-I\fR. This is the default. If one asks o2cb_ctl to list all nodes, it will give a verbose listing.
+Valid only with \fB\-I\fR. This is the default. If one asks o2cb_ctl to
+list all nodes, it will give a verbose listing.
 
 .SH "EXAMPLES"
 
 .HP
 In the cluster "mycluster", create the node "node5":
 
-o2cb_ctl -C -n node5 -t node -a number=5 -a ip_address=139.185.118.5 -a ip_port=7777 \\
+o2cb_ctl -C -n node5 -t node -a number=5
 .br
--a cluster=mycluster
+	-a ip_address=139.185.118.5 -a ip_port=7777
+.br
+	-a cluster=mycluster
 
 .TP
 To query the IP address of node5:
@@ -99,15 +118,16 @@ To change the IP address of node5:
 
 o2cb_ctl -H -n node5 -a ip_address=130.35.68.5
 
-
-.SH "BUGS"
-Stuff.
-
 .SH "SEE ALSO"
-.BR ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR ocfs2console(8)
+.BR ocfs2cdsl(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2004, 2005 Oracle. All rights reserved.
