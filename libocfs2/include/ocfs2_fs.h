@@ -232,29 +232,27 @@ static unsigned char ocfs2_type_by_mode[S_IFMT >> S_SHIFT] = {
  * Convenience casts
  */
 #define OCFS2_RAW_SB(dinode)		(&((dinode)->id2.i_super))
-#define OCFS2_LOCAL_ALLOC(dinode)	(&((dinode)->id2.i_lab))
-
 
 /*
  * On disk extent record for OCFS2
  * It describes a range of clusters on disk.
  */
 typedef struct _ocfs2_extent_rec {
-/*00*/	__u32 e_cpos;		/* Offset into the file, in clusters */
-	__u32 e_clusters;	/* Clusters covered by this extent */
-	__u64 e_blkno;		/* Physical disk offset, in blocks */
+/*00*/	__le32 e_cpos;		/* Offset into the file, in clusters */
+	__le32 e_clusters;	/* Clusters covered by this extent */
+	__le64 e_blkno;		/* Physical disk offset, in blocks */
 /*10*/
 } ocfs2_extent_rec;
 
 typedef struct _ocfs2_chain_rec {
-	__u32 c_free;	/* Number of free bits in this chain. */
-	__u32 c_total;	/* Number of total bits in this chain */
-	__u64 c_blkno;	/* Physical disk offset (blocks) of 1st group */
+	__le32 c_free;	/* Number of free bits in this chain. */
+	__le32 c_total;	/* Number of total bits in this chain */
+	__le64 c_blkno;	/* Physical disk offset (blocks) of 1st group */
 } ocfs2_chain_rec;
 
 typedef struct _ocfs2_truncate_rec {
-	__u32 t_start;		/* 1st cluster in this log */
-	__u32 t_clusters;	/* Number of total clusters covered */
+	__le32 t_start;		/* 1st cluster in this log */
+	__le32 t_clusters;	/* Number of total clusters covered */
 } ocfs2_truncate_rec;
 
 /*
@@ -264,14 +262,14 @@ typedef struct _ocfs2_truncate_rec {
  * ocfs2_extent_block.h_list, respectively.
  */
 typedef struct _ocfs2_extent_list {
-/*00*/	__u16 l_tree_depth;		/* Extent tree depth from this
+/*00*/	__le16 l_tree_depth;		/* Extent tree depth from this
 					   point.  0 means data extents
 					   hang directly off this
 					   header (a leaf) */
-	__u16 l_count;			/* Number of extent records */
-	__u16 l_next_free_rec;		/* Next unused extent slot */
-	__u16 l_reserved1;
-	__u64 l_reserved2;		/* Pad to
+	__le16 l_count;			/* Number of extent records */
+	__le16 l_next_free_rec;		/* Next unused extent slot */
+	__le16 l_reserved1;
+	__le64 l_reserved2;		/* Pad to
 					   sizeof(ocfs2_extent_rec) */
 /*10*/	ocfs2_extent_rec l_recs[0];	/* Extent records */
 } ocfs2_extent_list;
@@ -282,11 +280,11 @@ typedef struct _ocfs2_extent_list {
  * ocfs2_dinode.id2.i_chain.
  */
 typedef struct _ocfs2_chain_list {
-/*00*/	__u16 cl_cpg;			/* Clusters per Block Group */
-	__u16 cl_bpc;			/* Bits per cluster */
-	__u16 cl_count;			/* Total chains in this list */
-	__u16 cl_next_free_rec;		/* Next unused chain slot */
-	__u64 cl_reserved1;
+/*00*/	__le16 cl_cpg;			/* Clusters per Block Group */
+	__le16 cl_bpc;			/* Bits per cluster */
+	__le16 cl_count;			/* Total chains in this list */
+	__le16 cl_next_free_rec;		/* Next unused chain slot */
+	__le64 cl_reserved1;
 /*10*/	ocfs2_chain_rec cl_recs[0];	/* Chain records */
 } ocfs2_chain_list;
 
@@ -296,9 +294,9 @@ typedef struct _ocfs2_chain_list {
  * ocfs2_dinode.id2.i_dealloc.
  */
 typedef struct _ocfs2_truncate_log {
-/*00*/	__u16 tl_count;			/* Total records in this log */
-	__u16 tl_used;			/* Number of records in use */
-	__u32 tl_reserved1;
+/*00*/	__le16 tl_count;			/* Total records in this log */
+	__le16 tl_used;			/* Number of records in use */
+	__le32 tl_reserved1;
 /*08*/	ocfs2_truncate_rec tl_recs[0];	/* Truncate records */
 } ocfs2_truncate_log;
 
@@ -308,15 +306,15 @@ typedef struct _ocfs2_truncate_log {
 typedef struct _ocfs2_extent_block
 {
 /*00*/	__u8 h_signature[8];		/* Signature for verification */
-	__u64 h_reserved1;
-/*10*/	__s16 h_suballoc_slot;		/* Slot suballocator this
+	__le64 h_reserved1;
+/*10*/	__le16 h_suballoc_slot;		/* Slot suballocator this
 					   extent_header belongs to */
-	__u16 h_suballoc_bit;		/* Bit offset in suballocator
+	__le16 h_suballoc_bit;		/* Bit offset in suballocator
 					   block group */
-	__u32 h_fs_generation;		/* Must match super block */
-	__u64 h_blkno;			/* Offset on disk, in blocks */
-/*20*/	__u64 h_reserved3;
-	__u64 h_next_leaf_blk;		/* Offset on disk, in blocks,
+	__le32 h_fs_generation;		/* Must match super block */
+	__le64 h_blkno;			/* Offset on disk, in blocks */
+/*20*/	__le64 h_reserved3;
+	__le64 h_next_leaf_blk;		/* Offset on disk, in blocks,
 					   of next leaf header pointing
 					   to data */
 /*30*/	ocfs2_extent_list h_list;	/* Extent record list */
@@ -329,29 +327,29 @@ typedef struct _ocfs2_extent_block
  * are relative to the start of ocfs2_dinode.id2.
  */
 typedef struct _ocfs2_super_block {
-/*00*/	__u16 s_major_rev_level;
-	__u16 s_minor_rev_level;
-	__u16 s_mnt_count;
-	__s16 s_max_mnt_count;
-	__u16 s_state;			/* File system state */
-	__u16 s_errors;			/* Behaviour when detecting errors */
-	__u32 s_checkinterval;		/* Max time between checks */
-/*10*/	__u64 s_lastcheck;		/* Time of last check */
-	__u32 s_creator_os;		/* OS */
-	__u32 s_feature_compat;		/* Compatible feature set */
-/*20*/	__u32 s_feature_incompat;	/* Incompatible feature set */
-	__u32 s_feature_ro_compat;	/* Readonly-compatible feature set */
-	__u64 s_root_blkno;		/* Offset, in blocks, of root directory
+/*00*/	__le16 s_major_rev_level;
+	__le16 s_minor_rev_level;
+	__le16 s_mnt_count;
+	__le16 s_max_mnt_count;
+	__le16 s_state;			/* File system state */
+	__le16 s_errors;			/* Behaviour when detecting errors */
+	__le32 s_checkinterval;		/* Max time between checks */
+/*10*/	__le64 s_lastcheck;		/* Time of last check */
+	__le32 s_creator_os;		/* OS */
+	__le32 s_feature_compat;		/* Compatible feature set */
+/*20*/	__le32 s_feature_incompat;	/* Incompatible feature set */
+	__le32 s_feature_ro_compat;	/* Readonly-compatible feature set */
+	__le64 s_root_blkno;		/* Offset, in blocks, of root directory
 					   dinode */
-/*30*/	__u64 s_system_dir_blkno;	/* Offset, in blocks, of system
+/*30*/	__le64 s_system_dir_blkno;	/* Offset, in blocks, of system
 					   directory dinode */
-	__u32 s_blocksize_bits;		/* Blocksize for this fs */
-	__u32 s_clustersize_bits;	/* Clustersize for this fs */
-/*40*/	__u16 s_max_slots;		/* Max number of simultaneous mounts
+	__le32 s_blocksize_bits;		/* Blocksize for this fs */
+	__le32 s_clustersize_bits;	/* Clustersize for this fs */
+/*40*/	__le16 s_max_slots;		/* Max number of simultaneous mounts
 					   before tunefs required */
-	__u16 s_reserved1;
-	__u32 s_reserved2;
-	__u64 s_first_cluster_group;	/* Block offset of 1st cluster
+	__le16 s_reserved1;
+	__le32 s_reserved2;
+	__le64 s_first_cluster_group;	/* Block offset of 1st cluster
 					 * group header */
 /*50*/	__u8  s_label[OCFS2_MAX_VOL_LABEL_LEN];	/* Label for mounting, etc. */
 /*90*/	__u8  s_uuid[OCFS2_VOL_UUID_LEN];	/* 128-bit uuid */
@@ -365,11 +363,11 @@ typedef struct _ocfs2_super_block {
  */
 typedef struct _ocfs2_local_alloc
 {
-/*00*/	__u32 la_bm_off;	/* Starting bit offset in main bitmap */
-	__u16 la_size;		/* Size of included bitmap, in bytes */
-	__u16 la_reserved1;
-	__u64 la_reserved2;
-/*10*/	__u8 la_bitmap[0];
+/*00*/	__le32 la_bm_off;	/* Starting bit offset in main bitmap */
+	__le16 la_size;		/* Size of included bitmap, in bytes */
+	__le16 la_reserved1;
+	__le64 la_reserved2;
+/*10*/	__u8   la_bitmap[0];
 } ocfs2_local_alloc;
 
 /*
@@ -377,47 +375,47 @@ typedef struct _ocfs2_local_alloc
  */
 typedef struct _ocfs2_dinode {
 /*00*/	__u8 i_signature[8];		/* Signature for validation */
-	__u32 i_generation;		/* Generation number */
-	__s16 i_suballoc_slot;		/* Slot suballocator this inode
+	__le32 i_generation;		/* Generation number */
+	__le16 i_suballoc_slot;		/* Slot suballocator this inode
 					   belongs to */
-	__u16 i_suballoc_bit;		/* Bit offset in suballocator
+	__le16 i_suballoc_bit;		/* Bit offset in suballocator
 					   block group */
-/*10*/	__u32 i_reserved0;
-	__u32 i_clusters;		/* Cluster count */
-	__u32 i_uid;			/* Owner UID */
-	__u32 i_gid;			/* Owning GID */
-/*20*/	__u64 i_size;			/* Size in bytes */
-	__u16 i_mode;			/* File mode */
-	__u16 i_links_count;		/* Links count */
-	__u32 i_flags;			/* File flags */
-/*30*/	__u64 i_atime;			/* Access time */
-	__u64 i_ctime;			/* Creation time */
-/*40*/	__u64 i_mtime;			/* Modification time */
-	__u64 i_dtime;			/* Deletion time */
-/*50*/	__u64 i_blkno;			/* Offset on disk, in blocks */
-	__u64 i_last_eb_blk;		/* Pointer to last extent
+/*10*/	__le32 i_reserved0;
+	__le32 i_clusters;		/* Cluster count */
+	__le32 i_uid;			/* Owner UID */
+	__le32 i_gid;			/* Owning GID */
+/*20*/	__le64 i_size;			/* Size in bytes */
+	__le16 i_mode;			/* File mode */
+	__le16 i_links_count;		/* Links count */
+	__le32 i_flags;			/* File flags */
+/*30*/	__le64 i_atime;			/* Access time */
+	__le64 i_ctime;			/* Creation time */
+/*40*/	__le64 i_mtime;			/* Modification time */
+	__le64 i_dtime;			/* Deletion time */
+/*50*/	__le64 i_blkno;			/* Offset on disk, in blocks */
+	__le64 i_last_eb_blk;		/* Pointer to last extent
 					   block */
-/*60*/	__u32 i_fs_generation;		/* Generation per fs-instance */
-	__u32 i_atime_nsec;
-	__u32 i_ctime_nsec;
-	__u32 i_mtime_nsec;
-/*70*/	__u64 i_reserved1[9];
+/*60*/	__le32 i_fs_generation;		/* Generation per fs-instance */
+	__le32 i_atime_nsec;
+	__le32 i_ctime_nsec;
+	__le32 i_mtime_nsec;
+/*70*/	__le64 i_reserved1[9];
 /*B8*/	union {
-		__u64 i_pad1;		/* Generic way to refer to this
+		__le64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
 		struct {
-			__u64 i_rdev;	/* Device number */
+			__le64 i_rdev;	/* Device number */
 		} dev1;
 		struct {		/* Info for bitmap system
 					   inodes */
-			__u32 i_used;	/* Bits (ie, clusters) used  */
-			__u32 i_total;	/* Total bits (clusters)
+			__le32 i_used;	/* Bits (ie, clusters) used  */
+			__le32 i_total;	/* Total bits (clusters)
 					   available */
 		} bitmap1;
 		struct {		/* Info for journal system
 					   inodes */
-			__u32 ij_flags;	/* Mounted, version, etc. */
-			__u32 ij_pad;
+			__le32 ij_flags;	/* Mounted, version, etc. */
+			__le32 ij_pad;
 		} journal1;
 	} id1;				/* Inode type dependant 1 */
 /*C0*/	union {
@@ -437,8 +435,8 @@ typedef struct _ocfs2_dinode {
  * Packed as this structure could be accessed unaligned on 64-bit platforms
  */
 struct ocfs2_dir_entry {
-/*00*/	__u64   inode;                  /* Inode number */
-	__u16   rec_len;                /* Directory entry length */
+/*00*/	__le64   inode;                  /* Inode number */
+	__le16   rec_len;                /* Directory entry length */
 	__u8    name_len;               /* Name length */
 	__u8    file_type;
 /*0C*/	char    name[OCFS2_MAX_FILENAME_LEN];   /* File name */
@@ -451,20 +449,20 @@ struct ocfs2_dir_entry {
 typedef struct _ocfs2_group_desc
 {
 /*00*/	__u8    bg_signature[8];        /* Signature for validation */
-	__u16   bg_size;                /* Size of included bitmap in
+	__le16   bg_size;                /* Size of included bitmap in
 					   bytes. */
-	__u16   bg_bits;                /* Bits represented by this
+	__le16   bg_bits;                /* Bits represented by this
 					   group. */
-	__u16	bg_free_bits_count;     /* Free bits count */
-	__u16   bg_chain;               /* What chain I am in. */
-/*10*/	__u32   bg_generation;
-	__u32	bg_reserved1;
-	__u64   bg_next_group;          /* Next group in my list, in
+	__le16	bg_free_bits_count;     /* Free bits count */
+	__le16   bg_chain;               /* What chain I am in. */
+/*10*/	__le32   bg_generation;
+	__le32	bg_reserved1;
+	__le64   bg_next_group;          /* Next group in my list, in
 					   blocks */
-/*20*/	__u64   bg_parent_dinode;       /* dinode which owns me, in
+/*20*/	__le64   bg_parent_dinode;       /* dinode which owns me, in
 					   blocks */
-	__u64   bg_blkno;               /* Offset on disk, in blocks */
-/*30*/	__u64   bg_reserved2[2];
+	__le64   bg_blkno;               /* Offset on disk, in blocks */
+/*30*/	__le64   bg_reserved2[2];
 /*40*/	__u8    bg_bitmap[0];
 } ocfs2_group_desc;
 
@@ -495,7 +493,7 @@ static inline int ocfs2_chain_recs_per_inode(struct super_block *sb)
 	return size / sizeof(struct _ocfs2_chain_rec);
 }
 
-static inline int ocfs2_extent_recs_per_eb(struct super_block *sb)
+static inline u16 ocfs2_extent_recs_per_eb(struct super_block *sb)
 {
 	int size;
 
@@ -505,9 +503,9 @@ static inline int ocfs2_extent_recs_per_eb(struct super_block *sb)
 	return size / sizeof(struct _ocfs2_extent_rec);
 }
 
-static inline int ocfs2_local_alloc_size(struct super_block *sb)
+static inline u16 ocfs2_local_alloc_size(struct super_block *sb)
 {
-	int size;
+	u16 size;
 
 	size = sb->s_blocksize -
 		offsetof(struct _ocfs2_dinode, id2.i_lab.la_bitmap);

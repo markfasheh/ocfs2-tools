@@ -50,6 +50,9 @@
 #include <kernel-list.h>
 #include <kernel-rbtree.h>
 
+#include <o2dlm.h>
+#include <o2cb.h>
+
 #if OCFS2_FLAT_INCLUDES
 #include "ocfs2_err.h"
 #include "ocfs2_fs.h"
@@ -59,9 +62,6 @@
 #include <ocfs2/ocfs2_fs.h>
 #include <ocfs2/jbd.h>
 #endif
-
-#include <o2dlm.h>
-#include <o2cb.h>
 
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		(OCFS2_FEATURE_INCOMPAT_SUPP | OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV)
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP
