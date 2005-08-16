@@ -461,6 +461,7 @@ errcode_t o2cb_init(void)
 	return 0;
 }
 
+/* o2cb_get_region_attribute() would just be s/set/get/ of this function */
 static errcode_t o2cb_set_region_attribute(const char *cluster_name,
 					   const char *region_name,
 					   const char *attr_name,
@@ -476,24 +477,6 @@ static errcode_t o2cb_set_region_attribute(const char *cluster_name,
 		return O2CB_ET_INTERNAL_FAILURE;
 
 	return o2cb_set_attribute(attr_path, attr_value);
-}
-
-static errcode_t o2cb_get_region_attribute(const char *cluster_name,
-					   const char *region_name,
-					   const char *attr_name,
-					   char *attr_value,
-					   size_t count)
-{
-	int ret;
-	char attr_path[PATH_MAX];
-
-	ret = snprintf(attr_path, PATH_MAX - 1,
-		       O2CB_FORMAT_HEARTBEAT_REGION_ATTR,
-		       cluster_name, region_name, attr_name);
-	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
-		return O2CB_ET_INTERNAL_FAILURE;
-
-	return o2cb_get_attribute(attr_path, attr_value, count);
 }
 
 static errcode_t _fake_default_cluster(char *cluster)
