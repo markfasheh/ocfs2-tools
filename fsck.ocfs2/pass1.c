@@ -530,6 +530,12 @@ out:
 	if (clear) {
 		di->i_flags &= ~OCFS2_VALID_FL;
 		o2fsck_write_inode(ost, blkno, di);
+		/* if we cleared the inode then we're going to be 
+		 * forbidding directory entries from referencing it.. we
+		 * should back-out the inode count we found in the inode
+		 * so that we're not surprised when there aren't any
+		 * references to it in pass 4 */
+		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno, 0);
 	}
 }
 
