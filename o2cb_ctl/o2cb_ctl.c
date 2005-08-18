@@ -67,6 +67,7 @@ struct _O2CBContext
     GList *oc_objects;
     GList *oc_attrs;
     gboolean oc_compact_info;
+    gboolean oc_changed;
     gboolean oc_modify_running;
     O2CBConfig *oc_config;
 };
@@ -987,6 +988,7 @@ static gint run_change_cluster_one(O2CBContext *ctxt,
         rc = o2cb_cluster_set_name(cluster, val);
         if (rc)
             return rc;
+        ctxt->oc_changed = TRUE;
     }
     /* FIXME: Should perhaps store config before changing online info */
     if (attr_set(ctxt, "online"))
@@ -1083,7 +1085,8 @@ static gint run_change(O2CBContext *ctxt)
         goto out_error;
     }
 
-    rc = write_config(ctxt);
+    if (ctxt->oc_changed)
+        rc = write_config(ctxt);
 
 out_error:
     return rc;
@@ -1355,7 +1358,7 @@ static gint run_create(O2CBContext *ctxt)
 
 out_error:
     return rc;
-}  /* run_change() */
+}  /* run_create() */
 
 gint main(gint argc, gchar *argv[])
 {
