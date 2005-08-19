@@ -92,6 +92,9 @@ O2CB_ENABLED=${O2CB_ENABLED:-false}
 # O2CB_BOOTCLUSTER: If not empty, the name of a cluster to start.
 O2CB_BOOTCLUSTER=${O2CB_BOOTCLUSTER}
 
+# O2CB_HEARTBEAT_THRESHOLD: Iterations before a node is considered dead.
+O2CB_HEARTBEAT_THRESHOLD=${O2CB_HEARTBEAT_THRESHOLD}
+
 EOF
 
     if [ $? != 0 ]
@@ -480,6 +483,9 @@ load()
         eval ${LOAD_ACTIONS[i]}
         if_fail "$?"
     done
+    if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
+        echo "$O2CB_HEARTBEAT_THRESHOLD" > /proc/fs/ocfs2_nodemanager/hb_dead_threshold
+    fi
 }
 
 load_status()
