@@ -84,7 +84,7 @@ AC_SUBST(COM_ERR_LIBS)
 
 UUID_LIBS=
 AC_CHECK_LIB(uuid, uuid_unparse, UUID_LIBS=-luuid)
-if test "x$COM_ERR_LIBS" = "x"; then
+if test "x$UUID_LIBS" = "x"; then
   AC_MSG_ERROR([Unable to find uuid library])
 fi
 AC_CHECK_HEADER(uuid/uuid.h, :,
