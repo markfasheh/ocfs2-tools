@@ -11,6 +11,10 @@ A01	a) Download and install the module and tools rpms.
 	c) Configure and start the O2CB cluster service.
 	d) Format the volume.
 	e) Mount the volume.
+
+Q02	How do I know the version number running?
+A02	# cat /proc/fs/ocfs2/version
+	OCFS2 1.0.0 Tue Aug  2 17:38:59 PDT 2005 (build e7bd36709a2c1cb875cf2d533a018f20)
 ==============================================================================
 
 Download and Install
@@ -293,15 +297,11 @@ A01	No. OCFS2 does not need the o_direct enabled tools. The file system
 	concurrently.
 ==============================================================================
 
-PROC interface
---------------
+Troubleshooting
+---------------
 
-Q01	How do I know what version number?
-A01	# cat /proc/fs/ocfs2/version
-	OCFS2 1.0.0 Tue Aug  2 17:38:59 PDT 2005 (build e7bd36709a2c1cb875cf2d533a018f20)
-
-Q02	How do I enable and disable tracing?
-A02	To list all the debug bits along with their statuses, do:
+Q01	How do I enable and disable tracing?
+A01	To list all the debug bits along with their statuses, do:
 		# cat /proc/fs/ocfs2_nodemanager/log_mask
 	To enable tracing the bit SUPER, do:
 		# echo "SUPER allow" > /proc/fs/ocfs2_nodemanager/log_mask
@@ -310,6 +310,15 @@ A02	To list all the debug bits along with their statuses, do:
 	To totally turn off tracing the SUPER bit, as in, turn off
 	tracing even if some other bit is enabled for the same, do:
 		# echo "SUPER deny" > /proc/fs/ocfs2_nodemanager/log_mask
+
+Q02	Is there a more convenient way to enable and disable tracing?
+A02	Yes, using debugfs.ocfs2.
+	To list all the debug bits along with their statuses, do:
+		# debugfs.ocfs2 -l
+	To enable heartbeat tracing, do:
+		# debugfs.ocfs2 -l HEARTBEAT ENTRY EXIT allow 
+	To disable heartbeat tracing, do:
+		# debugfs.ocfs2 -l HEARTBEAT off ENTRY EXIT deny
 ==============================================================================
 
 Directories
