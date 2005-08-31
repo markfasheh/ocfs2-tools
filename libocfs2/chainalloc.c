@@ -307,7 +307,7 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 	if (cinode->ci_chains)
 		ocfs2_bitmap_free(cinode->ci_chains);
 
-	total_bits = fs->fs_clusters *
+	total_bits = (uint64_t)fs->fs_clusters *
 		cinode->ci_inode->id2.i_chain.cl_bpc;
 
 	snprintf(name, sizeof(name),

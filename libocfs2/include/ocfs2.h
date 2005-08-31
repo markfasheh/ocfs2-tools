@@ -433,7 +433,7 @@ errcode_t ocfs2_bitmap_clear_range(ocfs2_bitmap *bitmap, uint64_t len,
 				   uint64_t first_bit);
 
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
-				uint32_t *retblocks);
+				uint64_t *retblocks);
 
 errcode_t ocfs2_get_device_sectsize(const char *file, int *sectsize);
 

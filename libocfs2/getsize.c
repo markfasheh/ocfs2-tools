@@ -124,7 +124,7 @@ static int valid_offset (int fd, off64_t offset)
  * Returns the number of blocks in a partition
  */
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
-				 uint32_t *retblocks)
+				 uint64_t *retblocks)
 {
 	int	fd;
 	int valid_blkgetsize64 = 1;

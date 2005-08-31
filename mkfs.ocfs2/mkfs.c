@@ -817,7 +817,7 @@ fill_defaults(State *s)
 	errcode_t err;
 	uint32_t blocksize;
 	int sectsize;
-	uint32_t ret;
+	uint64_t ret;
 	struct ocfs2_cluster_group_sizes cgs;
 	uint64_t tmp;
 
