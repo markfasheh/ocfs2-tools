@@ -86,8 +86,8 @@ static errcode_t get_next_group(ocfs2_inode_scan *scan)
 	if (!scan->cur_blkno)
 		abort();
 
-	ret = io_read_block(scan->fs->fs_io, scan->cur_blkno, 1,
-			    (char *)scan->cur_desc);
+	ret = ocfs2_read_group_desc(scan->fs, scan->cur_blkno,
+				    (char *)scan->cur_desc);
 	if (ret)
 		return (ret);
 
@@ -175,10 +175,10 @@ static errcode_t fill_group_buffer(ocfs2_inode_scan *scan)
 	if (num_blocks > scan->buffer_blocks)
 		num_blocks = scan->buffer_blocks;
 
-	ret = io_read_block(scan->fs->fs_io,
-			    scan->cur_blkno,
-			    num_blocks,
-			    scan->group_buffer);
+       ret = io_read_block(scan->fs->fs_io,
+			   scan->cur_blkno,
+			   num_blocks,
+			   scan->group_buffer);
 	if (ret)
 		return ret;
 
@@ -239,7 +239,7 @@ errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,
 			return ret;
 	}
 	
-	/* FIXME: Should swap the inode */
+	/* the caller swap after verifying the inode's signature */
 	memcpy(inode, scan->cur_block, scan->fs->fs_blocksize);
 
 	scan->cur_block += scan->fs->fs_blocksize;

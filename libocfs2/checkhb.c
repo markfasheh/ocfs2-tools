@@ -63,8 +63,8 @@ static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, uint8_t *node_nums)
 	if (!ret) {
 		slots = (int16_t *)slotbuf;
 		for (i = 0, j = 0; i < num_nodes; ++i)
-			if (slots[i] != -1)
-				node_nums[j++] = (uint8_t)slots[i];
+			if (le16_to_cpu(slots[i]) != (uint16_t)OCFS2_INVALID_SLOT)
+				node_nums[j++] = le16_to_cpu(slots[i]);
 	}
 
 	if (slotbuf)

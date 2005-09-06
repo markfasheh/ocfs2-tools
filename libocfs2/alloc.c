@@ -163,7 +163,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t slot,
 
 	if (flags & OCFS2_DEALLOC_FL) {
 		tl_recs = ocfs2_truncate_recs_per_inode(fs->fs_blocksize);
-		di->id2.i_dealloc.tl_count = cpu_to_le16(tl_recs);
+		di->id2.i_dealloc.tl_count = tl_recs;
 		return ;
 	}
 

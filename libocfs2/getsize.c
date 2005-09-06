@@ -18,6 +18,9 @@
 #define HAVE_ERRNO_H 1
 #define HAVE_LINUX_FD_H 1
 #define HAVE_OPEN64 1
+#define HAVE_SYS_IOCTL_H 1
+#define HAVE_SYS_STAT_H 1
+#define HAVE_FSTAT64 1
 
 #define _LARGEFILE_SOURCE
 #define _LARGEFILE64_SOURCE
@@ -30,20 +33,26 @@
 #include <errno.h>
 #endif
 #include <fcntl.h>
-#ifdef HAVE_LINUX_FD_H
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
+#endif
+#ifdef HAVE_LINUX_FD_H
 #include <linux/fd.h>
 #endif
 #ifdef HAVE_SYS_DISKLABEL_H
-#include <sys/ioctl.h>
 #include <sys/disklabel.h>
-#endif /* HAVE_SYS_DISKLABEL_H */
+#endif
 #ifdef HAVE_SYS_DISK_H
+#ifdef HAVE_SYS_QUEUE_H
 #include <sys/queue.h> /* for LIST_HEAD */
+#endif
 #include <sys/disk.h>
-#endif /* HAVE_SYS_DISK_H */
+#endif
 #ifdef __linux__
 #include <sys/utsname.h>
+#endif
+#if HAVE_SYS_STAT_H
+#include <sys/stat.h>
 #endif
 
 #if defined(__linux__) && defined(_IO) && !defined(BLKGETSIZE)
@@ -55,9 +64,6 @@
 #endif
 
 #ifdef APPLE_DARWIN
-#include <sys/ioctl.h>
-#include <sys/disk.h>
-
 #define BLKGETSIZE DKIOCGETBLOCKCOUNT32
 #endif /* APPLE_DARWIN */
 
@@ -67,14 +73,22 @@
 #include "windows.h"
 #include "winioctl.h"
 
+#if (_WIN32_WINNT >= 0x0500)
+#define HAVE_GET_FILE_SIZE_EX 1
+#endif
+
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
-				uint32_t *retblocks)
+				uint64_t *retblocks)
 {
 	HANDLE dev;
 	PARTITION_INFORMATION pi;
 	DISK_GEOMETRY gi;
 	DWORD retbytes;
+#ifdef HAVE_GET_FILE_SIZE_EX
 	LARGE_INTEGER filesize;
+#else
+	DWORD filesize;
+#endif /* HAVE_GET_FILE_SIZE_EX */
 
 	dev = CreateFile(file, GENERIC_READ, 
 			 FILE_SHARE_READ | FILE_SHARE_WRITE ,
@@ -99,9 +113,18 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 			     gi.TracksPerCylinder *
 			     gi.Cylinders.QuadPart / blocksize;
 
+#ifdef HAVE_GET_FILE_SIZE_EX
 	} else if (GetFileSizeEx(dev, &filesize)) {
 		*retblocks = filesize.QuadPart / blocksize;
 	}
+#else
+	} else {
+		filesize = GetFileSize(dev, NULL);
+		if (INVALID_FILE_SIZE != filesize) {
+			*retblocks = filesize / blocksize;
+		}
+	}
+#endif /* HAVE_GET_FILE_SIZE_EX */
 
 	CloseHandle(dev);
 	return 0;
@@ -124,9 +147,9 @@ static int valid_offset (int fd, off64_t offset)
  * Returns the number of blocks in a partition
  */
 errcode_t ocfs2_get_device_size(const char *file, int blocksize,
-				 uint32_t *retblocks)
+				uint64_t *retblocks)
 {
-	int	fd;
+	int	fd, rc = 0;
 	int valid_blkgetsize64 = 1;
 #ifdef __linux__
 	struct 		utsname ut;
@@ -157,9 +180,8 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 		if ((sizeof(*retblocks) < sizeof(unsigned long long))
 		    && ((size64 / (blocksize / 512)) > 0xFFFFFFFF))
 			return EFBIG;
-		close(fd);
 		*retblocks = size64 / (blocksize / 512);
-		return 0;
+		goto out;
 	}
 #endif
 
@@ -172,28 +194,27 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 #endif
 	if (valid_blkgetsize64 &&
 	    ioctl(fd, BLKGETSIZE64, &size64) >= 0) {
-		if ((sizeof(*retblocks) < sizeof(unsigned long long))
-		    && ((size64 / blocksize) > 0xFFFFFFFF))
-			return EFBIG;
-		close(fd);
+		if ((sizeof(*retblocks) < sizeof(unsigned long long)) &&
+		    ((size64 / blocksize) > 0xFFFFFFFF)) {
+			rc = EFBIG;
+			goto out;
+		}
 		*retblocks = size64 / blocksize;
-		return 0;
+		goto out;
 	}
 #endif
 
 #ifdef BLKGETSIZE
 	if (ioctl(fd, BLKGETSIZE, &size) >= 0) {
-		close(fd);
 		*retblocks = size / (blocksize / 512);
-		return 0;
+		goto out;
 	}
 #endif
 
 #ifdef FDGETPRM
 	if (ioctl(fd, FDGETPRM, &this_floppy) >= 0) {
-		close(fd);
 		*retblocks = this_floppy.size / (blocksize / 512);
-		return 0;
+		goto out;
 	}
 #endif
 
@@ -204,7 +225,7 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 	    u_int bs;
 	    if (ioctl(fd, DIOCGMEDIASIZE, &ms) >= 0) {
 		*retblocks = ms / blocksize;
-		return 0;
+		goto out;
 	    }
 	}
 #elif defined(DIOCGDINFO)
@@ -222,13 +243,26 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 	if (part >= 0 && (ioctl(fd, DIOCGDINFO, (char *)&lab) >= 0)) {
 		pp = &lab.d_partitions[part];
 		if (pp->p_size) {
-			close(fd);
 			*retblocks = pp->p_size / (blocksize / 512);
-			return 0;
+			goto out;
 		}
 	}
 #endif /* defined(DIOCG*) */
 #endif /* HAVE_SYS_DISKLABEL_H */
+
+	{
+#ifdef HAVE_FSTAT64
+		struct stat64   st;
+		if (fstat64(fd, &st) == 0)
+#else
+		struct stat	st;
+		if (fstat(fd, &st) == 0)
+#endif
+			if (S_ISREG(st.st_mode)) {
+				*retblocks = st.st_size / blocksize;
+				goto out;
+			}
+	}
 
 	/*
 	 * OK, we couldn't figure it out by using a specialized ioctl,
@@ -248,9 +282,14 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 			high = mid;
 	}
 	valid_offset (fd, 0);
+	size64 = low + 1;
+	if ((sizeof(*retblocks) < sizeof(unsigned long long))
+	    && ((size64 / blocksize) > 0xFFFFFFFF))
+		return EFBIG;
+	*retblocks = size64 / blocksize;
+out:
 	close(fd);
-	*retblocks = (low + 1) / blocksize;
-	return 0;
+	return rc;
 }
 
 #endif /* WIN32 */
@@ -258,7 +297,7 @@ errcode_t ocfs2_get_device_size(const char *file, int blocksize,
 #ifdef DEBUG_EXE
 int main(int argc, char **argv)
 {
-	uint32_t blocks;
+	uint64_t blocks;
 	int	 retval;
 	
 	if (argc < 2) {
@@ -272,7 +311,7 @@ int main(int argc, char **argv)
 			"while calling ocfs2_get_device_size");
 		exit(1);
 	}
-	printf("Device %s has %d 1k blocks.\n", argv[1], blocks);
+	printf("Device %s has %"PRIu64" 1k blocks.\n", argv[1], blocks);
 	exit(0);
 }
 #endif

@@ -1,0 +1,78 @@
+#! /bin/bash
+# Copyright (c) 2005 Oracle
+# All rights reserved.
+#
+# /etc/init.d/ocfs2
+#
+### BEGIN INIT INFO
+# Provides:       ocfs2
+# Required-Start: $network $portmap o2cb
+# Required-Stop:
+# X-UnitedLinux-Should-Start:
+# X-UnitedLinux-Should-Stop:
+# Default-Start:  3 5
+# Default-Stop:
+# Description:   Mounts OCFS2 volumes
+### END INIT INFO
+
+. /etc/rc.status
+
+OCFS2MTAB=`LC_ALL=C awk '!/^#/ && $3 == "ocfs2"  { print $2 }' /proc/mounts`
+OCFS2FSTAB=`LC_ALL=C awk '!/^#/ && $3 == "ocfs2" && $4 !~ /noauto/ { print $2 }' /etc/fstab`
+
+rc_reset
+case "$1" in
+    start|reload)
+	echo -n "Starting Oracle Cluster File System (OCFS2)"
+	if [ -n "$OCFS2FSTAB" ] ; then
+	  mount -a -t ocfs2
+	  rc_status
+	  rc_status -v
+	else
+	  rc_status -u
+	fi
+	;;
+    stop)
+	echo -n "Stopping Oracle Cluster File System (OCFS2)"
+	if [ -n "$OCFS2MTAB" ] ; then
+	  umount -a -t ocfs2
+	  rc_status -v
+	else
+	  rc_status -u
+	fi
+	;;
+    restart|force-reload)
+	$0 stop
+	$0 start
+	rc_status
+	;;
+    status)
+	if [ -f /proc/mounts ] ; then
+		[ -n "$OCFS2FSTAB" ] && {
+			echo $"Configured OCFS2 mountpoints: "
+			for fs in $OCFS2FSTAB; do echo $fs ; done
+		}
+
+		[ -n "$OCFS2MTAB" ] && {
+			echo $"Active OCFS2 mountpoints: "
+			for fs in $OCFS2MTAB; do echo $fs ; done
+		}
+	else
+		rc_failed 3
+	fi
+        rc_status -v
+	;;
+    try-restart|condrestart)
+	$0 status
+	if test $? = 0; then
+	    $0 restart
+	else
+	    rc_reset
+	fi
+	rc_status
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|reload|force-reload|restart|try-restart}"
+	exit 1
+esac
+rc_exit

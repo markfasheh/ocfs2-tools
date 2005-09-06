@@ -1,6 +1,6 @@
 .TH "fsck.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-fsck.ocfs2 \- Check an OCFS2 file system.
+fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
 \fBfsck.ocfs2\fR [ \fB\-fFGnuvVy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
@@ -82,7 +82,13 @@ The exit code returned by \fBfsck.ocfs2\fR is the sum of the following condition
 .br
 
 .SH "SEE ALSO"
-.BR ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR ocfs2console(8)
+.BR ocfs2cdsl(8)
+
 
 .SH "AUTHORS"
 Oracle Corporation.  This man page entry derives some text, especially the exit code summary, from
@@ -90,4 +96,4 @@ Oracle Corporation.  This man page entry derives some text, especially the exit 
 by Theodore Ts’o <tytso@mit.edu>. 
 
 .SH "COPYRIGHT"
-Copyright \(co 2004 Oracle Corporation
+Copyright \(co 2004, 2005 Oracle. All rights reserved.

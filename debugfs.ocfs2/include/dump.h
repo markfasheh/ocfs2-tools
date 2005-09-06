@@ -50,5 +50,6 @@ void dump_jbd_metadata (FILE *out, int type, char *buf, uint64_t blknum);
 void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end);
 void dump_slots (FILE *out, char *buf, uint32_t len);
 void dump_fast_symlink (FILE *out, char *link);
+void dump_hb (FILE *out, char *buf, uint32_t len);
 
 #endif		/* __DUMP_H__ */

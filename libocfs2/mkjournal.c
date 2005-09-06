@@ -32,12 +32,31 @@
 #include <netinet/in.h>
 
 #include "ocfs2.h"
+#include "jbd.h"
 
-/* jfs_compat.h defines these */
-#undef cpu_to_be32
-#undef be32_to_cpu
-#include "jfs_user.h"
+void ocfs2_swap_journal_superblock(journal_superblock_t *jsb)
+{
+	if (cpu_is_big_endian)
+		return;
 
+	jsb->s_header.h_magic     = bswap_32(jsb->s_header.h_magic);
+	jsb->s_header.h_blocktype = bswap_32(jsb->s_header.h_blocktype);
+	jsb->s_header.h_sequence  = bswap_32(jsb->s_header.h_sequence);
+
+	jsb->s_blocksize         = bswap_32(jsb->s_blocksize);
+	jsb->s_maxlen            = bswap_32(jsb->s_maxlen);
+	jsb->s_first             = bswap_32(jsb->s_first);
+	jsb->s_sequence          = bswap_32(jsb->s_sequence);
+	jsb->s_start             = bswap_32(jsb->s_start);
+	jsb->s_errno             = bswap_32(jsb->s_errno);
+	jsb->s_feature_compat    = bswap_32(jsb->s_feature_compat);
+	jsb->s_feature_incompat  = bswap_32(jsb->s_feature_incompat);
+	jsb->s_feature_ro_compat = bswap_32(jsb->s_feature_ro_compat);
+	jsb->s_nr_users          = bswap_32(jsb->s_nr_users);
+	jsb->s_dynsuper          = bswap_32(jsb->s_dynsuper);
+	jsb->s_max_transaction   = bswap_32(jsb->s_max_transaction);
+	jsb->s_max_trans_data    = bswap_32(jsb->s_max_trans_data);
+}
 
 /*
  * The code to init a journal superblock is also in
@@ -56,21 +75,21 @@ errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
 		return OCFS2_ET_JOURNAL_TOO_SMALL;
 
 	memset(buf, 0, buflen);
-	jsb->s_header.h_magic     = htonl(JFS_MAGIC_NUMBER);
-	jsb->s_header.h_blocktype = htonl(JFS_SUPERBLOCK_V2);
+	jsb->s_header.h_magic     = JFS_MAGIC_NUMBER;
+	jsb->s_header.h_blocktype = JFS_SUPERBLOCK_V2;
 
-	jsb->s_blocksize = cpu_to_be32(fs->fs_blocksize);
-	jsb->s_maxlen    = cpu_to_be32(jrnl_size_in_blks);
+	jsb->s_blocksize = fs->fs_blocksize;
+	jsb->s_maxlen    = jrnl_size_in_blks;
 
 	if (fs->fs_blocksize == 512)
-		jsb->s_first = htonl(2);
+		jsb->s_first = 2;
 	else
-		jsb->s_first = htonl(1);
+		jsb->s_first = 1;
 
-	jsb->s_start    = htonl(1);
-	jsb->s_sequence = htonl(1);
-	jsb->s_errno    = htonl(0);
-	jsb->s_nr_users = htonl(1);
+	jsb->s_start    = 1;
+	jsb->s_sequence = 1;
+	jsb->s_errno    = 0;
+	jsb->s_nr_users = 1;
 
 	memcpy(jsb->s_uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
 	       sizeof(jsb->s_uuid));
@@ -107,9 +126,9 @@ errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 	    EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) {
 		jsb->s_nr_users = 0;
 		if (fs->blocksize == 1024)
-			jsb->s_first = htonl(3);
+			jsb->s_first = 3;
 		else
-			jsb->s_first = htonl(2);
+			jsb->s_first = 2;
 	}
 #endif
 
@@ -149,17 +168,7 @@ errcode_t ocfs2_read_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 	}
 
 	memcpy(jsb_buf, blk, fs->fs_blocksize);
-
-	/* XXX incomplete */
-	jsb->s_header.h_magic = be32_to_cpu(disk->s_header.h_magic);
-	jsb->s_header.h_blocktype = be32_to_cpu(disk->s_header.h_blocktype);
-
-	jsb->s_blocksize = be32_to_cpu(disk->s_blocksize);
-	jsb->s_maxlen = be32_to_cpu(disk->s_maxlen);
-	jsb->s_first = be32_to_cpu(disk->s_first);
-	jsb->s_start = be32_to_cpu(disk->s_start);
-	jsb->s_sequence = be32_to_cpu(disk->s_sequence);
-	jsb->s_errno = be32_to_cpu(disk->s_errno);
+	ocfs2_swap_journal_superblock(jsb);
 
 	ret = 0;
 out:
@@ -190,17 +199,7 @@ errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 	jsb = (journal_superblock_t *)jsb_buf;
 
 	memcpy(blk, jsb_buf, fs->fs_blocksize);
-
-	/* XXX incomplete */
-	disk->s_header.h_magic = cpu_to_be32(jsb->s_header.h_magic);
-	disk->s_header.h_blocktype = cpu_to_be32(jsb->s_header.h_blocktype);
-
-	disk->s_blocksize = cpu_to_be32(jsb->s_blocksize);
-	disk->s_maxlen = cpu_to_be32(jsb->s_maxlen);
-	disk->s_first = cpu_to_be32(jsb->s_first);
-	disk->s_start = cpu_to_be32(jsb->s_start);
-	disk->s_sequence = cpu_to_be32(jsb->s_sequence);
-	disk->s_errno = cpu_to_be32(jsb->s_errno);
+	ocfs2_swap_journal_superblock(disk);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)

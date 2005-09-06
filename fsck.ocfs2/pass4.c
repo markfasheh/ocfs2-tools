@@ -40,8 +40,8 @@
 
 static const char *whoami = "pass4";
 
-static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
-				   uint64_t blkno)
+static void check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
+			      uint64_t blkno)
 {
 	uint16_t refs, in_inode;
 	errcode_t ret;
@@ -67,7 +67,9 @@ static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
 	ret = ocfs2_read_inode(ost->ost_fs, blkno, (char *)di);
 	if (ret) {
 		com_err(whoami, ret, "reading inode %"PRIu64" to update its "
-			"i_links_count", blkno);
+			"i_links_count.  Could this be because a directory "
+			"entry referenced an invalid inode but wasn't fixed?",
+			blkno);
 		goto out;
 	}
 
@@ -89,7 +91,7 @@ static errcode_t check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
 	}
 
 out:
-	return 0;
+	return;
 }
 
 static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
@@ -180,12 +182,43 @@ out:
 	return ret;
 }
 
+/* return the next inode that has either directory entries pointing to it or
+ * that was valid and had a non-zero i_links_count.  OCFS2_ET_BIT_NOT_FOUND
+ * will be bubbled up from the next_blkno() calls when there is no such next
+ * inode.  It is expected that sometimes these won't match.  If a directory
+ * has been lost there can be inodes with i_links_count and no directory
+ * entries at all.  If an inode was lost but the user chose not to erase
+ * the directory entries then there may be references to inodes that
+ * we never saw the i_links_count for */
+static errcode_t next_inode_any_ref(o2fsck_state *ost, uint64_t start,
+				    uint64_t *blkno_ret)
+{
+	errcode_t tmp, ret = OCFS2_ET_BIT_NOT_FOUND;
+	uint64_t blkno;
+
+	tmp = o2fsck_icount_next_blkno(ost->ost_icount_refs, start, &blkno);
+	if (tmp == 0) {
+		*blkno_ret = blkno;
+		ret = 0;
+	}
+
+	tmp = o2fsck_icount_next_blkno(ost->ost_icount_in_inodes, start,
+				       &blkno);
+	/* use this if we didn't have one yet or this one's lesser */
+	if (tmp == 0 && (ret != 0 || (blkno < *blkno_ret))) {
+		ret = 0;
+		*blkno_ret = blkno;
+	}
+
+	return ret;
+}
+
 errcode_t o2fsck_pass4(o2fsck_state *ost)
 {
 	ocfs2_dinode *di;
 	char *buf = NULL;
-	errcode_t ret, ref_ret, inode_ret;
-	uint64_t blkno, ref_blkno, inode_blkno;
+	errcode_t ret;
+	uint64_t blkno, start;
 
 	printf("Pass 4a: checking for orphaned inodes\n");
 
@@ -205,31 +238,11 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 	}
 
 	di = (ocfs2_dinode *)buf;
+	start = 0;
 
-	for(blkno = 0, ref_ret = 0; ref_ret != OCFS2_ET_BIT_NOT_FOUND ;
-	    blkno = ref_blkno + 1) {
-		ref_blkno = 0;
-		ref_ret = o2fsck_icount_next_blkno(ost->ost_icount_refs, blkno,
-						   &ref_blkno);
-		inode_blkno = 0;
-		inode_ret = o2fsck_icount_next_blkno(ost->ost_icount_in_inodes,
-						     blkno, &inode_blkno);
-
-		verbosef("ref %"PRIu64" ino %"PRIu64"\n", ref_blkno,
-			 inode_blkno);
-
-		if (ref_ret != inode_ret || ref_blkno != inode_blkno) {
-			printf("fsck's internal inode link count tracking "
-			       "isn't consistent. (ref_ret = %d ref_blkno = "
-			       "%"PRIu64" inode_ret = %d inode_blkno = "
-			       "%"PRIu64")\n", (int)ref_ret, ref_blkno,
-			       (int)inode_ret, inode_blkno);
-			ret = OCFS2_ET_INTERNAL_FAILURE;
-			break;
-		}
-
-		if (ref_ret == 0)
-			check_link_counts(ost, di, ref_blkno);
+	while (next_inode_any_ref(ost, start, &blkno) == 0) {
+		check_link_counts(ost, di, blkno);
+		start = blkno + 1;
 	}
 
 out:

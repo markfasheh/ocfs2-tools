@@ -23,6 +23,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -339,10 +340,86 @@ static gint o2cb_cluster_store(JConfig *cf, O2CBCluster *cluster)
     return rc;
 }
 
+static gint write_file(const gchar *text, const gchar *filename)
+{
+    int rc, fd;
+    GString *template;
+    FILE *file;
+    size_t written, len;
+
+    rc = mkdir("/etc/ocfs2", 0755);
+    if (rc)
+    {
+        rc = -errno;
+        if (rc == -EEXIST)
+            rc = 0;
+        else
+            goto out;
+    }
+
+    rc = -ENOMEM;
+    template = g_string_new(filename);
+    if (!template)
+        goto out;
+
+    g_string_append(template, "XXXXXX");
+    fd = mkstemp(template->str);
+    rc = -errno;
+    if (fd < 0)
+        goto out_free;
+
+    file = fdopen(fd, "w");
+    if (!file)
+    {
+        rc = -errno;
+        close(fd);
+        goto out_unlink;
+    }
+
+    len = strlen(text);
+    written = fwrite(text, sizeof(char), len, file);
+    if (written != len)
+    {
+        if (feof(file))
+            rc = -EIO;
+        else if (ferror(file))
+            rc = -errno;
+        else
+            rc = -EIO;
+
+        fclose(file);
+        goto out_unlink;
+    }
+
+    fchmod(fd, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+
+    rc = fclose(file);
+    if (rc)
+    {
+        rc = -errno;
+        goto out_unlink;
+    }
+
+    rc = rename(template->str, filename);
+    if (rc)
+        rc = -errno;
+    
+out_unlink:
+    if (rc)
+        unlink(template->str);
+
+out_free:
+    g_string_free(template, TRUE);
+
+out:
+    return rc;
+}
+
 
 gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
 {
     int rc;
+    char *text;
     JConfig *cf;
     O2CBCluster *cluster;
     GList *list;
@@ -358,24 +435,20 @@ gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
         cluster = (O2CBCluster *)list->data;
         rc = o2cb_cluster_store(cf, cluster);
         if (rc)
-            break;
+            goto out;
 
         list = list->next;
     }
 
-    if (!rc)
-    {
-        rc = mkdir("/etc/ocfs2", 0755);
-        if (rc)
-        {
-            rc = -errno;
-            if (rc == -EEXIST)
-                rc = 0;
-        }
-        if (!rc && !j_config_dump_file(cf, filename))
-            rc = -EIO;
-    }
+    rc = -ENOMEM;
+    text = j_config_dump_memory(cf);
+    if (!text)
+        goto out;
 
+    rc = write_file(text, filename);
+    g_free(text);
+
+out:
     return rc;
 }  /* o2cb_config_store() */
 

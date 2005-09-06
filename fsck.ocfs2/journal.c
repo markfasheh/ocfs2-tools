@@ -41,12 +41,10 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "byteorder.h"
 #include "fsck.h"
 #include "journal.h"
-/* jfs_compat.h defines these */
-#undef cpu_to_be32
-#undef be32_to_cpu
-#include "jfs_user.h"
+#include "jbd.h"
 #include "ocfs2.h"
 #include "pass1.h"
 #include "problem.h"

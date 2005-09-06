@@ -24,12 +24,12 @@ HFILES =			\
 	include/commands.h	\
 	include/dump.h		\
 	include/utils.h		\
-	include/jbd.h		\
 	include/journal.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 
 MANS = debugfs.ocfs2.8
 
@@ -41,6 +41,6 @@ dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 debugfs.ocfs2: $(OBJS)
-	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) -lreadline -lncurses
+	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) -lreadline -lncurses
 
 include $(TOPDIR)/Postamble.make

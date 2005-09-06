@@ -307,7 +307,7 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 	if (cinode->ci_chains)
 		ocfs2_bitmap_free(cinode->ci_chains);
 
-	total_bits = fs->fs_clusters *
+	total_bits = (uint64_t)fs->fs_clusters *
 		cinode->ci_inode->id2.i_chain.cl_bpc;
 
 	snprintf(name, sizeof(name),
@@ -534,6 +534,8 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 	rec->c_blkno = blkno;
 
 	cinode->ci_inode->i_clusters += cinode->ci_inode->id2.i_chain.cl_cpg;
+	cinode->ci_inode->i_size = (uint64_t)cinode->ci_inode->i_clusters *
+				   fs->fs_clustersize;
 	cinode->ci_inode->id1.bitmap1.i_total += gd->bg_bits;
 	cinode->ci_inode->id1.bitmap1.i_used += gd->bg_bits -
 						gd->bg_free_bits_count;
@@ -564,6 +566,8 @@ out:
 
 		cinode->ci_inode->i_clusters -= 
 			cinode->ci_inode->id2.i_chain.cl_cpg;
+		cinode->ci_inode->i_size = (uint64_t)cinode->ci_inode->i_clusters *
+					   fs->fs_clustersize;
 		cinode->ci_inode->id1.bitmap1.i_total -= gd->bg_bits;
 		cinode->ci_inode->id1.bitmap1.i_used -= gd->bg_bits -
 							gd->bg_free_bits_count;

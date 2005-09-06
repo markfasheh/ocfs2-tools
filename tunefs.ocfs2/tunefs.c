@@ -49,11 +49,7 @@
 #include <ocfs2_fs.h>
 #include <ocfs1_fs_compat.h>
 
-/* jfs_compat.h defines these */
-#undef cpu_to_be32
-#undef be32_to_cpu
-typedef unsigned short kdev_t;
-#include <kernel-jbd.h>
+#include <jbd.h>
 
 #include <kernel-list.h>
 

@@ -33,13 +33,12 @@
 #include <stdint.h>
 
 /*
- * All OCFS2 on-disk values are in little endian, except for the
- * autoconfig areas and the journal areas.  The journal code has the
- * right bits for itself, and the autoconfig areas use htonl(), so
- * they are OK.
+ * All OCFS2 on-disk values are in little endian, except for jbd's journal
+ * fields which it takes care of itself.
  */
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
+#define cpu_is_little_endian	1
 # ifndef cpu_to_le16
 #  define cpu_to_le16(x) ((uint16_t)(x))
 # endif
@@ -77,6 +76,7 @@
 #  define be64_to_cpu(x) ((uint64_t)bswap_64(x))
 # endif
 #elif __BYTE_ORDER == __BIG_ENDIAN
+#define cpu_is_little_endian	0
 # ifndef cpu_to_le16
 #  define cpu_to_le16(x) ((uint16_t)bswap_16(x))
 # endif
@@ -116,5 +116,7 @@
 #else
 # error Invalid byte order __BYTE_ORDER
 #endif  /* __BYTE_ORDER */
+
+#define cpu_is_big_endian	(!cpu_is_little_endian)
 
 #endif  /* _BYTEORDER_H */

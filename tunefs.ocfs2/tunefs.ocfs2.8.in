@@ -1,54 +1,64 @@
 .TH "tunefs.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-tunefs.ocfs2 \- Change OCFS2 partition parameters.
+tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
 \fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-nodes\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-S\fR \fIvolume-size\fR] [\fB\-qvV\fR] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
-\fBtunefs.ocfs2\fR is used to adjust OCFS2 file system parameters on disk. In order to prevent data loss, \fBtunefs.ocfs2\fR will not perform any action to a specified device if any node has it mounted. 
+\fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
+In order to prevent data loss, \fBtunefs.ocfs2\fR will not perform any
+action on the specified device, if that device is mounted on any node
+in the cluster. \fIO2CB\fR cluster service should be up to run this tool.
 .SH "OPTIONS"
 .TP
 \fB\-L\fR \fIvolume\-label\fR
-\fIvolume\-label\fR specifiy the new label name of a device. The maximum \fIvolume-label\fR lenght allowed is 64 bytes.
+Change the volume label for the file system. Limit the label
+length to under 64 bytes.
 
 .TP
 \fB\-N\fR \fInumber\-of\-node\-slots\fR
-\fInumber\-of\-node\-slots\fR specify the maximum number of nodes that can simultaneously mount the specific OCFS2 partition. The maximum value allowed for \fInumber\-of\-node\-slots\fR is 255. Note that one can increase the number of node slots, but not decrease it. Future versions may allow decrease of the number of node slots.
+Use this to increase the number of slots inorder to increase the
+number of nodes that can concurrently mount this volume. The maximum
+value is 255.
 
 .TP
 \fB\-J\fR \fIjournal\-options\fR
-Modify the journal using options specified on the command\-line. Journal options are comma separated, and may take an argument using the equals ('=') sign.
-The following journal options are supported:
+Modify the journal using options specified on the command\-line.
+Journal options are comma separated, and may take an argument using
+the equals ('=') sign. The following journal options are supported:
 .RS 1.2i
 .TP
 \fBsize\fR=\fIjournal\-size\fR
-Create a journal of size \fIjournal\-size\fR. Valid sizes range from 4Mb to 500Mb.
+Increase the size of journal files for all the slots. Minimum size is 4M.
 .RE
 
 .TP
-\fB\-S\fR \fIvolume\-size\fR 
-\fIvolume\-size\fR specify the new volume size of an OCFS2 partition. A partition should be physically extended prior to use this option.
+\fB\-S\fR \fIvolume\-size\fR
+Increase the size of the \fIOCFS2\fR volume. \fBThis functionality
+is not operational as of now.\fR
 
 .TP
 \fB\-q\fR 
-Execute \fBtunefs.ocfs2\fR in quiet mode. 
+Quiet mode. 
 
 .TP
 \fB\-v\fR 
-Execute \fBtunefs.ocfs2\fR in verbose mode.
+Verbose mode.
 
 .TP
 \fB\-V\fR 
 Show version and exit.
 
-.SH "BUGS"
-Stuff.
-
 .SH "SEE ALSO"
-.BR ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR ocfs2console(8)
+.BR ocfs2cdsl(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004 Oracle Corporation
+Copyright \(co 2004, 2005 Oracle. All rights reserved.

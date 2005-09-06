@@ -24,6 +24,7 @@
  */
 
 #include <main.h>
+#include <stdint.h>
 
 extern dbgfs_gbls gbls;
 
@@ -92,15 +93,15 @@ void dump_truncate_log (FILE *out, ocfs2_truncate_log *tl)
 	int i;
 
 	fprintf(out, "\tTotal Records: %u   Used: %u\n",
-		le16_to_cpu(tl->tl_count), le16_to_cpu(tl->tl_used));
+		tl->tl_count, tl->tl_used);
 
 	fprintf(out, "\t##   %-10s   %-10s\n", "Start Cluster",
 		"Num Clusters");
 
-	for(i = 0; i < le16_to_cpu(tl->tl_used); i++)
+	for(i = 0; i < tl->tl_used; i++)
 		fprintf(out, "\t%-2d   %-10u   %-10u\n",
-			i, le32_to_cpu(tl->tl_recs[i].t_start),
-			le32_to_cpu(tl->tl_recs[i].t_clusters));
+			i, tl->tl_recs[i].t_start,
+			tl->tl_recs[i].t_clusters);
 
 	return ;
 }
@@ -199,12 +200,12 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	str = ctime((time_t*)&in->i_dtime);
 	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", in->i_dtime, str);
 
-	fprintf(out, "\tctime_nsec: 0x%x -- %u\n",
-		le32_to_cpu(in->i_ctime_nsec), le32_to_cpu(in->i_ctime));
-	fprintf(out, "\tatime_nsec: 0x%x -- %u\n",
-		le32_to_cpu(in->i_atime_nsec), le32_to_cpu(in->i_atime_nsec));
-	fprintf(out, "\tmtime_nsec: 0x%x -- %u\n",
-		le32_to_cpu(in->i_mtime_nsec), le32_to_cpu(in->i_mtime_nsec));
+	fprintf(out, "\tctime_nsec: 0x%08"PRIx32" -- %u\n",
+		in->i_ctime_nsec, in->i_ctime_nsec);
+	fprintf(out, "\tatime_nsec: 0x%08"PRIx32" -- %u\n",
+		in->i_atime_nsec, in->i_atime_nsec);
+	fprintf(out, "\tmtime_nsec: 0x%08"PRIx32" -- %u\n",
+		in->i_mtime_nsec, in->i_mtime_nsec);
 
 	fprintf(out, "\tLast Extblk: %"PRIu64"\n", in->i_last_eb_blk);
 	if (in->i_suballoc_slot == OCFS2_INVALID_SLOT)
@@ -400,10 +401,11 @@ void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb)
 
 	fprintf (out, "\tError: %d\n", ntohl(jsb->s_errno));
 
-	/* XXX not sure what to do about swabbing these */
-	fprintf (out, "\tFeatures Compat: %u   Incompat: %u   RO Compat: %u\n",
-		 jsb->s_feature_compat, jsb->s_feature_incompat,
-		 jsb->s_feature_ro_compat);
+	fprintf (out, "\tFeatures Compat: 0x%"PRIx32"   "
+		 "Incompat: 0x%"PRIx32"   RO Compat: 0x%"PRIx32"\n",
+		 ntohl(jsb->s_feature_compat),
+		 ntohl(jsb->s_feature_incompat),
+		 ntohl(jsb->s_feature_ro_compat));
 
 	fprintf (out, "\tJournal UUID: ");
 	for(i = 0; i < 16; i++)
@@ -560,9 +562,31 @@ void dump_slots (FILE *out, char *buf, uint32_t len)
 	fprintf (out, "\t%5s   %5s\n", "Slot#", "Node#");
 	
 	for (i = 0; i < num_slots; ++i) {
-		if (slots[i] != -1)
-			fprintf (out, "\t%5d   %5d\n",
-				 i, slots[i]);
+		uint16_t slot = le16_to_cpu(slots[i]);
+		if (slot == (uint16_t)OCFS2_INVALID_SLOT)
+			continue;
+
+		fprintf (out, "\t%5d   %5u\n", i, slot);
+	}
+
+	return ;
+}
+
+void dump_hb (FILE *out, char *buf, uint32_t len)
+{
+	uint32_t i;
+	struct o2hb_disk_heartbeat_block *hb;
+
+	fprintf (out, "\t%4s: %4s %16s %16s %8s\n",
+		 "node", "node", "seq", "generation", "checksum");
+	
+	for (i = 0; i < 255 && ((i + 1) * 512 < len); ++i) {
+		hb = (struct o2hb_disk_heartbeat_block *)(buf + (i * 512));
+		ocfs2_swap_disk_heartbeat_block(hb);
+		fprintf (out, "\t%4u: %4u %016"PRIx64" %016"PRIx64" "
+			 "%08"PRIx32"\n", i,
+			 hb->hb_node, hb->hb_seq, hb->hb_generation,
+			 hb->hb_cksum);
 	}
 
 	return ;
