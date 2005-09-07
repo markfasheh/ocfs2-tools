@@ -166,6 +166,11 @@ syntax:
 
 o To start a region: <layout>_hb_ctl -S -u <uuid>
 o To stop a region:  <layout>_hb_ctl -K -u <uuid>
+o To check a region's state: <layout>_hb_ctl -I -q -u <uuid>
+
+For -S and -K, a zero return code indicates success.  For -I, the output
+must include the text "live" if the region is active, and must not
+include the text if not active.
 
 If the layout driver provides the ability to map a device name to a
 UUID, it must support the following syntax:

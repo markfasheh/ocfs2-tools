@@ -229,7 +229,8 @@ static gint cluster_exists(const gchar *cluster)
     gchar *errput = NULL;
 
     if (!g_spawn_sync(NULL, argv, NULL,
-                      G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL,
+                      G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL |
+                      G_SPAWN_LEAVE_DESCRIPTORS_OPEN,
                       NULL, NULL,
                       NULL, &errput, &ret, &error))
     {
@@ -270,6 +271,8 @@ static gint cluster_exists(const gchar *cluster)
                 PROGNAME ": Program \"%s\" exited unexpectedly\n",
                 argv[0]);
     }
+
+    g_free(errput);
 
 out:
 
@@ -458,7 +461,8 @@ static gint dev_to_uuid(const char *layout, const char *dev,
     argv[0] = g_strdup_printf("%s_hb_ctl", layout);
 
     if (!g_spawn_sync(NULL, argv, NULL,
-                      G_SPAWN_SEARCH_PATH,
+                      G_SPAWN_SEARCH_PATH |
+                      G_SPAWN_LEAVE_DESCRIPTORS_OPEN,
                       NULL, NULL,
                       &output, &errput, &ret, &error))
     {
@@ -492,6 +496,9 @@ static gint dev_to_uuid(const char *layout, const char *dev,
                 PROGNAME ": Program \"%s\" exited unexpectedly\n",
                 argv[0]);
     }
+
+    g_free(output);
+    g_free(errput);
 
 out_free:
     g_free(argv[0]);
@@ -716,7 +723,7 @@ static gint hbconf_info(HBConfContext *ctxt)
         match[matchcount].value = ctxt->c_layout;
         matchcount++;
     }
-    if (ctxt->c_cluster)
+    if (ctxt->c_uuid)
     {
         match[matchcount].type = J_CONFIG_MATCH_VALUE;
         match[matchcount].name = "uuid";
@@ -750,7 +757,9 @@ static void print_usage(gint rc)
             "       " PROGNAME " -M -c <cluster> -m <mode>\n"
             "       " PROGNAME " -A -c <cluster> -l <layout> {-u <uuid> | -d <device>}\n"
             "       " PROGNAME " -R {-u <uuid> | -d <device>}\n"
-            "       " PROGNAME " -I [-c <cluster>] [-l <layout>] [-u <uuid> | -d <device>]\n");
+            "       " PROGNAME " -I [-c <cluster>] [-l <layout>] [-u <uuid> | -d <device>]\n"
+            "       " PROGNAME " -h\n"
+            "       " PROGNAME " -V\n");
 
     exit(rc);
 }
@@ -838,6 +847,19 @@ static gint parse_options(gint argc, gchar *argv[], HBConfContext *ctxt)
 
             case 'm':
                 ctxt->c_set_mode = optarg;
+                break;
+
+            case '?':
+                fprintf(stderr, PROGNAME ": Invalid option: \'-%c'n",
+                        optopt);
+                return -EINVAL;
+                break;
+
+            case ':':
+                fprintf(stderr,
+                        PROGNAME ": Option \'-%c\' requires an argument\n",
+                        optopt);
+                return -EINVAL;
                 break;
 
             default:

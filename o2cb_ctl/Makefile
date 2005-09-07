@@ -3,7 +3,7 @@ TOPDIR = ..
 include $(TOPDIR)/Preamble.make
 
 sbindir = $(root_sbindir)
-SBIN_PROGRAMS = o2cb_ctl o2cb_hb_config
+SBIN_PROGRAMS = o2cb_ctl o2cb_hb_config o2cb_hb_ctl
 
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libo2cb/include
@@ -39,10 +39,20 @@ O2CB_HB_CONFIG_OBJS =				\
 	$(subst .c,.o,$(O2CB_HB_CONFIG_CFILES))	\
 	$(JCONFIG_OBJS)
 
+O2CB_HB_CTL_CFILES = o2cb_hb_ctl.c
+O2CB_HB_CTL_OBJS =				\
+	$(subst .c,.o,$(O2CB_HB_CTL_CFILES))	\
+	$(JCONFIG_OBJS)
+
+
 
 HEADERS = o2cb_config.h jconfig.h jiterator.h
 
-CFILES = $(O2CB_CTL_CFILES) $(O2CB_HB_CONFIG_CFILES) $(JCONFIG_CFILES)
+CFILES =				\
+	$(O2CB_CTL_CFILES)		\
+	$(O2CB_HB_CONFIG_CFILES)	\
+	$(O2CB_HB_CTL_CFILES)		\
+	$(JCONFIG_CFILES)
 
 MANS = o2cb_ctl.8
 
@@ -55,11 +65,15 @@ jiterator_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 o2cb_config_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 o2cb_ctl_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 o2cb_hb_config_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
+o2cb_hb_ctl_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 
 o2cb_ctl: $(O2CB_CTL_OBJS) $(LIBOCFS2_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 o2cb_hb_config: $(O2CB_HB_CONFIG_OBJS)
+	$(LINK) $(GLIB_LIBS)
+
+o2cb_hb_ctl: $(O2CB_HB_CTL_OBJS)
 	$(LINK) $(GLIB_LIBS)
 
 include $(TOPDIR)/Postamble.make

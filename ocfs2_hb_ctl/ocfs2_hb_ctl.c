@@ -59,6 +59,7 @@ enum hb_ctl_action {
 
 struct hb_ctl_options {
 	enum hb_ctl_action action;
+	int query;
 	char *dev_str;
 	char *uuid_str;
 };
@@ -307,7 +308,12 @@ static errcode_t print_hb_ref_info(struct hb_ctl_options *hbo)
 
 	err = o2cb_num_region_refs(hbo->uuid_str, &num);
 	if (!err)
-		printf("%s: %d refs\n", hbo->uuid_str, num);
+	{
+		fprintf(stdout, "%s: %d refs", hbo->uuid_str, num);
+		if (hbo->query && num)
+			fprintf(stdout, " (live)");
+		fprintf(stdout, "\n");
+	}
 
 	return err;
 }
@@ -384,7 +390,7 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 	ret = 0;
 
 	while(1) {
-		c = getopt(argc, argv, "ISKLd:u:hV-:");
+		c = getopt(argc, argv, "ISKLqd:u:hV-:");
 		if (c == -1)
 			break;
 
@@ -421,6 +427,10 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 
 		case 'L':
 			hbo->action = HB_ACTION_LIST;
+			break;
+
+		case 'q':
+			hbo->query = 1;
 			break;
 
 		case 'd':
@@ -503,14 +513,17 @@ static void print_usage(int err)
 	fprintf(output, "       %s -I -u <uuid>\n", progname);
 	fprintf(output, "       %s -L [-d <device>]\n", progname);
 	fprintf(output, "       %s -h\n", progname);
+	fprintf(output, "       %s -V\n", progname);
 }
 
 int main(int argc, char **argv)
 {
 	errcode_t err = 0;
 	int ret = 0;
-	struct hb_ctl_options hbo = { HB_ACTION_UNKNOWN, NULL, NULL };
 	char hbuuid[33];
+	struct hb_ctl_options hbo = {
+		HB_ACTION_UNKNOWN, 0, NULL, NULL
+	};
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
