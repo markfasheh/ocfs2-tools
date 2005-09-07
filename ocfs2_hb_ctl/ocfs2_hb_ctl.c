@@ -50,6 +50,7 @@
 enum hb_ctl_action {
 	HB_ACTION_UNKNOWN,
 	HB_ACTION_USAGE,
+	HB_ACTION_VERSION,
 	HB_ACTION_START,
 	HB_ACTION_STOP,
 	HB_ACTION_REFINFO,
@@ -371,6 +372,11 @@ static int run_list(struct hb_ctl_options *hbo)
 	return ret;
 }
 
+static void print_version(void)
+{
+	fprintf(stdout, "%s: version %s\n", progname, VERSION);
+}
+
 static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 {
 	int c, ret;
@@ -378,13 +384,31 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 	ret = 0;
 
 	while(1) {
-		c = getopt(argc, argv, "ISKLd:u:h");
+		c = getopt(argc, argv, "ISKLd:u:hV-:");
 		if (c == -1)
 			break;
 
 		switch (c) {
 		case 'h':
 			hbo->action = HB_ACTION_USAGE;
+			break;
+
+		case 'V':
+			hbo->action = HB_ACTION_VERSION;
+			break;
+
+		case '-':
+			if (!strcmp(optarg, "version"))
+				hbo->action = HB_ACTION_VERSION;
+			else if (!strcmp(optarg, "help"))
+				hbo->action = HB_ACTION_USAGE;
+			else
+			{
+				fprintf(stderr,
+					"%s: Invalid option: \'--%s\'\n",
+					progname, optarg);
+				ret = -1;
+			}
 			break;
 
 		case 'K':
@@ -512,6 +536,11 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
+	if (hbo.action == HB_ACTION_VERSION) {
+		print_version();
+		goto bail;
+	}
+
 	if (hbo.action == HB_ACTION_LIST) {
 		ret = run_list(&hbo);
 		goto bail;
@@ -541,6 +570,11 @@ int main(int argc, char **argv)
 	case HB_ACTION_USAGE:
 		ret = 0;
 		print_usage(0);
+		break;
+
+	case HB_ACTION_VERSION:
+		ret = 0;
+		print_version();
 		break;
 
 	case HB_ACTION_START:
