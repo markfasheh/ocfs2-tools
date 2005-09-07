@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
@@ -59,6 +60,9 @@ struct _HBConfContext
 {
     JConfig *c_cf;
     gchar *c_cluster;
+    gchar *c_layout;
+    gchar *c_uuid;
+    gchar *c_dev;
     gchar *c_set_mode;
     HBConfOperation c_op;
     HBConfPrintMode c_print_mode;
@@ -367,12 +371,154 @@ static gint hbconf_mode(HBConfContext *ctxt)
     return rc;
 }
 
+static gint dev_to_uuid(const char *layout, const char *dev,
+                        char **uuid)
+{
+    gint rc;
+    gint ret;
+    gchar *argv[] =
+    {
+        NULL,           /* layout driver */
+        "-L",
+        "-d",
+        (gchar *)dev,   /* Device name */
+        NULL
+    };
+    GError *error = NULL;
+    gchar *output = NULL, *errput = NULL;
+
+    argv[0] = g_strdup_printf("%s_hb_ctl", layout);
+
+    if (!g_spawn_sync(NULL, argv, NULL,
+                      G_SPAWN_SEARCH_PATH,
+                      NULL, NULL,
+                      &output, &errput, &ret, &error))
+    {
+        fprintf(stderr, PROGNAME ": Could not run \"%s\": %s\n",
+                argv[0], error->message);
+        goto out_free;
+    }
+
+    if (WIFEXITED(ret))
+    {
+        rc = WEXITSTATUS(ret);
+        if (rc)
+        {
+            fprintf(stderr, PROGNAME ": Error from \"%s\": %s\n",
+                    argv[0], errput);
+        }
+        else
+            *uuid = g_strchomp(output);
+    }
+    else if (WIFSIGNALED(ret))
+    {
+        rc = -EINTR;
+        fprintf(stderr,
+                PROGNAME ": Program \"%s\" exited with signal %d\n",
+                argv[0], WTERMSIG(ret));
+    }
+    else
+    {
+        rc = -ENXIO;
+        fprintf(stderr,
+                PROGNAME ": Program \"%s\" exited unexpectedly\n",
+                argv[0]);
+    }
+
+out_free:
+    g_free(argv[0]);
+
+    return rc;
+}
+
+static gint hbconf_add(HBConfContext *ctxt)
+{
+    gint rc = 0;
+    JIterator *iter;
+    JConfigStanza *cfs;
+    JConfigMatch *match;
+
+    if (!ctxt->c_cluster || !ctxt->c_layout ||
+        (!ctxt->c_dev && !ctxt->c_uuid))
+    {
+        fprintf(stderr,
+                PROGNAME ": Missing arguments.\n");
+        print_usage(-EINVAL);
+    }
+
+    if (ctxt->c_dev && ctxt->c_uuid)
+    {
+        fprintf(stderr,
+                PROGNAME ": Only specify one of \'-d\' and \'-u\'.\n");
+        print_usage(-EINVAL);
+    }
+
+    if (ctxt->c_dev)
+    {
+        rc = dev_to_uuid(ctxt->c_layout, ctxt->c_dev, &ctxt->c_uuid);
+        if (rc)
+            goto out;
+    }
+
+    match = j_config_match_build(1, "uuid", ctxt->c_uuid);
+    iter = j_config_get_stanzas(ctxt->c_cf, "region", match, 1);
+    g_free(match);
+    if (j_iterator_has_more(iter))
+    {
+        gchar *cluster;
+
+        cfs = (JConfigStanza *)j_iterator_get_next(iter);
+        cluster = j_config_get_attribute(cfs, "cluster");
+        
+        fprintf(stderr,
+                PROGNAME ": Region \"%s\" already configured as part of cluster \"%s\".\n",
+                ctxt->c_uuid, cluster ? cluster : "<unknown>");
+        rc = -EEXIST;
+    }
+    j_iterator_free(iter);
+    if (rc)
+        goto out;
+
+    match = j_config_match_build(1, "name", ctxt->c_cluster);
+    iter = j_config_get_stanzas(ctxt->c_cf, "cluster", match, 1);
+    g_free(match);
+    if (!j_iterator_has_more(iter))
+    {
+        fprintf(stderr,
+                PROGNAME ": Cluster \"%s\" is not configured.\n",
+                ctxt->c_cluster);
+        rc = -EINVAL;
+    }
+    j_iterator_free(iter);
+    if (rc)
+        goto out;
+
+    cfs = j_config_add_stanza(ctxt->c_cf, "region");
+    j_config_set_attribute(cfs, "cluster", ctxt->c_cluster);
+    j_config_set_attribute(cfs, "layout", ctxt->c_layout);
+    j_config_set_attribute(cfs, "uuid", ctxt->c_uuid);
+
+    rc = hbconf_config_store(ctxt, HB_CONFIG_FILE);
+    if (rc)
+    {
+        fprintf(stderr,
+                PROGNAME ": Error storing \"%s\": %s\n",
+                HB_CONFIG_FILE, strerror(-rc));
+    }
+
+out:
+    return rc;
+}
+
 static void print_usage(gint rc)
 {
     FILE *output = rc ? stderr : stdout;
 
     fprintf(output,
-            "Usage: " PROGNAME " \n");
+            "Usage: " PROGNAME " -M [-c <cluster>] [-o|-z]\n"
+            "       " PROGNAME " -M -c <cluster> -m <mode>\n"
+            "       " PROGNAME " -A -c <cluster> -l <layout> {-u <uuid> | -d <device>}\n"
+            "       " PROGNAME " -R -c <cluster>\n");
 
     exit(rc);
 }
@@ -393,7 +539,7 @@ static gint parse_options(gint argc, gchar *argv[], HBConfContext *ctxt)
     HBConfOperation op = HBCONF_OP_NONE;
 
     opterr = 0;
-    while ((c = getopt(argc, argv, ":hVARIMozc:m:-:")) != EOF)
+    while ((c = getopt(argc, argv, ":hVARIMozc:l:u:d:m:-:")) != EOF)
     {
         switch (c)
         {
@@ -440,6 +586,18 @@ static gint parse_options(gint argc, gchar *argv[], HBConfContext *ctxt)
 
             case 'c':
                 ctxt->c_cluster = optarg;
+                break;
+
+            case 'l':
+                ctxt->c_layout = optarg;
+                break;
+
+            case 'u':
+                ctxt->c_uuid = optarg;
+                break;
+
+            case 'd':
+                ctxt->c_dev = optarg;
                 break;
 
             case 'm':
@@ -493,8 +651,17 @@ gint main(gint argc, gchar *argv[])
 
     switch (ctxt.c_op)
     {
+        case HBCONF_OP_NONE:
+            fprintf(stderr, PROGNAME ": Specify an operation.\n");
+            print_usage(-EINVAL);
+            break;
+
         case HBCONF_OP_MODE:
             rc = hbconf_mode(&ctxt);
+            break;
+
+        case HBCONF_OP_ADD:
+            rc = hbconf_add(&ctxt);
             break;
 
         default:
