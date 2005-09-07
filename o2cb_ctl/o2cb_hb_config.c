@@ -650,6 +650,97 @@ out:
     return rc;
 }
 
+static void hbconf_info_one(HBConfContext *ctxt, JConfigStanza *cfs)
+{
+    gchar *cluster;
+    gchar *layout;
+    gchar *uuid;
+
+    cluster = j_config_get_attribute(cfs, "cluster");
+    layout = j_config_get_attribute(cfs, "layout");
+    uuid = j_config_get_attribute(cfs, "uuid");
+
+    if (ctxt->c_print_mode == HBCONF_PRINT_READABLE)
+        fprintf(stdout,
+                "region:\n"
+                "\tuuid = %s\n"
+                "\tlayout = %s\n"
+                "\tcluster = %s\n"
+                "\n",
+                uuid, layout, cluster);
+    else if (ctxt->c_print_mode == HBCONF_PRINT_PARSEABLE)
+        fprintf(stdout, "%s:%s:%s\n", uuid, layout, cluster);
+}
+
+static gint hbconf_info(HBConfContext *ctxt)
+{
+    gint rc = 0;
+    gint matchcount = 0;
+    JIterator *iter;
+    JConfigStanza *cfs;
+    JConfigMatch match[3];
+
+    if (ctxt->c_dev && ctxt->c_uuid)
+    {
+        fprintf(stderr,
+                PROGNAME ": Only specify one of \'-d\' and \'-u\'.\n");
+        print_usage(-EINVAL);
+    }
+
+    if (ctxt->c_dev)
+    {
+        if (!ctxt->c_layout)
+        {
+            fprintf(stderr,
+                    PROGNAME ": Layout required to query by device.\n");
+            rc = -EINVAL;
+            goto out;
+        }
+
+        rc = dev_to_uuid(ctxt->c_layout, ctxt->c_dev, &ctxt->c_uuid);
+        if (rc)
+            goto out;
+    }
+
+    if (ctxt->c_cluster)
+    {
+        match[matchcount].type = J_CONFIG_MATCH_VALUE;
+        match[matchcount].name = "cluster";
+        match[matchcount].value = ctxt->c_cluster;
+        matchcount++;
+    }
+    if (ctxt->c_layout)
+    {
+        match[matchcount].type = J_CONFIG_MATCH_VALUE;
+        match[matchcount].name = "layout";
+        match[matchcount].value = ctxt->c_layout;
+        matchcount++;
+    }
+    if (ctxt->c_cluster)
+    {
+        match[matchcount].type = J_CONFIG_MATCH_VALUE;
+        match[matchcount].name = "uuid";
+        match[matchcount].value = ctxt->c_uuid;
+        matchcount++;
+    }
+
+    iter = j_config_get_stanzas(ctxt->c_cf, "region", match,
+                                matchcount);
+
+    if (ctxt->c_print_mode == HBCONF_PRINT_PARSEABLE)
+        fprintf(stdout, "#uuid:layout:cluster\n");
+
+    while (j_iterator_has_more(iter))
+    {
+        cfs = (JConfigStanza *)j_iterator_get_next(iter);
+        hbconf_info_one(ctxt, cfs);
+    }
+    j_iterator_free(iter);
+
+out:
+    return rc;
+}
+
 static void print_usage(gint rc)
 {
     FILE *output = rc ? stderr : stdout;
@@ -658,7 +749,8 @@ static void print_usage(gint rc)
             "Usage: " PROGNAME " -M [-c <cluster>] [-o|-z]\n"
             "       " PROGNAME " -M -c <cluster> -m <mode>\n"
             "       " PROGNAME " -A -c <cluster> -l <layout> {-u <uuid> | -d <device>}\n"
-            "       " PROGNAME " -R {-u <uuid> | -d <device>}\n");
+            "       " PROGNAME " -R {-u <uuid> | -d <device>}\n"
+            "       " PROGNAME " -I [-c <cluster>] [-l <layout>] [-u <uuid> | -d <device>]\n");
 
     exit(rc);
 }
@@ -710,6 +802,10 @@ static gint parse_options(gint argc, gchar *argv[], HBConfContext *ctxt)
 
             case 'R':
                 op = HBCONF_OP_REMOVE;
+                break;
+
+            case 'I':
+                op = HBCONF_OP_INFO;
                 break;
 
             case 'M':
@@ -806,6 +902,10 @@ gint main(gint argc, gchar *argv[])
 
         case HBCONF_OP_REMOVE:
             rc = hbconf_remove(&ctxt);
+            break;
+
+        case HBCONF_OP_INFO:
+            rc = hbconf_info(&ctxt);
             break;
 
         default:
