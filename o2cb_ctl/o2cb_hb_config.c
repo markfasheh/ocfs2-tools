@@ -582,6 +582,74 @@ out:
     return rc;
 }
 
+static gint hbconf_remove(HBConfContext *ctxt)
+{
+    gint rc = 0;
+    JIterator *iter;
+    JConfigStanza *cfs;
+    JConfigMatch *match;
+
+    if (!ctxt->c_dev && !ctxt->c_uuid)
+    {
+        fprintf(stderr,
+                PROGNAME ": Missing arguments.\n");
+        print_usage(-EINVAL);
+    }
+
+    if (ctxt->c_dev && ctxt->c_uuid)
+    {
+        fprintf(stderr,
+                PROGNAME ": Only specify one of \'-d\' and \'-u\'.\n");
+        print_usage(-EINVAL);
+    }
+
+    if (ctxt->c_dev)
+    {
+        if (!ctxt->c_layout)
+        {
+            fprintf(stderr,
+                    PROGNAME ": Layout required to remove by device.\n");
+            rc = -EINVAL;
+            goto out;
+        }
+
+        rc = dev_to_uuid(ctxt->c_layout, ctxt->c_dev, &ctxt->c_uuid);
+        if (rc)
+            goto out;
+    }
+
+    match = j_config_match_build(1, "uuid", ctxt->c_uuid);
+    iter = j_config_get_stanzas(ctxt->c_cf, "region", match, 1);
+    g_free(match);
+    if (!j_iterator_has_more(iter))
+    {
+        fprintf(stderr,
+                PROGNAME ": Region \"%s\" is not configured.\n",
+                ctxt->c_uuid);
+        rc = -ENOENT;
+    }
+
+    while (j_iterator_has_more(iter))
+    {
+        cfs = (JConfigStanza *)j_iterator_get_next(iter);
+        j_config_delete_stanza(ctxt->c_cf, cfs);
+    }
+    j_iterator_free(iter);
+    if (rc)
+        goto out;
+
+    rc = hbconf_config_store(ctxt, HB_CONFIG_FILE);
+    if (rc)
+    {
+        fprintf(stderr,
+                PROGNAME ": Error storing \"%s\": %s\n",
+                HB_CONFIG_FILE, strerror(-rc));
+    }
+
+out:
+    return rc;
+}
+
 static void print_usage(gint rc)
 {
     FILE *output = rc ? stderr : stdout;
@@ -590,7 +658,7 @@ static void print_usage(gint rc)
             "Usage: " PROGNAME " -M [-c <cluster>] [-o|-z]\n"
             "       " PROGNAME " -M -c <cluster> -m <mode>\n"
             "       " PROGNAME " -A -c <cluster> -l <layout> {-u <uuid> | -d <device>}\n"
-            "       " PROGNAME " -R -c <cluster>\n");
+            "       " PROGNAME " -R {-u <uuid> | -d <device>}\n");
 
     exit(rc);
 }
@@ -734,6 +802,10 @@ gint main(gint argc, gchar *argv[])
 
         case HBCONF_OP_ADD:
             rc = hbconf_add(&ctxt);
+            break;
+
+        case HBCONF_OP_REMOVE:
+            rc = hbconf_remove(&ctxt);
             break;
 
         default:
