@@ -1375,11 +1375,14 @@ gint main(gint argc, gchar *argv[])
     if (rc)
         print_usage(rc);
 
-    ret = o2cb_init();
-    if (ret) {
-	com_err(PROGNAME, ret, "Cannot initialize cluster\n");
-	rc = -EINVAL;
-	goto out_error;
+    if (ctxt.oc_modify_running)
+    {
+        ret = o2cb_init();
+        if (ret) {
+	        com_err(PROGNAME, ret, "Cannot initialize cluster\n");
+	        rc = -EINVAL;
+	        goto out_error;
+        }
     }
 
     switch (ctxt.oc_op)

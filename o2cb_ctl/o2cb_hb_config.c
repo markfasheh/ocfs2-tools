@@ -210,6 +210,72 @@ out:
     return rc;
 }
 
+static gint cluster_exists(const gchar *cluster)
+{
+    gint rc;
+    gint ret;
+    gchar *argv[] =
+    {
+        "o2cb_ctl",
+        "-I",
+        "-o",
+        "-t",
+        "cluster",
+        "-n",
+        (gchar *)cluster,
+        NULL
+    };
+    GError *error = NULL;
+    gchar *errput = NULL;
+
+    if (!g_spawn_sync(NULL, argv, NULL,
+                      G_SPAWN_SEARCH_PATH | G_SPAWN_STDOUT_TO_DEV_NULL,
+                      NULL, NULL,
+                      NULL, &errput, &ret, &error))
+    {
+        fprintf(stderr, PROGNAME ": Could not run \"%s\": %s\n",
+                argv[0], error->message);
+        goto out;
+    }
+
+    if (WIFEXITED(ret))
+    {
+        rc = WEXITSTATUS(ret);
+        if (rc)
+        {
+            if (strstr(errput, "does not exist"))
+            {
+                fprintf(stderr,
+                        PROGNAME ": Cluster \"%s\" does not exist.\n",
+                        cluster);
+            }
+            else
+            {
+                fprintf(stderr, PROGNAME ": Error from \"%s\": %s\n",
+                        argv[0], errput);
+            }
+        }
+    }
+    else if (WIFSIGNALED(ret))
+    {
+        rc = -EINTR;
+        fprintf(stderr,
+                PROGNAME ": Program \"%s\" exited with signal %d\n",
+                argv[0], WTERMSIG(ret));
+    }
+    else
+    {
+        rc = -ENXIO;
+        fprintf(stderr,
+                PROGNAME ": Program \"%s\" exited unexpectedly\n",
+                argv[0]);
+    }
+
+out:
+
+    return rc;
+}
+
 static gint hbconf_mode_show_one(HBConfContext *ctxt,
                                  JConfigStanza *cfs)
 {
@@ -258,6 +324,9 @@ static gint hbconf_mode_show(HBConfContext *ctxt)
         goto out_error;
     }
 
+    if (ctxt->c_print_mode == HBCONF_PRINT_PARSEABLE)
+        fprintf(stdout, "#cluster:mode\n");
+
     rc = -ENOENT;
     if (!j_iterator_has_more(iter))
     {
@@ -266,11 +335,6 @@ static gint hbconf_mode_show(HBConfContext *ctxt)
             fprintf(stderr,
                     PROGNAME ": Cluster \"%s\" does not exist.\n",
                     ctxt->c_cluster);
-        }
-        else
-        {
-            fprintf(stderr,
-                    PROGNAME ": There are no configured clusters.\n");
         }
 
         goto out_iter;
@@ -320,6 +384,10 @@ static gint hbconf_mode_set(HBConfContext *ctxt)
                 ctxt->c_set_mode);
         print_usage(-EINVAL);
     }
+
+    rc = cluster_exists(ctxt->c_cluster);
+    if (rc)
+        goto out;
 
     rc = -ENOMEM;
     iter = j_config_get_stanzas(ctxt->c_cf, "cluster", &match, 1);
@@ -452,6 +520,10 @@ static gint hbconf_add(HBConfContext *ctxt)
                 PROGNAME ": Only specify one of \'-d\' and \'-u\'.\n");
         print_usage(-EINVAL);
     }
+
+    rc = cluster_exists(ctxt->c_cluster);
+    if (rc)
+        goto out;
 
     if (ctxt->c_dev)
     {
