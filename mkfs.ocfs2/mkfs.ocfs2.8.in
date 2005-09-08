@@ -2,7 +2,7 @@
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
-\fBmkfs.ocfs2\fR [ \fB\-b\fR \fIblock\-size\fR ] [ \fB\-C\fR \fIcluster\-size\fR ] [ \fB\-L\fR \fIvolume\-label\fR ] [ \fB\-N\fR \fInumber\-of\-nodes\fR ] [ \fB\-J\fR \fIjournal\-options\fR ] [ \fB\-F\fR ] [ \fB\-q\fR ] [ \fB\-v\fR ] [ \fB\-V\fR ] \fIdevice\fR
+\fBmkfs.ocfs2\fR [ \fB\-b\fR \fIblock\-size\fR ] [ \fB\-C\fR \fIcluster\-size\fR ] [ \fB\-L\fR \fIvolume\-label\fR ] [ \fB\-N\fR \fInumber\-of\-nodes\fR ] [ \fB\-J\fR \fIjournal\-options\fR ] [ \fB\-F\fR ] [ \fB\-q\fR ] [ \fB\-v\fR ] [ \fB\-V\fR ] \fIdevice\fR [ \fIblocks-count\fI ]
 .SH "DESCRIPTION"
 .PP 
 \fBmkfs.ocfs2\fR is used to create an \fIOCFS2\fR file system on a \fIdevice\fR, 
@@ -24,6 +24,13 @@ Valid cluster size values are 4K, 8K, 16K, 32K, 64K, 128K, 256K,
 512K and 1M. If omitted, a value will be hueristically determined by the
 file system size. For volumes expected to store large files, like database files,
 a \fIcluster\-size\fR of 128K or more is recommended. For others, 16K\-64K.
+
+.TP
+\fIblocks-count\fR
+Usually \fBmkfs.ocfs2\fR automatically determines the size of the given device
+and creates a file system that uses all of the available space on the 
+device.  This optional argument specifies that the file system should only
+consume the given number of file system blocks (see \fB-b\fR) on the device.
 
 .TP
 \fB\-L\fR \fIvolume\-label\fR
