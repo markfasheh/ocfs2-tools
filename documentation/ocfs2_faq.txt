@@ -321,11 +321,20 @@ A02	Yes, using debugfs.ocfs2.
 		# debugfs.ocfs2 -l HEARTBEAT off ENTRY EXIT deny
 ==============================================================================
 
-Directories
+Limits
 -----------
 
-Q01	Any limits to the number of sub-directories?
-A01	Yes. OCFS2 currently allows upto 32000 sub-directories. While this
+Q01	Is there a limit to the number of subdirectories in a directory?
+A01	Yes. OCFS2 currently allows up to 32000 subdirectories. While this
 	limit could be increased, we will not be doing it till we
 	implement some kind of efficient name lookup (htree, etc.).
+
+Q02	Is there a limit to the size of an ocfs2 file system?
+A02	Yes, current software addresses block numbers with 32 bits.  So the
+	file system device is limited to (2 ^ 32) * blocksize (see mkfs -b).
+	With a 4KB block size this amounts to a 16TB file system.  This block
+	addressing limit will be relaxed in future software.  At that point
+	the limit becomes addressing clusters of 1MB each with 32 bits which
+	leads to a 4PB file system.
+
 ==============================================================================
