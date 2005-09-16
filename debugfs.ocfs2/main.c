@@ -275,6 +275,9 @@ int main (int argc, char **argv)
 	INSTALL_SIGNAL(SIGTERM);
 	INSTALL_SIGNAL(SIGINT);
 
+	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
+
 	memset(&opts, 0, sizeof(opts));
 	memset(&gbls, 0, sizeof(gbls));
 

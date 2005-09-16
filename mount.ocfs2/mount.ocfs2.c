@@ -146,12 +146,9 @@ static void update_mtab_entry(char *spec, char *node, char *type, char *opts,
 		print_one (&mnt);
 
 	if (!nomtab && mtab_is_writable()) {
-#if 0
 		if (flags & MS_REMOUNT)
 			update_mtab (mnt.mnt_dir, &mnt);
-		else
-#endif
-		{
+		else {
 			mntFILE *mfp;
 
 			lock_mtab();
@@ -318,12 +315,14 @@ int main(int argc, char **argv)
 
 	block_signals (SIG_BLOCK);
 
-	ret = start_heartbeat(hb_ctl_path, mo.dev);
-	if (ret) {
-		block_signals (SIG_UNBLOCK);
-		com_err(progname, 0, "Error when attempting to run %s: "
-			"\"%s\"", hb_ctl_path, strerror(ret));
-		goto bail;
+	if (!(mo.flags & MS_REMOUNT)) {
+		ret = start_heartbeat(hb_ctl_path, mo.dev);
+		if (ret) {
+			block_signals (SIG_UNBLOCK);
+			com_err(progname, 0, "Error when attempting to run %s: "
+				"\"%s\"", hb_ctl_path, strerror(ret));
+			goto bail;
+		}
 	}
 
 	if (mo.xtra_opts && *mo.xtra_opts) {
@@ -335,7 +334,8 @@ int main(int argc, char **argv)
 
 	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS, extra);
 	if (ret) {
-		stop_heartbeat(hb_ctl_path, mo.dev);
+		if (!(mo.flags & MS_REMOUNT))
+			stop_heartbeat(hb_ctl_path, mo.dev);
 		block_signals (SIG_UNBLOCK);
 		com_err(progname, errno, "while mounting %s on %s",
 			mo.dev, mo.dir);
@@ -343,8 +343,8 @@ int main(int argc, char **argv)
 	}
 
 	update_mtab_entry(mo.dev, mo.dir, OCFS2_FS_NAME,
-			  fix_opts_string (((mo.flags & ~MS_NOMTAB) | MS_NETDEV),
-					   mo.xtra_opts, NULL),
+			  fix_opts_string(((mo.flags & ~MS_NOMTAB) | MS_NETDEV),
+					  mo.xtra_opts, NULL),
 			  mo.flags, 0, 0);
 
 	block_signals (SIG_UNBLOCK);

@@ -64,7 +64,7 @@
 
 typedef struct _ocfs2_tune_opts {
 	uint16_t num_slots;
-	uint64_t vol_size;
+	uint64_t num_blocks;
 	uint64_t jrnl_size;
 	char *vol_label;
 	char *progname;
@@ -79,13 +79,14 @@ typedef struct _ocfs2_tune_opts {
 static ocfs2_tune_opts opts;
 static ocfs2_filesys *fs_gbl = NULL;
 static int cluster_locked = 0;
+static int resize = 1;
 
 static void usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-N number-of-node-slots] "
 			"[-L volume-label]\n"
-			"\t[-J journal-options] [-S volume-size] [-qvV] "
-			"device\n",
+			"\t[-J journal-options] [-S] [-qvV] "
+			"device [blocks-count]\n",
 			progname);
 	exit(0);
 }
@@ -236,6 +237,8 @@ static void get_options(int argc, char **argv)
 	int ret;
 	char *dummy;
 	uint64_t val;
+	int resize = 0;
+	errcode_t ret = 0;
 
 	static struct option long_options[] = {
 		{ "label", 1, 0, 'L' },
@@ -256,7 +259,7 @@ static void get_options(int argc, char **argv)
 	opts.prompt = 1;
 
 	while (1) {
-		c = getopt_long(argc, argv, "L:N:J:S:vqVx", long_options, 
+		c = getopt_long(argc, argv, "L:N:J:SvqVx", long_options, 
 				NULL);
 
 		if (c == -1)
@@ -299,10 +302,7 @@ static void get_options(int argc, char **argv)
 			break;
 
 		case 'S':
-			ret = get_number(optarg, &val);
-			if (ret)
-				exit(1);
-			opts.vol_size = val;
+			resize = 1;
 			break;
 
 		case 'v':
@@ -337,10 +337,65 @@ static void get_options(int argc, char **argv)
 		usage(opts.progname);
 
 	opts.device = strdup(argv[optind]);
+	optind++;
+
+	if (optind < argc) {
+		ops.num_blocks = strtoull(argv[optind], &dummy, 0);
+		if ((*dummy)) {
+			com_err(opts.progname, 0, "Block count bad - %s",
+				argv[optind]);
+			exit(1);
+		}
+		optind++;
+	}
+
+	if (optind < argc)
+		usage(progname);
 
 	opts.tune_time = time(NULL);
 
 	return ;
+}
+
+static void get_vol_size(ocfs2_filesys *fs)
+{
+	errcode_t ret = 0;
+	uint64_t num_blocks;
+
+	ret = ocfs2_get_device_size(opts.device, fs->fs_blocksize,
+				    &num_blocks);
+	if (ret) {
+		com_err(opts.progname, ret, "while getting size of device %s",
+			opts.device);
+		exit(1);
+	}
+
+	if (!opts.num_blocks ||
+	    opts.num_blocks > num_blocks)
+		opts.num_blocks = num_blocks;
+
+	return ;
+}
+
+static int validate_vol_size(ocfs2_filesys *fs)
+{
+	uint64_t num_blocks;
+
+	if (opts.num_blocks < fs->fs_blocks) {
+		printf("Cannot reduce volume size from "
+		       "%"PRIu64" blocks to %"PRIu64" blocks\n",
+		       fs->fs_blocks, opts.num_blocks);
+		return -1;
+	}
+
+	num_blocks = ocfs2_clusters_to_blocks(fs, 1);
+	if (num_blocks > (opts.num_blocks - fs->fs_blocks)) {
+		printf("Cannot increase volume size less than "
+		       "%d blocks\n", num_blocks);
+		return -1;
+	}
+
+	return 0;
 }
 
 static errcode_t add_slots(ocfs2_filesys *fs)
@@ -628,11 +683,68 @@ bail:
 
 	return ret;
 }
+#if 0
+typedef struct _ocfs2_chain_list {
+/*00*/	__u16 cl_cpg;			/* Clusters per Block Group */
+	__u16 cl_bpc;			/* Bits per cluster */
+	__u16 cl_count;			/* Total chains in this list */
+	__u16 cl_next_free_rec;		/* Next unused chain slot */
+	__u64 cl_reserved1;
+/*10*/	ocfs2_chain_rec cl_recs[0];	/* Chain records */
+} ocfs2_chain_list;
+
+typedef struct _ocfs2_chain_rec {
+	__u32 c_free;	/* Number of free bits in this chain. */
+	__u32 c_total;	/* Number of total bits in this chain */
+	__u64 c_blkno;	/* Physical disk offset (blocks) of 1st group */
+} ocfs2_chain_rec;
+#endif
 
 static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 {
-	printf("TODO: update_volume_size\n");
-	return 0;
+	errcode_t ret = 0;
+	ocfs2_dinode *di;
+	uint64_t blkno;
+	char *buf = NULL;
+	ocfs2_chain_list *cl;
+	ocfs2_chain_rec *cr;
+
+	num_clusters = ocfs2_blocks_to_clusters(fs, opts.num_blocks);
+	new_clusters = num_clusters - fs->fs_clusters;
+
+	/* read global bitmap */
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE, 0,
+					&blkno);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_read_inode(fs, blkno, buf);
+	if (ret)
+		goto bail;
+
+	di = (ocfs2_dinode *)buf;
+	cl = &(di->id2.i_chain);
+
+	if (cl->cl_next_free_rec <= cl->cl_count) {
+		cr = cl->cl_recs[cl->cl_next_free_rec - 1];
+		if (cr->total < cl->cl_cpg) {
+			t = cl->cl_cpg - cr->total;
+		}
+
+	}
+
+		num_clusters = ocfs2_blocks_to_clusters(fs, opts.num_blocks);
+
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
 }
 
 int main(int argc, char **argv)
@@ -642,11 +754,10 @@ int main(int argc, char **argv)
 	int upd_label = 0;
 	int upd_slots = 0;
 	int upd_jrnls = 0;
-	int upd_vsize = 0;
+	int upd_blocks = 0;
 	uint16_t tmp;
 	uint64_t def_jrnl_size = 0;
 	uint64_t num_clusters;
-	uint64_t vol_size = 0;
 	int dirty = 0;
 
 	initialize_ocfs_error_table();
@@ -682,6 +793,9 @@ int main(int argc, char **argv)
 		goto close;
 	}
 	fs_gbl = fs;
+
+	if (resize)
+		get_vol_size(fs);
 
 	ret = ocfs2_initialize_dlm(fs);
 	if (ret) {
@@ -746,7 +860,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-
+#if 0
 	/* validate volume size */
 	if (opts.vol_size) {
 		num_clusters = (opts.vol_size + fs->fs_clustersize - 1) >>
@@ -760,6 +874,20 @@ int main(int argc, char **argv)
 		printf("Changing volume size %"PRIu64" to %"PRIu64"\n",
 		       vol_size, opts.vol_size);
 	}
+#endif
+	/* validate volume size */
+	if (opts.num_blocks) {
+		if (validate_vol_size(ocfs2_filesys *fs))
+			opts.num_blocks = 0;
+		else
+			printf("Changing volume size %"PRIu64" blocks to "
+			       "%"PRIu64" blocks\n", fs->fs_blocks,
+			       opts.num_blocks);
+	}
+
+	if (!opts.vol_label && !opts.num_slots &&
+	    !opts.jrnl_size && !opts.num_blocks)
+		goto unlock;
 
 	/* Abort? */
 	if (opts.prompt) {
@@ -802,18 +930,18 @@ int main(int argc, char **argv)
 	}
 
 	/* update volume size */
-	if (opts.vol_size) {
-		ret = update_volume_size(fs, &upd_vsize);
+	if (opts.num_blocks) {
+		ret = update_volume_size(fs, &upd_blocks);
 		if (ret) {
 			com_err(opts.progname, ret, "while updating volume size");
 			goto unlock;
 		}
-		if (upd_vsize)
+		if (upd_blocks)
 			printf("Resized volume\n");
 	}
 
 	/* write superblock */
-	if (upd_label || upd_slots || upd_vsize) {
+	if (upd_label || upd_slots || upd_blocks) {
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {
