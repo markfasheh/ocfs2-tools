@@ -185,7 +185,8 @@ static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 };
 
 /* Parameter passed from mount.ocfs2 to module */
-#define OCFS2_HB_OK		"hbok"
+#define OCFS2_HB_NONE			"heartbeat=none"
+#define OCFS2_HB_LOCAL			"heartbeat=local"
 
 /*
  * OCFS2 directory file types.  Only the low 3 bits are used.  The

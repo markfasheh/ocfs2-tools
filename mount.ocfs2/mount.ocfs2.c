@@ -194,6 +194,24 @@ static int process_options(struct mount_options *mo)
 	return 0;
 }
 
+static int check_dev_readonly(const char *dev, int *dev_ro)
+{
+	int fd;
+	int ret;
+
+	fd = open(dev, O_RDONLY);
+	if (fd < 0)
+		return errno;
+
+	ret = ioctl(fd, BLKROGET, dev_ro);
+	if (ret < 0)
+		return errno;
+
+	close(fd);
+
+	return 0;
+}
+
 static int check_for_hb_ctl(const char *hb_ctl_path)
 {
 	int ret;
@@ -272,6 +290,8 @@ int main(int argc, char **argv)
 	struct mount_options mo;
 	char hb_ctl_path[PATH_MAX];
 	char *extra = NULL;
+	int dev_ro = 0;
+	char *hbstr = NULL;
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -313,9 +333,17 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
+	if (mo.flags & MS_RDONLY) {
+		ret = check_dev_readonly(mo.dev, &dev_ro);
+		if (ret) {
+			com_err(progname, ret, "device not accessible");
+			goto bail;
+		}
+	}
+
 	block_signals (SIG_BLOCK);
 
-	if (!(mo.flags & MS_REMOUNT)) {
+	if (!(mo.flags & MS_REMOUNT) && !dev_ro) {
 		ret = start_heartbeat(hb_ctl_path, mo.dev);
 		if (ret) {
 			block_signals (SIG_UNBLOCK);
@@ -325,16 +353,21 @@ int main(int argc, char **argv)
 		}
 	}
 
+	if (dev_ro)
+		hbstr = OCFS2_HB_NONE;
+	else
+		hbstr = OCFS2_HB_LOCAL;
+
 	if (mo.xtra_opts && *mo.xtra_opts) {
 		extra = xstrndup(mo.xtra_opts,
-				 strlen(mo.xtra_opts) + strlen(OCFS2_HB_OK) + 1);
-		extra = xstrconcat3(extra, ",", OCFS2_HB_OK);
+				 strlen(mo.xtra_opts) + strlen(hbstr) + 1);
+		extra = xstrconcat3(extra, ",", hbstr);
 	} else
-		extra = xstrndup(OCFS2_HB_OK, strlen(OCFS2_HB_OK));
+		extra = xstrndup(hbstr, strlen(hbstr));
 
 	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS, extra);
 	if (ret) {
-		if (!(mo.flags & MS_REMOUNT))
+		if (!(mo.flags & MS_REMOUNT) && !dev_ro)
 			stop_heartbeat(hb_ctl_path, mo.dev);
 		block_signals (SIG_UNBLOCK);
 		com_err(progname, errno, "while mounting %s on %s",
