@@ -263,8 +263,11 @@ check_heartbeat()
     then
         ls -1 "/config/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
         do
-            return 2;
-        done;
+            if [ -d "/config/cluster/${CLUSTER}/heartbeat/${HBUUID}" ]
+            then
+                return 2;
+            fi
+        done
         if [ $? = 2 ]
         then
             RC=2
@@ -297,6 +300,11 @@ clean_heartbeat()
 
     ls -1 "/config/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
     do
+        if [ ! -d "/config/cluster/${CLUSTER}/heartbeat/${HBUUID}" ]
+        then
+            continue
+        fi
+
         OUTPUT="`ocfs2_hb_ctl -I -u ${HBUUID} 2>&1`"
         if [ $? != 0 ]
         then
@@ -309,7 +317,7 @@ clean_heartbeat()
         if [ $REF != 0 ]
         then
            echo "Failed"
-           echo "Atleast one heartbeat region still active" >&2
+           echo "At least one heartbeat region still active" >&2
            exit 1
         else
            OUTPUT="`ocfs2_hb_ctl -K -u ${HBUUID} 2>&1`"
@@ -483,9 +491,6 @@ load()
         eval ${LOAD_ACTIONS[i]}
         if_fail "$?"
     done
-    if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
-        echo "$O2CB_HEARTBEAT_THRESHOLD" > /proc/fs/ocfs2_nodemanager/hb_dead_threshold
-    fi
 }
 
 load_status()
@@ -516,6 +521,18 @@ online()
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
     if [ $? = 0 ]
     then
+        O2CB_HEARTBEAT_THRESHOLD_FILE_OLD=/proc/fs/ocfs2_nodemanager/hb_dead_threshold
+        O2CB_HEARTBEAT_THRESHOLD_FILE=/config/cluster/${CLUSTER}/heartbeat/dead_threshold
+        if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
+            if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
+                echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE"
+            elif [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD" ]; then 
+                echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD"
+            else
+                echo "WARNING: Unable to set heartbeat dead threshold" >&2
+            fi
+        fi
+
         echo "OK"
         return
     else
