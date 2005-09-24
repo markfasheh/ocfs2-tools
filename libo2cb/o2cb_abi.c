@@ -409,16 +409,14 @@ out:
 	return err;
 }
 
-#define O2CB_NM_REVISION_PATH	"/proc/fs/ocfs2_nodemanager/interface_revision"
-errcode_t o2cb_init(void)
-{
-	int ret, fd;
-	unsigned int module_version;
-	errcode_t err;
-	char revision_string[16];
 
-	fd = open(O2CB_NM_REVISION_PATH, O_RDONLY);
-	if (fd == -1) {
+static errcode_t try_file(const char *name, int *fd)
+{
+	int open_fd;
+	errcode_t err = 0;
+
+	open_fd = open(name, O_RDONLY);
+	if (open_fd < 0) {
 		switch (errno) {
 			default:
 				err = O2CB_ET_INTERNAL_FAILURE;
@@ -436,8 +434,28 @@ errcode_t o2cb_init(void)
 				err = O2CB_ET_PERMISSION_DENIED;
 				break;
 		}
-		return err;
 	}
+
+	if (!err)
+		*fd = open_fd;
+
+	return err;
+}
+
+#define O2CB_INTERFACE_REVISION_PATH_OLD	"/proc/fs/ocfs2_nodemanager/interface_revision"
+#define O2CB_INTERFACE_REVISION_PATH		"/sys/o2cb/interface_revision"
+errcode_t o2cb_init(void)
+{
+	int ret, fd;
+	unsigned int module_version;
+	errcode_t err;
+	char revision_string[16];
+
+	err = try_file(O2CB_INTERFACE_REVISION_PATH, &fd);
+	if (err == O2CB_ET_SERVICE_UNAVAILABLE)
+		err = try_file(O2CB_INTERFACE_REVISION_PATH_OLD, &fd);
+	if (err)
+		return err;
 
 	ret = do_read(fd, revision_string, sizeof(revision_string) - 1);
 	close(fd);
