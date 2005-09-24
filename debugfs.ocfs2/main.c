@@ -24,6 +24,8 @@
  */
 
 #include <main.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #define PROMPT "debugfs: "
 
@@ -95,12 +97,12 @@ static void fill_log_list(int argc, char **argv, int startind)
 	GList *tmplist = NULL;
 
 	for (i = startind; i < argc; i++) {
-		if (!strcmp(argv[i], "allow")) {
-			process_one_list(tmplist, "allow");
-		} else if (!strcmp(argv[i], "deny")) {
-			process_one_list(tmplist, "deny");
-		} else if (!strcmp(argv[i], "off")) {
-			process_one_list(tmplist, "off");
+		if (!strcmp(argv[i], "allow") ||
+		    !strcmp(argv[i], "deny") ||
+		    !strcmp(argv[i], "off")) {
+			process_one_list(tmplist, argv[i]);
+			g_list_free(tmplist);
+			tmplist = NULL;
 		} else {
 			tmplist = g_list_append(tmplist, argv[i]);
 		}
@@ -138,9 +140,9 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 			}
 			break;
 
-                case 'l':
-                        logmode++;
-                        break;
+		case 'l':
+			logmode++;
+			break;
 
 		case 'w':
 			opts->allow_write = 1;
@@ -172,7 +174,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 			opts->device = strdup(argv[optind]);
 		else
 			fill_log_list(argc, argv, optind);
-        }
+	}
 
 	return ;
 }
@@ -214,16 +216,15 @@ static char * get_line (FILE *stream, int no_prompt)
 	return line;
 }					/* get_line */
 
-#define LOG_CTL "/proc/fs/ocfs2_nodemanager/log_mask"
-
-static int set_logmode(struct log_entry *entry)
+#define LOG_CTL_PROC "/proc/fs/ocfs2_nodemanager/log_mask"
+static int set_logmode_proc(struct log_entry *entry)
 {
 	FILE *f;
 
-	f = fopen(LOG_CTL, "w");
+	f = fopen(LOG_CTL_PROC, "w");
 	if (!f) {
 		fprintf(stderr, "%s: Unable to open \"%s\": %s\n",
-			gbls.progname, LOG_CTL, strerror(errno));
+			gbls.progname, LOG_CTL_PROC, strerror(errno));
 		return 1;
 	}
 	fprintf(f, "%s %s\n", entry->mask, entry->action);
@@ -232,7 +233,44 @@ static int set_logmode(struct log_entry *entry)
 	return 0;
 }
 
-static void run_logmode(void)
+#define LOG_CTL_SYSFS_DIR "/sys/o2cb/logmask"
+#define LOG_CTL_SYSFS_FORMAT LOG_CTL_SYSFS_DIR "/%s"
+static int set_logmode_sysfs(struct log_entry *entry)
+{
+	FILE *f;
+	char *logpath;
+
+	logpath = g_strdup_printf(LOG_CTL_SYSFS_FORMAT, entry->mask);
+	f = fopen(logpath, "w");
+	g_free(logpath);
+	if (!f) {
+		fprintf(stderr,
+			"%s: Unable to write log mask \"%s\": %s\n",
+			gbls.progname, entry->mask, strerror(errno));
+		return 1;
+	}
+	fprintf(f, "%s\n", entry->action);
+	fclose(f);
+
+	return 0;
+}
+
+static int get_logmode_sysfs(const char *name)
+{
+	char *logpath;
+	char *current_mask;
+
+	logpath = g_strdup_printf(LOG_CTL_SYSFS_FORMAT, name);
+	if (g_file_get_contents(logpath, &current_mask,
+				NULL, NULL)) {
+		fprintf(stdout, "%s %s", name, current_mask);
+	}
+	g_free(logpath);
+
+	return 0;
+}
+
+static void run_logmode_proc(void)
 {
 	GList *tmp;
 	char *current_mask;
@@ -240,17 +278,53 @@ static void run_logmode(void)
 	if (loglist) {
 		tmp = loglist;
 		while (tmp) {
-			if (set_logmode(tmp->data))
+			if (set_logmode_proc(tmp->data))
 				break;
 			tmp = tmp->next;
 		}
 	} else {
-		if (g_file_get_contents(LOG_CTL, &current_mask, NULL,
-					NULL)) {
+		if (g_file_get_contents(LOG_CTL_PROC, &current_mask,
+					NULL, NULL)) {
 			fprintf(stdout, "%s", current_mask);
 		}
 	}
 }
+
+static void run_logmode_sysfs(void)
+{
+	GList *tmp;
+	DIR *dir;
+	struct dirent *d;
+
+	if (loglist) {
+		tmp = loglist;
+		while (tmp) {
+			if (set_logmode_sysfs(tmp->data))
+				break;
+			tmp = tmp->next;
+		}
+	} else {
+		dir = opendir(LOG_CTL_SYSFS_DIR);
+		if (dir) {
+			while ((d = readdir(dir)) != NULL)
+				get_logmode_sysfs(d->d_name);
+			closedir(dir);
+		}
+	}
+}
+
+static void run_logmode(void)
+{
+	struct stat stat_buf;
+
+	if (!stat(LOG_CTL_SYSFS_DIR, &stat_buf) &&
+	    S_ISDIR(stat_buf.st_mode))
+		run_logmode_sysfs();
+	else if (!stat(LOG_CTL_PROC, &stat_buf) &&
+		 S_ISREG(stat_buf.st_mode))
+		run_logmode_proc();
+}
+
 
 /*
  * main()
