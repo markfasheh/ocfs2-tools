@@ -69,7 +69,7 @@ rm -rf "$RPM_BUILD_ROOT"
 
 
 %post
-chkconfig o2cb on
+chkconfig --add o2cb >/dev/null
 
 
 %files
