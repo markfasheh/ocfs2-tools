@@ -809,7 +809,7 @@ static void mark_local_allocs(o2fsck_state *ost)
 	errcode_t ret;
 	uint64_t blkno, start, end;
 	ocfs2_dinode *di;
-	ocfs2_local_alloc *la = &di->id2.i_lab;
+	ocfs2_local_alloc *la;
 	int bit;
 
 	max_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
