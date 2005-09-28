@@ -156,7 +156,7 @@ static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di,
 		  "%"PRId16"\n", blkno, val, oldval, slot);
 
 	/* make sure the inode's fields are consistent if it's allocated */
-	if (val == 1 && slot != di->i_suballoc_slot &&
+	if (val == 1 && slot != (int16_t)di->i_suballoc_slot &&
 	    prompt(ost, PY, PR_INODE_SUBALLOC,
 		   "Inode %"PRIu64" indicates that it was allocated "
 		   "from slot %"PRId16" but slot %"PRId16"'s chain allocator "

@@ -208,7 +208,7 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 		in->i_mtime_nsec, in->i_mtime_nsec);
 
 	fprintf(out, "\tLast Extblk: %"PRIu64"\n", in->i_last_eb_blk);
-	if (in->i_suballoc_slot == OCFS2_INVALID_SLOT)
+	if (in->i_suballoc_slot == (uint16_t)OCFS2_INVALID_SLOT)
 		strcpy(tmp_str, "Global");
 	else
 		sprintf(tmp_str, "%d", in->i_suballoc_slot);
