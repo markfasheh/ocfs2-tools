@@ -338,3 +338,82 @@ A02	Yes, current software addresses block numbers with 32 bits.  So the
 	leads to a 4PB file system.
 
 ==============================================================================
+
+System Files
+------------
+
+Q01	What are system files?
+A01	System files are used to store standard filesystem metadata like
+	bitmaps, journals, etc. Storing this information in files in a
+	directory allows OCFS2 to be extensible. These system files
+	can be accessed using debugfs.ocfs2.
+
+	To list the system files, do:
+	# echo "ls -l //" | debugfs.ocfs2 /dev/sdX
+        	18              16   1    2  .
+        	18              16   2    2  ..
+        	19              24   10   1  bad_blocks
+        	20              32   18   1  global_inode_alloc
+        	21              20   8    1  slot_map
+        	22              24   9    1  heartbeat
+        	23              28   13   1  global_bitmap
+        	24              28   15   2  orphan_dir:0000
+        	25              32   17   1  extent_alloc:0000
+        	26              28   16   1  inode_alloc:0000
+        	27              24   12   1  journal:0000
+        	28              28   16   1  local_alloc:0000
+        	29              3796 17   1  truncate_log:0000
+	The first column lists the block number.
+
+Q02	Why do some files have numbers at the end?
+A02	There are two types of files, global and local. Global files are
+	for all the nodes, while local, like journal:0000, are node specific.
+	The set of local files used by a node is determined by the slot
+	mapping of that node. The numbers at the end of the system file
+	name is the slot#.
+
+	To list the slot maps, do:
+	# echo "slotmap" | debugfs.ocfs2 -n /dev/sdX
+        	Slot#   Node#
+	            0      39
+        	    1      40
+	            2      41
+        	    3      42
+==============================================================================
+
+Heartbeat
+---------
+
+Q01	How does the disk heartbeat work?
+A01	Every node writes every two secs to its block in the heartbeat
+	system file. The block offset is equal to its global node
+	number. So node 0 writes to the first block, node 1 to the
+	second, etc. All the nodes also read the heartbeat sysfile every
+	two secs. As long as the timestamp is changing, that node is
+	deemed alive.
+
+Q02	When is a node deemed dead?
+A02	An active node is deemed dead if it does not update its
+	timestamp for O2CB_HEARTBEAT_THRESHOLD (default=7) loops.
+	This value could be configured by adding it to /etc/sysconfig/o2cb
+	and restarting the O2CB cluster. This value should be the SAME
+	on ALL the nodes in the cluster. Once a node is deemed dead, the
+	surviving node which manages to cluster lock the dead node's journal,
+	recovers it by replaying the journal.
+	
+Q03	What about self fencing?
+A03	A node self-fences if it fails to update its timestamp for
+	((O2CB_HEARTBEAT_THRESHOLD - 1) * 2) secs. The [o2hb-xx] kernel
+	thread, after every timestamp write, sets a timer to panic the system
+	after that duration. If the next timestamp is written within that
+	duration, as it should, it first cancels that timer before setting
+	up a new one. This way it ensures the system will self fence if for
+	some reason the [o2hb-x] kernel thread is unable to update the
+	timestamp and thus be deemed dead by other nodes in the cluster.
+
+Q04	What if a node umounts a volume?
+A04	During umount, the node will broadcast to all the nodes that
+	have mounted that volume to drop that node from its node maps.
+	As the journal is shutdown before this broadcast, any node crash
+	after this point is ignored as there is no need for recovery.
+==============================================================================
