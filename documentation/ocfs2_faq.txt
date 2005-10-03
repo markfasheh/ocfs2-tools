@@ -465,6 +465,9 @@ A05	First a node will realize that it doesn't have connectivity with
 	another node.  This can happen immediately if the connection is closed
 	but can take a maximum of 10 seconds of idle time.  Then the node
 	must wait long enough to give heartbeating a chance to declare the
-	node dead.  This is tunable, but defaults to 18 seconds.  By default,
-	then, a maximum of 28 seconds can pass from the time a network fault
-	occurs until a node fences itself.
+	node dead.  It does this by waiting two iterations longer than 
+	the number of iterations needed to consider a node dead (see Q03 in
+	the Heartbeat section of this FAQ).  The current default of 7
+	iterations of 2 seconds results in waiting for 9 iterations or 18
+	seconds.  By default, then, a maximum of 28 seconds can pass from the
+	time a network fault occurs until a node fences itself.
