@@ -417,3 +417,54 @@ A04	During umount, the node will broadcast to all the nodes that
 	As the journal is shutdown before this broadcast, any node crash
 	after this point is ignored as there is no need for recovery.
 ==============================================================================
+
+Quorum and Fencing
+------------------
+
+Q01	What is a quorum?
+A01	A quorum is a designation given to a group of nodes in a cluster which
+	are still allowed to operate on shared storage.  It comes up when
+	there there is a failure in the cluster which breaks the nodes up
+	into groups which can communicate in their groups and with the
+	shared storage but not between groups.
+
+
+Q02	How does OCFS2's cluster services define a quorum? 
+A02	The quorum decision is made by a single node based on the number
+	of other nodes that are considered alive by heartbeating and the number
+	of other nodes that are reachable via the network.
+
+	A node has quorum when:
+	* it sees an odd number of heartbeating nodes and has network
+	  connectivity to more than half of them.
+		or 
+	* it sees an even number of heartbeating nodes and has network
+	  connectivity to at least half of them *and* has connectivity to
+	  the heartbeating node with the lowest node number. 
+
+Q03	What is fencing?
+A03	Fencing is the act of forecefully removing a node from a cluster.
+	A node with OCFS2 mounted will fence itself when it realizes that it
+	doesn't have quorum in a degraded cluster.  It does this so that other
+	nodes won't get stuck trying to access its resources.  Currently OCFS2
+	will panic the machine when it realizes it has to fence itself
+	off from the cluster.  As described in Q02, it will do this when it
+	sees more nodes heartbeating than it has connectivity to and fails
+	the quorum test.
+
+Q04	How does a node decide that it has connectivity with another?
+A04	When a node sees another come to life via heartbeating it will try
+	and establish a TCP connection to that newly live node.  It considers
+	that other node connected as long as the TCP connection persists and
+	the connection is not idle for 10 seconds.  Once that TCP connection
+	is closed or idle it will not be reestablished until heartbeat thinks
+	the other node has died and come back alive.
+
+Q05	How long does the quorum process take?
+A05	First a node will realize that it doesn't have connectivity with
+	another node.  This can happen immediately if the connection is closed
+	but can take a maximum of 10 seconds of idle time.  Then the node
+	must wait long enough to give heartbeating a chance to declare the
+	node dead.  This is tunable, but defaults to 18 seconds.  By default,
+	then, a maximum of 28 seconds can pass from the time a network fault
+	occurs until a node fences itself.
