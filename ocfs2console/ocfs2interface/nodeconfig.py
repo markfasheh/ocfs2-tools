@@ -248,13 +248,16 @@ class ClusterConfig(Dialog):
                                   ip_addr, ip_port))
         self.sel.select_iter(iter)
 
+        self.tv.scroll_to_cell(self.store.get_path(iter))
+
         self.can_apply(True)
 
     def edit_node(self, b):
         store, iter = self.sel.get_selected()
         attrs = store[iter]
 
-        node_attrs = self.node_query(title='Edit Node', defaults=attrs)
+        node_attrs = self.node_query(title='Edit Node', defaults=attrs,
+                                     editing=True)
 
         if node_attrs is None:
             return
@@ -311,7 +314,7 @@ class ClusterConfig(Dialog):
         self.load_cluster_state()
         return success
 
-    def node_query(self, title='Node Attributes', defaults=None):
+    def node_query(self, title='Node Attributes', defaults=None, editing=False):
         existing_names = {}
         existing_ip_addrs = {}
 
@@ -319,8 +322,11 @@ class ClusterConfig(Dialog):
             name = row[COLUMN_NAME]
             ip_addr = row[COLUMN_IP_ADDRESS]
 
-            existing_names[name] = 1
-            existing_ip_addrs[ip_addr] = name
+            if not (editing and name == defaults[COLUMN_NAME]):
+                existing_names[name] = 1
+
+            if not (editing and ip_addr == defaults[COLUMN_IP_ADDRESS]):
+                existing_ip_addrs[ip_addr] = name
 
         dialog = Dialog(parent=self, title=title,
                         buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
