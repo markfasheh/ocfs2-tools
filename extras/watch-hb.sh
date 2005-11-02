@@ -35,6 +35,6 @@ done
 	die "a region must be specified with -r or a device with -d"
 
 watch -n 3 -d \
-	"echo \"cat //heartbeat\" | debugfs.ocfs2 $device 2>/dev/null \
+	"echo \"cat //heartbeat\" | debugfs.ocfs2 -n $device 2>/dev/null \
 	| od -A d -x | \
 	awk '( NF > 2 ) { \$(1) = \$1 / $slot_bytes; if (\$1 == int(\$1)) print \$0 }'"
