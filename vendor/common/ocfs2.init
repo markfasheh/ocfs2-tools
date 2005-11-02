@@ -17,15 +17,16 @@
 
 . /etc/rc.status
 
-OCFS2MTAB=`LC_ALL=C awk '!/^#/ && $3 == "ocfs2"  { print $2 }' /proc/mounts`
+OCFS2MNTS=`LC_ALL=C awk '$3 == "ocfs2"  { print $2 }' /proc/mounts`
 OCFS2FSTAB=`LC_ALL=C awk '!/^#/ && $3 == "ocfs2" && $4 !~ /noauto/ { print $2 }' /etc/fstab`
+FUSER=`which fuser`
 
 rc_reset
 case "$1" in
     start|reload)
 	echo -n "Starting Oracle Cluster File System (OCFS2)"
 	if [ -n "$OCFS2FSTAB" ] ; then
-	  mount -a -t ocfs2
+	  mount -at ocfs2 2>/dev/null
 	  rc_status
 	  rc_status -v
 	else
@@ -34,12 +35,31 @@ case "$1" in
 	;;
     stop)
 	echo -n "Stopping Oracle Cluster File System (OCFS2)"
-	if [ -n "$OCFS2MTAB" ] ; then
-	  umount -a -t ocfs2
-	  rc_status -v
-	else
-	  rc_status -u
+	ocfs2mnts=$OCFS2MNTS
+  	if [ -n "$ocfs2mnts" ] ; then
+		retry=3
+		while [ -n "$ocfs2mnts" -a "$retry" -gt 0 ]
+		do
+			if [ "$retry" -lt 3 ]; then
+				echo -n "Retry stopping Oracle Cluster File System (OCFS2)"
+			fi
+			umount -a -t ocfs2 2>/dev/null
+			sleep 1
+			ocfs2mnts=`LC_ALL=C awk '$3 == "ocfs2"  { print $2 }' /proc/mounts`
+			[ -z "$ocfs2mnts" ] && break
+			rc_failed 1
+			rc_status -v
+			$FUSER -km $ocfs2mnts >/dev/null
+			sleep 1
+			retry=$(($retry - 1))
+		done
 	fi
+	if [ -n "$ocfs2mnts" ] ; then
+		rc_failed 1
+	else
+		rc_failed 0
+	fi
+	rc_status -v
 	;;
     restart|force-reload)
 	$0 stop
@@ -49,18 +69,17 @@ case "$1" in
     status)
 	if [ -f /proc/mounts ] ; then
 		[ -n "$OCFS2FSTAB" ] && {
-			echo $"Configured OCFS2 mountpoints: "
-			for fs in $OCFS2FSTAB; do echo $fs ; done
+			echo "Configured OCFS2 mountpoints: " $OCFS2FSTAB
 		}
 
-		[ -n "$OCFS2MTAB" ] && {
-			echo $"Active OCFS2 mountpoints: "
-			for fs in $OCFS2MTAB; do echo $fs ; done
+		[ -n "$OCFS2MNTS" ] && {
+			echo "Active OCFS2 mountpoints: " $OCFS2MNTS
 		}
+		rc_reset
 	else
 		rc_failed 3
+        	rc_status -v
 	fi
-        rc_status -v
 	;;
     try-restart|condrestart)
 	$0 status
