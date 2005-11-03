@@ -54,6 +54,13 @@ make
 
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
+cp -f vendor/common/ocfs2.init $RPM_BUILD_ROOT/etc/init.d/ocfs2
+if [ -f /etc/redhat-release ]
+then
+    # Red Hat chkconfig is completely and utterly broken
+    perl -p -i -e 'BEGIN() { $k=0;}  if (/^###/) { $k++ } elsif ($k == 1) { printf "#"};' $RPM_BUILD_ROOT/etc/init.d/o2cb
+    perl -p -i -e 'BEGIN() { $k=0;}  if (/^###/) { $k++ } elsif ($k == 1) { printf "#"};' $RPM_BUILD_ROOT/etc/init.d/ocfs2
+fi
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 cp -f vendor/common/o2cb.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/o2cb
 
@@ -70,6 +77,11 @@ rm -rf "$RPM_BUILD_ROOT"
 
 %post
 chkconfig --add o2cb >/dev/null
+chkconfig --add ocfs2 >/dev/null
+
+%preun
+chkconfig --del ocfs2 >/dev/null
+chkconfig --del o2cb >/dev/null
 
 
 %files
@@ -86,6 +98,7 @@ chkconfig --add o2cb >/dev/null
 /sbin/ocfs2cdsl
 /sbin/ocfs2_hb_ctl
 /etc/init.d/o2cb
+/etc/init.d/ocfs2
 /etc/sysconfig/o2cb
 /usr/share/man/man8/debugfs.ocfs2.8.gz
 /usr/share/man/man8/fsck.ocfs2.8.gz
