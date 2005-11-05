@@ -25,9 +25,13 @@
 #ifndef _O2CB_ABI_H
 #define _O2CB_ABI_H
 
-#define CONFIGFS_PATH "/config"
+/*
+ * The latest place is /sys/kernel/config, but older O2CB put it
+ * at /config.  So, libo2cb has to handle detection
+ */
+#define CONFIGFS_FORMAT_PATH "%s/config"
 
-#define O2CB_FORMAT_CLUSTER_DIR		CONFIGFS_PATH "/cluster"
+#define O2CB_FORMAT_CLUSTER_DIR		CONFIGFS_FORMAT_PATH "/cluster"
 #define O2CB_FORMAT_CLUSTER		O2CB_FORMAT_CLUSTER_DIR "/%s"
 #define O2CB_FORMAT_NODE_DIR		O2CB_FORMAT_CLUSTER "/node"
 #define O2CB_FORMAT_NODE		O2CB_FORMAT_NODE_DIR "/%s"

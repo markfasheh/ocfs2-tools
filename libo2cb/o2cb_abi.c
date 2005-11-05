@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <sys/ioctl.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
@@ -42,12 +43,11 @@
 #include <linux/types.h>
 
 #include "o2cb.h"
-
 #include "o2cb_abi.h"
-
 #include "o2cb_crc32.h"
-
 #include "ocfs2_nodemanager.h"
+
+static char *configfs_path;
 
 errcode_t o2cb_create_cluster(const char *cluster_name)
 {
@@ -56,7 +56,7 @@ errcode_t o2cb_create_cluster(const char *cluster_name)
 	errcode_t err = 0;
 
 	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_CLUSTER,
-		       cluster_name);
+		       configfs_path, cluster_name);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
@@ -99,7 +99,7 @@ errcode_t o2cb_remove_cluster(const char *cluster_name)
 	errcode_t err = 0;
 
 	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_CLUSTER,
-		       cluster_name);
+		       configfs_path, cluster_name);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
@@ -265,7 +265,8 @@ static errcode_t o2cb_set_node_attribute(const char *cluster_name,
 	char attr_path[PATH_MAX];
 
 	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_NODE_ATTR,
-		       cluster_name, node_name, attr_name);
+		       configfs_path, cluster_name, node_name,
+		       attr_name);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
@@ -282,7 +283,8 @@ static errcode_t o2cb_get_node_attribute(const char *cluster_name,
 	char attr_path[PATH_MAX];
 
 	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_NODE_ATTR,
-		       cluster_name, node_name, attr_name);
+		       configfs_path, cluster_name, node_name,
+		       attr_name);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
@@ -303,7 +305,7 @@ errcode_t o2cb_add_node(const char *cluster_name,
 
 	ret = snprintf(node_path, PATH_MAX - 1,
 		       O2CB_FORMAT_NODE,
-		       cluster_name, node_name);
+		       configfs_path, cluster_name, node_name);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
@@ -372,7 +374,7 @@ errcode_t o2cb_del_node(const char *cluster_name, const char *node_name)
 	errcode_t err = 0;
 
 	ret = snprintf(node_path, PATH_MAX - 1, O2CB_FORMAT_NODE,
-		       cluster_name, node_name);
+		       configfs_path, cluster_name, node_name);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
@@ -442,6 +444,46 @@ static errcode_t try_file(const char *name, int *fd)
 	return err;
 }
 
+#define O2CB_NEW_CONFIGFS_PATH "/sys/kernel"
+#define O2CB_OLD_CONFIGFS_PATH ""
+#define CONFIGFS_MAGIC 0x62656570
+static errcode_t try_configfs_path(const char *path)
+{
+	errcode_t ret;
+	char attr_path[PATH_MAX];
+	struct stat64 stat_buf;
+	struct statfs64 statfs_buf;
+
+	ret = snprintf(attr_path, PATH_MAX - 1, CONFIGFS_FORMAT_PATH,
+		       path);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	ret = stat64(attr_path, &stat_buf);
+	if (ret || !S_ISDIR(stat_buf.st_mode))
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+	ret = statfs64(attr_path, &statfs_buf);
+	if (ret || (statfs_buf.f_type != CONFIGFS_MAGIC))
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	return 0;
+}
+
+static errcode_t init_configfs(void)
+{
+	configfs_path = O2CB_NEW_CONFIGFS_PATH;
+	if (!try_configfs_path(configfs_path))
+		return 0;
+
+	configfs_path = O2CB_OLD_CONFIGFS_PATH;
+	if (!try_configfs_path(configfs_path))
+		return 0;
+
+	configfs_path = NULL;
+
+	return O2CB_ET_SERVICE_UNAVAILABLE;
+}
+
 #define O2CB_INTERFACE_REVISION_PATH_OLD	"/proc/fs/ocfs2_nodemanager/interface_revision"
 #define O2CB_INTERFACE_REVISION_PATH		"/sys/o2cb/interface_revision"
 errcode_t o2cb_init(void)
@@ -476,7 +518,7 @@ errcode_t o2cb_init(void)
 	if (O2NM_API_VERSION < module_version)
 		return O2CB_ET_BAD_VERSION;
 
-	return 0;
+	return init_configfs();
 }
 
 /* o2cb_get_region_attribute() would just be s/set/get/ of this function */
@@ -490,7 +532,8 @@ static errcode_t o2cb_set_region_attribute(const char *cluster_name,
 
 	ret = snprintf(attr_path, PATH_MAX - 1,
 		       O2CB_FORMAT_HEARTBEAT_REGION_ATTR,
-		       cluster_name, region_name, attr_name);
+		       configfs_path, cluster_name, region_name,
+		       attr_name);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
@@ -547,7 +590,7 @@ static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 
 	ret = snprintf(region_path, PATH_MAX - 1,
 		       O2CB_FORMAT_HEARTBEAT_REGION,
-		       cluster_name, region_name);
+		       configfs_path, cluster_name, region_name);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
@@ -909,7 +952,7 @@ static errcode_t o2cb_remove_heartbeat_region(const char *cluster_name,
 
 	ret = snprintf(region_path, PATH_MAX - 1,
 		       O2CB_FORMAT_HEARTBEAT_REGION,
-		       cluster_name, region_name);
+		       configfs_path, cluster_name, region_name);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
@@ -1188,7 +1231,7 @@ errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes)
 	errcode_t ret;
 
 	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_NODE_DIR,
-		       cluster_name);
+		       configfs_path, cluster_name);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 

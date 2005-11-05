@@ -35,9 +35,20 @@ fi
 # Source configuration, 
 [ -f "${CONFIGURATION}" ] && . "${CONFIGURATION}"
 
+configfs_path()
+{
+    # Note that this is only valid *after* configfs is loaded
+    if [ -d /sys/kernel/config ]
+    then
+        echo /sys/kernel/config
+    else
+        echo /config
+    fi
+}
+
 # XXX some description of what this does
 LOAD_ACTIONS=("load_module configfs"
-		"mount_fs configfs /config"
+		"mount_fs configfs "'`configfs_path`'
 		"load_module ocfs2_nodemanager"
 		"load_module ocfs2_dlm"
 		"load_module ocfs2_dlmfs"
