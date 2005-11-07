@@ -46,13 +46,35 @@ configfs_path()
     fi
 }
 
-# XXX some description of what this does
+# 
+# This is a tricky bit of eval work.  There are many steps involved in
+# O2CB startup/shutdown, so we collect them here.  Each line is a line
+# of shell code that needs to be run.  The code is run via eval as
+# follows:
+#
+# start/load:
+#    Eval of the exact lines, in order.  So, the first call is
+#    "eval load_module configfs".
+#
+# status:
+#    Eval of the lines with "check_" prepended, in order.  So the first
+#    call is "eval check_load_module configfs".
+#
+# stop/unload:
+#    Eval of the lines with "un" prepened, in reverse order.  So the
+#    *last* call is "eval unload_module configfs".
+# 
+# To provide an action, create a set of shell functions or commands
+# "foo", "check_foo", and "unfoo".  Then add "foo arguments" to the
+# appropriate place.  Be careful, eval requires quoting to be right.
+#
 LOAD_ACTIONS=("load_module configfs"
 		"mount_fs configfs "'`configfs_path`'
 		"load_module ocfs2_nodemanager"
 		"load_module ocfs2_dlm"
 		"load_module ocfs2_dlmfs"
 		"mount_fs ocfs2_dlmfs /dlm")
+
 
 #
 # if_fail()
