@@ -249,7 +249,7 @@ static errcode_t ocfs2_detect(char *device, int quick_detect)
 		}
 	}
 
-	ret = ocfs2_check_heartbeats(&dev_list);
+	ret = ocfs2_check_heartbeats(&dev_list, 1);
 	if (ret) {
 		com_err(progname, ret, "while detecting heartbeat");
 		goto bail;

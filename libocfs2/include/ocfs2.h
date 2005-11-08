@@ -451,7 +451,7 @@ void ocfs2_swap_disk_heartbeat_block(struct o2hb_disk_heartbeat_block *hb);
 errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
 				struct list_head *nodes_list);
 
-errcode_t ocfs2_check_heartbeats(struct list_head *dev_list);
+errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local);
 
 errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
 				uint8_t *uuid, uint16_t uuid_len);
