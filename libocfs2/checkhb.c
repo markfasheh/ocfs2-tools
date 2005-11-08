@@ -86,7 +86,7 @@ static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, uint8_t *node_nums)
  * 	OCFS2_MF_BUSY
  * 	OCFS2_MF_MOUNTED_CLUSTER	if mounted on cluster
  */
-errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
+errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 {
 	ocfs2_filesys *fs = NULL;
 	errcode_t ret = 0;
@@ -108,9 +108,12 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list)
 			dev->fs_type = 2;
 
 		/* is it locally mounted */
-		ret = ocfs2_check_mount_point(device, &dev->mount_flags, NULL, 0);
-		if (ret)
-			goto bail;
+		if (!ignore_local) {
+			ret = ocfs2_check_mount_point(device, &dev->mount_flags,
+						      NULL, 0);
+			if (ret)
+				goto bail;
+		}
 
 		/* get label/uuid for ocfs2 */
 		dev->max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;

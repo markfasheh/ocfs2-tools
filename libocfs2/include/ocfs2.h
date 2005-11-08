@@ -446,7 +446,7 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs, uint64_t blkno,
 errcode_t ocfs2_check_heartbeat(char *device, int *mount_flags,
 				struct list_head *nodes_list);
 
-errcode_t ocfs2_check_heartbeats(struct list_head *dev_list);
+errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local);
 
 errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
 				uint8_t *uuid, uint16_t uuid_len);
