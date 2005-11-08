@@ -1217,7 +1217,15 @@ static void o2cb_free_dir_list(char **objs)
 
 errcode_t o2cb_list_clusters(char ***clusters)
 {
-	return o2cb_list_dir(O2CB_FORMAT_CLUSTER_DIR, clusters);
+	char path[PATH_MAX];
+	errcode_t ret;
+
+	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_CLUSTER_DIR,
+		       configfs_path);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	return o2cb_list_dir(path, clusters);
 }
 
 void o2cb_free_cluster_list(char **clusters)
