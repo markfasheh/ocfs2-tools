@@ -26,25 +26,9 @@
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
 #define _LARGEFILE64_SOURCE
                                                                                                                                                          
-#define __USE_MISC
-#include <string.h>
-#include <inttypes.h>
-
 #include "ocfs2.h"
-#include "ocfs2_lockid.h"
 
 #define DEFAULT_DLMFS_PATH	"/dlm/"
-
-static void ocfs2_build_lock_name(ocfs2_filesys *fs, enum ocfs2_lock_type type,
-				  uint64_t blkno, uint32_t generation,
-				  char *lock_name)
-{
-	snprintf(lock_name, OCFS2_LOCK_ID_MAX_LEN, "%c%s%016"PRIx64"%08x",
-		 ocfs2_lock_type_char(type), OCFS2_LOCK_ID_PAD,
-		 blkno, generation);
-
-	return ;
-}
 
 static errcode_t ocfs2_get_journal_blkno(ocfs2_filesys *fs, uint64_t *jrnl_blkno)
 {
@@ -160,8 +144,8 @@ errcode_t ocfs2_super_lock(ocfs2_filesys *fs)
 	char lock_name[OCFS2_LOCK_ID_MAX_LEN];
 	errcode_t ret;
 
-	ocfs2_build_lock_name(fs, OCFS2_LOCK_TYPE_SUPER, OCFS2_SUPER_BLOCK_BLKNO,
-			      0, lock_name);
+	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_SUPER, OCFS2_SUPER_BLOCK_BLKNO,
+			     0, lock_name);
 
 	ret = o2dlm_lock(fs->fs_dlm_ctxt, lock_name,
 			 O2DLM_TRYLOCK, O2DLM_LEVEL_EXMODE);
@@ -174,8 +158,8 @@ errcode_t ocfs2_super_unlock(ocfs2_filesys *fs)
 	char lock_name[OCFS2_LOCK_ID_MAX_LEN];
 	errcode_t ret;
 
-	ocfs2_build_lock_name(fs, OCFS2_LOCK_TYPE_SUPER, OCFS2_SUPER_BLOCK_BLKNO,
-			      0, lock_name);
+	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_SUPER, OCFS2_SUPER_BLOCK_BLKNO,
+			     0, lock_name);
 
 	ret = o2dlm_unlock(fs->fs_dlm_ctxt, lock_name);
 	
@@ -190,8 +174,8 @@ errcode_t ocfs2_meta_lock(ocfs2_filesys *fs,
 	char lock_name[OCFS2_LOCK_ID_MAX_LEN];
 	errcode_t ret;
 
-	ocfs2_build_lock_name(fs, OCFS2_LOCK_TYPE_META, ci->ci_blkno,
-			      ci->ci_inode->i_generation, lock_name);
+	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_META, ci->ci_blkno,
+			     ci->ci_inode->i_generation, lock_name);
 
 	ret = o2dlm_lock(fs->fs_dlm_ctxt, lock_name, flags, level);
 
@@ -204,8 +188,8 @@ errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs,
 	char lock_name[OCFS2_LOCK_ID_MAX_LEN];
 	errcode_t ret;
 
-	ocfs2_build_lock_name(fs, OCFS2_LOCK_TYPE_META, ci->ci_blkno,
-			      ci->ci_inode->i_generation, lock_name);
+	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_META, ci->ci_blkno,
+			     ci->ci_inode->i_generation, lock_name);
 
 	ret = o2dlm_unlock(fs->fs_dlm_ctxt, lock_name);
 

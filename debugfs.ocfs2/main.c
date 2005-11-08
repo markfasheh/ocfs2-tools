@@ -29,6 +29,10 @@
 
 extern dbgfs_gbls gbls;
 
+static int decodemode = 0;
+static int encodemode = 0;
+static int arg_ind = 0;
+
 static int logmode = 0;
 struct log_entry {
 	char *mask;
@@ -43,6 +47,8 @@ static GList *loglist = NULL;
 static void usage (char *progname)
 {
 	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
+	g_print ("usage: %s -d, --decode <lockres>\n", progname);
+	g_print ("usage: %s -e, --encode <lock type> <block num> <generation>\n", progname);
 	g_print ("usage: %s [-f cmdfile] [-V] [-w] [-n] [-?] [device]\n", progname);
 	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
 	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
@@ -107,6 +113,70 @@ static void fill_log_list(int argc, char **argv, int startind)
 	}
 }
 
+static void process_decode_lockres(int argc, char **argv, int startind)
+{
+	int i;
+	errcode_t ret;
+	enum ocfs2_lock_type type;
+	uint64_t blkno;
+	uint32_t generation;
+
+	if (startind + 1 > argc) {
+		usage(gbls.progname);
+		exit(1);
+	}
+
+	for (i = startind; i < argc; ++i) {
+		ret = ocfs2_decode_lockres(argv[i], -1, &type, &blkno,
+					   &generation);
+		if (ret) {
+			com_err(gbls.progname, ret, " ");
+			continue;
+		}
+
+		printf("Lockres:    %s\n", argv[i]);
+		printf("Type:       %s\n",
+		       ocfs2_get_lock_type_string(type));
+		printf("Block:      %llu\n", blkno);
+		printf("Generation: 0x%08x\n", generation);
+		printf("\n");
+	}
+
+	return ;
+}
+
+/* [M|D|S] [blkno] [generation] */
+static void process_encode_lockres(int argc, char **argv, int startind)
+{
+	int i;
+	errcode_t ret;
+	enum ocfs2_lock_type type;
+	uint64_t blkno;
+	uint32_t generation;
+	char lockres[50];
+
+	if (startind + 3 > argc) {
+		usage(gbls.progname);
+		exit(1);
+	}
+
+	i = startind;
+
+	type = ocfs2_get_lock_type(argv[i++][0]);
+	blkno = strtoull(argv[i++], NULL, 0);
+	generation = strtoul(argv[i++], NULL, 0);
+
+	ret = ocfs2_encode_lockres(type, blkno, generation, lockres);
+	if (ret) {
+		com_err(gbls.progname, ret, " ");
+		return ;
+	}
+
+	printf("%s\n", lockres);
+
+	return ;
+}
+
 /*
  * get_options()
  *
@@ -121,11 +191,16 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		{ "write", 0, 0, '?' },
 		{ "log", 0, 0, 'l' },
 		{ "noprompt", 0, 0, 'n' },
+		{ "decode", 0, 0, 'd' },
+		{ "encode", 0, 0, 'e' },
 		{ 0, 0, 0, 0}
 	};
 
 	while (1) {
-		c = getopt_long(argc, argv, "lf:V?wn", long_options, NULL);
+		if (decodemode || encodemode || logmode)
+			break;
+
+		c = getopt_long(argc, argv, "lf:deV?wn", long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -136,6 +211,14 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 				usage(gbls.progname);
 				exit(1);
 			}
+			break;
+
+		case 'd':
+			decodemode++;
+			break;
+
+		case 'e':
+			encodemode++;
 			break;
 
                 case 'l':
@@ -167,13 +250,16 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		}
 	}
 
-	if (optind < argc) {
-		if (!logmode)
-			opts->device = strdup(argv[optind]);
-		else
-			fill_log_list(argc, argv, optind);
-        }
-
+ 	if (optind < argc) {
+ 		if (logmode)
+ 			fill_log_list(argc, argv, optind);
+ 		else
+ 			opts->device = strdup(argv[optind]);
+ 	}
+ 
+ 	if (decodemode || encodemode)
+ 		arg_ind = optind;
+ 
 	return ;
 }
 
@@ -281,8 +367,19 @@ int main (int argc, char **argv)
 	gbls.progname = basename(argv[0]);
 
 	get_options(argc, argv, &opts);
+
 	if (logmode) {
 		run_logmode();
+		goto bail;
+	}
+
+	if (decodemode) {
+		process_decode_lockres(argc, argv, arg_ind);
+		goto bail;
+	}
+
+	if (encodemode) {
+		process_encode_lockres(argc, argv, arg_ind);
 		goto bail;
 	}
 
@@ -290,7 +387,8 @@ int main (int argc, char **argv)
 	if (!opts.cmd_file)
 		gbls.interactive++;
 
-	print_version (gbls.progname);
+	if (!opts.no_prompt)
+		print_version (gbls.progname);
 
 	if (opts.device) {
 		line = g_strdup_printf ("open %s", opts.device);

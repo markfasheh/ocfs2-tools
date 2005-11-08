@@ -174,10 +174,11 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
 	if (in->i_flags & OCFS2_DEALLOC_FL)
 		g_string_append (flags, "Dealloc ");
 
-	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u\n",
-	        in->i_blkno, mode, in->i_generation);
+	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u (0x%x)\n",
+	        in->i_blkno, mode, in->i_generation, in->i_generation);
 
-	fprintf(out, "\tFS Generation: %u\n",in->i_fs_generation);
+	fprintf(out, "\tFS Generation: %u (0x%x)\n", in->i_fs_generation,
+		in->i_fs_generation);
 
 	fprintf(out, "\tType: %s   Flags: %s\n", str, flags->str);
 

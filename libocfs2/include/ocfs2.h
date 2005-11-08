@@ -38,6 +38,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <string.h>
 
 #include <limits.h>
 
@@ -62,6 +63,8 @@
 
 #include <o2dlm.h>
 #include <o2cb.h>
+
+#include "ocfs2_lockid.h"
 
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		(OCFS2_FEATURE_INCOMPAT_SUPP | OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV)
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP
@@ -568,6 +571,17 @@ errcode_t ocfs2_meta_lock(ocfs2_filesys *fs, ocfs2_cached_inode *inode,
 			  enum o2dlm_lock_level level, int flags);
 
 errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs, ocfs2_cached_inode *ci);
+
+enum ocfs2_lock_type ocfs2_get_lock_type(char c);
+
+char *ocfs2_get_lock_type_string(enum ocfs2_lock_type type);
+
+errcode_t ocfs2_encode_lockres(enum ocfs2_lock_type type, uint64_t blkno,
+			       uint32_t generation, char *lockres);
+
+errcode_t ocfs2_decode_lockres(char *lockres, int len, enum ocfs2_lock_type *type,
+			       uint64_t *blkno, uint32_t *generation);
+
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will

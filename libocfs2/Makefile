@@ -78,7 +78,8 @@ CFILES = 		\
 	sysfile.c	\
 	truncate.c	\
 	unix_io.c	\
-	unlink.c
+	unlink.c	\
+	lockid.c
 
 HFILES =				\
 	include/bitmap.h		\

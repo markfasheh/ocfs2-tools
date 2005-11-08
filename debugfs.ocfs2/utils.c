@@ -253,6 +253,13 @@ int inodestr_to_inode(char *str, uint64_t *blkno)
 
 	len = strlen(str);
 	if ((len > 2) && (str[0] == '<') && (str[len-1] == '>')) {
+		if (ocfs2_get_lock_type(str[1]) < OCFS2_NUM_LOCK_TYPES) {
+			if (!ocfs2_decode_lockres(str+1, len-2, NULL, blkno,
+						  NULL))
+				return 0;
+			else
+				return -1;
+		}
 		*blkno = strtoul(str+1, &end, 0);
 		if (*end=='>')
 			return 0;

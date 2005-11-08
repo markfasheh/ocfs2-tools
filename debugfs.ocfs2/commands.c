@@ -59,6 +59,7 @@ static void do_group (char **args);
 static void do_extent (char **args);
 static void do_chroot (char **args);
 static void do_slotmap (char **args);
+static void do_encode_lockres (char **args);
 
 dbgfs_gbls gbls;
 
@@ -82,7 +83,8 @@ static Command commands[] = {
 	{ "rdump",	do_rdump },
 	{ "slotmap",	do_slotmap },
 	{ "stat",	do_stat },
-	{ "stats",	do_stats }
+	{ "stats",	do_stats },
+	{ "encode",	do_encode_lockres }
 };
 
 /*
@@ -578,6 +580,7 @@ static void do_help (char **args)
 	printf ("close\t\t\t\t\tClose a device\n");
 	printf ("curdev\t\t\t\t\tShow current device\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
+	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
@@ -1065,6 +1068,55 @@ static void do_rdump(char **args)
 	ret = rdump_inode(gbls.fs, blkno, p, args[ind+1], verbose);
 	if (ret)
 		com_err(args[0], ret, " ");
+
+	return ;
+}
+
+/*
+ * do_encode_lockres()
+ *
+ */
+static void do_encode_lockres (char **args)
+{
+	ocfs2_dinode *inode;
+	uint64_t blkno;
+	char *buf = NULL;
+	errcode_t ret = 0;
+	char suprlock[50] = "\0";
+	char metalock[50] = "\0";
+	char datalock[50] = "\0";
+
+	if (process_inode_args(args, &blkno))
+		return ;
+
+	if (blkno == OCFS2_SUPER_BLOCK_BLKNO) {
+		ret = ocfs2_encode_lockres(OCFS2_LOCK_TYPE_SUPER, blkno, 0,
+					   suprlock);
+	} else {
+		buf = gbls.blockbuf;
+		ret = ocfs2_read_inode(gbls.fs, blkno, buf);
+		if (!ret) {
+			inode = (ocfs2_dinode *)buf;
+			ocfs2_encode_lockres(OCFS2_LOCK_TYPE_META, blkno,
+					     inode->i_generation, metalock);
+			ocfs2_encode_lockres(OCFS2_LOCK_TYPE_DATA, blkno,
+					     inode->i_generation, datalock);
+		}
+	}
+
+	if (ret) {
+		com_err(args[0], ret, " ");
+		return ;
+	}
+
+	printf("\t");
+	if (*suprlock)
+		printf("%s ", suprlock);
+	if (*metalock)
+		printf("%s ", metalock);
+	if (*datalock)
+		printf("%s ", datalock);
+	printf("\n");
 
 	return ;
 }
