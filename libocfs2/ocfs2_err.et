@@ -156,4 +156,7 @@ ec	OCFS2_ET_UNKNOWN_FILESYSTEM,
 ec	OCFS2_ET_BLOCK_SIZE_TOO_SMALL_FOR_HARDWARE,
 	"The block size is smaller than the sector size on this device"
 
+ec	OCFS2_ET_INVALID_LOCKRES,
+	"The lock name is invalid"
+
 	end
