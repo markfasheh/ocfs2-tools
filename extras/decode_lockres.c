@@ -36,6 +36,8 @@ enum ocfs2_lock_type {
 	OCFS2_TYPE_META = 0,
 	OCFS2_TYPE_DATA,
 	OCFS2_TYPE_SUPER,
+	OCFS2_TYPE_RENAME,
+	OCFS2_TYPE_RW,
 	OCFS2_NUM_LOCK_TYPES
 };
 
@@ -51,14 +53,18 @@ enum ocfs2_lock_type {
 static char ocfs2_lock_type_char[OCFS2_NUM_LOCK_TYPES] = {
 	[OCFS2_TYPE_META]  = 'M',
 	[OCFS2_TYPE_DATA]  = 'D',
-	[OCFS2_TYPE_SUPER] = 'S'
+	[OCFS2_TYPE_SUPER] = 'S',
+	[OCFS2_TYPE_RENAME] = 'R',
+	[OCFS2_TYPE_RW] = 'W',
 };
 /* End paste from kernel module */
 
 static char * ocfs2_lock_type_string[OCFS2_NUM_LOCK_TYPES] = {
 	[OCFS2_TYPE_META]  = "Metadata",
 	[OCFS2_TYPE_DATA]  = "Data",
-	[OCFS2_TYPE_SUPER] = "Superblock"
+	[OCFS2_TYPE_SUPER] = "Superblock",
+	[OCFS2_TYPE_RENAME] = "Rename",
+	[OCFS2_TYPE_RW] = "Write/Read",
 };
 
 static void usage(char *program)
@@ -77,6 +83,10 @@ static const char *get_lock_type_string(char c)
 		t = OCFS2_TYPE_DATA;
 	else if (c == ocfs2_lock_type_char[OCFS2_TYPE_SUPER])
 		t = OCFS2_TYPE_SUPER;
+	else if (c == ocfs2_lock_type_char[OCFS2_TYPE_RENAME])
+		t = OCFS2_TYPE_RENAME;
+	else if (c == ocfs2_lock_type_char[OCFS2_TYPE_RW])
+		t = OCFS2_TYPE_RW;
 	else
 		return NULL;
 
