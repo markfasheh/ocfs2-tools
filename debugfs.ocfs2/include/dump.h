@@ -51,5 +51,6 @@ void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end);
 void dump_slots (FILE *out, char *buf, uint32_t len);
 void dump_fast_symlink (FILE *out, char *link);
 void dump_hb (FILE *out, char *buf, uint32_t len);
+void dump_inode_path (FILE *out, uint64_t blkno, char *path);
 
 #endif		/* __DUMP_H__ */

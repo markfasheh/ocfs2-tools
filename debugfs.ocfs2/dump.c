@@ -592,3 +592,8 @@ void dump_hb (FILE *out, char *buf, uint32_t len)
 
 	return ;
 }
+
+void dump_inode_path (FILE *out, uint64_t blkno, char *path)
+{
+	fprintf (out, "\t%"PRIu64"\t%s\n", blkno, path);
+}

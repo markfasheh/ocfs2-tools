@@ -61,6 +61,7 @@ static void do_extent (char **args);
 static void do_chroot (char **args);
 static void do_slotmap (char **args);
 static void do_encode_lockres (char **args);
+static void do_locate (char **args);
 
 dbgfs_gbls gbls;
 
@@ -77,6 +78,7 @@ static Command commands[] = {
 	{ "hb",		do_hb },
 	{ "?",		do_help },
 	{ "lcd",	do_lcd },
+	{ "locate",	do_locate },
 	{ "logdump",	do_logdump },
 	{ "ls",		do_ls },
 	{ "open",	do_open },
@@ -587,6 +589,7 @@ static void do_help (char **args)
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
 	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
+	printf ("locate <filespec>\t\t\tList all paths to the inode\n");
 	printf ("logdump <slot#>\t\t\t\tPrints journal file for the node slot\n");
 	printf ("ls [-l] <filespec>\t\t\tList directory\n");
 	printf ("open <device>\t\t\t\tOpen a device\n");
@@ -1121,4 +1124,18 @@ static void do_encode_lockres (char **args)
 	printf("\n");
 
 	return ;
+}
+
+/*
+ * do_locate()
+ *
+ */
+static void do_locate(char **args)
+{
+	uint64_t blkno;
+
+	if (process_inode_args(args, &blkno))
+		return ;
+
+	find_inode_paths(gbls.fs, args, blkno, stdout);
 }
