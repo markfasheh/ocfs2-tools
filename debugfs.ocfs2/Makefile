@@ -17,7 +17,7 @@ else
 CFLAGS = -Wall -O2
 endif
 
-CFILES = main.c commands.c dump.c utils.c journal.c
+CFILES = main.c commands.c dump.c utils.c journal.c find_inode_paths.c
 
 HFILES =			\
 	include/main.h		\
