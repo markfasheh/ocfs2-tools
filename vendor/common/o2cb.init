@@ -69,7 +69,7 @@ configfs_path()
 # appropriate place.  Be careful, eval requires quoting to be right.
 #
 LOAD_ACTIONS=("load_module configfs"
-		"mount_fs configfs "'`configfs_path`'
+		"mount_fs configfs "'$(configfs_path)'
 		"load_module ocfs2_nodemanager"
 		"load_module ocfs2_dlm"
 		"load_module ocfs2_dlmfs"
@@ -292,11 +292,11 @@ check_heartbeat()
     CLUSTER="$1"
 
     RC=0
-    if [ -d "/config/cluster/${CLUSTER}/heartbeat/" ]
+    if [ -d "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" ]
     then
-        ls -1 "/config/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
+        ls -1 "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
         do
-            if [ -d "/config/cluster/${CLUSTER}/heartbeat/${HBUUID}" ]
+            if [ -d "$(configfs_path)/cluster/${CLUSTER}/heartbeat/${HBUUID}" ]
             then
                 return 2;
             fi
@@ -325,15 +325,15 @@ clean_heartbeat()
 
     echo -n "Cleaning heartbeat on ${CLUSTER}: "
 
-    if [ ! -d "/config/cluster/${CLUSTER}/heartbeat/" ]
+    if [ ! -d "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" ]
     then
         echo "OK"
         return
     fi
 
-    ls -1 "/config/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
+    ls -1 "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
     do
-        if [ ! -d "/config/cluster/${CLUSTER}/heartbeat/${HBUUID}" ]
+        if [ ! -d "$(configfs_path)/cluster/${CLUSTER}/heartbeat/${HBUUID}" ]
         then
             continue
         fi
@@ -555,7 +555,7 @@ online()
     if [ $? = 0 ]
     then
         O2CB_HEARTBEAT_THRESHOLD_FILE_OLD=/proc/fs/ocfs2_nodemanager/hb_dead_threshold
-        O2CB_HEARTBEAT_THRESHOLD_FILE=/config/cluster/${CLUSTER}/heartbeat/dead_threshold
+        O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/dead_threshold
         if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
             if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
                 echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE"
@@ -593,11 +593,11 @@ check_online()
     CLUSTER="$1"
 
     RC=0
-    if [ -d "/config/cluster/${CLUSTER}/node/" ]
+    if [ -d "$(configfs_path)/cluster/${CLUSTER}/node/" ]
     then
-        ls -1 "/config/cluster/${CLUSTER}/node/" | while read NODE
+        ls -1 "$(configfs_path)/cluster/${CLUSTER}/node/" | while read NODE
         do
-            LOCAL="`cat \"/config/cluster/${CLUSTER}/node/${NODE}/local\"`"
+            LOCAL="`cat \"$(configfs_path)/cluster/${CLUSTER}/node/${NODE}/local\"`"
             if [ $LOCAL = 1 ]
             then
                 return 2
@@ -619,7 +619,7 @@ offline()
         return
     fi
 
-    if [ ! -e "/config/cluster/${CLUSTER}" ]
+    if [ ! -e "$(configfs_path)/cluster/${CLUSTER}" ]
     then
         return
     fi
@@ -654,9 +654,9 @@ start()
 
 unload()
 {
-    if [ -d "/config/cluster/" ]
+    if [ -d "$(configfs_path)/cluster/" ]
     then
-        ls -1 /config/cluster/ | while read CLUSTER
+        ls -1 $(configfs_path)/cluster/ | while read CLUSTER
         do
             echo "Unable to unload modules as Cluster ${CLUSTER} is still online" >&2
             exit 1
