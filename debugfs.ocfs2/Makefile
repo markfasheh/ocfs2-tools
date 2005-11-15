@@ -25,7 +25,8 @@ HFILES =			\
 	include/dump.h		\
 	include/utils.h		\
 	include/jbd.h		\
-	include/journal.h
+	include/journal.h	\
+	include/find_inode_paths.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 
