@@ -1267,7 +1267,7 @@ alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 	void *buf = NULL;
 	int i, found, chain;
 	AllocGroup *group;
-	ocfs2_group_desc *gd = NULL;
+	struct ocfs2_group_desc *gd = NULL;
 	unsigned int size;
 
 	found = 0;
@@ -1546,7 +1546,7 @@ static void
 format_superblock(State *s, SystemFileDiskRecord *rec,
 		  SystemFileDiskRecord *root_rec, SystemFileDiskRecord *sys_rec)
 {
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	uint32_t incompat;
 	uint64_t super_off = rec->fe_off;
 
@@ -1625,7 +1625,7 @@ ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
 static void
 format_file(State *s, SystemFileDiskRecord *rec)
 {
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	int mode, i;
 	uint32_t clusters;
 	AllocBitmap *bitmap;
@@ -1759,7 +1759,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 {
 	int i;
 	uint64_t parent_blkno;
-	ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd;
 	char *buf = NULL;
 
 	buf = do_malloc(s, s->cluster_size);
@@ -1776,7 +1776,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 		 * blkno until now. */
 		gd->bg_parent_dinode = parent_blkno;
 		memcpy(buf, gd, s->blocksize);
-		ocfs2_swap_group_desc((ocfs2_group_desc *)buf);
+		ocfs2_swap_group_desc((struct ocfs2_group_desc *)buf);
 		do_pwrite(s, buf, s->cluster_size,
 			  gd->bg_blkno << s->blocksize_bits);
 	}
@@ -1831,8 +1831,8 @@ static void
 format_leading_space(State *s)
 {
 	int num_blocks = 2, size;
-	ocfs1_vol_disk_hdr *hdr;
-	ocfs1_vol_label *lbl;
+	struct ocfs1_vol_disk_hdr *hdr;
+	struct ocfs1_vol_label *lbl;
 	void *buf;
 	char *p;
 
@@ -1846,7 +1846,7 @@ format_leading_space(State *s)
 	strcpy(hdr->mount_point, "this is an ocfs2 volume");
 
 	p += 512;
-	lbl = (ocfs1_vol_label *)p;
+	lbl = (struct ocfs1_vol_label *)p;
 	strcpy(lbl->label, "this is an ocfs2 volume");
 	strcpy(lbl->cluster_name, "this is an ocfs2 volume");
 

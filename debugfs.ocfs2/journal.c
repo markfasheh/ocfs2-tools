@@ -89,18 +89,18 @@ void read_journal (FILE *out, char *buf, uint64_t buflen)
  */
 int detect_block (char *buf)
 {
-	ocfs2_dinode *inode;
-	ocfs2_extent_block *extent;
+	struct ocfs2_dinode *inode;
+	struct ocfs2_extent_block *extent;
 	int ret = -1;
 
-	inode = (ocfs2_dinode *)buf;
+	inode = (struct ocfs2_dinode *)buf;
 	if (!memcmp(inode->i_signature, OCFS2_INODE_SIGNATURE,
 		    sizeof(OCFS2_INODE_SIGNATURE))) {
 		ret = 1;
 		goto bail;
 	}
 
-	extent = (ocfs2_extent_block *)buf;
+	extent = (struct ocfs2_extent_block *)buf;
 	if (!memcmp(extent->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
 		    sizeof(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
 		ret = 2;

@@ -156,7 +156,7 @@ errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len
 	int fd = -1;
 	int ret = OCFS2_ET_IO;
 	char buf[512];
-	ocfs1_vol_label *v1_lbl;
+	struct ocfs1_vol_label *v1_lbl;
 
 	fd = open(device, O_RDONLY);
 	if (fd == -1)
@@ -165,7 +165,7 @@ errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len
 	if (pread(fd, buf, sizeof(buf), 512) == -1)
 		goto bail;
 
-	v1_lbl = (ocfs1_vol_label *)buf;
+	v1_lbl = (struct ocfs1_vol_label *)buf;
 	memcpy(label, v1_lbl->label, label_len);
 	memcpy(uuid, v1_lbl->vol_id, uuid_len);
 

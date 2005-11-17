@@ -32,7 +32,7 @@ extern dbgfs_gbls gbls;
  * dump_super_block()
  *
  */
-void dump_super_block(FILE *out, ocfs2_super_block *sb)
+void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 {
 	int i;
 	char *str;
@@ -76,7 +76,7 @@ void dump_super_block(FILE *out, ocfs2_super_block *sb)
  * dump_local_alloc()
  *
  */
-void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc)
+void dump_local_alloc (FILE *out, struct ocfs2_local_alloc *loc)
 {
 	fprintf(out, "\tLocal Bitmap Offset: %u   Size: %u\n",
 	       loc->la_bm_off, loc->la_size);
@@ -88,7 +88,7 @@ void dump_local_alloc (FILE *out, ocfs2_local_alloc *loc)
  * dump_truncate_log()
  *
  */
-void dump_truncate_log (FILE *out, ocfs2_truncate_log *tl)
+void dump_truncate_log (FILE *out, struct ocfs2_truncate_log *tl)
 {
 	int i;
 
@@ -121,7 +121,7 @@ void dump_fast_symlink (FILE *out, char *link)
  * dump_inode()
  *
  */
-void dump_inode(FILE *out, ocfs2_dinode *in)
+void dump_inode(FILE *out, struct ocfs2_dinode *in)
 {
 	struct passwd *pw;
 	struct group *gr;
@@ -238,9 +238,9 @@ void dump_inode(FILE *out, ocfs2_dinode *in)
  * dump_chain_list()
  *
  */
-void dump_chain_list (FILE *out, ocfs2_chain_list *cl)
+void dump_chain_list (FILE *out, struct ocfs2_chain_list *cl)
 {
-	ocfs2_chain_rec *rec;
+	struct ocfs2_chain_rec *rec;
 	int i;
 
 	fprintf(out, "\tClusters per Group: %u   Bits per Cluster: %u\n",
@@ -266,9 +266,9 @@ bail:
 	return ;
 }
 
-void dump_extent_list (FILE *out, ocfs2_extent_list *ext)
+void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 {
-	ocfs2_extent_rec *rec;
+	struct ocfs2_extent_rec *rec;
 	int i;
 
 	fprintf(out, "\tTree Depth: %u   Count: %u   Next Free Rec: %u\n",
@@ -293,7 +293,7 @@ bail:
  * dump_extent_block()
  *
  */
-void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
+void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
 {
 	fprintf (out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u\n",
 		 blk->h_suballoc_bit, blk->h_suballoc_slot);
@@ -308,7 +308,8 @@ void dump_extent_block (FILE *out, ocfs2_extent_block *blk)
  * dump_group_descriptor()
  *
  */
-void dump_group_descriptor (FILE *out, ocfs2_group_desc *grp, int index)
+void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
+                            int index)
 {
 	if (!index) {
 		fprintf (out, "\tGroup Chain: %u   Parent Inode: %"PRIu64"  "
@@ -336,7 +337,7 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 {
 	list_dir_opts *ls = (list_dir_opts *)priv_data;
 	char tmp = rec->name[rec->name_len];
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	char perms[20];
 	char timestr[40];
 
@@ -348,7 +349,7 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 	} else {
 		memset(ls->buf, 0, ls->fs->fs_blocksize);
 		ocfs2_read_inode(ls->fs, rec->inode, ls->buf);
-		di = (ocfs2_dinode *)ls->buf;
+		di = (struct ocfs2_dinode *)ls->buf;
 
 		inode_perms_to_str(di->i_mode, perms, sizeof(perms));
 		inode_time_to_str(di->i_mtime, timestr, sizeof(timestr));
@@ -440,7 +441,7 @@ void dump_jbd_block (FILE *out, journal_header_t *header, uint64_t blknum)
 	char *blk = (char *) header;
 	uint32_t *blocknr;
 	char *uuid;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 
 	tagflg = g_string_new (NULL);
 
@@ -518,12 +519,12 @@ void dump_jbd_metadata (FILE *out, int type, char *buf, uint64_t blknum)
 	switch (type) {
 	case 1:
 		fprintf(out, "Inode\n");
-		dump_inode (out, (ocfs2_dinode *)buf);
+		dump_inode (out, (struct ocfs2_dinode *)buf);
 		fprintf (out, "\n");
 		break;
 	case 2:
 		fprintf(out, "Extent\n");
-		dump_extent_block (out, (ocfs2_extent_block *)buf);
+		dump_extent_block (out, (struct ocfs2_extent_block *)buf);
 		fprintf (out, "\n");
 		break;
 	default:

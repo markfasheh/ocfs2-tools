@@ -49,8 +49,8 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	uint64_t blkno, blocks, start_block;
 	uint32_t block_bits, cluster_bits;
 	int sectsize, sectsize_bits;
-	ocfs2_dinode *di;
-	ocfs2_extent_rec *rec;
+	struct ocfs2_dinode *di;
+	struct ocfs2_extent_rec *rec;
 
 	ret = ocfs2_get_device_sectsize(fs->fs_devname, &sectsize);
 	if (ret)
@@ -73,7 +73,7 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	if (ret)
 		goto leave;
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 	if (di->id2.i_list.l_tree_depth || 
 	    di->id2.i_list.l_next_free_rec != 1) {
 		ret = OCFS2_ET_BAD_HEARTBEAT_FILE;

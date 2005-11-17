@@ -52,7 +52,7 @@ struct walk_extents {
 };
 
 static int extent_set_func(ocfs2_filesys *fs,
-			   ocfs2_extent_rec *rec,
+			   struct ocfs2_extent_rec *rec,
 			   int tree_depth,
 			   uint32_t ccount,
 			   uint64_t ref_blkno,
@@ -96,7 +96,7 @@ static int extent_set_func(ocfs2_filesys *fs,
 }
 
 static int extent_test_func(ocfs2_filesys *fs,
-			    ocfs2_extent_rec *rec,
+			    struct ocfs2_extent_rec *rec,
 			    int tree_depth,
 			    uint32_t ccount,
 			    uint64_t ref_blkno,
@@ -139,10 +139,10 @@ static errcode_t run_scan(struct walk_extents *we, int test)
 	uint64_t blkno;
 	char *buf;
 	int done;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	ocfs2_inode_scan *scan;
 	int (*extent_func)(ocfs2_filesys *fs,
-			   ocfs2_extent_rec *rec,
+			   struct ocfs2_extent_rec *rec,
 			   int tree_depth,
 			   uint32_t ccount,
 			   uint64_t ref_blkno,
@@ -161,7 +161,7 @@ static errcode_t run_scan(struct walk_extents *we, int test)
 		return ret;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_open_inode_scan(we->fs, &scan);
 	if (ret) {

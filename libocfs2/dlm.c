@@ -32,7 +32,7 @@
 
 static errcode_t ocfs2_get_journal_blkno(ocfs2_filesys *fs, uint64_t *jrnl_blkno)
 {
-	ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 	char sysfile[OCFS2_MAX_FILENAME_LEN];
 	int i;
 	errcode_t ret = 0;
@@ -52,7 +52,7 @@ bail:
 
 errcode_t ocfs2_lock_down_cluster(ocfs2_filesys *fs)
 {
-	ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 	uint64_t jrnl_blkno[OCFS2_MAX_SLOTS];
 	ocfs2_cached_inode *ci;
 	errcode_t ret = 0;

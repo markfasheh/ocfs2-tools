@@ -39,7 +39,7 @@ struct _ocfs2_extent_map {
 struct _ocfs2_extent_map_entry {
 	struct rb_node e_node;
 	int e_tree_depth;
-	ocfs2_extent_rec e_rec;
+	struct ocfs2_extent_rec e_rec;
 };
 
 #endif  /* _EXTENT_MAP_H */

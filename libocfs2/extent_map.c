@@ -58,8 +58,7 @@ ocfs2_extent_map_lookup(ocfs2_extent_map *em,
 	while (*p)
 	{
 		parent = *p;
-		ent = rb_entry(parent, ocfs2_extent_map_entry, e_node);
-		if ((cpos + clusters) <= ent->e_rec.e_cpos) {
+		ent = rb_entry(parent, ocfs2_extent_map_entry, e_node); if ((cpos + clusters) <= ent->e_rec.e_cpos) {
 			p = &(*p)->rb_left;
 			ent = NULL;
 		} else if (cpos >= (ent->e_rec.e_cpos +
@@ -80,14 +79,14 @@ ocfs2_extent_map_lookup(ocfs2_extent_map *em,
 static errcode_t ocfs2_extent_map_find_leaf(ocfs2_cached_inode *cinode,
 					    uint32_t cpos,
 					    uint32_t clusters,
-					    ocfs2_extent_list *el)
+					    struct ocfs2_extent_list *el)
 {
 	errcode_t ret;
 	int i;
 	char *eb_buf = NULL;
 	uint64_t blkno;
-	ocfs2_extent_block *eb;
-	ocfs2_extent_rec *rec;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
 
 	if (el->l_tree_depth) {
 		ret = ocfs2_malloc_block(cinode->ci_fs->fs_io, &eb_buf);
@@ -154,7 +153,7 @@ static errcode_t ocfs2_extent_map_find_leaf(ocfs2_cached_inode *cinode,
 		if (ret)
 			goto out_free;
 
-		eb = (ocfs2_extent_block *)eb_buf;
+		eb = (struct ocfs2_extent_block *)eb_buf;
 		el = &eb->h_list;
 	}
 
@@ -192,8 +191,8 @@ static errcode_t ocfs2_extent_map_lookup_read(ocfs2_cached_inode *cinode,
 	ocfs2_extent_map_entry *ent;
 	char *eb_buf = NULL;
 	ocfs2_extent_map *em = cinode->ci_map;
-	ocfs2_extent_block *eb;
-	ocfs2_extent_list *el;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_list *el;
 
 	ent = ocfs2_extent_map_lookup(em, cpos, clusters, NULL, NULL);
 	if (ent) {
@@ -215,7 +214,7 @@ static errcode_t ocfs2_extent_map_lookup_read(ocfs2_cached_inode *cinode,
 			return ret;
 		}
 
-		eb = (ocfs2_extent_block *)eb_buf;
+		eb = (struct ocfs2_extent_block *)eb_buf;
 		el = &eb->h_list;
 	} else 
 		el = &cinode->ci_inode->id2.i_list;
@@ -254,7 +253,7 @@ static errcode_t ocfs2_extent_map_insert_entry(ocfs2_extent_map *em,
 }
 
 errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
-				  ocfs2_extent_rec *rec,
+				  struct ocfs2_extent_rec *rec,
 				  int tree_depth)
 {
 	errcode_t ret;
@@ -291,7 +290,7 @@ errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
 		goto out_free;
 	if (old_ent->e_tree_depth == tree_depth) {
 		if (!memcmp(rec, &old_ent->e_rec,
-			    sizeof(ocfs2_extent_rec)))
+			    sizeof(struct ocfs2_extent_rec)))
 			ret = 0;  /* Same entry, just skip */
 		goto out_free;
 	}
@@ -375,7 +374,7 @@ out_free:
  */
 errcode_t ocfs2_extent_map_get_rec(ocfs2_cached_inode *cinode,
 				   uint32_t cpos,
-				   ocfs2_extent_rec **rec)
+				   struct ocfs2_extent_rec **rec)
 {
 	errcode_t ret = OCFS2_ET_EXTENT_NOT_FOUND;
 	ocfs2_extent_map *em = cinode->ci_map;
@@ -453,7 +452,7 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 	ocfs2_filesys *fs = cinode->ci_fs;
 	int bpc = ocfs2_clusters_to_blocks(fs, 1);
 	ocfs2_extent_map_entry *ent = NULL;
-	ocfs2_extent_rec *rec;
+	struct ocfs2_extent_rec *rec;
 
 	*p_blkno = 0;
 
@@ -522,7 +521,7 @@ void ocfs2_extent_map_free(ocfs2_cached_inode *cinode)
 
 
 static int extent_map_func(ocfs2_filesys *fs,
-			   ocfs2_extent_rec *rec,
+			   struct ocfs2_extent_rec *rec,
 		  	   int tree_depth,
 			   uint32_t ccount,
 			   uint64_t ref_blkno,
@@ -846,7 +845,7 @@ int main(int argc, char *argv[])
 	char *filename;
 	ocfs2_filesys *fs;
 	ocfs2_cached_inode *cinode;
-	ocfs2_extent_rec *rec;
+	struct ocfs2_extent_rec *rec;
 
 	blkno = OCFS2_SUPER_BLOCK_BLKNO;
 

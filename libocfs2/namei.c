@@ -51,8 +51,8 @@ static errcode_t follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t dir,
 	char *pathname;
 	char *buffer = NULL;
 	errcode_t ret;
-	ocfs2_dinode *di = NULL;
-	ocfs2_extent_list *el;
+	struct ocfs2_dinode *di = NULL;
+	struct ocfs2_extent_list *el;
 	uint64_t blkno;
 
 #ifdef NAMEI_DEBUG

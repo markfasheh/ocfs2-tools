@@ -31,7 +31,8 @@
 
 #include "util.h"
 
-void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno, ocfs2_dinode *di)
+void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno,
+			struct ocfs2_dinode *di)
 {
 	errcode_t ret;
 	const char *whoami = __FUNCTION__;
@@ -74,7 +75,7 @@ errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 {
 	char *buf = NULL;
 	errcode_t ret;
-	ocfs2_dinode *dinode;
+	struct ocfs2_dinode *dinode;
 	const char *whoami = __FUNCTION__;
 
 	*type = 0;
@@ -93,7 +94,7 @@ errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 		goto out;
 	}
 
-	dinode = (ocfs2_dinode *)buf; 
+	dinode = (struct ocfs2_dinode *)buf; 
 	*type = ocfs2_type_by_mode[(dinode->i_mode & S_IFMT)>>S_SHIFT];
 
 out:

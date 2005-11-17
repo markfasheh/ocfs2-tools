@@ -43,9 +43,9 @@ struct _ocfs2_inode_scan {
 	int next_inode_file;
 	ocfs2_cached_inode *cur_inode_alloc;
 	ocfs2_cached_inode **inode_alloc;
-	ocfs2_chain_rec *cur_rec;
+	struct ocfs2_chain_rec *cur_rec;
 	int next_rec;
-	ocfs2_group_desc *cur_desc;
+	struct ocfs2_group_desc *cur_desc;
 	unsigned int count;
 	uint64_t cur_blkno;
 	char *group_buffer;
@@ -111,7 +111,7 @@ static errcode_t get_next_group(ocfs2_inode_scan *scan)
  */
 static errcode_t get_next_chain(ocfs2_inode_scan *scan)
 {
-	ocfs2_dinode *di = scan->cur_inode_alloc->ci_inode;
+	struct ocfs2_dinode *di = scan->cur_inode_alloc->ci_inode;
 
 	if (scan->next_rec == di->id2.i_chain.cl_next_free_rec) {
 		if (!scan->next_rec) {
@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
 	uint64_t blkno;
 	char *filename, *buf;
 	ocfs2_filesys *fs;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	ocfs2_inode_scan *scan;
 
 	initialize_ocfs_error_table();
@@ -409,7 +409,7 @@ int main(int argc, char *argv[])
 		goto out_close;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_open_inode_scan(fs, &scan);
 	if (ret) {

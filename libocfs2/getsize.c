@@ -295,6 +295,8 @@ out:
 #endif /* WIN32 */
 
 #ifdef DEBUG_EXE
+#include <inttypes.h>
+
 int main(int argc, char **argv)
 {
 	uint64_t blocks;

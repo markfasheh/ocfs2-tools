@@ -49,7 +49,7 @@ typedef struct {
 typedef struct {
   PyObject_HEAD
   Filesystem    *fs_obj;
-  ocfs2_dinode   dinode;
+  struct ocfs2_dinode   dinode;
 } DInode;
 
 typedef struct {
@@ -61,7 +61,7 @@ typedef struct {
 typedef struct {
   PyObject_HEAD
   Filesystem        *fs_obj;
-  ocfs2_super_block  super;
+  struct ocfs2_super_block  super;
 } SuperBlock;
 
 typedef struct {
@@ -217,7 +217,7 @@ static PyTypeObject DInode_Type = {
 
 static PyObject *
 dinode_new (Filesystem   *fs_obj,
-	    ocfs2_dinode *dinode)
+	    struct ocfs2_dinode *dinode)
 {
   DInode *self;
 
@@ -451,7 +451,7 @@ static PyTypeObject SuperBlock_Type = {
 
 static PyObject *
 super_new (Filesystem   *fs_obj,
-	   ocfs2_dinode *fs_super)
+	   struct ocfs2_dinode *fs_super)
 {
   SuperBlock *self;
 

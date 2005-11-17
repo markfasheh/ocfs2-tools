@@ -51,7 +51,7 @@ errcode_t ocfs2_read_cached_inode(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		goto cleanup;
 
-	cinode->ci_inode = (ocfs2_dinode *)blk;
+	cinode->ci_inode = (struct ocfs2_dinode *)blk;
 
 	ret = ocfs2_read_inode(fs, blkno, blk);
 	if (ret)

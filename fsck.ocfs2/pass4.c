@@ -40,7 +40,8 @@
 
 static const char *whoami = "pass4";
 
-static void check_link_counts(o2fsck_state *ost, ocfs2_dinode *di,
+static void check_link_counts(o2fsck_state *ost,
+			      struct ocfs2_dinode *di,
 			      uint64_t blkno)
 {
 	uint16_t refs, in_inode;
@@ -215,7 +216,7 @@ static errcode_t next_inode_any_ref(o2fsck_state *ost, uint64_t start,
 
 errcode_t o2fsck_pass4(o2fsck_state *ost)
 {
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	char *buf = NULL;
 	errcode_t ret;
 	uint64_t blkno, start;
@@ -237,7 +238,7 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 		goto out;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 	start = 0;
 
 	while (next_inode_any_ref(ost, start, &blkno) == 0) {

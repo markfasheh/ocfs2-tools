@@ -70,9 +70,10 @@ struct chain_state {
 	uint16_t	cs_cpg;
 };
 
-static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
+static errcode_t repair_group_desc(o2fsck_state *ost,
+				   struct ocfs2_dinode *di,
 				   struct chain_state *cs,
-				   ocfs2_group_desc *bg,
+				   struct ocfs2_group_desc *bg,
 				   uint64_t blkno)
 {
 	errcode_t ret = 0;
@@ -162,14 +163,14 @@ static errcode_t repair_group_desc(o2fsck_state *ost, ocfs2_dinode *di,
  * already had a chance to repair the chains so any remaining damage is
  * the fault of -n, etc, and can simply abort us */
 static void unlink_group_desc(o2fsck_state *ost,
-			      ocfs2_dinode *di,
-			      ocfs2_group_desc *bg,
+			      struct ocfs2_dinode *di,
+			      struct ocfs2_group_desc *bg,
 			      uint64_t blkno)
 {
-	ocfs2_chain_list *cl;
-	ocfs2_chain_rec *cr;
+	struct ocfs2_chain_list *cl;
+	struct ocfs2_chain_rec *cr;
 	uint16_t i, max_count;
-	ocfs2_group_desc *link;
+	struct ocfs2_group_desc *link;
 	int unlink = 0;
 	char *buf = NULL;
 	uint64_t next_desc;
@@ -184,7 +185,7 @@ static void unlink_group_desc(o2fsck_state *ost,
 		com_err(whoami, ret, "while allocating block buffers");
 		goto out;
 	}
-	link = (ocfs2_group_desc *)buf;
+	link = (struct ocfs2_group_desc *)buf;
 
 	for (cr = cl->cl_recs, i = 0; i < max_count && cr->c_blkno;
 	     i++, cr++) {
@@ -279,17 +280,17 @@ static void mark_group_used(o2fsck_state *ost, struct chain_state *cs,
 
 /* this takes a slightly ridiculous number of arguments :/ */
 static errcode_t check_chain(o2fsck_state *ost,
-			     ocfs2_dinode *di,
+			     struct ocfs2_dinode *di,
 			     struct chain_state *cs,
-			     ocfs2_chain_rec *chain,
+			     struct ocfs2_chain_rec *chain,
 			     char *buf1,
 			     char *buf2,
 			     int *chain_changed,
 			     ocfs2_bitmap *allowed,
 			     ocfs2_bitmap *forbidden)
 {
-	ocfs2_group_desc *bg1 = (ocfs2_group_desc *)buf1;
-	ocfs2_group_desc *bg2 = (ocfs2_group_desc *)buf2;
+	struct ocfs2_group_desc *bg1 = (struct ocfs2_group_desc *)buf1;
+	struct ocfs2_group_desc *bg2 = (struct ocfs2_group_desc *)buf2;
 	uint64_t blkno;
 	errcode_t ret = 0;
 	int changed = 0, depth = 0, clear_ref = 0;
@@ -441,15 +442,16 @@ out:
 
 /* If this returns 0 then the inode allocator had better be amenable to
  * iteration. */
-static errcode_t verify_chain_alloc(o2fsck_state *ost, ocfs2_dinode *di,
+static errcode_t verify_chain_alloc(o2fsck_state *ost,
+				    struct ocfs2_dinode *di,
 				    char *buf1, char *buf2,
 				    ocfs2_bitmap *allowed,
 				    ocfs2_bitmap *forbidden)
 {
 	struct chain_state cs = {0, };
-	ocfs2_chain_list *cl;
+	struct ocfs2_chain_list *cl;
 	uint16_t i, max_count;
-	ocfs2_chain_rec *cr;
+	struct ocfs2_chain_rec *cr;
 	uint32_t free = 0, total = 0;
 	int changed = 0, trust_next_free = 1;
 	errcode_t ret = 0;
@@ -644,17 +646,18 @@ out:
  * there.  We fill a bitmap with the valid ones so that when we later walk
  * the chains we can restrict it to the set of expected blocks and also
  * be sure to add blocks that aren't linked in */
-static errcode_t verify_bitmap_descs(o2fsck_state *ost, ocfs2_dinode *di,
+static errcode_t verify_bitmap_descs(o2fsck_state *ost,
+				     struct ocfs2_dinode *di,
 				     char *buf1, char *buf2)
 {
 	struct ocfs2_cluster_group_sizes cgs;
 	uint16_t i, max_recs;
 	uint16_t bits, chain;
 	uint64_t blkno;
-	ocfs2_group_desc *bg = (ocfs2_group_desc *)buf1;
+	struct ocfs2_group_desc *bg = (struct ocfs2_group_desc *)buf1;
 	errcode_t ret;
 	struct chain_state cs;
-	ocfs2_chain_rec *rec;
+	struct ocfs2_chain_rec *rec;
 	ocfs2_bitmap *allowed = NULL, *forbidden = NULL;
 	int was_set;
 
@@ -840,7 +843,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	errcode_t ret;
 	uint64_t blkno;
 	char *blocks = NULL;
-	ocfs2_dinode *di = NULL;
+	struct ocfs2_dinode *di = NULL;
 	ocfs2_filesys *fs = ost->ost_fs;
 	ocfs2_cached_inode **ci;
 	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
@@ -853,7 +856,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		com_err(whoami, ret, "while allocating block buffers");
 		goto out;
 	}
-	di = (ocfs2_dinode *)blocks;
+	di = (struct ocfs2_dinode *)blocks;
 
 	ret = ocfs2_malloc0(max_slots * sizeof(ocfs2_cached_inode *), 
 			    &ost->ost_inode_allocs);

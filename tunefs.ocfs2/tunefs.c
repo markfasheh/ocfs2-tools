@@ -420,7 +420,7 @@ static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_siz
 	errcode_t ret;
 	char *buf = NULL;
 	uint64_t blkno;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	int i;
 	int cs_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
@@ -442,7 +442,7 @@ static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_siz
 		if (ret)
 			goto bail;
 
-		di = (ocfs2_dinode *)buf;
+		di = (struct ocfs2_dinode *)buf;
 
 		*jrnl_size = MAX(*jrnl_size, (di->i_clusters << cs_bits));
 
@@ -561,7 +561,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	uint32_t num_clusters;
 	char *buf = NULL;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	num_clusters = opts.jrnl_size >>
 			OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
@@ -584,7 +584,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		if (ret)
 			goto bail;
 
-		di = (ocfs2_dinode *)buf;
+		di = (struct ocfs2_dinode *)buf;
 		if (num_clusters <= di->i_clusters)
 			continue;
 
@@ -600,7 +600,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		if (ret)
 			goto bail;
 
-		di = (ocfs2_dinode *)buf;
+		di = (struct ocfs2_dinode *)buf;
 		di->i_size = di->i_clusters <<
 				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 		di->i_mtime = time(NULL);

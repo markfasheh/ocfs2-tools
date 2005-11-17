@@ -55,7 +55,7 @@ static void print_usage(void)
 }
 
 struct walk_block {
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	char *buf;
 	uint32_t used;
 };
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 	char *filename, *buf;
 	const char *bitmap_name = ocfs2_system_inodes[GLOBAL_BITMAP_SYSTEM_INODE].si_name;
 	ocfs2_filesys *fs;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	struct walk_block wb;
 
 	blkno = OCFS2_SUPER_BLOCK_BLKNO;
@@ -177,7 +177,7 @@ int main(int argc, char *argv[])
 		goto out_free;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	wb.di = di;
 	ret = ocfs2_malloc_block(fs->fs_io, &wb.buf);

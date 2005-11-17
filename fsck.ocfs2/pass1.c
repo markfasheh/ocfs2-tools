@@ -81,7 +81,8 @@ void o2fsck_free_inode_allocs(o2fsck_state *ost)
 /* update our in memory images of the inode chain alloc bitmaps.  these
  * will be written out at the end of pass1 and the library will read
  * them off disk for use from then on. */
-static void update_inode_alloc(o2fsck_state *ost, ocfs2_dinode *di, 
+static void update_inode_alloc(o2fsck_state *ost,
+			       struct ocfs2_dinode *di, 
 			       uint64_t blkno, int val)
 {
 	int16_t slot;
@@ -170,9 +171,10 @@ out:
 	return;
 }
 
-static errcode_t verify_local_alloc(o2fsck_state *ost, ocfs2_dinode *di)
+static errcode_t verify_local_alloc(o2fsck_state *ost,
+				    struct ocfs2_dinode *di)
 {
-	ocfs2_local_alloc *la = &di->id2.i_lab;
+	struct ocfs2_local_alloc *la = &di->id2.i_lab;
 	uint32_t max;
 	int broken = 0, changed = 0, clear = 0;
 	errcode_t ret = 0;
@@ -317,9 +319,10 @@ out:
 
 /* this just makes sure the truncate log contains consistent data, it doesn't
  * do anything with it yet */
-static errcode_t verify_truncate_log(o2fsck_state *ost, ocfs2_dinode *di)
+static errcode_t verify_truncate_log(o2fsck_state *ost,
+				     struct ocfs2_dinode *di)
 {
-	ocfs2_truncate_log *tl = &di->id2.i_dealloc;
+	struct ocfs2_truncate_log *tl = &di->id2.i_dealloc;
 	uint16_t max, i;
 	int changed = 0;
 	errcode_t ret = 0;
@@ -351,7 +354,7 @@ static errcode_t verify_truncate_log(o2fsck_state *ost, ocfs2_dinode *di)
 	}
 
 	for (i = 0; i < ocfs2_min(max, tl->tl_used); i++) {
-		ocfs2_truncate_rec *tr = &tl->tl_recs[i];
+		struct ocfs2_truncate_rec *tr = &tl->tl_recs[i];
 		int zero = 0;
 
 		verbosef("t_start %u t_clusters %u\n", tr->t_start,
@@ -418,8 +421,10 @@ static errcode_t verify_truncate_log(o2fsck_state *ost, ocfs2_dinode *di)
  * inode allocations and write the inode to disk. 
  *
  * XXX the o2fsck_write_inode helpers need to be fixed here*/
-static void o2fsck_verify_inode_fields(ocfs2_filesys *fs, o2fsck_state *ost, 
-				       uint64_t blkno, ocfs2_dinode *di)
+static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
+				       o2fsck_state *ost, 
+				       uint64_t blkno,
+				       struct ocfs2_dinode *di)
 {
 	int clear = 0;
 
@@ -543,15 +548,15 @@ out:
 }
 
 struct verifying_blocks {
-       unsigned		vb_clear:1,
-       			vb_saw_link_null:1;
+       unsigned			vb_clear:1,
+       				vb_saw_link_null:1;
 
-       uint64_t		vb_link_len;
-       uint64_t		vb_num_blocks;	
-       uint64_t		vb_last_block;	
-       o2fsck_state 	*vb_ost;
-       ocfs2_dinode	*vb_di;
-       errcode_t	vb_ret;
+       uint64_t			vb_link_len;
+       uint64_t			vb_num_blocks;	
+       uint64_t			vb_last_block;	
+       o2fsck_state 		*vb_ost;
+       struct ocfs2_dinode	*vb_di;
+       errcode_t		vb_ret;
 };
 
 /* last_block and num_blocks would be different in a sparse file */
@@ -598,7 +603,7 @@ out:
 
 static void check_link_data(struct verifying_blocks *vb)
 {
-	ocfs2_dinode *di = vb->vb_di;
+	struct ocfs2_dinode *di = vb->vb_di;
 	o2fsck_state *ost = vb->vb_ost;
 	uint64_t expected, link_max;
 	char *null;
@@ -675,12 +680,12 @@ static void check_link_data(struct verifying_blocks *vb)
 }
 
 static int verify_block(ocfs2_filesys *fs,
-			    uint64_t blkno,
-			    uint64_t bcount,
-			    void *priv_data)
+			uint64_t blkno,
+			uint64_t bcount,
+			void *priv_data)
 {
 	struct verifying_blocks *vb = priv_data;
-	ocfs2_dinode *di = vb->vb_di;
+	struct ocfs2_dinode *di = vb->vb_di;
 	o2fsck_state *ost = vb->vb_ost;
 	errcode_t ret = 0;
 	
@@ -712,7 +717,7 @@ static int verify_block(ocfs2_filesys *fs,
  * reference extents of data.
  */
 static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
-				     uint64_t blkno, ocfs2_dinode *di)
+				     uint64_t blkno, struct ocfs2_dinode *di)
 {
 	uint64_t expected = 0;
 	errcode_t ret;
@@ -808,8 +813,8 @@ static void mark_local_allocs(o2fsck_state *ost)
 	char *buf = NULL;
 	errcode_t ret;
 	uint64_t blkno, start, end;
-	ocfs2_dinode *di;
-	ocfs2_local_alloc *la;
+	struct ocfs2_dinode *di;
+	struct ocfs2_local_alloc *la;
 	int bit;
 
 	max_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
@@ -821,7 +826,7 @@ static void mark_local_allocs(o2fsck_state *ost)
 		goto out;
 	}
 
-	di = (ocfs2_dinode *)buf; 
+	di = (struct ocfs2_dinode *)buf; 
 
 	for (slot = 0; slot < max_slots; slot++) {
 		ret = ocfs2_lookup_system_inode(ost->ost_fs,
@@ -901,9 +906,9 @@ static void mark_truncate_logs(o2fsck_state *ost)
 {
 	int16_t slot;
 	uint16_t max_slots, i, max;
-	ocfs2_truncate_log *tl;
+	struct ocfs2_truncate_log *tl;
 	uint64_t blkno;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	char *buf = NULL;
 	errcode_t ret;
 
@@ -917,7 +922,7 @@ static void mark_truncate_logs(o2fsck_state *ost)
 		goto out;
 	}
 
-	di = (ocfs2_dinode *)buf; 
+	di = (struct ocfs2_dinode *)buf; 
 
 	for (slot = 0; slot < max_slots; slot++) {
 		ret = ocfs2_lookup_system_inode(ost->ost_fs,
@@ -941,7 +946,7 @@ static void mark_truncate_logs(o2fsck_state *ost)
 		tl = &di->id2.i_dealloc;
 
 		for (i = 0; i < ocfs2_min(tl->tl_used, max); i++) {
-			ocfs2_truncate_rec *tr = &tl->tl_recs[i];
+			struct ocfs2_truncate_rec *tr = &tl->tl_recs[i];
 
 			if (tr->t_start == 0)
 				continue;
@@ -1120,7 +1125,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 	errcode_t ret;
 	uint64_t blkno;
 	char *buf;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	ocfs2_inode_scan *scan;
 	ocfs2_filesys *fs = ost->ost_fs;
 	int valid;
@@ -1133,7 +1138,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		goto out;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_open_inode_scan(fs, &scan);
 	if (ret) {

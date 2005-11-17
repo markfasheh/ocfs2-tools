@@ -121,7 +121,7 @@ typedef struct _SystemFileDiskRecord SystemFileDiskRecord;
 
 struct _AllocGroup {
 	char *name;
-	ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd;
 	SystemFileDiskRecord *alloc_inode;
 	uint32_t chain_free;
 	uint32_t chain_total;

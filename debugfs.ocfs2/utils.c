@@ -308,7 +308,8 @@ errcode_t string_to_inode(ocfs2_filesys *fs, uint64_t root_blkno,
  * Copyright (C) 1994 Theodore Ts'o.  This file may be redistributed
  * under the terms of the GNU Public License.
  */
-static errcode_t fix_perms(const ocfs2_dinode *di, int *fd, char *name)
+static errcode_t fix_perms(const struct ocfs2_dinode *di, int *fd,
+                           char *name)
 {
 	struct utimbuf ut;
 	int i;
@@ -610,7 +611,7 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 	errcode_t ret;
 	char *buf = NULL;
 	char *dirbuf = NULL;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	int fd;
 	rdump_opts rd_opts = { NULL, NULL, NULL, 0 };
 
@@ -628,7 +629,7 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 	ret = ocfs2_read_inode(fs, blkno, buf);
 	if (ret)
 		goto bail;
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	if (S_ISLNK(di->i_mode)) {
 		ret = rdump_symlink(fs, blkno, fullname);

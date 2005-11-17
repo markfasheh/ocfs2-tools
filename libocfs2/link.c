@@ -34,12 +34,12 @@
 
 
 struct link_struct  {
-	const char	*name;
-	int		namelen;
-	uint64_t	inode;
-	int		flags;
-	int		done;
-	ocfs2_dinode *sb;
+	const char		*name;
+	int			namelen;
+	uint64_t		inode;
+	int			flags;
+	int			done;
+	struct ocfs2_dinode	*sb;
 };	
 
 static int link_proc(struct ocfs2_dir_entry *dirent,

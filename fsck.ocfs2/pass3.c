@@ -46,7 +46,7 @@ static const char *whoami = "pass3";
 
 static void check_root(o2fsck_state *ost)
 {
-	ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
 	errcode_t ret;
 	uint64_t blkno, old_root;
 	int was_set;

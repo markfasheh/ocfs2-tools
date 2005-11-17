@@ -22,7 +22,8 @@
 
 #include "fsck.h"
 
-errcode_t o2fsck_check_extents(o2fsck_state *ost, ocfs2_dinode *di);
+errcode_t o2fsck_check_extents(o2fsck_state *ost,
+                               struct ocfs2_dinode *di);
 
 #endif /* __O2FSCK_EXTENT_H__ */
 

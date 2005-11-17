@@ -68,7 +68,7 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs,
 	struct read_whole_context	ctx;
 	errcode_t			retval;
 	char *inode_buf;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	/* So the caller can see nothing was read */
 	*len = 0;
@@ -82,7 +82,7 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs,
 	if (retval)
 		goto out_free;
 
-	di = (ocfs2_dinode *)inode_buf;
+	di = (struct ocfs2_dinode *)inode_buf;
 
 	/* Arbitrary limit for our malloc */
 	retval = OCFS2_ET_INVALID_ARGUMENT;

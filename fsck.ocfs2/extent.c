@@ -55,15 +55,17 @@ struct extent_info {
 };
 
 static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
-			  ocfs2_dinode *di, ocfs2_extent_list *el,
+			  struct ocfs2_dinode *di,
+			  struct ocfs2_extent_list *el,
 			  uint16_t max_recs, int *changed);
 
 static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
-			  ocfs2_dinode *di, uint64_t blkno, int *is_valid)
+			  struct ocfs2_dinode *di, uint64_t blkno,
+			  int *is_valid)
 {
 	int changed = 0;
 	char *buf = NULL;
-	ocfs2_extent_block *eb;
+	struct ocfs2_extent_block *eb;
 	errcode_t ret;
 
 	/* XXX test that the block isn't already used */
@@ -89,7 +91,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 		goto out;
 	}
 
-	eb = (ocfs2_extent_block *)buf;
+	eb = (struct ocfs2_extent_block *)buf;
 
 	if (eb->h_blkno != blkno &&
 	    prompt(ost, PY, PR_EB_BLKNO,
@@ -147,8 +149,9 @@ out:
 /* the caller will check if er->e_blkno is out of range to determine if it
  * should try removing the record */
 static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
-			  ocfs2_dinode *di, ocfs2_extent_list *el,
-			  ocfs2_extent_rec *er, int *changed)
+			  struct ocfs2_dinode *di,
+			  struct ocfs2_extent_list *el,
+			  struct ocfs2_extent_rec *er, int *changed)
 {
 	errcode_t ret = 0;
 	uint64_t first_block;
@@ -225,11 +228,12 @@ out:
 }
 
 static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
-			  ocfs2_dinode *di, ocfs2_extent_list *el,
+			  struct ocfs2_dinode *di,
+			  struct ocfs2_extent_list *el,
 			  uint16_t max_recs, int *changed)
 {
 	int trust_next_free = 1;
-	ocfs2_extent_rec *er;
+	struct ocfs2_extent_rec *er;
 	uint64_t max_size;
 	uint16_t i;
 	size_t cpy;
@@ -337,7 +341,8 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 	return 0;
 }
 
-errcode_t o2fsck_check_extents(o2fsck_state *ost, ocfs2_dinode *di)
+errcode_t o2fsck_check_extents(o2fsck_state *ost,
+			       struct ocfs2_dinode *di)
 {
 	errcode_t ret;
 	struct extent_info ei = {0, };

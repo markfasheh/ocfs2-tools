@@ -120,11 +120,12 @@ static int ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
 	return (megabytes << ONE_MB_SHIFT) >> cluster_size_bits;
 }
 
-static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t slot,
-			     uint64_t gd_blkno, uint64_t blkno, uint16_t mode,
+static void ocfs2_init_inode(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			     int16_t slot, uint64_t gd_blkno,
+			     uint64_t blkno, uint16_t mode,
 			     uint32_t flags)
 {
-	ocfs2_extent_list *fel;
+	struct ocfs2_extent_list *fel;
 	int cs_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 	unsigned int tl_recs;
 
@@ -176,7 +177,8 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, ocfs2_dinode *di, int16_t slot,
 	fel->l_count = ocfs2_extent_recs_per_inode(fs->fs_blocksize);
 }
 
-static void ocfs2_init_eb(ocfs2_filesys *fs, ocfs2_extent_block *eb,
+static void ocfs2_init_eb(ocfs2_filesys *fs,
+			  struct ocfs2_extent_block *eb,
 			  uint64_t gd_blkno, uint64_t blkno)
 {
 	strcpy(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE);
@@ -191,7 +193,7 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 	errcode_t ret;
 	char *buf;
 	uint64_t gd_blkno;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -215,7 +217,7 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 	}
 
 	memset(buf, 0, fs->fs_blocksize);
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 	ocfs2_init_inode(fs, di, 0, gd_blkno, *ino, mode, OCFS2_VALID_FL);
 
 	ret = ocfs2_write_inode(fs, *ino, buf);
@@ -234,7 +236,7 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
 	errcode_t ret;
 	char *buf;
 	uint64_t gd_blkno;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -258,7 +260,7 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino,
 	}
 
 	memset(buf, 0, fs->fs_blocksize);
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 	ocfs2_init_inode(fs, di, -1, gd_blkno, *ino, mode,
 			 (flags | OCFS2_VALID_FL | OCFS2_SYSTEM_FL));
 
@@ -274,7 +276,7 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 {
 	errcode_t ret;
 	char *buf;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	int slot;
 	ocfs2_cached_inode **inode_alloc;
 
@@ -285,7 +287,7 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 	ret = ocfs2_read_inode(fs, ino, buf);
 	if (ret)
 		goto out;
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 	slot = di->i_suballoc_slot;
 
 	if (slot == OCFS2_INVALID_SLOT)
@@ -345,7 +347,7 @@ errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno)
 	errcode_t ret;
 	char *buf;
 	uint64_t gd_blkno;
-	ocfs2_extent_block *eb;
+	struct ocfs2_extent_block *eb;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -362,7 +364,7 @@ errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno)
 		goto out;
 
 	memset(buf, 0, fs->fs_blocksize);
-	eb = (ocfs2_extent_block *)buf;
+	eb = (struct ocfs2_extent_block *)buf;
 	ocfs2_init_eb(fs, eb, gd_blkno, *blkno);
 
 	ret = ocfs2_write_extent_block(fs, *blkno, buf);
@@ -377,7 +379,7 @@ errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno)
 {
 	errcode_t ret;
 	char *buf;
-	ocfs2_extent_block *eb;
+	struct ocfs2_extent_block *eb;
 	int slot;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
@@ -387,7 +389,7 @@ errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno)
 	ret = ocfs2_read_extent_block(fs, blkno, buf);
 	if (ret)
 		goto out;
-	eb = (ocfs2_extent_block *)buf;
+	eb = (struct ocfs2_extent_block *)buf;
 	slot = eb->h_suballoc_slot;
 
 	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE, slot,
@@ -483,7 +485,7 @@ int main(int argc, char *argv[])
 	errcode_t ret;
 	ocfs2_filesys *fs;
 	char *buf;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	uint64_t blkno;
 
 	if (argc < 3) {
@@ -507,7 +509,7 @@ int main(int argc, char *argv[])
 		goto out_close;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_new_inode(fs, &blkno, 0644 | S_IFREG);
 	if (ret) {

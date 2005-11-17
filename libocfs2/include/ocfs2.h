@@ -180,8 +180,8 @@ struct _ocfs2_filesys {
 	char *fs_devname;
 	uint32_t fs_flags;
 	io_channel *fs_io;
-	ocfs2_dinode *fs_super;
-	ocfs2_dinode *fs_orig_super;
+	struct ocfs2_dinode *fs_super;
+	struct ocfs2_dinode *fs_orig_super;
 	unsigned int fs_blocksize;
 	unsigned int fs_clustersize;
 	uint32_t fs_clusters;
@@ -208,7 +208,7 @@ struct _ocfs2_filesys {
 struct _ocfs2_cached_inode {
 	struct _ocfs2_filesys *ci_fs;
 	uint64_t ci_blkno;
-	ocfs2_dinode *ci_inode;
+	struct ocfs2_dinode *ci_inode;
 	ocfs2_extent_map *ci_map;
 	ocfs2_bitmap *ci_chains;
 };
@@ -256,8 +256,8 @@ errcode_t ocfs2_flush(ocfs2_filesys *fs);
 errcode_t ocfs2_close(ocfs2_filesys *fs);
 void ocfs2_freefs(ocfs2_filesys *fs);
 
-void ocfs2_swap_inode_from_cpu(ocfs2_dinode *di);
-void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di);
+void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di);
+void ocfs2_swap_inode_to_cpu(struct ocfs2_dinode *di);
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf);
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
@@ -271,13 +271,13 @@ errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
 errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode);
 
-void ocfs2_swap_extent_list_from_cpu(ocfs2_extent_list *el);
-void ocfs2_swap_extent_list_to_cpu(ocfs2_extent_list *el);
+void ocfs2_swap_extent_list_from_cpu(struct ocfs2_extent_list *el);
+void ocfs2_swap_extent_list_to_cpu(struct ocfs2_extent_list *el);
 errcode_t ocfs2_extent_map_init(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
 void ocfs2_extent_map_free(ocfs2_cached_inode *cinode);
 errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
-				  ocfs2_extent_rec *rec,
+				  struct ocfs2_extent_rec *rec,
 				  int tree_depth);
 errcode_t ocfs2_extent_map_drop(ocfs2_cached_inode *cinode,
 				 uint32_t new_clusters);
@@ -285,7 +285,7 @@ errcode_t ocfs2_extent_map_trunc(ocfs2_cached_inode *cinode,
 				 uint32_t new_clusters);
 errcode_t ocfs2_extent_map_get_rec(ocfs2_cached_inode *cinode,
 				   uint32_t cpos,
-				   ocfs2_extent_rec **rec);
+				   struct ocfs2_extent_rec **rec);
 errcode_t ocfs2_extent_map_get_clusters(ocfs2_cached_inode *cinode,
 					uint32_t v_cpos, int count,
 					uint32_t *p_cpos,
@@ -319,7 +319,7 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 			       int flags,
 			       char *block_buf,
 			       int (*func)(ocfs2_filesys *fs,
-					   ocfs2_extent_rec *rec,
+					   struct ocfs2_extent_rec *rec,
 					   int tree_depth,
 					   uint32_t ccount,
 					   uint64_t ref_blkno,
@@ -327,11 +327,11 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 					   void *priv_data),
 			       void *priv_data);
 errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
-				     ocfs2_dinode *inode,
+				     struct ocfs2_dinode *inode,
 				     int flags,
 				     char *block_buf,
 				     int (*func)(ocfs2_filesys *fs,
-					         ocfs2_extent_rec *rec,
+					         struct ocfs2_extent_rec *rec,
 					         int tree_depth,
 					         uint32_t ccount,
 					         uint64_t ref_blkno,
@@ -347,7 +347,7 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 					  void *priv_data),
 			      void *priv_data);
 errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
-				    ocfs2_dinode *inode,
+				    struct ocfs2_dinode *inode,
 				    int flags,
 				    int (*func)(ocfs2_filesys *fs,
 						uint64_t blkno,
@@ -456,7 +456,7 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local);
 errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
 				uint8_t *uuid, uint16_t uuid_len);
 
-void ocfs2_swap_group_desc(ocfs2_group_desc *gd);
+void ocfs2_swap_group_desc(struct ocfs2_group_desc *gd);
 errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 				char *gd_buf);
 
@@ -508,7 +508,8 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 
 errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 				     int *is_allocated);
-void ocfs2_init_group_desc(ocfs2_filesys *fs, ocfs2_group_desc *gd,
+void ocfs2_init_group_desc(ocfs2_filesys *fs,
+			   struct ocfs2_group_desc *gd,
 			   uint64_t blkno, uint32_t generation,
 			   uint64_t parent_inode, uint16_t bits,
 			   uint16_t chain);

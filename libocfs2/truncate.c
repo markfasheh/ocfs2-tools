@@ -38,7 +38,8 @@
  * _CHANGED.  It will delete unused extent blocks and file
  * data for us.  This only works with DEPTH_TRAVERSE..
  */
-static int truncate_iterate(ocfs2_filesys *fs, ocfs2_extent_rec *rec,
+static int truncate_iterate(ocfs2_filesys *fs,
+			    struct ocfs2_extent_rec *rec,
 			    int tree_depth, uint32_t ccount,
 			    uint64_t ref_blkno, int ref_recno,
 			    void *priv_data)
@@ -67,7 +68,7 @@ errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 {
 	errcode_t ret;
 	char *buf;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	uint32_t new_i_clusters;
 	uint64_t new_i_blocks;
 
@@ -78,7 +79,7 @@ errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 	ret = ocfs2_read_inode(fs, ino, buf);
 	if (ret)
 		goto out;
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	if (di->i_size == new_i_size)
 		goto out;

@@ -157,8 +157,8 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, o2fsck_state *ost)
 
 static errcode_t check_superblock(o2fsck_state *ost)
 {
-	ocfs2_dinode *di = ost->ost_fs->fs_super;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
+	struct ocfs2_dinode *di = ost->ost_fs->fs_super;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 	errcode_t ret = 0;
 
 	if (sb->s_max_slots == 0) {
@@ -183,8 +183,8 @@ static errcode_t check_superblock(o2fsck_state *ost)
 
 static errcode_t write_out_superblock(o2fsck_state *ost)
 {
-	ocfs2_dinode *di = ost->ost_fs->fs_super;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(di);
+	struct ocfs2_dinode *di = ost->ost_fs->fs_super;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 
 	sb->s_errors = ost->ost_saw_error;
 	sb->s_lastcheck = time(NULL);
@@ -226,7 +226,7 @@ static size_t ftso_strftime(char *s, size_t max, const char *fmt,
 
 static int fs_is_clean(o2fsck_state *ost, char *filename)
 {
-	ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
 	time_t now = time(NULL);
 	time_t next = sb->s_lastcheck + sb->s_checkinterval;
 	static char reason[4096] = {'\0', };

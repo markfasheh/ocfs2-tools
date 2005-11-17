@@ -35,8 +35,8 @@
 
 struct insert_ctxt {
 	ocfs2_filesys *fs;
-	ocfs2_dinode *di;
-	ocfs2_extent_rec rec;
+	struct ocfs2_dinode *di;
+	struct ocfs2_extent_rec rec;
 };
 
 static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
@@ -47,11 +47,11 @@ static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
  * last_eb_blk.  Also updates the dinode's ->last_eb_blk.
  */
 static errcode_t update_last_eb_blk(struct insert_ctxt *ctxt,
-				    ocfs2_extent_block *eb)
+				    struct ocfs2_extent_block *eb)
 {
 	errcode_t ret;
 	char *buf;
-	ocfs2_extent_block *last_eb;
+	struct ocfs2_extent_block *last_eb;
 
 	if (!ctxt->di->i_last_eb_blk)
 		return OCFS2_ET_INTERNAL_FAILURE;
@@ -65,7 +65,7 @@ static errcode_t update_last_eb_blk(struct insert_ctxt *ctxt,
 	if (ret)
 		goto out;
 
-	last_eb = (ocfs2_extent_block *)buf;
+	last_eb = (struct ocfs2_extent_block *)buf;
 	last_eb->h_next_leaf_blk = eb->h_blkno;
 
 	ret = ocfs2_write_extent_block(ctxt->fs, last_eb->h_blkno,
@@ -86,13 +86,13 @@ out:
  * Add a child extent_block to a non-leaf extent list.
  */
 static errcode_t append_eb(struct insert_ctxt *ctxt,
-			   ocfs2_extent_list *el)
+			   struct ocfs2_extent_list *el)
 {
 	errcode_t ret;
 	char *buf;
 	uint64_t blkno;
-	ocfs2_extent_block *eb;
-	ocfs2_extent_rec *rec;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
 
 	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
 	if (ret)
@@ -106,7 +106,7 @@ static errcode_t append_eb(struct insert_ctxt *ctxt,
 	if (ret)
 		goto out;
 
-	eb = (ocfs2_extent_block *)buf;
+	eb = (struct ocfs2_extent_block *)buf;
 	eb->h_list.l_tree_depth = el->l_tree_depth - 1;
 
 	if (!eb->h_list.l_tree_depth) {
@@ -139,10 +139,10 @@ out:
  * branch, updating this list on the way back up.
  */
 static errcode_t insert_extent_el(struct insert_ctxt *ctxt,
-			  	  ocfs2_extent_list *el)
+			  	  struct ocfs2_extent_list *el)
 {
 	errcode_t ret;
-	ocfs2_extent_rec *rec = NULL;
+	struct ocfs2_extent_rec *rec = NULL;
 
 	if (!el->l_tree_depth) {
 		/* A leaf extent_list can do one of three things: */
@@ -229,7 +229,7 @@ static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
 {
 	errcode_t ret;
 	char *buf;
-	ocfs2_extent_block *eb;
+	struct ocfs2_extent_block *eb;
 
 	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
 	if (ret)
@@ -237,7 +237,7 @@ static errcode_t insert_extent_eb(struct insert_ctxt *ctxt,
 
 	ret = ocfs2_read_extent_block(ctxt->fs, eb_blkno, buf);
 	if (!ret) {
-		eb = (ocfs2_extent_block *)buf;
+		eb = (struct ocfs2_extent_block *)buf;
 		ret = insert_extent_el(ctxt, &eb->h_list);
 	}
 
@@ -258,8 +258,8 @@ static errcode_t shift_tree_depth(struct insert_ctxt *ctxt)
 	errcode_t ret;
 	char *buf;
 	uint64_t blkno;
-	ocfs2_extent_block *eb;
-	ocfs2_extent_list *el;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_list *el;
 
 	el = &ctxt->di->id2.i_list;
 	if (el->l_next_free_rec != el->l_count)
@@ -277,14 +277,15 @@ static errcode_t shift_tree_depth(struct insert_ctxt *ctxt)
 	if (ret)
 		goto out;
 
-	eb = (ocfs2_extent_block *)buf;
+	eb = (struct ocfs2_extent_block *)buf;
 	eb->h_list.l_tree_depth = el->l_tree_depth;
 	eb->h_list.l_next_free_rec = el->l_next_free_rec;
 	memcpy(eb->h_list.l_recs, el->l_recs,
-	       sizeof(ocfs2_extent_rec) * el->l_count);
+	       sizeof(struct ocfs2_extent_rec) * el->l_count);
 
 	el->l_tree_depth++;
-	memset(el->l_recs, 0, sizeof(ocfs2_extent_rec) * el->l_count);
+	memset(el->l_recs, 0,
+	       sizeof(struct ocfs2_extent_rec) * el->l_count);
 	el->l_recs[0].e_cpos = 0;
 	el->l_recs[0].e_blkno = blkno;
 	el->l_recs[0].e_clusters = ctxt->di->i_clusters;
@@ -317,7 +318,7 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
 		return ret;
 
 	ctxt.fs = fs;
-	ctxt.di = (ocfs2_dinode *)buf;
+	ctxt.di = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_read_inode(fs, ino, buf);
 	if (ret)

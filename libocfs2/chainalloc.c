@@ -44,7 +44,7 @@ struct chainalloc_bitmap_private {
 
 struct chainalloc_region_private {
 	struct chainalloc_bitmap_private	*cr_cb;
-	struct _ocfs2_group_desc		*cr_ag;
+	struct ocfs2_group_desc			*cr_ag;
 	int					cr_dirty;
 };
 
@@ -107,7 +107,7 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 		goto out_free_buf;
 
 	cr->cr_cb = cb;
-	cr->cr_ag = (ocfs2_group_desc *)gd_buf;
+	cr->cr_ag = (struct ocfs2_group_desc *)gd_buf;
 
 	cb->cb_errcode = OCFS2_ET_CORRUPT_GROUP_DESC;
 	if (cr->cr_ag->bg_size != ocfs2_group_bitmap_size(fs->fs_blocksize))
@@ -227,9 +227,10 @@ static void chainalloc_bit_change_notify(ocfs2_bitmap *bitmap,
 {
 	struct chainalloc_bitmap_private *cb = bitmap->b_private;
 	struct chainalloc_region_private *cr = br->br_private;
-	ocfs2_dinode *di = cb->cb_cinode->ci_inode;
-	ocfs2_group_desc *ag = cr->cr_ag;
-	ocfs2_chain_rec *rec = &di->id2.i_chain.cl_recs[ag->bg_chain];
+	struct ocfs2_dinode *di = cb->cb_cinode->ci_inode;
+	struct ocfs2_group_desc *ag = cr->cr_ag;
+	struct ocfs2_chain_rec *rec =
+		&di->id2.i_chain.cl_recs[ag->bg_chain];
 
 	if (new_val) {
 		ag->bg_free_bits_count--;
@@ -475,7 +476,8 @@ errcode_t ocfs2_chain_test(ocfs2_filesys *fs,
 	return ocfs2_bitmap_test(cinode->ci_chains, bitno, oldval);
 }
 
-void ocfs2_init_group_desc(ocfs2_filesys *fs, ocfs2_group_desc *gd,
+void ocfs2_init_group_desc(ocfs2_filesys *fs,
+			   struct ocfs2_group_desc *gd,
 			   uint64_t blkno, uint32_t generation,
 			   uint64_t parent_inode, uint16_t bits,
 			   uint16_t chain)
@@ -500,15 +502,15 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	uint64_t blkno = 0, old_blkno = 0;
-	ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd;
 	char *buf = NULL;
-	ocfs2_chain_rec *rec = NULL;
+	struct ocfs2_chain_rec *rec = NULL;
 	struct chainalloc_bitmap_private *cb = cinode->ci_chains->b_private;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
-	gd = (ocfs2_group_desc *)buf;
+	gd = (struct ocfs2_group_desc *)buf;
 
 	ret = ocfs2_new_clusters(fs, cinode->ci_inode->id2.i_chain.cl_cpg,
 				 &blkno);

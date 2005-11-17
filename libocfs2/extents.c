@@ -34,19 +34,19 @@
 
 #include "ocfs2.h"
 
-static void ocfs2_swap_extent_list_primary(ocfs2_extent_list *el)
+static void ocfs2_swap_extent_list_primary(struct ocfs2_extent_list *el)
 {
 	el->l_tree_depth = bswap_16(el->l_tree_depth);
 	el->l_count = bswap_16(el->l_count);
 	el->l_next_free_rec = bswap_16(el->l_next_free_rec);
 }
 
-static void ocfs2_swap_extent_list_secondary(ocfs2_extent_list *el)
+static void ocfs2_swap_extent_list_secondary(struct ocfs2_extent_list *el)
 {
 	uint16_t i;
 
 	for(i = 0; i < el->l_next_free_rec; i++) {
-		ocfs2_extent_rec *rec = &el->l_recs[i];
+		struct ocfs2_extent_rec *rec = &el->l_recs[i];
 
 		rec->e_cpos = bswap_32(rec->e_cpos);
 		rec->e_clusters = bswap_32(rec->e_clusters);
@@ -54,7 +54,7 @@ static void ocfs2_swap_extent_list_secondary(ocfs2_extent_list *el)
 	}
 }
 
-void ocfs2_swap_extent_list_from_cpu(ocfs2_extent_list *el)
+void ocfs2_swap_extent_list_from_cpu(struct ocfs2_extent_list *el)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -62,7 +62,7 @@ void ocfs2_swap_extent_list_from_cpu(ocfs2_extent_list *el)
 	ocfs2_swap_extent_list_secondary(el);
 	ocfs2_swap_extent_list_primary(el);
 }
-void ocfs2_swap_extent_list_to_cpu(ocfs2_extent_list *el)
+void ocfs2_swap_extent_list_to_cpu(struct ocfs2_extent_list *el)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -71,7 +71,7 @@ void ocfs2_swap_extent_list_to_cpu(ocfs2_extent_list *el)
 	ocfs2_swap_extent_list_secondary(el);
 }
 
-static void ocfs2_swap_extent_block_header(ocfs2_extent_block *eb)
+static void ocfs2_swap_extent_block_header(struct ocfs2_extent_block *eb)
 {
 
 	eb->h_suballoc_slot = bswap_16(eb->h_suballoc_slot);
@@ -81,7 +81,7 @@ static void ocfs2_swap_extent_block_header(ocfs2_extent_block *eb)
 	eb->h_next_leaf_blk = bswap_64(eb->h_next_leaf_blk);
 }
 
-static void ocfs2_swap_extent_block_from_cpu(ocfs2_extent_block *eb)
+static void ocfs2_swap_extent_block_from_cpu(struct ocfs2_extent_block *eb)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -89,7 +89,7 @@ static void ocfs2_swap_extent_block_from_cpu(ocfs2_extent_block *eb)
 	ocfs2_swap_extent_block_header(eb);
 	ocfs2_swap_extent_list_from_cpu(&eb->h_list);
 }
-static void ocfs2_swap_extent_block_to_cpu(ocfs2_extent_block *eb)
+static void ocfs2_swap_extent_block_to_cpu(struct ocfs2_extent_block *eb)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -98,12 +98,13 @@ static void ocfs2_swap_extent_block_to_cpu(ocfs2_extent_block *eb)
 	ocfs2_swap_extent_list_to_cpu(&eb->h_list);
 }
 
-errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
+errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs,
+					  uint64_t blkno,
 					  char *eb_buf)
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_extent_block *eb;
+	struct ocfs2_extent_block *eb;
 
 	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
 	    (blkno > fs->fs_blocks))
@@ -117,7 +118,7 @@ errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		goto out;
 
-	eb = (ocfs2_extent_block *)blk;
+	eb = (struct ocfs2_extent_block *)blk;
 
 	if (memcmp(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
 		   strlen(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
@@ -127,7 +128,7 @@ errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
 
 	memcpy(eb_buf, blk, fs->fs_blocksize);
 
-	eb = (ocfs2_extent_block *) eb_buf;
+	eb = (struct ocfs2_extent_block *) eb_buf;
 	ocfs2_swap_extent_block_to_cpu(eb);
 
 out:
@@ -140,7 +141,8 @@ errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 				  char *eb_buf)
 {
 	errcode_t ret;
-	ocfs2_extent_block *eb = (ocfs2_extent_block *)eb_buf;
+	struct ocfs2_extent_block *eb =
+		(struct ocfs2_extent_block *)eb_buf;
 
 	ret = ocfs2_read_extent_block_nocheck(fs, blkno, eb_buf);
 
@@ -155,7 +157,7 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_extent_block *eb;
+	struct ocfs2_extent_block *eb;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -170,7 +172,7 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 
 	memcpy(blk, eb_buf, fs->fs_blocksize);
 
-	eb = (ocfs2_extent_block *) blk;
+	eb = (struct ocfs2_extent_block *) blk;
 	ocfs2_swap_extent_block_from_cpu(eb);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
@@ -191,7 +193,7 @@ out:
 struct extent_context {
 	ocfs2_filesys *fs;
 	int (*func)(ocfs2_filesys *fs,
-		    ocfs2_extent_rec *rec,
+		    struct ocfs2_extent_rec *rec,
 		    int tree_depth,
 		    uint32_t ccount,
 		    uint64_t ref_blkno,
@@ -206,14 +208,14 @@ struct extent_context {
 	uint64_t last_eb_cpos;
 };
 
-static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
+static int extent_iterate_eb(struct ocfs2_extent_rec *eb_rec,
 			     int tree_depth, uint64_t ref_blkno,
 			     int ref_recno,
 			     struct extent_context *ctxt);
 
 static int update_leaf_rec(struct extent_context *ctxt,
-			 ocfs2_extent_rec *before,
-			 ocfs2_extent_rec *current)
+			   struct ocfs2_extent_rec *before,
+			   struct ocfs2_extent_rec *current)
 {
 	uint64_t start;
 	uint32_t len;
@@ -233,23 +235,25 @@ static int update_leaf_rec(struct extent_context *ctxt,
 }
 
 static int update_eb_rec(struct extent_context *ctxt,
-			 ocfs2_extent_rec *before,
-			 ocfs2_extent_rec *current)
+			 struct ocfs2_extent_rec *before,
+			 struct ocfs2_extent_rec *current)
 {
 	if (current->e_clusters)
 		return 0;
 
-	ctxt->errcode = ocfs2_delete_extent_block(ctxt->fs, before->e_blkno); 
+	ctxt->errcode = ocfs2_delete_extent_block(ctxt->fs,
+						  before->e_blkno); 
 	if (ctxt->errcode)
 		return OCFS2_EXTENT_ERROR;
 
 	return 0;
 }
 
-static int extent_iterate_el(ocfs2_extent_list *el, uint64_t ref_blkno,
+static int extent_iterate_el(struct ocfs2_extent_list *el,
+			     uint64_t ref_blkno,
 			     struct extent_context *ctxt)
 {
-	ocfs2_extent_rec before;
+	struct ocfs2_extent_rec before;
 	int iret = 0;
 	int i;
 
@@ -297,14 +301,14 @@ static int extent_iterate_el(ocfs2_extent_list *el, uint64_t ref_blkno,
 }
 
 /* XXX this needs to be fixed to update the last extent block stuff */
-static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
+static int extent_iterate_eb(struct ocfs2_extent_rec *eb_rec,
 			     int ref_tree_depth, uint64_t ref_blkno,
 			     int ref_recno, struct extent_context *ctxt)
 {
 	int iret = 0, changed = 0, flags;
 	int tree_depth = ref_tree_depth - 1;
-	ocfs2_extent_block *eb;
-	ocfs2_extent_list *el;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_list *el;
 
 	if (!(ctxt->flags & OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE) &&
 	    !(ctxt->flags & OCFS2_EXTENT_FLAG_DATA_ONLY))
@@ -330,7 +334,7 @@ static int extent_iterate_eb(ocfs2_extent_rec *eb_rec,
 		goto out;
 	}
 
-	eb = (ocfs2_extent_block *)ctxt->eb_bufs[tree_depth];
+	eb = (struct ocfs2_extent_block *)ctxt->eb_bufs[tree_depth];
 	el = &eb->h_list;
 
 	if ((el->l_tree_depth != tree_depth) ||
@@ -370,11 +374,11 @@ out:
 
 
 errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
-				     ocfs2_dinode *inode,
+				     struct ocfs2_dinode *inode,
 				     int flags,
 				     char *block_buf,
 				     int (*func)(ocfs2_filesys *fs,
-					         ocfs2_extent_rec *rec,
+					         struct ocfs2_extent_rec *rec,
 					         int tree_depth,
 					         uint32_t ccount,
 					         uint64_t ref_blkno,
@@ -384,7 +388,7 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 {
 	int i;
 	int iret = 0;
-	ocfs2_extent_list *el;
+	struct ocfs2_extent_list *el;
 	errcode_t ret;
 	struct extent_context ctxt;
 
@@ -465,7 +469,7 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 			       int flags,
 			       char *block_buf,
 			       int (*func)(ocfs2_filesys *fs,
-					   ocfs2_extent_rec *rec,
+					   struct ocfs2_extent_rec *rec,
 					   int tree_depth,
 					   uint32_t ccount,
 					   uint64_t ref_blkno,
@@ -474,7 +478,7 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 			       void *priv_data)
 {
 	char *buf = NULL;
-	ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode;
 	errcode_t ret;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
@@ -485,7 +489,7 @@ errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
 	if (ret)
 		goto out_buf;
 
-	inode = (ocfs2_dinode *)buf;
+	inode = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_extent_iterate_inode(fs, inode, flags, block_buf,
 					 func, priv_data);
@@ -502,13 +506,13 @@ struct block_context {
 		    uint64_t bcount,
 		    void *priv_data);
 	int flags;
-	ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode;
 	errcode_t errcode;
 	void *priv_data;
 };
 
 static int block_iterate_func(ocfs2_filesys *fs,
-			      ocfs2_extent_rec *rec,
+			      struct ocfs2_extent_rec *rec,
 			      int tree_depth,
 			      uint32_t ccount,
 			      uint64_t ref_blkno,
@@ -537,7 +541,7 @@ static int block_iterate_func(ocfs2_filesys *fs,
 }
 
 errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
-				    ocfs2_dinode *inode,
+				    struct ocfs2_dinode *inode,
 				    int flags,
 				    int (*func)(ocfs2_filesys *fs,
 						uint64_t blkno,
@@ -570,7 +574,7 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 					  void *priv_data),
 			      void *priv_data)
 {
-	ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode;
 	errcode_t ret;
 	char *buf;
 
@@ -582,7 +586,7 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 	if (ret)
 		goto out_buf;
 
-	inode = (ocfs2_dinode *)buf;
+	inode = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_block_iterate_inode(fs, inode, flags, func, priv_data);
 
@@ -615,11 +619,11 @@ static void print_usage(void)
 }
 
 struct walk_it {
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 };
 
 static int walk_extents_func(ocfs2_filesys *fs,
-			     ocfs2_extent_rec *rec,
+			     struct ocfs2_extent_rec *rec,
 			     int tree_depth,
 			     uint32_t ccount,
 			     uint64_t ref_blkno,
@@ -650,7 +654,7 @@ static int walk_extents_func(ocfs2_filesys *fs,
 }
 
 struct walk_block {
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	uint64_t last_block;
 	uint64_t run_first_blkno;
 	uint64_t run_first_bcount;
@@ -725,7 +729,7 @@ int main(int argc, char *argv[])
 	int walk_blocks = 0, walk_extents = 0;
 	char *filename, *buf, *eb_buf = NULL;
 	ocfs2_filesys *fs;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	struct walk_it wi;
 	struct walk_block wb;
 
@@ -796,7 +800,7 @@ int main(int argc, char *argv[])
 		goto out_free;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\" has depth %"PRId16"\n",
 		blkno, filename, di->id2.i_list.l_tree_depth);

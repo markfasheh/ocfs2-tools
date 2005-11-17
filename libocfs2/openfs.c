@@ -45,7 +45,7 @@ static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)
 {
 	errcode_t ret;
 	char *blk;
-	ocfs1_vol_disk_hdr *hdr;
+	struct ocfs1_vol_disk_hdr *hdr;
 	
 	ret = ocfs2_malloc_block(fs->fs_io, &blk);
 	if (ret)
@@ -54,7 +54,7 @@ static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)
 	ret = io_read_block(fs->fs_io, 0, 1, blk);
 	if (ret)
 		goto out;
-	hdr = (ocfs1_vol_disk_hdr *)blk;
+	hdr = (struct ocfs1_vol_disk_hdr *)blk;
 
 	ret = OCFS2_ET_OCFS_REV;
 	if (le32_to_cpu(hdr->major_version) == OCFS1_MAJOR_VERSION)
@@ -75,7 +75,7 @@ static errcode_t ocfs2_read_super(ocfs2_filesys *fs, int superblock)
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &blk);
 	if (ret)
@@ -84,7 +84,7 @@ static errcode_t ocfs2_read_super(ocfs2_filesys *fs, int superblock)
 	ret = io_read_block(fs->fs_io, superblock, 1, blk);
 	if (ret)
 		goto out_blk;
-	di = (ocfs2_dinode *)blk;
+	di = (struct ocfs2_dinode *)blk;
 
 	ret = OCFS2_ET_BAD_MAGIC;
 	if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
@@ -106,13 +106,13 @@ errcode_t ocfs2_write_super(ocfs2_filesys *fs)
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
 
 	blk = (char *)fs->fs_super;
-	di = (ocfs2_dinode *)blk;
+	di = (struct ocfs2_dinode *)blk;
 
 	ret = OCFS2_ET_BAD_MAGIC;
 	if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,

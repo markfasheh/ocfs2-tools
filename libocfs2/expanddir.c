@@ -111,7 +111,8 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	/* did we just add a '..' reference to a parent?  if so, update
 	 * them */
 	if (used_blks == 0) {
-		ocfs2_dinode *parent = (ocfs2_dinode *)buf;
+		struct ocfs2_dinode *parent =
+			(struct ocfs2_dinode *)buf;
 		ret = ocfs2_read_inode(fs, parent_dir, buf);
 		if (ret)
 			goto bail;

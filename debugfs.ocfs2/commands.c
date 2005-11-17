@@ -275,7 +275,7 @@ static int process_inodestr_args(char **args, uint64_t *blkno)
  */
 static int get_slotnum(char **args, uint16_t *slotnum)
 {
-	ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	char *endptr;
 
 	if (args[1]) {
@@ -299,10 +299,10 @@ static int get_slotnum(char **args, uint16_t *slotnum)
  * traverse_extents()
  *
  */
-static errcode_t traverse_extents (ocfs2_filesys *fs, ocfs2_extent_list *el, FILE *out)
+static errcode_t traverse_extents (ocfs2_filesys *fs, struct ocfs2_extent_list *el, FILE *out)
 {
-	ocfs2_extent_block *eb;
-	ocfs2_extent_rec *rec;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
 	errcode_t ret = 0;
 	char *buf = NULL;
 	int i;
@@ -320,7 +320,7 @@ static errcode_t traverse_extents (ocfs2_filesys *fs, ocfs2_extent_list *el, FIL
 			if (ret)
 				goto bail;
 
-			eb = (ocfs2_extent_block *)buf;
+			eb = (struct ocfs2_extent_block *)buf;
 
 			dump_extent_block (out, eb);
 
@@ -340,10 +340,10 @@ bail:
  * traverse_chains()
  *
  */
-static errcode_t traverse_chains (ocfs2_filesys *fs, ocfs2_chain_list *cl, FILE *out)
+static errcode_t traverse_chains (ocfs2_filesys *fs, struct ocfs2_chain_list *cl, FILE *out)
 {
-	ocfs2_group_desc *grp;
-	ocfs2_chain_rec *rec;
+	struct ocfs2_group_desc *grp;
+	struct ocfs2_chain_rec *rec;
 	errcode_t ret = 0;
 	char *buf = NULL;
 	uint64_t blkno;
@@ -366,7 +366,7 @@ static errcode_t traverse_chains (ocfs2_filesys *fs, ocfs2_chain_list *cl, FILE 
 			if (ret)
 				goto bail;
 
-			grp = (ocfs2_group_desc *)buf;
+			grp = (struct ocfs2_group_desc *)buf;
 			dump_group_descriptor(out, grp, index);
 			blkno = grp->bg_next_group;
 			index++;
@@ -391,7 +391,7 @@ static void do_open (char **args)
 	errcode_t ret = 0;
 	char sysfile[SYSTEM_FILE_NAME_MAX];
 	int i;
-	ocfs2_super_block *sb;
+	struct ocfs2_super_block *sb;
 
 	if (gbls.device)
 		do_close (NULL);
@@ -657,8 +657,8 @@ static void do_stats (char **args)
 {
 	char *opts = args[1];
 	FILE *out;
-	ocfs2_dinode *in;
-	ocfs2_super_block *sb;
+	struct ocfs2_dinode *in;
+	struct ocfs2_super_block *sb;
 
 	if (check_device_open())
 		goto bail;
@@ -683,7 +683,7 @@ bail:
  */
 static void do_stat (char **args)
 {
-	ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode;
 	uint64_t blkno;
 	char *buf = NULL;
 	FILE *out;
@@ -699,7 +699,7 @@ static void do_stat (char **args)
 		return ;
 	}
 
-	inode = (ocfs2_dinode *)buf;
+	inode = (struct ocfs2_dinode *)buf;
 
 	out = open_pager(gbls.interactive);
 	dump_inode(out, inode);
@@ -819,7 +819,7 @@ static void do_cat (char **args)
 	uint64_t blkno;
 	errcode_t ret;
 	char *buf;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	if (process_inode_args(args, &blkno))
 		return ;
@@ -831,7 +831,7 @@ static void do_cat (char **args)
 		return ;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 	if (!S_ISREG(di->i_mode)) {
 		fprintf(stderr, "%s: Not a regular file\n", args[0]);
 		return ;
@@ -887,7 +887,7 @@ bail:
  */
 static void do_group (char **args)
 {
-	ocfs2_group_desc *grp;
+	struct ocfs2_group_desc *grp;
 	uint64_t blkno;
 	char *buf = NULL;
 	FILE *out;
@@ -907,7 +907,7 @@ static void do_group (char **args)
 			return ;
 		}
 
-		grp = (ocfs2_group_desc *)buf;
+		grp = (struct ocfs2_group_desc *)buf;
 		dump_group_descriptor(out, grp, index);
 		blkno = grp->bg_next_group;
 		index++;
@@ -924,7 +924,7 @@ static void do_group (char **args)
  */
 static void do_extent (char **args)
 {
-	ocfs2_extent_block *eb;
+	struct ocfs2_extent_block *eb;
 	uint64_t blkno;
 	char *buf = NULL;
 	FILE *out;
@@ -940,7 +940,7 @@ static void do_extent (char **args)
 		return ;
 	}
 
-	eb = (ocfs2_extent_block *)buf;
+	eb = (struct ocfs2_extent_block *)buf;
 
 	out = open_pager(gbls.interactive);
 	dump_extent_block(out, eb);
@@ -1078,7 +1078,7 @@ static void do_rdump(char **args)
  */
 static void do_encode_lockres (char **args)
 {
-	ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode;
 	uint64_t blkno;
 	char *buf = NULL;
 	errcode_t ret = 0;
@@ -1097,7 +1097,7 @@ static void do_encode_lockres (char **args)
 		buf = gbls.blockbuf;
 		ret = ocfs2_read_inode(gbls.fs, blkno, buf);
 		if (!ret) {
-			inode = (ocfs2_dinode *)buf;
+			inode = (struct ocfs2_dinode *)buf;
 			ocfs2_encode_lockres(OCFS2_LOCK_TYPE_META, blkno,
 					     inode->i_generation, metalock);
 			ocfs2_encode_lockres(OCFS2_LOCK_TYPE_DATA, blkno,

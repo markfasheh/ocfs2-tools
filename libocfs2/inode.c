@@ -36,7 +36,7 @@
 
 errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir)
 {
-	ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode;
 	char *buf;
 	errcode_t ret;
 
@@ -52,7 +52,7 @@ errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir)
 	if (ret)
 		goto out_buf;
 
-	inode = (ocfs2_dinode *)buf;
+	inode = (struct ocfs2_dinode *)buf;
 	if (!S_ISDIR(inode->i_mode))
 		ret = OCFS2_ET_NO_DIRECTORY;
 
@@ -62,15 +62,15 @@ out_buf:
 	return ret;
 }
 
-static void ocfs2_swap_inode_third(ocfs2_dinode *di)
+static void ocfs2_swap_inode_third(struct ocfs2_dinode *di)
 {
 
 	if (di->i_flags & OCFS2_CHAIN_FL) {
-		ocfs2_chain_list *cl = &di->id2.i_chain;
+		struct ocfs2_chain_list *cl = &di->id2.i_chain;
 		uint16_t i;
 
 		for (i = 0; i < cl->cl_next_free_rec; i++) {
-			ocfs2_chain_rec *rec = &cl->cl_recs[i];
+			struct ocfs2_chain_rec *rec = &cl->cl_recs[i];
 
 			rec->c_free  = bswap_32(rec->c_free);
 			rec->c_total = bswap_32(rec->c_total);
@@ -78,11 +78,12 @@ static void ocfs2_swap_inode_third(ocfs2_dinode *di)
 		}
 
 	} else if (di->i_flags & OCFS2_DEALLOC_FL) {
-		ocfs2_truncate_log *tl = &di->id2.i_dealloc;
+		struct ocfs2_truncate_log *tl = &di->id2.i_dealloc;
 		uint16_t i;
 
 		for(i = 0; i < tl->tl_count; i++) {
-			ocfs2_truncate_rec *rec = &tl->tl_recs[i];
+			struct ocfs2_truncate_rec *rec =
+				&tl->tl_recs[i];
 
 			rec->t_start    = bswap_32(rec->t_start);
 			rec->t_clusters = bswap_32(rec->t_clusters);
@@ -90,7 +91,7 @@ static void ocfs2_swap_inode_third(ocfs2_dinode *di)
 	}
 }
 
-static void ocfs2_swap_inode_second(ocfs2_dinode *di)
+static void ocfs2_swap_inode_second(struct ocfs2_dinode *di)
 {
 	if (S_ISCHR(di->i_mode) || S_ISBLK(di->i_mode))
 		di->id1.dev1.i_rdev = bswap_64(di->id1.dev1.i_rdev);
@@ -103,7 +104,7 @@ static void ocfs2_swap_inode_second(ocfs2_dinode *di)
 	/* we need to be careful to swap the union member that is in use.
 	 * first the ones that are explicitly marked with flags.. */ 
 	if (di->i_flags & OCFS2_SUPER_BLOCK_FL) {
-		ocfs2_super_block *sb = &di->id2.i_super;
+		struct ocfs2_super_block *sb = &di->id2.i_super;
 
 		sb->s_major_rev_level     = bswap_16(sb->s_major_rev_level);
 		sb->s_minor_rev_level     = bswap_16(sb->s_minor_rev_level);
@@ -125,13 +126,13 @@ static void ocfs2_swap_inode_second(ocfs2_dinode *di)
 		sb->s_first_cluster_group = bswap_64(sb->s_first_cluster_group);
 
 	} else if (di->i_flags & OCFS2_LOCAL_ALLOC_FL) {
-		ocfs2_local_alloc *la = &di->id2.i_lab;
+		struct ocfs2_local_alloc *la = &di->id2.i_lab;
 
 		la->la_bm_off = bswap_32(la->la_bm_off);
 		la->la_size   = bswap_16(la->la_size);
 
 	} else if (di->i_flags & OCFS2_CHAIN_FL) {
-		ocfs2_chain_list *cl = &di->id2.i_chain;
+		struct ocfs2_chain_list *cl = &di->id2.i_chain;
 
 		cl->cl_cpg           = bswap_16(cl->cl_cpg);
 		cl->cl_bpc           = bswap_16(cl->cl_bpc);
@@ -139,14 +140,14 @@ static void ocfs2_swap_inode_second(ocfs2_dinode *di)
 		cl->cl_next_free_rec = bswap_16(cl->cl_next_free_rec);
 
 	} else if (di->i_flags & OCFS2_DEALLOC_FL) {
-		ocfs2_truncate_log *tl = &di->id2.i_dealloc;
+		struct ocfs2_truncate_log *tl = &di->id2.i_dealloc;
 
 		tl->tl_count = bswap_16(tl->tl_count);
 		tl->tl_used  = bswap_16(tl->tl_used);
 	}
 }
 
-static void ocfs2_swap_inode_first(ocfs2_dinode *di)
+static void ocfs2_swap_inode_first(struct ocfs2_dinode *di)
 {
 	di->i_generation    = bswap_32(di->i_generation);
 	di->i_suballoc_slot = bswap_16(di->i_suballoc_slot);
@@ -170,7 +171,7 @@ static void ocfs2_swap_inode_first(ocfs2_dinode *di)
 	di->i_mtime_nsec    = bswap_32(di->i_mtime_nsec);
 }
 
-static int has_extents(ocfs2_dinode *di)
+static int has_extents(struct ocfs2_dinode *di)
 {
 	/* inodes flagged with other stuff in id2 */
 	if (di->i_flags & (OCFS2_SUPER_BLOCK_FL | OCFS2_LOCAL_ALLOC_FL |
@@ -183,7 +184,7 @@ static int has_extents(ocfs2_dinode *di)
 	return 1;
 }
 
-void ocfs2_swap_inode_from_cpu(ocfs2_dinode *di)
+void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -195,7 +196,7 @@ void ocfs2_swap_inode_from_cpu(ocfs2_dinode *di)
 	ocfs2_swap_inode_first(di);
 }
 
-void ocfs2_swap_inode_to_cpu(ocfs2_dinode *di)
+void ocfs2_swap_inode_to_cpu(struct ocfs2_dinode *di)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -212,7 +213,7 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
 	    (blkno > fs->fs_blocks))
@@ -226,7 +227,7 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		goto out;
 
-	di = (ocfs2_dinode *)blk;
+	di = (struct ocfs2_dinode *)blk;
 
 	ret = OCFS2_ET_BAD_INODE_MAGIC;
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
@@ -235,7 +236,7 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 
 	memcpy(inode_buf, blk, fs->fs_blocksize);
 
-	di = (ocfs2_dinode *) inode_buf;
+	di = (struct ocfs2_dinode *) inode_buf;
 	ocfs2_swap_inode_to_cpu(di);
 
 	ret = 0;
@@ -250,7 +251,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -265,7 +266,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 
 	memcpy(blk, inode_buf, fs->fs_blocksize);
 
-	di = (ocfs2_dinode *)blk;
+	di = (struct ocfs2_dinode *)blk;
 	ocfs2_swap_inode_from_cpu(di);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
@@ -312,7 +313,7 @@ int main(int argc, char *argv[])
 	uint64_t blkno;
 	char *filename, *buf;
 	ocfs2_filesys *fs;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	blkno = OCFS2_SUPER_BLOCK_BLKNO;
 
@@ -355,7 +356,7 @@ int main(int argc, char *argv[])
 		goto out_free;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\"\n", blkno,
 		filename);

@@ -283,7 +283,7 @@ int main(int argc, char *argv[])
 	int c;
 	char *filename, *buf;
 	ocfs2_filesys *fs;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	blkno = 0;
 
@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
 		goto out_free;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\"\n",
 		blkno, filename);

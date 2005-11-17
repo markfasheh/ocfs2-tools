@@ -29,7 +29,7 @@
 
 #include "ocfs2.h"
 
-void ocfs2_swap_group_desc(ocfs2_group_desc *gd)
+void ocfs2_swap_group_desc(struct ocfs2_group_desc *gd)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -49,7 +49,7 @@ errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd;
 
 	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
 	    (blkno > fs->fs_blocks))
@@ -63,7 +63,7 @@ errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		goto out;
 
-	gd = (ocfs2_group_desc *)blk;
+	gd = (struct ocfs2_group_desc *)blk;
 
 	ret = OCFS2_ET_BAD_GROUP_DESC_MAGIC;
 	if (memcmp(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
@@ -72,7 +72,7 @@ errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 
 	memcpy(gd_buf, blk, fs->fs_blocksize);
 
-	gd = (ocfs2_group_desc *)gd_buf;
+	gd = (struct ocfs2_group_desc *)gd_buf;
 	ocfs2_swap_group_desc(gd);
 
 	ret = 0;
@@ -87,7 +87,7 @@ errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
-	ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -102,7 +102,7 @@ errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 
 	memcpy(blk, gd_buf, fs->fs_blocksize);
 
-	gd = (ocfs2_group_desc *)blk;
+	gd = (struct ocfs2_group_desc *)blk;
 	ocfs2_swap_group_desc(gd);
 
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
@@ -132,12 +132,13 @@ struct chain_context {
 };
 
 
-static int chain_iterate_gd(ocfs2_chain_rec *c_rec, int chain_num,
+static int chain_iterate_gd(struct ocfs2_chain_rec *c_rec,
+			    int chain_num,
 			    struct chain_context *ctxt)
 {
 	int iret = 0;
 	uint64_t blkno;
-	ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd;
 
 	blkno = c_rec->c_blkno;
 
@@ -153,7 +154,7 @@ static int chain_iterate_gd(ocfs2_chain_rec *c_rec, int chain_num,
 			iret |= OCFS2_CHAIN_ERROR;
 			break;
 		}
-		gd = (ocfs2_group_desc *)ctxt->gd_buf;
+		gd = (struct ocfs2_group_desc *)ctxt->gd_buf;
 
 		if ((gd->bg_blkno != blkno) ||
 		    (gd->bg_chain != chain_num)) {
@@ -168,7 +169,7 @@ static int chain_iterate_gd(ocfs2_chain_rec *c_rec, int chain_num,
 	return iret;
 }
 
-static int chain_iterate_cl(ocfs2_chain_list *cl,
+static int chain_iterate_cl(struct ocfs2_chain_list *cl,
 			    struct chain_context *ctxt)
 {
 	int iret = 0;
@@ -197,7 +198,7 @@ errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
 {
 	int iret = 0;
 	char *buf;
-	ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode;
 	errcode_t ret;
 	struct chain_context ctxt;
 
@@ -209,7 +210,7 @@ errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
 	if (ret)
 		goto out_buf;
 
-	inode = (ocfs2_dinode *)buf;
+	inode = (struct ocfs2_dinode *)buf;
 
 	ret = OCFS2_ET_INODE_NOT_VALID;
 	if (!(inode->i_flags & OCFS2_VALID_FL))
@@ -271,7 +272,7 @@ static void print_usage(void)
 }
 
 struct walk_it {
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	char *gd_buf;
 	int last_chain;
 	int count_free;
@@ -284,7 +285,7 @@ static int walk_chain_func(ocfs2_filesys *fs,
 			   void *priv_data)
 {
 	struct walk_it *wi = priv_data;
-	ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd;
 	errcode_t ret;
 
 	if (wi->last_chain != chain_num) {
@@ -299,7 +300,7 @@ static int walk_chain_func(ocfs2_filesys *fs,
 	if (ret)
 		return OCFS2_CHAIN_ERROR;
 
-	gd = (ocfs2_group_desc *)wi->gd_buf;
+	gd = (struct ocfs2_group_desc *)wi->gd_buf;
 	wi->count_free += gd->bg_free_bits_count;
 	wi->count_total += gd->bg_bits;
 	fprintf(stdout, "     %16"PRIu64": %05d/%05d = %05d/%05d\n",
@@ -321,7 +322,7 @@ int main(int argc, char *argv[])
 	int c;
 	char *filename, *buf;
 	ocfs2_filesys *fs;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	struct walk_it wi;
 
 	blkno = OCFS2_SUPER_BLOCK_BLKNO;
@@ -383,7 +384,7 @@ int main(int argc, char *argv[])
 		goto out_free;
 	}
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\"\n",
 		blkno, filename);

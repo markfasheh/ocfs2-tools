@@ -49,7 +49,7 @@ static errcode_t mark_journal(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	char *buf = NULL;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -59,7 +59,7 @@ static errcode_t mark_journal(ocfs2_filesys *fs,
 	if (ret)
 		goto out_free;
 
-	di = (ocfs2_dinode *) buf;
+	di = (struct ocfs2_dinode *) buf;
 
 	if (!(di->i_flags & OCFS2_JOURNAL_FL)) {
 		ret = OCFS2_ET_INVALID_ARGUMENT;
@@ -84,9 +84,9 @@ static errcode_t write_back_slot_map(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	char *di_buf = NULL;
-	ocfs2_dinode *di;
+	struct ocfs2_dinode *di;
 	uint64_t block;
-	ocfs2_extent_list *el;
+	struct ocfs2_extent_list *el;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &di_buf);
 	if (ret)
@@ -96,7 +96,7 @@ static errcode_t write_back_slot_map(ocfs2_filesys *fs,
 	if (ret)
 		goto out_free;
 
-	di = (ocfs2_dinode *) di_buf;
+	di = (struct ocfs2_dinode *) di_buf;
 	el = &di->id2.i_list;
 	block = el->l_recs[0].e_blkno;
 	if (el->l_tree_depth || !block) {
