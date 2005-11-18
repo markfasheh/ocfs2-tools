@@ -518,22 +518,6 @@ static PyMethodDef o2cb_methods[] = {
 static void
 add_constants (PyObject *m)
 {
-  PyModule_AddStringConstant (m, "CONFIGFS_PATH", CONFIGFS_PATH);
-
-#define ADD_STR_CONSTANT(name) \
-  PyModule_AddStringConstant (m, "FORMAT_" #name, O2CB_FORMAT_ ## name)
-
-  ADD_STR_CONSTANT (CLUSTER_DIR);
-  ADD_STR_CONSTANT (CLUSTER);
-  ADD_STR_CONSTANT (NODE_DIR);
-  ADD_STR_CONSTANT (NODE);
-  ADD_STR_CONSTANT (NODE_ATTR);
-  ADD_STR_CONSTANT (HEARTBEAT_DIR);
-  ADD_STR_CONSTANT (HEARTBEAT_REGION);
-  ADD_STR_CONSTANT (HEARTBEAT_REGION_ATTR);
-
-#undef ADD_STR_CONSTANT
-
 #define ADD_INT_CONSTANT(name) \
     PyModule_AddIntConstant (m, "O2NM_" #name, O2NM_ ## name)
 

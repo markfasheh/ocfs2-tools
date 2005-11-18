@@ -56,6 +56,16 @@ def init_online(cluster_name, parent=None):
     o2cb_init = O2CBInit(args, desc, parent)
     return o2cb_init.reap()
 
+def init_status(cluster_name=None, parent=None):
+    if cluster_name: 
+        desc = 'Querying status of %s...' % cluster_name
+        args = ('status', cluster_name)
+    else:
+        desc = 'Querying cluster software status...'
+        args = ('status',)
+    o2cb_init = O2CBInit(args, desc, parent)
+    return o2cb_init.reap()
+
 def query_clusters(parent=None):
     args = '-I -t cluster -o'
     o2cb_ctl = O2CBCtl(args, 'Querying cluster...', parent)

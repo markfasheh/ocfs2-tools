@@ -436,7 +436,21 @@ class ClusterConfig(Dialog):
                 break
 
 def node_config(parent=None):
-    if not os.access(o2cb.FORMAT_CLUSTER_DIR, os.F_OK):
+    success, output, k = o2cb_ctl.init_status(None, parent)
+    if not success:
+        msg = ('Could not query the state of the cluster stack.'
+               'This must be resolved before any OCFS2 filesystem'
+               'can be mounted.')
+        info = gtk.MessageDialog(parent=parent,
+                                 flags=gtk.DIALOG_DESTROY_WITH_PARENT,
+                                 type=gtk.MESSAGE_WARNING,
+                                 buttons=gtk.BUTTONS_CLOSE,
+                                 message_format=msg)
+        info.run()
+        info.destroy()
+        return
+
+    if (output.find('Not loaded') != -1) or (output.find('Not mounted') != -1):
         success, output, k = o2cb_ctl.init_load(parent)
 
         if success:
@@ -477,7 +491,21 @@ def node_config(parent=None):
     conf.run()
     conf.destroy()
 
-    if not os.access(o2cb.FORMAT_CLUSTER % cluster_name, os.F_OK):
+    success, output, k = o2cb_ctl.init_status(cluster_name, parent)
+    if not success:
+        msg = ('Could not query the state of the cluster.' 
+               'This must be resolved before any OCFS2 filesystem'
+               'can be mounted.')
+        info = gtk.MessageDialog(parent=parent,
+                                 flags=gtk.DIALOG_DESTROY_WITH_PARENT,
+                                 type=gtk.MESSAGE_WARNING,
+                                 buttons=gtk.BUTTONS_CLOSE,
+                                 message_format=msg)
+        info.run()
+        info.destroy()
+        return
+
+    if output.find('Online') == -1:
         success, output, k = o2cb_ctl.init_online(cluster_name, parent)
 
         if not success:
