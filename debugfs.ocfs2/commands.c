@@ -588,7 +588,7 @@ static void do_help (char **args)
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
-	printf ("fs_locks [-l]\t\t\tShow live fs locking state\n");
+	printf ("fs_locks [-l]\t\t\t\tShow live fs locking state\n");
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
 	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
