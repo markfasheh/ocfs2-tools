@@ -17,15 +17,17 @@ else
 CFLAGS = -Wall -O2
 endif
 
-CFILES = main.c commands.c dump.c utils.c journal.c find_inode_paths.c
+CFILES = main.c commands.c dump.c utils.c journal.c find_inode_paths.c dump_fs_locks.c
 
 HFILES =			\
-	include/main.h		\
-	include/commands.h	\
-	include/dump.h		\
-	include/utils.h		\
-	include/journal.h	\
-	include/find_inode_paths.h
+	include/main.h			\
+	include/commands.h		\
+	include/dump.h			\
+	include/utils.h			\
+	include/journal.h		\
+	include/find_inode_paths.h	\
+	include/ocfs2_internals.h	\
+	include/dump_fs_locks.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 

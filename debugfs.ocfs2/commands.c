@@ -62,6 +62,7 @@ static void do_chroot (char **args);
 static void do_slotmap (char **args);
 static void do_encode_lockres (char **args);
 static void do_locate (char **args);
+static void do_fs_locks (char **args);
 
 dbgfs_gbls gbls;
 
@@ -73,6 +74,7 @@ static Command commands[] = {
 	{ "curdev",	do_curdev },
 	{ "dump",	do_dump },
 	{ "extent",	do_extent },
+	{ "fs_locks",	do_fs_locks },
 	{ "group",	do_group },
 	{ "help",	do_help },
 	{ "hb",		do_hb },
@@ -598,6 +600,7 @@ static void do_help (char **args)
 	printf ("slotmap\t\t\t\t\tShow slot map\n");
 	printf ("stat <filespec>\t\t\t\tShow inode\n");
 	printf ("stats [-h]\t\t\t\tShow superblock\n");
+	printf ("fs_locks [-l]\t\t\tShow live fs locking state\n");
 }
 
 /*
@@ -1138,4 +1141,24 @@ static void do_locate(char **args)
 		return ;
 
 	find_inode_paths(gbls.fs, args, blkno, stdout);
+}
+
+/*
+ * do_dump_fs_locks()
+ *
+ */
+static void do_fs_locks(char **args)
+{
+	FILE *out;
+	int dump_lvbs = 0;
+
+	if (check_device_open())
+		return;
+
+	if (args[1] && !strcmp("-l", args[1]))
+		dump_lvbs = 1;
+
+	out = open_pager(gbls.interactive);
+	dump_fs_locks(gbls.fs->uuid_str, out, dump_lvbs);
+	close_pager(out);
 }
