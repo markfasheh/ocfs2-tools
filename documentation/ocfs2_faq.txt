@@ -15,6 +15,13 @@ A01	a) Download and install the module and tools rpms.
 Q02	How do I know the version number running?
 A02	# cat /proc/fs/ocfs2/version
 	OCFS2 1.0.0 Tue Aug  2 17:38:59 PDT 2005 (build e7bd36709a2c1cb875cf2d533a018f20)
+
+Q03	How do I configure my system to auto-reboot after a panic?
+A03	To auto-reboot system 60 secs after a panic, do:
+	# echo 60 > /proc/sys/kernel/panic
+	To enable the above on every reboot, add the following to
+	/etc/sysctl.conf:
+	kernel.panic = 60
 ==============================================================================
 
 Download and Install
@@ -234,13 +241,17 @@ Oracle RAC
 Q01	Any special flags to run Oracle RAC?
 A01	OCFS2 volumes containing the Voting diskfile (CRS), Cluster registry
 	(OCR), Data files, Redo logs, Archive logs and control files must 
-	be mounted with the "datavolume" mount option. This is to ensure
-	that the Oracle processes open these files with the o_direct flag.
+	be mounted with the "datavolume" and "nointr" mount options. The
+	datavolume option ensures that the Oracle processes open these files
+	with the o_direct flag. The "nointr" option ensures that the ios
+	are not interrupted by signals.
+	# mount -o datavolume,nointr -t ocfs2 /dev/sda1 /u01/db
 
 Q02	What about the volume containing Oracle home?
 A02	Oracle home volume should be mounted normally, that is, without the
-	"datavolume" mount option. This mount option is only relevant for
-	Oracle files listed above.
+	"datavolume" and "nointr" mount options. These mount options are only
+	relevant for Oracle files listed above.
+	# mount -t ocfs2 /dev/sdb1 /software/orahome
 
 Q03	Does that mean I cannot have my data file and Oracle home on the
 	same volume?
