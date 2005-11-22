@@ -2,7 +2,7 @@ Source: ocfs2-tools
 Section: admin
 Priority: optional
 Maintainer: Joel Becker <joel.becker@oracle.com>
-Standards-Version: 3.5.6
+Standards-Version: 3.6.1
 Build-Depends: python-gtk2 (>= 2.0), python (>= 2.3), python (<< 2.4), python2.3-dev, libglib2.0-dev (>= 2.2.3), libreadline5-dev, comerr-dev, uuid-dev, libblkid-dev (>= 1.36), debhelper (>= 3.0.5)
 
 Package: ocfs2-tools

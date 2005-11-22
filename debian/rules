@@ -29,6 +29,7 @@ clean:
 
 	rm -f debian/ocfs2-tools.o2cb.init
 	rm -f debian/ocfs2-tools.o2cb.default
+	rm -f debian/ocfs2-tools.ocfs2.init
 	dh_clean
 
 install: DH_OPTIONS=
@@ -40,6 +41,7 @@ install: build
 
 	cp -f vendor/common/o2cb.init debian/ocfs2-tools.o2cb.init
 	cp -f vendor/common/o2cb.sysconfig debian/ocfs2-tools.o2cb.default
+	cp -f vendor/common/ocfs2.init debian/ocfs2-tools.ocfs2.init
 
 	$(MAKE) DESTDIR=`pwd`/debian/tmp install
 
@@ -65,7 +67,8 @@ binary-common:
 #	dh_installemacsen
 #	dh_installpam
 #	dh_installmime
-	dh_installinit --name=o2cb
+	dh_installinit --name=o2cb -r
+	dh_installinit --name=ocfs2 -r
 	dh_installman
 #	dh_installcron
 #	dh_installinfo

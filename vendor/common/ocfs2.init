@@ -2,96 +2,172 @@
 # Copyright (c) 2005 Oracle
 # All rights reserved.
 #
-# /etc/init.d/ocfs2
+# chkconfig: 2345 25 19
+# description: Mount OCFS2 volumes at boot.
 #
 ### BEGIN INIT INFO
-# Provides:       ocfs2
-# Required-Start: $network $portmap o2cb
-# Required-Stop:
+# Provides: ocfs2
+# Required-Start: $network o2cb
+# Required-Stop: 
 # X-UnitedLinux-Should-Start:
 # X-UnitedLinux-Should-Stop:
-# Default-Start:  3 5
+# Default-Start:  2 3 5
 # Default-Stop:
-# Description:   Mounts OCFS2 volumes
+# Description:  Mount OCFS2 volumes at boot.
 ### END INIT INFO
 
+if [ -f /etc/redhat-release ]
+then
+. /etc/init.d/functions
+
+init_status()
+{
+    return 0
+}
+
+success_status()
+{
+    success
+    echo
+}
+
+failure_status()
+{
+    failure $1
+    echo
+}
+
+exit_status()
+{
+    exit $?
+}
+elif [ -f /etc/SuSE-release -o -f /etc/UnitedLinux-release ]
+then
 . /etc/rc.status
 
-OCFS2MNTS=`LC_ALL=C awk '$3 == "ocfs2"  { print $2 }' /proc/mounts`
-OCFS2FSTAB=`LC_ALL=C awk '!/^#/ && $3 == "ocfs2" && $4 !~ /noauto/ { print $2 }' /etc/fstab`
+init_status()
+{
+    rc_reset
+}
+
+success_status()
+{
+    /bin/true
+    rc_status -v
+}
+
+failure_status()
+{
+    /bin/false
+    rc_status -v
+}
+
+exit_status()
+{
+    rc_exit
+}
+else
+init_status()
+{
+    return 0
+}
+
+success_status()
+{
+    echo "OK"
+    return 0
+}
+
+failure_status()
+{
+    echo "Failed"
+    return 0
+}
+
+exit_status()
+{
+    exit $?
+}
+fi
+
+ocfs2mounts()
+{
+    LC_ALL=C awk '$3 == "ocfs2"  { print $2 }' /proc/mounts
+}
+
+ocfs2fstab()
+{
+    LC_ALL=C awk '!/^#/ && $3 == "ocfs2" && $4 !~ /noauto/ { print $2 }' /etc/fstab
+}
+
+init_status
+
 FUSER=`which fuser`
 
-rc_reset
 case "$1" in
     start|reload)
-	echo -n "Starting Oracle Cluster File System (OCFS2)"
-	if [ -n "$OCFS2FSTAB" ] ; then
-	  mount -at ocfs2 2>/dev/null
-	  rc_status
-	  rc_status -v
-	else
-	  rc_status -u
-	fi
-	;;
+        if [ -n "`ocfs2fstab`" ] ; then
+            echo -n "Starting Oracle Cluster File System (OCFS2) "
+            mount -at ocfs2
+            if [ $? = 0 ]
+            then
+                success_status
+            else
+                failure_status "Unable to mount OCFS2 filesystems"
+            fi
+        fi
+        ;;
     stop)
-	echo -n "Stopping Oracle Cluster File System (OCFS2)"
-	ocfs2mnts=$OCFS2MNTS
-  	if [ -n "$ocfs2mnts" ] ; then
-		retry=3
-		while [ -n "$ocfs2mnts" -a "$retry" -gt 0 ]
-		do
-			if [ "$retry" -lt 3 ]; then
-				echo -n "Retry stopping Oracle Cluster File System (OCFS2)"
-			fi
-			umount -a -t ocfs2 2>/dev/null
-			sleep 1
-			ocfs2mnts=`LC_ALL=C awk '$3 == "ocfs2"  { print $2 }' /proc/mounts`
-			[ -z "$ocfs2mnts" ] && break
-			rc_failed 1
-			rc_status -v
-			$FUSER -km $ocfs2mnts >/dev/null
-			sleep 1
-			retry=$(($retry - 1))
-		done
-	fi
-	if [ -n "$ocfs2mnts" ] ; then
-		rc_failed 1
-	else
-		rc_failed 0
-	fi
-	rc_status -v
-	;;
-    restart|force-reload)
-	$0 stop
-	$0 start
-	rc_status
-	;;
-    status)
-	if [ -f /proc/mounts ] ; then
-		[ -n "$OCFS2FSTAB" ] && {
-			echo "Configured OCFS2 mountpoints: " $OCFS2FSTAB
-		}
+        echo -n "Stopping Oracle Cluster File System (OCFS2) "
+        remaining="`ocfs2mounts`"
+        sig=
+        retry=3
+        while [ -n "$remaining" -a "$retry" -gt 0 ]
+        do
+            if [ "$retry" -lt 3 ]; then
+                echo -n "Retry stopping Oracle Cluster File System (OCFS2) "
+            fi
+            umount -a -t ocfs2 2>/dev/null
+            sleep 1
 
-		[ -n "$OCFS2MNTS" ] && {
-			echo "Active OCFS2 mountpoints: " $OCFS2MNTS
-		}
-		rc_reset
-	else
-		rc_failed 3
-        	rc_status -v
-	fi
-	;;
+            remaining="`ocfs2mounts`"
+            [ -z "$remaining" ] && break
+            failure_status "Unable to unmount OCFS2 filesystems"
+
+            $FUSER -km $sig $remaining >/dev/null
+            sleep 5
+            retry=$(($retry - 1))
+            sig=-9
+        done
+        [ -z "$remaining" ] && success_status
+        ;;
+    restart|force-reload)
+        $0 stop
+        $0 start
+        ;;
+    status)
+        if [ -f /proc/mounts ] ; then
+            [ -n "`ocfs2fstab`" ] && {
+                echo "Configured OCFS2 mountpoints: " `ocfs2fstab`
+            }
+
+            [ -n "`ocfs2mounts`" ] && {
+                echo "Active OCFS2 mountpoints: " `ocfs2mounts`
+            }
+        else
+            echo -n "Checking OCFS2 mountpoints: "
+            failure_status
+        fi
+        ;;
     try-restart|condrestart)
-	$0 status
-	if test $? = 0; then
-	    $0 restart
-	else
-	    rc_reset
-	fi
-	rc_status
-	;;
+        $0 status
+        if test $? = 0; then
+            $0 restart
+        fi
+        ;;
     *)
-	echo "Usage: $0 {start|stop|status|reload|force-reload|restart|try-restart}"
-	exit 1
+        echo "Usage: $0 {start|stop|status|reload|force-reload|restart|try-restart}"
+        exit 1
 esac
-rc_exit
+
+exit_status
