@@ -239,11 +239,6 @@ main(int argc, char **argv)
 	need = (s->volume_size_in_clusters + 7) >> 3;
 	need = ((need + s->cluster_size - 1) >> s->cluster_size_bits) << s->cluster_size_bits;
 
-	if (need > BITMAP_WARNING_LEN)
-		fprintf(stderr, "WARNING: bitmap is very large, consider using "
-				"a larger cluster size and/or\na smaller "
-				"volume\n");
-
 	if (!s->quiet)
 		printf("Creating bitmaps: ");
 

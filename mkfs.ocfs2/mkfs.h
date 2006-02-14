@@ -85,7 +85,6 @@
 #define ONE_MB_SHIFT           20
 #define ONE_GB_SHIFT           30
 
-#define BITMAP_WARNING_LEN     1572864
 #define BITMAP_AUTO_MAX        786432
 
 #define AUTO_CLUSTERSIZE       65536
