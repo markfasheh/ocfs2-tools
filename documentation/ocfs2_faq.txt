@@ -14,7 +14,7 @@ A01	a) Download and install the module and tools rpms.
 
 Q02	How do I know the version number running?
 A02	# cat /proc/fs/ocfs2/version
-	OCFS2 1.0.0 Tue Aug  2 17:38:59 PDT 2005 (build e7bd36709a2c1cb875cf2d533a018f20)
+	OCFS2 1.2.0 Tue Feb 14 15:58:29 PST 2006 (build db06cd9cd891710e73c5d89a6b4d8812)
 
 Q03	How do I configure my system to auto-reboot after a panic?
 A03	To auto-reboot system 60 secs after a panic, do:
@@ -27,39 +27,64 @@ A03	To auto-reboot system 60 secs after a panic, do:
 Download and Install
 --------------------
 
-Q01	How do I download the rpms?
-A01	If you are on Novell's SLES9, upgrade to SP2 and you will have the
-	required module installed. However, you will be required to install
-	ocfs2-tools and ocfs2console rpms from the distribution.
-	If you are on Red Hat's EL4, download and install the appropriate module
-	rpm and the two tools rpms, ocfs2-tools and ocfs2console. Appropriate
-	module refers to one matching the kernel flavor, uniprocessor, smp or
-	hugemem.
+Q01	Where do I get the packages from?
+A01	For Novell's SLES9, upgrade to SP3 to get the required modules
+	installed. Also, install ocfs2-tools and ocfs2console packages.
+	For Red Hat's RHEL4, download and install the appropriate module
+	package and the two tools packages, ocfs2-tools and ocfs2console.
+	Appropriate module refers to one matching the kernel version,
+	flavor and architecture. Flavor refers to smp, hugemem, etc.
 
-Q02	How do I install the rpms?
-A02	You can install all three rpms in one go using:
-	rpm -ivh ocfs2-tools-X.i386.rpm ocfs2console-X.i386.rpm
-		ocfs2-2.6.9-11.ELsmp-X.i686.rpm
-	If you need to upgrade, do:
-	rpm -Uvh ocfs2-2.6.9-11.ELsmp-Y.i686.rpm
+Q02	How do I interpret the package name
+	ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm?
+A02	The package name is comprised of multiple parts separated by '-'.
+	a) ocfs2		- Package name
+	b) 2.6.9-22.0.1.ELsmp	- Kernel version and flavor
+	c) 1.2.0		- Package version
+	d) 1			- Package subversion
+	e) i686			- Architecture
 
-Q03	Do I need to install the console?
-A03	No, the console is recommended but not required.
+Q03	How do I know which package to install on my box?
+A03	After one identifies the package name and version to install,
+	one still needs to determine the kernel version, flavor and
+	architecture.
+	To know the kernel version and flavor, do:
+	# uname -r
+	2.6.9-22.0.1.ELsmp
+	To know the architecture, do:
+	# rpm -qf /boot/vmlinuz-`uname -r` --queryformat "%{ARCH}\n"
+	i686
 
-Q04	What are the dependencies for installing ocfs2console?
-A04	ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or
+Q04	Why can't I use "uname -p" to determine the kernel architecture?
+A04	"uname -p" does not always provide the exact kernel architecture.
+	Case in point the RHEL3 kernels on x86_64. Even though Red Hat has
+	two different kernel architectures available for this port, ia32e
+	and x86_64, "uname -p" identifies both as the generic "x86_64".
+
+Q05	How do I install the rpms?
+A05	First install the tools and console packages:
+	# rpm -Uvh ocfs2-tools-1.2.0-1.i386.rpm ocfs2console-1.2.0-1.i386.rpm
+	Then install the appropriate kernel module package:
+	# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm
+
+Q06	Do I need to install the console?
+A06	No, the console is recommended but not required.
+
+Q07	What are the dependencies for installing ocfs2console?
+A07	ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or
 	later, pygtk2 (EL4) or python-gtk (SLES9) 1.99.16 or later,
 	python 2.3 or later and ocfs2-tools.
 
-Q05	What modules are installed with the OCFS2 package?
-A05	a) configfs.ko
+Q08	What modules are installed with the OCFS2 1.2 package?
+A08	a) configfs.ko
 	b) ocfs2.ko
 	c) ocfs2_dlm.ko
 	d) ocfs2_dlmfs.ko
 	e) ocfs2_nodemanager.ko
+	f) debugfs
 
-Q06	What tools are installed with the tools package?
-A06	a) mkfs.ocfs2
+Q09	What tools are installed with the ocfs2-tools 1.2 package?
+A09	a) mkfs.ocfs2
 	b) fsck.ocfs2
 	c) tunefs.ocfs2
 	d) debugfs.ocfs2
@@ -68,7 +93,21 @@ A06	a) mkfs.ocfs2
 	g) ocfs2cdsl
 	h) ocfs2_hb_ctl
 	i) o2cb_ctl
-	j) ocfs2console - installed with the console package
+	j) o2cb - init service to start/stop the cluster
+	k) ocfs2 - init service to mount/umount ocfs2 volumes
+	l) ocfs2console - installed with the console package
+
+Q10	What is debugfs and is it related to debugfs.ocfs2?
+A10	debugfs is an in-memory filesystem developed by Greg Kroah-Hartman.
+	It is useful for debugging as it allows kernel space to easily
+	export data to userspace. For more, http://kerneltrap.org/node/4394.
+	It is currently being used by OCFS2 to dump the list of
+	filesystem locks and could be used for more in the future.
+	It is bundled with OCFS2 as the various distributions are currently
+	not bundling it.
+	While debugfs and debugfs.ocfs2 are unrelated in general, the
+	latter is used as the front-end for the debugging info provided
+	by the former. For example, refer to the troubleshooting section.
 ==============================================================================
 
 Configure
@@ -89,8 +128,9 @@ A02	Using a private interconnect is recommended. While OCFS2 does not
 	take much bandwidth, it does require the nodes to be alive on the
 	network and sends regular keepalive packets to ensure that they are.
 	To avoid a network delay being interpreted as a node disappearing on
-	the net leading to a STONITH, a private interconnect is recommended.
-	One could use the same interconnect for Oracle RAC and OCFS2.
+	the net which could lead to a node-self-fencing, a private interconnect
+	is recommended.  One could use the same interconnect for Oracle RAC
+	and OCFS2.
 ==============================================================================
 
 O2CB Cluster Service
@@ -203,12 +243,14 @@ A03	Add the following:
 	The _netdev option indicates that the devices needs to be mounted after
 	the network is up.
 
-Q04	What all do I need to do to automount OCFS2 volumes on boot?
+Q04	What do I need to do to mount OCFS2 volumes on boot?
 A04	a) Enable o2cb service using:
 		# chkconfig --add o2cb
-	b) Configure o2cb to load on boot using:
+	b) Enable ocfs2 service using:
+		# chkconfig --add ocfs2
+	c) Configure o2cb to load on boot using:
 		# /etc/init.d/o2cb configure
-	c) Add entries into /etc/fstab as follows:
+	d) Add entries into /etc/fstab as follows:
 		/dev/sdX	/dir	ocfs2	_netdev	0	0
 
 Q05	How do I know my volume is mounted?
@@ -216,8 +258,10 @@ A05	a) Enter mount without arguments, or
 		# mount
 	b) List /etc/mtab, or
 		# cat /etc/mtab
-	c) List /proc/mounts
+	c) List /proc/mounts, or
 		# cat /proc/mounts
+	d) Runs ocfs2 service
+		# /etc/init.d/ocfs2 status
 	mount command reads the /etc/mtab to show the information.
 
 Q06	What are the /config and /dlm mountpoints for?
@@ -242,7 +286,7 @@ Q01	Any special flags to run Oracle RAC?
 A01	OCFS2 volumes containing the Voting diskfile (CRS), Cluster registry
 	(OCR), Data files, Redo logs, Archive logs and control files must 
 	be mounted with the "datavolume" and "nointr" mount options. The
-	datavolume option ensures that the Oracle processes open these files
+	datavolume option ensures that the Oracle processes opens these files
 	with the o_direct flag. The "nointr" option ensures that the ios
 	are not interrupted by signals.
 	# mount -o datavolume,nointr -t ocfs2 /dev/sda1 /u01/db
@@ -260,8 +304,8 @@ A03	Yes. The volume containing the Oracle data files, redo-logs, etc.
 	trace logs like, alert.log).
 ==============================================================================
 
-Moving data from OCFS (Release 1) and OCFS2
--------------------------------------------
+Moving data from OCFS (Release 1) to OCFS2
+------------------------------------------
 
 Q01	Can I mount OCFS volumes as OCFS2?
 A01	No. OCFS and OCFS2 are not on-disk compatible. We had to break the
@@ -311,29 +355,105 @@ A01	No. OCFS2 does not need the o_direct enabled tools. The file system
 Troubleshooting
 ---------------
 
-Q01	How do I enable and disable tracing?
+Q01	How do I enable and disable filesystem tracing?
 A01	To list all the debug bits along with their statuses, do:
-		# cat /proc/fs/ocfs2_nodemanager/log_mask
+		# debugfs.ocfs2 -l
 	To enable tracing the bit SUPER, do:
-		# echo "SUPER allow" > /proc/fs/ocfs2_nodemanager/log_mask
+		# debugfs.ocfs2 -l SUPER allow
 	To disable tracing the bit SUPER, do:
-		# echo "SUPER off" > /proc/fs/ocfs2_nodemanager/log_mask
+		# debugfs.ocfs2 -l SUPER off
 	To totally turn off tracing the SUPER bit, as in, turn off
 	tracing even if some other bit is enabled for the same, do:
-		# echo "SUPER deny" > /proc/fs/ocfs2_nodemanager/log_mask
-
-Q02	Is there a more convenient way to enable and disable tracing?
-A02	Yes, using debugfs.ocfs2.
-	To list all the debug bits along with their statuses, do:
-		# debugfs.ocfs2 -l
+		# debugfs.ocfs2 -l SUPER deny
 	To enable heartbeat tracing, do:
 		# debugfs.ocfs2 -l HEARTBEAT ENTRY EXIT allow 
 	To disable heartbeat tracing, do:
 		# debugfs.ocfs2 -l HEARTBEAT off ENTRY EXIT deny
+
+Q02	How do I get a list of filesystem locks and their statuses?
+A02	OCFS2 1.0.9+ has this feature. To get this list, do:
+	a) Mount debugfs is mounted at /debug.
+		# mount -t debugfs debugfs /debug
+	b) Dump the locks.
+		# echo "fs_locks" | debugfs.ocfs2 /dev/sdX >/tmp/fslocks
+
+Q03	How do I read the fs_locks output?
+A03	Let's look at a sample output:
+
+	Lockres: M000000000000000006672078b84822  Mode: Protected Read
+	Flags: Initialized Attached
+	RO Holders: 0  EX Holders: 0
+	Pending Action: None  Pending Unlock Action: None
+	Requested Mode: Protected Read  Blocking Mode: Invalid
+
+	First thing to note is the Lockres, which is the lockname. The
+	dlm identifies resources using locknames. The lockname is a
+	combination of a lock type (S superblock, M metadata, D filedata,
+	R rename, W readwrite), inode number and generation.
+
+	To get the inode number and generation from lockname, do:
+	#echo "stat <M000000000000000006672078b84822>" | debugfs.ocfs2 /dev/sdX
+	Inode: 419616   Mode: 0666   Generation: 2025343010 (0x78b84822)
+	....
+
+	To map the lockname to a directory entry, do:
+	# echo "locate <M000000000000000006672078b84822>" | debugfs.ocfs2 /dev/sdX
+	debugfs.ocfs2 1.2.0
+	debugfs:        419616  /linux-2.6.15/arch/i386/kernel/semaphore.c
+
+	One could also provide the inode number instead of the lockname.
+	# echo "locate <419616>" | debugfs.ocfs2 /dev/sdX
+	debugfs.ocfs2 1.2.0
+	debugfs:        419616  /linux-2.6.15/arch/i386/kernel/semaphore.c
+
+	To get a lockname from a directory entry, do:
+	# echo "encode /linux-2.6.15/arch/i386/kernel/semaphore.c" |
+			debugfs.ocfs2 /dev/sdX
+	M000000000000000006672078b84822 D000000000000000006672078b84822
+		W000000000000000006672078b84822
+
+	The first is the Metadata lock, then Data lock and last
+	ReadWrite lock for the same resource.
+
+	The DLM supports 3 lock modes: NL no lock, PR protected read and
+	EX exclusive.
+
+	If you have a dlm hang, the resource to look for would be one
+	with the "Busy" flag set.
+
+	The next step would be to query the dlm for the lock resource.
+	Note: The dlm debugging is still a work in progress.
+
+	To do dlm debugging, first one needs to know the dlm domain,
+	which matches the volume UUID.
+
+	# echo "stats" | debugfs.ocfs2 -n /dev/sdX | grep UUID: |
+		while read a b ; do echo $b ; done
+	82DA8137A49A47E4B187F74E09FBBB4B
+
+	Then do:
+	# echo R dlm_domain lockname > /proc/fs/ocfs2_dlm/debug
+
+	For example:
+	# echo R 82DA8137A49A47E4B187F74E09FBBB4B
+		M000000000000000006672078b84822 > /proc/fs/ocfs2_dlm/debug
+
+	# dmesg | tail
+	struct dlm_ctxt: 82DA8137A49A47E4B187F74E09FBBB4B, node=75, key=965960985
+	lockres: M000000000000000006672078b84822, owner=79, state=0 last used: 0, on purge list: no
+	  granted queue:
+	    type=3, conv=-1, node=79, cookie=11673330234144325711, ast=(empty=y,pend=n), bast=(empty=y,pend=n)
+	  converting queue:
+	  blocked queue:
+
+	It shows that the lock is mastered by node 75 and that node 79
+	has been granted a PR lock on the resource.
+
+	This is just to give a flavor of dlm debugging.
 ==============================================================================
 
 Limits
------------
+------
 
 Q01	Is there a limit to the number of subdirectories in a directory?
 A01	Yes. OCFS2 currently allows up to 32000 subdirectories. While this
@@ -427,6 +547,40 @@ A04	During umount, the node will broadcast to all the nodes that
 	have mounted that volume to drop that node from its node maps.
 	As the journal is shutdown before this broadcast, any node crash
 	after this point is ignored as there is no need for recovery.
+
+Q05	I encounter "Kernel panic - not syncing: ocfs2 is very sorry to
+	be fencing this system by panicing" whenever I run a heavy io
+	load?
+A05	We have encountered a bug with the default "cfq" io scheduler
+	which causes a process doing heavy io to temporarily starve out
+	other processes. While this is not fatal for most environments,
+	it is for OCFS2 as we expect the hb thread to be r/w to the hb
+	area atleast once every 12 secs (default).
+	Bug with the fix has been filed with Red Hat and Novell. For
+	more, refer to the tracker bug filed on bugzilla:
+	http://oss.oracle.com/bugzilla/show_bug.cgi?id=671
+
+	Till this issue is resolved, one is advised to use the
+	"deadline" io scheduler. To use deadline, add "elevator=deadline"
+	to the kernel command line as follows:
+
+	1. For SLES9, edit the command line in /boot/grub/menu.lst.
+	title Linux 2.6.5-7.244-bigsmp  elevator=deadline
+		kernel (hd0,4)/boot/vmlinuz-2.6.5-7.244-bigsmp root=/dev/sda5
+			vga=0x314 selinux=0 splash=silent resume=/dev/sda3
+			elevator=deadline showopts console=tty0
+			console=ttyS0,115200 noexec=off
+		initrd (hd0,4)/boot/initrd-2.6.5-7.244-bigsmp
+
+	2. For RHEL4, edit the command line in /boot/grub/grub.conf:
+	title Red Hat Enterprise Linux AS (2.6.9-22.EL)
+        	root (hd0,0)
+        	kernel /vmlinuz-2.6.9-22.EL ro root=LABEL=/ console=ttyS0,115200
+			console=tty0 elevator=deadline noexec=off
+        	initrd /initrd-2.6.9-22.EL.img
+
+	To see the current kernel command line, do:
+	# cat /proc/cmdline
 ==============================================================================
 
 Quorum and Fencing
@@ -435,7 +589,7 @@ Quorum and Fencing
 Q01	What is a quorum?
 A01	A quorum is a designation given to a group of nodes in a cluster which
 	are still allowed to operate on shared storage.  It comes up when
-	there there is a failure in the cluster which breaks the nodes up
+	there is a failure in the cluster which breaks the nodes up
 	into groups which can communicate in their groups and with the
 	shared storage but not between groups.
 
@@ -482,3 +636,102 @@ A05	First a node will realize that it doesn't have connectivity with
 	iterations of 2 seconds results in waiting for 9 iterations or 18
 	seconds.  By default, then, a maximum of 28 seconds can pass from the
 	time a network fault occurs until a node fences itself.
+==============================================================================
+
+Novell SLES9
+------------
+
+Q01	Why are OCFS2 packages for SLES9 not made available on oss.oracle.com?
+A01	OCFS2 packages for SLES9 are available directly from Novell as
+	part of the kernel. Same is true for the various Asianux
+	distributions and for ubuntu. As OCFS2 is now part of the
+	mainline kernel (http://lwn.net/Articles/166954/), we expect more
+	distributions to bundle the product with the kernel.
+
+Q02	What versions of OCFS2 are available with SLES9 and how do they
+	match with the Red Hat versions available on oss.oracle.com?
+A02	As both Novell and Oracle ship OCFS2 on different schedules, the
+	package versions do not match. We expect to resolve itself over
+	time as the number of patch fixes reduce.
+	Novell is shipping two SLES9 releases, viz., SP2 and SP3.
+
+	The latest kernel with the SP2 release is 2.6.5-7.202.7. It ships
+	with OCFS2 1.0.8.
+
+	The latest kernel with the SP3 release is 2.6.5-7.244. It ships
+	with OCFS2 1.1.7. OCFS2 1.2 being made available for RHEL4 is
+	from the same tree as 1.1.7. 1.2 is 1.1.7 + latest fixes.
+==============================================================================
+
+What's New in 1.2
+-----------------
+
+Q01	What is new in OCFS2 1.2?
+A01	OCFS2 1.2 has two new features:
+	a) It is endian-safe. With this release, one can mount the same
+	volume concurrently on x86, x86-64, ia64 and big endian architectures
+	ppc64 and s390x.
+	b) Supports readonly mounts. The fs uses this feature to auto
+	remount ro when encountering on-disk corruptions (instead of
+	panic-ing).
+
+Q02	Do I need to re-make the volume when upgrading?
+A02	No. OCFS2 1.2 is fully on-disk and network compatible with 1.0.
+
+Q03	Do I need to upgrade anything else?
+A03	Yes, the tools needs to be upgraded to ocfs2-tools 1.2.
+	ocfs2-tools 1.0 will not work with OCFS2 1.2 nor will 1.2
+	tools work with 1.0 modules.
+
+Q04	What is different between OCFS2 1.1 being shipped alongwith
+	SLES9 SP3 and OCFS2 1.2?
+A04	OCFS2 1.1.x shipped with SLES9 SP3 (2.6.5-7.244) is the same as
+	OCFS2 1.2. That is, it has the same new features. Only
+	difference is that 1.2 has more bug fixes than 1.1.x. As we
+	make weekly code drops to Novell, the kernel shipped has fixes
+	as of the date it was built.
+==============================================================================
+
+Upgrade from 1.0 to 1.2
+-----------------------
+
+Q01	How do I upgrade from 1.0 to 1.2?
+A01	1. Download the ocfs2-tools 1.2 and ocfs2console 1.2 for the
+	target platform and the appropriate ocfs2 1.2 module package
+	for the kernel version, flavor and architecture. (For more, refer to
+	the "Download and Install" section above.)
+	2. Umount all OCFS2 volumes.
+		# umount -at ocfs2
+	3. Shutdown the cluster and unload the modules.
+		# /etc/init.d/o2cb offline
+		# /etc/init.d/o2cb unload
+	4. Install the new tools and console packages.
+		# rpm -Uvh ocfs2-tools-1.2.0-1.i386.rpm
+		# rpm -Uvh ocfs2console-1.2.0-1.i386.rpm
+	5. Install the new kernel module package.
+		# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm
+	6. Rebuild the module dependencies.
+		# depmod -a
+	7. At this stage one could either reboot the node or simply,
+	restart the cluster and mount the volume.
+
+Q02	After upgrade I am getting the following error on mount
+	"mount.ocfs2: Invalid argument while mounting /dev/sda6 on /ocfs".
+A02	Do "dmesg | tail". If you see the error:
+	>> ocfs2_parse_options:523 ERROR: Unrecognized mount option
+	>> 	"heartbeat=local" or missing value
+	it means that you are trying to use the 1.2 tools and 1.0
+	modules. Ensure that you have unloaded the 1.0 modules and
+	installed and loaded the 1.2 modules. Use modinfo to determine
+	the version of the module installed and/or loaded.
+
+Q03	The cluster fails to load. What do I do?
+A03	Check "demsg | tail" for any relevant errors. One common error
+	is as follows:
+	>> SELinux: initialized (dev configfs, type configfs), not configured for labeling
+	>> audit(1139964740.184:2): avc:  denied  { mount } for  ...
+	The above error indicates that you have SELinux activated. A bug
+	in SELinux does not allow configfs to mount. Disable SELinux
+	by setting "SELINUX=disabled" in /etc/selinux/config. Change
+	is activated on reboot.
+==============================================================================
