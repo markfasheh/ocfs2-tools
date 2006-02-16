@@ -276,7 +276,7 @@ gint o2cb_config_load(const gchar *filename, O2CBConfig **config)
 
     j_config_free(cf);
 
-    return 0;
+    return rc;
 }  /* o2cb_config_load() */
 
 static gint o2cb_node_store(JConfig *cf, O2CBCluster *cluster,
