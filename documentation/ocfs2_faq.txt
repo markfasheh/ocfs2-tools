@@ -705,19 +705,34 @@ A01	1. Download the ocfs2-tools 1.2 and ocfs2console 1.2 for the
 	3. Shutdown the cluster and unload the modules.
 		# /etc/init.d/o2cb offline
 		# /etc/init.d/o2cb unload
-	4. Install the new tools and console packages.
-		# rpm -Uvh ocfs2-tools-1.2.0-1.i386.rpm
-		# rpm -Uvh ocfs2console-1.2.0-1.i386.rpm
-	5. Install the new kernel module package.
-		# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm
-	6. Rebuild the module dependencies.
+	4. Remove the older packages.
+		# rpm --erase `rpm -qa | grep ocfs2`
+	5. Install the new tools and console packages.
+		# rpm -ivh ocfs2-tools-1.2.0-1.i386.rpm
+		# rpm -ivh ocfs2console-1.2.0-1.i386.rpm
+	6. Install the new kernel module package.
+		# rpm -ivh ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm
+	7. Rebuild the module dependencies.
 		# depmod -a
-	7. At this stage one could either reboot the node or simply,
+	8. At this stage one could either reboot the node or simply,
 	restart the cluster and mount the volume.
 
-Q02	After upgrade I am getting the following error on mount
+Q02	Why can't I simply upgrade the packages using rpm -Uvh?
+A02	Yes, you can. However, we have just noticed a bug due to which
+	the o2cb and ocfs2 init services are not re-registered during
+	upgrade. If you do happen to use the rpm -Uvh, do follow that up
+	with the following:
+		# chkconfig --add o2cb
+		# chkconfig --add ocfs2
+	To check whether the services are enabled, do:
+		# chkconfig --list o2cb
+		o2cb      0:off   1:off   2:on    3:on    4:on    5:on    6:off
+		# chkconfig --list ocfs2
+		ocfs2     0:off   1:off   2:on    3:on    4:on    5:on    6:off
+
+Q03	After upgrade I am getting the following error on mount
 	"mount.ocfs2: Invalid argument while mounting /dev/sda6 on /ocfs".
-A02	Do "dmesg | tail". If you see the error:
+A03	Do "dmesg | tail". If you see the error:
 	>> ocfs2_parse_options:523 ERROR: Unrecognized mount option
 	>> 	"heartbeat=local" or missing value
 	it means that you are trying to use the 1.2 tools and 1.0
@@ -725,8 +740,8 @@ A02	Do "dmesg | tail". If you see the error:
 	installed and loaded the 1.2 modules. Use modinfo to determine
 	the version of the module installed and/or loaded.
 
-Q03	The cluster fails to load. What do I do?
-A03	Check "demsg | tail" for any relevant errors. One common error
+Q04	The cluster fails to load. What do I do?
+A04	Check "demsg | tail" for any relevant errors. One common error
 	is as follows:
 	>> SELinux: initialized (dev configfs, type configfs), not configured for labeling
 	>> audit(1139964740.184:2): avc:  denied  { mount } for  ...
