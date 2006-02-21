@@ -39,27 +39,27 @@ DECODE_LOCKRES_OBJS  = $(subst .c,.o,$(DECODE_LOCKRES_CFILES))
 ENCODE_LOCKRES_OBJS  = $(subst .c,.o,$(ENCODE_LOCKRES_CFILES))
 MARK_JOURNAL_DIRTY_OBJS = $(subst .c,.o,$(MARK_JOURNAL_DIRTY_CFILES))
 LIBOCFS2 = ../libocfs2/libocfs2.a
-LIBS = $(LIBOCFS2) $(COM_ERR_LIBS)
+EXTRAS_LIBS = $(LIBOCFS2) $(COM_ERR_LIBS)
 
-find_hardlinks: $(FIND_HARDLINKS_OBJS) $(LIBS)
-	$(LINK) 
+find_hardlinks: $(FIND_HARDLINKS_OBJS) $(LIBOCFS2)
+	$(LINK) $(EXTRAS_LIBS)
 
-find_dup_extents: $(FIND_DUP_EXTENTS_OBJS) $(LIBS)
-	$(LINK) 
+find_dup_extents: $(FIND_DUP_EXTENTS_OBJS) $(LIBOCFS2)
+	$(LINK) $(EXTRAS_LIBS)
 
-find_inode_paths: $(FIND_INODE_PATHS_OBJS) $(LIBS)
-	$(LINK) 
+find_inode_paths: $(FIND_INODE_PATHS_OBJS) $(LIBOCFS2)
+	$(LINK) $(EXTRAS_LIBS)
 
-set_random_bits: $(SET_RANDOM_BITS_OBJS) $(LIBS)
-	$(LINK) 
+set_random_bits: $(SET_RANDOM_BITS_OBJS) $(LIBOCFS2)
+	$(LINK) $(EXTRAS_LIBS)
 
-decode_lockres: $(DECODE_LOCKRES_OBJS) $(LIBS)
-	$(LINK) 
+decode_lockres: $(DECODE_LOCKRES_OBJS) $(LIBOCFS2)
+	$(LINK) $(EXTRAS_LIBS)
 
-encode_lockres: $(ENCODE_LOCKRES_OBJS) $(LIBS)
-	$(LINK) 
+encode_lockres: $(ENCODE_LOCKRES_OBJS) $(LIBOCFS2)
+	$(LINK) $(EXTRAS_LIBS)
 
-mark_journal_dirty: $(MARK_JOURNAL_DIRTY_OBJS) $(LIBS)
-	$(LINK)
+mark_journal_dirty: $(MARK_JOURNAL_DIRTY_OBJS) $(LIBOCFS2)
+	$(LINK) $(EXTRAS_LIBS)
 
 include $(TOPDIR)/Postamble.make

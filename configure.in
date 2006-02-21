@@ -77,51 +77,16 @@ fi
 AC_SUBST(OCFS2_DEBUG)
 AC_MSG_RESULT($enable_debug)
 
-AC_MSG_CHECKING(whether to build fsck dynamically)
-AC_ARG_ENABLE([dynamic-fsck], [  --enable-dynamic-fsck=[yes/no]    Build fsck dynamically [default=no]],,enable_dynamic_fsck=no)
-OCFS2_DYNAMIC_FSCK=
-if test "x$enable_dynamic_fsck" = "xyes"; then
-    OCFS2_DYNAMIC_FSCK=yes
-fi
-AC_SUBST(OCFS2_DYNAMIC_FSCK)
-AC_MSG_RESULT($enable_dynamic_fsck)
-
-AC_MSG_CHECKING(whether to build cluster control tools dynamically)
-AC_ARG_ENABLE([dynamic-ctl], [  --enable-dynamic-ctl=[yes/no]    Build cluster control tools dynamically [default=no]],,enable_dynamic_ctl=no)
-OCFS2_DYNAMIC_CTL=
-if test "x$enable_dynamic_ctl" = "xyes"; then
-    OCFS2_DYNAMIC_CTL=yes
-fi
-AC_SUBST(OCFS2_DYNAMIC_CTL)
-AC_MSG_RESULT($enable_dynamic_ctl)
-
-# Test statically building com_err
-old_CFLAGS="$CFLAGS"
-if test "x$OCFS2_DYNAMIC_CTL" != "xyes" -o "x$OCFS2_DYNAMIC_FSCK" != "xyes"; then
-    CFLAGS="$CFLAGS -static"
-fi
-
 COM_ERR_LIBS=
-PTHREADS=
-AC_CHECK_LIB(com_err, com_err, COM_ERR_LIBS=-lcom_err)
-if test "x$COM_ERR_LIBS" = "x"; then
-  AC_MSG_RESULT([what about the broken SuSE com_err... ])
-
-  # Don't let caching fool us
-  unset ac_cv_lib_com_err_com_err
-  old_LIBS="$LIBS"
-  LIBS="$LIBS -lpthread"
-  AC_CHECK_LIB(com_err, com_err, COM_ERR_LIBS="-lcom_err -lpthread")
+PKG_CHECK_MODULES(COM_ERR, com_err,, [
+  AC_CHECK_LIB(com_err, com_err, COM_ERR_LIBS=-lcom_err)
   if test "x$COM_ERR_LIBS" = "x"; then
     AC_MSG_ERROR([Unable to find com_err library])
   fi
-  LIBS="$old_LIBS"
-fi
+])
 AC_CHECK_HEADER(et/com_err.h, :,
   AC_MSG_ERROR([Unable to find com_err headers]))
 AC_SUBST(COM_ERR_LIBS)
-
-CFLAGS="$old_CFLAGS $PTHREADS"
 
 UUID_LIBS=
 AC_CHECK_LIB(uuid, uuid_unparse, UUID_LIBS=-luuid)
@@ -140,6 +105,25 @@ if test "x$enable_debugexe" = "xyes"; then
 fi
 AC_SUBST(OCFS2_DEBUG_EXE)
 AC_MSG_RESULT($enable_debugexe)
+
+AC_MSG_CHECKING(whether to build fsck dynamically)
+AC_ARG_ENABLE([dynamic-fsck], [  --enable-dynamic-fsck=[yes/no]    Build fsck dynamically [default=no]],,enable_dynamic_fsck=no)
+OCFS2_DYNAMIC_FSCK=
+if test "x$enable_dynamic_fsck" = "xyes"; then
+    OCFS2_DYNAMIC_FSCK=yes
+fi
+AC_SUBST(OCFS2_DYNAMIC_FSCK)
+AC_MSG_RESULT($enable_dynamic_fsck)
+
+AC_MSG_CHECKING(whether to build cluster control tools dynamically)
+AC_ARG_ENABLE([dynamic-ctl], [  --enable-dynamic-ctl=[yes/no]    Build cluster control tools dynamically [default=no]],,enable_dynamic_ctl=no)
+OCFS2_DYNAMIC_CTL=
+if test "x$enable_dynamic_ctl" = "xyes"; then
+    OCFS2_DYNAMIC_CTL=yes
+fi
+AC_SUBST(OCFS2_DYNAMIC_CTL)
+AC_MSG_RESULT($enable_dynamic_ctl)
+
 GLIB_REQUIRED_VERSION=2.2.3
 
 AM_PATH_GLIB_2_0($GLIB_REQUIRED_VERSION, have_glib=yes, have_glib=no)
