@@ -183,16 +183,49 @@ out:
 	return ret;
 }
 
-/* we just copy ext2's fixing behaviour here.  'left' is the number of bytes
- * from the start of the dirent struct to the end of the block. */
+static int dirent_leaves_partial(struct ocfs2_dir_entry *dirent, int left)
+{
+	left -= dirent->rec_len;
+	return (left > 0 && left < OCFS2_DIR_MEMBER_LEN);
+}
+
+/*
+ * The caller has found that either of rec_len or name_len are garbage.  The
+ * caller trusts us to fix them up in place and will be checking them again
+ * before proceeding.  We have to update the lengths to make forward progress.
+ * 'left' is the number of bytes from the start of this dirent struct that
+ * remain in the block.  
+ *
+ * We're called for invalid dirents, and having a dirent
+ * that leaves a partial dirent at the end of the block is considered invalid,
+ * and we pad out partials at the end of this call so we can't be called here
+ * with left < OCFS2_DIR_MEMBER_LEN.
+ *
+ * we're pretty limited in the repairs we can make:
+ *
+ * - We can't just set name_len if rec_len looks valid, we might guess 
+ *   name_len wrong and create a bogus file name.
+ * - we can't just set rec_len based on name_len.  rec_len could have
+ *   included an arbitrary part of the name from a previously freed dirent.
+ */
 static void fix_dirent_lengths(struct ocfs2_dir_entry *dirent,
 			       int left, struct ocfs2_dir_entry *prev,
 			       int *flags)
 {
-	/* special casing an empty dirent that doesn't include the
-	 * extra rec_len alignment */
-	if ((left >= OCFS2_DIR_MEMBER_LEN) && 
-			(dirent->rec_len == OCFS2_DIR_MEMBER_LEN)) {
+	/* 
+	 * as described above we can't reconstruct either value if it is
+	 * complete nonsense.  We can only proceed if we can work off of
+	 * one that is kind of valid looking.
+	 * name_len could well be 0 from the dirent being cleared.
+	 */
+	if (dirent->rec_len < OCFS2_DIR_MEMBER_LEN ||
+	   (dirent->rec_len > left ||
+	    dirent->name_len > left))
+	    goto wipe;
+
+	/* if we see a dirent with no file name then we remove it by
+	 * shifting the remaining dirents forward */
+	if ((dirent->rec_len == OCFS2_DIR_MEMBER_LEN)) {
 		char *cp = (char *)dirent;
 		left -= dirent->rec_len;
 		memmove(cp, cp + dirent->rec_len, left);
@@ -200,28 +233,51 @@ static void fix_dirent_lengths(struct ocfs2_dir_entry *dirent,
 		goto out;
 	}
 
-	/* clamp rec_len to the remainder of the block if name_len
-	 * is within the block */
-	if (dirent->rec_len > left && dirent->name_len <= left) {
-		dirent->rec_len = left;
+	/* if rec_len just appears to be mis-rounded in a way that doesn't
+	 * affect following dirents then we can probably save this dirent */
+	if (OCFS2_DIR_REC_LEN(dirent->name_len) != dirent->rec_len &&
+	    OCFS2_DIR_REC_LEN(dirent->name_len) == 
+					OCFS2_DIR_REC_LEN(dirent->rec_len)) {
+		dirent->rec_len = OCFS2_DIR_REC_LEN(dirent->name_len);
+		left -= dirent->rec_len;
 		goto out;
 	}
 
-	/* from here on in we're losing directory entries by adding their
-	 * space onto previous entries.  If we think we can trust this 
-	 * entry's length we leave potential later entries intact.  
-	 * otherwise we consume all the space left in the block */
-	if (prev && ((dirent->rec_len & OCFS2_DIR_ROUND) == 0) &&
-		(dirent->rec_len <= left)) {
-		prev->rec_len += left;
-	} else {
-		dirent->rec_len = left;
+	/* if name_len is too far off, however, we're going to lose this
+	 * dirent.. we might be able to just lose this one dirent if rec_len
+	 * appears to be intact. */
+	if ((dirent->rec_len & OCFS2_DIR_ROUND) == 0 &&
+	    !dirent_leaves_partial(dirent, left)) {
+		left -= dirent->rec_len;
 		dirent->name_len = 0;
 		dirent->inode = 0;
 		dirent->file_type = OCFS2_FT_UNKNOWN;
+		goto out;
 	}
 
+	/* 
+	 * if we can't trust rec_len, however, then we don't know where the
+	 * next dirent might begin.  We've lost the trail of dirents created by
+	 * the file system and run the risk of parsing file names as dirents.
+	 * So we're forced to wipe the block and leave the rest to lost+found.
+	 */
+wipe:
+	dirent->rec_len = left;
+	dirent->name_len = 0;
+	dirent->inode = 0;
+	dirent->file_type = OCFS2_FT_UNKNOWN;
+	left = 0;
 out:
+
+	/* 
+	 * rec_len must be valid and left must reflect the space *after* the
+	 * current dirent by this point.  if there isn't enough room for
+	 * another dirent after the one we've just repaired then we tack the
+	 * remaining space onto the current dirent.
+	 */
+	if (dirent_leaves_partial(dirent, left))
+		dirent->rec_len += left;
+
 	*flags |= OCFS2_DIRENT_CHANGED;
 }
 
@@ -525,12 +581,13 @@ out:
 	return ret;
 }
 
-static int corrupt_dirent(struct ocfs2_dir_entry *dirent, int left)
+static int corrupt_dirent_lengths(struct ocfs2_dir_entry *dirent, int left)
 {
 	if ((dirent->rec_len >= OCFS2_DIR_REC_LEN(1)) &&
 	    ((dirent->rec_len & OCFS2_DIR_ROUND) == 0) &&
 	    (dirent->rec_len <= left) &&
-	    (OCFS2_DIR_REC_LEN(dirent->name_len) <= dirent->rec_len))
+	    (OCFS2_DIR_REC_LEN(dirent->name_len) <= dirent->rec_len) &&
+	    !dirent_leaves_partial(dirent, left))
 		return 0;
 
 	return 1;
@@ -579,7 +636,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 		/* if we can't trust this dirent then fix it up or skip
 		 * the whole block */
-		if (corrupt_dirent(dirent, dd->fs->fs_blocksize - offset)) {
+		if (corrupt_dirent_lengths(dirent,
+					   dd->fs->fs_blocksize - offset)) {
 			if (!prompt(dd->ost, PY, PR_DIRENT_LENGTH,
 				    "Directory inode %"PRIu64" "
 				    "corrupted in logical block %"PRIu64" "
