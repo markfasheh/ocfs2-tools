@@ -107,7 +107,7 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	if (!expect_dots) {
 	       	if (!dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
 			goto out;
-			return 0;
+
 		if (prompt(ost, PY, PR_DIRENT_DOTTY_DUP,
 			   "Duplicate '%.*s' directory entry found, remove "
 			   "it?", dirent->name_len, dirent->name)) {
