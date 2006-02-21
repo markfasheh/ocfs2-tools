@@ -83,10 +83,10 @@ PKG_CHECK_MODULES(COM_ERR, com_err,, [
   if test "x$COM_ERR_LIBS" = "x"; then
     AC_MSG_ERROR([Unable to find com_err library])
   fi
+  AC_CHECK_HEADER(et/com_err.h, :,
+    AC_MSG_ERROR([Unable to find com_err headers]))
+  AC_SUBST(COM_ERR_LIBS)
 ])
-AC_CHECK_HEADER(et/com_err.h, :,
-  AC_MSG_ERROR([Unable to find com_err headers]))
-AC_SUBST(COM_ERR_LIBS)
 
 UUID_LIBS=
 AC_CHECK_LIB(uuid, uuid_unparse, UUID_LIBS=-luuid)
