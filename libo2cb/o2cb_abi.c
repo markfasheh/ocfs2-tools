@@ -1220,6 +1220,9 @@ errcode_t o2cb_list_clusters(char ***clusters)
 	char path[PATH_MAX];
 	errcode_t ret;
 
+	if (configfs_path == NULL)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
 	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_CLUSTER_DIR,
 		       configfs_path);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
@@ -1237,6 +1240,9 @@ errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes)
 {
 	char path[PATH_MAX];
 	errcode_t ret;
+
+	if (configfs_path == NULL)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
 
 	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_NODE_DIR,
 		       configfs_path, cluster_name);

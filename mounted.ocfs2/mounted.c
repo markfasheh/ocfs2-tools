@@ -285,6 +285,8 @@ int main(int argc, char **argv)
 	if (ret)
 		goto bail;
 
+	o2cb_init();
+
 	ret = ocfs2_detect(device, quick_detect);
 
 bail:
