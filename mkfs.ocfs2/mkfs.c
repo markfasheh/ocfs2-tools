@@ -958,9 +958,11 @@ fill_defaults(State *s)
 
 	s->cluster_size_bits = get_bits(s, s->cluster_size);
 
+	/* volume size needs to be cluster aligned */
 	s->volume_size_in_clusters = s->volume_size_in_bytes >> s->cluster_size_bits;
 	tmp = (uint64_t)s->volume_size_in_clusters;
-	s->volume_size_in_blocks = (tmp << s->cluster_size_bits) >> s->blocksize_bits;
+	s->volume_size_in_bytes = tmp << s->cluster_size_bits;
+	s->volume_size_in_blocks = s->volume_size_in_bytes >> s->blocksize_bits;
 	
 	s->reserved_tail_size = 0;
 

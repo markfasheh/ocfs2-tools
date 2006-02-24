@@ -72,7 +72,7 @@ static void print_version (char *progname)
 static void process_one_list(GList *list, char *action)
 {
 	GList *tmp;
-	struct log_entry *entry;
+	struct log_entry *entry = NULL;
 
 
 	while (list) {
