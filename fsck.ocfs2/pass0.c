@@ -608,7 +608,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	if (di->i_clusters != total &&
 	    prompt(ost, PY, PR_CHAIN_I_CLUSTERS,
 		   "Allocator inode %"PRIu64" has %"PRIu32" clusters "
-		   "represtented in its allocator chains but has an "
+		   "represented in its allocator chains but has an "
 		   "i_clusters value of %"PRIu32". Fix this by updating "
 		   "i_clusters?", di->i_blkno, total, di->i_clusters)) {
 		di->i_clusters = total;
@@ -619,7 +619,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	if (di->i_size != chain_bytes &&
 	    prompt(ost, PY, PR_CHAIN_I_SIZE,
 		   "Allocator inode %"PRIu64" has %"PRIu32" clusters "
-		   "represtented in its allocator chain which accounts for "
+		   "represented in its allocator chain which accounts for "
 		   "%"PRIu64" total bytes, but its i_size is %"PRIu64". "
 		   "Fix this by updating i_size?", di->i_blkno,
 		   di->id1.bitmap1.i_total, chain_bytes, di->i_size)) {
