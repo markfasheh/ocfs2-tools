@@ -525,6 +525,8 @@ static errcode_t initialize_journal(ocfs2_filesys *fs, uint64_t blkno)
 	if (ret)
 		goto bail;
 
+	ocfs2_swap_journal_superblock((journal_superblock_t *)buf);
+
 	ret = ocfs2_file_write(ci, buf, BUFLEN, 0, &wrote);
 	if (ret)
 		goto bail;
