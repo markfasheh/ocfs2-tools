@@ -202,14 +202,12 @@ static void parse_journal_opts(char *progname, const char *opts,
 			ret = get_number(arg, &val);
 
 			if (ret ||
-			    val < OCFS2_MIN_JOURNAL_SIZE ||
-			    val > OCFS2_MAX_JOURNAL_SIZE) {
+			    val < OCFS2_MIN_JOURNAL_SIZE) {
 				com_err(progname, 0,
 					"Invalid journal size: %s\nSize must "
-					"be between %d and %d bytes",
+					"be greater than %d bytes",
 					arg,
-					OCFS2_MIN_JOURNAL_SIZE,
-					OCFS2_MAX_JOURNAL_SIZE);
+					OCFS2_MIN_JOURNAL_SIZE);
 				exit(1);
 			}
 
