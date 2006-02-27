@@ -409,38 +409,38 @@ out:
 	return ret;
 }
 
-/* This function needs to be filled out.  Essentially, it should be
- * calling a function in chainalloc.c.  Something like
- * "ocfs2_chain_alloc_range()".  The difference between that and
- * ocfs2_chain_alloc() is that the range can return a number of bits.
- * That function should take a 'required' number of bits, and return
- * the biggest chunk available.  It will need some sort of
- * "find_clear_bit_range()" function for the bitmaps.
- *
- * XXX what to do about local allocs?
+/* XXX what to do about local allocs?
  * XXX Well, we shouldn't use local allocs to allocate, as we are
  *     userspace and we have the entire bitmap in memory.  However, this
  *     doesn't solve the issue of "is space still in dirty local
  *     allocs?"
  */
 errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
+			     uint32_t min,
 			     uint32_t requested,
-			     uint64_t *start_blkno)
+			     uint64_t *start_blkno,
+			     uint32_t *clusters_found)
+
 {
 	errcode_t ret;
 	uint64_t start_bit;
+	uint64_t found;
 
 	ret = ocfs2_load_allocator(fs, GLOBAL_BITMAP_SYSTEM_INODE,
 				   0, &fs->fs_cluster_alloc);
 	if (ret)
 		goto out;
 
-	ret = ocfs2_chain_alloc_range(fs, fs->fs_cluster_alloc, requested,
-				      &start_bit);
+	ret = ocfs2_chain_alloc_range(fs, fs->fs_cluster_alloc, min, requested,
+				      &start_bit, &found);
 	if (ret)
 		goto out;
 
 	*start_blkno = ocfs2_clusters_to_blocks(fs, start_bit);
+	/* We never have enough bits that can be allocated
+	 * contiguously to overflow this. The lower level API needs
+	 * fixing. */
+	*clusters_found = (uint32_t) found;
 
 	ret = ocfs2_write_chain_allocator(fs, fs->fs_cluster_alloc);
 	if (ret)

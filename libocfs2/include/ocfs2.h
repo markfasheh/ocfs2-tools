@@ -430,8 +430,9 @@ errcode_t ocfs2_bitmap_find_next_clear(ocfs2_bitmap *bitmap,
 errcode_t ocfs2_bitmap_read(ocfs2_bitmap *bitmap);
 errcode_t ocfs2_bitmap_write(ocfs2_bitmap *bitmap);
 uint64_t ocfs2_bitmap_get_set_bits(ocfs2_bitmap *bitmap);
-errcode_t ocfs2_bitmap_alloc_range(ocfs2_bitmap *bitmap, uint64_t len, 
-				   uint64_t *first_bit);
+errcode_t ocfs2_bitmap_alloc_range(ocfs2_bitmap *bitmap, uint64_t min,
+				   uint64_t len, uint64_t *first_bit,
+				   uint64_t *bits_found);
 errcode_t ocfs2_bitmap_clear_range(ocfs2_bitmap *bitmap, uint64_t len, 
 				   uint64_t first_bit);
 
@@ -484,8 +485,10 @@ errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 			   uint64_t bitno);
 errcode_t ocfs2_chain_alloc_range(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode,
+				  uint64_t min,
 				  uint64_t requested,
-				  uint64_t *start_bit);
+				  uint64_t *start_bit,
+				  uint64_t *bits_found);
 errcode_t ocfs2_chain_free_range(ocfs2_filesys *fs,
 				 ocfs2_cached_inode *cinode,
 				 uint64_t len,
@@ -531,8 +534,10 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint32_t new_clusters);
 errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size);
 errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
+			     uint32_t min,
 			     uint32_t requested,
-			     uint64_t *start_blkno);
+			     uint64_t *start_blkno,
+			     uint32_t *clusters_found);
 errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
 			      uint32_t len,
 			      uint64_t start_blkno);

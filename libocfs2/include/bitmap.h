@@ -65,8 +65,9 @@ struct ocfs2_bitmap_operations {
 				  struct ocfs2_bitmap_region *br,
 				  uint64_t bitno,
 				  int new_val);
-	errcode_t (*alloc_range)(ocfs2_bitmap *bitmap, uint64_t len, 
-				 uint64_t *first_bit);
+	errcode_t (*alloc_range)(ocfs2_bitmap *bitmap, uint64_t min_len,
+				 uint64_t len, uint64_t *first_bit,
+				 uint64_t *bits_found);
 	errcode_t (*clear_range)(ocfs2_bitmap *bitmap, uint64_t len, 
 				 uint64_t first_bit);
 };
@@ -116,8 +117,10 @@ errcode_t ocfs2_bitmap_find_next_clear_generic(ocfs2_bitmap *bitmap,
 					       uint64_t start,
 					       uint64_t *found);
 errcode_t ocfs2_bitmap_alloc_range_generic(ocfs2_bitmap *bitmap,
+					   uint64_t min_len,
 					   uint64_t len,
-					   uint64_t *first_bit);
+					   uint64_t *first_bit,
+					   uint64_t *bits_found);
 errcode_t ocfs2_bitmap_clear_range_generic(ocfs2_bitmap *bitmap,
 					   uint64_t len,
 					   uint64_t first_bit);

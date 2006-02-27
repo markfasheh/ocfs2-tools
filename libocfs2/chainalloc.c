@@ -342,14 +342,16 @@ errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
 /* FIXME: Better name, too */
 errcode_t ocfs2_chain_alloc_range(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode,
+				  uint64_t min,
 				  uint64_t requested,
-				  uint64_t *start_bit)
+				  uint64_t *start_bit,
+				  uint64_t *bits_found)
 {
 	if (!cinode->ci_chains)
 		return OCFS2_ET_INVALID_ARGUMENT;
 
-	return ocfs2_bitmap_alloc_range(cinode->ci_chains, requested,
-				        start_bit);
+	return ocfs2_bitmap_alloc_range(cinode->ci_chains, min, requested,
+				        start_bit, bits_found);
 }
 
 errcode_t ocfs2_chain_free_range(ocfs2_filesys *fs,
@@ -502,6 +504,7 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	uint64_t blkno = 0, old_blkno = 0;
+	uint32_t found;
 	struct ocfs2_group_desc *gd;
 	char *buf = NULL;
 	struct ocfs2_chain_rec *rec = NULL;
@@ -513,9 +516,13 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 	gd = (struct ocfs2_group_desc *)buf;
 
 	ret = ocfs2_new_clusters(fs, cinode->ci_inode->id2.i_chain.cl_cpg,
-				 &blkno);
+				 cinode->ci_inode->id2.i_chain.cl_cpg,
+				 &blkno, &found);
 	if (ret)
 		goto out;
+
+	if (found != cinode->ci_inode->id2.i_chain.cl_cpg)
+		abort();
 
 	ocfs2_init_group_desc(fs, gd, blkno, fs->fs_super->i_fs_generation,
 			      cinode->ci_inode->i_blkno,

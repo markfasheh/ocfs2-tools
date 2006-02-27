@@ -357,7 +357,8 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 
 	while (new_clusters) {
 		n_clusters = 1;
-		ret = ocfs2_new_clusters(fs, n_clusters, &blkno);
+		ret = ocfs2_new_clusters(fs, 1, new_clusters, &blkno,
+			&n_clusters);
 		if (ret)
 			break;
 
