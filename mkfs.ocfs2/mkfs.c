@@ -66,7 +66,7 @@ static void write_directory_data(State *s, DirData *dir);
 static void write_slot_map_data(State *s, SystemFileDiskRecord *slot_map_rec);
 static void write_group_data(State *s, AllocGroup *group);
 static void format_leading_space(State *s);
-static void replacement_journal_create(State *s, uint64_t journal_off);
+//static void replacement_journal_create(State *s, uint64_t journal_off);
 static void open_device(State *s);
 static void close_device(State *s);
 static int initial_slots_for_volume(uint64_t size);
@@ -83,6 +83,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint16_t chain, uint16_t cpg,
 					   uint16_t bpc);
 static void create_lost_found_dir(State *s);
+static void format_journals(State *s);
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -368,16 +369,6 @@ main(int argc, char **argv)
 		num = system_files[i].global ? 1 : s->initial_slots;
 		for (j = 0; j < num; j++) {
 			tmprec = &(record[i][j]);
-
-			if (system_files[i].type == SFI_JOURNAL) {
-				alloc_bytes_from_bitmap(s, s->journal_size_in_bytes,
-							s->global_bm,
-							&(tmprec->extent_off),
-							&(tmprec->extent_len));
-				replacement_journal_create(s, tmprec->extent_off);
-				tmprec->file_size = tmprec->extent_len;
-			}
-
 			format_file(s, tmprec);
 		}
 	}
@@ -424,6 +415,20 @@ main(int argc, char **argv)
 		printf("done\n");
 
 	if (!s->hb_dev) {
+		/* These routines use libocfs2 to do their work. We
+		 * don't share an ocfs2_filesys context between the
+		 * journal format and the lost+found create so that
+		 * the library can use the journal for the latter in
+		 * future revisions. */
+
+		if (!s->quiet)
+			printf("Formatting Journals: ");
+
+		format_journals(s);
+
+		if (!s->quiet)
+			printf("done\n");
+
 		if (!s->quiet)
 			printf("Writing lost+found: ");
 
@@ -1848,45 +1853,6 @@ format_leading_space(State *s)
 	free(buf);
 }
 
-/*
- * The code to init a journal superblock is also in
- * libocfs2/mkjournal.c:ocfs2_init_journal_super_block().
- * Please keep them in sync.
- */
-static void
-replacement_journal_create(State *s, uint64_t journal_off)
-{
-	journal_superblock_t *sb;
-	void *buf;
-
-	buf = do_malloc(s, s->journal_size_in_bytes);
-	memset(buf, 0, s->journal_size_in_bytes);
-
-	sb = buf;
-
-	sb->s_header.h_magic     = JFS_MAGIC_NUMBER;
-	sb->s_header.h_blocktype = JFS_SUPERBLOCK_V2;
-
-	sb->s_blocksize = s->blocksize;
-	sb->s_maxlen = s->journal_size_in_bytes >> s->blocksize_bits;
-
-	if (s->blocksize == 512)
-		sb->s_first = 2;
-	else
-		sb->s_first = 1;
-
-	sb->s_start    = 1;
-	sb->s_sequence = 1;
-	sb->s_errno    = 0;
-	sb->s_nr_users = 1;
-
-	memcpy(sb->s_uuid, s->uuid, sizeof(sb->s_uuid));
-
-	ocfs2_swap_journal_superblock(sb);
-	do_pwrite(s, buf, s->journal_size_in_bytes, journal_off);
-	free(buf);
-}
-
 static void
 open_device(State *s)
 {
@@ -2067,6 +2033,45 @@ static void create_lost_found_dir(State *s)
 	return ;
 
 bail:
+	clear_both_ends(s);
+	exit(1);
+}
+
+static void format_journals(State *s)
+{
+	errcode_t ret;
+	int i;
+	uint32_t journal_size_in_clusters;
+	uint64_t blkno;
+	ocfs2_filesys *fs = NULL;
+	char jrnl_file[40];
+
+	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		com_err(s->progname, ret, "while opening new file system");
+		goto error;
+	}
+
+	journal_size_in_clusters = s->journal_size_in_bytes >>
+		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
+	for(i = 0; i < OCFS2_RAW_SB(fs->fs_super)->s_max_slots; i++) {
+		snprintf (jrnl_file, sizeof(jrnl_file),
+			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
+		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
+				   strlen(jrnl_file), NULL, &blkno);
+		if (ret)
+			goto error;
+
+		ret = ocfs2_make_journal(fs, blkno, journal_size_in_clusters);
+		if (ret)
+			goto error;
+	}
+
+	ocfs2_close(fs);
+	return;
+
+error:
 	clear_both_ends(s);
 	exit(1);
 }

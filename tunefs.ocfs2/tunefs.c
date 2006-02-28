@@ -487,71 +487,6 @@ static errcode_t update_slots(ocfs2_filesys *fs, int *changed)
 	return ret;
 }
 
-static errcode_t initialize_journal(ocfs2_filesys *fs, uint64_t blkno)
-{
-	errcode_t ret = 0;
-	char *buf = NULL;
-	ocfs2_cached_inode *ci = NULL;
-	int bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-	uint64_t offset;
-	uint32_t wrote;
-	uint32_t count;
-
-	ret = ocfs2_read_cached_inode(fs, blkno, &ci);
-	if (ret)
-		goto bail;
-
-	/* verify it is a journal file */
-	if (!(ci->ci_inode->i_flags & OCFS2_VALID_FL) ||
-	    !(ci->ci_inode->i_flags & OCFS2_SYSTEM_FL) ||
-	    !(ci->ci_inode->i_flags & OCFS2_JOURNAL_FL)) {
-		ret = OCFS2_ET_INTERNAL_FAILURE;
-		goto bail;
-	}
-
-	ret = ocfs2_extent_map_init(fs, ci);
-	if (ret)
-		goto bail;
-
-#define BUFLEN	1048576
-	ret = ocfs2_malloc_blocks(fs->fs_io, (BUFLEN >> bs_bits), &buf);
-	if (ret)
-		goto bail;
-
-	ret = ocfs2_init_journal_superblock(fs, buf, BUFLEN,
-					    (ci->ci_inode->i_size >> bs_bits));
-	if (ret)
-		goto bail;
-
-	ocfs2_swap_journal_superblock((journal_superblock_t *)buf);
-
-	ret = ocfs2_file_write(ci, buf, BUFLEN, 0, &wrote);
-	if (ret)
-		goto bail;
-
-	offset = wrote;
-	count = (uint32_t) (ci->ci_inode->i_size - offset);
-
-	memset(buf, 0, BUFLEN);
-
-	while (count) {
-		ret = ocfs2_file_write(ci, buf, MIN(BUFLEN, count),
-				       offset, &wrote);
-		if (ret)
-			goto bail;
-		offset += wrote;
-		count -= wrote;
-	}
-
-bail:
-	if (ci)
-		ocfs2_free_cached_inode(fs, ci);
-	if (buf)
-		ocfs2_free(&buf);
-
-	return ret;
-}
-
 static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 {
 	errcode_t ret = 0;
@@ -579,7 +514,6 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		if (ret)
 			goto bail;
 
-
 		ret = ocfs2_read_inode(fs, blkno, buf);
 		if (ret)
 			goto bail;
@@ -588,35 +522,14 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		if (num_clusters <= di->i_clusters)
 			continue;
 
-		printf("Extending %s...  ", jrnl_file);
+		printf("Updating %s...  ", jrnl_file);
 		block_signals(SIG_BLOCK);
-		ret = ocfs2_extend_allocation(fs, blkno,
-					      (num_clusters - di->i_clusters));
+		ret = ocfs2_make_journal(fs, blkno, num_clusters);
 		block_signals(SIG_UNBLOCK);
 		if (ret)
 			goto bail;
-
-		ret = ocfs2_read_inode(fs, blkno, buf);
-		if (ret)
-			goto bail;
-
-		di = (struct ocfs2_dinode *)buf;
-		di->i_size = di->i_clusters <<
-				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
-		di->i_mtime = time(NULL);
-
-		ret = ocfs2_write_inode(fs, blkno, buf);
-		if (ret)
-			goto bail;
-
 		printf("\r                                                     \r");
-		printf("Initializing %s...  ", jrnl_file);
-
-		ret = initialize_journal(fs, blkno);
-		if (ret)
-			goto bail;
-
-		printf("\r                                                     \r");
+		*changed = 1;
 	}
 
 bail:

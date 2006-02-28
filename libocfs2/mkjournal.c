@@ -58,11 +58,6 @@ void ocfs2_swap_journal_superblock(journal_superblock_t *jsb)
 	jsb->s_max_trans_data    = bswap_32(jsb->s_max_trans_data);
 }
 
-/*
- * The code to init a journal superblock is also in
- * mkfs.ocfs2/mkfs.c:replacement_journal_create().
- * Please keep them in sync.
- */
 errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
 					int buflen, uint32_t jrnl_size_in_blks)
 {
@@ -101,9 +96,9 @@ errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
  * This function automatically sets up the journal superblock and
  * returns it as an allocated block.
  */
-errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
-					  uint32_t size, int flags,
-					  char  **ret_jsb)
+static errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
+						 uint32_t size,
+						 char  **ret_jsb)
 {
 	errcode_t retval;
 	char *buf = NULL;
@@ -209,6 +204,109 @@ errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 	ret = 0;
 out:
 	ocfs2_free(&blk);
+
+	return ret;
+}
+
+static errcode_t ocfs2_format_journal(ocfs2_filesys *fs,
+				      ocfs2_cached_inode *ci)
+{
+	errcode_t ret = 0;
+	char *buf = NULL, *jsb_buf = NULL;
+	int bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	uint64_t offset = 0;
+	uint32_t wrote, count, jrnl_blocks;
+
+	ret = ocfs2_extent_map_init(fs, ci);
+	if (ret)
+		goto out;
+
+#define BUFLEN	1048576
+	ret = ocfs2_malloc_blocks(fs->fs_io, (BUFLEN >> bs_bits), &buf);
+	if (ret)
+		goto out;
+	memset(buf, 0, BUFLEN);
+
+	count = (uint32_t) ci->ci_inode->i_size;
+	while (count) {
+		ret = ocfs2_file_write(ci, buf, ocfs2_min((uint32_t) BUFLEN, count),
+				       offset, &wrote);
+		if (ret)
+			goto out;
+		offset += wrote;
+		count -= wrote;
+	}
+
+	jrnl_blocks = ocfs2_clusters_to_blocks(fs, ci->ci_inode->i_clusters);
+	ret = ocfs2_create_journal_superblock(fs, jrnl_blocks, &jsb_buf);
+	if (ret)
+		goto out;
+
+	/* re-use offset here for 1st journal block. */
+	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &offset, NULL);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_write_journal_superblock(fs, offset, jsb_buf);
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	if (jsb_buf)
+		ocfs2_free(&jsb_buf);
+
+	return ret;
+}
+
+errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
+			     uint32_t clusters)
+{
+	errcode_t ret = 0;
+	ocfs2_cached_inode *ci = NULL;
+	struct ocfs2_dinode *di;
+
+	ret = ocfs2_read_cached_inode(fs, blkno, &ci);
+	if (ret)
+		goto out;
+
+	/* verify it is a journal file */
+	if (!(ci->ci_inode->i_flags & OCFS2_VALID_FL) ||
+	    !(ci->ci_inode->i_flags & OCFS2_SYSTEM_FL) ||
+	    !(ci->ci_inode->i_flags & OCFS2_JOURNAL_FL)) {
+		ret = OCFS2_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	di = ci->ci_inode;
+	if (clusters > di->i_clusters) {
+		ret = ocfs2_extend_allocation(fs, blkno,
+					      (clusters - di->i_clusters));
+		if (ret)
+			goto out;
+
+		/* We don't cache in the library right now, so any
+		 * work done in extend_allocation won't be reflected
+		 * in our now stale copy. */
+		ocfs2_free_cached_inode(fs, ci);
+		ret = ocfs2_read_cached_inode(fs, blkno, &ci);
+		if (ret) {
+			ci = NULL;
+			goto out;
+		}
+		di = ci->ci_inode;
+
+		di->i_size = di->i_clusters <<
+			OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+		di->i_mtime = time(NULL);
+
+		ret = ocfs2_write_inode(fs, blkno, (char *)di);
+		if (ret)
+			goto out;
+	}
+
+	ret = ocfs2_format_journal(fs, ci);
+out:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
 
 	return ret;
 }

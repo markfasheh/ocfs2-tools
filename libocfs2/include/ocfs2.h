@@ -300,13 +300,12 @@ errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb);
 errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
 					int buflen, uint32_t jrnl_size);
-errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
-					  uint32_t size, int flags,
-					  char **ret_jsb);
 errcode_t ocfs2_read_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 					char *jsb_buf);
 errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 					 char *jsb_buf);
+errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
+			     uint32_t clusters);
 
 errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				  char *eb_buf);
