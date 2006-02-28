@@ -2199,12 +2199,20 @@ static void format_journals(State *s)
 			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
 		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
 				   strlen(jrnl_file), NULL, &blkno);
-		if (ret)
+		if (ret) {
+			com_err(s->progname, ret,
+				"while looking up journal filename \"%.*s\"",
+				strlen(jrnl_file), jrnl_file);
 			goto error;
+		}
 
 		ret = ocfs2_make_journal(fs, blkno, journal_size_in_clusters);
-		if (ret)
+		if (ret) {
+			com_err(s->progname, ret,
+				"while formatting journal \"%.*s\"",
+				strlen(jrnl_file), jrnl_file);
 			goto error;
+		}
 	}
 
 	ocfs2_close(fs);
