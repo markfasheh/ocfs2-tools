@@ -102,6 +102,30 @@ static SystemFileInfo system_files[] = {
 	{ "truncate_log:%04d", SFI_TRUNCATE_LOG, 0, S_IFREG | 0644 }
 };
 
+struct fs_type_translation {
+	const char *ft_str;
+	enum ocfs2_fs_types ft_type;
+};
+
+static struct fs_type_translation ocfs2_fs_types_table[] = {
+	{"datafiles", FS_DATAFILES},
+	{"mail", FS_MAIL},
+	{NULL, FS_DEFAULT},
+};
+
+static uint64_t align_bytes_to_clusters_ceil(State *s,
+					     uint64_t bytes)
+{
+	uint64_t ret = bytes + s->cluster_size - 1;
+
+	if (ret < bytes) /* deal with wrapping */
+		ret = UINT64_MAX;
+
+	ret = ret >> s->cluster_size_bits;
+	ret = ret << s->cluster_size_bits;
+
+	return ret;
+}
 
 static void
 handle_signal (int sig)
@@ -446,6 +470,27 @@ main(int argc, char **argv)
 	return 0;
 }
 
+static void
+parse_fs_type_opts(char *progname, const char *typestr,
+		   enum ocfs2_fs_types *fs_type)
+{
+	int i;
+
+	*fs_type = FS_DEFAULT;
+
+	for(i = 0; ocfs2_fs_types_table[i].ft_str; i++) {
+		if (strcmp(typestr, ocfs2_fs_types_table[i].ft_str) == 0) {
+			*fs_type = ocfs2_fs_types_table[i].ft_type;
+			break;
+		}
+	}
+
+	if (*fs_type == FS_DEFAULT) {
+		com_err(progname, 0, "Bad fs type option specified.");
+		exit(1);
+	}
+}
+
 static State *
 get_state(int argc, char **argv)
 {
@@ -463,6 +508,7 @@ get_state(int argc, char **argv)
 	int ret;
 	uint64_t val;
 	uint64_t journal_size_in_bytes = 0;
+	enum ocfs2_fs_types fs_type = FS_DEFAULT;
 
 	static struct option long_options[] = {
 		{ "block-size", 1, 0, 'b' },
@@ -484,7 +530,7 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:C:L:N:J:vqVFHx", long_options, 
+		c = getopt_long(argc, argv, "b:C:L:N:J:vqVFHxT:", long_options, 
 				NULL);
 
 		if (c == -1)
@@ -587,6 +633,10 @@ get_state(int argc, char **argv)
 			xtool = 1;
 			break;
 
+		case 'T':
+			parse_fs_type_opts(progname, optarg, &fs_type);
+			break;
+
 		default:
 			usage(progname);
 			break;
@@ -646,6 +696,8 @@ get_state(int argc, char **argv)
 	s->journal_size_in_bytes = journal_size_in_bytes;
 
 	s->hb_dev = hb_dev;
+
+	s->fs_type = fs_type;
 
 	return s;
 }
@@ -757,7 +809,7 @@ static void
 usage(const char *progname)
 {
 	fprintf(stderr, "Usage: %s [-b block-size] [-C cluster-size] "
-			"[-N number-of-node-slots]\n"
+			"[-N number-of-node-slots] [-T filesystem-type]\n"
 			"\t[-L volume-label] [-J journal-options] [-HFqvV] "
 			"device [blocks-count]\n",
 			progname);
@@ -770,7 +822,41 @@ version(const char *progname)
 	fprintf(stderr, "%s %s\n", progname, VERSION);
 }
 
-/* stolen from e2fsprogs */
+static unsigned int journal_size_default(State *s)
+{
+	unsigned int j_blocks;
+
+	if (s->volume_size_in_blocks < 32768)
+		j_blocks = OCFS2_MIN_JOURNAL_SIZE / s->blocksize;
+	else if (s->volume_size_in_blocks < 262144)
+		j_blocks = 4096;
+	else {
+		/* Each journal gets ~.625% of the blocks in the file
+		 * system, with a min of 16384 and a max of 65536 */
+		j_blocks = s->volume_size_in_blocks / 160;
+		if (j_blocks < 16384)
+			j_blocks = 16384;
+		else if (j_blocks > 65536)
+			j_blocks = 65536;
+	}
+	return j_blocks;
+}
+
+static unsigned int journal_size_datafiles(void)
+{
+	return 8192;
+}
+
+static unsigned int journal_size_mail(State *s)
+{
+	if (s->volume_size_in_blocks < 262144)
+		return 16384;
+	else if (s->volume_size_in_blocks < 524288)
+		return 32768;
+	return 65536;
+}
+
+/* stolen from e2fsprogs, modified to fit ocfs2 patterns */
 static uint64_t figure_journal_size(uint64_t size, State *s)
 {
 	unsigned int j_blocks;
@@ -794,17 +880,70 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 				"Journal size too big for filesystem.\n");
 			exit(1);
 		}
-		return size;
+
+		return align_bytes_to_clusters_ceil(s, size);
 	}
 
-	if (s->volume_size_in_blocks < 32768)
-		j_blocks = OCFS2_MIN_JOURNAL_SIZE / s->blocksize;
-	else if (s->volume_size_in_blocks < 262144)
-		j_blocks = 4096;
-	else
-		j_blocks = 8192;
+	switch (s->fs_type) {
+	case FS_DATAFILES:
+		j_blocks = journal_size_datafiles();
+		break;
+	case FS_MAIL:
+		j_blocks = journal_size_mail(s);
+		break;
+	default:
+		j_blocks = journal_size_default(s);
+		break;
+	}
 
-	return j_blocks << s->blocksize_bits;
+	return align_bytes_to_clusters_ceil(s, j_blocks << s->blocksize_bits);
+}
+
+static uint32_t cluster_size_default(State *s)
+{
+	uint32_t volume_size, cluster_size, cluster_size_bits, need;
+
+	for (cluster_size = OCFS2_MIN_CLUSTERSIZE;
+	     cluster_size < AUTO_CLUSTERSIZE;
+	     cluster_size <<= 1) {
+		cluster_size_bits = get_bits(s, cluster_size);
+
+		volume_size =
+			s->volume_size_in_bytes >> cluster_size_bits;
+
+		need = (volume_size + 7) >> 3;
+		need = ((need + cluster_size - 1) >>
+			cluster_size_bits) << cluster_size_bits;
+
+		if (need <= BITMAP_AUTO_MAX) 
+			break;
+	}
+
+	return cluster_size;
+}
+
+static uint32_t cluster_size_datafiles(State *s)
+{
+	uint32_t cluster_size;
+	uint64_t volume_gigs = s->volume_size_in_bytes / (1024 * 1024 * 1024);
+
+	if (volume_gigs < 2) {
+		com_err(s->progname, 0,
+			"Selected file system type requires a device of at "
+			"least 2 gigabytes\n");
+		exit(1);
+	}
+
+	if (volume_gigs < 64)
+		cluster_size = 128;
+	else if (volume_gigs < 96)
+		cluster_size = 256;
+	else if (volume_gigs < 128)
+		cluster_size = 512;
+	else
+		cluster_size = 1024;
+
+	return cluster_size * 1024;
 }
 
 static void
@@ -937,25 +1076,14 @@ fill_defaults(State *s)
 	s->blocksize_bits = get_bits(s, s->blocksize);
 
 	if (!s->cluster_size) {
-		uint32_t volume_size, cluster_size, cluster_size_bits, need;
-
-		for (cluster_size = OCFS2_MIN_CLUSTERSIZE;
-		     cluster_size < AUTO_CLUSTERSIZE;
-		     cluster_size <<= 1) {
-			cluster_size_bits = get_bits(s, cluster_size);
-
-			volume_size =
-				s->volume_size_in_bytes >> cluster_size_bits;
-
-			need = (volume_size + 7) >> 3;
-			need = ((need + cluster_size - 1) >>
-				cluster_size_bits) << cluster_size_bits;
-
-			if (need <= BITMAP_AUTO_MAX) 
-				break;
+		switch (s->fs_type) {
+		case FS_DATAFILES:
+			s->cluster_size = cluster_size_datafiles(s);
+			break;
+		default:
+			s->cluster_size = cluster_size_default(s);
+			break;
 		}
-
-		s->cluster_size = cluster_size;
 	}
 
 	s->cluster_size_bits = get_bits(s, s->cluster_size);
@@ -1957,9 +2085,20 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int mode)
 static void
 print_state(State *s)
 {
+	int i;
+
 	if (s->quiet)
 		return;
 
+	if (s->fs_type != FS_DEFAULT) {
+		for(i = 0; ocfs2_fs_types_table[i].ft_str; i++) {
+			if (ocfs2_fs_types_table[i].ft_type == s->fs_type) {
+				printf("Filesystem Type of %s\n",
+				       ocfs2_fs_types_table[i].ft_str);
+				break;
+			}
+		}
+	}
 	printf("Filesystem label=%s\n", s->vol_label);
 	printf("Block size=%u (bits=%u)\n", s->blocksize, s->blocksize_bits);
 	printf("Cluster size=%u (bits=%u)\n", s->cluster_size, s->cluster_size_bits);

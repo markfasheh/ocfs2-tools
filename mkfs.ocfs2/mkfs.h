@@ -100,6 +100,11 @@ enum {
 	SFI_OTHER
 };
 
+enum ocfs2_fs_types {
+	FS_DEFAULT,
+	FS_DATAFILES,
+	FS_MAIL
+};
 
 typedef struct _SystemFileInfo SystemFileInfo;
 
@@ -228,6 +233,8 @@ struct _State {
 	uint16_t tail_group_bits;
 	uint32_t first_cluster_group;
 	uint64_t first_cluster_group_blkno;
+
+	enum ocfs2_fs_types fs_type;
 };
 
 int ocfs2_check_volume(State *s);
