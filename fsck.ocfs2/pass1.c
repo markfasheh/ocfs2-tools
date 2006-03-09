@@ -737,7 +737,9 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	ret = o2fsck_check_extents(ost, di);
 	if (ret == 0)
-		ret = ocfs2_block_iterate_inode(fs, di, 0, verify_block, &vb);
+		ret = ocfs2_block_iterate_inode(fs, di,
+					        OCFS2_BLOCK_FLAG_APPEND,
+						verify_block, &vb);
 	if (vb.vb_ret)
 		ret = vb.vb_ret;
 

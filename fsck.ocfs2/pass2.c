@@ -590,7 +590,20 @@ static int corrupt_dirent_lengths(struct ocfs2_dir_entry *dirent, int left)
 	    !dirent_leaves_partial(dirent, left))
 		return 0;
 
+	verbosef("corrupt dirent: %"PRIu64" rec_len %u name_len %u\n",
+		dirent->inode, dirent->rec_len, dirent->name_len);
+
 	return 1;
+}
+
+static size_t nr_zeros(unsigned char *buf, size_t len)
+{
+	size_t ret = 0;
+
+	while(len-- > 0 && *(buf++) == 0)
+		ret++;
+
+	return ret;
 }
 
 /* this could certainly be more clever to issue reads in groups */
@@ -620,6 +633,17 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 			dbe->e_blkno);
 		goto out;
 	}
+
+	/*
+	 * pass1 records all the blocks that have been allocated to the
+	 * dir so that it can verify i_clusters and make sure dirs don't
+	 * share blocks, etc.  Unfortunately allocated blocks that are
+	 * beyond i_size aren't initialized.. we special case a block of
+	 * all 0s as an uninitialized dir block, though we don't actually
+	 * make sure that it's outside i_size.
+	 */
+	if (nr_zeros(dd->buf, dd->fs->fs_blocksize) == dd->fs->fs_blocksize)
+		return 0;
 
 	verbosef("dir block %"PRIu64"\n", dbe->e_blkno);
 
