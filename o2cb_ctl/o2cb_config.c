@@ -470,11 +470,9 @@ static void o2cb_cluster_free(O2CBCluster *cluster)
     while (cluster->c_nodes)
     {
         list = cluster->c_nodes;
-        cluster->c_nodes = list->next;
-
         node = (O2CBNode *)list->data;
-        g_list_free(list);
 
+        cluster->c_nodes = g_list_delete_link(list, list);
         o2cb_node_free(node);
     }
 
