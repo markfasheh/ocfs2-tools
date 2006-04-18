@@ -976,16 +976,15 @@ static errcode_t force_cluster_bit(o2fsck_state *ost,
 	char *reason;
 
 	if (!val) {
-		reason = "Cluster %u is marked in the global cluster "
-			 "bitmap but it isn't in use.  Clear its bit "
-			 "in the bitmap?";
+		reason = "marked in the global cluster bitmap but it isn't in "
+			 "use.  Clear its bit in the bitmap?";
 	} else {
-		reason = "Cluster %u is in use but isn't set in the "
-			 "global cluster bitmap.  Set its bit in the "
-			 "bitmap?";
+		reason = "in use but isn't set in the global cluster bitmap. "
+		         "Set its bit in the bitmap?";
 	}
 
-	if (!prompt(ost, PY, PR_CLUSTER_ALLOC_BIT, reason, bit))
+	if (!prompt(ost, PY, PR_CLUSTER_ALLOC_BIT, "Cluster %"PRIu64" is %s",
+		    bit, reason))
 		return 0;
 
 	ret = ocfs2_chain_force_val(ost->ost_fs, ci, bit, !!val, NULL);
