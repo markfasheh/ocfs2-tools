@@ -65,7 +65,8 @@ int o2fsck_test_inode_allocated(o2fsck_state *ost, uint64_t blkno)
 struct dirblock_data {
 	o2fsck_state 	*ost;
 	ocfs2_filesys 	*fs;
-	char 		*buf;
+	char 		*dirblock_buf;
+	char 		*inoblock_buf;
 	errcode_t	ret;
 	o2fsck_strings	strings;
 	uint64_t	last_ino;
@@ -596,16 +597,6 @@ static int corrupt_dirent_lengths(struct ocfs2_dir_entry *dirent, int left)
 	return 1;
 }
 
-static size_t nr_zeros(unsigned char *buf, size_t len)
-{
-	size_t ret = 0;
-
-	while(len-- > 0 && *(buf++) == 0)
-		ret++;
-
-	return ret;
-}
-
 /* this could certainly be more clever to issue reads in groups */
 static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe, 
 					void *priv_data) 
@@ -613,46 +604,53 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
 	unsigned int offset = 0, ret_flags = 0;
-	errcode_t ret;
+	struct ocfs2_dinode *di = (struct ocfs2_dinode *)dd->inoblock_buf; 
+	errcode_t ret = 0;
 
 	if (!o2fsck_test_inode_allocated(dd->ost, dbe->e_ino)) {
 		printf("Directory block %"PRIu64" belongs to directory inode "
 		       "%"PRIu64" which isn't allocated.  Ignoring this "
 		       "block.", dbe->e_blkno, dbe->e_ino);
-		return 0;
+		goto out;
 	}
 
 	if (dbe->e_ino != dd->last_ino) {
 		o2fsck_strings_free(&dd->strings);
 		dd->last_ino = dbe->e_ino;
+
+		ret = ocfs2_read_inode(dd->ost->ost_fs, dbe->e_ino,
+				       dd->inoblock_buf);
+		if (ret) {
+			com_err(whoami, ret, "while reading dir inode %"PRIu64,
+				dbe->e_ino);
+			ret_flags |= OCFS2_DIRENT_ABORT;
+			goto out;
+		}
+
+		verbosef("dir inode %"PRIu64" i_size %"PRIu64"\n",
+			 dbe->e_ino, di->i_size);
+
 	}
 
- 	ret = ocfs2_read_dir_block(dd->fs, dbe->e_blkno, dd->buf);
+	verbosef("dir block %"PRIu64" block offs %"PRIu64" in ino\n",
+		 dbe->e_blkno, dbe->e_blkcount);
+
+	if (dbe->e_blkcount >= ocfs2_blocks_in_bytes(dd->fs, di->i_size))
+		goto out;
+
+ 	ret = ocfs2_read_dir_block(dd->fs, dbe->e_blkno, dd->dirblock_buf);
 	if (ret && ret != OCFS2_ET_DIR_CORRUPTED) {
 		com_err(whoami, ret, "while reading dir block %"PRIu64,
 			dbe->e_blkno);
 		goto out;
 	}
 
-	/*
-	 * pass1 records all the blocks that have been allocated to the
-	 * dir so that it can verify i_clusters and make sure dirs don't
-	 * share blocks, etc.  Unfortunately allocated blocks that are
-	 * beyond i_size aren't initialized.. we special case a block of
-	 * all 0s as an uninitialized dir block, though we don't actually
-	 * make sure that it's outside i_size.
-	 */
-	if (nr_zeros(dd->buf, dd->fs->fs_blocksize) == dd->fs->fs_blocksize)
-		return 0;
-
-	verbosef("dir block %"PRIu64"\n", dbe->e_blkno);
-
 	while (offset < dd->fs->fs_blocksize) {
-		dirent = (struct ocfs2_dir_entry *)(dd->buf + offset);
+		dirent = (struct ocfs2_dir_entry *)(dd->dirblock_buf + offset);
 
-		verbosef("checking dirent offset %d, ino %"PRIu64" rec_len "
-			"%"PRIu16" name_len %"PRIu8" file_type %"PRIu8"\n",
-			offset, dirent->inode, dirent->rec_len, 
+		verbosef("checking dirent offset %d, rec_len %"PRIu16" "
+			 "name_len %"PRIu8" file_type %"PRIu8"\n",
+			offset, dirent->rec_len, 
 			dirent->name_len, dirent->file_type);
 
 		/* XXX I wonder if we should be checking that the padding
@@ -735,7 +733,8 @@ next:
 	}
 
 	if (ret_flags & OCFS2_DIRENT_CHANGED) {
-		ret = ocfs2_write_dir_block(dd->fs, dbe->e_blkno, dd->buf);
+		ret = ocfs2_write_dir_block(dd->fs, dbe->e_blkno,
+					    dd->dirblock_buf);
 		if (ret) {
 			com_err(whoami, ret, "while writing dir block %"PRIu64,
 				dbe->e_blkno);
@@ -751,8 +750,8 @@ out:
 
 errcode_t o2fsck_pass2(o2fsck_state *ost)
 {
-	errcode_t retval;
 	o2fsck_dir_parent *dp;
+	errcode_t ret;
 	struct dirblock_data dd = {
 		.ost = ost,
 		.fs = ost->ost_fs,
@@ -763,9 +762,19 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 
 	o2fsck_strings_init(&dd.strings);
 
-	retval = ocfs2_malloc_block(ost->ost_fs->fs_io, &dd.buf);
-	if (retval)
-		return retval;
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &dd.dirblock_buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating a block buffer to "
+			"store directory blocks.");
+		goto out;
+	}
+
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &dd.inoblock_buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating a block buffer to "
+			"store a directory inode.");
+		goto out;
+	}
 
 	/* 
 	 * Mark the root directory's dirent parent as itself if we found the
@@ -786,6 +795,10 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 	o2fsck_dir_block_iterate(&ost->ost_dirblocks, pass2_dir_block_iterate, 
 			 	 &dd);
 	o2fsck_strings_free(&dd.strings);
-	ocfs2_free(&dd.buf);
-	return 0;
+out:
+	if (dd.dirblock_buf)
+		ocfs2_free(&dd.dirblock_buf);
+	if (dd.inoblock_buf)
+		ocfs2_free(&dd.inoblock_buf);
+	return ret;
 }
