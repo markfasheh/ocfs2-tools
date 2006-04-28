@@ -5,6 +5,18 @@ Maintainer: Joel Becker <joel.becker@oracle.com>
 Standards-Version: 3.6.1
 Build-Depends: python-gtk2 (>= 2.0), python (>= 2.3), python (<< 2.4), python2.3-dev, libglib2.0-dev (>= 2.2.3), libreadline5-dev, comerr-dev, uuid-dev, libblkid-dev (>= 1.36), debhelper (>= 3.0.5)
 
+Package: ocfs2-tools-dev
+Architecture: any
+Section: devel
+Depends: ocfs2-tools (= ${Source-Version}), libglib2.0-dev
+Conflicts:
+Description: ocfs2 filesystem tools - headers and static libraries
+ Tools to manage the OCFS2 filesystem, including mkfs, tunefs, fsck,
+ debugfs, and the utilities to control the O2CB clustering stack.
+ .
+ This package contains the development environment for the ocfs2, o2dlm,
+ and o2cb libraries.
+
 Package: ocfs2-tools
 Architecture: any
 Depends: ${shlibs:Depends}

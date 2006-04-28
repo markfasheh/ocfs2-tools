@@ -41,6 +41,19 @@ GUI frontend for management and debugging of Oracle Cluster Filesystem 2
 volumes.
 
 
+
+%package -n ocfs2-tools-devel
+Summary: Headers and static archives for ocfs2-tools
+Group: Development/Libraries
+Requires: e2fsprogs-devel, glib2-devel >= 2.2.3, ocfs2-tools = %{version}
+AutoReqProv: No
+
+%description -n ocfs2-tools-devel
+ocfs2-tools-devel contains the libraries and header files needed to
+develop ocfs2 filesystem-specific programs.
+
+
+
 %prep
 %setup -n ocfs2-tools-%{version}
 
@@ -116,6 +129,14 @@ chkconfig --del o2cb >/dev/null
 %{_libdir}/python%{pyversion}/site-packages/ocfs2interface
 /usr/sbin/ocfs2console
 /usr/share/man/man8/ocfs2console.8.gz
+
+%files -n ocfs2-tools-devel
+%defattr(-,root,root)
+%{_libdir}/*.a
+%{_includedir}/o2cb
+%{_includedir}/o2dlm
+%{_includedir}/ocfs2
+
 
 
 %changelog

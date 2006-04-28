@@ -5,6 +5,8 @@ tmp
 dsh
 *.substvars
 ocfs2-tools.o2cb.default
-ocfs2console
 ocfs2-tools.o2cb.init
+ocfs2-tools.ocfs2.init
 ocfs2-tools
+ocfs2-tools-dev
+ocfs2console
