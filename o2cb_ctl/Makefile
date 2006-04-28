@@ -33,13 +33,13 @@ O2CB_CTL_CFILES = o2cb_ctl.c o2cb_config.c \
 
 O2CB_CTL_OBJS = $(subst .c,.o,$(O2CB_CTL_CFILES))
 
-HEADERS = o2cb_config.h jconfig.h jiterator.h
+HFILES = o2cb_config.h jconfig.h jiterator.h
 
 CFILES = $(CLUSTERBO_CFILES) $(O2CB_CTL_CFILES)
 
 MANS = o2cb_ctl.8
 
-DIST_FILES = $(CFILES) $(HEADERS) o2cb_ctl.8.in
+DIST_FILES = $(CFILES) $(HFILES) o2cb_ctl.8.in
 
 DIST_RULES = dist-subdircreate
 

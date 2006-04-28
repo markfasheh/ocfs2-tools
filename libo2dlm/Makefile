@@ -47,6 +47,9 @@ HFILES = 			\
 HFILES_GEN =			\
 	include/o2dlm_err.h
 
+HEADERS_SUBDIR = o2dlm
+HEADERS = $(HFILES) $(HFILES_GEN)
+
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2dlm_err.o
 

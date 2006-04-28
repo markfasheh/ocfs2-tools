@@ -68,7 +68,8 @@ GIDLE_OBJS = $(subst .c,.o,$(GIDLE_CFILES))
 OCFS2_OBJS = $(subst .c,.o,$(OCFS2_CFILES))
 O2CB_OBJS = $(subst .c,.o,$(O2CB_CFILES))
 
-LIBRARIES = plistmodule.so gidlemodule.so ocfs2module.so o2cbmodule.so
+# These are UNINST_ because the python install rule will handle them.
+UNINST_LIBRARIES = plistmodule.so gidlemodule.so ocfs2module.so o2cbmodule.so
 
 PYSRC = \
 	__init__.py		\
@@ -95,7 +96,7 @@ PYSRC = \
 	toolbar.py		\
 	tune.py
 
-PYLIB = $(LIBRARIES) $(PYSRC)
+PYLIB = $(UNINST_LIBRARIES) $(PYSRC)
 
 INSTALL_RULES = install-pylib
 

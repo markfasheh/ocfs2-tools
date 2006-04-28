@@ -51,6 +51,9 @@ HFILES =				\
 HFILES_GEN =		\
 	include/o2cb_err.h
 
+HEADERS_SUBDIR = o2cb
+HEADERS = $(HFILES) $(HFILES_GEN)
+
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2cb_err.o
 

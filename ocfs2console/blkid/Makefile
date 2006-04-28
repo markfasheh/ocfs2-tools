@@ -36,7 +36,7 @@ HFILES = 		\
 
 ifndef HAVE_BLKID
 
-LIBRARIES = libblkid-internal.a
+UNINST_LIBRARIES = libblkid-internal.a
 
 OBJS = $(subst .c,.o,$(CFILES))
 

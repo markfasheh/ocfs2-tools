@@ -100,6 +100,9 @@ HFILES =				\
 HFILES_GEN =		\
 	include/ocfs2_err.h
 
+HEADERS_SUBDIR = ocfs2
+HEADERS = $(HFILES) $(HFILES_GEN)
+
 OBJS = $(subst .c,.o,$(CFILES)) \
 	ocfs2_err.o
 
@@ -111,7 +114,7 @@ include/ocfs2_err.h: ocfs2_err.h
 ocfs2_err.c ocfs2_err.h: ocfs2_err.et
 	compile_et ocfs2_err.et
 
-libocfs2.a: $(OBJS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+libocfs2.a: $(OBJS)
 	rm -f $@
 	$(AR) r $@ $^
 	$(RANLIB) $@

@@ -16,6 +16,8 @@ exec_prefix = @exec_prefix@
 
 bindir = @bindir@
 sbindir = @sbindir@
+includedir = @includedir@
+libdir = @libdir@
 datadir = @datadir@
 sysconfdir = @sysconfdir@
 mandir = @mandir@
@@ -31,7 +33,9 @@ top_builddir = .
 
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_LIBRARY = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
+INSTALL_HEADER = @INSTALL_DATA@
 
 LN_S = @LN_S@
 
