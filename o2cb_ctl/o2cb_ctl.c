@@ -1377,9 +1377,9 @@ gint main(gint argc, gchar *argv[])
 
     ret = o2cb_init();
     if (ret) {
-	com_err(PROGNAME, ret, "Cannot initialize cluster\n");
-	rc = -EINVAL;
-	goto out_error;
+	    com_err(PROGNAME, ret, "Cannot initialize cluster\n");
+	    rc = -EINVAL;
+	    goto out_error;
     }
 
     switch (ctxt.oc_op)

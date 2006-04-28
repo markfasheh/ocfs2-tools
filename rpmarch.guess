@@ -25,13 +25,13 @@ if test -z "$host_cpu" -o "$host_cpu" = "noarch" ; then
 fi
 
 case "$host_cpu" in
-  x86_64|ppc|ia64|s390x)
+  x86_64|ia64|s390x)
     TOOLSARCH=""
     ;;
   i386|i486|i586|i686|i786|k6|k7)
     TOOLSARCH="i386"
     ;;
-  ppc64|ppciseries|ppcpseries|ppc64iseries|ppc64pseries|powerpc|powerpc64)
+  ppc|ppc64|ppciseries|ppcpseries|ppc64iseries|ppc64pseries|powerpc|powerpc64)
     TOOLSARCH="ppc"
     ;;
   *)

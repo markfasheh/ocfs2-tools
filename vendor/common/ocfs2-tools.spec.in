@@ -7,6 +7,12 @@
 %define _prefix /usr
 # Because RPM is dumb
 %define _unpackaged_files_terminate_build 0
+# Because RH defines lib64 on ppc32 builds
+%ifarch ppc
+%define brokenrhlibdir /usr/lib
+%else
+%define brokenrhlibdir %{_libdir}
+%endif
 
 Summary: Tools for managing the Oracle Cluster Filesystem 2
 Name: ocfs2-tools
@@ -80,7 +86,7 @@ cp -f vendor/common/o2cb.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/o2cb
 make DESTDIR="$RPM_BUILD_ROOT" install
 
 %if %{compile_py}
-%{__python} -c "import compileall; compileall.compile_dir('$RPM_BUILD_ROOT/%{_libdir}/python%{pyversion}/site-packages/ocfs2interface', ddir='%{_libdir}/python%{pyversion}/site-packages/ocfs2interface')"
+%{__python} -c "import compileall; compileall.compile_dir('$RPM_BUILD_ROOT/%{brokenrhlibdir}/python%{pyversion}/site-packages/ocfs2interface', ddir='%{brokenrhlibdir}/python%{pyversion}/site-packages/ocfs2interface')"
 %endif
 
 
@@ -126,7 +132,7 @@ chkconfig --del o2cb >/dev/null
 
 %files -n ocfs2console
 %defattr(-,root,root)
-%{_libdir}/python%{pyversion}/site-packages/ocfs2interface
+%{brokenrhlibdir}/python%{pyversion}/site-packages/ocfs2interface
 /usr/sbin/ocfs2console
 /usr/share/man/man8/ocfs2console.8.gz
 
