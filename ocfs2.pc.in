@@ -8,4 +8,4 @@ Description: Userspace ocfs2 library
 Version: @VERSION@
 Requires: o2dlm o2cb com_err
 Libs: -L${libdir} -locfs2
-Cflags: -I${includedir}/ocfs2
+Cflags: -I${includedir}

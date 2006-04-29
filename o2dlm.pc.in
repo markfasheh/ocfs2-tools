@@ -8,4 +8,4 @@ Description: Library for accessing the ocfs2 DLM
 Version: @VERSION@
 Requires: com_err
 Libs: -L${libdir} -lo2dlm
-Cflags: -I${includedir}/o2dlm
+Cflags: -I${includedir}
