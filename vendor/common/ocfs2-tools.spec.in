@@ -139,6 +139,7 @@ chkconfig --del o2cb >/dev/null
 %files -n ocfs2-tools-devel
 %defattr(-,root,root)
 %{_libdir}/*.a
+%{_libdir}/pkgconfig/*.pc
 %{_includedir}/o2cb
 %{_includedir}/o2dlm
 %{_includedir}/ocfs2

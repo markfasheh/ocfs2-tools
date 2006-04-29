@@ -38,6 +38,12 @@ endif
 
 SUBDIRS += vendor
 
+PKGCONFIG_SOURCES =	\
+	o2cb.pc.in	\
+	o2dlm.pc.in	\
+	ocfs2.pc.in
+PKGCONFIG_FILES = $(patsubst %.pc.in,%.pc,$(PKGCONFIG_SOURCES))
+
 DEBIAN_FILES =					\
 	debian/README.Debian			\
 	debian/changelog			\
@@ -53,6 +59,9 @@ DEBIAN_FILES =					\
 	debian/ocfs2console.manpages		\
 	debian/ocfs2console.postinst		\
 	debian/ocfs2console.prerm		\
+	debian/ocfs2-tools-dev.install		\
+	debian/ocfs2-tools-dev.postinst		\
+	debian/ocfs2-tools-dev.prerm		\
 	debian/rules
 
 DIST_FILES = \
@@ -80,6 +89,7 @@ DIST_FILES = \
 	documentation/ocfs2_faq.txt		\
 	documentation/users_guide.txt		\
 	documentation/samples/cluster.conf	\
+	$(PKGCONFIG_SOURCES)			\
 	$(DEBIAN_FILES)
 
 DIST_RULES = dist-subdircreate
@@ -101,7 +111,15 @@ dist: dist-fresh dist-all
 	$(MAKE) dist-bye
 
 distclean: clean
-	rm -f Config.make config.status config.cache config.log
+	rm -f Config.make config.status config.cache config.log $(PKGCONFIG_FILES)
+
+INSTALL_RULES = install-pkgconfig
+
+install-pkgconfig: $(PKGCONFIG_FILES)
+	$(SHELL) $(TOPDIR)/mkinstalldirs $(DESTDIR)$(libdir)/pkgconfig
+	for p in $(PKGCONFIG_FILES); do \
+	  $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/pkgconfig/$$p; \
+        done
 
 srpm: dist
 	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --define "compile_py $(COMPILE_PY)" $(TOPDIR)/vendor/common/ocfs2-tools.spec

@@ -184,6 +184,9 @@ AC_SUBST(BUILD_OCFS2CONSOLE)
 
 AC_CONFIG_FILES([
 Config.make
+o2cb.pc
+o2dlm.pc
+ocfs2.pc
 debugfs.ocfs2/debugfs.ocfs2.8
 mkfs.ocfs2/mkfs.ocfs2.8
 mounted.ocfs2/mounted.ocfs2.8

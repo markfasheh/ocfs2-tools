@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: ocfs2
+Description: Userspace ocfs2 library
+Version: @VERSION@
+Requires: o2dlm o2cb com_err
+Libs: -L${libdir} -locfs2
+Cflags: -I${includedir}/ocfs2
