@@ -610,6 +610,7 @@ static void do_help (char **args)
 	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
 	printf ("fs_locks [-l]\t\t\t\tShow live fs locking state\n");
 	printf ("group <block#>\t\t\t\tShow chain group\n");
+	printf ("hb\t\t\t\t\tShows the used heartbeat blocks\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
 	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
 	printf ("locate <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");

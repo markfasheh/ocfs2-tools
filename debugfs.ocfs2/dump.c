@@ -585,10 +585,11 @@ void dump_hb (FILE *out, char *buf, uint32_t len)
 	for (i = 0; i < 255 && ((i + 1) * 512 < len); ++i) {
 		hb = (struct o2hb_disk_heartbeat_block *)(buf + (i * 512));
 		ocfs2_swap_disk_heartbeat_block(hb);
-		fprintf (out, "\t%4u: %4u %016"PRIx64" %016"PRIx64" "
-			 "%08"PRIx32"\n", i,
-			 hb->hb_node, hb->hb_seq, hb->hb_generation,
-			 hb->hb_cksum);
+		if (hb->hb_seq)
+			fprintf (out, "\t%4u: %4u %016"PRIx64" %016"PRIx64" "
+				 "%08"PRIx32"\n", i,
+				 hb->hb_node, hb->hb_seq, hb->hb_generation,
+				 hb->hb_cksum);
 	}
 
 	return ;
