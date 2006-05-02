@@ -62,6 +62,7 @@ static void do_extent (char **args);
 static void do_chroot (char **args);
 static void do_slotmap (char **args);
 static void do_encode_lockres (char **args);
+static void do_decode_lockres (char **args);
 static void do_locate (char **args);
 static void do_fs_locks (char **args);
 
@@ -93,7 +94,8 @@ static Command commands[] = {
 	{ "slotmap",	do_slotmap },
 	{ "stat",	do_stat },
 	{ "stats",	do_stats },
-	{ "encode",	do_encode_lockres }
+	{ "encode",	do_encode_lockres },
+	{ "decode",	do_decode_lockres }
 };
 
 /*
@@ -604,6 +606,7 @@ static void do_help (char **args)
 	printf ("chroot <filespec>\t\t\tChange root\n");
 	printf ("close\t\t\t\t\tClose a device\n");
 	printf ("curdev\t\t\t\t\tShow current device\n");
+	printf ("decode <lockname#> ...\t\t\tDecode block#(s) from the lockname(s)\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
@@ -1149,6 +1152,24 @@ static void do_encode_lockres (char **args)
 	printf("\n");
 
 	return ;
+}
+
+/*
+ * do_decode_lockres()
+ *
+ */
+static void do_decode_lockres(char **args)
+{
+	uint64_t blkno[MAX_BLOCKS];
+	int count;
+	int i;
+
+	count = process_inodestr_args(args, MAX_BLOCKS, blkno);
+	if (count < 1)
+		return ;
+
+	for (i = 0; i < count; ++i)
+		printf("\t%s\t%"PRIu64"\n", args[i + 1], blkno[i]);
 }
 
 /*
