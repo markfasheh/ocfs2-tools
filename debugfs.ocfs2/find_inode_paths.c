@@ -32,8 +32,10 @@ struct walk_path {
 	FILE *out;
 	ocfs2_filesys *fs;
 	char *path;
-	int found;
-	uint64_t inode;
+	uint32_t found;
+	uint32_t count;
+	int findall;
+	uint64_t *inode;
 };
 
 static int walk_tree_func(struct ocfs2_dir_entry *dentry, int offset,
@@ -42,6 +44,8 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry, int offset,
 	errcode_t ret;
 	int len, oldval;
 	int reti = 0;
+	int i = 0;
+	int print = 0;
 	char *old_path, *path;
 	struct walk_path *wp = priv_data;
 
@@ -71,9 +75,20 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry, int offset,
 
 	oldval = 0;
 
-	if (dentry->inode == wp->inode) {
-		dump_inode_path (wp->out, dentry->inode, path);
-		++wp->found;
+	for (i = 0; i < wp->count; ++i) {
+		if (dentry->inode == wp->inode[i]) {
+			if (!print)
+				dump_inode_path (wp->out, dentry->inode, path);
+			++wp->found;
+			++print;
+		}
+	}
+
+	if (!wp->findall) {
+		if (wp->found >= wp->count) {
+			ocfs2_free(&path);	
+			return OCFS2_DIRENT_ABORT;
+		}
 	}
 
 	if (dentry->file_type == OCFS2_FT_DIR) {
@@ -93,17 +108,44 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry, int offset,
 	return reti;
 }
 
-errcode_t find_inode_paths(ocfs2_filesys *fs, char **args, uint64_t blkno,
-			   FILE *out)
+errcode_t find_inode_paths(ocfs2_filesys *fs, char **args, int findall,
+			   uint32_t count, uint64_t *blknos, FILE *out)
 {
 	errcode_t ret = 0;
 	struct walk_path wp;
+	int i;
+	int printroot = 0;
+	int printsysd = 0;
 
 	wp.argv0 = args[0];
 	wp.out = out;
+	wp.count = count;
+	wp.inode = blknos;
+	wp.findall = findall;
 	wp.found = 0;
-	wp.inode = blkno;
 	wp.fs = fs;
+
+	/* Compare with root and sysdir */
+	for (i = 0; i < count; ++i) {
+		if (blknos[i] == fs->fs_root_blkno) {
+			if (!printroot)
+				dump_inode_path (out, blknos[i], "/");
+			++wp.found;
+			++printroot;
+		}
+		if (blknos[i] == fs->fs_sysdir_blkno) {
+			if (!printsysd)
+				dump_inode_path (out, blknos[i], "//");
+			++wp.found;
+			++printsysd;
+		}
+	}
+
+	if (!findall) {
+		if (wp.found >= wp.count)
+			goto bail;
+	}
+
 
 	/* Walk system dir */
 	wp.path = "//";

@@ -25,7 +25,7 @@
 #ifndef _FIND_INODE_PATH_H_
 #define _FIND_INODE_PATH_H_
 
-errcode_t find_inode_paths(ocfs2_filesys *fs, char **args, uint64_t blkno,
-			   FILE *out);
+errcode_t find_inode_paths(ocfs2_filesys *fs, char **args, int findall,
+			   uint32_t count, uint64_t *blkno, FILE *out);
 
 #endif		/* _FIND_INODE_PATH_H_ */

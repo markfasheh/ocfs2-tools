@@ -24,7 +24,8 @@
  */
 
 #include <main.h>
-#define SYSTEM_FILE_NAME_MAX   40
+#define SYSTEM_FILE_NAME_MAX	40
+#define MAX_BLOCKS		50
 
 typedef void (*PrintFunc) (void *buf);
 typedef gboolean (*WriteFunc) (char **data, void *buf);
@@ -81,6 +82,8 @@ static Command commands[] = {
 	{ "?",		do_help },
 	{ "lcd",	do_lcd },
 	{ "locate",	do_locate },
+	{ "ncheck",	do_locate },
+	{ "findpath",	do_locate },
 	{ "logdump",	do_logdump },
 	{ "ls",		do_ls },
 	{ "open",	do_open },
@@ -250,25 +253,41 @@ static int process_ls_args(char **args, uint64_t *blkno, int *long_opt)
 
 /*
  * process_inodestr_args()
+ * 	args:	arguments starting from command
+ * 	count:	max space available in blkno
+ * 	blkno:	block nums extracted
+ * 	RETURN:	number of blknos
  *
  */
-static int process_inodestr_args(char **args, uint64_t *blkno)
+static int process_inodestr_args(char **args, int count, uint64_t *blkno)
 {
+	uint64_t *p;
+	int i;
+
 	if (check_device_open())
 		return -1;
 
-	if (!args[1] || inodestr_to_inode(args[1], blkno)) {
+	if (count < 1)
+		return 0;
+
+	for (i = 1, p = blkno; i < count + 1; ++i, ++p) {
+		if (!args[i] || inodestr_to_inode(args[i], p))
+			break;
+		if (*p >= gbls.max_blocks) {
+			fprintf(stderr, "%s: Block number %"PRIu64" is "
+				"larger than volume size\n", args[0], *p);
+			return -1;
+		}
+	}
+
+	--i;
+
+	if (!i) {
 		fprintf(stderr, "usage: %s <inode#>\n", args[0]);
 		return -1;
 	}
 
-	if (*blkno >= gbls.max_blocks) {
-		fprintf(stderr, "%s: Block number is larger than volume size\n",
-			args[0]);
-		return -1;
-	}
-
-	return 0;
+	return  i;
 }
 
 /*
@@ -588,13 +607,15 @@ static void do_help (char **args)
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
+	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
 	printf ("fs_locks [-l]\t\t\t\tShow live fs locking state\n");
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
 	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
-	printf ("locate <filespec>\t\t\tList all paths to the inode\n");
+	printf ("locate <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
 	printf ("logdump <slot#>\t\t\t\tPrints journal file for the node slot\n");
 	printf ("ls [-l] <filespec>\t\t\tList directory\n");
+	printf ("ncheck <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
 	printf ("open <device>\t\t\t\tOpen a device\n");
 	printf ("quit, q\t\t\t\t\tExit the program\n");
 	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted filesystem\n");
@@ -897,7 +918,7 @@ static void do_group (char **args)
 	errcode_t ret = 0;
 	int index = 0;
 
-	if (process_inodestr_args(args, &blkno))
+	if (process_inodestr_args(args, 1, &blkno) != 1)
 		return ;
 
 	buf = gbls.blockbuf;
@@ -933,7 +954,7 @@ static void do_extent (char **args)
 	FILE *out;
 	errcode_t ret = 0;
 
-	if (process_inodestr_args(args, &blkno))
+	if (process_inodestr_args(args, 1, &blkno) != 1)
 		return ;
 
 	buf = gbls.blockbuf;
@@ -1135,12 +1156,18 @@ static void do_encode_lockres (char **args)
  */
 static void do_locate(char **args)
 {
-	uint64_t blkno;
-
-	if (process_inode_args(args, &blkno))
+	uint64_t blkno[MAX_BLOCKS];
+	int count = 0;
+	int findall = 1;
+	
+	count = process_inodestr_args(args, MAX_BLOCKS, blkno);
+	if (count < 1)
 		return ;
 
-	find_inode_paths(gbls.fs, args, blkno, stdout);
+	if (!strncasecmp(args[0], "findpath", 8))
+		findall = 0;
+
+	find_inode_paths(gbls.fs, args, findall, count, blkno, stdout);
 }
 
 /*
