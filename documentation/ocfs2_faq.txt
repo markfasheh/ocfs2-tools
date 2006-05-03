@@ -14,7 +14,7 @@ A01	a) Download and install the module and tools rpms.
 
 Q02	How do I know the version number running?
 A02	# cat /proc/fs/ocfs2/version
-	OCFS2 1.2.0 Tue Feb 14 15:58:29 PST 2006 (build db06cd9cd891710e73c5d89a6b4d8812)
+	OCFS2 1.2.1 Fri Apr 21 13:51:24 PDT 2006 (build bd2f25ba0af9677db3572e3ccd92f739)
 
 Q03	How do I configure my system to auto-reboot after a panic?
 A03	To auto-reboot system 60 secs after a panic, do:
@@ -36,11 +36,11 @@ A01	For Novell's SLES9, upgrade to SP3 to get the required modules
 	flavor and architecture. Flavor refers to smp, hugemem, etc.
 
 Q02	How do I interpret the package name
-	ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm?
+	ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm?
 A02	The package name is comprised of multiple parts separated by '-'.
 	a) ocfs2		- Package name
 	b) 2.6.9-22.0.1.ELsmp	- Kernel version and flavor
-	c) 1.2.0		- Package version
+	c) 1.2.1		- Package version
 	d) 1			- Package subversion
 	e) i686			- Architecture
 
@@ -63,12 +63,12 @@ A04	"uname -p" does not always provide the exact kernel architecture.
 
 Q05	How do I install the rpms?
 A05	First install the tools and console packages:
-	# rpm -Uvh ocfs2-tools-1.2.0-1.i386.rpm ocfs2console-1.2.0-1.i386.rpm
+	# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm ocfs2console-1.2.1-1.i386.rpm
 	Then install the appropriate kernel module package:
-	# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm
+	# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm
 
 Q06	Do I need to install the console?
-A06	No, the console is recommended but not required.
+A06	No, the console is not required but recommended for ease-of-use.
 
 Q07	What are the dependencies for installing ocfs2console?
 A07	ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or
@@ -676,7 +676,7 @@ A01	OCFS2 1.2 has two new features:
 	panic-ing).
 
 Q02	Do I need to re-make the volume when upgrading?
-A02	No. OCFS2 1.2 is fully on-disk and network compatible with 1.0.
+A02	No. OCFS2 1.2 is fully on-disk compatible with 1.0.
 
 Q03	Do I need to upgrade anything else?
 A03	Yes, the tools needs to be upgraded to ocfs2-tools 1.2.
@@ -692,12 +692,12 @@ A04	OCFS2 1.1.x shipped with SLES9 SP3 (2.6.5-7.244) is the same as
 	as of the date it was built.
 ==============================================================================
 
-Upgrade from 1.0 to 1.2
------------------------
+Upgrading to 1.2.1
+------------------
 
-Q01	How do I upgrade from 1.0 to 1.2?
-A01	1. Download the ocfs2-tools 1.2 and ocfs2console 1.2 for the
-	target platform and the appropriate ocfs2 1.2 module package
+Q01	How do I upgrade from 1.0/1.2.0 to 1.2.1?
+A01	1. Download the ocfs2-tools 1.2.1 and ocfs2console 1.2.1 for the
+	target platform and the appropriate ocfs2 1.2.1 module package
 	for the kernel version, flavor and architecture. (For more, refer to
 	the "Download and Install" section above.)
 	2. Umount all OCFS2 volumes.
@@ -705,30 +705,24 @@ A01	1. Download the ocfs2-tools 1.2 and ocfs2console 1.2 for the
 	3. Shutdown the cluster and unload the modules.
 		# /etc/init.d/o2cb offline
 		# /etc/init.d/o2cb unload
-	4. Remove the older packages.
-		# rpm --erase `rpm -qa | grep ocfs2`
-	5. Install the new tools and console packages.
-		# rpm -ivh ocfs2-tools-1.2.0-1.i386.rpm
-		# rpm -ivh ocfs2console-1.2.0-1.i386.rpm
-	6. Install the new kernel module package.
-		# rpm -ivh ocfs2-2.6.9-22.0.1.ELsmp-1.2.0-1.i686.rpm
-	7. Rebuild the module dependencies.
-		# depmod -a
-	8. At this stage one could either reboot the node or simply,
-	restart the cluster and mount the volume.
-
-Q02	Why can't I simply upgrade the packages using rpm -Uvh?
-A02	Yes, you can. However, we have just noticed a bug due to which
-	the o2cb and ocfs2 init services are not re-registered during
-	upgrade. If you do happen to use the rpm -Uvh, do follow that up
-	with the following:
+	4. Upgrade.
+		# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm
+		# rpm -Uvh ocfs2console-1.2.1-1.i386.rpm
+		# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm
+	5. Ensure init services ocfs2 and o2cb are enabled.
 		# chkconfig --add o2cb
 		# chkconfig --add ocfs2
-	To check whether the services are enabled, do:
+	6. To check whether the services are enabled, do:
 		# chkconfig --list o2cb
 		o2cb      0:off   1:off   2:on    3:on    4:on    5:on    6:off
 		# chkconfig --list ocfs2
 		ocfs2     0:off   1:off   2:on    3:on    4:on    5:on    6:off
+	7. At this stage one could either reboot the node or simply,
+	restart the cluster and mount the volume.
+
+Q02	Can I do a rolling upgrade from 1.0.x/1.2.0 to 1.2.1?
+A02	Rolling upgrade to 1.2.1 is not recommended. Shutdown the
+	cluster on all nodes before upgrading the nodes.
 
 Q03	After upgrade I am getting the following error on mount
 	"mount.ocfs2: Invalid argument while mounting /dev/sda6 on /ocfs".
