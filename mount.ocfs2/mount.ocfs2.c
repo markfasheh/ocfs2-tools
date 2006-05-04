@@ -367,10 +367,12 @@ int main(int argc, char **argv)
 
 	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS, extra);
 	if (ret) {
+		ret = errno;
 		if (!(mo.flags & MS_REMOUNT) && !dev_ro)
 			stop_heartbeat(hb_ctl_path, mo.dev);
 		block_signals (SIG_UNBLOCK);
-		com_err(progname, errno, "while mounting %s on %s",
+		com_err(progname, ret, "while mounting %s on %s. "
+			"Check 'dmesg' for more information on this error.",
 			mo.dev, mo.dir);
 		goto bail;
 	}
