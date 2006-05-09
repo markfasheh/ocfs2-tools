@@ -65,7 +65,7 @@ develop ocfs2 filesystem-specific programs.
 
 
 %build
-%configure --disable-debug --prefix=/usr --mandir=/usr/share/man
+%configure --disable-debug --prefix=/usr --mandir=/usr/share/man --libdir=%{brokenrhlibdir}
 make
 
 
@@ -138,8 +138,8 @@ chkconfig --del o2cb >/dev/null
 
 %files -n ocfs2-tools-devel
 %defattr(-,root,root)
-%{_libdir}/*.a
-%{_libdir}/pkgconfig/*.pc
+%{brokenrhlibdir}/*.a
+%{brokenrhlibdir}/pkgconfig/*.pc
 %{_includedir}/o2cb
 %{_includedir}/o2dlm
 %{_includedir}/ocfs2
