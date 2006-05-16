@@ -131,6 +131,21 @@ A02	Using a private interconnect is recommended. While OCFS2 does not
 	the net which could lead to a node-self-fencing, a private interconnect
 	is recommended.  One could use the same interconnect for Oracle RAC
 	and OCFS2.
+
+Q03	What should the node name be and should it be related to the IP
+	address?
+A03	The node name needs to match the hostname. The IP address need
+	not be the one associated with that hostname. As in, any valid
+	IP address on that node can be used. OCFS2 will not attempt to
+	match the node name (hostname) with the specified IP address.
+
+Q04	How do I modify the IP address, port or any other information
+	specified in cluster.conf?
+A04	While one can use ocfs2console to add nodes dynamically to a running
+	cluster, any other modifications require the cluster to be offlined.
+	Stop the cluster on all nodes, edit /etc/ocfs2/cluster.conf on one
+	and copy to the rest, and restart the cluster on all nodes. Always
+	ensure that cluster.conf is the same on all the nodes in the cluster.
 ==============================================================================
 
 O2CB Cluster Service
