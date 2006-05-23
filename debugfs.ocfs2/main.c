@@ -51,8 +51,9 @@ static void usage (char *progname)
 	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
 	g_print ("usage: %s -d, --decode <lockres>\n", progname);
 	g_print ("usage: %s -e, --encode <lock type> <block num> <generation>\n", progname);
-	g_print ("usage: %s [-f cmdfile] [-V] [-w] [-n] [-?] [device]\n", progname);
+	g_print ("usage: %s [-f cmdfile] [-R request] [-V] [-w] [-n] [-?] [device]\n", progname);
 	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
+	g_print ("\t-R, --request <command>\t Execute a single command\n");
 	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
 	g_print ("\t-V, --version\t\tShow version\n");
 	g_print ("\t-n, --noprompt\t\tHide prompt\n");
@@ -188,6 +189,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 	int c;
 	static struct option long_options[] = {
 		{ "file", 1, 0, 'f' },
+		{ "request", 1, 0, 'R' },
 		{ "version", 0, 0, 'V' },
 		{ "help", 0, 0, '?' },
 		{ "write", 0, 0, '?' },
@@ -202,7 +204,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		if (decodemode || encodemode || logmode)
 			break;
 
-		c = getopt_long(argc, argv, "lf:deV?wn", long_options, NULL);
+		c = getopt_long(argc, argv, "lf:R:deV?wn", long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -210,6 +212,14 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		case 'f':
 			opts->cmd_file = strdup(optarg);
 			if (!strlen(opts->cmd_file)) {
+				usage(gbls.progname);
+				exit(1);
+			}
+			break;
+
+		case 'R':
+			opts->one_cmd = strdup(optarg);
+			if (!strlen(opts->one_cmd)) {
 				usage(gbls.progname);
 				exit(1);
 			}
@@ -464,13 +474,15 @@ int main (int argc, char **argv)
 	if (!opts.cmd_file)
 		gbls.interactive++;
 
-	if (!opts.no_prompt)
-		print_version (gbls.progname);
-
 	if (opts.device) {
 		line = g_strdup_printf ("open %s", opts.device);
 		do_command (line);
 		g_free (line);
+	}
+
+	if (opts.one_cmd) {
+		do_command (opts.one_cmd);
+		goto bail;
 	}
 
 	if (opts.cmd_file) {
@@ -480,6 +492,9 @@ int main (int argc, char **argv)
 			goto bail;
 		}
 	}
+
+	if (!opts.no_prompt)
+		print_version (gbls.progname);
 
 	while (1) {
 		line = get_line(cmd, opts.no_prompt);

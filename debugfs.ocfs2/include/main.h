@@ -88,6 +88,7 @@ typedef struct _dbgfs_opts {
 	int allow_write;
 	int no_prompt;
 	char *cmd_file;
+	char *one_cmd;
 	char *device;
 } dbgfs_opts;
 
