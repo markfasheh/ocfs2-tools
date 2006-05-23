@@ -91,6 +91,7 @@ int detect_block (char *buf)
 {
 	struct ocfs2_dinode *inode;
 	struct ocfs2_extent_block *extent;
+	struct ocfs2_group_desc *group;
 	int ret = -1;
 
 	inode = (struct ocfs2_dinode *)buf;
@@ -104,6 +105,13 @@ int detect_block (char *buf)
 	if (!memcmp(extent->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
 		    sizeof(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
 		ret = 2;
+		goto bail;
+	}
+
+	group = (struct ocfs2_group_desc *)buf;
+	if (!memcmp(group->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
+		    sizeof(OCFS2_GROUP_DESC_SIGNATURE))) {
+		ret = 3;
 		goto bail;
 	}
 

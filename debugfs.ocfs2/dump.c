@@ -527,6 +527,11 @@ void dump_jbd_metadata (FILE *out, int type, char *buf, uint64_t blknum)
 		dump_extent_block (out, (struct ocfs2_extent_block *)buf);
 		fprintf (out, "\n");
 		break;
+	case 3:
+		fprintf(out, "Group\n");
+		dump_group_descriptor (out, (struct ocfs2_group_desc *)buf, 0);
+		fprintf (out, "\n");
+		break;
 	default:
 		fprintf (out, "TODO\n\n");
 		break;
