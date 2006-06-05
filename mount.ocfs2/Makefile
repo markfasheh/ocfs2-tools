@@ -33,8 +33,9 @@ HFILES = $(subst .c,.h,$(CFILES))
 HFILES += mount_constants.h nls.h paths.h
 
 OBJS = $(subst .c,.o,$(CFILES))
+MANS = mount.ocfs2.8
 
-DIST_FILES = $(CFILES) $(HFILES)
+DIST_FILES = $(CFILES) $(HFILES) $(addsuffix .in,$(MANS))
 
 all: mount.ocfs2
 

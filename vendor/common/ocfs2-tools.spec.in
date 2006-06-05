@@ -26,7 +26,7 @@ Distribution: Oracle
 Vendor: Oracle
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: coreutils, net-tools, modutils, e2fsprogs, %{chkconfig_dep}, glib2 >= 2.2.3
+Requires: bash, coreutils, net-tools, modutils, e2fsprogs, %{chkconfig_dep}, glib2 >= 2.2.3
 BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, %{pygtk_name} >= 1.99.16, python-devel >= %{pyversion}
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
@@ -124,6 +124,7 @@ chkconfig --del o2cb >/dev/null
 /usr/share/man/man8/fsck.ocfs2.checks.8.gz
 /usr/share/man/man8/mkfs.ocfs2.8.gz
 /usr/share/man/man8/tunefs.ocfs2.8.gz
+/usr/share/man/man8/mount.ocfs2.8.gz
 /usr/share/man/man8/mounted.ocfs2.8.gz
 /usr/share/man/man8/o2cb_ctl.8.gz
 /usr/share/man/man8/ocfs2_hb_ctl.8.gz

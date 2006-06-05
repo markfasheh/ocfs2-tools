@@ -192,6 +192,7 @@ mkfs.ocfs2/mkfs.ocfs2.8
 mounted.ocfs2/mounted.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.checks.8
+mount.ocfs2/mount.ocfs2.8
 o2cb_ctl/o2cb_ctl.8
 ocfs2_hb_ctl/ocfs2_hb_ctl.8
 ocfs2cdsl/ocfs2cdsl.8

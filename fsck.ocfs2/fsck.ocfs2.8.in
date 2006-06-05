@@ -93,7 +93,7 @@ The exit code returned by \fBfsck.ocfs2\fR is the sum of the following condition
 .SH "AUTHORS"
 Oracle Corporation.  This man page entry derives some text, especially the exit code summary, from
 .BR e2fsck(8)
-by Theodore Ts’o <tytso@mit.edu>. 
+by Theodore Y. Ts'o <tytso@mit.edu>.
 
 .SH "COPYRIGHT"
 Copyright \(co 2004, 2005 Oracle. All rights reserved.

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # init fragment for O2CB.
 #
 # chkconfig: 2345 24 20
@@ -541,24 +541,24 @@ online()
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
     if [ -z "$CLUSTER" ]
     then
-        echo "Cluster not known"
+        echo "O2CB cluster not known"
         return
     fi
 
     check_online $CLUSTER
     if [ $? = 2 ]
     then
-        echo "Cluster ${CLUSTER} already online"
+        echo "O2CB cluster ${CLUSTER} already online"
         return
     fi
 
     if ! [ -f ${CLUSTERCONF} ]
     then
-        echo -n "Checking cluster configuration : "
+        echo -n "Checking O2CB cluster configuration : "
         if_fail 1
     fi
 
-    echo -n "Starting cluster ${CLUSTER}: "
+    echo -n "Starting O2CB cluster ${CLUSTER}: "
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
     if [ $? = 0 ]
     then
@@ -581,7 +581,7 @@ online()
         echo "$OUTPUT"
     fi
 
-    echo -n "Stopping cluster ${CLUSTER}: "
+    echo -n "Stopping O2CB cluster ${CLUSTER}: "
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=no 2>&1`"
     if_fail "$?" "$OUTPUT"
 }
@@ -634,7 +634,7 @@ offline()
 
     clean_heartbeat $CLUSTER
 
-    echo -n "Stopping cluster ${CLUSTER}: "
+    echo -n "Stopping O2CB cluster ${CLUSTER}: "
     check_heartbeat $CLUSTER
     if [ $? != 0 ]
     then
@@ -666,7 +666,7 @@ unload()
     then
         ls -1 $(configfs_path)/cluster/ | while read CLUSTER
         do
-            echo "Unable to unload modules as Cluster ${CLUSTER} is still online" >&2
+            echo "Unable to unload modules as O2CB cluster ${CLUSTER} is still online" >&2
             exit 1
         done
         if [ $? = 1 ]
@@ -708,7 +708,7 @@ status()
         return 1;
     fi
 
-    echo -n "Checking cluster $CLUSTER: "
+    echo -n "Checking O2CB cluster $CLUSTER: "
     check_online $CLUSTER
     if [ $? = 2 ]
     then
@@ -718,7 +718,7 @@ status()
        return 0;
     fi
 
-    echo -n "Checking heartbeat: "
+    echo -n "Checking O2CB heartbeat: "
     check_heartbeat $CLUSTER
     if [ $? = 2 ]
     then
