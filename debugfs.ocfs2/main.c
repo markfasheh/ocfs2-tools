@@ -53,7 +53,7 @@ static void usage (char *progname)
 	g_print ("usage: %s -e, --encode <lock type> <block num> <generation>\n", progname);
 	g_print ("usage: %s [-f cmdfile] [-R request] [-V] [-w] [-n] [-?] [device]\n", progname);
 	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
-	g_print ("\t-R, --request <command>\t Execute a single command\n");
+	g_print ("\t-R, --request <command>\tExecute a single command\n");
 	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
 	g_print ("\t-V, --version\t\tShow version\n");
 	g_print ("\t-n, --noprompt\t\tHide prompt\n");
