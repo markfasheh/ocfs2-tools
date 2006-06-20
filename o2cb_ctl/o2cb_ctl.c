@@ -904,7 +904,7 @@ static gint online_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
         ret = O2CB_ET_CONFIGURATION_ERROR;
         com_err(PROGNAME, ret, "while populating cluster %s.  None of its "
                 "nodes were considered local.  A node is considered local "
-                "when its node name in the configuration maches this "
+                "when its node name in the configuration matches this "
                 "machine's host name.", name);
         rc = -EINVAL;
         goto out_error;
