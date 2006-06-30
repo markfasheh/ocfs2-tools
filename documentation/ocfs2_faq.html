@@ -1,0 +1,1105 @@
+<html>
+<hr>
+<p>
+<font size=+2> <center><b>OCFS2 - FREQUENTLY ASKED QUESTIONS</b></center></font>
+</p>
+
+<ol>
+<p>
+<font size=+1><b>GENERAL</b></font>
+</p>
+
+<font size=+1>
+<li>How do I get started?<br>
+</font>
+<ul>
+<li>Download and install the module and tools rpms.
+<li>Create cluster.conf and propagate to all nodes.
+<li>Configure and start the O2CB cluster service.
+<li>Format the volume.
+<li>Mount the volume.
+</ul>
+
+<font size=+1>
+<li>How do I know the version number running?<br>
+</font>
+<pre>
+	# cat /proc/fs/ocfs2/version
+	OCFS2 1.2.1 Fri Apr 21 13:51:24 PDT 2006 (build bd2f25ba0af9677db3572e3ccd92f739)
+</pre>
+
+<font size=+1>
+<li>How do I configure my system to auto-reboot after a panic?<br>
+</font>
+To auto-reboot system 60 secs after a panic, do:
+<pre>
+	# echo 60 > /proc/sys/kernel/panic
+</pre>
+To enable the above on every reboot, add the following to /etc/sysctl.conf:
+<pre>
+	kernel.panic = 60
+</pre>
+
+<p>
+<font size=+1><b>DOWNLOAD AND INSTALL</b></font>
+</p>
+
+<font size=+1>
+<li>Where do I get the packages from?<br>
+</font>
+For Novell's SLES9, upgrade to the latest SP3 kernel to get the required modules installed. Also,
+install ocfs2-tools and ocfs2console packages. For Red Hat's RHEL4, download
+and install the appropriate module package and the two tools packages,
+ocfs2-tools and ocfs2console. Appropriate module refers to one matching the
+kernel version, flavor and architecture. Flavor refers to smp, hugemem, etc.<br>
+
+<font size=+1>
+<li>What are the latest versions of the OCFS2 packages?<br>
+</font>
+The latest module package version is 1.2.2. The latest tools/console packages
+versions are 1.2.1.</br>
+
+<font size=+1>
+<li>How do I interpret the package name ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm?<br>
+</font>
+The package name is comprised of multiple parts separated by '-'.<br>
+<ul>
+<li><b>ocfs2</b> - Package name
+<li><b>2.6.9-22.0.1.ELsmp</b> - Kernel version and flavor
+<li><b>1.2.1</b> - Package version
+<li><b>1</b> - Package subversion
+<li><b>i686</b> - Architecture
+</ul>
+
+<font size=+1>
+<li>How do I know which package to install on my box?<br>
+</font>
+After one identifies the package name and version to install, one still needs
+to determine the kernel version, flavor and architecture.<br>
+To know the kernel version and flavor, do:
+<pre>
+	# uname -r
+	2.6.9-22.0.1.ELsmp
+</pre>
+To know the architecture, do:
+<pre>
+	# rpm -qf /boot/vmlinuz-`uname -r` --queryformat "%{ARCH}\n"
+	i686
+</pre>
+
+<font size=+1>
+<li>Why can't I use <i>uname -p</i> to determine the kernel architecture?<br>
+</font>
+<i>uname -p</i> does not always provide the exact kernel architecture. Case in
+point the RHEL3 kernels on x86_64. Even though Red Hat has two different kernel
+architectures available for this port, ia32e and x86_64, <i>uname -p</i>
+identifies both as the generic <i>x86_64</i>.<br>
+
+<font size=+1>
+<li>How do I install the rpms?<br>
+</font>
+First install the tools and console packages:
+<pre>
+	# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm ocfs2console-1.2.1-1.i386.rpm
+</pre>
+Then install the appropriate kernel module package:
+<pre>
+	# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm
+</pre>
+
+<font size=+1>
+<li>Do I need to install the console?<br>
+</font>
+No, the console is not required but recommended for ease-of-use.<br>
+
+<font size=+1>
+<li>What are the dependencies for installing ocfs2console?<br>
+</font>
+ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or later,
+pygtk2 (EL4) or python-gtk (SLES9) 1.99.16 or later, python 2.3 or later and
+ocfs2-tools.<br>
+
+<font size=+1>
+<li>What modules are installed with the OCFS2 1.2 package?<br>
+</font>
+<ul>
+<li>configfs.ko
+<li>ocfs2.ko
+<li>ocfs2_dlm.ko
+<li>ocfs2_dlmfs.ko
+<li>ocfs2_nodemanager.ko
+<li>debugfs
+</ul>
+
+<font size=+1>
+<li>What tools are installed with the ocfs2-tools 1.2 package?<br>
+</font>
+<ul>
+<li>mkfs.ocfs2
+<li>fsck.ocfs2
+<li>tunefs.ocfs2
+<li>debugfs.ocfs2
+<li>mount.ocfs2
+<li>mounted.ocfs2
+<li>ocfs2cdsl
+<li>ocfs2_hb_ctl
+<li>o2cb_ctl
+<li>o2cb - init service to start/stop the cluster
+<li>ocfs2 - init service to mount/umount ocfs2 volumes
+<li>ocfs2console - installed with the console package
+</ul>
+
+<font size=+1>
+<li>What is debugfs and is it related to debugfs.ocfs2?<br>
+</font>
+<a href=http://kerneltrap.org/node/4394>debugfs</a> is an in-memory filesystem
+developed by Greg Kroah-Hartman. It is useful for debugging as it allows kernel
+space to easily export data to userspace. It is currently being used by OCFS2
+to dump the list of filesystem locks and could be used for more in the future.
+It is bundled with OCFS2 as the various distributions are currently not bundling
+it. While debugfs and debugfs.ocfs2 are unrelated in general, the latter is used
+as the front-end for the debugging info provided by the former. For example,
+refer to the troubleshooting section.
+
+<p>
+<font size=+1><b>CONFIGURE</b></font>
+</p>
+
+<font size=+1>
+<li>How do I populate /etc/ocfs2/cluster.conf?<br>
+</font>
+If you have installed the console, use it to create this configuration file.
+For details, refer to the user's guide.  If you do not have the console installed,
+check the Appendix in the User's guide for a sample cluster.conf and the details
+of all the components. Do not forget to copy this file to all the nodes in the
+cluster. If you ever edit this file on any node, ensure the other nodes are
+updated as well.<br>
+
+<font size=+1>
+<li>Should the IP interconnect be public or private?<br>
+</font>
+Using a private interconnect is recommended. While OCFS2 does not take much
+bandwidth, it does require the nodes to be alive on the network and sends regular
+keepalive packets to ensure that they are. To avoid a network delay being
+interpreted as a node disappearing on the net which could lead to a
+node-self-fencing, a private interconnect is recommended. One could use the
+same interconnect for Oracle RAC and OCFS2.<br>
+
+<font size=+1>
+<li>What should the node name be and should it be related to the IP address?<br>
+</font>
+The node name needs to match the hostname. The IP address need not be the one
+associated with that hostname. As in, any valid IP address on that node can be
+used. OCFS2 will not attempt to match the node name (hostname) with the
+specified IP address.<br>
+
+<font size=+1>
+<li>How do I modify the IP address, port or any other information specified in cluster.conf?<br>
+</font>
+While one can use ocfs2console to add nodes dynamically to a running cluster,
+any other modifications require the cluster to be offlined. Stop the cluster
+on all nodes, edit /etc/ocfs2/cluster.conf on one and copy to the rest, and
+restart the cluster on all nodes. Always ensure that cluster.conf is the
+same on all the nodes in the cluster.<br>
+
+<p>
+<font size=+1><b>O2CB CLUSTER SERVICE</b></font>
+</p>
+
+<font size=+1>
+<li>How do I configure the cluster service?<br>
+</font>
+<pre>
+	# /etc/init.d/o2cb configure
+</pre>
+Enter 'y' if you want the service to load on boot and the name of the
+cluster (as listed in /etc/ocfs2/cluster.conf).<br>
+
+<font size=+1>
+<li>How do I start the cluster service?<br>
+</font>
+<ul>
+<li>To load the modules, do:
+<pre>
+	# /etc/init.d/o2cb load
+</pre>
+<li>To Online it, do:
+<pre>
+	# /etc/init.d/o2cb online [cluster_name]
+</pre>
+</ul>
+If you have configured the cluster to load on boot, you could combine the two as follows:
+<pre>
+	# /etc/init.d/o2cb start [cluster_name]
+</pre>
+The cluster name is not required if you have specified the name during configuration.<br>
+
+<font size=+1>
+<li>How do I stop the cluster service?<br>
+</font>
+<ul>
+<li>To offline it, do:
+<pre>
+	# /etc/init.d/o2cb offline [cluster_name]
+</pre>
+<li>To unload the modules, do:
+<pre>
+	# /etc/init.d/o2cb unload
+</pre>
+</ul>
+If you have configured the cluster to load on boot, you could combine the two as follows:
+<pre>
+	# /etc/init.d/o2cb stop [cluster_name]
+</pre>
+The cluster name is not required if you have specified the name during configuration.<br>
+
+<font size=+1>
+<li>How can I learn the status of the cluster?<br>
+</font>
+To learn the status of the cluster, do:
+<pre>
+	# /etc/init.d/o2cb status
+</pre>
+
+<font size=+1>
+<li>I am unable to get the cluster online. What could be wrong?<br>
+</font>
+Check whether the node name in the cluster.conf exactly matches the hostname.
+One of the nodes in the cluster.conf need to be in the cluster for the cluster
+to be online.<br>
+
+<p>
+<font size=+1><b>FORMAT</b></font>
+</p>
+
+<font size=+1>
+<li>How do I format a volume?<br>
+</font>
+You could either use the console or use mkfs.ocfs2 directly to format the volume.
+For console, refer to the user's guide.
+<pre>
+	# mkfs.ocfs2 -L "oracle_home" /dev/sdX
+</pre>
+The above formats the volume with default block and cluster sizes, which are computed
+based upon the size of the volume.
+<pre>
+	# mkfs.ocfs2 -b 4k -C 32K -L "oracle_home" -N 4 /dev/sdX
+</pre>
+The above formats the volume for 4 nodes with a 4K block size and a 32K cluster size.<br>
+
+<font size=+1>
+<li>What does the number of node slots during format refer to?<br>
+</font>
+The number of node slots specifies the number of nodes that can concurrently mount
+the volume. This number is specified during format and can be increased using
+tunefs.ocfs2. This number cannot be decreased.<br>
+
+<font size=+1>
+<li>What should I consider when determining the number of node slots?<br>
+</font>
+OCFS2 allocates system files, like Journal, for each node slot. So as to not
+to waste space, one should specify a number within the ballpark of the actual
+number of nodes. Also, as this number can be increased, there is no need to
+specify a much larger number than one plans for mounting the volume.<br>
+
+<font size=+1>
+<li>Does the number of node slots have to be the same for all volumes?<br>
+</font>
+No. This number can be different for each volume.<br>
+
+<font size=+1>
+<li>What block size should I use?<br>
+</font>
+A block size is the smallest unit of space addressable by the file system.
+OCFS2 supports block sizes of 512 bytes, 1K, 2K and 4K. The block size cannot
+be changed after the format. For most volume sizes, a 4K size is recommended.
+On the other hand, the 512 bytes block is never recommended.<br>
+
+<font size=+1>
+<li>What cluster size should I use?<br>
+</font>
+A cluster size is the smallest unit of space allocated to a file to hold the data.
+OCFS2 supports cluster sizes of 4K, 8K, 16K, 32K, 64K, 128K, 256K, 512K and 1M.
+For database volumes, a cluster size of 128K or larger is recommended. For Oracle
+home, 32K to 64K.<br>
+
+<font size=+1>
+<li>Any advantage of labelling the volumes?<br>
+</font>
+As in a shared disk environment, the disk name (/dev/sdX) for a particular device
+be different on different nodes, labelling becomes a must for easy identification.
+You could also use labels to identify volumes during mount.
+<pre>
+	# mount -L "label" /dir
+</pre>
+The volume label is changeable using the tunefs.ocfs2 utility.<br>
+
+<p>
+<font size=+1><b>MOUNT</b></font>
+</p>
+
+<font size=+1>
+<li>How do I mount the volume?<br>
+</font>
+You could either use the console or use mount directly. For console, refer to
+the user's guide.
+<pre>
+	# mount -t ocfs2 /dev/sdX /dir
+</pre>
+The above command will mount device /dev/sdX on directory /dir.<br>
+
+<font size=+1>
+<li>How do I mount by label?<br>
+</font>
+To mount by label do:
+<pre>
+	# mount -L "label" /dir
+</pre>
+
+<font size=+1>
+<li>What entry to I add to /etc/fstab to mount an ocfs2 volume?<br>
+</font>
+Add the following:
+<pre>
+	/dev/sdX	/dir	ocfs2	noauto,_netdev	0	0
+</pre>
+The _netdev option indicates that the devices needs to be mounted after the network is up.<br>
+
+<font size=+1>
+<li>What do I need to do to mount OCFS2 volumes on boot?<br>
+</font>
+<ul>
+<li>Enable o2cb service using:
+<pre>
+	# chkconfig --add o2cb
+</pre>
+<li>Enable ocfs2 service using:
+<pre>
+	# chkconfig --add ocfs2
+</pre>
+<li>Configure o2cb to load on boot using:
+<pre>
+	# /etc/init.d/o2cb configure
+</pre>
+<li>Add entries into /etc/fstab as follows:
+<pre>
+	/dev/sdX	/dir	ocfs2	_netdev	0	0
+</pre>
+</ul>
+
+<font size=+1>
+<li>How do I know my volume is mounted?<br>
+</font>
+<ul>
+<li>Enter mount without arguments, or,
+<pre>
+	# mount
+</pre>
+<li>List /etc/mtab, or,
+<pre>
+	# cat /etc/mtab
+</pre>
+<li>List /proc/mounts, or,
+<pre>
+	# cat /proc/mounts
+</pre>
+<li>Run ocfs2 service.
+<pre>
+	# /etc/init.d/ocfs2 status
+</pre>
+mount command reads the /etc/mtab to show the information.<br>
+</ul>
+
+<font size=+1>
+<li>What are the /config and /dlm mountpoints for?<br>
+</font>
+OCFS2 comes bundled with two in-memory filesystems <i>configfs</i> and <i>ocfs2_dlmfs</i>.
+<i>configfs</i> is used by the ocfs2 tools to communicate to the in-kernel node
+manager the list of nodes in the cluster and to the in-kernel heartbeat thread
+the resource to heartbeat on. <i>ocfs2_dlmfs</i> is used by ocfs2 tools to communicate
+with the in-kernel dlm to take and release clusterwide locks on resources.<br>
+
+<font size=+1>
+<li>Why does it take so much time to mount the volume?<br>
+</font>
+It takes around 5 secs for a volume to mount. It does so so as to let the heartbeat
+thread stabilize. In a later release, we plan to add support for a global
+heartbeat, which will make most mounts instant.<br>
+
+<p>
+<font size=+1><b>ORACLE RAC</b></font>
+</p>
+
+<font size=+1>
+<li>Any special flags to run Oracle RAC?<br>
+</font>
+OCFS2 volumes containing the Voting diskfile (CRS), Cluster registry (OCR),
+Data files, Redo logs, Archive logs and control files must be mounted with the
+<b><i>datavolume</i></b> and <b><i>nointr</i></b> mount options. The <i>datavolume</i>
+option ensures that the Oracle processes opens these files with the o_direct flag.
+The <i>nointr</i> option ensures that the ios are not interrupted by signals.
+<pre>
+	# mount -o datavolume,nointr -t ocfs2 /dev/sda1 /u01/db
+</pre>
+
+<font size=+1>
+<li>What about the volume containing Oracle home?<br>
+</font>
+Oracle home volume should be mounted normally, that is, without the <i>datavolume</i>
+and <i>nointr</i> mount options. These mount options are only relevant for Oracle
+files listed above.
+<pre>
+	# mount -t ocfs2 /dev/sdb1 /software/orahome
+</pre>
+
+<font size=+1>
+<li>Does that mean I cannot have my data file and Oracle home on the same volume?<br>
+</font>
+Yes. The volume containing the Oracle data files, redo-logs, etc. should never
+be on the same volume as the distribution (including the trace logs like,
+alert.log).<br>
+
+<p>
+<font size=+1><b>MOVING DATA FROM OCFS (RELEASE 1) TO OCFS2</b></font>
+</p>
+
+<font size=+1>
+<li>Can I mount OCFS volumes as OCFS2?<br>
+</font>
+No. OCFS and OCFS2 are not on-disk compatible. We had to break the compatibility
+in order to add many of the new features. At the same time, we have added enough
+flexibility in the new disk layout so as to maintain backward compatibility
+in the future.<br>
+
+<font size=+1>
+<li>Can OCFS volumes and OCFS2 volumes be mounted on the same machine simultaneously?<br>
+</font>
+No. OCFS only works on 2.4 linux kernels (Red Hat's AS2.1/EL3 and SuSE's SLES8).
+OCFS2, on the other hand, only works on the 2.6 kernels (Red Hat's EL4 and
+SuSE's SLES9).<br>
+
+<font size=+1>
+<li>Can I access my OCFS volume on 2.6 kernels (SLES9/RHEL4)?<br>
+</font>
+Yes, you can access the OCFS volume on 2.6 kernels using FSCat tools, fsls and
+fscp. These tools can access the OCFS volumes at the device layer, to list and
+copy the files to another filesystem.  FSCat tools are available on oss.oracle.com.<br>
+
+<font size=+1>
+<li>Can I in-place convert my OCFS volume to OCFS2?<br>
+</font>
+No. The on-disk layout of OCFS and OCFS2 are sufficiently different that it
+would require a third disk (as a temporary buffer) inorder to in-place upgrade
+the volume. With that in mind, it was decided not to develop such a tool but
+instead provide tools to copy data from OCFS without one having to mount it.<br>
+
+<font size=+1>
+<li>What is the quickest way to move data from OCFS to OCFS2?<br>
+</font>
+Quickest would mean having to perform the minimal number of copies. If you have
+the current backup on a non-OCFS volume accessible from the 2.6 kernel install,
+then all you would need to do is to retore the backup on the OCFS2 volume(s).
+If you do not have a backup but have a setup in which the system containing the
+OCFS2 volumes can access the disks containing the OCFS volume, you can use the
+FSCat tools to extract data from the OCFS volume and copy onto OCFS2.<br>
+
+<p>
+<font size=+1><b>COREUTILS</b></font>
+</p>
+
+<font size=+1>
+<li>Like with OCFS (Release 1), do I need to use o_direct enabled tools to
+perform cp, mv, tar, etc.?<br>
+</font>
+No. OCFS2 does not need the o_direct enabled tools. The file system allows
+processes to open files in both o_direct and bufferred mode concurrently.<br>
+
+<p>
+<font size=+1><b>TROUBLESHOOTING</b></font>
+</p>
+
+<font size=+1>
+<li>How do I enable and disable filesystem tracing?<br>
+</font>
+To list all the debug bits along with their statuses, do:
+<pre>
+	# debugfs.ocfs2 -l
+</pre>
+To enable tracing the bit SUPER, do:
+<pre>
+	# debugfs.ocfs2 -l SUPER allow
+</pre>
+To disable tracing the bit SUPER, do:
+<pre>
+	# debugfs.ocfs2 -l SUPER off
+</pre>
+To totally turn off tracing the SUPER bit, as in, turn off tracing even if
+some other bit is enabled for the same, do:
+<pre>
+	# debugfs.ocfs2 -l SUPER deny
+</pre>
+To enable heartbeat tracing, do:
+<pre>
+	# debugfs.ocfs2 -l HEARTBEAT ENTRY EXIT allow
+</pre>
+To disable heartbeat tracing, do:
+<pre>
+	# debugfs.ocfs2 -l HEARTBEAT off ENTRY EXIT deny
+</pre>
+
+<font size=+1>
+<li>How do I get a list of filesystem locks and their statuses?<br>
+</font>
+OCFS2 1.0.9+ has this feature. To get this list, do:
+<ul>
+<li>Mount debugfs is mounted at /debug.
+<pre>
+	# mount -t debugfs debugfs /debug
+</pre>
+<li>Dump the locks.
+<pre>
+	# echo "fs_locks" | debugfs.ocfs2 /dev/sdX >/tmp/fslocks
+</pre>
+</ul>
+
+<font size=+1>
+<li>How do I read the fs_locks output?<br>
+</font>
+Let's look at a sample output:
+<pre>
+	Lockres: M000000000000000006672078b84822  Mode: Protected Read
+	Flags: Initialized Attached
+	RO Holders: 0  EX Holders: 0
+	Pending Action: None  Pending Unlock Action: None
+	Requested Mode: Protected Read  Blocking Mode: Invalid
+</pre>
+First thing to note is the Lockres, which is the lockname. The dlm identifies
+resources using locknames. A lockname is a combination of a lock type
+(S superblock, M metadata, D filedata, R rename, W readwrite), inode number
+and generation.<br>
+To get the inode number and generation from lockname, do:
+<pre>
+	#echo "stat <M000000000000000006672078b84822>" | debugfs.ocfs2 -n /dev/sdX
+	Inode: 419616   Mode: 0666   Generation: 2025343010 (0x78b84822)
+	....
+</pre>
+To map the lockname to a directory entry, do:
+<pre>
+	# echo "locate <M000000000000000006672078b84822>" | debugfs.ocfs2 -n /dev/sdX
+	419616  /linux-2.6.15/arch/i386/kernel/semaphore.c
+</pre>
+One could also provide the inode number instead of the lockname.
+<pre>
+	# echo "locate <419616>" | debugfs.ocfs2 -n /dev/sdX
+	419616  /linux-2.6.15/arch/i386/kernel/semaphore.c
+</pre>
+To get a lockname from a directory entry, do:
+<pre>
+	# echo "encode /linux-2.6.15/arch/i386/kernel/semaphore.c" | debugfs.ocfs2 -n /dev/sdX
+	M000000000000000006672078b84822 D000000000000000006672078b84822 W000000000000000006672078b84822
+</pre>
+The first is the Metadata lock, then Data lock and last ReadWrite lock for the same resource.<br>
+<br>
+The DLM supports 3 lock modes: NL no lock, PR protected read and EX exclusive.<br>
+<br>
+If you have a dlm hang, the resource to look for would be one with the "Busy" flag set.<br>
+<br>
+The next step would be to query the dlm for the lock resource.<br>
+<br>
+Note: The dlm debugging is still a work in progress.<br>
+<br>
+To do dlm debugging, first one needs to know the dlm domain, which matches
+the volume UUID.
+<pre>
+	# echo "stats" | debugfs.ocfs2 -n /dev/sdX | grep UUID: | while read a b ; do echo $b ; done
+	82DA8137A49A47E4B187F74E09FBBB4B
+</pre>
+Then do:
+<pre>
+	# echo R dlm_domain lockname > /proc/fs/ocfs2_dlm/debug
+</pre>
+For example:
+<pre>
+	# echo R 82DA8137A49A47E4B187F74E09FBBB4B M000000000000000006672078b84822 > /proc/fs/ocfs2_dlm/debug
+	# dmesg | tail
+	struct dlm_ctxt: 82DA8137A49A47E4B187F74E09FBBB4B, node=79, key=965960985
+	lockres: M000000000000000006672078b84822, owner=75, state=0 last used: 0, on purge list: no
+	  granted queue:
+	    type=3, conv=-1, node=79, cookie=11673330234144325711, ast=(empty=y,pend=n), bast=(empty=y,pend=n)
+	  converting queue:
+	  blocked queue:
+</pre>
+It shows that the lock is mastered by node 75 and that node 79 has been granted
+a PR lock on the resource.<br>
+<br>
+This is just to give a flavor of dlm debugging.<br>
+
+<p>
+<font size=+1><b>LIMITS</b></font>
+</p>
+
+<font size=+1>
+<li>Is there a limit to the number of subdirectories in a directory?<br>
+</font>
+Yes. OCFS2 currently allows up to 32000 subdirectories. While this limit could
+be increased, we will not be doing it till we implement some kind of efficient
+name lookup (htree, etc.).<br>
+
+<font size=+1>
+<li>Is there a limit to the size of an ocfs2 file system?<br>
+</font>
+Yes, current software addresses block numbers with 32 bits. So the file system
+device is limited to (2 ^ 32) * blocksize (see mkfs -b). With a 4KB block size
+this amounts to a 16TB file system. This block addressing limit will be relaxed
+in future software. At that point the limit becomes addressing clusters of 1MB
+each with 32 bits which leads to a 4PB file system.<br>
+
+<p>
+<font size=+1><b>SYSTEM FILES</b></font>
+</p>
+
+<font size=+1>
+<li>What are system files?<br>
+</font>
+System files are used to store standard filesystem metadata like bitmaps,
+journals, etc. Storing this information in files in a directory allows OCFS2
+to be extensible. These system files can be accessed using debugfs.ocfs2.
+To list the system files, do:<br>
+<pre>
+	# echo "ls -l //" | debugfs.ocfs2 -n /dev/sdX
+        	18        16       1      2  .
+        	18        16       2      2  ..
+        	19        24       10     1  bad_blocks
+        	20        32       18     1  global_inode_alloc
+        	21        20       8      1  slot_map
+        	22        24       9      1  heartbeat
+        	23        28       13     1  global_bitmap
+        	24        28       15     2  orphan_dir:0000
+        	25        32       17     1  extent_alloc:0000
+        	26        28       16     1  inode_alloc:0000
+        	27        24       12     1  journal:0000
+        	28        28       16     1  local_alloc:0000
+        	29        3796     17     1  truncate_log:0000
+</pre>
+The first column lists the block number.<br>
+
+<font size=+1>
+<li>Why do some files have numbers at the end?<br>
+</font>
+There are two types of files, global and local. Global files are for all the
+nodes, while local, like journal:0000, are node specific. The set of local
+files used by a node is determined by the slot mapping of that node. The
+numbers at the end of the system file name is the slot#. To list the slot maps, do:<br>
+<pre>
+	# echo "slotmap" | debugfs.ocfs2 -n /dev/sdX
+       	Slot#   Node#
+            0      39
+       	    1      40
+            2      41
+       	    3      42
+</pre>
+
+<p>
+<font size=+1><b>HEARTBEAT</b></font>
+</p>
+
+<font size=+1>
+<li>How does the disk heartbeat work?<br>
+</font>
+Every node writes every two secs to its block in the heartbeat system file.
+The block offset is equal to its global node number. So node 0 writes to the
+first block, node 1 to the second, etc. All the nodes also read the heartbeat
+sysfile every two secs. As long as the timestamp is changing, that node is
+deemed alive.<br>
+
+<font size=+1>
+<li>When is a node deemed dead?<br>
+</font>
+An active node is deemed dead if it does not update its timestamp for
+O2CB_HEARTBEAT_THRESHOLD (default=7) loops. Once a node is deemed dead, the
+surviving node which manages to cluster lock the dead node's journal, recovers
+it by replaying the journal.<br>
+
+<font size=+1>
+<li>What about self fencing?<br>
+</font>
+A node self-fences if it fails to update its timestamp for
+((O2CB_HEARTBEAT_THRESHOLD - 1) * 2) secs. The [o2hb-xx] kernel thread, after
+every timestamp write, sets a timer to panic the system after that duration.
+If the next timestamp is written within that duration, as it should, it first
+cancels that timer before setting up a new one. This way it ensures the system
+will self fence if for some reason the [o2hb-x] kernel thread is unable to
+update the timestamp and thus be deemed dead by other nodes in the cluster.<br>
+
+<font size=+1>
+<li>How can one change the parameter value of O2CB_HEARTBEAT_THRESHOLD?<br>
+</font>
+This parameter value could be changed by adding it to /etc/sysconfig/o2cb and
+RESTARTING the O2CB cluster. This value should be the SAME on ALL the nodes
+in the cluster.<br>
+
+<font size=+1>
+<li>What should one set O2CB_HEARTBEAT_THRESHOLD to?<br>
+</font>
+It should be set to the timeout value of the io layer. Most multipath solutions
+have a timeout ranging from 60 secs to 120 secs. For 60 secs, set it to 31.
+For 120 secs, set it to 61.<br>
+<pre>
+	O2CB_HEARTBEAT_THRESHOLD = (((timeout in secs) / 2) + 1)
+</pre>
+
+<font size=+1>
+<li>How does one check the current active O2CB_HEARTBEAT_THRESHOLD value?<br>
+</font>
+<pre>
+	# cat /proc/fs/ocfs2_nodemanager/hb_dead_threshold
+	7
+</pre>
+
+<font size=+1>
+<li>What if a node umounts a volume?<br>
+</font>
+During umount, the node will broadcast to all the nodes that have mounted that
+volume to drop that node from its node maps. As the journal is shutdown before
+this broadcast, any node crash after this point is ignored as there is no need
+for recovery.<br>
+
+<font size=+1>
+<li>I encounter "Kernel panic - not syncing: ocfs2 is very sorry to be fencing
+this system by panicing" whenever I run a heavy io load?<br>
+</font>
+We have encountered a bug with the default <i>CFQ</i> io scheduler which causes
+a process doing heavy io to temporarily starve out other processes. While this
+is not fatal for most environments, it is for OCFS2 as we expect the hb thread
+to be r/w to the hb area atleast once every 12 secs (default). Bug with the fix
+has been filed with Red Hat. Red Hat is expected to have this fixed in RHEL4 U4
+release. SLES9 SP3 2.5.6-7.257 includes this fix. For the latest, refer to the
+tracker bug filed on
+<a href="http://oss.oracle.com/bugzilla/show_bug.cgi?id=671">bugzilla</a>.
+Till this issue is resolved, one is advised to use the <i>DEADLINE</i> io scheduler.
+To use it, add "elevator=deadline" to the kernel command line as follows:<br><br>
+<ul>
+<li>For SLES9, edit the command line in /boot/grub/menu.lst.
+<pre>
+title Linux 2.6.5-7.244-bigsmp (with deadline)
+	kernel (hd0,4)/boot/vmlinuz-2.6.5-7.244-bigsmp root=/dev/sda5
+		vga=0x314 selinux=0 splash=silent resume=/dev/sda3 <b>elevator=deadline</b> showopts console=tty0 console=ttyS0,115200 noexec=off
+	initrd (hd0,4)/boot/initrd-2.6.5-7.244-bigsmp
+</pre>
+<li>For RHEL4, edit the command line in /boot/grub/grub.conf:
+<pre>
+title Red Hat Enterprise Linux AS (2.6.9-22.EL) (with deadline)
+	root (hd0,0)
+	kernel /vmlinuz-2.6.9-22.EL ro root=LABEL=/ console=ttyS0,115200 console=tty0 <b>elevator=deadline</b> noexec=off
+	initrd /initrd-2.6.9-22.EL.img
+</pre>
+</ul>
+To see the current kernel command line, do:
+<pre>
+	# cat /proc/cmdline
+</pre>
+
+<p>
+<font size=+1><b>QUORUM AND FENCING</b></font>
+</p>
+
+<font size=+1>
+<li>What is a quorum?<br>
+</font>
+A quorum is a designation given to a group of nodes in a cluster which are
+still allowed to operate on shared storage. It comes up when there is a
+failure in the cluster which breaks the nodes up into groups which can
+communicate in their groups and with the shared storage but not between groups.<br>
+
+<font size=+1>
+<li>How does OCFS2's cluster services define a quorum? 
+</font>
+The quorum decision is made by a single node based on the number of other nodes
+that are considered alive by heartbeating and the number of other nodes that are
+reachable via the network.<br>
+A node has quorum when:<br>
+<ul>
+<li>it sees an odd number of heartbeating nodes and has network connectivity to
+more than half of them.<br>
+OR,<br>
+<li>it sees an even number of heartbeating nodes and has network connectivity
+to at least half of them *and* has connectivity to the heartbeating node with
+the lowest node number.<br>
+</ul>
+
+<font size=+1>
+<li>What is fencing?<br>
+</font>
+Fencing is the act of forecefully removing a node from a cluster. A node with
+OCFS2 mounted will fence itself when it realizes that it doesn't have quorum
+in a degraded cluster.  It does this so that other nodes won't get stuck trying
+to access its resources. Currently OCFS2 will panic the machine when it
+realizes it has to fence itself off from the cluster. As described in Q02, it
+will do this when it sees more nodes heartbeating than it has connectivity to
+and fails the quorum test.<br>
+
+<font size=+1>
+<li>How does a node decide that it has connectivity with another?<br>
+</font>
+When a node sees another come to life via heartbeating it will try and establish
+a TCP connection to that newly live node. It considers that other node
+connected as long as the TCP connection persists and the connection is not idle
+for 10 seconds. Once that TCP connection is closed or idle it will not be
+reestablished until heartbeat thinks the other node has died and come back alive.<br>
+
+<font size=+1>
+<li>How long does the quorum process take?<br>
+</font>
+First a node will realize that it doesn't have connectivity with another node.
+This can happen immediately if the connection is closed but can take a maximum
+of 10 seconds of idle time. Then the node must wait long enough to give
+heartbeating a chance to declare the node dead. It does this by waiting two
+iterations longer than the number of iterations needed to consider a node dead
+(see the Heartbeat section of this FAQ). The current default of 7 iterations
+of 2 seconds results in waiting for 9 iterations or 18 seconds. By default,
+then, a maximum of 28 seconds can pass from the time a network fault occurs
+until a node fences itself.<br>
+
+<font size=+1>
+<li>How can one avoid a node from panic-ing when one shutdowns the other node
+in a 2-node cluster?<br>
+</font>
+This typically means that the network is shutting down before all the OCFS2 volumes
+are being umounted. Ensure the ocfs2 init script is enabled. This script ensures
+that the OCFS2 volumes are umounted before the network is shutdown. To check whether
+the service is enabled, do:
+<pre>
+       	# chkconfig --list ocfs2
+       	ocfs2     0:off   1:off   2:on    3:on    4:on    5:on    6:off
+</pre>
+
+<font size=+1>
+<li>How does one list out the startup and shutdown ordering of the OCFS2 related
+services?<br>
+</font>
+<ul>
+<li>To list the startup order for runlevel 3 on RHEL4, do:
+<pre>
+	# cd /etc/rc3.d
+	# ls S*ocfs2* S*o2cb* S*network*
+	S10network  S24o2cb  S25ocfs2
+</pre>
+<li>To list the shutdown order on RHEL4, do:
+<pre>
+	# cd /etc/rc6.d
+	# ls K*ocfs2* K*o2cb* K*network*
+	K19ocfs2  K20o2cb  K90network
+</pre>
+<li>To list the startup order for runlevel 3 on SLES9, do:
+<pre>
+	# cd /etc/init.d/rc3.d
+	# ls S*ocfs2* S*o2cb* S*network*
+	S05network  S07o2cb  S08ocfs2
+</pre>
+<li>To list the shutdown order on SLES9, do:
+<pre>
+	# cd /etc/init.d/rc3.d
+	# ls K*ocfs2* K*o2cb* K*network*
+	K14ocfs2  K15o2cb  K17network
+</pre>
+</ul>
+Please note that the default ordering in the ocfs2 scripts only include the
+network service and not any shared-device specific service, like iscsi. If one
+is using iscsi or any shared device requiring a service to be started and
+shutdown, please ensure that that service runs before and shutsdown after the
+ocfs2 init service.<br>
+
+<p>
+<font size=+1><b>NOVELL SLES9</b></font>
+</p>
+
+<font size=+1>
+<li>Why are OCFS2 packages for SLES9 not made available on oss.oracle.com?<br>
+</font>
+OCFS2 packages for SLES9 are available directly from Novell as part of the
+kernel. Same is true for the various Asianux distributions and for ubuntu.
+As OCFS2 is now part of the
+<a href="http://lwn.net/Articles/166954/">mainline kernel</a>, we expect more
+distributions to bundle the product with the kernel.<br>
+
+<font size=+1>
+<li>What versions of OCFS2 are available with SLES9 and how do they match with
+the Red Hat versions available on oss.oracle.com?<br>
+</font>
+As both Novell and Oracle ship OCFS2 on different schedules, the package versions
+do not match. We expect to resolve itself over time as the number of patch
+fixes reduce. Novell is shipping two SLES9 releases, viz., SP2 and SP3.<br>
+<ul>
+<li>The latest kernel with the SP2 release is 2.6.5-7.202.7. It ships with OCFS2 1.0.8.
+<li>The latest kernel with the SP3 release is 2.6.5-7.257. It ships with OCFS2 1.2.1.
+</ul>
+
+<p>
+<font size=+1><b>RELEASE 1.2</b></font>
+</p>
+
+<font size=+1>
+<li>What is new in OCFS2 1.2?<br>
+</font>
+OCFS2 1.2 has two new features:
+<ul>
+<li>It is endian-safe. With this release, one can mount the same volume concurrently
+on x86, x86-64, ia64 and big endian architectures ppc64 and s390x.
+<li>Supports readonly mounts. The fs uses this feature to auto remount ro when
+encountering on-disk corruptions (instead of panic-ing).
+</ul>
+
+<font size=+1>
+<li>Do I need to re-make the volume when upgrading?<br>
+</font>
+No. OCFS2 1.2 is fully on-disk compatible with 1.0.<br>
+
+<font size=+1>
+<li>Do I need to upgrade anything else?<br>
+</font>
+Yes, the tools needs to be upgraded to ocfs2-tools 1.2. ocfs2-tools 1.0 will
+not work with OCFS2 1.2 nor will 1.2 tools work with 1.0 modules.<br>
+
+<p>
+<font size=+1><b>UPGRADING TO THE LATEST RELEASE</b></font>
+</p>
+
+<font size=+1>
+<li>How do I upgrade to the latest release?<br>
+</font>
+<ul>
+<li>Download the latest ocfs2-tools and ocfs2console for the target platform and
+the appropriate ocfs2 module package for the kernel version, flavor and architecture.
+(For more, refer to the "Download and Install" section above.)<br><br>
+<li>Umount all OCFS2 volumes.
+<pre>
+	# umount -at ocfs2
+</pre>
+<li>Shutdown the cluster and unload the modules.<br>
+<pre>
+	# /etc/init.d/o2cb offline
+	# /etc/init.d/o2cb unload
+</pre>
+<li>If required, upgrade the tools and console.
+<pre>
+	# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm ocfs2console-1.2.1-1.i386.rpm
+</pre>
+<li>Upgrade the module.
+<pre>
+	# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.2-1.i686.rpm
+</pre>
+<li>Ensure init services ocfs2 and o2cb are enabled.
+<pre>
+	# chkconfig --add o2cb
+	# chkconfig --add ocfs2
+</pre>
+<li>To check whether the services are enabled, do:
+<pre>
+	# chkconfig --list o2cb
+	o2cb      0:off   1:off   2:on    3:on    4:on    5:on    6:off
+	# chkconfig --list ocfs2
+	ocfs2     0:off   1:off   2:on    3:on    4:on    5:on    6:off
+</pre>
+<li>At this stage one could either reboot the node or simply, restart the cluster
+and mount the volume.
+</ul>
+
+<font size=+1>
+<li>Can I do a rolling upgrade from 1.0.x/1.2.x to 1.2.2?<br>
+</font>
+Rolling upgrade to 1.2.2 is not recommended. Shutdown the cluster on all
+nodes before upgrading the nodes.<br>
+
+<font size=+1>
+<li>After upgrade I am getting the following error on mount "mount.ocfs2: Invalid argument while mounting /dev/sda6 on /ocfs".<br>
+</font>
+Do "dmesg | tail". If you see the error:
+<pre>
+ocfs2_parse_options:523 ERROR: Unrecognized mount option "heartbeat=local" or missing value
+</pre>
+it means that you are trying to use the 1.2 tools and 1.0 modules. Ensure that you
+have unloaded the 1.0 modules and installed and loaded the 1.2 modules. Use modinfo
+to determine the version of the module installed and/or loaded.<br>
+
+<font size=+1>
+<li>The cluster fails to load. What do I do?<br>
+</font>
+Check "demsg | tail" for any relevant errors. One common error is as follows:
+<pre>
+SELinux: initialized (dev configfs, type configfs), not configured for labeling audit(1139964740.184:2): avc:  denied  { mount } for  ...
+</pre>
+The above error indicates that you have SELinux activated. A bug in SELinux
+does not allow configfs to mount. Disable SELinux by setting "SELINUX=disabled"
+in /etc/selinux/config. Change is activated on reboot.<br>
+
+<p>
+<font size=+1><b>PROCESSES</b></font>
+</p>
+
+<font size=+1>
+<li>List and describe all OCFS2 threads?<br>
+</font>
+<dl>
+
+<dt>[o2net]
+<dd>One per node. Is a workqueue thread started when the cluster is brought
+online and stopped when offline. It handles the network communication for all
+threads. It gets the list of active nodes from the o2hb thread and sets up
+tcp/ip communication channels with each active node. It sends regular keepalive
+packets to detect any interruption on the channels.
+
+<dt>[user_dlm]
+<dd>One per node. Is a workqueue thread started when dlmfs is loaded and stopped
+on unload. (dlmfs is an in-memory file system which allows user space processes
+to access the dlm in kernel to lock and unlock resources.) Handles lock downconverts
+when requested by other nodes.
+
+<dt>[ocfs2_wq]
+<dd>One per node. Is a workqueue thread started when ocfs2 module is loaded
+and stopped on unload. Handles blockable file system tasks like truncate
+log flush, orphan dir recovery and local alloc recovery, which involve taking
+dlm locks. Various code paths queue tasks to this thread. For example,
+ocfs2rec queues orphan dir recovery so that while the task is kicked off as
+part of recovery, its completion does not affect the recovery time.
+
+<dt>[o2hb-14C29A7392]
+<dd>One per heartbeat device. Is a kernel thread started when the heartbeat
+region is populated in configfs and stopped when it is removed. It writes
+every 2 secs to its block in the heartbeat region to indicate to other nodes
+that that node is alive. It also reads the region to maintain a nodemap of
+live nodes. It notifies o2net and dlm any changes in the nodemap.
+
+<dt>[ocfs2vote-0]
+<dd>One per mount. Is a kernel thread started when a volume is mounted and
+stopped on umount. It downgrades locks when requested by other nodes in reponse
+to blocking ASTs (BASTs). It also fixes up the dentry cache in reponse to
+files unlinked or renamed on other nodes.
+
+<dt>[dlm_thread]
+<dd>One per dlm domain. Is a kernel thread started when a dlm domain is created
+and stopped when destroyed. This is the core dlm which maintains the list of
+lock resources and handles the cluster locking infrastructure.
+
+<dt>[dlm_reco_thread]
+<dd>One per dlm domain. Is a kernel thread which handles dlm recovery whenever
+a node dies. If the node is the dlm recovery master, it remasters all the locks
+owned by the dead node.
+
+<dt>[dlm_wq]
+<dd>One per dlm domain. Is a workqueue thread. o2net queues dlm tasks on this thread.
+
+<dt>[kjournald]
+<dd>One per mount. Is used as OCFS2 uses JDB for journalling.
+
+<dt>[ocfs2cmt-0]
+<dd>One per mount. Is a kernel thread started when a volume is mounted and
+stopped on umount. Works in conjunction with kjournald.
+
+<dt>[ocfs2rec-0]
+<dd>Is started whenever another node needs to be be recovered. This could be
+either on mount when it discovers a dirty journal or during operation when hb
+detects a dead node. ocfs2rec handles the file system recovery and it runs
+after the dlm has finished its recovery.
+</dl>
+</ol>
+</html>

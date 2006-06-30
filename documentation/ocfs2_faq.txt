@@ -35,17 +35,21 @@ A01	For Novell's SLES9, upgrade to SP3 to get the required modules
 	Appropriate module refers to one matching the kernel version,
 	flavor and architecture. Flavor refers to smp, hugemem, etc.
 
-Q02	How do I interpret the package name
+Q02	What are the latest versions of the OCFS2 packages?
+A02	The latest module package version is 1.2.2. The latest tools/console
+	packages versions are 1.2.1.
+
+Q03	How do I interpret the package name
 	ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm?
-A02	The package name is comprised of multiple parts separated by '-'.
+A03	The package name is comprised of multiple parts separated by '-'.
 	a) ocfs2		- Package name
 	b) 2.6.9-22.0.1.ELsmp	- Kernel version and flavor
 	c) 1.2.1		- Package version
 	d) 1			- Package subversion
 	e) i686			- Architecture
 
-Q03	How do I know which package to install on my box?
-A03	After one identifies the package name and version to install,
+Q04	How do I know which package to install on my box?
+A04	After one identifies the package name and version to install,
 	one still needs to determine the kernel version, flavor and
 	architecture.
 	To know the kernel version and flavor, do:
@@ -55,36 +59,36 @@ A03	After one identifies the package name and version to install,
 	# rpm -qf /boot/vmlinuz-`uname -r` --queryformat "%{ARCH}\n"
 	i686
 
-Q04	Why can't I use "uname -p" to determine the kernel architecture?
-A04	"uname -p" does not always provide the exact kernel architecture.
+Q05	Why can't I use "uname -p" to determine the kernel architecture?
+A05	"uname -p" does not always provide the exact kernel architecture.
 	Case in point the RHEL3 kernels on x86_64. Even though Red Hat has
 	two different kernel architectures available for this port, ia32e
 	and x86_64, "uname -p" identifies both as the generic "x86_64".
 
-Q05	How do I install the rpms?
-A05	First install the tools and console packages:
+Q06	How do I install the rpms?
+A06	First install the tools and console packages:
 	# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm ocfs2console-1.2.1-1.i386.rpm
 	Then install the appropriate kernel module package:
 	# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm
 
-Q06	Do I need to install the console?
-A06	No, the console is not required but recommended for ease-of-use.
+Q07	Do I need to install the console?
+A07	No, the console is not required but recommended for ease-of-use.
 
-Q07	What are the dependencies for installing ocfs2console?
-A07	ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or
+Q08	What are the dependencies for installing ocfs2console?
+A08	ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or
 	later, pygtk2 (EL4) or python-gtk (SLES9) 1.99.16 or later,
 	python 2.3 or later and ocfs2-tools.
 
-Q08	What modules are installed with the OCFS2 1.2 package?
-A08	a) configfs.ko
+Q09	What modules are installed with the OCFS2 1.2 package?
+A09	a) configfs.ko
 	b) ocfs2.ko
 	c) ocfs2_dlm.ko
 	d) ocfs2_dlmfs.ko
 	e) ocfs2_nodemanager.ko
 	f) debugfs
 
-Q09	What tools are installed with the ocfs2-tools 1.2 package?
-A09	a) mkfs.ocfs2
+Q10	What tools are installed with the ocfs2-tools 1.2 package?
+A10	a) mkfs.ocfs2
 	b) fsck.ocfs2
 	c) tunefs.ocfs2
 	d) debugfs.ocfs2
@@ -97,8 +101,8 @@ A09	a) mkfs.ocfs2
 	k) ocfs2 - init service to mount/umount ocfs2 volumes
 	l) ocfs2console - installed with the console package
 
-Q10	What is debugfs and is it related to debugfs.ocfs2?
-A10	debugfs is an in-memory filesystem developed by Greg Kroah-Hartman.
+Q11	What is debugfs and is it related to debugfs.ocfs2?
+A11	debugfs is an in-memory filesystem developed by Greg Kroah-Hartman.
 	It is useful for debugging as it allows kernel space to easily
 	export data to userspace. For more, http://kerneltrap.org/node/4394.
 	It is currently being used by OCFS2 to dump the list of
@@ -540,13 +544,11 @@ A01	Every node writes every two secs to its block in the heartbeat
 
 Q02	When is a node deemed dead?
 A02	An active node is deemed dead if it does not update its
-	timestamp for O2CB_HEARTBEAT_THRESHOLD (default=7) loops.
-	This value could be configured by adding it to /etc/sysconfig/o2cb
-	and restarting the O2CB cluster. This value should be the SAME
-	on ALL the nodes in the cluster. Once a node is deemed dead, the
-	surviving node which manages to cluster lock the dead node's journal,
-	recovers it by replaying the journal.
-	
+	timestamp for O2CB_HEARTBEAT_THRESHOLD (default=7) loops. Once a node
+	is deemed dead, the surviving node which manages to cluster lock the
+	dead node's journal, recovers it by replaying the journal.
+
+
 Q03	What about self fencing?
 A03	A node self-fences if it fails to update its timestamp for
 	((O2CB_HEARTBEAT_THRESHOLD - 1) * 2) secs. The [o2hb-xx] kernel
@@ -557,16 +559,27 @@ A03	A node self-fences if it fails to update its timestamp for
 	some reason the [o2hb-x] kernel thread is unable to update the
 	timestamp and thus be deemed dead by other nodes in the cluster.
 
-Q04	What if a node umounts a volume?
-A04	During umount, the node will broadcast to all the nodes that
+Q04	How can one change the parameter value of O2CB_HEARTBEAT_THRESHOLD?
+A04	This parameter value could be changed by adding it to
+	/etc/sysconfig/o2cb and RESTARTING the O2CB cluster. This value should
+	be the SAME on ALL the nodes in the cluster.
+
+Q05	What should one set O2CB_HEARTBEAT_THRESHOLD to?
+A05	It should be set to the timeout value of the io layer. Most
+	multipath solutions have a timeout ranging from 60 secs to
+	120 secs. For 60 secs, set it to 31. For 120 secs, set it to 61.
+	O2CB_HEARTBEAT_THRESHOLD = (((timeout in secs) / 2) + 1)
+	
+Q06	What if a node umounts a volume?
+A06	During umount, the node will broadcast to all the nodes that
 	have mounted that volume to drop that node from its node maps.
 	As the journal is shutdown before this broadcast, any node crash
 	after this point is ignored as there is no need for recovery.
 
-Q05	I encounter "Kernel panic - not syncing: ocfs2 is very sorry to
+Q07	I encounter "Kernel panic - not syncing: ocfs2 is very sorry to
 	be fencing this system by panicing" whenever I run a heavy io
 	load?
-A05	We have encountered a bug with the default "cfq" io scheduler
+A07	We have encountered a bug with the default "cfq" io scheduler
 	which causes a process doing heavy io to temporarily starve out
 	other processes. While this is not fatal for most environments,
 	it is for OCFS2 as we expect the hb thread to be r/w to the hb
@@ -651,6 +664,44 @@ A05	First a node will realize that it doesn't have connectivity with
 	iterations of 2 seconds results in waiting for 9 iterations or 18
 	seconds.  By default, then, a maximum of 28 seconds can pass from the
 	time a network fault occurs until a node fences itself.
+
+Q06	How can one avoid a node from panic-ing when one shutdowns the other
+	node in a 2-node cluster?
+A06	This typically means that the network is shutting down before all the
+	OCFS2 volumes are being umounted. Ensure the ocfs2 init script is
+	enabled. This script ensures that the OCFS2 volumes are umounted before
+	the network is shutdown.
+	To check whether the service is enabled, do:
+        	# chkconfig --list ocfs2
+        	ocfs2     0:off   1:off   2:on    3:on    4:on    5:on    6:off
+
+Q07	How does one list out the startup and shutdown ordering of the
+	OCFS2 related services?
+A07	To list the startup order for runlevel 3 on RHEL4, do:
+		# cd /etc/rc3.d
+		# ls S*ocfs2* S*o2cb* S*network*
+		S10network  S24o2cb  S25ocfs2
+
+	To list the shutdown order on RHEL4, do:
+		# cd /etc/rc6.d
+		# ls K*ocfs2* K*o2cb* K*network*
+		K19ocfs2  K20o2cb  K90network
+
+	To list the startup order for runlevel 3 on SLES9, do:
+		# cd /etc/init.d/rc3.d
+		# ls S*ocfs2* S*o2cb* S*network*
+		S05network  S07o2cb  S08ocfs2
+
+	To list the shutdown order on SLES9, do:
+		# cd /etc/init.d/rc3.d
+		# ls K*ocfs2* K*o2cb* K*network*
+		K14ocfs2  K15o2cb  K17network
+
+	Please note that the default ordering in the ocfs2 scripts only include
+	the network service and not any shared-device specific service, like
+	iscsi. If one is using iscsi or any shared device requiring a service
+	to be started and shutdown, please ensure that that service runs before
+	and shutsdown after the ocfs2 init service.
 ==============================================================================
 
 Novell SLES9
@@ -673,9 +724,8 @@ A02	As both Novell and Oracle ship OCFS2 on different schedules, the
 	The latest kernel with the SP2 release is 2.6.5-7.202.7. It ships
 	with OCFS2 1.0.8.
 
-	The latest kernel with the SP3 release is 2.6.5-7.244. It ships
-	with OCFS2 1.1.7. OCFS2 1.2 being made available for RHEL4 is
-	from the same tree as 1.1.7. 1.2 is 1.1.7 + latest fixes.
+	The latest kernel with the SP3 release is 2.6.5-7.257. It ships
+	with OCFS2 1.2.1.
 ==============================================================================
 
 What's New in 1.2
@@ -697,47 +747,39 @@ Q03	Do I need to upgrade anything else?
 A03	Yes, the tools needs to be upgraded to ocfs2-tools 1.2.
 	ocfs2-tools 1.0 will not work with OCFS2 1.2 nor will 1.2
 	tools work with 1.0 modules.
-
-Q04	What is different between OCFS2 1.1 being shipped alongwith
-	SLES9 SP3 and OCFS2 1.2?
-A04	OCFS2 1.1.x shipped with SLES9 SP3 (2.6.5-7.244) is the same as
-	OCFS2 1.2. That is, it has the same new features. Only
-	difference is that 1.2 has more bug fixes than 1.1.x. As we
-	make weekly code drops to Novell, the kernel shipped has fixes
-	as of the date it was built.
 ==============================================================================
 
-Upgrading to 1.2.1
-------------------
+Upgrading to the latest release
+-------------------------------
 
-Q01	How do I upgrade from 1.0/1.2.0 to 1.2.1?
-A01	1. Download the ocfs2-tools 1.2.1 and ocfs2console 1.2.1 for the
-	target platform and the appropriate ocfs2 1.2.1 module package
-	for the kernel version, flavor and architecture. (For more, refer to
-	the "Download and Install" section above.)
+Q01	How do I upgrade to the latest release?
+A01	1. Download the latest ocfs2-tools and ocfs2console for the target
+	platform and the appropriate ocfs2 module package for the kernel version,
+	flavor and architecture. (For more, refer to the "Download and Install"
+	section above.)
 	2. Umount all OCFS2 volumes.
 		# umount -at ocfs2
 	3. Shutdown the cluster and unload the modules.
 		# /etc/init.d/o2cb offline
 		# /etc/init.d/o2cb unload
-	4. Upgrade.
-		# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm
-		# rpm -Uvh ocfs2console-1.2.1-1.i386.rpm
-		# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm
-	5. Ensure init services ocfs2 and o2cb are enabled.
+	4. If required, upgrade the tools and console.
+		# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm ocfs2console-1.2.1-1.i386.rpm
+	5. Upgrade the module.
+		# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.2-1.i686.rpm
+	6. Ensure init services ocfs2 and o2cb are enabled.
 		# chkconfig --add o2cb
 		# chkconfig --add ocfs2
-	6. To check whether the services are enabled, do:
+	7. To check whether the services are enabled, do:
 		# chkconfig --list o2cb
 		o2cb      0:off   1:off   2:on    3:on    4:on    5:on    6:off
 		# chkconfig --list ocfs2
 		ocfs2     0:off   1:off   2:on    3:on    4:on    5:on    6:off
-	7. At this stage one could either reboot the node or simply,
-	restart the cluster and mount the volume.
+	8. At this stage one could either reboot the node or simply, restart
+	the cluster and mount the volume.
 
-Q02	Can I do a rolling upgrade from 1.0.x/1.2.0 to 1.2.1?
-A02	Rolling upgrade to 1.2.1 is not recommended. Shutdown the
-	cluster on all nodes before upgrading the nodes.
+Q02	Can I do a rolling upgrade from 1.0.x/1.2.x to 1.2.2?
+A02	Rolling upgrade to 1.2.2 is not recommended. Shutdown the cluster on
+	all nodes before upgrading the nodes.
 
 Q03	After upgrade I am getting the following error on mount
 	"mount.ocfs2: Invalid argument while mounting /dev/sda6 on /ocfs".
