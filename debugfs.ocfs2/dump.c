@@ -181,7 +181,8 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	fprintf(out, "\tFS Generation: %u (0x%x)\n", in->i_fs_generation,
 		in->i_fs_generation);
 
-	fprintf(out, "\tType: %s   Flags: %s\n", str, flags->str);
+	fprintf(out, "\tType: %s   Attr: 0x%x   Flags: %s\n", str, in->i_attr,
+		flags->str);
 
 	pw = getpwuid(in->i_uid);
 	gr = getgrgid(in->i_gid);

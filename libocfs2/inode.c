@@ -169,6 +169,7 @@ static void ocfs2_swap_inode_first(struct ocfs2_dinode *di)
 	di->i_atime_nsec    = bswap_32(di->i_atime_nsec);
 	di->i_ctime_nsec    = bswap_32(di->i_ctime_nsec);
 	di->i_mtime_nsec    = bswap_32(di->i_mtime_nsec);
+	di->i_attr          = bswap_32(di->i_attr);
 }
 
 static int has_extents(struct ocfs2_dinode *di)
