@@ -6,7 +6,7 @@
 
 <ol>
 <p>
-<font size=+1><b>GENERAL</b></font>
+<A name="GENERAL"><font size=+1><b>GENERAL</b></font></A>
 </p>
 
 <font size=+1>
@@ -41,7 +41,7 @@ To enable the above on every reboot, add the following to /etc/sysctl.conf:
 </pre>
 
 <p>
-<font size=+1><b>DOWNLOAD AND INSTALL</b></font>
+<A name="DOWNLOAD"><font size=+1><b>DOWNLOAD AND INSTALL</b></font></A>
 </p>
 
 <font size=+1>
@@ -162,7 +162,7 @@ as the front-end for the debugging info provided by the former. For example,
 refer to the troubleshooting section.
 
 <p>
-<font size=+1><b>CONFIGURE</b></font>
+<A name="CONFIGURE"><font size=+1><b>CONFIGURE</b></font></A>
 </p>
 
 <font size=+1>
@@ -203,7 +203,7 @@ restart the cluster on all nodes. Always ensure that cluster.conf is the
 same on all the nodes in the cluster.<br>
 
 <p>
-<font size=+1><b>O2CB CLUSTER SERVICE</b></font>
+<A name="O2CB"><font size=+1><b>O2CB CLUSTER SERVICE</b></font></A>
 </p>
 
 <font size=+1>
@@ -269,7 +269,7 @@ One of the nodes in the cluster.conf need to be in the cluster for the cluster
 to be online.<br>
 
 <p>
-<font size=+1><b>FORMAT</b></font>
+<A name="FORMAT"><font size=+1><b>FORMAT</b></font></A>
 </p>
 
 <font size=+1>
@@ -335,7 +335,7 @@ You could also use labels to identify volumes during mount.
 The volume label is changeable using the tunefs.ocfs2 utility.<br>
 
 <p>
-<font size=+1><b>MOUNT</b></font>
+<A name="MOUNT"><font size=+1><b>MOUNT</b></font></A>
 </p>
 
 <font size=+1>
@@ -427,14 +427,14 @@ thread stabilize. In a later release, we plan to add support for a global
 heartbeat, which will make most mounts instant.<br>
 
 <p>
-<font size=+1><b>ORACLE RAC</b></font>
+<A name="RAC"><font size=+1><b>ORACLE RAC</b></font></A>
 </p>
 
 <font size=+1>
 <li>Any special flags to run Oracle RAC?<br>
 </font>
 OCFS2 volumes containing the Voting diskfile (CRS), Cluster registry (OCR),
-Data files, Redo logs, Archive logs and control files must be mounted with the
+Data files, Redo logs, Archive logs and Control files must be mounted with the
 <b><i>datavolume</i></b> and <b><i>nointr</i></b> mount options. The <i>datavolume</i>
 option ensures that the Oracle processes opens these files with the o_direct flag.
 The <i>nointr</i> option ensures that the ios are not interrupted by signals.
@@ -460,7 +460,7 @@ be on the same volume as the distribution (including the trace logs like,
 alert.log).<br>
 
 <p>
-<font size=+1><b>MOVING DATA FROM OCFS (RELEASE 1) TO OCFS2</b></font>
+<A name="MIGRATE"><font size=+1><b>MIGRATE DATA FROM OCFS (RELEASE 1) TO OCFS2</b></font></A>
 </p>
 
 <font size=+1>
@@ -504,7 +504,7 @@ OCFS2 volumes can access the disks containing the OCFS volume, you can use the
 FSCat tools to extract data from the OCFS volume and copy onto OCFS2.<br>
 
 <p>
-<font size=+1><b>COREUTILS</b></font>
+<A name="COREUTILS"><font size=+1><b>COREUTILS</b></font></A>
 </p>
 
 <font size=+1>
@@ -515,7 +515,7 @@ No. OCFS2 does not need the o_direct enabled tools. The file system allows
 processes to open files in both o_direct and bufferred mode concurrently.<br>
 
 <p>
-<font size=+1><b>TROUBLESHOOTING</b></font>
+<A name="TROUBLESHOOTING"><font size=+1><b>TROUBLESHOOTING</b></font></A>
 </p>
 
 <font size=+1>
@@ -635,7 +635,7 @@ a PR lock on the resource.<br>
 This is just to give a flavor of dlm debugging.<br>
 
 <p>
-<font size=+1><b>LIMITS</b></font>
+<A name="LIMITS"><font size=+1><b>LIMITS</b></font></A>
 </p>
 
 <font size=+1>
@@ -655,7 +655,7 @@ in future software. At that point the limit becomes addressing clusters of 1MB
 each with 32 bits which leads to a 4PB file system.<br>
 
 <p>
-<font size=+1><b>SYSTEM FILES</b></font>
+<A name="SYSTEMFILES"><font size=+1><b>SYSTEM FILES</b></font></A>
 </p>
 
 <font size=+1>
@@ -700,7 +700,7 @@ numbers at the end of the system file name is the slot#. To list the slot maps, 
 </pre>
 
 <p>
-<font size=+1><b>HEARTBEAT</b></font>
+<A name="HEARTBEAT"><font size=+1><b>HEARTBEAT</b></font></A>
 </p>
 
 <font size=+1>
@@ -800,7 +800,7 @@ To see the current kernel command line, do:
 </pre>
 
 <p>
-<font size=+1><b>QUORUM AND FENCING</b></font>
+<A name="QUORUM"><font size=+1><b>QUORUM AND FENCING</b></font></A>
 </p>
 
 <font size=+1>
@@ -910,7 +910,7 @@ shutdown, please ensure that that service runs before and shutsdown after the
 ocfs2 init service.<br>
 
 <p>
-<font size=+1><b>NOVELL SLES9</b></font>
+<A name="SLES9"><font size=+1><b>NOVELL SLES9</b></font></A>
 </p>
 
 <font size=+1>
@@ -935,7 +935,7 @@ fixes reduce. Novell is shipping two SLES9 releases, viz., SP2 and SP3.<br>
 </ul>
 
 <p>
-<font size=+1><b>RELEASE 1.2</b></font>
+<A name="RELEASE1.2"><font size=+1><b>RELEASE 1.2</b></font></A>
 </p>
 
 <font size=+1>
@@ -961,7 +961,7 @@ Yes, the tools needs to be upgraded to ocfs2-tools 1.2. ocfs2-tools 1.0 will
 not work with OCFS2 1.2 nor will 1.2 tools work with 1.0 modules.<br>
 
 <p>
-<font size=+1><b>UPGRADING TO THE LATEST RELEASE</b></font>
+<A name="UPGRADE"><font size=+1><b>UPGRADE TO THE LATEST RELEASE</b></font></A>
 </p>
 
 <font size=+1>
@@ -1033,7 +1033,7 @@ does not allow configfs to mount. Disable SELinux by setting "SELINUX=disabled"
 in /etc/selinux/config. Change is activated on reboot.<br>
 
 <p>
-<font size=+1><b>PROCESSES</b></font>
+<A name="PROCESSES"><font size=+1><b>PROCESSES</b></font></A>
 </p>
 
 <font size=+1>
