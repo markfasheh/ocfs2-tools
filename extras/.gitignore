@@ -6,4 +6,5 @@ set_random_bits
 decode_lockres
 mark_journal_dirty
 encode_lockres
+find_allocation_fragments
 *.d
