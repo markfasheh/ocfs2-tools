@@ -43,6 +43,9 @@ struct fragment {
 	uint16_t f_num_bits;
 };
 
+#define FREE_BIT_STATS	200
+int free_bit_stats[FREE_BIT_STATS];
+
 struct fragment largest = {0, };
 
 static void print_usage(void)
@@ -74,30 +77,34 @@ static int find_next_region(struct ocfs2_group_desc *gd, int offset,
 
 static int print_group(struct ocfs2_group_desc *gd)
 {
-	int offset, start, end;
+	int offset, start, end, free;
 	int header = 0;
 
 	offset = 0;
 	while (find_next_region(gd, offset, &start, &end)) {
 		if (!header) {
-			printf("Group: %"PRIu64": ", gd->bg_blkno);
+			printf("%-6s   %-6s   %-12s\n", "Free", "At Bit", "In Group");
 			header = 1;
 		}
 
-		printf("%d,%d:%d ", start, end, end - start);
+		free = end - start;
+
+		printf("%-6u   %-6u   %"PRIu64"\n", free, start, gd->bg_blkno);
+
+		if (free < FREE_BIT_STATS)
+			free_bit_stats[free]++;
 
 		if (largest.f_num_bits < (end - start)) {
 			largest.f_group_blkno = gd->bg_blkno;
 			largest.f_chain = gd->bg_chain;
 			largest.f_bit_start = start;
-			largest.f_num_bits = end - start;
+			largest.f_num_bits = free;
 		}
 
 		offset = end;
 	}
 
-	if (header)
-		printf("\n");
+	printf("\n");
 
 	return 0;
 }
@@ -156,7 +163,7 @@ static int iterate_allocator(ocfs2_filesys *fs, uint64_t blkno)
 		goto out_free;
 	}
 
-	printf("Allocator Inode: %"PRIu64"\n", blkno);
+	printf("Allocator Inode: %"PRIu64"\n\n", blkno);
 
 	cl = &di->id2.i_chain;
 
@@ -183,6 +190,7 @@ int main(int argc, char **argv)
 	char *device;
 	uint64_t inode;
 	ocfs2_filesys *fs;
+	int i;
 
 	initialize_ocfs_error_table();
 
@@ -193,6 +201,8 @@ int main(int argc, char **argv)
 
 	device = argv[1];
 	inode = atoll(argv[2]);
+
+	memset(free_bit_stats, 0, sizeof(free_bit_stats));
 
 	ret = ocfs2_open(device, OCFS2_FLAG_RO, 0, 0, &fs);
 	if (ret) {
@@ -207,6 +217,14 @@ int main(int argc, char **argv)
 			"while iterating allocator %"PRIu64"\n", inode);
 		goto out_close;
 	}
+
+	printf("Statistics:\n");
+	printf("%-6s   %-6s\n", "Count", "Bits");
+	for (i = 1; i < FREE_BIT_STATS; ++i) {
+		if (free_bit_stats[i])
+			printf("%-6u   %-6u\n", free_bit_stats[i], i);
+	}
+	
 
 out_close:
 	ret = ocfs2_close(fs);
