@@ -655,6 +655,21 @@ static inline uint32_t ocfs2_clusters_in_blocks(ocfs2_filesys *fs,
 	return (uint32_t)(ret >> c_to_b_bits);
 }
 
+/* given a cluster offset, calculate which block group it belongs to
+ * and return that block offset. */
+static inline uint64_t ocfs2_which_cluster_group(ocfs2_filesys *fs,
+						 uint16_t cpg,
+						 uint32_t cluster)
+{
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+	uint32_t group_no;
+
+	group_no = cluster / cpg;
+	if (!group_no)
+		return sb->s_first_cluster_group;
+	return ocfs2_clusters_to_blocks(fs, group_no * cpg);
+}
+
 static inline int ocfs2_block_out_of_range(ocfs2_filesys *fs, uint64_t block)
 {
 	return (block < OCFS2_SUPER_BLOCK_BLKNO) || (block > fs->fs_blocks);
