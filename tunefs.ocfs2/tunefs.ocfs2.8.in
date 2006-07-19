@@ -2,7 +2,7 @@
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
-\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-nodes\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-S\fR \fIvolume-size\fR] [\fB\-qvV\fR] \fIdevice\fR
+\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-nodes\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-S\fR] [\fB\-qvV\fR] \fIdevice\fR  [\fIblocks-count\fR]
 .SH "DESCRIPTION"
 .PP 
 \fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
@@ -33,9 +33,10 @@ Increase the size of journal files for all the slots. Minimum size is 4M.
 .RE
 
 .TP
-\fB\-S\fR \fIvolume\-size\fR
-Increase the size of the \fIOCFS2\fR volume. \fBThis functionality
-is not operational as of now.\fR
+\fB\-S\fR
+Increase the size of the \fIOCFS2\fR volume. If \fIblocks-count\fR is not
+specified, \fBtunefs.ocfs2\fR grows the volume to the current size of
+the device.
 
 .TP
 \fB\-q\fR 
@@ -48,6 +49,13 @@ Verbose mode.
 .TP
 \fB\-V\fR 
 Show version and exit.
+
+.TP
+\fIblocks-count\fR
+During resize, \fBtunefs.ocfs2\fR automatically determines the size of the given
+device and grows the file system such that it uses all of the available space on
+the device. This optional argument specifies that the file system should be
+extended to consume only the given number of file system blocks on the device.
 
 .SH "SEE ALSO"
 .BR mkfs.ocfs2(8)
