@@ -24,6 +24,7 @@
  */
 
 #include <main.h>
+#include <bitops.h>
 
 /*
  * get_vote_flag()
@@ -723,4 +724,28 @@ void crunch_strsplit(char **args)
 	}
 
 	return ;
+}
+
+/*
+ * find_max_contig_free_bits()
+ *
+ */
+void find_max_contig_free_bits(struct ocfs2_group_desc *gd, int *max_contig_free_bits)
+{
+	int end = 0;
+	int start;
+	int free_bits;
+
+	*max_contig_free_bits = 0;
+
+	while (end < gd->bg_bits) {
+		start = ocfs2_find_next_bit_clear(gd->bg_bitmap, gd->bg_bits, end);
+		if (start >= gd->bg_bits)
+			break;
+
+		end = ocfs2_find_next_bit_set(gd->bg_bitmap, gd->bg_bits, start);
+		free_bits = end - start;
+		if (*max_contig_free_bits < free_bits)
+			*max_contig_free_bits = free_bits;
+	}
 }

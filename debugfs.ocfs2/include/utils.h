@@ -51,5 +51,6 @@ void inode_time_to_str(uint64_t mtime, char *str, int len);
 errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 		      const char *dumproot, int verbose);
 void crunch_strsplit(char **args);
+void find_max_contig_free_bits(struct ocfs2_group_desc *gd, int *max_contig_free_bits);
 
 #endif		/* __UTILS_H__ */

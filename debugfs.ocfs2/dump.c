@@ -254,13 +254,13 @@ void dump_chain_list (FILE *out, struct ocfs2_chain_list *cl)
 		goto bail;
 
 	fprintf(out, "\t##   %-10s   %-10s   %-10s   %s\n",
-		"Total", "Free", "Used", "Block#");
+		"Total", "Used", "Free", "Block#");
 	
 	for (i = 0; i < cl->cl_next_free_rec; ++i) {
 		rec = &(cl->cl_recs[i]);
 		fprintf(out, "\t%-2d   %-10u   %-10u   %-10u   %"PRIu64"\n",
-			i, rec->c_total, rec->c_free,
-			(rec->c_total - rec->c_free), rec->c_blkno);
+			i, rec->c_total, (rec->c_total - rec->c_free),
+			rec->c_free, rec->c_blkno);
 	}
 
 bail:
@@ -312,19 +312,24 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
 void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
                             int index)
 {
+	int max_contig_free_bits = 0;
+
 	if (!index) {
 		fprintf (out, "\tGroup Chain: %u   Parent Inode: %"PRIu64"  "
 			 "Generation: %u\n",
 			 grp->bg_chain,
 			 grp->bg_parent_dinode,
 			 grp->bg_generation);
-		fprintf(out, "\t##   %-15s   %-6s   %-6s   %-6s   %-6s\n",
-			"Block#", "Total", "Free", "Used", "Size");
+		fprintf(out, "\t##   %-15s   %-6s   %-6s   %-6s   %-6s   %-6s\n",
+			"Block#", "Total", "Used", "Free", "Contig", "Size");
 	}
 
-	fprintf(out, "\t%-2d   %-15"PRIu64"   %-6u   %-6u   %-6u   %-6u\n",
-		index, grp->bg_blkno, grp->bg_bits, grp->bg_free_bits_count,
-		(grp->bg_bits - grp->bg_free_bits_count), grp->bg_size);
+	find_max_contig_free_bits(grp, &max_contig_free_bits);
+
+	fprintf(out, "\t%-2d   %-15"PRIu64"   %-6u   %-6u   %-6u   %-6u   %-6u\n",
+		index, grp->bg_blkno, grp->bg_bits,
+		(grp->bg_bits - grp->bg_free_bits_count),
+		grp->bg_free_bits_count, max_contig_free_bits, grp->bg_size);
 
 	return ;
 }
