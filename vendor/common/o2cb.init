@@ -357,13 +357,12 @@ clean_heartbeat()
     fi
     CLUSTER="$1"
 
-    echo -n "Cleaning heartbeat on ${CLUSTER}: "
-
-    if [ ! -d "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" ]
+    if [ ! -f "$(configfs_path)/cluster/${CLUSTER}/heartbeat/*" ]
     then
-        echo "OK"
         return
     fi
+
+    echo -n "Cleaning heartbeat on ${CLUSTER}: "
 
     ls -1 "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
     do
@@ -395,6 +394,42 @@ clean_heartbeat()
         exit 1
     fi
     echo "OK"
+}
+
+#
+# clean_cluster()
+# Force cleans configured cluster
+#
+# 0 is clean, 1 is error, 2 is not clean
+#
+clean_cluster()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "clean_cluster(): Requires an argument" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+
+    if [ -d "$(configfs_path)/cluster/${CLUSTER}/node/" ]
+    then
+        ls -1 "$(configfs_path)/cluster/${CLUSTER}/node/" | while read NODE
+        do
+            rmdir "$(configfs_path)/cluster/${CLUSTER}/node/${NODE}" >/dev/null 2>&1
+        done
+    fi
+
+    if [ -d "$(configfs_path)/cluster/${CLUSTER}" ]
+    then
+        rmdir "$(configfs_path)/cluster/${CLUSTER}" >/dev/null 2>&1
+    fi
+
+    if [ -d "$(configfs_path)/cluster/${CLUSTER}" ]
+    then
+        return 2
+    fi
+
+    return 0
 }
 
 #
@@ -659,6 +694,13 @@ offline()
         return
     fi
 
+    if [ $# -gt 1 ]
+    then
+        FORCE=$2
+    else
+        FORCE=0
+    fi
+
     if [ ! -e "$(configfs_path)/cluster/${CLUSTER}" ]
     then
         return
@@ -674,8 +716,14 @@ offline()
         echo "Unable to stop cluster as heartbeat region still active" >&2
     fi
 
-    OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=no 2>&1`"
-    if_fail "$?" "$OUTPUT"
+    if [ $FORCE -eq 1 ]
+    then
+        clean_cluster $CLUSTER
+        if_fail "$?" "Unable to force-offline cluster $CLUSTER" >&2
+    else
+        OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=no 2>&1`"
+        if_fail "$?" "$OUTPUT - Try to force-offline the O2CB cluster"
+    fi
 
     unload_module ocfs2
     if_fail "$?"
@@ -843,6 +891,10 @@ case "$1" in
         offline "$2"
         ;;
 
+    force-offline)
+        offline "$2" 1
+        ;;
+
     unload)
         offline "$2"
         unload
@@ -873,7 +925,7 @@ case "$1" in
         ;;
 
     *)
-        echo "Usage: $0 {start|stop|restart|force-reload|enable|disable|configure|load|unload|online|offline|status}"
+        echo "Usage: $0 {start|stop|restart|force-reload|enable|disable|configure|load|unload|online|offline|force-offline|status}"
         exit 1
         ;;
 esac
