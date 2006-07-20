@@ -34,6 +34,8 @@ else
     CONFIGURATION=/etc/default/o2cb
 fi
 
+MIN_O2CB_HEARTBEAT_THRESHOLD=7
+
 # Source configuration, 
 [ -f "${CONFIGURATION}" ] && . "${CONFIGURATION}"
 
@@ -204,6 +206,36 @@ EOF
         *)
             O2CB_BOOTCLUSTER="$LINE"
             break
+            ;;
+        esac
+    done
+
+    while :
+    do
+        if [ -z $O2CB_HEARTBEAT_THRESHOLD ]
+        then
+            CUR=$MIN_O2CB_HEARTBEAT_THRESHOLD
+        else
+            CUR=$O2CB_HEARTBEAT_THRESHOLD
+        fi
+        echo -n "Specify heartbeat dead threshold (>=$MIN_O2CB_HEARTBEAT_THRESHOLD) [$CUR]: "
+        read LINE
+        case "$LINE" in
+        "")
+            break
+            ;;
+
+        *[^0-9]*)
+            echo "Invalid heartbeat dead threshold value: $LINE" >&2
+            ;;
+        *)
+            if [ $LINE -lt $MIN_O2CB_HEARTBEAT_THRESHOLD ]
+            then
+                echo "Heartbeat dead threshold cannot be less than $MIN_O2CB_HEARTBEAT_THRESHOLD" >&2
+            else
+                O2CB_HEARTBEAT_THRESHOLD="$LINE"
+                break
+            fi
             ;;
         esac
     done
