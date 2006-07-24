@@ -222,7 +222,7 @@ static void parse_journal_opts(char *progname, const char *opts,
 		com_err(progname, 0,
 			"Bad journal options specified. Valid journal "
 			"options are:\n"
-			"\tsize=<journal size>\n");
+			"\tsize=<journal size>");
 		exit(1);
 	}
 
@@ -377,8 +377,8 @@ static void get_vol_size(ocfs2_filesys *fs)
 		opts.num_blocks = num_blocks;
 
 	if (opts.num_blocks > num_blocks) {
-		fprintf(stderr, "The containing partition (or device) "
-			"is only %"PRIu64" blocks.\n", num_blocks);
+		com_err(opts.progname, 0, "The containing partition (or device) "
+			"is only %"PRIu64" blocks", num_blocks);
 		exit(1);
 	}
 
@@ -390,22 +390,22 @@ static int validate_vol_size(ocfs2_filesys *fs)
 	uint64_t num_blocks;
 
 	if (opts.num_blocks == fs->fs_blocks) {
-		fprintf(stderr, "The filesystem is already "
-			"%"PRIu64" blocks\n", fs->fs_blocks);
+		com_err(opts.progname, 0, "The filesystem is already "
+			"%"PRIu64" blocks", fs->fs_blocks);
 		return -1;
 	}
 
 	if (opts.num_blocks < fs->fs_blocks) {
-		fprintf(stderr, "Cannot shrink volume size from "
-		       "%"PRIu64" blocks to %"PRIu64" blocks\n",
+		com_err(opts.progname, 0, "Cannot shrink volume size from "
+		       "%"PRIu64" blocks to %"PRIu64" blocks",
 		       fs->fs_blocks, opts.num_blocks);
 		return -1;
 	}
 
 	num_blocks = ocfs2_clusters_to_blocks(fs, 1);
 	if (num_blocks > (opts.num_blocks - fs->fs_blocks)) {
-		fprintf(stderr, "Cannot grow volume size less than "
-		       "%d blocks\n", num_blocks);
+		com_err(opts.progname, 0, "Cannot grow volume size less than "
+		       "%d blocks", num_blocks);
 		return -1;
 	}
 
@@ -439,8 +439,13 @@ static errcode_t add_slots(ocfs2_filesys *fs)
 			ret = ocfs2_new_system_inode(fs, &blkno,
 						      ocfs2_system_inodes[i].si_mode,
 						      ocfs2_system_inodes[i].si_iflags);
-			if (ret)
+			if (ret) {
+				printf("\n");
+				com_err(opts.progname, ret, "while creating "
+					"inode for system file %s",
+					ocfs2_system_inodes[i].si_name);
 				goto bail;
+			}
 
 			ftype = (S_ISDIR(ocfs2_system_inodes[i].si_mode) ?
 				 OCFS2_FT_DIR : OCFS2_FT_REG_FILE);
@@ -448,8 +453,12 @@ static errcode_t add_slots(ocfs2_filesys *fs)
 			/* if dir, alloc space to it */
 			if (ftype == OCFS2_FT_DIR) {
 				ret = ocfs2_expand_dir(fs, blkno, fs->fs_sysdir_blkno);
-				if (ret)
+				if (ret) {
+					printf("\n");
+					com_err(opts.progname, ret,
+						"while expanding system directory");
 					goto bail;
+				}
 			}
 
 			/* Add the inode to the system dir */
@@ -463,8 +472,11 @@ static errcode_t add_slots(ocfs2_filesys *fs)
 				if (!ret)
 					ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
 							 fname, blkno, ftype);
-			} else
+			} else {
+				com_err(opts.progname, 0, "while linking inode "
+					"%"PRIu64" to the system directory", blkno);
 				goto bail;
+			}
 next_file:
 			if (display_str) {
 				memset(display_str, ' ', strlen(display_str));
@@ -495,8 +507,11 @@ static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_siz
 	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a block "
+			"during journal check");
 		goto bail;
+	}
 
 	*dirty = 0;
 	*jrnl_size = 0;
@@ -504,12 +519,19 @@ static errcode_t journal_check(ocfs2_filesys *fs, int *dirty, uint64_t *jrnl_siz
 	for (i = 0; i < max_slots; ++i) {
 		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
 						&blkno);
-		if (ret)
+		if (ret) {
+			com_err(opts.progname, ret, "while looking up "
+				"journal inode for slot %u during journal "
+				"check", i);
 			goto bail;
+		}
 
 		ret = ocfs2_read_inode(fs, blkno, buf);
-		if (ret)
+		if (ret) {
+			com_err(opts.progname, ret, "while reading inode "
+				"%"PRIu64" during journal check", blkno);
 			goto bail;
+		}
 
 		di = (struct ocfs2_dinode *)buf;
 
@@ -560,8 +582,11 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 	uint32_t bits;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a block "
+			"during chain group validation");
 		goto bail;
+	}
 
 	total = 0;
 	free = 0;
@@ -575,7 +600,8 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 		if (ret) {
 			com_err(opts.progname, ret,
 				"while reading group descriptor at "
-				"block %"PRIu64"", blkno);
+				"block %"PRIu64" during chain group validation",
+				blkno);
 			goto bail;
 		}
 
@@ -662,17 +688,26 @@ static errcode_t global_bitmap_check(ocfs2_filesys *fs)
 	int i;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a block "
+			"during global bitmap check");
 		goto bail;
+	}
 
 	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE, 0,
 					&bm_blkno);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while looking up global "
+			"bitmap inode");
 		goto bail;
+	}
 
 	ret = ocfs2_read_inode(fs, bm_blkno, buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while reading global bitmap "
+			"inode at block %"PRIu64"", bm_blkno);
 		goto bail;
+	}
 
 	di = (struct ocfs2_dinode *)buf;
 	cl = &(di->id2.i_chain);
@@ -732,8 +767,11 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 			OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a block "
+			"during journal resize");
 		return ret;
+	}
 
 	for (i = 0; i < max_slots; ++i) {
 		snprintf (jrnl_file, sizeof(jrnl_file),
@@ -741,12 +779,18 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 
 		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
 				   strlen(jrnl_file), NULL, &blkno);
-		if (ret)
+		if (ret) {
+			com_err(opts.progname, ret, "while looking up %s during "
+				"journal resize", jrnl_file);
 			goto bail;
+		}
 
 		ret = ocfs2_read_inode(fs, blkno, buf);
-		if (ret)
+		if (ret) {
+			com_err(opts.progname, ret, "while reading inode at "
+				"block %"PRIu64" during journal resize", blkno);
 			goto bail;
+		}
 
 		di = (struct ocfs2_dinode *)buf;
 		if (num_clusters <= di->i_clusters)
@@ -756,8 +800,13 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_make_journal(fs, blkno, num_clusters);
 		block_signals(SIG_UNBLOCK);
-		if (ret)
+		if (ret) {
+			printf("\n");
+			com_err(opts.progname, ret, "while creating %s at block "
+				"%"PRIu64" of %u clusters during journal resize",
+				jrnl_file, blkno, num_clusters);
 			goto bail;
+		}
 		printf("\r                                                     \r");
 		*changed = 1;
 	}
@@ -796,33 +845,51 @@ static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 	char *zero_buf = NULL;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &in_buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a block during "
+			"volume resize");
 		goto bail;
+	}
 
 	ret = ocfs2_malloc_block(fs->fs_io, &gd_buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a block during "
+			"volume resize");
 		goto bail;
+	}
 
 	ret = ocfs2_malloc_block(fs->fs_io, &lgd_buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a block during "
+			"volume resize");
 		goto bail;
+	}
 
 	ret = ocfs2_malloc_blocks(fs->fs_io, ocfs2_clusters_to_blocks(fs, 1),
 				  &zero_buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while allocating a cluster during "
+			"volume resize");
 		goto bail;
+	}
 
 	memset(zero_buf, 0, fs->fs_clustersize);
 
 	/* read global bitmap */
 	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE, 0,
 					&bm_blkno);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while looking up global bitmap "
+			"inode during volume resize");
 		goto bail;
+	}
 
 	ret = ocfs2_read_inode(fs, bm_blkno, in_buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while reading inode at block "
+			"%"PRIu64" during volume resize", bm_blkno);
 		goto bail;
+	}
 
 	di = (struct ocfs2_dinode *)in_buf;
 	cl = &(di->id2.i_chain);
@@ -838,8 +905,11 @@ static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 	lgd_blkno = ocfs2_which_cluster_group(fs, cl->cl_cpg, first_new_cluster - 1);
 
 	ret = ocfs2_read_group_desc(fs, lgd_blkno, lgd_buf);
-	if (ret)
+	if (ret) {
+		com_err(opts.progname, ret, "while reading group descriptor "
+			"at block %"PRIu64" during volume resize", lgd_blkno);
 		goto bail;
+	}
 
 	gd = (struct ocfs2_group_desc *)lgd_buf;
 
@@ -920,13 +990,21 @@ static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 		/* Initialize the first cluster in the group */
 		ret = io_write_block(fs->fs_io, gd_blkno,
 				     ocfs2_clusters_to_blocks(fs, 1), zero_buf);
-		if (ret)
+		if (ret) {
+			com_err(opts.progname, ret, "while initializing the "
+				"cluster starting at block %"PRIu64" during "
+				"volume resize", gd_blkno);
 			goto bail;
+		}
 
 		/* write a new group descriptor */
 		ret = ocfs2_write_group_desc(fs, gd_blkno, gd_buf);
-		if (ret)
+		if (ret) {
+			com_err(opts.progname, ret, "while writing group "
+				"descriptor at block %"PRIu64" during "
+				"volume resize", gd_blkno);
 			goto bail;
+		}
 	}
 
 	di->id1.bitmap1.i_total = total_bits;
@@ -941,14 +1019,25 @@ static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 	/* Flush that last group descriptor we updated before the new ones */
 	if (flush_lgd) {
 		ret = ocfs2_write_group_desc(fs, lgd_blkno, lgd_buf);
-		if (ret)
+		if (ret) {
+			block_signals(SIG_UNBLOCK);
+			com_err(opts.progname, ret, "while writing group "
+				"descriptor at block %"PRIu64" during "
+				"volume resize", lgd_blkno);
 			goto bail;
+		}
 	}
 
 	/* write the global bitmap inode */
 	ret = ocfs2_write_inode(fs, bm_blkno, in_buf);
-	if (ret)
-		goto bail;
+	if (ret) {
+		block_signals(SIG_UNBLOCK);
+		com_err(opts.progname, ret, "while writing global bitmap "
+			"inode at block %"PRIu64" during volume resize",
+			bm_blkno);
+ 		goto bail;
+	}
+
 	block_signals(SIG_UNBLOCK);
 
 	*changed = 1;
@@ -1002,13 +1091,14 @@ int main(int argc, char **argv)
 
 	ret = o2cb_init();
 	if (ret) {
-		com_err(opts.progname, ret, "Cannot initialize cluster\n");
+		com_err(opts.progname, ret, "while initializing the cluster");
 		exit(1);
 	}
 
 	ret = ocfs2_open(opts.device, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
-		com_err(opts.progname, ret, " ");
+		com_err(opts.progname, ret, "while opening device %s",
+			opts.device);
 		goto close;
 	}
 	fs_gbl = fs;
@@ -1018,14 +1108,15 @@ int main(int argc, char **argv)
 
 	ret = ocfs2_initialize_dlm(fs);
 	if (ret) {
-		com_err(opts.progname, ret, " ");
+		com_err(opts.progname, ret, "while initializing the dlm");
 		goto close;
 	}
 
 	block_signals(SIG_BLOCK);
 	ret = ocfs2_lock_down_cluster(fs);
 	if (ret) {
-		com_err(opts.progname, ret, " ");
+		block_signals(SIG_UNBLOCK);
+		com_err(opts.progname, ret, "while locking down the cluster");
 		goto close;
 	}
 	cluster_locked = 1;
@@ -1041,7 +1132,8 @@ int main(int argc, char **argv)
 	/* This is to handle failed resize */
 	if (opts.num_blocks || opts.num_slots || opts.jrnl_size) {
 		if (global_bitmap_check(fs)) {
-			fprintf(stderr, "Global bitmap check failed. Run fsck.ocfs2.\n");
+			com_err(opts.progname, 0, "Global bitmap check failed. "
+				"Run fsck.ocfs2.");
 			goto unlock;
 		}
 	}
@@ -1059,8 +1151,8 @@ int main(int argc, char **argv)
 			printf("Changing number of node slots from %d to %d\n",
 			       tmp, opts.num_slots);
 		} else {
-			fprintf(stderr, "Node slots (%d) has to be larger than "
-				"configured node slots (%d)\n",
+			com_err(opts.progname, 0, "Node slots (%d) has to be "
+				"more than the configured node slots (%d)",
 			       opts.num_slots, tmp);
 			goto unlock;
 		}
@@ -1082,8 +1174,8 @@ int main(int argc, char **argv)
 			       def_jrnl_size, opts.jrnl_size);
 		else {
 			if (!opts.num_slots) {
-				fprintf(stderr, "Journal size %"PRIu64" has to "
-					"be larger " "than %"PRIu64"\n",
+				com_err(opts.progname, 0, "Journal size %"PRIu64" "
+					"has to be larger " "than %"PRIu64"",
 					opts.jrnl_size, def_jrnl_size);
 				goto unlock;
 			}
@@ -1095,14 +1187,14 @@ int main(int argc, char **argv)
 		if (validate_vol_size(fs))
 			opts.num_blocks = 0;
 		else
-			printf("Changing volume size %"PRIu64" blocks to "
+			printf("Changing volume size from %"PRIu64" blocks to "
 			       "%"PRIu64" blocks\n", fs->fs_blocks,
 			       opts.num_blocks);
 	}
 
 	if (!opts.vol_label && !opts.num_slots &&
 	    !opts.jrnl_size && !opts.num_blocks) {
-		fprintf(stderr, "Nothing to do. Exiting.\n");
+		com_err(opts.progname, 0, "Nothing to do. Exiting.");
 		goto unlock;
 	}
 
