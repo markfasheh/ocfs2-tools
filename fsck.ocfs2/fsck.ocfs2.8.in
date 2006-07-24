@@ -1,4 +1,4 @@
-.TH "fsck.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "fsck.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -17,7 +17,7 @@ the device.  This option specifies an alternate block that the superblock
 should be read from.
 
 .TP
-\fB\-b\fR \fIblocksize\fR
+\fB\-B\fR \fIblocksize\fR
 The \fIblock size\fR, specified in bytes, can range from 512 to 4096.  A value of 0, the default, is used to indicate that the blocksize should be automatically detected.
 
 .TP
@@ -96,4 +96,4 @@ Oracle Corporation.  This man page entry derives some text, especially the exit 
 by Theodore Y. Ts'o <tytso@mit.edu>.
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2005 Oracle. All rights reserved.
+Copyright \(co 2004, 2006 Oracle. All rights reserved.

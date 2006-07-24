@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -108,4 +108,4 @@ Print version and exit.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2005 Oracle. All rights reserved.
+Copyright \(co 2004, 2006 Oracle. All rights reserved.

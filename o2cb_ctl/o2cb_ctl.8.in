@@ -1,4 +1,4 @@
-.TH "o2cb_ctl" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2cb_ctl" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2cb_ctl \- Control program for the \fIO2CB\fR cluster service.
 .SH "SYNOPSIS"
@@ -23,8 +23,8 @@ o2cb_ctl \- Control program for the \fIO2CB\fR cluster service.
 .SH "DESCRIPTION"
 .PP 
 \fBo2cb_ctl\fR is the control program for the \fIO2CB\fR cluster service.
-One is strongly recommended not to use this tool directly but instead
-use \fIocfs2console\fR to do the same.
+Users are not advised to use this program directly but instead use the
+\fIO2CB\fR init service and/or \fIocfs2console\fR.
 
 .SH "OPTIONS"
 
@@ -104,7 +104,7 @@ In the cluster "mycluster", create the node "node5":
 
 o2cb_ctl -C -n node5 -t node -a number=5
 .br
-	-a ip_address=139.185.118.5 -a ip_port=7777
+	-a ip_address=192.168.0.5 -a ip_port=7777
 .br
 	-a cluster=mycluster
 
@@ -116,7 +116,7 @@ o2cb_ctl -I -n node5 -a ip_address
 .TP
 To change the IP address of node5:
 
-o2cb_ctl -H -n node5 -a ip_address=130.35.68.5
+o2cb_ctl -H -n node5 -a ip_address=192.168.1.5
 
 .SH "SEE ALSO"
 .BR mkfs.ocfs2(8)
@@ -130,4 +130,4 @@ o2cb_ctl -H -n node5 -a ip_address=130.35.68.5
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2005 Oracle. All rights reserved.
+Copyright \(co 2004, 2006 Oracle. All rights reserved.

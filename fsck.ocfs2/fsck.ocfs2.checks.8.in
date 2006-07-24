@@ -1,4 +1,4 @@
-.TH "fsck.ocfs2" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "fsck.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 fsck.ocfs2.checks \- Consistency checks that 
 .BR fsck.ocfs2(8)
@@ -640,4 +640,4 @@ the inode.
 Oracle Corporation.
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2005 Oracle. All rights reserved.
+Copyright \(co 2004, 2006 Oracle. All rights reserved.

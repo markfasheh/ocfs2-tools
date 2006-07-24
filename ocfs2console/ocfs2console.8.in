@@ -1,4 +1,4 @@
-.TH OCFS2CONSOLE 8 "January 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH OCFS2CONSOLE 8 "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH NAME
 ocfs2console - GUI console for \fIOCFS2\fR.
 .SH SYNOPSIS
@@ -22,4 +22,4 @@ One can also use this tool to format, tune, mount and umount \fIOCFS2\fR volumes
 Oracle Corporation
 
 .SH COPYRIGHT
-Copyright \(co 2004, 2005 Oracle. All rights reserved.
+Copyright \(co 2004, 2006 Oracle. All rights reserved.

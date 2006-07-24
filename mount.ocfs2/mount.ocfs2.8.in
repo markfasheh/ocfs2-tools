@@ -1,4 +1,4 @@
-.TH "mount.ocfs2" "8" "May 2006" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mount.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mount.ocfs2 \-  mount using the Oracle Cluster File System 2 (OCFS2)
 .SH "SYNOPSIS"
@@ -25,4 +25,4 @@ Stuff.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2002, 2004-2006 Oracle Corporation
+Copyright \(co 2004, 2006 Oracle. All rights reserved.
