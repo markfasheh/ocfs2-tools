@@ -44,6 +44,7 @@
 #include <inttypes.h>
 #include <ctype.h>
 #include <signal.h>
+#include <uuid/uuid.h>
 
 #include <ocfs2.h>
 #include <ocfs2_fs.h>
@@ -70,6 +71,7 @@ typedef struct _ocfs2_tune_opts {
 	char *vol_label;
 	char *progname;
 	char *device;
+	char *vol_uuid;
 	int verbose;
 	int quiet;
 	int prompt;
@@ -86,7 +88,7 @@ static void usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-N number-of-node-slots] "
 			"[-L volume-label]\n"
-			"\t[-J journal-options] [-S] [-qvV] "
+			"\t[-J journal-options] [-qSUvV] "
 			"device [blocks-count]\n",
 			progname);
 	exit(0);
@@ -233,6 +235,7 @@ static void get_options(int argc, char **argv)
 {
 	int c;
 	int show_version = 0;
+	int uuid = 0;
 	char *dummy;
 
 	static struct option long_options[] = {
@@ -243,6 +246,7 @@ static void get_options(int argc, char **argv)
 		{ "version", 0, 0, 'V' },
 		{ "journal-options", 0, 0, 'J'},
 		{ "volume-size", 0, 0, 'S'},
+		{ "uuid-reset", 0, 0, 'U'},
 		{ 0, 0, 0, 0}
 	};
 
@@ -254,7 +258,7 @@ static void get_options(int argc, char **argv)
 	opts.prompt = 1;
 
 	while (1) {
-		c = getopt_long(argc, argv, "L:N:J:SvqVx", long_options,
+		c = getopt_long(argc, argv, "L:N:J:SUvqVx", long_options,
 				NULL);
 
 		if (c == -1)
@@ -300,6 +304,10 @@ static void get_options(int argc, char **argv)
 			resize = 1;
 			break;
 
+		case 'U':
+			uuid = 1;
+			break;
+
 		case 'v':
 			opts.verbose = 1;
 			break;
@@ -333,6 +341,18 @@ static void get_options(int argc, char **argv)
 
 	if (show_version)
 		exit(0);
+
+	if (uuid) {
+		opts.vol_uuid = malloc(OCFS2_VOL_UUID_LEN);
+		if (opts.vol_uuid)
+			uuid_generate(opts.vol_uuid);
+		else {
+			com_err(opts.progname, OCFS2_ET_NO_MEMORY,
+				"while allocating %d bytes during uuid generate",
+				OCFS2_VOL_UUID_LEN);
+			exit(1);
+		}
+	}
 
 	if (optind == argc)
 		usage(opts.progname);
@@ -736,6 +756,16 @@ static void update_volume_label(ocfs2_filesys *fs, int *changed)
 	return ;
 }
 
+static void update_volume_uuid(ocfs2_filesys *fs, int *changed)
+{
+	memcpy(OCFS2_RAW_SB(fs->fs_super)->s_uuid, opts.vol_uuid,
+	       OCFS2_VOL_UUID_LEN);
+
+	*changed = 1;
+
+	return ;
+}
+
 static errcode_t update_slots(ocfs2_filesys *fs, int *changed)
 {
 	errcode_t ret = 0;
@@ -1060,6 +1090,7 @@ int main(int argc, char **argv)
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
 	int upd_label = 0;
+	int upd_uuid = 0;
 	int upd_slots = 0;
 	int upd_jrnls = 0;
 	int upd_blocks = 0;
@@ -1067,6 +1098,8 @@ int main(int argc, char **argv)
 	uint64_t def_jrnl_size = 0;
 	uint64_t num_clusters;
 	int dirty = 0;
+	char old_uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
+	char new_uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -1144,6 +1177,13 @@ int main(int argc, char **argv)
 		       OCFS2_RAW_SB(fs->fs_super)->s_label, opts.vol_label);
 	}
 
+	/* validate volume uuid */
+	if (opts.vol_uuid) {
+		uuid_unparse(OCFS2_RAW_SB(fs->fs_super)->s_uuid, old_uuid);
+		uuid_unparse(opts.vol_uuid, new_uuid);
+		printf("Changing volume uuid from %s to %s\n", old_uuid, new_uuid);
+	}
+
 	/* validate num slots */
 	if (opts.num_slots) {
 		tmp = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
@@ -1192,7 +1232,7 @@ int main(int argc, char **argv)
 			       opts.num_blocks);
 	}
 
-	if (!opts.vol_label && !opts.num_slots &&
+	if (!opts.vol_label && !opts.vol_uuid && !opts.num_slots &&
 	    !opts.jrnl_size && !opts.num_blocks) {
 		com_err(opts.progname, 0, "Nothing to do. Exiting.");
 		goto unlock;
@@ -1212,6 +1252,13 @@ int main(int argc, char **argv)
 		update_volume_label(fs, &upd_label);
 		if (upd_label)
 			printf("Changed volume label\n");
+	}
+
+	/* update volume uuid */
+	if (opts.vol_uuid) {
+		update_volume_uuid(fs, &upd_uuid);
+		if (upd_uuid)
+			printf("Changed volume uuid\n");
 	}
 
 	/* update number of slots */
@@ -1251,7 +1298,7 @@ int main(int argc, char **argv)
 	}
 
 	/* write superblock */
-	if (upd_label || upd_slots || upd_blocks) {
+	if (upd_label || upd_uuid || upd_slots || upd_blocks) {
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {
@@ -1275,6 +1322,12 @@ close:
 		ocfs2_shutdown_dlm(fs);
 	block_signals(SIG_UNBLOCK);
 
+	if (opts.vol_uuid)
+		free(opts.vol_uuid);
+	if (opts.vol_label)
+		free(opts.vol_label);
+	if (opts.device)
+		free(opts.device);
 	if (fs)
 		ocfs2_close(fs);
 

@@ -2,7 +2,7 @@
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
-\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-nodes\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-S\fR] [\fB\-qvV\fR] \fIdevice\fR  [\fIblocks-count\fR]
+\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-nodes\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-qSUvV\fR] \fIdevice\fR  [\fIblocks-count\fR]
 .SH "DESCRIPTION"
 .PP 
 \fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
@@ -41,6 +41,10 @@ the device.
 .TP
 \fB\-q\fR 
 Quiet mode. 
+
+.TP
+\fB\-U\fR
+Change the volume UUID (auto-generated) for the file system.
 
 .TP
 \fB\-v\fR 
