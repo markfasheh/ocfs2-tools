@@ -226,6 +226,32 @@ on all nodes, edit /etc/ocfs2/cluster.conf on one and copy to the rest, and
 restart the cluster on all nodes. Always ensure that cluster.conf is the
 same on all the nodes in the cluster.<br>
 
+<font size=+1>
+<li>How do I add a new node to an online cluster?<br>
+</font>
+You can use the console to add a new node. However, you will need to explicitly add
+the new node on all the online nodes. That is, adding on one node and propagating
+to the other nodes is not sufficient. If the operation fails, it will most likely
+be due to <a href="http://oss.oracle.com/bugzilla/show_bug.cgi?id=741">bug#741</a>.
+In that case, you can use the o2cb_ctl utility on all online nodes as follows:
+<pre>
+	# o2cb_ctl -C -i -n NODENAME -t node -a number=NODENUM -a ip_address=IPADDR -a ip_port=IPPORT -a cluster=CLUSTERNAME
+</pre>
+Ensure the node is added both in /etc/ocfs2/cluster.conf and in /config/cluster/CLUSTERNAME/node
+on all online nodes. You can then simply copy the cluster.conf to the new (still offline) node
+as well as other offline nodes. At the end, ensure that cluster.conf is consistent on all the nodes.
+
+<font size=+1>
+<li>How do I add a new node to an offline cluster?<br>
+</font>
+You can either use the console or use o2cb_ctl or simply hand edit cluster.conf. Then
+either use the console to propagate it to all nodes or hand copy using scp or any other tool.
+The o2cb_ctl command to do the same is:
+<pre>
+        # o2cb_ctl -C -n NODENAME -t node -a number=NODENUM -a ip_address=IPADDR -a ip_port=IPPORT -a cluster=CLUSTERNAME
+</pre>
+Notice the "-i" argument is not required as the cluster is not online.
+
 <p>
 <A name="O2CB"><font size=+1><b>O2CB CLUSTER SERVICE</b></font></A>
 </p>
@@ -475,6 +501,10 @@ files listed above.
 <pre>
 	# mount -t ocfs2 /dev/sdb1 /software/orahome
 </pre>
+Also as OCFS2 does not currently support shared writeable mmap, the health check (GIMH)
+file <i>$ORACLE_HOME/dbs/hc_ORACLESID.dat</i> and the ASM file <i>$ASM_HOME/dbs/ab_ORACLESID.dat</i>
+should be symlinked to local filesystem. We expect to support shared writeable mmap in the
+RHEL5 timeframe.
 
 <font size=+1>
 <li>Does that mean I cannot have my data file and Oracle home on the same volume?<br>
@@ -482,6 +512,25 @@ files listed above.
 Yes. The volume containing the Oracle data files, redo-logs, etc. should never
 be on the same volume as the distribution (including the trace logs like,
 alert.log).<br>
+
+<font size=+1>
+<li>Any other information I should be aware off?<br>
+</font>
+The 1.2.3 release of OCFS2 does not update the modification time on the inode
+across the cluster for non-extending writes. However, the time will be locally
+updated in the cached inodes. This leads to one observing different times (ls -l)
+for the same file on different nodes on the cluster.<br>
+While this does not affect most uses of the filesystem, as one variably changes the
+file size during write, the one usage where this is most commonly experienced is with
+Oracle datafiles and redologs. This is because Oracle rarely resizes these files and
+thus almost all writes are non-extending.<br>
+In the short term (1.2.x), we intend to provide a mount option (nocmtime) to allow users to
+explicitly ask the filesystem to not change the modification time during non-extending
+writes. While this is not the complete solution, this will ensure that the times
+are consistent across the cluster.<br>
+In the long term (1.4.x), we intend to fix this by updating modification times for
+all writes while providing an opt-out option (nocmtime) for users who would prefer
+to avoid the performance overhead associated with this feature. 
 
 <p>
 <A name="MIGRATE"><font size=+1><b>MIGRATE DATA FROM OCFS (RELEASE 1) TO OCFS2</b></font></A>
