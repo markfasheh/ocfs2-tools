@@ -182,6 +182,7 @@ static void ocfs2_init_eb(ocfs2_filesys *fs,
 			  uint64_t gd_blkno, uint64_t blkno)
 {
 	strcpy(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE);
+	eb->h_fs_generation = fs->fs_super->i_fs_generation;
 	eb->h_blkno = blkno;
 	eb->h_suballoc_slot = 0;
 	eb->h_suballoc_bit = (uint16_t)(blkno - gd_blkno);
