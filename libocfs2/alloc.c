@@ -361,7 +361,15 @@ errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno)
 
 	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_eb_allocs[0],
 					&gd_blkno, blkno);
-	if (ret)
+	if (ret == OCFS2_ET_BIT_NOT_FOUND) {
+		ret = ocfs2_chain_add_group(fs, fs->fs_eb_allocs[0]);
+		if (ret)
+			goto out;
+		ret = ocfs2_chain_alloc_with_io(fs, fs->fs_eb_allocs[0],
+						&gd_blkno, blkno);
+		if (ret)
+			goto out;
+	} else if (ret)
 		goto out;
 
 	memset(buf, 0, fs->fs_blocksize);
