@@ -215,7 +215,8 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode)
 						&gd_blkno, ino);
 		if (ret)
 			goto out;
-	}
+	} else if (ret)
+		goto out;
 
 	memset(buf, 0, fs->fs_blocksize);
 	di = (struct ocfs2_dinode *)buf;
