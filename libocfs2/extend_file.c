@@ -294,10 +294,11 @@ static errcode_t shift_tree_depth(struct insert_ctxt *ctxt)
 	if (el->l_tree_depth == 1)
 		ctxt->di->i_last_eb_blk = blkno;
 
+	ret = ocfs2_write_extent_block(ctxt->fs, blkno, buf);
 out:
 	ocfs2_free(&buf);
 
-	return 0;
+	return ret;
 }
 
 /*
