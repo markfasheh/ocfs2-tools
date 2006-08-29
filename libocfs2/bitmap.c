@@ -747,7 +747,7 @@ errcode_t ocfs2_bitmap_clear_range_generic(ocfs2_bitmap *bitmap,
 		return OCFS2_ET_INVALID_BIT;
 
 	for (end = first_bit + len; first_bit < end; first_bit++)
-		clear_generic_shared(bitmap, br, first_bit + br->br_start_bit);
+		clear_generic_shared(bitmap, br, first_bit);
 
 	return 0;
 }
