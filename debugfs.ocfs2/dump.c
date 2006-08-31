@@ -610,3 +610,51 @@ void dump_inode_path (FILE *out, uint64_t blkno, char *path)
 {
 	fprintf (out, "\t%"PRIu64"\t%s\n", blkno, path);
 }
+
+/*
+ * dump_logical_blkno()
+ *
+ */
+void dump_logical_blkno(ocfs2_filesys *fs, struct ocfs2_extent_list *el,
+	                uint64_t loglblkno, FILE *out)
+{
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
+	errcode_t ret = 0;
+	char *buf = NULL;
+	int i;
+
+	for (i = 0; i < el->l_next_free_rec; ++i) {
+		rec = &(el->l_recs[i]);
+		if (loglblkno <
+			ocfs2_clusters_to_blocks(fs, rec->e_clusters)) {
+			if (el->l_tree_depth) {
+				ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
+				if (ret)
+					goto bail;
+
+				ret = ocfs2_read_extent_block(fs, rec->e_blkno,
+					buf);
+				if (ret)
+					goto bail;
+
+				eb = (struct ocfs2_extent_block *)buf;
+
+				dump_logical_blkno(fs, &(eb->h_list),
+					loglblkno, out);
+			} else
+				fprintf(out, "\t%"PRIu64"\n",
+					rec->e_blkno + loglblkno);
+			goto bail;
+		} else
+			loglblkno -= ocfs2_clusters_to_blocks(fs,
+				rec->e_clusters);
+	}
+	/* Should not reach here */
+	fprintf(out, "\t0\n");
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return;
+}

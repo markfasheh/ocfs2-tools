@@ -52,5 +52,7 @@ void dump_slots (FILE *out, char *buf, uint32_t len);
 void dump_fast_symlink (FILE *out, char *link);
 void dump_hb (FILE *out, char *buf, uint32_t len);
 void dump_inode_path (FILE *out, uint64_t blkno, char *path);
+void dump_logical_blkno(ocfs2_filesys *fs, struct ocfs2_extent_list *el,
+	                uint64_t loglblkno, FILE *out);
 
 #endif		/* __DUMP_H__ */

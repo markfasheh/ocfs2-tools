@@ -65,10 +65,12 @@ static void do_encode_lockres (char **args);
 static void do_decode_lockres (char **args);
 static void do_locate (char **args);
 static void do_fs_locks (char **args);
+static void do_bmap (char **args);
 
 dbgfs_gbls gbls;
 
 static Command commands[] = {
+	{ "bmap",	do_bmap },
 	{ "cat",	do_cat },
 	{ "cd",		do_cd },
 	{ "chroot",	do_chroot },
@@ -601,6 +603,7 @@ static void do_ls (char **args)
  */
 static void do_help (char **args)
 {
+	printf ("bmap <filespec> <logical_blk>\t\tPrint the corresponding physical block# for the inode\n");
 	printf ("cat <filespec>\t\t\t\tPrints file on stdout\n");
 	printf ("cd <filespec>\t\t\t\tChange directory\n");
 	printf ("chroot <filespec>\t\t\tChange root\n");
@@ -1210,4 +1213,80 @@ static void do_fs_locks(char **args)
 	out = open_pager(gbls.interactive);
 	dump_fs_locks(gbls.fs->uuid_str, out, dump_lvbs);
 	close_pager(out);
+}
+
+/*
+ * do_bmap()
+ *
+ */
+static void do_bmap(char **args)
+{
+	struct ocfs2_dinode *inode;
+	const char *bmap_usage = "usage: bmap <filespec> <logical_blk>";
+	uint64_t blkno;
+	uint64_t loglblkno;
+	char *endptr;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 1;
+ 
+	if (check_device_open())
+		return;
+
+	if (!args[1]) {
+		fprintf(stderr, "usage: %s\n", bmap_usage);
+		return;
+	}
+
+	if (!args[1] || !args[2]) {
+		fprintf(stderr, "usage: %s\n", bmap_usage);
+		return;
+	}
+
+	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
+		args[1], &blkno);
+	if (ret) {
+		com_err(args[0], ret, "'%s'", args[1]);
+		return;
+	}
+
+	if (blkno >= gbls.max_blocks) {
+		fprintf(stderr, "%s: Block number is larger than volume size\n",
+			args[0]);
+		return;
+	}
+
+	loglblkno = strtoul(args[2], &endptr, 0);
+	if (*endptr) {
+		fprintf(stderr, "%s: Invalid logical block number\n", args[0]);
+		return;
+	}
+ 
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, " ");
+		return ;
+	}
+ 
+	inode = (struct ocfs2_dinode *)buf;
+ 
+	out = open_pager(gbls.interactive);
+ 
+	if ((inode->i_flags &
+		(OCFS2_LOCAL_ALLOC_FL | OCFS2_CHAIN_FL | OCFS2_DEALLOC_FL))
+		|| (S_ISLNK(inode->i_mode) && !inode->i_clusters)
+		|| (loglblkno > inode->i_size
+			>> OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits))
+		fprintf(out, "\t0\n");
+	else
+		dump_logical_blkno(gbls.fs, &(inode->id2.i_list), loglblkno,
+			out);
+ 
+	if (ret)
+		com_err(args[0], ret, " ");
+ 
+	close_pager(out);
+ 
+	return ;
 }
