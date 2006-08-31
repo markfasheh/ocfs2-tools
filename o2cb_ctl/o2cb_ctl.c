@@ -1265,7 +1265,7 @@ static gint run_create_nodes(O2CBContext *ctxt)
         }
 
         tmpnode = o2cb_cluster_get_node(cluster, num);
-        if (tmpnode)
+        if (tmpnode && (tmpnode != node))
         {
             rc = -EEXIST;
             fprintf(stderr,
