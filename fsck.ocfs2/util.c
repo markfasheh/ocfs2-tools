@@ -103,24 +103,17 @@ out:
 	return ret;
 }
 
-#define BITCOUNT(x)     (((BX_(x)+(BX_(x)>>4)) & 0x0F0F0F0F) % 255)
-#define BX_(x)          ((x) - (((x)>>1)&0x77777777) \
-			     - (((x)>>2)&0x33333333) \
-			     - (((x)>>3)&0x11111111))
-unsigned long o2fsck_bitcount(void *bytes, size_t len)
+size_t o2fsck_bitcount(unsigned char *bytes, size_t len)
 {
-	uint32_t val;
-	unsigned long total = 0;
-	size_t this;
+	static unsigned char nibble_count[16] = {
+		0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4
+	};
+	size_t count = 0;
 
-	while(len) {
-		val = 0;
-		this = ocfs2_min(len, sizeof(val));
-		memcpy(&val, bytes, this);
-		total += BITCOUNT(val);
-		len -= this;
+	for (; len--; bytes++) {
+		count += nibble_count[*bytes >> 4];
+		count += nibble_count[*bytes & 0xf];
 	}
-	return total;
+
+	return count;
 }
-#undef BITCOUNT
-#undef BX_
