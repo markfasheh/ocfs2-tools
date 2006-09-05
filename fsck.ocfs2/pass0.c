@@ -293,7 +293,7 @@ static errcode_t check_chain(o2fsck_state *ost,
 	struct ocfs2_group_desc *bg2 = (struct ocfs2_group_desc *)buf2;
 	uint64_t blkno;
 	errcode_t ret = 0;
-	int changed = 0, depth = 0, clear_ref = 0;
+	int depth = 0, clear_ref = 0;
 
 	verbosef("free %u total %u blkno %"PRIu64"\n", chain->c_free,
 		 chain->c_total, chain->c_blkno);
@@ -432,7 +432,7 @@ static errcode_t check_chain(o2fsck_state *ost,
 			   cs->cs_total_bits)) {
 			chain->c_total = cs->cs_total_bits;
 			chain->c_free = cs->cs_free_bits;
-			changed = 1;
+			*chain_changed = 1;
 		}
 	}
 
