@@ -401,10 +401,10 @@ static errcode_t check_chain(o2fsck_state *ost,
 	 * ref we were working from */
 	if (clear_ref) {
 		if (depth == 0) {
-			chain->c_blkno = blkno;
+			chain->c_blkno = 0;
 			*chain_changed = 1;
 		} else {
-			bg1->bg_next_group = blkno;
+			bg1->bg_next_group = 0;
 			ret = ocfs2_write_group_desc(ost->ost_fs,
 					             bg1->bg_blkno,
 						     (char *)bg1);
