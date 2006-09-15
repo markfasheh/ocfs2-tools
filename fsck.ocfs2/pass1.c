@@ -1070,7 +1070,7 @@ static void write_cluster_alloc(o2fsck_state *ost)
 		while (cbit_found < cbit) {
 			force_cluster_bit(ost, ci, cbit_found, 0);
 			cbit_found++;
-			ret = ocfs2_bitmap_find_next_set(ci->ci_chains, cbit, 
+			ret = ocfs2_bitmap_find_next_set(ci->ci_chains, cbit_found, 
 							 &cbit_found);
 			if (ret == OCFS2_ET_BIT_NOT_FOUND)
 				cbit_found = ost->ost_fs->fs_clusters;
