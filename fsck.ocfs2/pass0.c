@@ -233,6 +233,8 @@ static void unlink_group_desc(o2fsck_state *ost,
 			unlink = 1;
 			break;
 		}
+		if (unlink)
+			break;
 	}
 
 	if (!unlink)
