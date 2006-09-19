@@ -3,7 +3,7 @@
  *
  * entry point for fswrk
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2006 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,18 +20,15 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #include <main.h>
 
-#define MAX_CORRUPT		12
 
 char *progname = NULL;
 
 static char *device = NULL;
 static uint16_t slotnum = 0;
-static int corrupt[MAX_CORRUPT];
 
 struct corrupt_funcs {
 	void (*func) (ocfs2_filesys *fs, int code, uint16_t slotnum);
@@ -51,9 +48,14 @@ static struct corrupt_funcs cf[] = {
 	{ NULL },		/* 09 */
 	{ &corrupt_chains },	/* 10 - Corrupt c_blkno of the first record with an unaligned number */
 	{ &corrupt_chains },	/* 11 - Corrupt c_blkno of the first record with 0 */
-	{ &corrupt_chains }	/* 12 - Corrupt c_total/c_free of the first record */
+	{ &corrupt_chains },	/* 12 - Corrupt c_total/c_free of the first record */
+	{ &corrupt_file },	/* 13 - extent block error: EB_BLKNO, EB_GEN, EB_GEN_FIX, EXTENT_EB_INVALID */
+	{ &corrupt_file },	/* 14 - extent list error: EXTENT_LIST_DEPTH, EXTENT_LIST_COUNT, EXTENT_LIST_FREE */
+	{ &corrupt_file }	/* 15 - extent record error: EXTENT_BLKNO_UNALIGNED, EXTENT_CLUSTERS_OVERRUN, EXTENT_BLKNO_RANGE */
 };
 
+#define MAX_CORRUPT	(sizeof(cf) / sizeof(struct corrupt_funcs))	
+static int corrupt[MAX_CORRUPT];
 /*
  * usage()
  *

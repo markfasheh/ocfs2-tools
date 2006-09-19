@@ -16,7 +16,7 @@ else
 CFLAGS = -Wall -O2
 endif
 
-CFILES = main.c corrupt.c chain.c
+CFILES = main.c corrupt.c chain.c extent.c
 
 HFILES = 			\
 	include/main.h		\

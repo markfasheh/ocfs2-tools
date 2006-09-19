@@ -35,9 +35,9 @@ void mess_up_chains(ocfs2_filesys *fs, uint64_t blkno, int code)
 {
 	errcode_t ret;
 	char *buf = NULL;
-	ocfs2_dinode *di;
-	ocfs2_chain_list *cl;
-	ocfs2_chain_rec *cr;
+	struct ocfs2_dinode *di;
+	struct ocfs2_chain_list *cl;
+	struct ocfs2_chain_rec *cr;
 	int i;
 	uint32_t tmp1, tmp2;
 	uint64_t tmpblk;
@@ -50,7 +50,7 @@ void mess_up_chains(ocfs2_filesys *fs, uint64_t blkno, int code)
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
-	di = (ocfs2_dinode *)buf;
+	di = (struct ocfs2_dinode *)buf;
 
 	if (!(di->i_flags & OCFS2_BITMAP_FL))
 		FSWRK_FATAL("not a bitmap");

@@ -3,7 +3,7 @@
  *
  * corruption routines
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2006 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #include <main.h>
@@ -35,7 +34,7 @@ void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum)
 {
 	errcode_t ret;
 	uint64_t blkno;
-	ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 	char sysfile[40];
 
 	switch (code) {
@@ -77,4 +76,58 @@ void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	mess_up_chains(fs, blkno, code);
 
 	return ;
+}
+
+static void create_directory(ocfs2_filesys *fs, char *dirname, uint64_t *blkno)
+{
+	errcode_t ret;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+
+	ret = ocfs2_lookup(fs, sb->s_root_blkno, dirname, strlen(dirname), NULL,
+			   blkno);
+	if (!ret)
+		return;
+	else if (ret != OCFS2_ET_FILE_NOT_FOUND)
+		FSWRK_COM_FATAL(progname, ret);
+
+	ret  = ocfs2_new_inode(fs, blkno, S_IFDIR | 0755);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	ret = ocfs2_expand_dir(fs, *blkno, fs->fs_root_blkno);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	ret = ocfs2_link(fs, fs->fs_root_blkno, dirname, *blkno, OCFS2_FT_DIR);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	return;
+}
+
+void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
+{
+	void (*func)(ocfs2_filesys *fs, uint64_t blkno) = NULL;
+	uint64_t blkno;
+
+	switch (code) {
+	case 13: /* extent block */
+		func = mess_up_extent_block;
+		break;
+	case 14: /* extent list */
+		func = mess_up_extent_list;
+		break;
+	case 15: /* extent record */
+		func = mess_up_extent_record;
+		break;
+	default:
+		FSWRK_FATAL("Invalid code=%d", code);
+	}
+
+	create_directory(fs, "tmp", &blkno);
+
+	if (func)
+		func(fs, blkno);
+
+	return;
 }

@@ -62,7 +62,7 @@
 					   exit(1); \
 					 })
 
-#define FSWRK_COM_FATAL(__p, __r)	do { com_err(__p, __r, ""); raise (SIGTERM); exit(1); } while(0)
+#define FSWRK_COM_FATAL(__p, __r)	do { com_err(__p, __r, "(%s,%d)", __FILE__, __LINE__); raise (SIGTERM); exit(1); } while(0)
 
 #define FSWRK_FATAL_STR(str)		FSWRK_FATAL(str, "")
 
@@ -79,5 +79,7 @@
 /* remaining headers */
 #include <corrupt.h>
 #include <chain.h>
+#include <extent.h>
+#include <fsck_type.h>
 
 #endif		/* __MAIN_H__ */

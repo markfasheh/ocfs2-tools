@@ -1,9 +1,9 @@
 /*
- * corrupt.h
+ * extent.h
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2006 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,13 +20,13 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
-#ifndef __CORRUPT_H
-#define __CORRUPT_H
+#ifndef __EXTENT_H
+#define __EXTENT_H
 
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
+void mess_up_extent_list(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_extent_block(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_extent_record(ocfs2_filesys *fs, uint64_t blkno);
 
-#endif		/* __CORRUPT_H */
+#endif		/* __EXTENT_H */
