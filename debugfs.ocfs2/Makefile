@@ -44,6 +44,6 @@ dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 debugfs.ocfs2: $(OBJS)
-	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) -lreadline -lncurses
+	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(READLINE_LIBS) $(NCURSES_LIBS)
 
 include $(TOPDIR)/Postamble.make
