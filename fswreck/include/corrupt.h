@@ -3,7 +3,7 @@
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2006 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #ifndef __CORRUPT_H
@@ -28,5 +27,6 @@
 
 void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
 void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
+void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
 
 #endif		/* __CORRUPT_H */

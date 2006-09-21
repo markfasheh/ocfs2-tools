@@ -3,7 +3,7 @@
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2006 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #ifndef __MAIN_H__
@@ -76,6 +75,18 @@
 #undef min
 #define min(a,b)	((a) < (b) ? (a) : (b))
 
+enum{
+	CORRUPT_EXTENT_BLOCK = 13,
+	CORRUPT_EXTENT_LIST,
+	CORRUPT_EXTENT_REC,
+	CORRUPT_CHAIN_LIST,
+	CORRUPT_CHAIN_REC,
+	CORRUPT_CHAIN_INODE,
+	CORRUPT_CHAIN_GROUP,
+	CORRUPT_CHAIN_GROUP_MAGIC,
+	MAX_CORRUPT
+	
+};
 /* remaining headers */
 #include <corrupt.h>
 #include <chain.h>

@@ -28,33 +28,38 @@
 char *progname = NULL;
 
 static char *device = NULL;
-static uint16_t slotnum = 0;
+static uint16_t slotnum = UINT16_MAX;
 
 struct corrupt_funcs {
 	void (*func) (ocfs2_filesys *fs, int code, uint16_t slotnum);
+	char *desc;
 };
 
-static struct corrupt_funcs cf[] = {
-	{ NULL },		/* 00 */
-	{ NULL },		/* 01 */
-	{ NULL },		/* 02 */
+static struct corrupt_funcs cf[MAX_CORRUPT] = {
+	{ NULL, 		"Not applicable"},
+	{ NULL, 		"Not applicable"},
+	{ NULL, 		"Not applicable"},
 				/* Following relates to the Global bitmap: */
-	{ &corrupt_chains },	/* 03 - Delink the last chain from the inode */
-	{ &corrupt_chains },	/* 04 - Corrupt cl_count */
-	{ &corrupt_chains },	/* 05 - Corrupt cl_next_free_rec */
-	{ NULL },		/* 06 */
-	{ &corrupt_chains },	/* 07 - Corrupt id1.bitmap1.i_total/i_used */
-	{ &corrupt_chains },	/* 08 - Corrupt c_blkno of the first record with a number larger than volume size */
-	{ NULL },		/* 09 */
-	{ &corrupt_chains },	/* 10 - Corrupt c_blkno of the first record with an unaligned number */
-	{ &corrupt_chains },	/* 11 - Corrupt c_blkno of the first record with 0 */
-	{ &corrupt_chains },	/* 12 - Corrupt c_total/c_free of the first record */
-	{ &corrupt_file },	/* 13 - extent block error: EB_BLKNO, EB_GEN, EB_GEN_FIX, EXTENT_EB_INVALID */
-	{ &corrupt_file },	/* 14 - extent list error: EXTENT_LIST_DEPTH, EXTENT_LIST_COUNT, EXTENT_LIST_FREE */
-	{ &corrupt_file }	/* 15 - extent record error: EXTENT_BLKNO_UNALIGNED, EXTENT_CLUSTERS_OVERRUN, EXTENT_BLKNO_RANGE */
+	{ &corrupt_chains, 	"Delink the last chain from the inode"},
+	{ &corrupt_chains, 	"Corrupt cl_count"},
+	{ &corrupt_chains,	"Corrupt cl_next_free_rec"},
+	{ NULL,			"Not applicable"},
+	{ &corrupt_chains,	"Corrupt id1.bitmap1.i_total/i_used"},
+	{ &corrupt_chains,	"Corrupt c_blkno of the first record with a number larger than volume size"},
+	{ NULL,			"Not applicable"},
+	{ &corrupt_chains,	"Corrupt c_blkno of the first record with an unaligned number"},
+	{ &corrupt_chains,	"Corrupt c_blkno of the first record with 0"},
+	{ &corrupt_chains,	"Corrupt c_total/c_free of the first record"},
+	{ &corrupt_file,	"Extent block error: EB_BLKNO, EB_GEN, EB_GEN_FIX, EXTENT_EB_INVALID"},
+	{ &corrupt_file,	"Extent list error: EXTENT_LIST_DEPTH, EXTENT_LIST_COUNT, EXTENT_LIST_FREE"},
+	{ &corrupt_file,	"Extent record error: EXTENT_BLKNO_UNALIGNED, EXTENT_CLUSTERS_OVERRUN, EXTENT_BLKNO_RANGE"},
+	{ &corrupt_sys_file,	"Chain list error:	CHAIN_COUNT, CHAIN_NEXT_FREE"},
+	{ &corrupt_sys_file,	"Chain record error: CHAIN_EMPTY, CHAIN_HEAD_LINK_RANGE, CHAIN_BITS"},
+	{ &corrupt_sys_file,	"Chain inode error: CHAIN_I_CLUSTERS, CHAIN_I_SIZE, CHAIN_GROUP_BITS"},
+	{ &corrupt_sys_file,	"Chain group error: CHAIN_LINK_GEN, CHAIN_LINK_RANGE"},
+	{ &corrupt_sys_file,	"Group magic error: CHAIN_LINK_MAGIC"}
 };
 
-#define MAX_CORRUPT	(sizeof(cf) / sizeof(struct corrupt_funcs))	
 static int corrupt[MAX_CORRUPT];
 /*
  * usage()
@@ -62,9 +67,15 @@ static int corrupt[MAX_CORRUPT];
  */
 static void usage (char *progname)
 {
+	int i;
+
 	g_print ("Usage: %s [OPTION]... [DEVICE]\n", progname);
-	g_print ("	-c <corrupt code>\n");
 	g_print ("	-n <node slot number>\n");
+	g_print ("	-c <corrupt code>\n");
+	g_print ("	corrupt code description:\n");
+	for (i = 0; i < MAX_CORRUPT; i++)
+		g_print ("	%02d - %s\n", i, cf[i].desc);
+
 	exit (0);
 }					/* usage */
 

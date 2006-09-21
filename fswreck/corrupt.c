@@ -111,13 +111,13 @@ void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	uint64_t blkno;
 
 	switch (code) {
-	case 13: /* extent block */
+	case CORRUPT_EXTENT_BLOCK:
 		func = mess_up_extent_block;
 		break;
-	case 14: /* extent list */
+	case CORRUPT_EXTENT_LIST:
 		func = mess_up_extent_list;
 		break;
-	case 15: /* extent record */
+	case CORRUPT_EXTENT_REC:
 		func = mess_up_extent_record;
 		break;
 	default:
@@ -128,6 +128,36 @@ void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 
 	if (func)
 		func(fs, blkno);
+
+	return;
+}
+
+void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
+{
+	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+
+	switch (code) {
+	case CORRUPT_CHAIN_LIST:
+		func = mess_up_chains_list;
+		break;
+	case CORRUPT_CHAIN_REC:
+		func = mess_up_chains_rec;
+		break;
+	case CORRUPT_CHAIN_INODE:
+		func = mess_up_chains_inode;
+		break;
+	case CORRUPT_CHAIN_GROUP:
+		func = mess_up_chains_group;
+		break;
+	case CORRUPT_CHAIN_GROUP_MAGIC:
+		func = mess_up_chains_group_magic;
+		break;
+	default:
+		FSWRK_FATAL("Invalid code=%d", code);
+	}
+
+	if (func)
+		func(fs, slotnum);
 
 	return;
 }
