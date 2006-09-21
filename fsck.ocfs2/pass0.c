@@ -578,6 +578,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			 * update */
 			if (i < (cl->cl_next_free_rec - 1)) {
 				*cr = cl->cl_recs[cl->cl_next_free_rec - 1];
+				memset(&cl->cl_recs[cl->cl_next_free_rec - 1],
+					0, sizeof(struct ocfs2_chain_rec));
 				i--;
 			}
 
