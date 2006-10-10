@@ -54,10 +54,14 @@ static struct corrupt_funcs cf[MAX_CORRUPT] = {
 	{ &corrupt_file,	"Extent list error: EXTENT_LIST_DEPTH, EXTENT_LIST_COUNT, EXTENT_LIST_FREE"},
 	{ &corrupt_file,	"Extent record error: EXTENT_BLKNO_UNALIGNED, EXTENT_CLUSTERS_OVERRUN, EXTENT_BLKNO_RANGE"},
 	{ &corrupt_sys_file,	"Chain list error:	CHAIN_COUNT, CHAIN_NEXT_FREE"},
-	{ &corrupt_sys_file,	"Chain record error: CHAIN_EMPTY, CHAIN_HEAD_LINK_RANGE, CHAIN_BITS"},
+	{ &corrupt_sys_file,	"Chain record error: CHAIN_EMPTY, CHAIN_HEAD_LINK_RANGE, CHAIN_BITS, CLUSTER_ALLOC_BIT"},
 	{ &corrupt_sys_file,	"Chain inode error: CHAIN_I_CLUSTERS, CHAIN_I_SIZE, CHAIN_GROUP_BITS"},
 	{ &corrupt_sys_file,	"Chain group error: CHAIN_LINK_GEN, CHAIN_LINK_RANGE"},
-	{ &corrupt_sys_file,	"Group magic error: CHAIN_LINK_MAGIC"}
+	{ &corrupt_sys_file,	"Group magic error: CHAIN_LINK_MAGIC"},
+				/* Follow corrupt group descriptor */
+	{ &corrupt_group_desc,	"Group minor field error: GROUP_PARENT, GROUP_BLKNO, GROUP_CHAIN, GROUP_FREE_BITS"},
+	{ &corrupt_group_desc,	"Group generation error: GROUP_GEN"},
+	{ &corrupt_group_desc,	"Group list error: GROUP_UNEXPECTED_DESC, GROUP_EXPECTED_DESC"}
 };
 
 static int corrupt[MAX_CORRUPT];
@@ -129,7 +133,7 @@ static int read_options(int argc, char **argv)
 		switch (c) {
 		case 'c':	/* corrupt */
 			ind = strtoul(optarg, NULL, 0);
-			if (ind <= MAX_CORRUPT)
+			if (ind < MAX_CORRUPT)
 				corrupt[ind] = 1;
 			else {
 				fprintf(stderr, "Invalid corrupt code:%d\n", ind);
@@ -193,7 +197,7 @@ int main (int argc, char **argv)
 		goto bail;
 	}
 
-	for (i = 1; i <= MAX_CORRUPT; ++i) {
+	for (i = 1; i < MAX_CORRUPT; ++i) {
 		if (corrupt[i]) {
 			if (cf[i].func)
 				cf[i].func(fs, i, slotnum);

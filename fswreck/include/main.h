@@ -84,13 +84,20 @@ enum{
 	CORRUPT_CHAIN_INODE,
 	CORRUPT_CHAIN_GROUP,
 	CORRUPT_CHAIN_GROUP_MAGIC,
+	CORRUPT_GROUP_MINOR,
+	CORRUPT_GROUP_GENERATION,
+	CORRUPT_GROUP_LIST,
 	MAX_CORRUPT
 	
 };
+
+#define ARRAY_ELEMENTS(arr) (sizeof(arr) / sizeof(arr[0]))
+
 /* remaining headers */
 #include <corrupt.h>
 #include <chain.h>
 #include <extent.h>
+#include <group.h>
 #include <fsck_type.h>
 
 #endif		/* __MAIN_H__ */

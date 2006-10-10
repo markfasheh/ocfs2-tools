@@ -161,3 +161,27 @@ void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 
 	return;
 }
+
+void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum)
+{
+	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+
+	switch (code) {
+	case CORRUPT_GROUP_MINOR:
+		func = mess_up_group_minor;
+		break;
+	case CORRUPT_GROUP_GENERATION:
+		func = mess_up_group_gen;
+		break;
+	case CORRUPT_GROUP_LIST:
+		func = mess_up_group_list;
+		break;
+	default:
+		FSWRK_FATAL("Invalid code=%d", code);
+	}
+
+	if (func)
+		func(fs, slotnum);
+
+	return;
+}

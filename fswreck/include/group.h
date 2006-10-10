@@ -1,5 +1,5 @@
 /*
- * corrupt.h
+ * group.h
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
@@ -22,12 +22,11 @@
  *
  */
 
-#ifndef __CORRUPT_H
-#define __CORRUPT_H
+#ifndef __GROUP_H
+#define __GROUP_H
 
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum);
+void mess_up_group_minor(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_group_gen(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_group_list(ocfs2_filesys *fs, uint16_t slotnum);
 
-#endif		/* __CORRUPT_H */
+#endif		/* __GROUP_H */
