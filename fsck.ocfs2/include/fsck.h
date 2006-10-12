@@ -52,6 +52,8 @@ typedef struct _o2fsck_state {
 	uint32_t	ost_fs_generation;
 	uint64_t	ost_lostfound_ino;
 
+	uint32_t	ost_num_clusters;
+
 	struct rb_root	ost_dir_parents;
 
 	unsigned	ost_ask:1,	/* confirm with the user */

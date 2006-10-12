@@ -103,6 +103,21 @@ volume, and thus reserved, or beyond the end of the volume.
 Answering yes removes this extent record from the tree.  This may remove data
 from the file which owns the tree but any such data was inaccesible.
 
+.SS "CHAIN_CPG"
+The bitmap inode indicates a different clusters per group than the group
+descriptor. This value is typically static and only modified by tunefs during
+volume resize and that too only on volumes having only one cluster group.
+
+Answering yes updates the clusters per group on the bitmap inode to the
+corresponding value in the group descriptor.
+
+.SS "SUPERBLOCK_CLUSTERS"
+The super block indicates a different total clusters value than the global
+bitmap. This is only possible due to a failed volume resize operation.
+
+Answering yes updates the total clusters in the super block to the value
+specified in the global bitmap.
+
 \" pass0.c
 
 .SS "GROUP_UNEXPECTED_DESC"

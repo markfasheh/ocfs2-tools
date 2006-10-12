@@ -96,6 +96,12 @@
  */
 #define OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV	0x0002
 
+/*
+ * tunefs sets this incompat flag before starting the resize and clears it
+ * at the end. This flag protects users from inadvertently mounting the fs
+ * after an aborted run without fsck-ing.
+ */
+#define OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG    0x0004
 
 /*
  * Flags on ocfs2_dinode.i_flags

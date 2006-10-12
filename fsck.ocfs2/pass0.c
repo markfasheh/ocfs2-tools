@@ -280,6 +280,66 @@ static void mark_group_used(o2fsck_state *ost, struct chain_state *cs,
 				clusters);
 }
 
+/*
+ * Due to a glitch in mkfs, cl->cl_cpg for the GLOBAL BITMAP could be
+ * less than the max possible for volumes having just one cluster
+ * group. Fix.
+ */
+static errcode_t maybe_fix_clusters_per_group(o2fsck_state *ost,
+					      struct ocfs2_dinode *di)
+{
+	struct ocfs2_chain_list *cl;
+	struct ocfs2_group_desc *gd;
+	uint16_t new_cl_cpg = 0;
+	uint64_t blkno;
+	char *buf = NULL;
+	int ret = 0;
+
+	cl = &(di->id2.i_chain);
+	if (cl->cl_next_free_rec > 1)
+		goto out;
+
+	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating block buffers "
+			"to fix cl_cpg");
+		goto out;
+	}
+	gd = (struct ocfs2_group_desc *) buf;
+
+	blkno = cl->cl_recs[0].c_blkno;
+
+	ret = ocfs2_read_group_desc(ost->ost_fs, blkno, (char *)gd);
+	if (ret) {
+		com_err(whoami, ret, "while reading group descriptor "
+			"at block %"PRIu64" to fix cl_cpg", blkno);
+		goto out;
+	}
+
+	new_cl_cpg = 8 * gd->bg_size;
+	if (cl->cl_cpg == new_cl_cpg)
+		goto out;
+
+	if (prompt(ost, PY, PR_CHAIN_CPG,
+		   "Global bitmap at block %"PRIu64" has clusters per group "
+		   "set to %u instead of %u. Fix?", di->i_blkno, cl->cl_cpg,
+		   new_cl_cpg)) {
+		cl->cl_cpg = new_cl_cpg;
+		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
+		if (ret) {
+			com_err(whoami, ret, "while writing inode alloc inode "
+				"%"PRIu64" to fix cl_cpg", di->i_blkno);
+			ost->ost_saw_error = 1;
+			ret = 0;
+		}
+	}
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 /* this takes a slightly ridiculous number of arguments :/ */
 static errcode_t check_chain(o2fsck_state *ost,
 			     struct ocfs2_dinode *di,
@@ -887,11 +947,22 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	verbosef("found inode alloc %"PRIu64" at block %"PRIu64"\n",
 		 di->i_blkno, blkno);
 
+	ret = maybe_fix_clusters_per_group(ost, di);
+	if (ret)
+		goto out;
+
 	ret = verify_bitmap_descs(ost, di, blocks + ost->ost_fs->fs_blocksize,
 				  blocks + (ost->ost_fs->fs_blocksize * 2));
 
 	if (ret)
 		goto out;
+
+	if (fs->fs_super->i_clusters != di->i_clusters) {
+		if (prompt(ost, PY, PR_SUPERBLOCK_CLUSTERS,
+			   "Superblock has clusters set to %u instead of %u. Fix?",
+			   fs->fs_super->i_clusters, di->i_clusters))
+			ost->ost_num_clusters = di->i_clusters;
+	}
 
 	printf("Pass 0b: Checking inode allocation chains\n");
 

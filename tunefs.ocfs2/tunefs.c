@@ -1051,7 +1051,7 @@ static errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 		ret = ocfs2_write_group_desc(fs, lgd_blkno, lgd_buf);
 		if (ret) {
 			block_signals(SIG_UNBLOCK);
-			com_err(opts.progname, ret, "while writing group "
+			com_err(opts.progname, ret, "while flushing group "
 				"descriptor at block %"PRIu64" during "
 				"volume resize", lgd_blkno);
 			goto bail;
@@ -1094,6 +1094,7 @@ int main(int argc, char **argv)
 	int upd_slots = 0;
 	int upd_jrnls = 0;
 	int upd_blocks = 0;
+	int upd_incompat = 0;
 	uint16_t tmp;
 	uint64_t def_jrnl_size = 0;
 	uint64_t num_clusters;
@@ -1136,6 +1137,12 @@ int main(int argc, char **argv)
 	}
 	fs_gbl = fs;
 
+	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
+	    OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
+		fprintf(stderr, "Aborted resize detected. Run fsck.ocfs2 -f <device>.\n");
+		goto close;
+	}
+
 	if (resize)
 		get_vol_size(fs);
 
@@ -1166,7 +1173,7 @@ int main(int argc, char **argv)
 	if (opts.num_blocks || opts.num_slots || opts.jrnl_size) {
 		if (global_bitmap_check(fs)) {
 			com_err(opts.progname, 0, "Global bitmap check failed. "
-				"Run fsck.ocfs2.");
+				"Run fsck.ocfs2 -f <device>.");
 			goto unlock;
 		}
 	}
@@ -1247,6 +1254,19 @@ int main(int argc, char **argv)
 		}
 	}
 
+	/* Set resize incompat flag on superblock */
+	if (opts.num_blocks) {
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+		ret = ocfs2_write_super(fs);
+		if (ret) {
+			com_err(opts.progname, ret,
+				"while writing resize incompat flag");
+			goto unlock;
+		}
+		upd_incompat = 1;
+	}
+
 	/* update volume label */
 	if (opts.vol_label) {
 		update_volume_label(fs, &upd_label);
@@ -1293,12 +1313,15 @@ int main(int argc, char **argv)
 				"while updating volume size");
 			goto unlock;
 		}
+		/* Clear resize incompat flag on superblock */
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
 		if (upd_blocks)
 			printf("Resized volume\n");
 	}
 
 	/* write superblock */
-	if (upd_label || upd_uuid || upd_slots || upd_blocks) {
+	if (upd_label || upd_uuid || upd_slots || upd_blocks || upd_incompat) {
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {

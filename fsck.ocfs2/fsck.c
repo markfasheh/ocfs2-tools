@@ -186,6 +186,12 @@ static errcode_t write_out_superblock(o2fsck_state *ost)
 	struct ocfs2_dinode *di = ost->ost_fs->fs_super;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(di);
 
+	if (sb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG)
+		sb->s_feature_incompat &= ~OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+
+	if (ost->ost_num_clusters)
+		di->i_clusters = ost->ost_num_clusters;
+
 	sb->s_errors = ost->ost_saw_error;
 	sb->s_lastcheck = time(NULL);
 	sb->s_mnt_count = 0;
@@ -234,6 +240,9 @@ static int fs_is_clean(o2fsck_state *ost, char *filename)
 
 	if (ost->ost_force)
 		strcpy(reason, "was run with -f");
+	else if ((OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_incompat &
+		  OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG))
+		strcpy(reason, "incomplete volume resize detected");
 	else if (sb->s_state & OCFS2_ERROR_FS)
 		strcpy(reason, "contains a file system with errors");
 	else if (sb->s_max_mnt_count > 0 &&
