@@ -58,10 +58,23 @@ static struct corrupt_funcs cf[MAX_CORRUPT] = {
 	{ &corrupt_sys_file,	"Chain inode error: CHAIN_I_CLUSTERS, CHAIN_I_SIZE, CHAIN_GROUP_BITS"},
 	{ &corrupt_sys_file,	"Chain group error: CHAIN_LINK_GEN, CHAIN_LINK_RANGE"},
 	{ &corrupt_sys_file,	"Group magic error: CHAIN_LINK_MAGIC"},
-				/* Follow corrupt group descriptor */
+				/* Following relates to corrupting group descriptor */
 	{ &corrupt_group_desc,	"Group minor field error: GROUP_PARENT, GROUP_BLKNO, GROUP_CHAIN, GROUP_FREE_BITS"},
 	{ &corrupt_group_desc,	"Group generation error: GROUP_GEN"},
-	{ &corrupt_group_desc,	"Group list error: GROUP_UNEXPECTED_DESC, GROUP_EXPECTED_DESC"}
+	{ &corrupt_group_desc,	"Group list error: GROUP_UNEXPECTED_DESC, GROUP_EXPECTED_DESC"},
+				/* Following relates to corrupting inode information */
+	{ &corrupt_file,	"Inode field error: INODE_SUBALLOC, INODE_GEN, INODE_GEN_FIX,INODE_BLKNO,"
+				"INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT"},
+	{ &corrupt_file,	"Inode link not connected error: INODE_LINK_NOT_CONNECTED "},
+	{ &corrupt_sys_file,	"Inode orphaned error:	INODE_ORPHANED"},
+	{ &corrupt_sys_file,	"Inode alloc error:	INODE_ALLOC_REPAIR"},
+				/* Following relates to corrupting local alloc file */
+	{ &corrupt_local_alloc,	"Empty local alloc  error:	LALLOC_SIZE, LALLOC_NZ_USED, LALLOC_NZ_BM"},
+	{ &corrupt_local_alloc,	"Local alloc bitmap error: 	LALLOC_BM_OVERRUN, LALLOC_BM_STRADDLE,LALLOC_BM_SIZE"},
+	{ &corrupt_local_alloc,	"Local alloc used info error:	LALLOC_USED_OVERRUN, LALLOC_CLEAR"},
+				/* Following relates to corrupting truncate log file */
+ 	{ &corrupt_truncate_log,"Truncate log list error: 	DEALLOC_COUNT, DEALLOC_USED"},
+ 	{ &corrupt_truncate_log,"Truncate log rec error: 	TRUNCATE_REC_START_RANGE, TRUNCATE_REC_WRAP, TRUNCATE_REC_RANGE"}
 };
 
 static int corrupt[MAX_CORRUPT];

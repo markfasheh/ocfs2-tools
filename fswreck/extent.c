@@ -39,7 +39,7 @@
 
 extern char *progname;
 
-static void create_file(ocfs2_filesys *fs, uint64_t blkno, uint64_t *retblkno)
+void create_file(ocfs2_filesys *fs, uint64_t blkno, uint64_t *retblkno)
 {
 	errcode_t ret;
 	uint64_t tmp_blkno = 0;

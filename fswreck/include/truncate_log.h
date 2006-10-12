@@ -1,5 +1,5 @@
 /*
- * corrupt.h
+ * truncate_log.h
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
@@ -22,15 +22,10 @@
  *
  */
 
-#ifndef __CORRUPT_H
-#define __CORRUPT_H
+#ifndef __TRUNCATE_LOG_H
+#define __TRUNCATE_LOG_H
 
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_inode(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_local_alloc(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_truncate_log(ocfs2_filesys *fs, int code, uint16_t slotnum);
+void mess_up_truncate_log_list(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_truncate_log_rec(ocfs2_filesys *fs, uint16_t slotnum);
 
-#endif		/* __CORRUPT_H */
+#endif		/* __TRUNCATE_LOG_H */

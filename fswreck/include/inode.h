@@ -1,5 +1,5 @@
 /*
- * corrupt.h
+ * inode.h
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
@@ -22,15 +22,12 @@
  *
  */
 
-#ifndef __CORRUPT_H
-#define __CORRUPT_H
+#ifndef __INODE_H
+#define __INODE_H
 
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_inode(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_local_alloc(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_truncate_log(ocfs2_filesys *fs, int code, uint16_t slotnum);
+void mess_up_inode_field(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_inode_not_connected(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_inode_orphaned(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_inode_alloc(ocfs2_filesys *fs, uint16_t slotnum);
 
-#endif		/* __CORRUPT_H */
+#endif		/* __INODE_H */

@@ -120,6 +120,12 @@ void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	case CORRUPT_EXTENT_REC:
 		func = mess_up_extent_record;
 		break;
+	case CORRUPT_INODE_FIELD:
+		func = mess_up_inode_field;
+		break; 
+	case CORRUPT_INODE_NOT_CONNECTED:
+		func = mess_up_inode_not_connected;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", code);
 	}
@@ -152,6 +158,12 @@ void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	case CORRUPT_CHAIN_GROUP_MAGIC:
 		func = mess_up_chains_group_magic;
 		break;
+	case CORRUPT_INODE_ORPHANED:
+		func = mess_up_inode_orphaned;
+		break;
+	case CORRUPT_INODE_ALLOC_REPAIR:
+		func = mess_up_inode_alloc;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", code);
 	}
@@ -178,6 +190,51 @@ void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum)
 		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", code);
+	}
+
+	if (func)
+		func(fs, slotnum);
+
+	return;
+}
+
+void corrupt_local_alloc(ocfs2_filesys *fs, int code, uint16_t slotnum)
+{
+	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+
+	switch (code) {
+	case CORRUPT_LOCAL_ALLOC_EMPTY:
+		func = mess_up_local_alloc_empty;
+		break;
+	case CORRUPT_LOCAL_ALLOC_BITMAP: 
+		func = mess_up_local_alloc_bitmap;
+		break;
+	case CORRUPT_LOCAL_ALLOC_USED: 
+		func = mess_up_local_alloc_used;
+		break;
+	default:
+		FSWRK_FATAL("Invalid code = %d", code);
+	}
+
+	if (func)
+		func(fs, slotnum);
+
+	return;
+}
+
+void corrupt_truncate_log(ocfs2_filesys *fs, int code, uint16_t slotnum)
+{
+	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+
+	switch (code) {
+	case CORRUPT_TRUNCATE_LOG_LIST:
+		func = mess_up_truncate_log_list;
+		break;
+	case CORRUPT_TRUNCATE_LOG_REC:
+		func = mess_up_truncate_log_rec;
+		break;
+	default:
+		FSWRK_FATAL("Invalid code = %d", code);
 	}
 
 	if (func)

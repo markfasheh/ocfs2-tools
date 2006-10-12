@@ -141,13 +141,28 @@ enum fsck_type
  *
  * Group list error: GROUP_UNEXPECTED_DESC, GROUP_EXPECTED_DESC
  *
- * Local alloc error: 	LALLOC_SIZE, LALLOC_NZ_USED, LALLOC_NZ_BM, 
- *		      	LALLOC_BM_OVERRUN, LALLOC_BM_SIZE, LALLOC_BM_SIZE,
- *			LALLOC_BM_STRADDLE, LALLOC_USED_OVERRUN, LALLOC_CLEAR,
- *			LALLOC_REPAIR, LALLOC_USED, CLUSTER_ALLOC_BIT
+ * Inode field error: 	INODE_SUBALLOC, INODE_GEN, INODE_GEN_FIX,INODE_BLKNO,
+			INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT
+ *
+ * Inode link not connected error: INODE_LINK_NOT_CONNECTED 
+ *
+ * Inode orphaned error:	INODE_ORPHANED
+ *
+ * Inode alloc error:	INODE_ALLOC_REPAIR
+ *
+ * Empty local alloc  error:	LALLOC_SIZE, LALLOC_NZ_USED, LALLOC_NZ_BM
+ *
+ * Local alloc bitmap error: 	LALLOC_BM_OVERRUN, LALLOC_BM_STRADDLE,LALLOC_BM_SIZE
+ *
+ * Local alloc used info error:	LALLOC_USED_OVERRUN, LALLOC_CLEAR
+
+ * LALLOC_USED, LALLOC_REPAIR is recorded in fsck.ocfs2.checks.8.in,
+ * but never find the solution in fsck.ocfs2 source code.
  * 
- * Truncate log error: 	DEALLOC_COUNT, DEALLOC_USED, TRUNCATE_REC_START_RANGE,
- *			TRUNCATE_REC_WRAP, TRUNCATE_REC_RANGE
+ * Truncate log list error: 	DEALLOC_COUNT, DEALLOC_USED
+ *
+ * Truncate log rec error: 	TRUNCATE_REC_START_RANGE, TRUNCATE_REC_WRAP,
+ *				TRUNCATE_REC_RANGE
  *
  * Special files error: ROOT_NOTDIR, ROOT_DIR_MISSING, LOSTFOUND_MISSING,
  *			DIR_DOTDOT

@@ -1,5 +1,5 @@
 /*
- * corrupt.h
+ * local_alloc.h
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
@@ -22,15 +22,11 @@
  *
  */
 
-#ifndef __CORRUPT_H
-#define __CORRUPT_H
+#ifndef __LOCAL_ALLOC_H
+#define __LOCAL_ALLOC_H
 
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_inode(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_local_alloc(ocfs2_filesys *fs, int code, uint16_t slotnum);
-void corrupt_truncate_log(ocfs2_filesys *fs, int code, uint16_t slotnum);
+void mess_up_local_alloc_empty(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_local_alloc_bitmap(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_local_alloc_used(ocfs2_filesys *fs, uint16_t slotnum);
 
-#endif		/* __CORRUPT_H */
+#endif		/* __LOCAL_ALLOC_H */

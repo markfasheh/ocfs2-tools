@@ -87,6 +87,15 @@ enum{
 	CORRUPT_GROUP_MINOR,
 	CORRUPT_GROUP_GENERATION,
 	CORRUPT_GROUP_LIST,
+	CORRUPT_INODE_FIELD,
+	CORRUPT_INODE_NOT_CONNECTED,
+	CORRUPT_INODE_ORPHANED,
+	CORRUPT_INODE_ALLOC_REPAIR,
+	CORRUPT_LOCAL_ALLOC_EMPTY,
+	CORRUPT_LOCAL_ALLOC_BITMAP,
+	CORRUPT_LOCAL_ALLOC_USED,
+	CORRUPT_TRUNCATE_LOG_LIST,
+	CORRUPT_TRUNCATE_LOG_REC,
 	MAX_CORRUPT
 	
 };
@@ -98,6 +107,9 @@ enum{
 #include <chain.h>
 #include <extent.h>
 #include <group.h>
+#include <inode.h>
+#include <local_alloc.h>
+#include <truncate_log.h>
 #include <fsck_type.h>
 
 #endif		/* __MAIN_H__ */
