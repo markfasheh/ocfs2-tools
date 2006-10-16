@@ -576,7 +576,7 @@ errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
 
 	ret = write(fd, lvb, len);
 	if (ret < 0)
-		return O2DLM_ET_LVB_READ;
+		return O2DLM_ET_LVB_WRITE;
 
 	if (bytes_written)
 		*bytes_written = ret;
