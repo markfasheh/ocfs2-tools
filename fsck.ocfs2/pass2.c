@@ -329,7 +329,7 @@ static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		goto out;
 	}
 
-	if (!o2fsck_test_inode_allocated(ost, dbe->e_ino) &&
+	if (!o2fsck_test_inode_allocated(ost, dirent->inode) &&
 	    prompt(ost, PY, PR_DIRENT_INODE_FREE,
 		   "Directory entry '%.*s' refers to inode number "
 		   "%"PRIu64" which isn't allocated, clear the entry?", 
