@@ -1343,7 +1343,7 @@ unlock:
 
 close:
 	block_signals(SIG_BLOCK);
-	if (fs->fs_dlm_ctxt)
+	if (fs && fs->fs_dlm_ctxt)
 		ocfs2_shutdown_dlm(fs);
 	block_signals(SIG_UNBLOCK);
 
