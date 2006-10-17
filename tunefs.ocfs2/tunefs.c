@@ -1089,6 +1089,7 @@ int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
+	int open_flags = OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
 	int upd_label = 0;
 	int upd_uuid = 0;
 	int upd_slots = 0;
@@ -1129,7 +1130,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	ret = ocfs2_open(opts.device, OCFS2_FLAG_RW, 0, 0, &fs);
+	/* strict compat flag check */
+	ret = ocfs2_open(opts.device, open_flags, 0, 0, &fs);
 	if (ret) {
 		com_err(opts.progname, ret, "while opening device %s",
 			opts.device);

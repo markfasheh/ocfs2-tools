@@ -166,14 +166,6 @@ static errcode_t check_superblock(o2fsck_state *ost)
 		ret = OCFS2_ET_CORRUPT_SUPERBLOCK;
 	}
 
-	/* ocfs2_open() already checked _incompat and _ro_compat */
-	if (sb->s_feature_compat & ~OCFS2_FEATURE_COMPAT_SUPP) {
-		if (ret == 0)
-			ret = OCFS2_ET_UNSUPP_FEATURE;
-		com_err(whoami, ret, "while checking the super block's compat "
-			"flags");
-	}
-
 	ost->ost_fs_generation = di->i_fs_generation;
 
 	/* XXX do we want checking for different revisions of ocfs2? */
@@ -423,7 +415,7 @@ int main(int argc, char **argv)
 	char *filename;
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
-	int c, open_flags = OCFS2_FLAG_RW;
+	int c, open_flags = OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
 	int fsck_mask = FSCK_OK;
 	errcode_t ret;
 

@@ -982,7 +982,7 @@ fs_init (Filesystem *self,
   if (self->device == NULL)
     return -1;
 
-  ret = ocfs2_open (device, flags, superblock, blksize, &self->fs); 
+  ret = ocfs2_open (device, flags, superblock, blksize, &self->fs);
 
   if (ret)
     {
