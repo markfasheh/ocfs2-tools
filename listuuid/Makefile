@@ -27,6 +27,8 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
 
+UNINST_PROGRAMS = listuuid
+
 CFILES =	listuuid.c
 
 OBJS = $(subst .c,.o,$(CFILES))
