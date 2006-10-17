@@ -157,9 +157,10 @@ void do_command (char *cmd)
 
 	fflush(stdout);
 
-	if (command)
+	if (command) {
+		gbls.cmd = command->cmd;
 		command->func (args);
-	else
+	} else
 		fprintf(stderr, "%s: command not found\n", args[0]);
 
 bail:
@@ -205,8 +206,7 @@ static int process_inode_args(char **args, uint64_t *blkno)
 	}
 
 	if (*blkno >= gbls.max_blocks) {
-		fprintf(stderr, "%s: Block number is larger than volume size\n",
-			args[0]);
+		com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"", *blkno);
 		return -1;
 	}
 
@@ -247,8 +247,7 @@ static int process_ls_args(char **args, uint64_t *blkno, int *long_opt)
 	}
 
 	if (*blkno >= gbls.max_blocks) {
-		fprintf(stderr, "%s: Block number is larger than volume size\n",
-			args[0]);
+		com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"", *blkno);
 		return -1;
 	}
 
@@ -278,8 +277,7 @@ static int process_inodestr_args(char **args, int count, uint64_t *blkno)
 		if (!args[i] || inodestr_to_inode(args[i], p))
 			break;
 		if (*p >= gbls.max_blocks) {
-			fprintf(stderr, "%s: Block number %"PRIu64" is "
-				"larger than volume size\n", args[0], *p);
+			com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"", *p);
 			return -1;
 		}
 	}
@@ -318,6 +316,64 @@ static int get_slotnum(char **args, uint16_t *slotnum)
 		fprintf(stderr, "usage: %s <slotnum>\n", args[0]);
 
 	return -1;
+}
+
+/*
+ * find_block_offset()
+ *
+ */
+static errcode_t find_block_offset(ocfs2_filesys *fs,
+				   struct ocfs2_extent_list *el,
+				   uint64_t blkoff, FILE *out)
+{
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
+	errcode_t ret = 0;
+	char *buf = NULL;
+	int i;
+	uint32_t clstoff;
+	uint32_t tmp;
+
+	clstoff = ocfs2_blocks_to_clusters(fs, blkoff);
+
+	for (i = 0; i < el->l_next_free_rec; ++i) {
+		rec = &(el->l_recs[i]);
+
+		/* TODO Fix to handle sparse trees */
+		if (clstoff >= (rec->e_cpos + rec->e_clusters))
+			continue;
+
+		if (!el->l_tree_depth) {
+			tmp = blkoff - ocfs2_clusters_to_blocks(fs, clstoff);
+			dump_logical_blkno(out, rec->e_blkno + tmp);
+			goto bail;
+		}
+
+		ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
+		if (ret) {
+			com_err(gbls.cmd, ret, "while allocating a block");
+			goto bail;
+		}
+
+		ret = ocfs2_read_extent_block(fs, rec->e_blkno, buf);
+		if (ret) {
+			com_err(gbls.cmd, ret, "while reading extent %"PRIu64,
+				rec->e_blkno);
+			goto bail;
+		}
+
+		eb = (struct ocfs2_extent_block *)buf;
+
+		ret = find_block_offset(fs, &(eb->h_list), blkoff, out);
+		goto bail;
+	}
+
+	dump_logical_blkno(out, 0);
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
 }
 
 /*
@@ -431,14 +487,15 @@ static void do_open (char **args)
 	ret = ocfs2_open(dev, flags, 0, 0, &gbls.fs);
 	if (ret) {
 		gbls.fs = NULL;
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while opening context for device %s",
+			dev);
 		return ;
 	}
 
 	/* allocate blocksize buffer */
 	ret = ocfs2_malloc_block(gbls.fs->fs_io, &gbls.blockbuf);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while allocating a block");
 		return ;
 	}
 
@@ -498,7 +555,7 @@ static void do_close (char **args)
 
 	ret = ocfs2_close(gbls.fs);
 	if (ret)
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while closing context");
 	gbls.fs = NULL;
 
 	if (gbls.blockbuf)
@@ -524,7 +581,8 @@ static void do_cd (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while checking directory at "
+			"block %"PRIu64"", blkno);
 		return ;
 	}
 
@@ -547,7 +605,8 @@ static void do_chroot (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while checking directory at "
+			"blkno %"PRIu64"", blkno);
 		return ;
 	}
 
@@ -571,14 +630,15 @@ static void do_ls (char **args)
 
 	ret = ocfs2_check_directory(gbls.fs, blkno);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while checking directory at "
+			"block %"PRIu64"", blkno);
 		return ;
 	}
 
 	if (ls_opts.long_opt) {
 		ret = ocfs2_malloc_block(gbls.fs->fs_io, &ls_opts.buf);
 		if (ret) {
-			com_err(args[0], ret, " ");
+			com_err(args[0], ret, "while allocating a block");
 			return ;
 		}
 	}
@@ -587,7 +647,8 @@ static void do_ls (char **args)
 	ret = ocfs2_dir_iterate(gbls.fs, blkno, 0, NULL,
 				dump_dir_entry, (void *)&ls_opts);
 	if (ret)
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while iterating directory at "
+			"block %"PRIu64"", blkno);
 
 	close_pager(ls_opts.out);
 
@@ -656,7 +717,8 @@ static void do_lcd (char **args)
 	if (!args[1]) {
 		/* show cwd */
 		if (!getcwd(buf, sizeof(buf))) {
-			com_err(args[0], errno, " ");
+			com_err(args[0], errno, "while reading current "
+				"working directory");
 			return ;
 		}
 		fprintf(stdout, "%s\n", buf);
@@ -726,7 +788,7 @@ static void do_stat (char **args)
 	buf = gbls.blockbuf;
 	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
 		return ;
 	}
 
@@ -747,7 +809,8 @@ static void do_stat (char **args)
 		ret = traverse_extents(gbls.fs, &(inode->id2.i_list), out);
 
 	if (ret)
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while traversing inode at block "
+			"%"PRIu64, blkno);
 
 	close_pager(out);
 
@@ -769,7 +832,7 @@ static void do_hb (char **args)
 
 	ret = ocfs2_read_whole_file(gbls.fs, gbls.hb_blkno, &hbbuf, &len);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading heartbeat system file");
 		goto bail;
 	}
 
@@ -824,7 +887,7 @@ static void do_dump (char **args)
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
 			      in_fn, &blkno);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "'%s'", in_fn);
 		return ;
 	}
 
@@ -836,7 +899,7 @@ static void do_dump (char **args)
 
 	ret = dump_file(gbls.fs, blkno, fd, out_fn, preserve);
 	if (ret)
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while dumping file");
 
 	return;
 }
@@ -858,7 +921,7 @@ static void do_cat (char **args)
 	buf = gbls.blockbuf;
 	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
 		return ;
 	}
 
@@ -870,7 +933,8 @@ static void do_cat (char **args)
 
 	ret = dump_file(gbls.fs, blkno, fileno(stdout),  NULL, 0);
 	if (ret)
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading file for inode %"PRIu64"",
+			blkno);
 
 	return ;
 }
@@ -897,7 +961,8 @@ static void do_logdump (char **args)
 	blkno = gbls.jrnl_blkno[slotnum];
 	ret = read_whole_file(gbls.fs, blkno, &logbuf, &len);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading journal for slot %d",
+			slotnum);
 		goto bail;
 	}
 
@@ -933,7 +998,8 @@ static void do_group (char **args)
 	while (blkno) {
 		ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
 		if (ret) {
-			com_err(args[0], ret, " ");
+			com_err(args[0], ret, "while reading block group "
+				"descriptor %"PRIu64"", blkno);
 			close_pager (out);
 			return ;
 		}
@@ -967,7 +1033,8 @@ static void do_extent (char **args)
 	buf = gbls.blockbuf;
 	ret = ocfs2_read_extent_block(gbls.fs, blkno, buf);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading extent block %"PRIu64"",
+			blkno);
 		return ;
 	}
 
@@ -998,7 +1065,7 @@ static void do_slotmap (char **args)
 	/* read in the first block of the slot_map file */
 	ret = read_whole_file(gbls.fs, gbls.slotmap_blkno, &buf, &len);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading slotmap system file");
 		goto bail;
 	}
 
@@ -1050,7 +1117,7 @@ static void do_rdump(char **args)
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
 			      args[ind], &blkno);
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while translating %s", args[ind]);
 		return ;
 	}
 
@@ -1098,7 +1165,8 @@ static void do_rdump(char **args)
 
 	ret = rdump_inode(gbls.fs, blkno, p, args[ind+1], verbose);
 	if (ret)
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while recursively dumping "
+			"inode %"PRIu64, blkno);
 
 	return ;
 }
@@ -1139,7 +1207,7 @@ static void do_encode_lockres (char **args)
 	}
 
 	if (ret) {
-		com_err(args[0], ret, " ");
+		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
 		return ;
 	}
 
@@ -1224,7 +1292,7 @@ static void do_bmap(char **args)
 	struct ocfs2_dinode *inode;
 	const char *bmap_usage = "usage: bmap <filespec> <logical_blk>";
 	uint64_t blkno;
-	uint64_t loglblkno;
+	uint64_t blkoff;
 	char *endptr;
 	char *buf = NULL;
 	FILE *out;
@@ -1244,49 +1312,55 @@ static void do_bmap(char **args)
 	}
 
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
-		args[1], &blkno);
+			      args[1], &blkno);
 	if (ret) {
 		com_err(args[0], ret, "'%s'", args[1]);
 		return;
 	}
 
 	if (blkno >= gbls.max_blocks) {
-		fprintf(stderr, "%s: Block number is larger than volume size\n",
-			args[0]);
+		com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"", blkno);
 		return;
 	}
 
-	loglblkno = strtoul(args[2], &endptr, 0);
+	blkoff = strtoull(args[2], &endptr, 0);
 	if (*endptr) {
-		fprintf(stderr, "%s: Invalid logical block number\n", args[0]);
+		com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"", blkoff);
 		return;
 	}
  
 	buf = gbls.blockbuf;
 	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
 	if (ret) {
-		com_err(args[0], ret, " ");
-		return ;
+		com_err(args[0], ret, "while reading inode %"PRIu64, blkno);
+		return;
 	}
  
 	inode = (struct ocfs2_dinode *)buf;
  
 	out = open_pager(gbls.interactive);
  
-	if ((inode->i_flags &
-		(OCFS2_LOCAL_ALLOC_FL | OCFS2_CHAIN_FL | OCFS2_DEALLOC_FL))
-		|| (S_ISLNK(inode->i_mode) && !inode->i_clusters)
-		|| (loglblkno > inode->i_size
-			>> OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits))
-		fprintf(out, "\t0\n");
-	else
-		dump_logical_blkno(gbls.fs, &(inode->id2.i_list), loglblkno,
-			out);
- 
-	if (ret)
-		com_err(args[0], ret, " ");
- 
+	if (inode->i_flags & (OCFS2_LOCAL_ALLOC_FL | OCFS2_CHAIN_FL |
+			      OCFS2_DEALLOC_FL)) {
+		dump_logical_blkno(out, 0);
+		goto bail;
+	}
+
+	if (S_ISLNK(inode->i_mode) && !inode->i_clusters) {
+		dump_logical_blkno(out, 0);
+		goto bail;
+	}
+
+	if (blkoff > (inode->i_size >>
+		      OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits)) {
+		dump_logical_blkno(out, 0);
+		goto bail;
+	}
+
+	find_block_offset(gbls.fs, &(inode->id2.i_list), blkoff, out);
+
+bail:
 	close_pager(out);
  
-	return ;
+	return;
 }

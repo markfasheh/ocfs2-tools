@@ -73,6 +73,7 @@ typedef struct _dbgfs_glbs {
 	char *device;
 	ocfs2_filesys *fs;
 	char *cwd;
+	char *cmd;
 	uint64_t cwd_blkno;
 	char *blockbuf;
 	uint64_t max_clusters;

@@ -133,7 +133,8 @@ static void process_decode_lockres(int argc, char **argv, int startind)
 		ret = ocfs2_decode_lockres(argv[i], -1, &type, &blkno,
 					   &generation);
 		if (ret) {
-			com_err(gbls.progname, ret, " ");
+			com_err(gbls.progname, ret, "while decoding lockres %s",
+				argv[i]);
 			continue;
 		}
 
@@ -171,7 +172,7 @@ static void process_encode_lockres(int argc, char **argv, int startind)
 
 	ret = ocfs2_encode_lockres(type, blkno, generation, lockres);
 	if (ret) {
-		com_err(gbls.progname, ret, " ");
+		com_err(gbls.progname, ret, "while encoding lockres");
 		return ;
 	}
 

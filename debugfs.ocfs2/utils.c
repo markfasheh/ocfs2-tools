@@ -26,6 +26,8 @@
 #include <main.h>
 #include <bitops.h>
 
+extern dbgfs_gbls gbls;
+
 /*
  * get_vote_flag()
  *
@@ -261,7 +263,7 @@ int inodestr_to_inode(char *str, uint64_t *blkno)
 			else
 				return -1;
 		}
-		*blkno = strtoul(str+1, &end, 0);
+		*blkno = strtoull(str+1, &end, 0);
 		if (*end=='>')
 			return 0;
 	}
@@ -364,12 +366,16 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 	uint64_t offset = 0;
 
 	ret = ocfs2_read_cached_inode(fs, ino, &ci);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while reading inode %"PRIu64, ino);
 		goto bail;
+	}
 
 	ret = ocfs2_extent_map_init(fs, ci);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while initializing extent map");
 		goto bail;
+	}
 
 	buflen = 1024 * 1024;
 
@@ -377,19 +383,25 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 				  (buflen >>
 				   OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits),
 				  &buf);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while allocating %u bytes", buflen);
 		goto bail;
+	}
 
 	while (1) {
 		ret = ocfs2_file_read(ci, buf, buflen, offset, &got);
-		if (ret)
+		if (ret) {
+			com_err(gbls.cmd, ret, "while reading file %"PRIu64" "
+				"at offset %"PRIu64, ci->ci_blkno, offset);
 			goto bail;
+		}
 
 		if (!got)
 			break;
 
 		wrote = write(fd, buf, got);
 		if (wrote != got) {
+			com_err(gbls.cmd, errno, "while writing file");
 			ret = errno;
 			goto bail;
 		}
@@ -428,12 +440,16 @@ errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf,
 	ocfs2_cached_inode *ci = NULL;
 
 	ret = ocfs2_read_cached_inode(fs, ino, &ci);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while reading inode %"PRIu64, ino);
 		goto bail;
+	}
 
 	ret = ocfs2_extent_map_init(fs, ci);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while initializing extent map");
 		goto bail;
+	}
 
 	if (!*buflen) {
 		*buflen = (((ci->ci_inode->i_size + fs->fs_blocksize - 1) >>
@@ -451,12 +467,17 @@ errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf,
 				  (*buflen >>
 				   OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits),
 				  buf);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while allocating %u bytes", *buflen);
 		goto bail;
+	}
 
 	ret = ocfs2_file_read(ci, *buf, *buflen, 0, &got);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while reading file at inode %"PRIu64,
+			ci->ci_blkno);
 		goto bail;
+	}
 
 bail:
 	if (ci)
@@ -618,18 +639,26 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 
 	len = strlen(dumproot) + strlen(name) + 2;
 	ret = ocfs2_malloc(len, &fullname);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while allocating %u bytes", len);
 		goto bail;
+	}
 
 	snprintf(fullname, len, "%s/%s", dumproot, name);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while allocating a block");
 		goto bail;
+	}
 
 	ret = ocfs2_read_inode(fs, blkno, buf);
-	if (ret)
+	if (ret) {
+		com_err(gbls.cmd, ret, "while reading inode %"PRIu64,
+		       	blkno);
 		goto bail;
+	}
+
 	di = (struct ocfs2_dinode *)buf;
 
 	if (S_ISLNK(di->i_mode)) {
@@ -641,6 +670,8 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 			fprintf(stdout, "%s\n", fullname);
 		fd = open(fullname, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
 		if (fd == -1) {
+			com_err(gbls.cmd, errno, "while opening file %s",
+				fullname);
 			ret = errno;
 			goto bail;
 		}
@@ -657,13 +688,17 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 		 * expect to have to create entries it.  Then fix its perms
 		 * once we've done the traversal. */
 		if (mkdir(fullname, S_IRWXU) == -1) {
+			com_err(gbls.cmd, errno, "while making directory %s",
+				fullname);
 			ret = errno;
 			goto bail;
 		}
 
 		ret = ocfs2_malloc_block(fs->fs_io, &dirbuf);
-		if (ret)
+		if (ret) {
+			com_err(gbls.cmd, ret, "while allocating a block");
 			goto bail;
+		}
 
 		rd_opts.fs = fs;
 		rd_opts.buf = dirbuf;
@@ -672,8 +707,11 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 
 		ret = ocfs2_dir_iterate(fs, blkno, 0, NULL,
 					rdump_dirent, (void *)&rd_opts);
-		if (ret)
+		if (ret) {
+			com_err(gbls.cmd, ret, "while iterating directory at "
+				"block %"PRIu64, blkno);
 			goto bail;
+		}
 
 		fd = -1;
 		ret = fix_perms(di, &fd, fullname);
