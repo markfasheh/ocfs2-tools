@@ -429,6 +429,13 @@ static int validate_vol_size(ocfs2_filesys *fs)
 		return -1;
 	}
 
+	if (opts.num_blocks > UINT32_MAX) {
+		com_err(opts.progname, 0, "As JBD can only store block numbers "
+			"in 32 bits, %s cannot be grown to more than %"PRIu64" "
+			"blocks.", opts.device, UINT32_MAX);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -1163,8 +1170,6 @@ int main(int argc, char **argv)
 	}
 	cluster_locked = 1;
 	block_signals(SIG_UNBLOCK);
-
-//	check_32bit_blocks (s);
 
 	ret = journal_check(fs, &dirty, &def_jrnl_size);
 	if (ret || dirty)
