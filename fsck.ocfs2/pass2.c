@@ -106,7 +106,8 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	errcode_t ret = 0;
 
 	if (!expect_dots) {
-	       	if (!dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
+		if (!dirent->inode ||
+		    !dirent_has_dots(dirent, 1) && !dirent_has_dots(dirent, 2))
 			goto out;
 
 		if (prompt(ost, PY, PR_DIRENT_DOTTY_DUP,
