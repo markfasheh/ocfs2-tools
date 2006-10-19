@@ -95,13 +95,14 @@ rm -rf "$RPM_BUILD_ROOT"
 
 
 %post
-chkconfig --add o2cb >/dev/null
-chkconfig --add ocfs2 >/dev/null
+/sbin/chkconfig --add o2cb >/dev/null
+/sbin/chkconfig --add ocfs2 >/dev/null
 
 %preun
-chkconfig --del ocfs2 >/dev/null
-chkconfig --del o2cb >/dev/null
-
+if [ $1 = 0 ]; then     # execute this only if we are NOT doing an upgrade
+	/sbin/chkconfig --del ocfs2 >/dev/null
+	/sbin/chkconfig --del o2cb >/dev/null
+fi
 
 %files
 %defattr(-,root,root)
