@@ -2202,7 +2202,7 @@ static void format_journals(State *s)
 		if (ret) {
 			com_err(s->progname, ret,
 				"while looking up journal filename \"%.*s\"",
-				strlen(jrnl_file), jrnl_file);
+				(int)strlen(jrnl_file), jrnl_file);
 			goto error;
 		}
 
@@ -2210,7 +2210,7 @@ static void format_journals(State *s)
 		if (ret) {
 			com_err(s->progname, ret,
 				"while formatting journal \"%.*s\"",
-				strlen(jrnl_file), jrnl_file);
+				(int)strlen(jrnl_file), jrnl_file);
 			goto error;
 		}
 	}

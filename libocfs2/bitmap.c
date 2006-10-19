@@ -654,7 +654,7 @@ static errcode_t alloc_range_func(struct ocfs2_bitmap_region *br,
 {
 	struct alloc_range_args *ar = private_data;
 	errcode_t ret = 0;
-	uint64_t best_start, best_len = 0;
+	uint64_t best_start = UINT64_MAX, best_len = 0;
 	int start, end;
 
 	if ((br->br_total_bits - br->br_set_bits) < ar->ar_min_len)
@@ -688,7 +688,7 @@ static errcode_t alloc_range_func(struct ocfs2_bitmap_region *br,
 	}
 
 	/* Nothing found at all */
-	if (best_len < ar->ar_min_len)
+	if (best_start == UINT64_MAX || best_len < ar->ar_min_len)
 		goto out;
 
 	/* Best fit works */

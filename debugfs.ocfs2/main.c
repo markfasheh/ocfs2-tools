@@ -141,7 +141,7 @@ static void process_decode_lockres(int argc, char **argv, int startind)
 		printf("Lockres:    %s\n", argv[i]);
 		printf("Type:       %s\n",
 		       ocfs2_get_lock_type_string(type));
-		printf("Block:      %llu\n", blkno);
+		printf("Block:      %"PRIu64"\n", blkno);
 		printf("Generation: 0x%08x\n", generation);
 		printf("\n");
 	}
