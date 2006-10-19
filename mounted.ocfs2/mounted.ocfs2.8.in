@@ -2,41 +2,39 @@
 .SH "NAME"
 mounted.ocfs2 \- Detects all \fIOCFS2\fR volumes on a system.
 .SH "SYNOPSIS"
-\fBmounted.ocfs2\fR [\fB\-d\fR] [\fB\-f\fR] \fIdevice\fR
+\fBmounted.ocfs2\fR [\fB\-d\fR] [\fB\-f\fR] [\fIdevice\fR]
 .SH "DESCRIPTION"
 .PP 
-\fBmounted.ocfs2\fR is used to list all \fIOCFS2\fR volumes on a system.
-It can also list all the nodes that have mounted an \fIOCFS2\fR device or
-all \fIOCFS2\fR devices. The tools assumes that the nodes detected on
-the system are part of the same cluster as the one specified in
-\fI/etc/ocfs2/cluster.conf\fR.
+\fBmounted.ocfs2\fR is used to detect \fIOCFS2\fR volume(s) on a system.
+This tool assumes that the nodes detected on the system are part of the
+same cluster as the one specified in \fI/etc/ocfs2/cluster.conf\fR.
 
 .SH "OPTIONS"
 .TP
 \fB\-d\fR
-Performs a quick detection of the \fIdevice\fR or all, if none specified.
 Lists the \fIOCFS2\fR volumes along with their labels and uuids.
+If a device is not specified, it scans all the devices in /proc/partitions.
 
 .TP
 \fB\-f\fR
-Performs a full detection of the \fIdevice\fR or all, if none specified.
-Lists the \fIOCFS2\fR volumes along with the list of nodes mounting the
-volume. If the \fIO2CB\fR cluster service is up, it lists the node names,
-else the global node numbers.
+Lists the \fIOCFS2\fR volumes along with the list of nodes that have
+mounted the volume. The node names are listed if the \fIO2CB\fR cluster
+is online. \fBNote:\fR As this information is gathered using dirty-read,
+the information may be stale.
 
 .SH "EXAMPLES"
 [root@node1 ~]# mounted.ocfs2 -d
 .br
-Device           FS     UUID                                  Label
+Device      FS     UUID                                  Label
 .br
-/dev/sdb1        ocfs2  26d5dcdf-6d87-45a7-b01a-b98a7791bd61  logs_0405
+/dev/sdb1   ocfs2  26d5dcdf-6d87-45a7-b01a-b98a7791bd61  logs_0405
 .br
 
 [root@node1 ~]# mounted.ocfs2 -f
 .br
-Device           FS     Nodes
+Device      FS     Nodes
 .br
-/dev/sdb1        ocfs2  node15, node1
+/dev/sdb1   ocfs2  node15, node1
 .br
 
 .SH "SEE ALSO"

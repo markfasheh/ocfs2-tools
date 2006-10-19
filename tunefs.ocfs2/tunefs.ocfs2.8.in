@@ -7,8 +7,9 @@ tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .PP 
 \fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
 In order to prevent data loss, \fBtunefs.ocfs2\fR will not perform any
-action on the specified device, if that device is mounted on any node
-in the cluster. \fIO2CB\fR cluster service should be up to run this tool.
+action on the specified device if it is mounted on any node in the cluster.
+This tool requires the \fIO2CB\fR cluster to be online.
+
 .SH "OPTIONS"
 .TP
 \fB\-L\fR \fIvolume\-label\fR
@@ -29,13 +30,13 @@ the equals ('=') sign. The following journal options are supported:
 .RS 1.2i
 .TP
 \fBsize\fR=\fIjournal\-size\fR
-Increase the size of journal files for all the slots. Minimum size is 4M.
+Grow the size of journal files for all the slots. Minimum size is 4M.
 .RE
 
 .TP
 \fB\-S\fR
-Increase the size of the \fIOCFS2\fR volume. If \fIblocks-count\fR is not
-specified, \fBtunefs.ocfs2\fR grows the volume to the current size of
+Grow the size of the \fIOCFS2\fR file system. If \fIblocks-count\fR is not
+specified, \fBtunefs.ocfs2\fR extends the volume to the current size of
 the device.
 
 .TP

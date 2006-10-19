@@ -82,7 +82,12 @@ use the \fIencode\fR command.
 
 .SH "COMMANDS"
 This is a list of the commands which debugfs.ocfs2 supports.
- 
+
+.TP
+\fIbmap filespec logical_block\fR
+Display the physical block number corresponding to the logical block
+number \fIlogical_block\fR in the inode \fIfilespec\fR.
+
 .TP
 \fIcat filespec\fR
 Dump the contents of inode \fIfilespec\fR to stdout.

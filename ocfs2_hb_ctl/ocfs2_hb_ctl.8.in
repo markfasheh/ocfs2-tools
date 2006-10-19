@@ -1,4 +1,4 @@
-.TH "ocfs2_hb_ctl" "8" "March 2005" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "ocfs2_hb_ctl" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 ocfs2_hb_ctl \- Starts and stops the \fIOCFS2\fR heartbeat on a given device.
 .SH "SYNOPSIS"
@@ -22,10 +22,10 @@ ocfs2_hb_ctl \- Starts and stops the \fIOCFS2\fR heartbeat on a given device.
 .br
 .SH "DESCRIPTION"
 .PP 
-\fBocfs2_hb_ctl\fR is used to start and stop the heartbeat on an \fIOCFS2\fR device.
-One can either specify a device name or the device uuid. Users are strongly urged not
-to use this tool directly. \fImount.ocfs2\fR uses this tool to start the heartbeat
-and the module uses it to stop it during umount.
+\fBocfs2_hb_ctl\fR starts and stops the heartbeat on an \fIOCFS2\fR device.
+\fIUsers are strongly urged not to use this tool directly\fR.
+It is invoked by \fImount.ocfs2\fR.
+
 .SH "OPTIONS"
 .TP
 \fB\-S\fR
@@ -51,13 +51,6 @@ Specify region by device uuid.
 \fB\-h\fR
 Displays help and exit.
 
-.TP
-\fBuuid\fR
-\fImkfs.ocfs2\fR creates and populates the superblock with an \fIuuid\fR. To list the \fIuuid\fR of
-device sda1, do:
-.HP 
-	# mounted.ocfs2 -d /dev/sda1
-
 .SH "SEE ALSO"
 .BR mkfs.ocfs2(8)
 .BR fsck.ocfs2(8)
@@ -71,4 +64,4 @@ device sda1, do:
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2005 Oracle. All rights reserved.
+Copyright \(co 2004, 2006 Oracle. All rights reserved.

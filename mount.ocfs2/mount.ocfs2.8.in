@@ -1,25 +1,43 @@
 .TH "mount.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-mount.ocfs2 \-  mount using the Oracle Cluster File System 2 (OCFS2)
+mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "SYNOPSIS"
-\fBmount.ocfs2\fR [\fB\-vn\fR] [\fB\-o options\fR] [\fB\-t type\fR] \fIdevice\fR \fImount_point\fR
+\fBmount.ocfs2\fR [\fI\-vn\fR] [\fB\-o options\fR] \fIdevice\fR \fIdir\fR
 .SH "DESCRIPTION"
 .PP 
-\fBmount.ocfs2\fR is used to mount preformatted OCFS2 devices.
+\fBmount.ocfs2\fR mounts an \fIOCFS2\fR filesystem at \fIdir\fR. It is usually
+invoked indirectly by the mount(8) command when using the \fI-t ocfs2\fR option.
+
 .SH "OPTIONS"
-.TP
-\fB\-v\fR
-verbose.
 
 .TP
-\fB\-n\fR
-nomtab.
+\fB\_netdev\fR
+The filesystem resides on a device that requires network access (used to prevent
+the system from attempting to mount these filesystems until the network has
+been enabled on the system). \fImount.ocfs2\fR transparently appends this option
+during mount. However, users mounting the volume via /etc/fstab must explicitly
+specify this mount option to delay the system from mounting the volume until
+after the network has been enabled.
 
-.SH "BUGS"
-Stuff.
+.TP
+\fBnointr\fR
+It ignores signals during read-write.
+
+.TP
+\fBro\fR
+Mount the file system read-only.
+
+.TP
+\fBrw\fR
+Mount the file system read-write.
 
 .SH "SEE ALSO"
 .BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR ocfs2cdsl(8)
 
 .SH "AUTHORS"
 Oracle Corporation
