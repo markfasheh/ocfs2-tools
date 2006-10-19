@@ -17,6 +17,7 @@
 <li><a href=#RAC>Oracle RAC</a>
 <li><a href=#MIGRATE>Migrate Data from OCFS (Release 1) to OCFS2</a>
 <li><a href=#COREUTILS>Coreutils</a>
+<li><a href=#NFS>Exporting via NFS</a>
 <li><a href=#TROUBLESHOOTING>Troubleshooting</a>
 <li><a href=#LIMITS>Limits</a>
 <li><a href=#SYSTEMFILES>System Files</a>
@@ -77,11 +78,13 @@ and install the appropriate module package and the two tools packages,
 ocfs2-tools and ocfs2console. Appropriate module refers to one matching the
 kernel version, flavor and architecture. Flavor refers to smp, hugemem, etc.<br>
 
+<span style="color: #F00;">
 <font size=+1>
 <li>What are the latest versions of the OCFS2 packages?<br>
 </font>
-The latest module package version is 1.2.2. The latest tools/console packages
-versions are 1.2.1.</br>
+The latest module package version is 1.2.3. The latest tools/console packages
+versions are 1.2.2.</br>
+</span>
 
 <font size=+1>
 <li>How do I interpret the package name ocfs2-2.6.9-22.0.1.ELsmp-1.2.1-1.i686.rpm?<br>
@@ -588,6 +591,26 @@ No. OCFS2 does not need the o_direct enabled tools. The file system allows
 processes to open files in both o_direct and bufferred mode concurrently.<br>
 
 <p>
+<A name="NFS"><font size=+1><b>EXPORTING VIA NFS</b></font></A>
+</p>
+
+<span style="color: #F00;">
+<font size=+1>
+<li>Can I export an OCFS2 file system via NFS?<br>
+</font>
+Yes, you can export files on OCFS2 via the standard Linux NFS server. Please
+note that only NFS version 3 and above will work. In practice, this means
+clients need to be running a 2.4.x kernel or above.<br>
+
+<font size=+1>
+<li>Is there no solution for the NFS v2 clients?<br>
+</font>
+NFS v2 clients can work if the server exports the volumes with the
+<i>no_subtree_check</i> option. However, this has some security implications
+that is documented in the <i>exports</i> manpage.<br>
+</span>
+
+<p>
 <A name="TROUBLESHOOTING"><font size=+1><b>TROUBLESHOOTING</b></font></A>
 </p>
 
@@ -844,13 +867,11 @@ this system by panicing" whenever I run a heavy io load?<br>
 We have encountered a bug with the default <i>CFQ</i> io scheduler which causes
 a process doing heavy io to temporarily starve out other processes. While this
 is not fatal for most environments, it is for OCFS2 as we expect the hb thread
-to be r/w to the hb area atleast once every 12 secs (default). Bug with the fix
-has been filed with Red Hat. Red Hat is expected to have this fixed in RHEL4 U4
-release. SLES9 SP3 2.5.6-7.257 includes this fix. For the latest, refer to the
-tracker bug filed on
-<a href="http://oss.oracle.com/bugzilla/show_bug.cgi?id=671">bugzilla</a>.
-Till this issue is resolved, one is advised to use the <i>DEADLINE</i> io scheduler.
-To use it, add "elevator=deadline" to the kernel command line as follows:<br><br>
+to reading from and writing to the hb area atleast once every 12 secs (default).
+<span style="color: #F00;">This bug has been addressed by Red Hat in RHEL4 U4 (2.6.9-42.EL) and Novell
+in SLES9 SP3 (2.6.5-7.257).</span> If you wish to use the <i>DEADLINE</i> io
+scheduler, you could do so by appending "elevator=deadline" to the kernel
+command line as follows:<br><br>
 <ul>
 <li>For SLES9, edit the command line in /boot/grub/menu.lst.
 <pre>
@@ -1004,7 +1025,8 @@ do not match. We expect to resolve itself over time as the number of patch
 fixes reduce. Novell is shipping two SLES9 releases, viz., SP2 and SP3.<br>
 <ul>
 <li>The latest kernel with the SP2 release is 2.6.5-7.202.7. It ships with OCFS2 1.0.8.
-<li>The latest kernel with the SP3 release is 2.6.5-7.257. It ships with OCFS2 1.2.1.
+<li><span style="color: #F00;">The latest kernel with the SP3 release is 2.6.5-7.282. It ships with OCFS2 1.2.1.
+Please contact Novell to get the latest OCFS2 modules on SLES9 SP3.</span>
 </ul>
 
 <p>
@@ -1055,11 +1077,11 @@ the appropriate ocfs2 module package for the kernel version, flavor and architec
 </pre>
 <li>If required, upgrade the tools and console.
 <pre>
-	# rpm -Uvh ocfs2-tools-1.2.1-1.i386.rpm ocfs2console-1.2.1-1.i386.rpm
+	# rpm -Uvh ocfs2-tools-1.2.2-1.i386.rpm ocfs2console-1.2.2-1.i386.rpm
 </pre>
 <li>Upgrade the module.
 <pre>
-	# rpm -Uvh ocfs2-2.6.9-22.0.1.ELsmp-1.2.2-1.i686.rpm
+	# rpm -Uvh ocfs2-2.6.9-42.0.3.ELsmp-1.2.3-1.i686.rpm
 </pre>
 <li>Ensure init services ocfs2 and o2cb are enabled.
 <pre>
