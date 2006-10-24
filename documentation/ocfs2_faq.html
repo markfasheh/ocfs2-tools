@@ -13,6 +13,7 @@
 <li><a href=#CONFIGURE>Configure</a>
 <li><a href=#O2CB>O2CB Cluster Service</a>
 <li><a href=#FORMAT>Format</a>
+<li><a href=#RESIZE>Resize</a>
 <li><a href=#MOUNT>Mount</a>
 <li><a href=#RAC>Oracle RAC</a>
 <li><a href=#MIGRATE>Migrate Data from OCFS (Release 1) to OCFS2</a>
@@ -27,6 +28,7 @@
 <li><a href=#RELEASE1.2>Release 1.2</a>
 <li><a href=#UPGRADE>Upgrade to the Latest Release</a>
 <li><a href=#PROCESSES>Processes</a>
+<li><a href=#BUILD>Build RPMs for Hotfix Kernels</a>
 </ul>
 
 <ol>
@@ -386,6 +388,58 @@ You could also use labels to identify volumes during mount.
 	# mount -L "label" /dir
 </pre>
 The volume label is changeable using the tunefs.ocfs2 utility.<br>
+
+<span style="color: #F00;">
+<p>
+<A name="RESIZE"><font size=+1><b>RESIZE</b></font></A>
+</p>
+
+<font size=+1>
+<li>Can OCFS2 file systems be grown in size?<br>
+</font>
+Yes, you can grow an OCFS2 file system using tunefs.ocfs2. It should be noted that
+the tool will only resize the file system and not the underlying partition. You can
+use <i>fdisk(8)</i> (or any appropriate tool for your disk array) to resize the partition.<br>
+
+<font size=+1>
+<li>What do I need to know to use fdisk(8) to resize the partition?<br>
+</font>
+To grow a partition using <i>fdisk(8)</i>, you will have to delete it and recreate it
+with a larger size. When recreating it, ensure you specify the same starting disk cylinder
+as before and a ending disk cylinder that is greater than the existing one. Otherwise,
+not only will the resize operation fail, but you may lose your entire file system. Backup
+your data before performing this task.<br>
+
+<font size=+1>
+<li>Short of reboot, how do I get the other nodes in the cluster to see the resized partition?<br>
+</font>
+Use <i>blockdev(8)</i> to rescan the partition table of the device on the other nodes in
+the cluster.
+<pre>
+	# blockdev --rereadpt /dev/sdX
+</pre>
+
+<font size=+1>
+<li>What is the tunefs.ocfs2 syntax for resizing the file system?<br>
+</font>
+To grow a file system to the end of the resized partition, do:
+<pre>
+	# tunefs.ocfs2 -S /dev/sdX
+</pre>
+For more, refer to the tunefs.ocfs2 manpage.<br>
+
+<font size=+1>
+<li>Can the OCFS2 file system be grown while the file system is in use?<br>
+</font>
+No. tunefs.ocfs2 1.2.2 only allows offline resize. i.e., the file system cannot
+be mounted on any node in the cluster. The online resize capability will be added later.<br>
+
+<font size=+1>
+<li>Can the OCFS2 file system be shrunk in size?<br>
+</font>
+No. We have no current plans on providing this functionality. However, if you find this
+feature useful, file an enhancement request on bugzilla listing your reasons for the same.<br>
+</span>
 
 <p>
 <A name="MOUNT"><font size=+1><b>MOUNT</b></font></A>
@@ -1196,5 +1250,49 @@ either on mount when it discovers a dirty journal or during operation when hb
 detects a dead node. ocfs2rec handles the file system recovery and it runs
 after the dlm has finished its recovery.
 </dl>
+
+<span style="color: #F00;">
+<p>
+<A name="BUILD"><font size=+1><b>BUILD RPMS FOR HOTFIX KERNELS</b></font></A>
+</p>
+
+<font size=+1>
+<li>How to build OCFS2 packages for a hotfix kernel?<br>
+</font>
+<ul>
+<li>Download and install all the kernel-devel packages for the hotfix kernel.
+<li>Download and untar the OCFS2 source tarball.
+<pre>
+	# cd /tmp
+	# wget http://oss.oracle.com/projects/ocfs2/dist/files/source/v1.2/ocfs2-1.2.3.tar.gz
+	# tar -zxvf ocfs2-1.2.3.tar.gz
+</pre>
+<li> Ensure rpmbuild is installed and ~/.rpmmacros contains the proper links.
+<pre>
+	# cat ~/.rpmmacros
+	%_topdir        /home/jdoe/rpms
+	%_tmppath       /home/jdoe/rpms/tmp
+	%_sourcedir     /home/jdoe/rpms/SOURCES
+	%_specdir       /home/jdoe/rpms/SPECS
+	%_srcrpmdir     /home/jdoe/rpms/SRPMS
+	%_rpmdir        /home/jdoe/rpms/RPMS
+	%_builddir      /home/jdoe/rpms/BUILD
+</pre>
+<li> Configure and make.
+<pre>
+	# ./configure --with-kernel=/usr/src/kernels/2.6.9-42.X.EL_rpm
+	# make rhel4_2.6.9-42.X.EL_rpm
+</pre>
+</ul>
+The packages will be in %_rpmdir.
+
+<font size=+1>
+<li>Are the self-built packages officially supported by Oracle Support?<br>
+</font>
+No. Oracle Support does not provide support for self-built modules. If you wish
+official support, contact Oracle via Support or the ocfs2-users mailing list with
+the link to the hotfix kernel (kernel-devel and kernel-src rpms).<br>
+</span>
+
 </ol>
 </html>
