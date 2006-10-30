@@ -570,7 +570,7 @@ static void vb_saw_block(struct verifying_blocks *vb, uint64_t bcount)
 static errcode_t process_link_block(struct verifying_blocks *vb,
 				    uint64_t blkno)
 {
-	char *buf, *null;
+	char *buf = NULL, *null;
 	errcode_t ret = 0;
 	unsigned int blocksize = vb->vb_ost->ost_fs->fs_blocksize;
 
@@ -597,7 +597,8 @@ static errcode_t process_link_block(struct verifying_blocks *vb,
 	}
 
 out:
-	ocfs2_free(&buf);
+	if (buf)
+		ocfs2_free(&buf);
 	return ret;
 }
 
