@@ -130,6 +130,7 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 
 		dirent->name_len = expect_dots;
 		memset(dirent->name, '.', expect_dots);
+		dirent->file_type = OCFS2_FT_DIR;
 		changed_len = 1;
 		*flags |= OCFS2_DIRENT_CHANGED;
 	}
