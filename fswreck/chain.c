@@ -312,6 +312,13 @@ static void mess_up_sys_file(ocfs2_filesys *fs, uint64_t blkno,
 			 blkno, cr->c_total, (cr->c_total + 10));
 		cr->c_total += 10; 
 		break;
+	case CHAIN_CPG:
+		fprintf(stdout, "Corrupt CHAIN_CPG: "
+			"change cl_cpg of global_bitmap from %u to %u.\n",
+			cl->cl_cpg, (cl->cl_cpg + 16));
+		cl->cl_cpg += 16;
+		cl->cl_next_free_rec = 1;
+		break;
 	default:
 		FSWRK_FATAL("Unknown fsck_type[%d]\n", type);
 	}
@@ -406,4 +413,76 @@ void mess_up_chains_group_magic(ocfs2_filesys *fs, uint16_t slotnum)
 	int numtypes = sizeof(types) / sizeof(enum fsck_type);
 
 	mess_up_sys_chains(fs, slotnum, types, numtypes);
+}
+
+void mess_up_chains_cpg(ocfs2_filesys *fs, uint16_t slotnum)
+{
+	errcode_t ret;
+	char sysfile[OCFS2_MAX_FILENAME_LEN];
+	uint64_t blkno;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+
+	snprintf(sysfile, sizeof(sysfile),
+		 ocfs2_system_inodes[GLOBAL_BITMAP_SYSTEM_INODE].si_name);
+
+	ret = ocfs2_lookup(fs, sb->s_system_dir_blkno, sysfile,
+				strlen(sysfile), NULL, &blkno);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	mess_up_sys_file(fs, blkno, CHAIN_CPG);
+
+	return;
+}
+
+static void mess_up_superblock_clusters(ocfs2_filesys *fs, int excess)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	struct ocfs2_dinode *di = fs->fs_super;
+	uint32_t new_clusters, cpg, wrong;
+
+	/* corrupt superblock, just copy the
+	 * superblock, change it and
+	 * write it back to disk.
+	 */
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	memcpy(buf, (char *)di, fs->fs_blocksize);
+
+	di = (struct ocfs2_dinode *)buf;
+
+	cpg= 8 * ocfs2_group_bitmap_size(fs->fs_blocksize);
+
+	/* make the wrong value to 2.5 times of cluster_per_group. */
+	wrong = cpg * 2 + cpg / 2;
+	if (excess)
+		new_clusters = di->i_clusters + wrong;
+	else
+		new_clusters = di->i_clusters - wrong;
+
+	fprintf(stdout, "Corrupt SUPERBLOCK_CLUSTERS: "
+		"change superblock i_clusters from %u to %u.\n",
+		di->i_clusters, new_clusters);
+	di->i_clusters = new_clusters;
+
+	ret = io_write_block(fs->fs_io, di->i_blkno, 1, buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	if(buf)
+		ocfs2_free(&buf);
+	return;
+}
+
+void mess_up_superblock_clusters_excess(ocfs2_filesys *fs, uint16_t slotnum)
+{
+	mess_up_superblock_clusters(fs, 1);
+}
+
+void mess_up_superblock_clusters_lack(ocfs2_filesys *fs, uint16_t slotnum)
+{
+	mess_up_superblock_clusters(fs, 0);
 }

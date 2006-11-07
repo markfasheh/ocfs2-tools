@@ -1,5 +1,5 @@
 /*
- * chain.h
+ * dir.h
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
@@ -22,17 +22,13 @@
  *
  */
 
-#ifndef __CHAIN_H__
-#define __CHAIN_H__
+#ifndef __DIR_H
+#define __DIR_H
 
-void mess_up_chains(ocfs2_filesys *fs, uint64_t blkno, int code);
-void mess_up_chains_list(ocfs2_filesys *fs,  uint16_t slotnum);
-void mess_up_chains_rec(ocfs2_filesys *fs,   uint16_t slotnum);
-void mess_up_chains_inode(ocfs2_filesys *fs, uint16_t slotnum);
-void mess_up_chains_group(ocfs2_filesys *fs, uint16_t slotnum);
-void mess_up_chains_group_magic(ocfs2_filesys *fs, uint16_t slotnum);
-void mess_up_chains_cpg(ocfs2_filesys *fs,  uint16_t slotnum);
-void mess_up_superblock_clusters_excess(ocfs2_filesys *fs,  uint16_t slotnum);
-void mess_up_superblock_clusters_lack(ocfs2_filesys *fs,  uint16_t slotnum);
+void mess_up_dir_inode(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_dir_dot(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_dir_ent(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_dir_not_connected(ocfs2_filesys *fs, uint64_t blkno);
 
-#endif		/* __CHAIN_H__ */
+#endif		/* __DIR_H */

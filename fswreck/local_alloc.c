@@ -54,7 +54,6 @@ static void create_local_alloc(ocfs2_filesys *fs, uint64_t blkno)
 	struct ocfs2_local_alloc *la;
 	uint32_t la_size, found;
 	uint64_t la_off;
-	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)

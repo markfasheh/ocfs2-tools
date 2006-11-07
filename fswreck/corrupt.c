@@ -126,6 +126,27 @@ void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	case CORRUPT_INODE_NOT_CONNECTED:
 		func = mess_up_inode_not_connected;
 		break;
+	case CORRUPT_SYMLINK:
+		func = mess_up_symlink;
+		break;
+	case CORRUPT_SPECIAL_FILE:
+		func = mess_up_root;
+		break;
+	case CORRUPT_DIR_INODE:
+		func = mess_up_dir_inode;
+		break;
+	case CORRUPT_DIR_DOT:
+		func = mess_up_dir_dot;
+		break;
+	case CORRUPT_DIR_ENT:
+		func = mess_up_dir_ent;
+		break;
+	case CORRUPT_DIR_PARENT_DUP:
+		func = mess_up_dir_parent_dup;
+		break;
+	case CORRUPT_DIR_NOT_CONNECTED:
+		func = mess_up_dir_not_connected;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", code);
 	}
@@ -157,6 +178,15 @@ void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 		break;
 	case CORRUPT_CHAIN_GROUP_MAGIC:
 		func = mess_up_chains_group_magic;
+		break;
+	case CORRUPT_CHAIN_CPG:
+		func = mess_up_chains_cpg;
+		break;
+	case CORRUPT_SUPERBLOCK_CLUSTERS_EXCESS:
+		func = mess_up_superblock_clusters_excess;
+		break;
+	case CORRUPT_SUPERBLOCK_CLUSTERS_LACK:
+		func = mess_up_superblock_clusters_lack;
 		break;
 	case CORRUPT_INODE_ORPHANED:
 		func = mess_up_inode_orphaned;

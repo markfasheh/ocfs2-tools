@@ -58,6 +58,9 @@ static struct corrupt_funcs cf[MAX_CORRUPT] = {
 	{ &corrupt_sys_file,	"Chain inode error: CHAIN_I_CLUSTERS, CHAIN_I_SIZE, CHAIN_GROUP_BITS"},
 	{ &corrupt_sys_file,	"Chain group error: CHAIN_LINK_GEN, CHAIN_LINK_RANGE"},
 	{ &corrupt_sys_file,	"Group magic error: CHAIN_LINK_MAGIC"},
+	{ &corrupt_sys_file,	"Chain resize error: CHAIN_CPG"},
+	{ &corrupt_sys_file,	"Superblock error: SUPERBLOCK_CLUSTERS_EXCESS, excess error"},
+	{ &corrupt_sys_file,	"Superblock error: SUPERBLOCK_CLUSTERS_LACK, lack error"},
 				/* Following relates to corrupting group descriptor */
 	{ &corrupt_group_desc,	"Group minor field error: GROUP_PARENT, GROUP_BLKNO, GROUP_CHAIN, GROUP_FREE_BITS"},
 	{ &corrupt_group_desc,	"Group generation error: GROUP_GEN"},
@@ -74,7 +77,17 @@ static struct corrupt_funcs cf[MAX_CORRUPT] = {
 	{ &corrupt_local_alloc,	"Local alloc used info error:	LALLOC_USED_OVERRUN, LALLOC_CLEAR"},
 				/* Following relates to corrupting truncate log file */
  	{ &corrupt_truncate_log,"Truncate log list error: 	DEALLOC_COUNT, DEALLOC_USED"},
- 	{ &corrupt_truncate_log,"Truncate log rec error: 	TRUNCATE_REC_START_RANGE, TRUNCATE_REC_WRAP, TRUNCATE_REC_RANGE"}
+ 	{ &corrupt_truncate_log,"Truncate log rec error: 	TRUNCATE_REC_START_RANGE, TRUNCATE_REC_WRAP, TRUNCATE_REC_RANGE"},
+				/* Following relates to corrupting symlink file */
+ 	{ &corrupt_file,	"Link file error: LINK_FAST_DATA, LINK_NULLTERM, LINK_SIZE, LINK_BLOCKS"},
+				/* Following relates to corrupting root and lost+found */
+ 	{ &corrupt_file,	"Special files error: ROOT_NOTDIR, ROOT_DIR_MISSING, LOSTFOUND_MISSING"},
+				/* Following relates to corrupting directory */
+ 	{ &corrupt_file,	"Directory inode error: DIR_ZERO"},
+ 	{ &corrupt_file,	"Dirent dot error: DIRENT_DOTTY_DUP, DIRENT_NOT_DOTTY, DIRENT_DOT_INODE, DIRENT_DOT_EXCESS"},
+	{ &corrupt_file,	"Dirent field error: DIRENT_ZERO, DIRENT_NAME_CHARS,DIRENT_INODE_RANGE, DIRENT_INODE_FREE, DIRENT_TYPE, DIRENT_DUPLICATE, DIRENT_LENGTH"}, 
+	{ &corrupt_file,	"Directory parent duplicate error: DIR_PARENT_DUP"},
+	{ &corrupt_file,	"Directory not connected error: DIR_NOT_CONNECTED"}
 };
 
 static int corrupt[MAX_CORRUPT];
