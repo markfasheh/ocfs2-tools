@@ -651,6 +651,9 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 
 	}
 
+	for (i = cl->cl_next_free_rec; i < cl->cl_count; i++)
+		memset(&cl->cl_recs[i], 0, sizeof(struct ocfs2_chain_rec));
+
 	if (di->id1.bitmap1.i_total != total || 
 	    (di->id1.bitmap1.i_used != total - free)) {
 		if (prompt(ost, PY, PR_CHAIN_GROUP_BITS,
