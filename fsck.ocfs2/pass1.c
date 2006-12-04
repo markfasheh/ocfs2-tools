@@ -713,6 +713,25 @@ static int verify_block(ocfs2_filesys *fs,
 	return 0;
 }
 
+/* This may be accessed many times for the same cluster.
+ * currently I haven't find a good way to avoid this since
+ * we use ocfs2_block_iterate_inode to clear the clusters.
+ * Anyway, it works well in clearing clusters.
+ */
+static int clear_block(ocfs2_filesys *fs,
+			uint64_t blkno,
+			uint64_t bcount,
+			void *priv_data)
+{
+	struct verifying_blocks *vb = priv_data;
+	o2fsck_state *ost = vb->vb_ost;
+	uint32_t clusters = ocfs2_blocks_to_clusters(ost->ost_fs, blkno);
+	
+	o2fsck_mark_cluster_unallocated(ost, clusters);
+
+	return 0;
+}
+
 /*
  * this verifies i_size and i_clusters for inodes that use i_list to
  * reference extents of data.
@@ -762,18 +781,27 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	}
 
 	/*
-	 * XXX we should have a helper that clears an inode and backs it out of
-	 * any book-keeping that it might have been included in, as though it
-	 * was never seen.  the alternative is to restart pass1 which seems
-	 * goofy. 
+	 * We have a helper function,clear_block, that clears an inode and 
+	 * backs it out of any book-keeping that it might have been included
+	 * in, as though it was never seen.
 	 */
 	if (vb.vb_clear) {
 		di->i_links_count = 0;
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 				  di->i_links_count);
 		di->i_dtime = time(NULL);
+		/* clear valid flag and stuff. */
+		ret = ocfs2_block_iterate_inode(fs, di,
+					        OCFS2_BLOCK_FLAG_APPEND,
+						clear_block, &vb);
+		di->i_flags &= !OCFS2_VALID_FL;
 		o2fsck_write_inode(ost, di->i_blkno, di);
-		/* XXX clear valid flag and stuff? */
+		/* for a directory, we also need to clear it 
+		 * from the dir_parent rb-tree. */
+		if (S_ISDIR(di->i_mode))
+			ocfsck_remove_dir_parent(&ost->ost_dir_parents,
+						 di->i_blkno);
+		goto out;	
 	}
 
 	if (vb.vb_num_blocks > 0)

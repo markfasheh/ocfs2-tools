@@ -51,5 +51,7 @@ o2fsck_dir_parent *o2fsck_dir_parent_lookup(struct rb_root *root,
 						uint64_t ino);
 o2fsck_dir_parent *o2fsck_dir_parent_first(struct rb_root *root);
 o2fsck_dir_parent *o2fsck_dir_parent_next(o2fsck_dir_parent *from);
+
+void ocfsck_remove_dir_parent(struct rb_root *root, uint64_t ino);
 #endif /* __O2FSCK_DIRPARENTS_H__ */
 

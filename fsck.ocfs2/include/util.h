@@ -42,6 +42,7 @@ void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno,
 void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster);
 void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,
 				    uint32_t num);
+void o2fsck_mark_cluster_unallocated(o2fsck_state *ost, uint32_t cluster);
 errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 				  uint8_t *type);
 errcode_t o2fsck_read_publish(o2fsck_state *ost);

@@ -70,6 +70,13 @@ void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,
 		o2fsck_mark_cluster_allocated(ost, cluster++);
 }
 
+void o2fsck_mark_cluster_unallocated(o2fsck_state *ost, uint32_t cluster)
+{
+	int was_set;
+
+	ocfs2_bitmap_clear(ost->ost_allocated_clusters, cluster, &was_set);
+}
+
 errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 				  uint8_t *type)
 {

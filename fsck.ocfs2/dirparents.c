@@ -122,3 +122,29 @@ o2fsck_dir_parent *o2fsck_dir_parent_next(o2fsck_dir_parent *from)
 
 	return dp;
 }
+
+void ocfsck_remove_dir_parent(struct rb_root *root, uint64_t ino)
+{
+	o2fsck_dir_parent *dp = NULL;
+	struct rb_node *p = root->rb_node;
+
+	while (p)
+	{
+		dp = rb_entry(p, o2fsck_dir_parent, dp_node);
+
+		if (dp->dp_ino > ino)
+			p = p->rb_left;
+		else if (dp->dp_ino < ino)
+			p = p->rb_right;
+		else
+			break;
+	}
+
+	if(!p)
+		goto out;
+
+	rb_erase(&dp->dp_node, root);
+	free(dp);
+out:
+	return;
+}
