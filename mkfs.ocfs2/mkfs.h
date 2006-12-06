@@ -62,6 +62,11 @@
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
+#define MOUNT_LOCAL             1
+#define MOUNT_CLUSTER           2
+#define MOUNT_LOCAL_STR         "local"
+#define MOUNT_CLUSTER_STR       "cluster"
+
 #define MIN_RESERVED_TAIL_BLOCKS    8
 
 #define SUPERBLOCK_BLOCKS       3
@@ -197,6 +202,7 @@ struct _State {
 	int force;
 	int prompt;
 	int hb_dev;
+	int mount;
 
 	uint32_t blocksize;
 	uint32_t blocksize_bits;

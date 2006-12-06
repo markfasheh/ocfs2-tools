@@ -74,6 +74,9 @@ int ocfs2_check_volume(State *s)
 	} else
 		fprintf(stdout, "Overwriting existing ocfs2 partition.\n");
 
+	if (ocfs2_mount_local(fs))
+		goto nolock;
+
 	if (!s->force) {
 		ret = o2cb_init();
 		if (ret) {
@@ -112,6 +115,7 @@ int ocfs2_check_volume(State *s)
 			"WARNING: Cluster check disabled.\n");
 	}
 
+nolock:
 	ocfs2_close(fs);
 
 	return 1;

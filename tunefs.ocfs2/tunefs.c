@@ -64,6 +64,11 @@
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
+#define MOUNT_LOCAL             1
+#define MOUNT_CLUSTER           2
+#define MOUNT_LOCAL_STR         "local"
+#define MOUNT_CLUSTER_STR       "cluster"
+
 typedef struct _ocfs2_tune_opts {
 	uint16_t num_slots;
 	uint64_t num_blocks;
@@ -72,6 +77,7 @@ typedef struct _ocfs2_tune_opts {
 	char *progname;
 	char *device;
 	char *vol_uuid;
+	int mount;
 	int verbose;
 	int quiet;
 	int prompt;
@@ -86,10 +92,9 @@ static int resize = 0;
 
 static void usage(const char *progname)
 {
-	fprintf(stderr, "usage: %s [-N number-of-node-slots] "
-			"[-L volume-label]\n"
-			"\t[-J journal-options] [-qSUvV] "
-			"device [blocks-count]\n",
+	fprintf(stderr, "usage: %s [-J journal-options] [-L volume-label]\n"
+			"\t\t[-M mount-type] [-N number-of-node-slots]\n"
+			"\t\t[-qSUvV] device [blocks-count]\n",
 			progname);
 	exit(0);
 }
@@ -247,6 +252,7 @@ static void get_options(int argc, char **argv)
 		{ "journal-options", 0, 0, 'J'},
 		{ "volume-size", 0, 0, 'S'},
 		{ "uuid-reset", 0, 0, 'U'},
+		{ "mount", 1, 0, 'M' },
 		{ 0, 0, 0, 0}
 	};
 
@@ -258,7 +264,7 @@ static void get_options(int argc, char **argv)
 	opts.prompt = 1;
 
 	while (1) {
-		c = getopt_long(argc, argv, "L:N:J:SUvqVx", long_options,
+		c = getopt_long(argc, argv, "L:N:J:M:SUvqVx", long_options,
 				NULL);
 
 		if (c == -1)
@@ -273,6 +279,20 @@ static void get_options(int argc, char **argv)
 					"Volume label too long: must be less "
 					"than %d characters",
 					OCFS2_MAX_VOL_LABEL_LEN);
+				exit(1);
+			}
+			break;
+
+		case 'M':
+			if (!strncasecmp(optarg, MOUNT_LOCAL_STR,
+					 strlen(MOUNT_LOCAL_STR)))
+				opts.mount = MOUNT_LOCAL;
+			else if (!strncasecmp(optarg, MOUNT_CLUSTER_STR,
+					      strlen(MOUNT_CLUSTER_STR)))
+				opts.mount = MOUNT_CLUSTER;
+			else {
+				com_err(opts.progname, 0,
+					"Invalid mount option: %s", optarg);
 				exit(1);
 			}
 			break;
@@ -403,6 +423,19 @@ static void get_vol_size(ocfs2_filesys *fs)
 	}
 
 	return ;
+}
+
+static int validate_mount_change(ocfs2_filesys *fs)
+{
+	if (opts.mount == MOUNT_LOCAL) {
+		if (!ocfs2_mount_local(fs))
+			return 0;
+	} else if (opts.mount == MOUNT_CLUSTER) {
+		if (ocfs2_mount_local(fs))
+			return 0;
+	}
+
+	return -1;
 }
 
 static int validate_vol_size(ocfs2_filesys *fs)
@@ -773,6 +806,22 @@ static void update_volume_uuid(ocfs2_filesys *fs, int *changed)
 	return ;
 }
 
+static void update_mount_type(ocfs2_filesys *fs, int *changed)
+{
+	if (opts.mount == MOUNT_LOCAL)
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
+	else if (opts.mount == MOUNT_CLUSTER)
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
+	else
+		return;
+
+	*changed = 1;
+
+	return;
+}
+
 static errcode_t update_slots(ocfs2_filesys *fs, int *changed)
 {
 	errcode_t ret = 0;
@@ -1102,7 +1151,9 @@ int main(int argc, char **argv)
 	int upd_slots = 0;
 	int upd_jrnls = 0;
 	int upd_blocks = 0;
+	int upd_mount = 0;
 	int upd_incompat = 0;
+	char *tmpstr;
 	uint16_t tmp;
 	uint64_t def_jrnl_size = 0;
 	uint64_t num_clusters;
@@ -1131,14 +1182,8 @@ int main(int argc, char **argv)
 
 	get_options(argc, argv);
 
-	ret = o2cb_init();
-	if (ret) {
-		com_err(opts.progname, ret, "while initializing the cluster");
-		exit(1);
-	}
-
 	/* strict compat flag check */
-	ret = ocfs2_open(opts.device, open_flags, 0, 0, &fs);
+	ret = ocfs2_open(opts.device, open_flags, 0, 0, &fs); //O_EXCL?
 	if (ret) {
 		com_err(opts.progname, ret, "while opening device %s",
 			opts.device);
@@ -1155,21 +1200,29 @@ int main(int argc, char **argv)
 	if (resize)
 		get_vol_size(fs);
 
-	ret = ocfs2_initialize_dlm(fs);
-	if (ret) {
-		com_err(opts.progname, ret, "while initializing the dlm");
-		goto close;
-	}
+	if (!ocfs2_mount_local(fs)) {
+		ret = o2cb_init();
+		if (ret) {
+			com_err(opts.progname, ret, "while initializing the cluster");
+			exit(1);
+		}
 
-	block_signals(SIG_BLOCK);
-	ret = ocfs2_lock_down_cluster(fs);
-	if (ret) {
+		ret = ocfs2_initialize_dlm(fs);
+		if (ret) {
+			com_err(opts.progname, ret, "while initializing the dlm");
+			goto close;
+		}
+
+		block_signals(SIG_BLOCK);
+		ret = ocfs2_lock_down_cluster(fs);
+		if (ret) {
+			block_signals(SIG_UNBLOCK);
+			com_err(opts.progname, ret, "while locking down the cluster");
+			goto close;
+		}
+		cluster_locked = 1;
 		block_signals(SIG_UNBLOCK);
-		com_err(opts.progname, ret, "while locking down the cluster");
-		goto close;
 	}
-	cluster_locked = 1;
-	block_signals(SIG_UNBLOCK);
 
 	ret = journal_check(fs, &dirty, &def_jrnl_size);
 	if (ret || dirty)
@@ -1196,6 +1249,18 @@ int main(int argc, char **argv)
 		uuid_unparse(OCFS2_RAW_SB(fs->fs_super)->s_uuid, old_uuid);
 		uuid_unparse(opts.vol_uuid, new_uuid);
 		printf("Changing volume uuid from %s to %s\n", old_uuid, new_uuid);
+	}
+
+	/* validate mount type */
+	if (opts.mount) {
+		if (!validate_mount_change(fs)) {
+			if (opts.mount == MOUNT_LOCAL)
+				tmpstr = MOUNT_LOCAL_STR;
+			else
+				tmpstr = MOUNT_CLUSTER_STR;
+			printf("Changing mount type to %s\n", tmpstr);
+		} else
+			opts.mount = 0;
 	}
 
 	/* validate num slots */
@@ -1247,7 +1312,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!opts.vol_label && !opts.vol_uuid && !opts.num_slots &&
-	    !opts.jrnl_size && !opts.num_blocks) {
+	    !opts.jrnl_size && !opts.num_blocks && !opts.mount) {
 		com_err(opts.progname, 0, "Nothing to do. Exiting.");
 		goto unlock;
 	}
@@ -1300,6 +1365,13 @@ int main(int argc, char **argv)
 			printf("Added node slots\n");
 	}
 
+	/* change mount type */
+	if (opts.mount) {
+		update_mount_type(fs, &upd_mount);
+		if (upd_mount)
+			printf("Changed mount type\n");
+	}
+
 	/* update journal size */
 	if (opts.jrnl_size) {
 		ret = update_journal_size(fs, &upd_jrnls);
@@ -1328,7 +1400,8 @@ int main(int argc, char **argv)
 	}
 
 	/* write superblock */
-	if (upd_label || upd_uuid || upd_slots || upd_blocks || upd_incompat) {
+	if (upd_label || upd_uuid || upd_slots || upd_blocks || upd_incompat ||
+	    upd_mount) {
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {

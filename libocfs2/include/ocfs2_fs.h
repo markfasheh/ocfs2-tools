@@ -103,6 +103,9 @@
  */
 #define OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG    0x0004
 
+/* Used to denote a non-clustered volume */
+#define OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT	0x0008
+
 /*
  * Flags on ocfs2_dinode.i_flags
  */

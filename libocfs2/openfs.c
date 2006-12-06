@@ -129,6 +129,12 @@ out_blk:
 	return ret;
 }
 
+int ocfs2_mount_local(ocfs2_filesys *fs)
+{
+	return OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
+	       OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
+}
+
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int block_size,
 		     ocfs2_filesys **ret_fs)

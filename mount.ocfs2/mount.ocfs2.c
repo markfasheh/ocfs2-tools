@@ -292,6 +292,9 @@ int main(int argc, char **argv)
 	char *extra = NULL;
 	int dev_ro = 0;
 	char *hbstr = NULL;
+	struct ocfs2_filesys *fs = NULL;
+	int clustered = 1;
+	int hb_started = 0;
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -317,20 +320,32 @@ int main(int argc, char **argv)
 	if (ret)
 		goto bail;
 
-	ret = o2cb_init();
-	if (ret) {
-		com_err(progname, ret, "Cannot initialize cluster");
+	ret = ocfs2_open(mo.dev, OCFS2_FLAG_RO, 0, 0, &fs); //O_EXCL?
+	if (!ret) {
+		clustered = (0 == ocfs2_mount_local(fs));
+		ocfs2_close(fs);
+		fs = NULL;
+	} else {
+		com_err(progname, ret, "while opening device %s", mo.dev);
 		goto bail;
 	}
 
 	if (verbose)
 		printf("device=%s\n", mo.dev);
 
-	ret = o2cb_get_hb_ctl_path(hb_ctl_path, sizeof(hb_ctl_path));
-	if (ret) {
-		com_err(progname, ret,
-			"probably because o2cb service not started");
-		goto bail;
+	if (clustered) {
+		ret = o2cb_init();
+		if (ret) {
+			com_err(progname, ret, "Cannot initialize cluster");
+			goto bail;
+		}
+
+		ret = o2cb_get_hb_ctl_path(hb_ctl_path, sizeof(hb_ctl_path));
+		if (ret) {
+			com_err(progname, ret,
+				"probably because o2cb service not started");
+			goto bail;
+		}
 	}
 
 	if (mo.flags & MS_RDONLY) {
@@ -343,7 +358,7 @@ int main(int argc, char **argv)
 
 	block_signals (SIG_BLOCK);
 
-	if (!(mo.flags & MS_REMOUNT) && !dev_ro) {
+	if (!(mo.flags & MS_REMOUNT) && !dev_ro && clustered) {
 		ret = start_heartbeat(hb_ctl_path, mo.dev);
 		if (ret) {
 			block_signals (SIG_UNBLOCK);
@@ -351,9 +366,10 @@ int main(int argc, char **argv)
 				"\"%s\"", hb_ctl_path, strerror(ret));
 			goto bail;
 		}
+		hb_started = 1;
 	}
 
-	if (dev_ro)
+	if (dev_ro || !clustered)
 		hbstr = OCFS2_HB_NONE;
 	else
 		hbstr = OCFS2_HB_LOCAL;
@@ -368,7 +384,7 @@ int main(int argc, char **argv)
 	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS, extra);
 	if (ret) {
 		ret = errno;
-		if (!(mo.flags & MS_REMOUNT) && !dev_ro)
+		if (hb_started)
 			stop_heartbeat(hb_ctl_path, mo.dev);
 		block_signals (SIG_UNBLOCK);
 		com_err(progname, ret, "while mounting %s on %s. "

@@ -506,14 +506,6 @@ int main(int argc, char **argv)
 
 	if (ost->ost_skip_o2cb)
 		printf("-F given, *not* checking with the cluster DLM.\n");
-	else {
-		ret = o2cb_init();
-		if (ret) {
-			com_err(whoami, ret, "Cannot initialize cluster\n");
-			fsck_mask |= FSCK_ERROR;
-			goto out;
-		}
-	}
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
 		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
@@ -537,7 +529,14 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	if (open_flags & OCFS2_FLAG_RW && !ost->ost_skip_o2cb) {
+	if (open_flags & OCFS2_FLAG_RW && !ost->ost_skip_o2cb &&
+	    !ocfs2_mount_local(ost->ost_fs)) {
+		ret = o2cb_init();
+		if (ret) {
+			com_err(whoami, ret, "while initializing the cluster");
+			goto close;
+		}
+
 		ret = ocfs2_initialize_dlm(ost->ost_fs);
 		if (ret) {
 			com_err(whoami, ret, "while initializing the DLM");

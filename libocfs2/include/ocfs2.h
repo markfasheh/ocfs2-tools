@@ -78,7 +78,8 @@
 
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		(OCFS2_FEATURE_INCOMPAT_SUPP | \
 						 OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV | \
-						 OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG)
+						 OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG | \
+						 OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT)
 
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP
 
@@ -265,6 +266,7 @@ errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
 			 const char *data);
 
 errcode_t ocfs2_write_super(ocfs2_filesys *fs);
+int ocfs2_mount_local(ocfs2_filesys *fs);
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int blksize,
 		     ocfs2_filesys **ret_fs);

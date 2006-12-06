@@ -509,6 +509,7 @@ get_state(int argc, char **argv)
 	uint64_t val;
 	uint64_t journal_size_in_bytes = 0;
 	enum ocfs2_fs_types fs_type = FS_DEFAULT;
+	int mount = 0;
 
 	static struct option long_options[] = {
 		{ "block-size", 1, 0, 'b' },
@@ -521,6 +522,7 @@ get_state(int argc, char **argv)
 		{ "journal-options", 0, 0, 'J'},
 		{ "heartbeat-device", 0, 0, 'H'},
 		{ "force", 0, 0, 'F'},
+		{ "mount", 1, 0, 'M'},
 		{ 0, 0, 0, 0}
 	};
 
@@ -530,7 +532,7 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:C:L:N:J:vqVFHxT:", long_options, 
+		c = getopt_long(argc, argv, "b:C:L:N:J:M:vqVFHxT:", long_options,
 				NULL);
 
 		if (c == -1)
@@ -584,6 +586,20 @@ get_state(int argc, char **argv)
 				exit(1);
 			}
 
+			break;
+
+		case 'M':
+			if (!strncasecmp(optarg, MOUNT_LOCAL_STR,
+					 strlen(MOUNT_LOCAL_STR)))
+				mount = MOUNT_LOCAL;
+			else if (!strncasecmp(optarg, MOUNT_CLUSTER_STR,
+					      strlen(MOUNT_CLUSTER_STR)))
+				mount = MOUNT_CLUSTER;
+			else {
+				com_err(progname, 0,
+					"Invalid mount type %s", optarg);
+				exit(1);
+			}
 			break;
 
 		case 'N':
@@ -699,6 +715,8 @@ get_state(int argc, char **argv)
 
 	s->fs_type = fs_type;
 
+	s->mount = mount;
+
 	return s;
 }
 
@@ -808,11 +826,10 @@ parse_journal_opts(char *progname, const char *opts,
 static void
 usage(const char *progname)
 {
-	fprintf(stderr, "Usage: %s [-b block-size] [-C cluster-size] "
-			"[-N number-of-node-slots] [-T filesystem-type]\n"
-			"\t[-L volume-label] [-J journal-options] [-HFqvV] "
-			"device [blocks-count]\n",
-			progname);
+	fprintf(stderr, "usage: %s [-b block-size] [-C cluster-size] "
+		"[-J journal-options]\n\t\t[-L volume-label] [-M mount-type] "
+		"[-N number-of-node-slots]\n\t\t[-T filesystem-type] [-HFqvV] "
+		"device [blocks-count]\n", progname);
 	exit(0);
 }
 
@@ -1109,8 +1126,11 @@ fill_defaults(State *s)
 	printf("tail_group_bits = %u\n", s->tail_group_bits);
 #endif
 	if (!s->initial_slots) {
-		s->initial_slots =
-			initial_slots_for_volume(s->volume_size_in_bytes);
+		if (s->mount == MOUNT_LOCAL)
+			s->initial_slots = 1;
+		else
+			s->initial_slots =
+				initial_slots_for_volume(s->volume_size_in_bytes);
 	}
 
 	if (!s->vol_label) {
@@ -1711,6 +1731,9 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	incompat = 0;
 	if (s->hb_dev)
 		incompat |= OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
+
+	if (s->mount == MOUNT_LOCAL)
+		incompat |= OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
 
 	di->id2.i_super.s_feature_incompat = incompat;
 
