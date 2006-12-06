@@ -48,6 +48,9 @@
 
 #include "byteorder.h"
 
+#if !defined(offsetof)
+#   define offsetof(type,memb) ((size_t)&((type*)0)->memb)
+#endif
 
 #if OCFS2_FLAT_INCLUDES
 #include "o2dlm.h"
