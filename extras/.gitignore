@@ -7,4 +7,5 @@ decode_lockres
 mark_journal_dirty
 encode_lockres
 find_allocation_fragments
+compute_groups
 *.d
