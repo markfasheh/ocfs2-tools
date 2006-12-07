@@ -18,7 +18,7 @@ Summary: Tools for managing the Oracle Cluster Filesystem 2
 Name: ocfs2-tools
 Version: @DIST_VERSION@
 Release: @RPM_VERSION@
-Copyright: GPL
+License: GPL
 Group: System Environment/Kernel
 Source: ocfs2-tools-@DIST_VERSION@.tar.gz
 URL: http://oss.oracle.com/projects/ocfs2-tools/
