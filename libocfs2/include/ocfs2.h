@@ -39,6 +39,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <string.h>
+#include <stddef.h>
 
 #include <limits.h>
 
@@ -47,10 +48,6 @@
 #include <et/com_err.h>
 
 #include "byteorder.h"
-
-#if !defined(offsetof)
-#   define offsetof(type,memb) ((size_t)&((type*)0)->memb)
-#endif
 
 #if OCFS2_FLAT_INCLUDES
 #include "o2dlm.h"
