@@ -158,6 +158,7 @@ typedef struct _dbgfs_opts {
 #include <kernel-list.h>
 #include <utils.h>
 #include <journal.h>
+#include <find_block_inode.h>
 #include <find_inode_paths.h>
 #include <dump_fs_locks.h>
 #include <dump.h>

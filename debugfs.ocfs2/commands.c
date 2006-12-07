@@ -66,6 +66,7 @@ static void do_decode_lockres (char **args);
 static void do_locate (char **args);
 static void do_fs_locks (char **args);
 static void do_bmap (char **args);
+static void do_icheck (char **args);
 
 dbgfs_gbls gbls;
 
@@ -83,6 +84,7 @@ static Command commands[] = {
 	{ "help",	do_help },
 	{ "hb",		do_hb },
 	{ "?",		do_help },
+	{ "icheck",	do_icheck },
 	{ "lcd",	do_lcd },
 	{ "locate",	do_locate },
 	{ "ncheck",	do_locate },
@@ -679,6 +681,7 @@ static void do_help (char **args)
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("hb\t\t\t\t\tShows the used heartbeat blocks\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
+	printf ("icheck block# ...\t\t\tDo block->inode translation\n");
 	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
 	printf ("locate <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
 	printf ("logdump <slot#>\t\t\t\tPrints journal file for the node slot\n");
@@ -1362,5 +1365,40 @@ static void do_bmap(char **args)
 bail:
 	close_pager(out);
  
+	return;
+}
+
+static void do_icheck(char **args)
+{
+	const char *testb_usage = "usage: icheck block# ...";
+	char *endptr;
+	uint64_t blkno[MAX_BLOCKS];
+	int i;
+	FILE *out;
+
+	if (!args[1]) {
+		fprintf(stderr, "%s\n", testb_usage);
+		return;
+	}
+
+	for (i = 0; i < MAX_BLOCKS && args[i + 1]; ++i) {
+		blkno[i] = strtoull(args[i + 1], &endptr, 0);
+		if (*endptr) {
+			com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %s", args[i + 1]);
+			return;
+		}
+
+		if (blkno[i] >= gbls.max_blocks) {
+			com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"", blkno[i]);
+			return;
+		}
+	}
+
+	out = open_pager(gbls.interactive);
+
+	find_block_inode(gbls.fs, blkno, i, out);
+
+	close_pager(out);
+
 	return;
 }

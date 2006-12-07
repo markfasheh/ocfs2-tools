@@ -619,3 +619,34 @@ void dump_logical_blkno(FILE *out, uint64_t blkno)
 {
 	fprintf(out, "\t%"PRIu64"\n", blkno);
 }
+
+/*
+ * dump_icheck()
+ *
+ */
+void dump_icheck(FILE *out, int hdr, uint64_t blkno, uint64_t inode,
+		 int validoffset, uint64_t offset, int status)
+{
+	char inostr[30] = " ";
+	char offstr[30] = " ";
+
+	if (hdr)
+		fprintf(out, "\t%-15s   %-15s   %-15s\n", "Block#", "Inode",
+			"Block Offset");
+
+	switch (status) {
+	case 1:
+		snprintf(inostr, sizeof(inostr), "%-15"PRIu64, inode);
+		if (validoffset)
+			sprintf(offstr, "%-15"PRIu64, offset);
+		break;
+	case 2:
+		snprintf(inostr, sizeof(offstr), "Unused");
+		break;
+	default:
+		snprintf(inostr, sizeof(offstr), "Unknown");
+		break;
+	}
+
+	fprintf(out, "\t%-15"PRIu64"   %-15s   %-15s\n", blkno, inostr, offstr);
+}
