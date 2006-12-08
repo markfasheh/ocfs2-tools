@@ -106,6 +106,9 @@
 /* Used to denote a non-clustered volume */
 #define OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT	0x0008
 
+/* Support for sparse allocation in b-trees */
+#define OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC	0x0010
+
 /*
  * Flags on ocfs2_dinode.i_flags
  */
