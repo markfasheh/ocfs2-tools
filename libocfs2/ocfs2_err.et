@@ -159,4 +159,7 @@ ec	OCFS2_ET_BLOCK_SIZE_TOO_SMALL_FOR_HARDWARE,
 ec	OCFS2_ET_INVALID_LOCKRES,
 	"The lock name is invalid"
 
+ec	OCFS2_ET_NO_IONICE,
+	"Can't find ionice"
+
 	end

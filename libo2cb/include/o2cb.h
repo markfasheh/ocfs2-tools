@@ -98,6 +98,10 @@ errcode_t o2cb_start_heartbeat_region_perm(const char *cluster_name,
 errcode_t o2cb_stop_heartbeat_region_perm(const char *cluster_name,
 					  const char *region_name);
 
+errcode_t o2cb_get_hb_thread_pid (const char *cluster_name, 
+				  const char *region_name, 
+				  pid_t *pid);
+
 errcode_t o2cb_get_region_ref(const char *region_name,
 			      int undo);
 errcode_t o2cb_put_region_ref(const char *region_name,

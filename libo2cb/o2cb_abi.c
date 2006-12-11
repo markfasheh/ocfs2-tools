@@ -1257,6 +1257,36 @@ void o2cb_free_nodes_list(char **nodes)
 	o2cb_free_dir_list(nodes);
 }
 
+errcode_t o2cb_get_hb_thread_pid (const char *cluster_name, const char *region_name,
+			   pid_t *pid)
+{
+	char attr_path[PATH_MAX];
+	char _fake_cluster_name[NAME_MAX];
+	char attr_value[16];
+	errcode_t ret;
+
+	if (!cluster_name) {
+		ret = _fake_default_cluster(_fake_cluster_name);
+		if (ret)
+			return ret;
+		cluster_name = _fake_cluster_name;
+	}
+
+	ret = snprintf(attr_path, PATH_MAX - 1,
+		       O2CB_FORMAT_HEARTBEAT_REGION_ATTR,
+		       configfs_path, cluster_name, region_name,
+		       "pid");
+
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	ret = o2cb_get_attribute(attr_path, attr_value, sizeof(attr_value) - 1);
+	if (ret == 0)
+		*pid = atoi (attr_value);
+
+	return ret;
+}
+
 errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
 			    uint16_t *node_num)
 {

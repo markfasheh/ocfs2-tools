@@ -29,6 +29,7 @@
 #define _GNU_SOURCE /* Because libc really doesn't want us using O_DIRECT? */
 
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <inttypes.h>
 
 #include <stdio.h>
@@ -46,6 +47,7 @@
 
 #define DEV_PREFIX      "/dev/"
 #define PROC_IDE_FORMAT "/proc/ide/%s/media"
+#define IONICE_PATH	"/usr/bin/ionice"
 
 enum hb_ctl_action {
 	HB_ACTION_UNKNOWN,
@@ -53,12 +55,14 @@ enum hb_ctl_action {
 	HB_ACTION_START,
 	HB_ACTION_STOP,
 	HB_ACTION_REFINFO,
+	HB_ACTION_IONICE,
 };
 
 struct hb_ctl_options {
 	enum hb_ctl_action action;
 	char *dev_str;
 	char *uuid_str;
+	int  io_prio;
 };
 
 
@@ -289,6 +293,40 @@ static errcode_t start_heartbeat(struct hb_ctl_options *hbo)
 	return err;
 }
 
+static errcode_t adjust_priority(struct hb_ctl_options *hbo)
+{
+	int ret, child_status;
+	pid_t hb_pid, child_pid;
+	char level_arg[16], pid_arg[16];
+
+	if (access (IONICE_PATH, X_OK) != 0)
+		return OCFS2_ET_NO_IONICE;
+
+	ret = o2cb_get_hb_thread_pid (NULL, hbo->uuid_str, &hb_pid);
+	if (ret != 0) 
+		return ret;
+
+	child_pid = fork ();
+	if (child_pid == 0) {
+		sprintf (level_arg, "-n%d", hbo->io_prio);
+		sprintf (pid_arg, "-p%d", hb_pid);
+		execlp (IONICE_PATH, "ionice", "-c1", level_arg, pid_arg, NULL);
+
+		ret = errno;
+		exit (ret);
+	} else if (child_pid > 0) {
+		ret = waitpid (child_pid, &child_status, 0);
+		if (ret == 0)
+			ret = WEXITSTATUS(child_status);
+		else
+			ret = errno;
+	} else {
+		ret = errno;
+	}
+
+	return ret;
+}
+
 static errcode_t stop_heartbeat(struct hb_ctl_options *hbo)
 {
 	errcode_t err;
@@ -317,7 +355,7 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 	ret = 0;
 
 	while(1) {
-		c = getopt(argc, argv, "ISKd:u:h");
+		c = getopt(argc, argv, "ISKPd:u:n:h");
 		if (c == -1)
 			break;
 
@@ -334,6 +372,10 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 			hbo->action = HB_ACTION_START;
 			break;
 
+		case 'P':
+			hbo->action = HB_ACTION_IONICE;
+			break;
+
 		case 'd':
 			if (optarg)
 				hbo->dev_str = strdup(optarg);
@@ -342,6 +384,11 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 		case 'u':
 			if (optarg)
 				hbo->uuid_str = strdup(optarg);
+			break;
+
+		case 'n':
+			if (optarg)
+				hbo->io_prio = atoi(optarg);
 			break;
 
 		case 'I':
@@ -385,6 +432,14 @@ static int process_options(struct hb_ctl_options *hbo)
 			ret = -EINVAL;
 		break;
 
+	case HB_ACTION_IONICE:
+		/* ionice needs uuid and priority */
+		if ((hbo->uuid_str && hbo->dev_str) ||
+		    (!hbo->uuid_str && !hbo->dev_str) ||
+		    hbo->io_prio < 0 || hbo->io_prio > 7)
+			ret = -EINVAL;
+		break;
+
 	case HB_ACTION_UNKNOWN:
 		ret = -EINVAL;
 		break;
@@ -407,6 +462,8 @@ static void print_usage(int err)
 	fprintf(output, "       %s -K -u <uuid>\n", progname);
 	fprintf(output, "       %s -I -d <device>\n", progname);
 	fprintf(output, "       %s -I -u <uuid>\n", progname);
+	fprintf(output, "       %s -P -d <device> [-n <io_priority>]\n", progname);
+	fprintf(output, "       %s -P -u <uuid> [-n <io_priority>]\n", progname);
 	fprintf(output, "       %s -h\n", progname);
 }
 
@@ -414,7 +471,7 @@ int main(int argc, char **argv)
 {
 	errcode_t err = 0;
 	int ret = 0;
-	struct hb_ctl_options hbo = { HB_ACTION_UNKNOWN, NULL, NULL };
+	struct hb_ctl_options hbo = { HB_ACTION_UNKNOWN, NULL, NULL, 0 };
 	char hbuuid[33];
 
 	setbuf(stdout, NULL);
@@ -481,6 +538,12 @@ int main(int argc, char **argv)
 			com_err(progname, err, "while stopping heartbeat");
 			ret = -EINVAL;
 		}
+		break;
+
+	case HB_ACTION_IONICE:
+		err = adjust_priority(&hbo);
+		if (err) 
+			ret = err;
 		break;
 
 	case HB_ACTION_REFINFO:
