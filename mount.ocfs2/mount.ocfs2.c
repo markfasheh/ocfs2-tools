@@ -292,7 +292,7 @@ int main(int argc, char **argv)
 	char *extra = NULL;
 	int dev_ro = 0;
 	char *hbstr = NULL;
-	struct ocfs2_filesys *fs = NULL;
+	ocfs2_filesys *fs = NULL;
 	int clustered = 1;
 	int hb_started = 0;
 
