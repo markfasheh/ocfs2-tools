@@ -82,6 +82,9 @@
 
 #define OCFS2_LIB_FEATURE_COMPAT_SUPP		OCFS2_FEATURE_COMPAT_SUPP
 
+/* define OCFS2_SB for ocfs2-tools */
+#define OCFS2_SB(sb)	(sb)
+
 /* Flags for the ocfs2_filesys structure */
 #define OCFS2_FLAG_RO			0x00
 #define OCFS2_FLAG_RW			0x01
