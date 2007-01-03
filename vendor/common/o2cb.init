@@ -714,6 +714,7 @@ offline()
     then
         echo "Failed"
         echo "Unable to stop cluster as heartbeat region still active" >&2
+        exit 1
     fi
 
     if [ $FORCE -eq 1 ]
