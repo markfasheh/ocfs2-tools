@@ -81,8 +81,8 @@ class Console(gtk.Window):
         tb, buttons, filter_entry = toolbar.get_widgets()
         vbox.pack_start(tb, expand=False, fill=False)
 
-        self.pv.add_mount_widgets(buttons['unmount'])
-        self.pv.add_unmount_widgets(buttons['mount'])
+        self.pv.add_mount_widgets([buttons['unmount']])
+        self.pv.add_unmount_widgets([buttons['mount']])
 
         filter_entry.connect('activate', self.refresh)
 
