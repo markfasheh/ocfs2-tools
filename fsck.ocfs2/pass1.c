@@ -1023,6 +1023,18 @@ static errcode_t force_cluster_bit(o2fsck_state *ost,
 	return ret;
 }
 
+static inline int bit_in_backup_super(uint64_t bit,
+				      uint32_t *clusters, int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		if (bit == clusters[i])
+			return 1;
+	}
+	return 0;
+}
+
 /* once we've iterated all the inodes we should have the current working
  * set of which blocks we think are in use.  we use this to derive the set
  * of clusters that should be allocated in the cluster chain allocators.  we
@@ -1033,6 +1045,9 @@ static void write_cluster_alloc(o2fsck_state *ost)
 	errcode_t ret;
 	uint64_t blkno, last_cbit, cbit, cbit_found;
 	struct ocfs2_cluster_group_sizes cgs;
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+	uint32_t clusters[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+	int backup_super = 0, num = 0, i;
 
 	ocfs2_calc_cluster_groups(ost->ost_fs->fs_clusters,
 				  ost->ost_fs->fs_blocksize, &cgs);
@@ -1061,6 +1076,22 @@ static void write_cluster_alloc(o2fsck_state *ost)
 		goto out;
 	}
 
+	/* handle the condition of backup superblock. */
+	memset(&blocks, 0, sizeof(blocks));
+	memset(&clusters, 0, sizeof(clusters));
+	if (OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(ost->ost_fs->fs_super),
+				     OCFS2_FEATURE_COMPAT_BACKUP_SB)) {
+		num = ocfs2_get_backup_super_offset(ost->ost_fs, blocks,
+					   ARRAY_SIZE(blocks));
+		if (num) {
+			backup_super = 1;
+			for (i = 0; i < num; i++)
+				clusters[i] =
+					ocfs2_blocks_to_clusters(ost->ost_fs,
+								 blocks[i]);
+		}
+	}
+
 	/* we walk our found blocks bitmap to find clusters that we think
 	 * are in use.  each time we find a block in a cluster we skip ahead
 	 * to the first block of the next cluster when looking for the next.
@@ -1072,6 +1103,10 @@ static void write_cluster_alloc(o2fsck_state *ost)
 	 * we special case the number of clusters as the cluster offset which
 	 * indicates that the rest of the bits to the end of the bitmap
 	 * should be clear.
+	 *
+	 * we should take backup superblock as a special case since it doesn't
+	 * belong to any inode. So it shouldn't be exist in
+	 * ost->ost_allocated_clusters.
 	 */
 	for (last_cbit = 0, cbit = 0;
 	     cbit < ost->ost_fs->fs_clusters; 
@@ -1097,7 +1132,13 @@ static void write_cluster_alloc(o2fsck_state *ost)
 
 		/* clear set bits that should have been clear up to cbit */
 		while (cbit_found < cbit) {
-			force_cluster_bit(ost, ci, cbit_found, 0);
+			/* check whether the volume has backup blocks
+			 * and if yes, check whether the cluster contains
+			 * one of the backup blocks.
+			 */
+			if (!backup_super ||
+			    !bit_in_backup_super(cbit_found, clusters, num))
+				force_cluster_bit(ost, ci, cbit_found, 0);
 			cbit_found++;
 			ret = ocfs2_bitmap_find_next_set(ci->ci_chains, cbit_found, 
 							 &cbit_found);

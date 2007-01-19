@@ -648,6 +648,12 @@ to finish the job of truncating and removing it.
 Answering yes removes the file data associated with the inode and frees
 the inode.
 
+.SS "RECOVER_BACKUP_SUPERBLOCK"
+A ocfs2 volume has many backup superblocks. User can recover the superblock
+when it is corrupted.
+
+Answering yes will copy the backup block to the superblock location.
+
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)
 

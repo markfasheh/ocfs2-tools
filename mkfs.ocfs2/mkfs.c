@@ -84,6 +84,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint16_t bpc);
 static void create_lost_found_dir(State *s);
 static void format_journals(State *s);
+static int format_backup_super(State *s);
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -111,6 +112,10 @@ static struct fs_type_translation ocfs2_fs_types_table[] = {
 	{"datafiles", FS_DATAFILES},
 	{"mail", FS_MAIL},
 	{NULL, FS_DEFAULT},
+};
+
+enum {
+	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
 };
 
 static uint64_t align_bytes_to_clusters_ceil(State *s,
@@ -438,6 +443,15 @@ main(int argc, char **argv)
 	if (!s->quiet)
 		printf("done\n");
 
+	if (!s->no_backup_super) {
+		if (!s->quiet)
+			printf("Writing backup superblock: ");
+
+		num = format_backup_super(s);
+		if (!s->quiet)
+			printf("%d block(s)\n", num);
+	}
+
 	if (!s->hb_dev) {
 		/* These routines use libocfs2 to do their work. We
 		 * don't share an ocfs2_filesys context between the
@@ -510,6 +524,7 @@ get_state(int argc, char **argv)
 	uint64_t journal_size_in_bytes = 0;
 	enum ocfs2_fs_types fs_type = FS_DEFAULT;
 	int mount = 0;
+	int no_backup_super = 0;
 
 	static struct option long_options[] = {
 		{ "block-size", 1, 0, 'b' },
@@ -523,6 +538,7 @@ get_state(int argc, char **argv)
 		{ "heartbeat-device", 0, 0, 'H'},
 		{ "force", 0, 0, 'F'},
 		{ "mount", 1, 0, 'M'},
+		{ "no-backup-super", 0, 0, BACKUP_SUPER_OPTION },
 		{ 0, 0, 0, 0}
 	};
 
@@ -653,6 +669,10 @@ get_state(int argc, char **argv)
 			parse_fs_type_opts(progname, optarg, &fs_type);
 			break;
 
+		case BACKUP_SUPER_OPTION:
+			no_backup_super = 1;
+			break;
+
 		default:
 			usage(progname);
 			break;
@@ -716,6 +736,8 @@ get_state(int argc, char **argv)
 	s->fs_type = fs_type;
 
 	s->mount = mount;
+
+	s->no_backup_super = no_backup_super;
 
 	return s;
 }
@@ -829,7 +851,7 @@ usage(const char *progname)
 	fprintf(stderr, "usage: %s [-b block-size] [-C cluster-size] "
 		"[-J journal-options]\n\t\t[-L volume-label] [-M mount-type] "
 		"[-N number-of-node-slots]\n\t\t[-T filesystem-type] [-HFqvV] "
-		"device [blocks-count]\n", progname);
+		"[--no-backup-super] device [blocks-count]\n", progname);
 	exit(0);
 }
 
@@ -2240,6 +2262,45 @@ static void format_journals(State *s)
 
 	ocfs2_close(fs);
 	return;
+
+error:
+	clear_both_ends(s);
+	exit(1);
+}
+
+static int format_backup_super(State *s)
+{
+	errcode_t ret;
+	ocfs2_filesys *fs = NULL;
+	size_t len;
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+
+	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		com_err(s->progname, ret,
+			"while opening file system for backup superblock.");
+		goto error;
+	}
+
+	len = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+
+	ret = ocfs2_set_backup_super(fs, blocks, len);
+	if (ret) {
+		com_err(s->progname, ret, "while backing up superblock.");
+		goto error;
+	}
+
+	OCFS2_SET_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+				 OCFS2_FEATURE_COMPAT_BACKUP_SB);
+
+	ret = ocfs2_write_super(fs);
+	if (ret) {
+		com_err(s->progname, ret, "while updating superblock.");
+		goto error;
+	}
+
+	ocfs2_close(fs);
+	return len;
 
 error:
 	clear_both_ends(s);

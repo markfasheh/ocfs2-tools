@@ -203,6 +203,7 @@ struct _State {
 	int prompt;
 	int hb_dev;
 	int mount;
+	int no_backup_super;
 
 	uint32_t blocksize;
 	uint32_t blocksize_bits;

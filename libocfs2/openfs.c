@@ -129,6 +129,42 @@ out_blk:
 	return ret;
 }
 
+errcode_t ocfs2_write_backup_super(ocfs2_filesys *fs, uint64_t blkno)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	struct ocfs2_dinode *di;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out_blk;
+
+	memcpy(buf, (char *)fs->fs_super, fs->fs_blocksize);
+	di = (struct ocfs2_dinode *)buf;
+
+	ret = OCFS2_ET_BAD_MAGIC;
+	if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
+		   strlen(OCFS2_SUPER_BLOCK_SIGNATURE)))
+		goto out_blk;
+
+	di->i_blkno = blkno;
+	OCFS2_SET_COMPAT_FEATURE(OCFS2_RAW_SB(di),
+				 OCFS2_FEATURE_COMPAT_BACKUP_SB);
+	ret = ocfs2_write_inode(fs, blkno, buf);
+	if (ret)
+		goto out_blk;
+
+	ret = 0;
+
+out_blk:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 int ocfs2_mount_local(ocfs2_filesys *fs)
 {
 	return OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &

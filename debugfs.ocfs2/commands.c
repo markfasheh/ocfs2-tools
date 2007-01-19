@@ -294,6 +294,99 @@ static int process_inodestr_args(char **args, int count, uint64_t *blkno)
 	return  i;
 }
 
+/* open the device, read the block from the device and get the
+ * blocksize from the offset of the ocfs2_super_block.
+ */
+static errcode_t get_blocksize(char* dev, uint64_t offset, uint64_t *blocksize)
+{
+	errcode_t ret;
+	uint64_t blkno;
+	uint32_t blocksize_bits;
+	char *buf = NULL;
+	io_channel* channel = NULL;
+	struct ocfs2_dinode *di = NULL;
+
+	ret = io_open(dev, OCFS2_FLAG_RO, &channel);
+	if (ret)
+		goto bail;
+
+	/* since ocfs2_super_block inode can be stored in OCFS2_MIN_BLOCKSIZE,
+	 * so here we just use the minimum block size and read the information
+	 * in the specific offset.
+	 */
+	ret = io_set_blksize(channel, OCFS2_MIN_BLOCKSIZE);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_malloc_block(channel, &buf);
+	if (ret)
+		goto bail;
+
+	blkno = offset / OCFS2_MIN_BLOCKSIZE;
+	ret = io_read_block(channel, blkno, 1, buf);
+	if (ret)
+		goto bail;
+
+	di = (struct ocfs2_dinode *)buf;
+	blocksize_bits = le32_to_cpu(di->id2.i_super.s_blocksize_bits);
+	*blocksize = 1ULL << blocksize_bits;
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	if (channel)
+		io_close(channel);
+	return ret;
+}
+/*
+ * process_open_args
+ *
+ */
+static int process_open_args(char **args,
+			     uint64_t *superblock, uint64_t *blocksize)
+{
+	errcode_t ret = 0;
+	uint32_t s;
+	char *ptr;
+	uint64_t byte_off[OCFS2_MAX_BACKUP_SUPERBLOCKS], blksize;
+	int num, ind = 2;
+
+	if (!args[ind])
+		return 0;
+
+	if (args[ind] && !strcmp(args[ind], "-s"))
+		ind++;
+	else
+		return -1;
+
+	if(!args[ind])
+		return -1;
+
+	num = ocfs2_get_backup_super_offset(NULL,
+					    byte_off, ARRAY_SIZE(byte_off));
+	if (!num)
+		return -1;
+
+	s = strtoul(args[ind], &ptr, 0);
+	if (s < 1 || s > num) {
+		fprintf (stderr, "Backup super block is outside of valid range"
+			 "(between 1 and %d)\n", num);
+		return -1;
+	}
+
+	ret = get_blocksize(args[1], byte_off[s-1], &blksize);
+	if (ret) {
+		com_err(args[0],ret, "Can't get the blocksize from the device"
+			" by the num %u\n", s);
+		goto bail;
+	}
+
+	*blocksize = blksize;
+	*superblock = byte_off[s-1]/blksize;
+	ret = 0;
+bail:
+	return ret;
+}
+
 /*
  * get_slotnum()
  *
@@ -475,18 +568,19 @@ static void do_open (char **args)
 	char sysfile[SYSTEM_FILE_NAME_MAX];
 	int i;
 	struct ocfs2_super_block *sb;
+	uint64_t superblock = 0, block_size = 0;
 
 	if (gbls.device)
 		do_close (NULL);
 
-	if (dev == NULL) {
-		fprintf (stderr, "usage: %s <device>\n", args[0]);
+	if (dev == NULL || process_open_args(args, &superblock, &block_size)) {
+		fprintf (stderr, "usage: %s <device> [-s num]\n", args[0]);
 		return ;
 	}
 
 	flags = gbls.allow_write ? OCFS2_FLAG_RW : OCFS2_FLAG_RO;
         flags |= OCFS2_FLAG_HEARTBEAT_DEV_OK;
-	ret = ocfs2_open(dev, flags, 0, 0, &gbls.fs);
+	ret = ocfs2_open(dev, flags, superblock, block_size, &gbls.fs);
 	if (ret) {
 		gbls.fs = NULL;
 		com_err(args[0], ret, "while opening context for device %s",
@@ -687,7 +781,7 @@ static void do_help (char **args)
 	printf ("logdump <slot#>\t\t\t\tPrints journal file for the node slot\n");
 	printf ("ls [-l] <filespec>\t\t\tList directory\n");
 	printf ("ncheck <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
-	printf ("open <device>\t\t\t\tOpen a device\n");
+	printf ("open <device> [-s backup#]\t\t\t\tOpen a device\n");
 	printf ("quit, q\t\t\t\t\tExit the program\n");
 	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted filesystem\n");
 	printf ("slotmap\t\t\t\t\tShow slot map\n");

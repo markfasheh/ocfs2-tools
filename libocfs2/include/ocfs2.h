@@ -613,6 +613,29 @@ errcode_t ocfs2_encode_lockres(enum ocfs2_lock_type type, uint64_t blkno,
 errcode_t ocfs2_decode_lockres(char *lockres, int len, enum ocfs2_lock_type *type,
 			       uint64_t *blkno, uint32_t *generation);
 
+/* write the superblock at the specific block. */
+errcode_t ocfs2_write_backup_super(ocfs2_filesys *fs, uint64_t blkno);
+
+/* Get the blkno according to the file system info.
+ * The unused ones, depending on the volume size, are zeroed.
+ * Return the length of the block array.
+ */
+int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,
+				  uint64_t *blocks, size_t len);
+
+/* This function will get the superblock pointed to by fs and copy it to
+ * the blocks. But first it will ensure all the appropriate clusters are free.
+ * If not, it will error out with ENOSPC. If free, it will set bits for all
+ * the clusters, zero the clusters and write the backup sb.
+ * In case of updating, it will override the backup blocks with the newest
+ * superblock information.
+ */
+errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
+				 uint64_t *blocks, size_t len);
+
+/* Refresh the backup superblock inoformation. */
+errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
+				     uint64_t *blocks, size_t len);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
@@ -728,4 +751,6 @@ static inline void ocfs2_calc_cluster_groups(uint64_t clusters,
 	(void) (&_x == &_y);            \
 	_x > _y ? _x : _y; })
 
+/* lifted from the kernel. include/linux/kernel.h */
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif  /* _FILESYS_H */

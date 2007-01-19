@@ -74,13 +74,14 @@ static void print_usage(void)
 {
 	fprintf(stderr,
 		"Usage: fsck.ocfs2 [ -fGnuvVy ] [ -b superblock block ]\n"
-		"		    [ -B block size ] device\n"
+		"		    [ -B block size ] [-r num] device\n"
 		"\n"
 		"Critical flags for emergency repair:\n" 
 		" -n		Check but don't change the file system\n"
 		" -y		Answer 'yes' to all repair questions\n"
 		" -f		Force checking even if file system is clean\n"
 		" -F		Ignore cluster locking (dangerous!)\n"
+		" -r		restore backup superblock(dangerous!)\n"
 		"\n"
 		"Less critical flags:\n"
 		" -b superblock	Treat given block as the super block\n"
@@ -189,6 +190,32 @@ static errcode_t write_out_superblock(o2fsck_state *ost)
 	sb->s_mnt_count = 0;
 
 	return ocfs2_write_super(ost->ost_fs);
+}
+
+static errcode_t update_backup_super(o2fsck_state *ost)
+{
+	errcode_t ret;
+	int num;
+	struct ocfs2_dinode *di = ost->ost_fs->fs_super;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(di);
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+
+	if (!OCFS2_HAS_COMPAT_FEATURE(sb, OCFS2_FEATURE_COMPAT_BACKUP_SB))
+		return 0;
+
+	num = ocfs2_get_backup_super_offset(ost->ost_fs,
+					    blocks, ARRAY_SIZE(blocks));
+	if (!num)
+		return 0;
+
+	ret = ocfs2_refresh_backup_super(ost->ost_fs, blocks, num);
+	if (ret) {
+		com_err(whoami, ret, "while refreshing backup superblocks.");
+		goto bail;
+	}
+
+bail:
+	return ret;
 }
 
 static void scale_time(time_t secs, unsigned *scaled, char **units)
@@ -410,12 +437,63 @@ out:
 	return ret;
 }
 
+static errcode_t recover_backup_super(o2fsck_state *ost,
+				      char* device, int sb_num)
+{
+	errcode_t ret;
+	uint64_t offsets[OCFS2_MAX_BACKUP_SUPERBLOCKS], blksize, sb;
+	ocfs2_filesys *fs = NULL;
+
+	if (sb_num < 1 || sb_num > OCFS2_MAX_BACKUP_SUPERBLOCKS)
+		return -1;
+
+	ocfs2_get_backup_super_offset(NULL, offsets, ARRAY_SIZE(offsets));
+
+	/* iterate all the blocksize to get the right one. */
+	for (blksize = OCFS2_MIN_BLOCKSIZE;
+		blksize <= OCFS2_MAX_BLOCKSIZE;	blksize <<= 1) {
+		sb = offsets[sb_num - 1] / blksize;
+		/* Here we just give the possible value of block num and
+		 * block size to ocfs2_open and this function will check
+		 * them and return '0' if they meet the right one.
+		 */
+		ret = ocfs2_open(device, OCFS2_FLAG_RW, sb, blksize, &fs);
+		if (!ret)
+			break;
+	}
+
+	if (ret)
+		goto bail;
+
+	/* recover the backup information to superblock. */
+	if (prompt(ost, PN, PR_RECOVER_BACKUP_SUPERBLOCK,
+	    	   "Recover superblock information from backup block"
+		   "#%"PRIu64"?", sb)) {
+		fs->fs_super->i_blkno = OCFS2_SUPER_BLOCK_BLKNO;
+		ret = ocfs2_write_super(fs);
+		if (ret)
+			goto bail;
+	}
+
+	/* no matter whether the user recover the superblock or not above,
+	 * we should return 0 in case the superblock can be opened
+	 * without the recovery.
+	 */
+	ret = 0;
+
+bail:
+	if (fs)
+		ocfs2_close(fs);
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	char *filename;
 	int64_t blkno, blksize;
 	o2fsck_state _ost, *ost = &_ost;
 	int c, open_flags = OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
+	int sb_num = 0;
 	int fsck_mask = FSCK_OK;
 	errcode_t ret;
 
@@ -434,7 +512,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:fFGnuvVy")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:fFGnuvVyr:")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -496,6 +574,10 @@ int main(int argc, char **argv)
 				version();
 				break;
 
+			case 'r':
+				sb_num = read_number(optarg);
+				break;
+
 			default:
 				fsck_mask |= FSCK_USAGE;
 				print_usage();
@@ -522,6 +604,17 @@ int main(int argc, char **argv)
 	}
 
 	filename = argv[optind];
+
+	/* recover superblock should be called at first. */
+	if (sb_num) {
+		ret = recover_backup_super(ost, filename, sb_num);
+		if (ret) {
+			com_err(whoami, ret, "recover superblock failed.\n");
+			fsck_mask |= FSCK_ERROR;
+			goto out;
+		}
+
+	}
 
 	ret = open_and_check(ost, filename, open_flags, blkno, blksize);
 	if (ret) {
@@ -638,6 +731,12 @@ done:
 		if (ret)
 			com_err(whoami, ret, "while writing back the "
 				"superblock");
+		else {
+			ret = update_backup_super(ost);
+			if (ret)
+				com_err(whoami, ret,
+					"while updating backup superblock.");
+		}
 	}
 
 unlock:

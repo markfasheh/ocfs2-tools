@@ -51,9 +51,10 @@ static void usage (char *progname)
 	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
 	g_print ("usage: %s -d, --decode <lockres>\n", progname);
 	g_print ("usage: %s -e, --encode <lock type> <block num> <generation>\n", progname);
-	g_print ("usage: %s [-f cmdfile] [-R request] [-V] [-w] [-n] [-?] [device]\n", progname);
+	g_print ("usage: %s [-f cmdfile] [-R request] [-s backup#] [-V] [-w] [-n] [-?] [device]\n", progname);
 	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
 	g_print ("\t-R, --request <command>\tExecute a single command\n");
+	g_print ("\t-s, --superblock <backup#>\tOpen the device using a backup superblock\n");
 	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
 	g_print ("\t-V, --version\t\tShow version\n");
 	g_print ("\t-n, --noprompt\t\tHide prompt\n");
@@ -188,6 +189,7 @@ static void process_encode_lockres(int argc, char **argv, int startind)
 static void get_options(int argc, char **argv, dbgfs_opts *opts)
 {
 	int c;
+	char *ptr = NULL;
 	static struct option long_options[] = {
 		{ "file", 1, 0, 'f' },
 		{ "request", 1, 0, 'R' },
@@ -198,6 +200,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		{ "noprompt", 0, 0, 'n' },
 		{ "decode", 0, 0, 'd' },
 		{ "encode", 0, 0, 'e' },
+		{ "superblock", 0, 0, 's' },
 		{ 0, 0, 0, 0}
 	};
 
@@ -205,7 +208,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		if (decodemode || encodemode || logmode)
 			break;
 
-		c = getopt_long(argc, argv, "lf:R:deV?wn", long_options, NULL);
+		c = getopt_long(argc, argv, "lf:R:deV?wns:", long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -255,6 +258,10 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		case 'V':
 			print_version(gbls.progname);
 			exit(0);
+			break;
+
+		case 's':
+			opts->sb_num = strtoul(optarg, &ptr, 0);
 			break;
 
 		default:
@@ -476,7 +483,10 @@ int main (int argc, char **argv)
 		gbls.interactive++;
 
 	if (opts.device) {
-		line = g_strdup_printf ("open %s", opts.device);
+		if (opts.sb_num)
+			line = g_strdup_printf ("open %s -s %u", opts.device, opts.sb_num);
+		else
+			line = g_strdup_printf ("open %s", opts.device);
 		do_command (line);
 		g_free (line);
 	}

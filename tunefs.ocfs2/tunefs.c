@@ -69,6 +69,10 @@
 #define MOUNT_LOCAL_STR         "local"
 #define MOUNT_CLUSTER_STR       "cluster"
 
+enum {
+	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
+};
+
 typedef struct _ocfs2_tune_opts {
 	uint16_t num_slots;
 	uint64_t num_blocks;
@@ -81,6 +85,7 @@ typedef struct _ocfs2_tune_opts {
 	int verbose;
 	int quiet;
 	int prompt;
+	int backup_super;
 	time_t tune_time;
 	int fd;
 } ocfs2_tune_opts;
@@ -253,6 +258,7 @@ static void get_options(int argc, char **argv)
 		{ "volume-size", 0, 0, 'S'},
 		{ "uuid-reset", 0, 0, 'U'},
 		{ "mount", 1, 0, 'M' },
+		{ "backup-super", 0, 0, BACKUP_SUPER_OPTION },
 		{ 0, 0, 0, 0}
 	};
 
@@ -264,7 +270,7 @@ static void get_options(int argc, char **argv)
 	opts.prompt = 1;
 
 	while (1) {
-		c = getopt_long(argc, argv, "L:N:J:M:SUvqVx", long_options,
+		c = getopt_long(argc, argv, "L:N:J:M:SUvqVxb", long_options,
 				NULL);
 
 		if (c == -1)
@@ -344,10 +350,25 @@ static void get_options(int argc, char **argv)
 			opts.prompt = 0;
 			break;
 
+		case BACKUP_SUPER_OPTION:
+			opts.backup_super = 1;
+			break;
+
 		default:
 			usage(opts.progname);
 			break;
 		}
+	}
+
+	/* we don't allow backup_super to be coexist with other tunefs
+	 * options to keep things simple.
+	 */
+	if (opts.backup_super &&
+	    (opts.vol_label || opts.num_slots ||
+	     opts.mount || opts.jrnl_size || resize)) {
+		com_err(opts.progname, 0, "Cannot backup superblock"
+			" along with other tasks");
+		exit(1);
 	}
 
 	if (!opts.quiet || show_version)
@@ -784,6 +805,82 @@ bail:
 	return ret;
 }
 
+static errcode_t load_chain_allocator(ocfs2_filesys *fs,
+					     ocfs2_cached_inode** inode)
+{
+	errcode_t ret;
+	uint64_t blkno;
+
+	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+					0, &blkno);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_read_cached_inode(fs, blkno, inode);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_load_chain_allocator(fs, *inode);
+
+bail:
+	return ret;
+}
+
+static errcode_t backup_super_check(ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	int i, num, val, failed = 0;
+	ocfs2_cached_inode *chain_alloc = NULL;
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+
+	/* if the compat flag is set, just return. */
+	if (OCFS2_HAS_COMPAT_FEATURE(super, OCFS2_FEATURE_COMPAT_BACKUP_SB)) {
+		com_err(opts.progname, 0,
+			"Volume has been enabled for Backup superblock");
+		return -1;
+	}
+
+	num = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	if (!num) {
+		com_err(opts.progname, 0,
+			"Volume is too small to hold backup superblocks");
+		return -1;
+	}
+
+	ret = load_chain_allocator(fs, &chain_alloc);
+	if (ret)
+		goto bail;
+
+	for (i = 0; i < num; i++) {
+		ret = ocfs2_bitmap_test(chain_alloc->ci_chains,
+					ocfs2_blocks_to_clusters(fs, blocks[i]),
+					&val);
+		if (ret)
+			goto bail;
+
+		if (val) {
+			com_err(opts.progname, 0, "block %"PRIu64
+				" is in use.", blocks[i]);
+			/* in order to verify all the block in the 'blocks',
+			 * we don't stop the loop here.
+			 */
+			failed = 1;
+		}
+	}
+
+	if (failed) {
+		ret = ENOSPC;
+		com_err(opts.progname, 0, "Cannot enable backup superblock as "
+			"backup blocks are in use");
+	}
+
+	if (chain_alloc)
+		ocfs2_free_cached_inode(fs, chain_alloc);
+bail:
+	return ret;
+}
+
 static void update_volume_label(ocfs2_filesys *fs, int *changed)
 {
   	memset (OCFS2_RAW_SB(fs->fs_super)->s_label, 0,
@@ -1141,6 +1238,56 @@ bail:
 	return ret;
 }
 
+static errcode_t refresh_backup_super(ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	int num;
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+
+	num = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	if (!num)
+		return 0;
+
+	ret = ocfs2_refresh_backup_super(fs, blocks, num);
+
+	return ret;
+}
+
+static errcode_t update_backup_super(ocfs2_filesys *fs, uint64_t newblocks)
+{
+	errcode_t ret;
+	int num, i;
+	uint64_t *new_backup_super, blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+	uint64_t startblk = fs->fs_blocks - newblocks;
+
+	num = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	if (!num)
+		return 0;
+
+	if (newblocks) {
+		for (i = 0; i < num; i++) {
+			if (blocks[i] >= startblk)
+				break;
+		}
+
+		if (!(num - i))
+			return 0;
+
+		new_backup_super = &blocks[i];
+		num -= i;
+	} else
+		new_backup_super = blocks;
+
+	ret = ocfs2_set_backup_super(fs, new_backup_super, num);
+	if (ret) {
+		com_err(opts.progname, ret, "while backing up superblock.");
+		goto bail;
+	}
+
+bail:
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
@@ -1153,6 +1300,7 @@ int main(int argc, char **argv)
 	int upd_blocks = 0;
 	int upd_mount = 0;
 	int upd_incompat = 0;
+	int upd_backup_super = 0;
 	char *tmpstr;
 	uint16_t tmp;
 	uint64_t def_jrnl_size = 0;
@@ -1230,12 +1378,21 @@ int main(int argc, char **argv)
 
 	/* If operation requires touching the global bitmap, ensure it is good */
 	/* This is to handle failed resize */
-	if (opts.num_blocks || opts.num_slots || opts.jrnl_size) {
+	if (opts.num_blocks || opts.num_slots || opts.jrnl_size ||
+	    opts.backup_super) {
 		if (global_bitmap_check(fs)) {
 			com_err(opts.progname, 0, "Global bitmap check failed. "
 				"Run fsck.ocfs2 -f <device>.");
 			goto unlock;
 		}
+	}
+
+	/* check whether the block for backup superblock are used. */
+	if (opts.backup_super) {
+		if (backup_super_check(fs))
+			goto unlock;
+		else
+			printf("Adding backup superblock for the volume\n");
 	}
 
 	/* validate volume label */
@@ -1312,7 +1469,8 @@ int main(int argc, char **argv)
 	}
 
 	if (!opts.vol_label && !opts.vol_uuid && !opts.num_slots &&
-	    !opts.jrnl_size && !opts.num_blocks && !opts.mount) {
+	    !opts.jrnl_size && !opts.num_blocks && !opts.mount &&
+	    !opts.backup_super) {
 		com_err(opts.progname, 0, "Nothing to do. Exiting.");
 		goto unlock;
 	}
@@ -1399,9 +1557,31 @@ int main(int argc, char **argv)
 			printf("Resized volume\n");
 	}
 
+	/* update the backup superblock. */
+	if (opts.backup_super ||
+	    (opts.num_blocks &&
+	    OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+				     OCFS2_FEATURE_COMPAT_BACKUP_SB))) {
+		block_signals(SIG_BLOCK);
+		ret = update_backup_super(fs, opts.num_blocks);
+		block_signals(SIG_UNBLOCK);
+		if (ret) {
+			com_err(opts.progname, ret,
+				"while backuping superblock");
+			goto unlock;
+		}
+		OCFS2_SET_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					 OCFS2_FEATURE_COMPAT_BACKUP_SB);
+
+		if (opts.backup_super) {
+			printf("Backed up Superblock.\n");
+			upd_backup_super = 1;
+		}
+	}
+
 	/* write superblock */
 	if (upd_label || upd_uuid || upd_slots || upd_blocks || upd_incompat ||
-	    upd_mount) {
+	    upd_mount || upd_backup_super) {
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {
@@ -1410,6 +1590,32 @@ int main(int argc, char **argv)
 		}
 		block_signals(SIG_UNBLOCK);
 		printf("Wrote Superblock\n");
+
+		/* superblock's information has changed.
+		 * We need to synchronize the backup blocks if needed.
+		 * We also have to admit that if upd_backup_super is set,
+		 * there is no need to refresh the backups since they are
+		 * written above by update_backup_super.
+		 */
+		if (!upd_backup_super &&
+		    OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					     OCFS2_FEATURE_COMPAT_BACKUP_SB)) {
+			block_signals(SIG_BLOCK);
+			ret = refresh_backup_super(fs);
+			block_signals(SIG_UNBLOCK);
+			if (ret) {
+				printf("Unable to refresh backup superblocks. "
+					"Please run fsck.ocfs2 before running "
+					"tunefs.ocfs2 to re-enable "
+					"backup superblocks.");
+				OCFS2_CLEAR_COMPAT_FEATURE(
+					OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_COMPAT_BACKUP_SB);
+				block_signals(SIG_BLOCK);
+				ocfs2_write_super(fs);
+				block_signals(SIG_UNBLOCK);
+			}
+		}
 	}
 
 unlock:

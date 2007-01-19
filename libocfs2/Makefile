@@ -80,7 +80,8 @@ CFILES = 		\
 	truncate.c	\
 	unix_io.c	\
 	unlink.c	\
-	lockid.c
+	lockid.c	\
+	backup_super.c
 
 HFILES =				\
 	include/bitmap.h		\
