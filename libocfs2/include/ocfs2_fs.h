@@ -580,6 +580,20 @@ static inline int ocfs2_truncate_recs_per_inode(struct super_block *sb)
 
 	return size / sizeof(struct ocfs2_truncate_rec);
 }
+
+static inline u64 ocfs2_backup_super_blkno(struct super_block *sb, int index)
+{
+	u64 offset = OCFS2_BACKUP_SB_START;
+
+	if (index >= 0 && index < OCFS2_MAX_BACKUP_SUPERBLOCKS) {
+		offset <<= (2 * index);
+		offset /= sb->s_blocksize;
+		return offset;
+	}
+
+	return 0;
+
+}
 #else
 static inline int ocfs2_fast_symlink_chars(int blocksize)
 {
