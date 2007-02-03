@@ -84,7 +84,7 @@ kernel version, flavor and architecture. Flavor refers to smp, hugemem, etc.<br>
 <font size=+1>
 <li>What are the latest versions of the OCFS2 packages?<br>
 </font>
-The latest module package version is 1.2.3. The latest tools/console packages
+The latest module package version is 1.2.4-2. The latest tools/console packages
 versions are 1.2.2.</br>
 </span>
 
@@ -389,7 +389,6 @@ You could also use labels to identify volumes during mount.
 </pre>
 The volume label is changeable using the tunefs.ocfs2 utility.<br>
 
-<span style="color: #F00;">
 <p>
 <A name="RESIZE"><font size=+1><b>RESIZE</b></font></A>
 </p>
@@ -439,7 +438,6 @@ be mounted on any node in the cluster. The online resize capability will be adde
 </font>
 No. We have no current plans on providing this functionality. However, if you find this
 feature useful, file an enhancement request on bugzilla listing your reasons for the same.<br>
-</span>
 
 <p>
 <A name="MOUNT"><font size=+1><b>MOUNT</b></font></A>
@@ -532,6 +530,24 @@ with the in-kernel dlm to take and release clusterwide locks on resources.<br>
 It takes around 5 secs for a volume to mount. It does so so as to let the heartbeat
 thread stabilize. In a later release, we plan to add support for a global
 heartbeat, which will make most mounts instant.<br>
+
+<span style="color: #F00;">
+<font size=+1>
+<li>Why does it take so much time to umount the volume?<br>
+</font>
+During umount, the dlm has to migrate all the mastered lockres' to an another
+node in the cluster. In 1.2.4, the lockres migration is a synchronous operation.
+We are looking into making it asynchronous so as to reduce the time it takes
+to migrate the lockres'. We hope to address this issue in 1.2.5.
+
+To find the number of lockres in all dlm domains, do:
+</pre>
+	# cat /proc/fs/ocfs2_dlm/*/stat
+	local=60624, remote=1, unknown=0
+</pre>
+<i>local</i> refers to locally mastered lockres'.
+</br>
+</span>
 
 <p>
 <A name="RAC"><font size=+1><b>ORACLE RAC</b></font></A>
@@ -648,7 +664,6 @@ processes to open files in both o_direct and bufferred mode concurrently.<br>
 <A name="NFS"><font size=+1><b>EXPORTING VIA NFS</b></font></A>
 </p>
 
-<span style="color: #F00;">
 <font size=+1>
 <li>Can I export an OCFS2 file system via NFS?<br>
 </font>
@@ -662,7 +677,6 @@ clients need to be running a 2.4.x kernel or above.<br>
 NFS v2 clients can work if the server exports the volumes with the
 <i>no_subtree_check</i> option. However, this has some security implications
 that is documented in the <i>exports</i> manpage.<br>
-</span>
 
 <p>
 <A name="TROUBLESHOOTING"><font size=+1><b>TROUBLESHOOTING</b></font></A>
@@ -1079,7 +1093,7 @@ do not match. We expect to resolve itself over time as the number of patch
 fixes reduce. Novell is shipping two SLES9 releases, viz., SP2 and SP3.<br>
 <ul>
 <li>The latest kernel with the SP2 release is 2.6.5-7.202.7. It ships with OCFS2 1.0.8.
-<li><span style="color: #F00;">The latest kernel with the SP3 release is 2.6.5-7.282. It ships with OCFS2 1.2.1.
+<li><span style="color: #F00;">The latest kernel with the SP3 release is 2.6.5-7.283. It ships with OCFS2 1.2.3.
 Please contact Novell to get the latest OCFS2 modules on SLES9 SP3.</span>
 </ul>
 
@@ -1135,7 +1149,7 @@ the appropriate ocfs2 module package for the kernel version, flavor and architec
 </pre>
 <li>Upgrade the module.
 <pre>
-	# rpm -Uvh ocfs2-2.6.9-42.0.3.ELsmp-1.2.3-1.i686.rpm
+	# rpm -Uvh ocfs2-2.6.9-42.0.3.ELsmp-1.2.4-2.i686.rpm
 </pre>
 <li>Ensure init services ocfs2 and o2cb are enabled.
 <pre>
@@ -1153,11 +1167,17 @@ the appropriate ocfs2 module package for the kernel version, flavor and architec
 and mount the volume.
 </ul>
 
+<span style="color: #F00;">
 <font size=+1>
-<li>Can I do a rolling upgrade from 1.0.x/1.2.x to 1.2.2?<br>
+<li>Can I do a rolling upgrade from 1.2.3 to 1.2.4?<br>
 </font>
-Rolling upgrade to 1.2.2 is not recommended. Shutdown the cluster on all
-nodes before upgrading the nodes.<br>
+No. The network protocol had to be updated in 1.2.4 to allow for
+proper reference counting of lockres' across the cluster. This fix
+was necessary to fix races encountered during lockres purge and migrate.
+Effectively, one cannot run 1.2.4 on one node while another node
+is still on an earlier release (1.2.3 or older).
+<br>
+</span>
 
 <font size=+1>
 <li>After upgrade I am getting the following error on mount "mount.ocfs2: Invalid argument while mounting /dev/sda6 on /ocfs".<br>
@@ -1251,7 +1271,6 @@ detects a dead node. ocfs2rec handles the file system recovery and it runs
 after the dlm has finished its recovery.
 </dl>
 
-<span style="color: #F00;">
 <p>
 <A name="BUILD"><font size=+1><b>BUILD RPMS FOR HOTFIX KERNELS</b></font></A>
 </p>
@@ -1292,7 +1311,6 @@ The packages will be in %_rpmdir.
 No. Oracle Support does not provide support for self-built modules. If you wish
 official support, contact Oracle via Support or the ocfs2-users mailing list with
 the link to the hotfix kernel (kernel-devel and kernel-src rpms).<br>
-</span>
 
 </ol>
 </html>
