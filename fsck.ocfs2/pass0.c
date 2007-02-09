@@ -70,6 +70,27 @@ struct chain_state {
 	uint16_t	cs_cpg;
 };
 
+static void find_max_free_bits(struct ocfs2_group_desc *gd, int *max_free_bits)
+{
+	int end = 0;
+	int start;
+	int free_bits;
+
+	*max_free_bits = 0;
+
+	while (end < gd->bg_bits) {
+		start = ocfs2_find_next_bit_clear(gd->bg_bitmap,
+						  gd->bg_bits, end);
+		if (start >= gd->bg_bits)
+			break;
+
+		end = ocfs2_find_next_bit_set(gd->bg_bitmap,
+					      gd->bg_bits, start);
+		free_bits = end - start;
+		*max_free_bits += free_bits;
+	}
+}
+
 static errcode_t repair_group_desc(o2fsck_state *ost,
 				   struct ocfs2_dinode *di,
 				   struct chain_state *cs,
@@ -78,6 +99,7 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 {
 	errcode_t ret = 0;
 	int changed = 0;
+	int max_free_bits = 0;
 
 	verbosef("checking desc at %"PRIu64"; blkno %"PRIu64" size %u bits %u "
 		 "free_bits %u chain %u generation %u\n", blkno, bg->bg_blkno,
@@ -128,13 +150,16 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 		changed = 1;
 	}
 
-	if ((bg->bg_free_bits_count > bg->bg_bits) &&
+	find_max_free_bits(bg, &max_free_bits);
+
+	if ((bg->bg_free_bits_count > max_free_bits) &&
 	    prompt(ost, PY, PR_GROUP_FREE_BITS,
 		   "Group descriptor at block %"PRIu64" claims to "
-		   "have %u free bits which is more than its %u total bits. "
+		   "have %u free bits which is more than %u bits"
+		   " indicated by the bitmap. "
 		   "Drop its free bit count down to the total?", blkno,
-		   bg->bg_free_bits_count, bg->bg_bits)) {
-		bg->bg_free_bits_count = bg->bg_bits;
+		   bg->bg_free_bits_count, max_free_bits)) {
+		bg->bg_free_bits_count = max_free_bits;
 		changed = 1;
 	}
 
