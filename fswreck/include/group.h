@@ -28,5 +28,6 @@
 void mess_up_group_minor(ocfs2_filesys *fs, uint16_t slotnum);
 void mess_up_group_gen(ocfs2_filesys *fs, uint16_t slotnum);
 void mess_up_group_list(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_cluster_group_desc(ocfs2_filesys *fs, uint16_t slotnum);
 
 #endif		/* __GROUP_H */

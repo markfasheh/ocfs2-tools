@@ -258,3 +258,50 @@ void mess_up_group_list(ocfs2_filesys *fs, uint16_t slotnum)
 
 	mess_up_group_desc(fs, slotnum, types, ARRAY_ELEMENTS(types));
 }
+
+/* We will allocate some clusters and corrupt the group descriptor
+ * which stores the clusters and makes fsck run into error.
+ */
+void mess_up_cluster_group_desc(ocfs2_filesys *fs, uint16_t slotnum)
+{
+	errcode_t ret;
+	uint32_t found, start_cluster, old_free_bits, request = 100;
+	uint64_t start_blk;
+	uint64_t bg_blk;
+	int cpg;
+	char *buf = NULL;
+	struct ocfs2_group_desc *bg;
+
+	ret = ocfs2_new_clusters(fs, 1, request, &start_blk, &found);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	start_cluster = ocfs2_blocks_to_clusters(fs, start_blk);
+	cpg = ocfs2_group_bitmap_size(fs->fs_blocksize) * 8;
+	bg_blk = ocfs2_which_cluster_group(fs, cpg, start_cluster);
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	ret = ocfs2_read_group_desc(fs, bg_blk, buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	bg = (struct ocfs2_group_desc *)buf;
+
+	old_free_bits = bg->bg_free_bits_count;
+	bg->bg_free_bits_count = bg->bg_bits + 10;
+
+	ret = ocfs2_write_group_desc(fs, bg_blk, buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	fprintf(stdout, "Corrput CLUSTER and GROUP_FREE_BITS: "
+		"Allocating %u clusters and change group[%"PRIu64"]'s free bits"
+		" from %u to %u\n",
+		found, bg_blk, old_free_bits, bg->bg_free_bits_count);
+
+	if (buf)
+		ocfs2_free(&buf);
+}

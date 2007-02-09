@@ -87,7 +87,8 @@ static struct corrupt_funcs cf[MAX_CORRUPT] = {
  	{ &corrupt_file,	"Dirent dot error: DIRENT_DOTTY_DUP, DIRENT_NOT_DOTTY, DIRENT_DOT_INODE, DIRENT_DOT_EXCESS"},
 	{ &corrupt_file,	"Dirent field error: DIRENT_ZERO, DIRENT_NAME_CHARS,DIRENT_INODE_RANGE, DIRENT_INODE_FREE, DIRENT_TYPE, DIRENT_DUPLICATE, DIRENT_LENGTH"}, 
 	{ &corrupt_file,	"Directory parent duplicate error: DIR_PARENT_DUP"},
-	{ &corrupt_file,	"Directory not connected error: DIR_NOT_CONNECTED"}
+	{ &corrupt_file,	"Directory not connected error: DIR_NOT_CONNECTED"},
+	{ &corrupt_group_desc,	"Create an error of GROUP_FREE_BITS and CLUSTER_ALLOC_BITS, simulate bug841 in oss.oracle.com/bugzilla"}
 };
 
 static int corrupt[MAX_CORRUPT];

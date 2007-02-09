@@ -218,6 +218,9 @@ void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	case CORRUPT_GROUP_LIST:
 		func = mess_up_group_list;
 		break;
+	case CORRUPT_CLUSTER_AND_GROUP_DESC:
+		func = mess_up_cluster_group_desc;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", code);
 	}
