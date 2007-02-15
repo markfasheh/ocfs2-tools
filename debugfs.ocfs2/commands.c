@@ -845,23 +845,59 @@ static void do_curdev (char **args)
  */
 static void do_stats (char **args)
 {
-	char *opts = args[1];
 	FILE *out;
+	errcode_t ret;
 	struct ocfs2_dinode *in;
 	struct ocfs2_super_block *sb;
+	int c, argc;
+	int sb_num = 0;
+	int only_super = 0;
+	char *ptr = NULL;
+	char *stats_usage = "usage: stats [-h] [-s backup#]";
+	char *buf = gbls.blockbuf;
 
 	if (check_device_open())
 		goto bail;
 
+	for (argc = 0; (args[argc]); ++argc);
+	optind = 0;
+
+	while ((c = getopt(argc, args, "hs:")) != -1) {
+		switch (c) {
+		case 'h':
+			only_super = 1;
+			break;
+		case 's':
+			sb_num = strtoul(optarg, &ptr, 0);
+			if (!ptr || *ptr) {
+				fprintf(stderr, "%s\n", stats_usage);
+				goto bail;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (!sb_num)
+		in = gbls.fs->fs_super;
+	else {
+		ret = ocfs2_read_backup_super(gbls.fs, sb_num, buf);
+		if (ret) {
+			com_err(gbls.cmd, ret, "while reading backup "
+				"superblock");
+			goto bail;
+		}
+		in = (struct ocfs2_dinode *)buf;
+	}
+
+	sb = OCFS2_RAW_SB(in);
+
 	out = open_pager(gbls.interactive);
-	in = gbls.fs->fs_super;
-	sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	dump_super_block(out, sb);
-
-	if (!opts || strcmp(opts, "-h"))
+	if (!only_super)
 		dump_inode(out, in);
-
-	close_pager (out);
+	close_pager(out);
 
 bail:
 	return ;

@@ -71,7 +71,7 @@ out:
 	return ret;
 }
 
-static errcode_t ocfs2_read_super(ocfs2_filesys *fs, int superblock)
+errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 {
 	errcode_t ret;
 	char *blk;
@@ -92,7 +92,13 @@ static errcode_t ocfs2_read_super(ocfs2_filesys *fs, int superblock)
 		goto out_blk;
 
 	ocfs2_swap_inode_to_cpu(di);
-	fs->fs_super = di;
+
+	if (!sb)
+		fs->fs_super = di;
+	else {
+		memcpy(sb, blk, fs->fs_blocksize);
+		ocfs2_free(&blk);
+	}
 
 	return 0;
 
@@ -215,18 +221,19 @@ errcode_t ocfs2_open(const char *name, int flags,
 		if (!block_size)
 			goto out;
 		io_set_blksize(fs->fs_io, block_size);
-		ret = ocfs2_read_super(fs, superblock);
+		ret = ocfs2_read_super(fs, (uint64_t)superblock, NULL);
 	} else {
 		superblock = OCFS2_SUPER_BLOCK_BLKNO;
 		if (block_size) {
 			io_set_blksize(fs->fs_io, block_size);
-			ret = ocfs2_read_super(fs, superblock);
+			ret = ocfs2_read_super(fs, (uint64_t)superblock, NULL);
 		} else {
 			for (block_size = io_get_blksize(fs->fs_io);
 			     block_size <= OCFS2_MAX_BLOCKSIZE;
 			     block_size <<= 1) {
 				io_set_blksize(fs->fs_io, block_size);
-				ret = ocfs2_read_super(fs, superblock);
+				ret = ocfs2_read_super(fs, (uint64_t)superblock,
+						       NULL);
 				if (ret == OCFS2_ET_BAD_MAGIC)
 					continue;
 				break;

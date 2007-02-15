@@ -163,3 +163,19 @@ errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
 bail:
 	return ret;
 }
+
+errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf)
+{
+	int numsb;
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+
+	if (!OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+				      OCFS2_FEATURE_COMPAT_BACKUP_SB))
+		return OCFS2_ET_NO_BACKUP_SUPER;
+
+	numsb = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	if (backup < 1 || backup > numsb)
+		return OCFS2_ET_NO_BACKUP_SUPER;
+
+	return ocfs2_read_super(fs, blocks[backup], sbbuf);
+}

@@ -265,6 +265,7 @@ errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
 			 const char *data);
 
+errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb);
 errcode_t ocfs2_write_super(ocfs2_filesys *fs);
 int ocfs2_mount_local(ocfs2_filesys *fs);
 errcode_t ocfs2_open(const char *name, int flags,
@@ -636,6 +637,8 @@ errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
 /* Refresh the backup superblock inoformation. */
 errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
 				     uint64_t *blocks, size_t len);
+
+errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf);
 
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
