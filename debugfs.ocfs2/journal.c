@@ -3,7 +3,7 @@
  *
  * reads the journal file
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2007 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -27,61 +27,123 @@
 
 extern dbgfs_gbls gbls;
 
-/*
- * read_journal()
- *
- */
-void read_journal (FILE *out, char *buf, uint64_t buflen)
+static void scan_journal(FILE *out, char *buf, int len,
+			 uint64_t *blocknum, uint64_t *last_unknown)
 {
 	char *block;
-	uint64_t blocknum;
-	journal_header_t *header;
-	__u32 blksize = 1 << OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits;
-	uint64_t len;
 	char *p;
-	uint64_t last_unknown = 0;
 	int type;
+	journal_header_t *header;
 
-	dump_jbd_superblock (out, (journal_superblock_t *) buf);
-
-	blocknum = 1;
-	p = buf + blksize;
-	len = buflen - blksize;
+	p = buf;
 
 	while (len) {
 		block = p;
-		header = (journal_header_t *) block;
+		header = (journal_header_t *)block;
 		if (header->h_magic == ntohl(JFS_MAGIC_NUMBER)) {
-			if (last_unknown) {
-				dump_jbd_unknown (out, last_unknown, blocknum);
-				last_unknown = 0;
+			if (*last_unknown) {
+				dump_jbd_unknown(out, *last_unknown, *blocknum);
+				*last_unknown = 0;
 			}
-			dump_jbd_block (out, header, blocknum);
+			dump_jbd_block(out, header, *blocknum);
 		} else {
-			type = detect_block (block);
+			type = detect_block(block);
 			if (type < 0) {
-				if (last_unknown == 0)
-					last_unknown = blocknum;
+				if (*last_unknown == 0)
+					*last_unknown = *blocknum;
 			} else {
-				if (last_unknown) {
-					dump_jbd_unknown (out, last_unknown, blocknum);
-					last_unknown = 0;
+				if (*last_unknown) {
+					dump_jbd_unknown(out, *last_unknown,
+							 *blocknum);
+					*last_unknown = 0;
 				}
-				dump_jbd_metadata (out, type, block, blocknum);
+				dump_jbd_metadata(out, type, block, *blocknum);
 			}
 		}
-		blocknum++;
-		p += blksize;
-		len -= blksize;
+		(*blocknum)++;
+		p += gbls.fs->fs_blocksize;
+		len -= gbls.fs->fs_blocksize;
+	}
+
+	return;
+}
+
+errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out)
+{
+	char *buf = NULL;
+	char *p;
+	uint64_t blocknum;
+	uint64_t len;
+	uint64_t offset;
+	uint32_t got;
+	uint64_t last_unknown = 0;
+	uint32_t buflen = 1024 * 1024;
+	int buflenbits;
+	ocfs2_cached_inode *ci = NULL;
+	errcode_t ret;
+
+	ret = ocfs2_read_cached_inode(fs, blkno, &ci);
+	if (ret) {
+		com_err(gbls.cmd, ret, "while reading inode %"PRIu64, blkno);
+		goto bail;
+	}
+
+	ret = ocfs2_extent_map_init(fs, ci);
+	if (ret) {
+		com_err(gbls.cmd, ret, "while initializing extent map");
+		goto bail;
+	}
+
+	buflenbits = buflen >>
+			OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits;
+	ret = ocfs2_malloc_blocks(fs->fs_io, buflenbits, &buf);
+	if (ret) {
+		com_err(gbls.cmd, ret, "while allocating %u bytes", buflen);
+		goto bail;
+	}
+
+	offset = 0;
+	blocknum = 0;
+	while (1) {
+		ret = ocfs2_file_read(ci, buf, buflen, offset, &got);
+		if (ret) {
+			com_err(gbls.cmd, ret, "while reading journal");
+			goto bail;
+		};
+
+		if (got == 0)
+			break;
+
+		p = buf;
+		len = got;
+
+		if (offset == 0) {
+			dump_jbd_superblock(out, (journal_superblock_t *)buf);
+			blocknum++;
+			p += fs->fs_blocksize;
+			len -= fs->fs_blocksize;
+		}
+
+		scan_journal(out, p, len, &blocknum, &last_unknown);
+
+		if (got < buflen)
+			break;
+		offset += got;
 	}
 
 	if (last_unknown) {
-		dump_jbd_unknown (out, last_unknown, blocknum);
+		dump_jbd_unknown(out, last_unknown, blocknum);
 		last_unknown = 0;
 	}
 
-	return ;
-}				/* read_journal */
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+
+	return ret;
+}
 
 /*
  * detect_block()

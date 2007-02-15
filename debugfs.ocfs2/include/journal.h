@@ -28,7 +28,7 @@
 
 #include <jbd.h>
 
-void read_journal (FILE *out, char *buf, uint64_t buflen);
+errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out);
 int detect_block (char *buf);
 
 #endif		/* _JOURNAL_H_ */

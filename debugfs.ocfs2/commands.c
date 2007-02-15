@@ -1072,18 +1072,12 @@ static void do_cat (char **args)
 	return ;
 }
 
-/*
- * do_logdump()
- *
- */
 static void do_logdump (char **args)
 {
-	char *logbuf = NULL;
-	uint64_t blkno = 0;
-	int32_t len = 0;
-	FILE *out;
+	errcode_t ret;
 	uint16_t slotnum;
-	errcode_t ret = 0;
+	uint64_t blkno;
+	FILE *out;
 
 	if (check_device_open())
 		return ;
@@ -1092,22 +1086,14 @@ static void do_logdump (char **args)
 		return ;
 
 	blkno = gbls.jrnl_blkno[slotnum];
-	ret = read_whole_file(gbls.fs, blkno, &logbuf, &len);
-	if (ret) {
-		com_err(args[0], ret, "while reading journal for slot %d",
-			slotnum);
-		goto bail;
-	}
 
 	out = open_pager(gbls.interactive);
-	read_journal (out, logbuf, (uint64_t)len);
+	ret = read_journal(gbls.fs, blkno, out);
 	close_pager (out);
+	if (ret)
+		com_err(gbls.cmd, ret, "while reading journal");
 
-bail:
-	if (logbuf)
-		ocfs2_free(&logbuf);
-
-	return ;
+	return;
 }
 
 /*
