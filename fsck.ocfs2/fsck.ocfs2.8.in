@@ -1,4 +1,4 @@
-.TH "fsck.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "fsck.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -7,18 +7,20 @@ fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 .PP 
 \fBfsck.ocfs2\fR is used to check an OCFS2 file system.
 
-\fIdevice\fR is the file where the file system is stored (e.g. \fI/dev/sda1\fR).  It will almost always be a device file but a regular file will work as well.
+\fIdevice\fR is the file where the file system is stored (e.g. \fI/dev/sda1\fR).
+It will almost always be a device file but a regular file will work as well.
 
 .SH "OPTIONS"
 .TP
 \fB\-b\fR \fIsuperblock block\fR
 Normally, \fBfsck.ocfs2\fR will read the superblock from the first block of
 the device.  This option specifies an alternate block that the superblock
-should be read from.
+should be read from. (Use \fB\-r\fR instead of this option.)
 
 .TP
 \fB\-B\fR \fIblocksize\fR
-The \fIblock size\fR, specified in bytes, can range from 512 to 4096.  A value of 0, the default, is used to indicate that the blocksize should be automatically detected.
+The \fIblock size\fR, specified in bytes, can range from 512 to 4096.
+A value of 0, the default, is used to indicate that the blocksize should be automatically detected.
 
 .TP
 \fB\-f\fR
@@ -45,6 +47,13 @@ Give the 'no' answer to all questions that fsck will ask.  This guarantees
 that the file system will not be modified and the device will be opened
 read-only.  The output of \fBfsck.ocfs2\fR with this option can be redirected
 to produce a record of a file system's faults.
+
+.TP
+\fB\-r\fR \fIbackup-number\fR
+\fImkfs.ocfs2\fR makes upto 6 backup copies of the superblock at offsets
+1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.
+Use this option to specify the backup, 1 thru 6, to use to recover the
+superblock.
 
 .TP
 \fB\-y\fR 
@@ -76,7 +85,7 @@ The exit code returned by \fBfsck.ocfs2\fR is the sum of the following condition
 .br
 \	16\	\-\ Usage or syntax error
 .br
-\	32\	\-\ E2fsck canceled by user request
+\	32\	\-\ fsck.ocfs2 canceled by user request
 .br
 \	128\	\-\ Shared library error
 .br
@@ -96,4 +105,4 @@ Oracle Corporation.  This man page entry derives some text, especially the exit 
 by Theodore Y. Ts'o <tytso@mit.edu>.
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2006 Oracle. All rights reserved.
+Copyright \(co 2004, 2007 Oracle. All rights reserved.
