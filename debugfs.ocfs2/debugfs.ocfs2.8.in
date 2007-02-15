@@ -1,14 +1,14 @@
-.TH "debugfs.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
-\fBdebugfs.ocfs2\fR [\fB\-f\fR \fIcmdfile\fR] [\fB\-R\fR \fIcommand\fR] [\fB\-V\fR] [\fB\-w\fR] [\fB\-n\fR] [\fB\-?\fR] [\fIdevice\fR]
+\fBdebugfs.ocfs2\fR [\fB\-f\fR \fIcmdfile\fR] [\fB\-R\fR \fIcommand\fR] [\fB\-s\fR \fIbackup\fR] [\fB\-nwV?\fR] [\fIdevice\fR]
 .TP
 \fBdebugfs.ocfs2\fR \fB\-l\fR [\fItracebit\fR ... [\fBallow\fR|\fBoff\fR|\fBdeny\fR]] ...
 .TP
-\fBdebugfs.ocfs2\fR \fB\-d, --decode\fR \fIlockname\fR
+\fBdebugfs.ocfs2\fR \fB\-d, \-\-decode\fR \fIlockname\fR
 .TP
-\fBdebugfs.ocfs2\fR \fB\-e, --encode\fB \fIlock_type inode_num generation\fR
+\fBdebugfs.ocfs2\fR \fB\-e, \-\-encode\fB \fIlock_type inode_num generation\fR
 
 .SH "DESCRIPTION"
 .PP 
@@ -18,15 +18,15 @@ in displaying on-disk \fBOCFS2\fR filesystem structures on the specified \fIdevi
 .SH "OPTIONS"
 
 .TP
-\fB\-d, --decode\fR \fIlockname\fR
+\fB\-d, \-\-decode\fR \fIlockname\fR
 Display the lock type, inode number and the inode generation number encoded in the \fIlockname\fR.
 
 .TP
-\fB\-e, --encode\fR \fIlock_type inode_num generation\fR
+\fB\-e, \-\-encode\fR \fIlock_type inode_num generation\fR
 Display the lockname obtained by encoding the lock type, inode number and the inode generation number.
 
 .TP
-\fB\-f, --file\fR \fIcmdfile\fR
+\fB\-f, \-\-file\fR \fIcmdfile\fR
 Executes the debugfs commands in \fIcmdfile\fR.
 
 .TP
@@ -35,24 +35,30 @@ Control \fBOCFS2\fR filesystem tracing by enabling and disabling trace bits.
 Do \fIdebugfs.ocfs2 -l\fR to get the list of all trace bits.
 
 .TP
-\fB\-n, --noprompt\fR
+\fB\-n, \-\-noprompt\fR
 Hide prompt.
 
 .TP
-\fB\-R, --request\fR \fIcommand\fR
+\fB\-R, \-\-request\fR \fIcommand\fR
 Executes a single debugfs command.
 
 .TP
-\fB\-w, --write\fR
+\fB\-s, \-\-superblock\fR \fIbackup\-number\fR
+\fImkfs.ocfs2\fR makes upto 6 backup copies of the superblock at offsets 1G, 4G,
+16G, 64G, 256G and 1T depending on the size of the volume. Use this option to
+specify the backup, 1 thru 6, to use to open the volume.
+
+.TP
+\fB\-w, \-\-write\fR
 Opens the filesystem in \fIRW\fR mode. By default the filesystem is opened
 in \fIRO\fR mode.
 
 .TP
-\fB\-V, --version\fR 
+\fB\-V, \-\-version\fR 
 Display version and exit.
 
 .TP
-\fB\-?, --help\fR 
+\fB\-?, \-\-help\fR 
 Displays help and exit.
 
 .SH "SPECIFYING FILES"
@@ -113,7 +119,7 @@ Show the currently open device.
 Display the inode number encoded in the \fIlockname\fR.
 
 .TP
-\fIdump [-p] filespec outfile\fR
+\fIdump [\-p] filespec outfile\fR
 Dump the contents of the inode \fIfilespec\fR to the output file
 \fIoutfile\fR. If the \fI-p\fR is given, set the owner, group,
 timestamps and permissions information on \fIoutfile\fR to match
@@ -152,6 +158,11 @@ Display the contents of the heartbeat system file.
 Print the list of commands understood by \fBdebugfs.ocfs2\fR.
 
 .TP
+\fIicheck block# ...\fR
+Display the inodes that use the one or more blocks specified on the command line.
+If the inode is a regular file, also display the corresponding logical block offset.
+
+.TP
 \fIlcd directory\fR
 Change the current working directory of the \fBdebugfs.ocfs2\fR process
 to the \fIdirectory\fR on the native filesystem.
@@ -165,9 +176,9 @@ Display all pathnames for the inode(s) specified by \fIlockname\fRs or \fIinode#
 Display the contents of the journal for node \fInode#\fR.
 
 .TP
-\fIls [-l] filespec\fR
+\fIls [\-l] filespec\fR
 Print the listing  of the files in the directory \fIfilespec\fR. The
-\fI-l\fR flag will list files in the long format.
+\fI\-l\fR flag will list files in the long format.
 
 .TP
 \fIncheck [<lockname>|<inode#>] ...\fR
@@ -182,7 +193,7 @@ Open the filesystem on \fIdevice\fR.
 Quit \fBdebugfs.ocfs2\fR.
 
 .TP
-\fIrdump [-v] filespec outdir\fR
+\fIrdump [\-v] filespec outdir\fR
 Recursively dump directory \fIfilespec\fR and all its contents
 (including regular files, symbolic links and other directories) into
 the \fIoutdir\fR which should be an existing directory on the native
@@ -197,8 +208,9 @@ Display the contents of the \fIslotmap\fR system file.
 Display the contents of the inode structure for the \fIfilespec\fR.
 
 .TP
-\fIstats\fR
-Display the contents of the super block.
+\fIstats [\-h] [\-s backup\-number]\fR
+Display the contents of the superblock. Use \fI\-s\fR to display a
+specific backup superblock. Use \fI\-h\fR to hide the inode.
 
 .SH "ACKNOWLEDGEMENT"
 This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
@@ -215,4 +227,4 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2006 Oracle. All rights reserved.
+Copyright \(co 2004, 2007 Oracle. All rights reserved.
