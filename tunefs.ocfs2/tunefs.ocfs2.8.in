@@ -1,10 +1,10 @@
-.TH "tunefs.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
-\fBtunefs.ocfs2\fR [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-nodes\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-qSUvV\fR] \fIdevice\fR  [\fIblocks-count\fR]
+\fBtunefs.ocfs2\fR [\fB\-J\fR \fIjournal-options\fR] [\fB\-L\fR \fIvolume-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber-of-node-slots\fR] [\fB\-qSUvV\fR] [\fB\-\-backup-super\fR] \fIdevice\fR  [\fIblocks-count\fR]
 .SH "DESCRIPTION"
-.PP 
+.PP
 \fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
 In order to prevent data loss, \fBtunefs.ocfs2\fR will not perform any
 action on the specified device if it is mounted on any node in the cluster.
@@ -12,21 +12,10 @@ This tool requires the \fIO2CB\fR cluster to be online.
 
 .SH "OPTIONS"
 .TP
-\fB\-L\fR \fIvolume\-label\fR
-Change the volume label for the file system. Limit the label
-length to under 64 bytes.
-
-.TP
-\fB\-N\fR \fInumber\-of\-node\-slots\fR
-Use this to increase the number of slots inorder to increase the
-number of nodes that can concurrently mount this volume. The maximum
-value is 255.
-
-.TP
-\fB\-J\fR \fIjournal\-options\fR
+\fB\-J, \-\-journal\-options\fR \fIoptions\fR
 Modify the journal using options specified on the command\-line.
 Journal options are comma separated, and may take an argument using
-the equals ('=') sign. The following journal options are supported:
+the equals ('=') sign. The following options are supported:
 .RS 1.2i
 .TP
 \fBsize\fR=\fIjournal\-size\fR
@@ -34,26 +23,51 @@ Grow the size of journal files for all the slots. Minimum size is 4M.
 .RE
 
 .TP
-\fB\-S\fR
+\fB\-L, \-\-label\fR \fIvolume\-label\fR
+Change the volume label of the file system. Limit the label
+to under 64 bytes.
+
+.TP
+\fB\-M, \-\-mount\fR \fImount\-type\fR
+Valid types are \fIlocal\fR and \fIcluster\fR. Local mount allows
+users to mount the volume without the cluster overhead and works
+only with \fIOCFS2\fR bundled with Linux kernels 2.6.20 or later.
+
+.TP
+\fB\-N, \-\-node\-slots\fR \fInumber\-of\-node\-slots\fR
+Use this to increase the number of slots inorder to increase the
+number of nodes that can concurrently mount this volume. The maximum
+value is 255.
+
+.TP
+\fB\-S, \-\-volume\-size\fR
 Grow the size of the \fIOCFS2\fR file system. If \fIblocks-count\fR is not
 specified, \fBtunefs.ocfs2\fR extends the volume to the current size of
 the device.
 
 .TP
-\fB\-q\fR 
-Quiet mode. 
+\fB\-q, \-\-quiet\fR
+Quiet mode.
 
 .TP
-\fB\-U\fR
+\fB\-U, \-\-uuid\-reset\fR
 Change the volume UUID (auto-generated) for the file system.
 
 .TP
-\fB\-v\fR 
+\fB\-v, \-\-verbose\fR
 Verbose mode.
 
 .TP
-\fB\-V\fR 
+\fB\-V, \-\-version\fR
 Show version and exit.
+
+.TP
+\fB\-\-backup\-super\fR
+Backs up the superblock to fixed offsets (1G, 4G, 16G, 64G, 256G and 1T)
+on disk. This option is useful for users to backup the superblock on volumes
+that the user either explicitly disallowed while formatting, or, used a
+version of \fImkfs.ocfs2\fR (1.2.2 or older) that did not provide this
+facility.
 
 .TP
 \fIblocks-count\fR
@@ -74,4 +88,4 @@ extended to consume only the given number of file system blocks on the device.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2006 Oracle. All rights reserved.
+Copyright \(co 2004, 2007 Oracle. All rights reserved.
