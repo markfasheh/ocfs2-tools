@@ -3,7 +3,7 @@
  *
  * entry point for debugfs.ocfs2
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2007 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -42,34 +42,26 @@ struct log_entry {
 };
 static GList *loglist = NULL;
 
-/*
- * usage()
- *
- */
 static void usage (char *progname)
 {
 	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
 	g_print ("usage: %s -d, --decode <lockres>\n", progname);
 	g_print ("usage: %s -e, --encode <lock type> <block num> <generation>\n", progname);
 	g_print ("usage: %s [-f cmdfile] [-R request] [-s backup#] [-V] [-w] [-n] [-?] [device]\n", progname);
-	g_print ("\t-f, --file <cmdfile>\tExecute commands in cmdfile\n");
-	g_print ("\t-R, --request <command>\tExecute a single command\n");
+	g_print ("\t-f, --file <cmdfile>\t\tExecute commands in cmdfile\n");
+	g_print ("\t-R, --request <command>\t\tExecute a single command\n");
 	g_print ("\t-s, --superblock <backup#>\tOpen the device using a backup superblock\n");
-	g_print ("\t-w, --write\t\tOpen in read-write mode instead of the default of read-only\n");
-	g_print ("\t-V, --version\t\tShow version\n");
-	g_print ("\t-n, --noprompt\t\tHide prompt\n");
-	g_print ("\t-?, --help\t\tShow this help\n");
+	g_print ("\t-w, --write\t\t\tOpen in read-write mode instead of the default of read-only\n");
+	g_print ("\t-V, --version\t\t\tShow version\n");
+	g_print ("\t-n, --noprompt\t\t\tHide prompt\n");
+	g_print ("\t-?, --help\t\t\tShow this help\n");
 	exit (0);
-}					/* usage */
+}
 
-/*
- * print_version()
- *
- */
 static void print_version (char *progname)
 {
 	fprintf(stderr, "%s %s\n", progname, VERSION);
-}					/* print_version */
+}
 
 static void process_one_list(GList *list, char *action)
 {
@@ -81,7 +73,7 @@ static void process_one_list(GList *list, char *action)
 		tmp = loglist;
 		while (tmp) {
 			entry = tmp->data;
-			if (!strcmp(entry->mask, list->data))
+			if (!strcasecmp(entry->mask, list->data))
 				break;
 			tmp = tmp->next;
 		}
@@ -105,9 +97,9 @@ static void fill_log_list(int argc, char **argv, int startind)
 	GList *tmplist = NULL;
 
 	for (i = startind; i < argc; i++) {
-		if (!strcmp(argv[i], "allow") ||
-		    !strcmp(argv[i], "deny") ||
-		    !strcmp(argv[i], "off")) {
+		if (!strcasecmp(argv[i], "allow") ||
+		    !strcasecmp(argv[i], "deny") ||
+		    !strcasecmp(argv[i], "off")) {
 			process_one_list(tmplist, argv[i]);
 			g_list_free(tmplist);
 			tmplist = NULL;
@@ -182,10 +174,6 @@ static void process_encode_lockres(int argc, char **argv, int startind)
 	return ;
 }
 
-/*
- * get_options()
- *
- */
 static void get_options(int argc, char **argv, dbgfs_opts *opts)
 {
 	int c;
@@ -283,10 +271,6 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 	return ;
 }
 
-/*
- * get_line()
- *
- */
 static char * get_line (FILE *stream, int no_prompt)
 {
 	char *line;
@@ -318,7 +302,7 @@ static char * get_line (FILE *stream, int no_prompt)
 	}
 
 	return line;
-}					/* get_line */
+}
 
 #define LOG_CTL_PROC "/proc/fs/ocfs2_nodemanager/log_mask"
 static int set_logmode_proc(struct log_entry *entry)
@@ -429,11 +413,6 @@ static void run_logmode(void)
 		run_logmode_proc();
 }
 
-
-/*
- * main()
- *
- */
 int main (int argc, char **argv)
 {
 	char *line;
@@ -531,4 +510,4 @@ bail:
 	if (opts.device)
 		free(opts.device);
 	return 0;
-}					/* main */
+}
