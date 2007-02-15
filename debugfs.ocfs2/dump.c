@@ -36,6 +36,13 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 {
 	int i;
 	char *str;
+	GString *compat = NULL;
+	GString *incompat = NULL;
+	GString *rocompat = NULL;
+
+	compat = g_string_new(NULL);
+	incompat = g_string_new(NULL);
+	rocompat = g_string_new(NULL);
 
 	fprintf(out, "\tRevision: %u.%u\n", sb->s_major_rev_level, sb->s_minor_rev_level);
 	fprintf(out, "\tMount Count: %u   Max Mount Count: %u\n", sb->s_mnt_count,
@@ -47,9 +54,17 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	fprintf(out, "\tCheck Interval: %u   Last Check: %s", sb->s_checkinterval, str);
 
 	fprintf(out, "\tCreator OS: %u\n", sb->s_creator_os);
-	fprintf(out, "\tFeature Compat: %u   Incompat: %u   RO Compat: %u\n",
-	       sb->s_feature_compat, sb->s_feature_incompat,
-	       sb->s_feature_ro_compat);
+
+	get_compat_flag(sb->s_feature_compat, compat);
+	get_incompat_flag(sb->s_feature_incompat, incompat);
+	get_rocompat_flag(sb->s_feature_ro_compat, rocompat);
+
+	fprintf(out, "\tFeature Compat: %u %s\n", sb->s_feature_compat,
+		compat->str);
+	fprintf(out, "\tFeature Incompat: %u %s\n", sb->s_feature_incompat,
+		incompat->str);
+	fprintf(out, "\tFeature RO compat: %u %s\n", sb->s_feature_ro_compat,
+		rocompat->str);
 
 	fprintf(out, "\tRoot Blknum: %"PRIu64"   System Dir Blknum: %"PRIu64"\n",
 		sb->s_root_blkno,
@@ -68,6 +83,10 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	for (i = 0; i < 16; i++)
 		fprintf(out, "%02X", sb->s_uuid[i]);
 	fprintf(out, "\n");
+
+	g_string_free(compat, 1);
+	g_string_free(incompat, 1);
+	g_string_free(rocompat, 1);
 
 	return ;
 }

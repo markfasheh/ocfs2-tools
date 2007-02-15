@@ -33,6 +33,9 @@ typedef struct _rdump_opts {
 	int verbose;
 } rdump_opts;
 
+void get_incompat_flag(uint32_t flag, GString *str);
+void get_compat_flag(uint32_t flag, GString *str);
+void get_rocompat_flag(uint32_t flag, GString *str);
 void get_vote_flag (uint32_t flag, GString *str);
 void get_publish_flag (uint32_t flag, GString *str);
 void get_journal_block_type (uint32_t jtype, GString *str);

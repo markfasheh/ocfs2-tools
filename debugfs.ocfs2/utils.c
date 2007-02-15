@@ -28,6 +28,57 @@
 
 extern dbgfs_gbls gbls;
 
+void get_incompat_flag(uint32_t flag, GString *str)
+{
+	if (flag & OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV)
+		g_string_append(str, "Heartbeat ");
+
+	if (flag & OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG)
+		g_string_append(str, "AbortedResize ");
+
+	if (flag & OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT)
+		g_string_append(str, "Local ");
+
+	if (flag & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
+		g_string_append(str, "Sparse ");
+
+	if (flag & ~(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV |
+		     OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG |
+		     OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT |
+		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC))
+		g_string_append(str, "Unknown ");
+
+	if (!str->len)
+		g_string_append(str, "None");
+
+	return;
+}
+
+void get_compat_flag(uint32_t flag, GString *str)
+{
+	if (flag & OCFS2_FEATURE_COMPAT_BACKUP_SB)
+		g_string_append(str, "BackupSuper ");
+
+	if (flag & ~(OCFS2_FEATURE_COMPAT_BACKUP_SB))
+		g_string_append(str, "Unknown ");
+
+	if (!str->len)
+		g_string_append(str, "None");
+
+	return;
+}
+
+void get_rocompat_flag(uint32_t flag, GString *str)
+{
+	if (flag)
+		 g_string_append(str, "Unknown ");
+
+	if (!str->len)
+		g_string_append(str, "None");
+
+	return;
+}
+
 /*
  * get_vote_flag()
  *
