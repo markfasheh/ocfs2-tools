@@ -1,4 +1,4 @@
-.TH "mount.ocfs2" "8" "July 2006" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mount.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "SYNOPSIS"
@@ -18,6 +18,12 @@ been enabled on the system). \fImount.ocfs2\fR transparently appends this option
 during mount. However, users mounting the volume via /etc/fstab must explicitly
 specify this mount option to delay the system from mounting the volume until
 after the network has been enabled.
+
+.TP
+\fBdatavolume\fR
+Use this mount option to mount volumes storing the Oracle data files,
+control files, redo logs, archive logs, voting disk, cluster registry, etc.
+(This mount option is only available with \fIOCFS2 1.2\fR.)
 
 .TP
 \fBnointr\fR
@@ -43,4 +49,4 @@ Mount the file system read-write.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2006 Oracle. All rights reserved.
+Copyright \(co 2004, 2007 Oracle. All rights reserved.
