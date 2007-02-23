@@ -271,8 +271,16 @@ static int extent_iterate_el(struct ocfs2_extent_list *el,
 						      &el->l_recs[i]);
 
 			if (el->l_recs[i].e_clusters &&
-			   (el->l_recs[i].e_cpos >= ctxt->last_eb_cpos))
-				ctxt->last_eb_blkno = el->l_recs[i].e_blkno;
+			   (el->l_recs[i].e_cpos >= ctxt->last_eb_cpos)) {
+				/*
+				 * Only set last_eb_blkno if current extent
+				 * list	point to leaf blocks.
+				 */
+				if (el->l_tree_depth == 1)
+					ctxt->last_eb_blkno =
+							el->l_recs[i].e_blkno;
+				ctxt->last_eb_cpos = el->l_recs[i].e_cpos;
+			}
 
 		} else {
 			iret |= (*ctxt->func)(ctxt->fs, &el->l_recs[i],
@@ -300,7 +308,6 @@ static int extent_iterate_el(struct ocfs2_extent_list *el,
 	return iret;
 }
 
-/* XXX this needs to be fixed to update the last extent block stuff */
 static int extent_iterate_eb(struct ocfs2_extent_rec *eb_rec,
 			     int ref_tree_depth, uint64_t ref_blkno,
 			     int ref_recno, struct extent_context *ctxt)
