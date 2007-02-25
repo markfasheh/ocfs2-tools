@@ -668,7 +668,7 @@ static void check_link_data(struct verifying_blocks *vb)
 
 	/* maybe we don't shrink link target allocations, I don't know,
 	 * someone will holler if this is wrong :) */
-	if (vb->vb_num_blocks != expected) {
+	if (vb->vb_num_blocks < expected) {
 		if (prompt(ost, PN, PR_LINK_BLOCKS,
 			   "The target of symlink inode %"PRIu64" "
 			   "fits in %"PRIu64" blocks but the inode has "
