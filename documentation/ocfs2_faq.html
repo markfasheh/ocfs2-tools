@@ -29,6 +29,7 @@
 <li><a href=#UPGRADE>Upgrade to the Latest Release</a>
 <li><a href=#PROCESSES>Processes</a>
 <li><a href=#BUILD>Build RPMs for Hotfix Kernels</a>
+<li><a href=#BACKUPSB>Backup Super block</a>
 </ul>
 
 <ol>
@@ -85,7 +86,7 @@ kernel version, flavor and architecture. Flavor refers to smp, hugemem, etc.<br>
 <li>What are the latest versions of the OCFS2 packages?<br>
 </font>
 The latest module package version is 1.2.4-2. The latest tools/console packages
-versions are 1.2.2.</br>
+versions are 1.2.3.</br>
 </span>
 
 <font size=+1>
@@ -1312,5 +1313,115 @@ No. Oracle Support does not provide support for self-built modules. If you wish
 official support, contact Oracle via Support or the ocfs2-users mailing list with
 the link to the hotfix kernel (kernel-devel and kernel-src rpms).<br>
 
+<span style="color: #F00;">
+<p>
+<A name="BACKUPSB"><font size=+1><b>BACKUP SUPER BLOCK</b></font></A>
+</p>
+
+<font size=+1>
+<li>What is a Backup Super block?
+</font>
+A backup super block is a copy of the super block. As the super block is
+typically located close to the start of the device, it is susceptible to
+be overwritten, say, by an errant write (dd if=file of=/dev/sdX). Moreover,
+as the super block stores critical information that is hard to recreate,
+it becomes important to backup the block and use it when the super block
+gets corrupted.
+<br>
+ 
+<font size=+1>
+<li>Where are the backup super blocks located?
+</font>
+In OCFS2, the super blocks are backed up to blocks at the 1G, 4G, 16G, 64G,
+256G and 1T byte offsets. The actual number of backups depend on the size
+of the device. It should be noted that the super block is not backed up on
+devices smaller than 1G.
+<br>
+
+<font size=+1>
+<li>How does one enable this feature?
+</font>
+mkfs.ocfs2 1.2.3 or later automatically backs up super blocks on devices
+larger than 1G. One can disable this by using the --no-backup-super option.
+<br>
+
+<font size=+1>
+<li>How do I detect whether the super blocks are backed up on a device?
+</font>
+<pre>
+	# debugfs.ocfs2 -R "stats" /dev/sdX | grep "Feature Compat"
+        	Feature Compat: 1 BackupSuper
+</pre>
+
+<font size=+1>
+<li>How do I backup the super block on a device formatted by an older mkfs.ocfs2?
+</font>
+tunefs.ocfs2 1.2.3 or later can attempt to retroactively backup the super block.
+<pre>
+	# tunefs.ocfs2 --backup-super /dev/sdX
+	tunefs.ocfs2 1.2.3
+	Adding backup superblock for the volume
+	Proceed (y/N): y
+	Backed up Superblock.
+	Wrote Superblock
+</pre>
+However, it is quite possible that one or more backup locations are in use
+by the file system. (tunefs.ocfs2 backs up the block only if all the backup
+locations are unused.)
+<pre>
+	# tunefs.ocfs2 --backup-super /dev/sdX
+	tunefs.ocfs2 1.2.3
+	tunefs.ocfs2: block 262144 is in use.
+	tunefs.ocfs2: block 4194304 is in use.
+	tunefs.ocfs2: Cannot enable backup superblock as backup blocks are in use
+</pre>
+If so, use this <a href=http://oss.oracle.com/~smushran/verify_backup_super>script</a>
+to list out the objects using these blocks.
+<pre>
+	# ./verify_backup_super /dev/sdX
+	Locating inodes using blocks 262144 1048576 4194304 on device /dev/sdX
+        	Block#            Inode             Block Offset   
+        	262144            27                65058          
+        	1048576           Unused                           
+        	4194304           4161791           25             
+	Matching inodes to object names
+        	27      //journal:0003
+        	4161791 /src/kernel/linux-2.6.19/drivers/scsi/BusLogic.c
+</pre>
+If the object happens to be user created, move that object temporarily to an
+another volume before re-attempting the operation. However, this will not work
+if one or more blocks are being used by a system file (shown starting with
+double slashes //), say, a journal.
+
+<font size=+1>
+<li>How do I ask fsck.ocfs2 to use a backup super block?
+</font>
+To recover a volume using the second backup super block, do:
+<pre>
+	# fsck.ocfs2 -f -r 2 /dev/sdX
+	[RECOVER_BACKUP_SUPERBLOCK] Recover superblock information from backup block#1048576? <n> n
+	Checking OCFS2 filesystem in /dev/sdX
+  	label:              myvolume
+  	uuid:               4d 1d 1f f3 24 01 4d 3f 82 4c e2 67 0c b2 94 f3 
+  	number of blocks:   13107196
+  	bytes per block:    4096
+  	number of clusters: 13107196
+  	bytes per cluster:  4096
+  	max slots:          4
+
+	/dev/sdX was run with -f, check forced.
+	Pass 0a: Checking cluster allocation chains
+	Pass 0b: Checking inode allocation chains
+	Pass 0c: Checking extent block allocation chains
+	Pass 1: Checking inodes and blocks.
+	Pass 2: Checking directory entries.
+	Pass 3: Checking directory connectivity.
+	Pass 4a: checking for orphaned inodes
+	Pass 4b: Checking inodes link counts.
+	All passes succeeded.
+</pre>
+For more, refer to the man pages.
+
+</span>
 </ol>
 </html>
