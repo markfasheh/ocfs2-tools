@@ -1375,8 +1375,9 @@ locations are unused.)
 	tunefs.ocfs2: block 4194304 is in use.
 	tunefs.ocfs2: Cannot enable backup superblock as backup blocks are in use
 </pre>
-If so, use this <a href=http://oss.oracle.com/~smushran/verify_backup_super>script</a>
-to list out the objects using these blocks.
+If so, use the
+<a href=http://oss.oracle.com/projects/ocfs2-tools/dist/files/extras/verify_backup_super>verify_backup_super</a>
+script to list out the objects using these blocks.
 <pre>
 	# ./verify_backup_super /dev/sdX
 	Locating inodes using blocks 262144 1048576 4194304 on device /dev/sdX
