@@ -217,20 +217,6 @@ static int update_leaf_rec(struct extent_context *ctxt,
 			   struct ocfs2_extent_rec *before,
 			   struct ocfs2_extent_rec *current)
 {
-	uint64_t start;
-	uint32_t len;
-
-	if (current->e_clusters == before->e_clusters)
-		return 0;
-
-	start = current->e_blkno +
-		ocfs2_clusters_to_blocks(ctxt->fs, current->e_clusters);
-	len = current->e_clusters - before->e_clusters;
-
-	ctxt->errcode = ocfs2_free_clusters(ctxt->fs, len, start);
-	if (ctxt->errcode)
-		return OCFS2_EXTENT_ERROR;
-
 	return 0;
 }
 
@@ -238,14 +224,6 @@ static int update_eb_rec(struct extent_context *ctxt,
 			 struct ocfs2_extent_rec *before,
 			 struct ocfs2_extent_rec *current)
 {
-	if (current->e_clusters)
-		return 0;
-
-	ctxt->errcode = ocfs2_delete_extent_block(ctxt->fs,
-						  before->e_blkno); 
-	if (ctxt->errcode)
-		return OCFS2_EXTENT_ERROR;
-
 	return 0;
 }
 
