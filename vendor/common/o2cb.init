@@ -35,6 +35,9 @@ else
 fi
 
 MIN_O2CB_HEARTBEAT_THRESHOLD=7
+MIN_O2CB_IDLE_TIMEOUT_MS=10000
+MIN_O2CB_KEEPALIVE_DELAY_MS=5000
+MIN_O2CB_RECONNECT_DELAY_MS=2000
 
 # Source configuration, 
 [ -f "${CONFIGURATION}" ] && . "${CONFIGURATION}"
@@ -132,6 +135,15 @@ O2CB_BOOTCLUSTER=${O2CB_BOOTCLUSTER}
 # O2CB_HEARTBEAT_THRESHOLD: Iterations before a node is considered dead.
 O2CB_HEARTBEAT_THRESHOLD=${O2CB_HEARTBEAT_THRESHOLD}
 
+# O2CB_IDLE_TIMEOUT_MS: Time in ms before a network connection is considered dead.
+O2CB_IDLE_TIMEOUT_MS=${O2CB_IDLE_TIMEOUT_MS}
+
+# O2CB_KEEPALIVE_DELAY_MS: Max time in ms before a keepalive packet is sent
+O2CB_KEEPALIVE_DELAY_MS=${O2CB_KEEPALIVE_DELAY_MS}
+
+# O2CB_RECONNECT_DELAY_MS: Min time in ms between connection attempts
+O2CB_RECONNECT_DELAY_MS=${O2CB_RECONNECT_DELAY_MS}
+
 EOF
 
     if [ $? != 0 ]
@@ -139,6 +151,118 @@ EOF
         return 1
     fi
     return 0
+}
+
+#
+# read_timeout()
+#   Returns timeout value provided by user to caller in RET_VAL
+#
+read_timeout()
+{
+    if [ "$#" -lt "3" ]; then
+        echo "read_timeout(): Requires more arguments" >&2
+        exit 1
+    fi
+
+    ATTRIB_NAME=$1
+    ATTRIB_VAL=$2
+    MIN_ATTRIB_VAL=$3
+    RET_VAL=0
+
+    while :
+    do
+        if [ -z $ATTRIB_VAL ]; then
+            CUR=$MIN_ATTRIB_VAL
+        else
+            CUR=$ATTRIB_VAL
+        fi
+        echo -n "Specify ${ATTRIB_NAME} (>=$MIN_ATTRIB_VAL) [$CUR]: "
+        read LINE
+        case "$LINE" in
+        "")
+            RET_VAL="$ATTRIB_VAL"
+            break
+            ;;
+
+        *[^0-9]*)
+            echo "Invalid ${ATTRIB_NAME} value: $LINE" >&2
+            ;;
+        *)
+            if [ $LINE -lt $MIN_ATTRIB_VAL ]; then
+                echo "${ATTRIB_NAME} cannot be less than $MIN_ATTRIB_VAL" >&2
+            else
+                RET_VAL="$LINE"
+                break
+            fi
+            ;;
+        esac
+    done
+}
+
+set_timeouts()
+{
+    O2CB_HEARTBEAT_THRESHOLD_FILE_OLD=/proc/fs/ocfs2_nodemanager/hb_dead_threshold
+    O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/dead_threshold
+    if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
+        if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
+            echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE"
+        elif [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD" ]; then 
+            echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD"
+        fi
+    fi
+
+    O2CB_IDLE_TIMEOUT_MS_FILE=$(configfs_path)/cluster/${CLUSTER}/idle_timeout_ms
+    if [ -n "$O2CB_IDLE_TIMEOUT_MS" ]; then
+        if [ -f "$O2CB_IDLE_TIMEOUT_MS_FILE" ]; then
+            echo "$O2CB_IDLE_TIMEOUT_MS" > "$O2CB_IDLE_TIMEOUT_MS_FILE"
+        fi
+    fi
+
+    O2CB_KEEPALIVE_DELAY_MS_FILE=$(configfs_path)/cluster/${CLUSTER}/keepalive_delay_ms
+    if [ -n "$O2CB_KEEPALIVE_DELAY_MS" ]; then
+        if [ -f "$O2CB_KEEPALIVE_DELAY_MS_FILE" ]; then
+            echo "$O2CB_KEEPALIVE_DELAY_MS" > "$O2CB_KEEPALIVE_DELAY_MS_FILE"
+        fi
+    fi
+
+    O2CB_RECONNECT_DELAY_MS_FILE=$(configfs_path)/cluster/${CLUSTER}/reconnect_delay_ms
+    if [ -n "$O2CB_RECONNECT_DELAY_MS" ]; then
+        if [ -f "$O2CB_RECONNECT_DELAY_MS_FILE" ]; then
+            echo "$O2CB_RECONNECT_DELAY_MS" > "$O2CB_RECONNECT_DELAY_MS_FILE"
+        fi
+    fi
+}
+
+show_timeouts()
+{
+
+    O2CB_HEARTBEAT_THRESHOLD_FILE_OLD=/proc/fs/ocfs2_nodemanager/hb_dead_threshold
+    O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/dead_threshold
+    if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
+        VAL=`cat "$O2CB_HEARTBEAT_THRESHOLD_FILE"`
+        echo "Heartbeat dead threshold = ${VAL}"
+    elif [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD" ]; then
+        VAL=`cat "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD"`
+        echo "  Heartbeat dead threshold: ${VAL}"
+    fi
+
+    O2CB_IDLE_TIMEOUT_MS_FILE=$(configfs_path)/cluster/${CLUSTER}/idle_timeout_ms
+    if [ -f "$O2CB_IDLE_TIMEOUT_MS_FILE" ]; then
+        VAL=`cat "$O2CB_IDLE_TIMEOUT_MS_FILE"`
+        echo "  Network idle timeout: ${VAL}"
+    fi
+
+    O2CB_KEEPALIVE_DELAY_MS_FILE=$(configfs_path)/cluster/${CLUSTER}/keepalive_delay_ms
+    if [ -f "$O2CB_KEEPALIVE_DELAY_MS_FILE" ]; then
+        VAL=`cat "$O2CB_KEEPALIVE_DELAY_MS_FILE"`
+        echo "  Network keepalive delay: ${VAL}"
+    fi
+
+    O2CB_RECONNECT_DELAY_MS_FILE=$(configfs_path)/cluster/${CLUSTER}/reconnect_delay_ms
+    if [ -f "$O2CB_RECONNECT_DELAY_MS_FILE" ]; then
+        VAL=`cat "$O2CB_RECONNECT_DELAY_MS_FILE"`
+        echo "  Network reconnect delay: ${VAL}"
+    fi
 }
 
 #
@@ -210,37 +334,19 @@ EOF
         esac
     done
 
-    while :
-    do
-        if [ -z $O2CB_HEARTBEAT_THRESHOLD ]
-        then
-            CUR=$MIN_O2CB_HEARTBEAT_THRESHOLD
-        else
-            CUR=$O2CB_HEARTBEAT_THRESHOLD
-        fi
-        echo -n "Specify heartbeat dead threshold (>=$MIN_O2CB_HEARTBEAT_THRESHOLD) [$CUR]: "
-        read LINE
-        case "$LINE" in
-        "")
-            break
-            ;;
+    read_timeout "heartbeat dead threshold" "$O2CB_HEARTBEAT_THRESHOLD" "$MIN_O2CB_HEARTBEAT_THRESHOLD"
+    O2CB_HEARTBEAT_THRESHOLD="$RET_VAL"
 
-        *[^0-9]*)
-            echo "Invalid heartbeat dead threshold value: $LINE" >&2
-            ;;
-        *)
-            if [ $LINE -lt $MIN_O2CB_HEARTBEAT_THRESHOLD ]
-            then
-                echo "Heartbeat dead threshold cannot be less than $MIN_O2CB_HEARTBEAT_THRESHOLD" >&2
-            else
-                O2CB_HEARTBEAT_THRESHOLD="$LINE"
-                break
-            fi
-            ;;
-        esac
-    done
+    read_timeout "network idle timeout in ms" "$O2CB_IDLE_TIMEOUT_MS" "$MIN_O2CB_IDLE_TIMEOUT_MS"
+    O2CB_IDLE_TIMEOUT_MS="$RET_VAL"
 
-	# XXX ask about mount point base
+    read_timeout "network keepalive delay in ms" "$O2CB_KEEPALIVE_DELAY_MS" "$MIN_O2CB_KEEPALIVE_DELAY_MS"
+    O2CB_KEEPALIVE_DELAY_MS="$RET_VAL"
+
+    read_timeout "network reconnect delay in ms" "$O2CB_RECONNECT_DELAY_MS" "$MIN_O2CB_RECONNECT_DELAY_MS"
+    O2CB_RECONNECT_DELAY_MS="$RET_VAL"
+
+    # XXX ask about mount point base
 }
 
 
@@ -629,18 +735,7 @@ online()
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=yes 2>&1`"
     if [ $? = 0 ]
     then
-        O2CB_HEARTBEAT_THRESHOLD_FILE_OLD=/proc/fs/ocfs2_nodemanager/hb_dead_threshold
-        O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/dead_threshold
-        if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
-            if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
-                echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE"
-            elif [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD" ]; then 
-                echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD"
-            else
-                echo "WARNING: Unable to set heartbeat dead threshold" >&2
-            fi
-        fi
-
+        set_timeouts
         echo "OK"
         return
     else
@@ -798,6 +893,8 @@ status()
        echo "Offline"
        return 0;
     fi
+
+    show_timeouts
 
     echo -n "Checking O2CB heartbeat: "
     check_heartbeat $CLUSTER
