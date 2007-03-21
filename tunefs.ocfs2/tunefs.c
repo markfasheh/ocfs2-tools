@@ -99,7 +99,7 @@ static void usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-J journal-options] [-L volume-label]\n"
 			"\t\t[-M mount-type] [-N number-of-node-slots]\n"
-			"\t\t[-qSUvV] device [blocks-count]\n",
+			"\t\t[-qSUvV] [--backup-super] device [blocks-count]\n",
 			progname);
 	exit(0);
 }
