@@ -34,10 +34,17 @@ else
     CONFIGURATION=/etc/default/o2cb
 fi
 
-MIN_O2CB_HEARTBEAT_THRESHOLD=7
-MIN_O2CB_IDLE_TIMEOUT_MS=10000
-MIN_O2CB_KEEPALIVE_DELAY_MS=5000
-MIN_O2CB_RECONNECT_DELAY_MS=2000
+# The default values should always be in sync with the kernel
+DEF_HEARTBEAT_THRESHOLD=7
+DEF_IDLE_TIMEOUT_MS=10000
+DEF_KEEPALIVE_DELAY_MS=5000
+DEF_RECONNECT_DELAY_MS=2000
+
+# Minimum timeout values
+MIN_HEARTBEAT_THRESHOLD=7
+MIN_IDLE_TIMEOUT_MS=5000
+MIN_KEEPALIVE_DELAY_MS=1000
+MIN_RECONNECT_DELAY_MS=2000
 
 # Source configuration, 
 [ -f "${CONFIGURATION}" ] && . "${CONFIGURATION}"
@@ -159,7 +166,7 @@ EOF
 #
 read_timeout()
 {
-    if [ "$#" -lt "3" ]; then
+    if [ "$#" -lt "4" ]; then
         echo "read_timeout(): Requires more arguments" >&2
         exit 1
     fi
@@ -167,12 +174,13 @@ read_timeout()
     ATTRIB_NAME=$1
     ATTRIB_VAL=$2
     MIN_ATTRIB_VAL=$3
+    DEF_ATTRIB_VAL=$4
     RET_VAL=0
 
     while :
     do
         if [ -z $ATTRIB_VAL ]; then
-            CUR=$MIN_ATTRIB_VAL
+            CUR=$DEF_ATTRIB_VAL
         else
             CUR=$ATTRIB_VAL
         fi
@@ -334,16 +342,16 @@ EOF
         esac
     done
 
-    read_timeout "heartbeat dead threshold" "$O2CB_HEARTBEAT_THRESHOLD" "$MIN_O2CB_HEARTBEAT_THRESHOLD"
+    read_timeout "heartbeat dead threshold" "$O2CB_HEARTBEAT_THRESHOLD" "$MIN_HEARTBEAT_THRESHOLD" "$DEF_HEARTBEAT_THRESHOLD"
     O2CB_HEARTBEAT_THRESHOLD="$RET_VAL"
 
-    read_timeout "network idle timeout in ms" "$O2CB_IDLE_TIMEOUT_MS" "$MIN_O2CB_IDLE_TIMEOUT_MS"
+    read_timeout "network idle timeout in ms" "$O2CB_IDLE_TIMEOUT_MS" "$MIN_IDLE_TIMEOUT_MS" "$DEF_IDLE_TIMEOUT_MS"
     O2CB_IDLE_TIMEOUT_MS="$RET_VAL"
 
-    read_timeout "network keepalive delay in ms" "$O2CB_KEEPALIVE_DELAY_MS" "$MIN_O2CB_KEEPALIVE_DELAY_MS"
+    read_timeout "network keepalive delay in ms" "$O2CB_KEEPALIVE_DELAY_MS" "$MIN_KEEPALIVE_DELAY_MS" "$DEF_KEEPALIVE_DELAY_MS"
     O2CB_KEEPALIVE_DELAY_MS="$RET_VAL"
 
-    read_timeout "network reconnect delay in ms" "$O2CB_RECONNECT_DELAY_MS" "$MIN_O2CB_RECONNECT_DELAY_MS"
+    read_timeout "network reconnect delay in ms" "$O2CB_RECONNECT_DELAY_MS" "$MIN_RECONNECT_DELAY_MS" "$DEF_RECONNECT_DELAY_MS"
     O2CB_RECONNECT_DELAY_MS="$RET_VAL"
 
     # XXX ask about mount point base
