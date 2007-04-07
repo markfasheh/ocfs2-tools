@@ -1,5 +1,8 @@
 <html>
 <hr>
+<title>
+OCFS2 - FREQUENTLY ASKED QUESTIONS
+</title>
 <p>
 <font size=+2> <center><b>OCFS2 - FREQUENTLY ASKED QUESTIONS</b></center></font>
 </p>
@@ -24,12 +27,13 @@
 <li><a href=#SYSTEMFILES>System Files</a>
 <li><a href=#HEARTBEAT>Heartbeat</a>
 <li><a href=#QUORUM>Quorum and Fencing</a>
-<li><a href=#SLES9>Novell SLES9</a>
+<li><a href=#SLES>Novell's SLES9 and SLES10</a>
 <li><a href=#RELEASE1.2>Release 1.2</a>
 <li><a href=#UPGRADE>Upgrade to the Latest Release</a>
 <li><a href=#PROCESSES>Processes</a>
 <li><a href=#BUILD>Build RPMs for Hotfix Kernels</a>
 <li><a href=#BACKUPSB>Backup Super block</a>
+<li><a href=#TIMEOUT>Configuring Cluster Timeouts</a>
 </ul>
 
 <ol>
@@ -75,18 +79,24 @@ To enable the above on every reboot, add the following to /etc/sysctl.conf:
 <font size=+1>
 <li>Where do I get the packages from?<br>
 </font>
-For Novell's SLES9, upgrade to the latest SP3 kernel to get the required modules installed. Also,
-install ocfs2-tools and ocfs2console packages. For Red Hat's RHEL4, download
-and install the appropriate module package and the two tools packages,
-ocfs2-tools and ocfs2console. Appropriate module refers to one matching the
+For Oracle Enterprise Linux 4, use the up2date command as follows:
+<pre>
+	# up2date --install ocfs2-tools ocfs2console
+	# up2date --install ocfs2-`uname -r`
+</pre>
+For Novell's SLES9, use yast to upgrade to the latest SP3 kernel to get the required
+modules installed. Also, install the ocfs2-tools and ocfs2console packages.<br>
+For Novell's SLES10, install ocfs2-tools and ocfs2console packages.</b>
+For Red Hat's RHEL4, download and install the appropriate module package and the two tools
+packages, ocfs2-tools and ocfs2console. Appropriate module refers to one matching the
 kernel version, flavor and architecture. Flavor refers to smp, hugemem, etc.<br>
 
 <span style="color: #F00;">
 <font size=+1>
 <li>What are the latest versions of the OCFS2 packages?<br>
 </font>
-The latest module package version is 1.2.4-2. The latest tools/console packages
-versions are 1.2.3.</br>
+The latest module package version is 1.2.5-1. The latest tools/console packages
+versions are 1.2.4-1.</br>
 </span>
 
 <font size=+1>
@@ -146,7 +156,7 @@ No, the console is not required but recommended for ease-of-use.<br>
 <li>What are the dependencies for installing ocfs2console?<br>
 </font>
 ocfs2console requires e2fsprogs, glib2 2.2.3 or later, vte 0.11.10 or later,
-pygtk2 (EL4) or python-gtk (SLES9) 1.99.16 or later, python 2.3 or later and
+pygtk2 (RHEL4) or python-gtk (SLES9) 1.99.16 or later, python 2.3 or later and
 ocfs2-tools.<br>
 
 <font size=+1>
@@ -537,14 +547,15 @@ heartbeat, which will make most mounts instant.<br>
 <li>Why does it take so much time to umount the volume?<br>
 </font>
 During umount, the dlm has to migrate all the mastered lockres' to an another
-node in the cluster. In 1.2.4, the lockres migration is a synchronous operation.
+node in the cluster. In 1.2, the lockres migration is a synchronous operation.
 We are looking into making it asynchronous so as to reduce the time it takes
-to migrate the lockres'. We hope to address this issue in 1.2.5.
+to migrate the lockres'. (While we have improved this performance in 1.2.5, the
+task of asynchronously migrating lockres' has been pushed to the 1.4 time frame.)
 
 To find the number of lockres in all dlm domains, do:
 <pre>
 	# cat /proc/fs/ocfs2_dlm/*/stat
-	local=60624, remote=1, unknown=0
+	local=60624, remote=1, unknown=0, key=0x8619a8da
 </pre>
 <i>local</i> refers to locally mastered lockres'.
 </br>
@@ -622,11 +633,10 @@ in the future.<br>
 <li>Can OCFS volumes and OCFS2 volumes be mounted on the same machine simultaneously?<br>
 </font>
 No. OCFS only works on 2.4 linux kernels (Red Hat's AS2.1/EL3 and SuSE's SLES8).
-OCFS2, on the other hand, only works on the 2.6 kernels (Red Hat's EL4 and
-SuSE's SLES9).<br>
+OCFS2, on the other hand, only works on the 2.6 kernels (RHEL4, SLES9 and SLES10).<br>
 
 <font size=+1>
-<li>Can I access my OCFS volume on 2.6 kernels (SLES9/RHEL4)?<br>
+<li>Can I access my OCFS volume on 2.6 kernels (SLES9/SLES10/RHEL4)?<br>
 </font>
 Yes, you can access the OCFS volume on 2.6 kernels using FSCat tools, fsls and
 fscp. These tools can access the OCFS volumes at the device layer, to list and
@@ -997,9 +1007,27 @@ Fencing is the act of forecefully removing a node from a cluster. A node with
 OCFS2 mounted will fence itself when it realizes that it doesn't have quorum
 in a degraded cluster.  It does this so that other nodes won't get stuck trying
 to access its resources. Currently OCFS2 will panic the machine when it
-realizes it has to fence itself off from the cluster. As described in Q02, it
+realizes it has to fence itself off from the cluster. As described above, it
 will do this when it sees more nodes heartbeating than it has connectivity to
 and fails the quorum test.<br>
+<span style="color: #F00;">
+Due to user reports of nodes hanging during fencing, OCFS2 1.2.5 no longer uses
+"panic" for fencing. Instead, by default, it uses "machine restart".
+This should not only prevent nodes from hanging during fencing but also allow
+for nodes to quickly restart and rejoin the cluster. While this change is internal
+in nature, we are documenting this so as to make users aware that they are no longer
+going to see the familiar panic stack trace during fencing. Instead they will see the
+message <i>"*** ocfs2 is very sorry to be fencing this system by restarting ***"</i>
+and that too probably only as part of the messages captured on the netdump/netconsole
+server.<br>
+If perchance the user wishes to use panic to fence (maybe to see the familiar oops
+stack trace or on the advise of customer support to diagnose frequent reboots),
+one can do so by issuing the following command after the O2CB cluster is online.
+<pre>
+	# echo 1 > /proc/fs/ocfs2_nodemanager/fence_method
+</pre>
+Please note that this change is local to a node.
+</span>
 
 <font size=+1>
 <li>How does a node decide that it has connectivity with another?<br>
@@ -1053,13 +1081,13 @@ services?<br>
 	# ls K*ocfs2* K*o2cb* K*network*
 	K19ocfs2  K20o2cb  K90network
 </pre>
-<li>To list the startup order for runlevel 3 on SLES9, do:
+<li>To list the startup order for runlevel 3 on SLES9/SLES10, do:
 <pre>
 	# cd /etc/init.d/rc3.d
 	# ls S*ocfs2* S*o2cb* S*network*
 	S05network  S07o2cb  S08ocfs2
 </pre>
-<li>To list the shutdown order on SLES9, do:
+<li>To list the shutdown order on SLES9/SLES10, do:
 <pre>
 	# cd /etc/init.d/rc3.d
 	# ls K*ocfs2* K*o2cb* K*network*
@@ -1073,13 +1101,13 @@ shutdown, please ensure that that service runs before and shutsdown after the
 ocfs2 init service.<br>
 
 <p>
-<A name="SLES9"><font size=+1><b>NOVELL SLES9</b></font></A>
+<A name="SLES"><font size=+1><b>NOVELL'S SLES9 and SLES10</b></font></A>
 </p>
 
 <font size=+1>
-<li>Why are OCFS2 packages for SLES9 not made available on oss.oracle.com?<br>
+<li>Why are OCFS2 packages for SLES9 and SLES10 not made available on oss.oracle.com?<br>
 </font>
-OCFS2 packages for SLES9 are available directly from Novell as part of the
+OCFS2 packages for SLES9 and SELS10 are available directly from Novell as part of the
 kernel. Same is true for the various Asianux distributions and for ubuntu.
 As OCFS2 is now part of the
 <a href="http://lwn.net/Articles/166954/">mainline kernel</a>, we expect more
@@ -1097,6 +1125,11 @@ fixes reduce. Novell is shipping two SLES9 releases, viz., SP2 and SP3.<br>
 <li><span style="color: #F00;">The latest kernel with the SP3 release is 2.6.5-7.283. It ships with OCFS2 1.2.3.
 Please contact Novell to get the latest OCFS2 modules on SLES9 SP3.</span>
 </ul>
+
+<font size=+1>
+<li>What versions of OCFS2 are available with SLES10?
+</font>
+SLES10 is currently shipping OCFS2 1.2.3. SLES10 SP1 (beta) is currently shipping 1.2.5.
 
 <p>
 <A name="RELEASE1.2"><font size=+1><b>RELEASE 1.2</b></font></A>
@@ -1168,7 +1201,6 @@ the appropriate ocfs2 module package for the kernel version, flavor and architec
 and mount the volume.
 </ul>
 
-<span style="color: #F00;">
 <font size=+1>
 <li>Can I do a rolling upgrade from 1.2.3 to 1.2.4?<br>
 </font>
@@ -1178,6 +1210,17 @@ was necessary to fix races encountered during lockres purge and migrate.
 Effectively, one cannot run 1.2.4 on one node while another node
 is still on an earlier release (1.2.3 or older).
 <br>
+</span>
+
+<span style="color: #F00;">
+<font size=+1>
+<li>Can I do a rolling upgrade from 1.2.4 to 1.2.5?<br>
+</font>
+No. The network protocol had to be updated in 1.2.5 to ensure all nodes were
+using the same O2CB timeouts. Effectively, one cannot run 1.2.5 on one node
+while another node is still on an earlier release. (For the record, the
+protocol remained the same between 1.2.0 to 1.2.3 before changing in 1.2.4
+and 1.2.5.)
 </span>
 
 <font size=+1>
@@ -1313,7 +1356,6 @@ No. Oracle Support does not provide support for self-built modules. If you wish
 official support, contact Oracle via Support or the ocfs2-users mailing list with
 the link to the hotfix kernel (kernel-devel and kernel-src rpms).<br>
 
-<span style="color: #F00;">
 <p>
 <A name="BACKUPSB"><font size=+1><b>BACKUP SUPER BLOCK</b></font></A>
 </p>
@@ -1422,6 +1464,143 @@ To recover a volume using the second backup super block, do:
 	All passes succeeded.
 </pre>
 For more, refer to the man pages.
+
+<span style="color: #F00;">
+<p>
+<A name="TIMEOUT"><font size=+1><b>CONFIGURING CLUSTER TIMEOUTS</b></font></A>
+</p>
+
+<font size=+1>
+<li>List and describe all the configurable timeouts in the O2CB cluster stack?
+</font>
+OCFS2 1.2.5 has 4 different configurable O2CB cluster timeouts:
+<ul>
+<li><b>O2CB_HEARTBEAT_THRESHOLD</b> - The Disk Heartbeat timeout is the number of two
+second iterations before a node is considered dead. The exact formula used to
+convert the timeout in seconds to the number of iterations is as follows:
+<pre>
+        O2CB_HEARTBEAT_THRESHOLD = (((timeout in seconds) / 2) + 1)
+</pre>
+For e.g., to specify a 60 sec timeout, set it to 31. For 120 secs, set it to 61.
+The default is 12 secs (O2CB_HEARTBEAT_THRESHOLD = 7).
+
+<li><b>O2CB_IDLE_TIMEOUT_MS</b> - The Network Idle timeout specifies the time in miliseconds
+before a network connection is considered dead. The default is 10000 ms.
+
+<li><b>O2CB_KEEPALIVE_DELAY_MS</b> - The Network Keepalive specifies the maximum
+delay in miliseconds before a keepalive packet is sent. As in, a keepalive packet
+is sent if a network connection between two nodes is silent for this duration.
+If the other node is alive and is connected, it is expected to respond. The default
+is 5000 ms.
+
+<li><b>O2CB_RECONNECT_DELAY_MS</b> - The Network Reconnect specifies the minimum
+delay in miliseconds between connection attempts. The default is 2000 ms.
+</ul>
+
+<font size=+1>
+<li>What are the recommended timeout values?
+</font>
+As timeout values depend on the hardware being used, there is no one set
+of recommended values. For e.g., users of multipath io should set the disk
+heartbeat threshold to atleast 60 secs, if not 120 secs. Similarly, users of
+Network bonding should set the network idle timeout to atleast 30 secs, if
+not 60 secs.
+
+<font size=+1>
+<li>What were the timeouts set to during OCFS2 1.2.5 release testing?
+</font>
+The timeouts used during release testing were as follows:
+<pre>
+	O2CB_HEARTBEAT_THRESHOLD = 31
+	O2CB_IDLE_TIMEOUT_MS = 30000
+	O2CB_KEEPALIVE_DELAY_MS = 2000
+	O2CB_RECONNECT_DELAY_MS = 2000
+</pre>
+
+<font size=+1>
+<li>Can one change these timeout values in a round robin fashion?
+</font>
+No. The o2net handshake protocol ensures that all the timeout values for
+both the nodes are consistent and fails if any value differs. This failed
+connection results in a failed mount, the reason for which is always listed
+in dmesg.
+
+<font size=+1>
+<li>How does one set these O2CB timeouts?
+</font>
+Umount all OCFS2 volumes and shutdown the O2CB cluster. If not already,
+upgrade to OCFS2 1.2.5 and OCFS2 TOOLS 1.2.4. Then use o2cb configure to
+set the new values. Do the same on all nodes. Start mounting volumes only
+after the timeouts have been set on all nodes.
+<pre>
+	# service o2cb configure
+	Configuring the O2CB driver.
+
+	This will configure the on-boot properties of the O2CB driver.
+	The following questions will determine whether the driver is loaded on
+	boot.  The current values will be shown in brackets ('[]').  Hitting
+	<ENTER> without typing an answer will keep that current value.  Ctrl-C
+	will abort.
+
+	Load O2CB driver on boot (y/n) [n]: y
+	Cluster to start on boot (Enter "none" to clear) []: mycluster
+<b>	Specify heartbeat dead threshold (>=7) [7]: 31
+	Specify network idle timeout in ms (>=5000) [10000]: 30000
+	Specify network keepalive delay in ms (>=1000) [5000]: 2000
+	Specify network reconnect delay in ms (>=2000) [2000]: 2000
+</b>	Writing O2CB configuration: OK
+	Starting O2CB cluster mycluster: OK
+</pre>
+
+<font size=+1>
+<li>How to find the O2CB timeout values in effect?
+</font>
+<pre>
+	# /etc/init.d/o2cb status
+	Module "configfs": Loaded
+	Filesystem "configfs": Mounted
+	Module "ocfs2_nodemanager": Loaded
+	Module "ocfs2_dlm": Loaded
+	Module "ocfs2_dlmfs": Loaded
+	Filesystem "ocfs2_dlmfs": Mounted
+	Checking O2CB cluster mycluster: Online
+<b>	  Heartbeat dead threshold: 31
+	  Network idle timeout: 30000
+	  Network keepalive delay: 2000
+	  Network reconnect delay: 2000
+</b>	Checking O2CB heartbeat: Not active
+</pre>
+
+<font size=+1>
+<li>Where are the O2CB timeout values stored?
+</font>
+<pre>
+	# cat /etc/sysconfig/o2cb 
+	#
+	# This is a configuration file for automatic startup of the O2CB
+	# driver.  It is generated by running /etc/init.d/o2cb configure.
+	# Please use that method to modify this file
+	#
+
+	# O2CB_ENABELED: 'true' means to load the driver on boot.
+	O2CB_ENABLED=true
+
+	# O2CB_BOOTCLUSTER: If not empty, the name of a cluster to start.
+	O2CB_BOOTCLUSTER=mycluster
+
+<b>	# O2CB_HEARTBEAT_THRESHOLD: Iterations before a node is considered dead.
+	O2CB_HEARTBEAT_THRESHOLD=31
+
+	# O2CB_IDLE_TIMEOUT_MS: Time in ms before a network connection is considered dead.
+	O2CB_IDLE_TIMEOUT_MS=30000
+
+	# O2CB_KEEPALIVE_DELAY_MS: Max time in ms before a keepalive packet is sent
+	O2CB_KEEPALIVE_DELAY_MS=2000
+
+	# O2CB_RECONNECT_DELAY_MS: Min time in ms between connection attempts
+	O2CB_RECONNECT_DELAY_MS=2000
+</b>
+</pre>
 
 </span>
 </ol>
