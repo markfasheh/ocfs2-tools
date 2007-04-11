@@ -206,6 +206,7 @@ Config.make
 o2cb.pc
 o2dlm.pc
 ocfs2.pc
+ocfs2console/ocfs2interface/confdefs.py
 debugfs.ocfs2/debugfs.ocfs2.8
 mkfs.ocfs2/mkfs.ocfs2.8
 mounted.ocfs2/mounted.ocfs2.8
