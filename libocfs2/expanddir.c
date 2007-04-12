@@ -74,6 +74,7 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 
 	if (used_blks >= totl_blks) {
 		ocfs2_free_cached_inode(fs, cinode);
+		cinode = NULL;
 
 		/* extend the directory */
 		ret = ocfs2_extend_allocation(fs, dir, 1);
