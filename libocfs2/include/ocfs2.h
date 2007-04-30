@@ -540,8 +540,6 @@ errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 
 errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
 			      uint64_t c_blkno, uint32_t clusters);
-errcode_t ocfs2_extent_allocation(ocfs2_filesys *fs, uint64_t ino,
-				  uint32_t new_clusters);
 
 errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
 errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode, int flags);
