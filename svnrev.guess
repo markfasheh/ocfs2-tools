@@ -1,0 +1,144 @@
+#!/bin/sh
+
+#
+# This script creates a package version for packages.  The package
+# version is the "release" or other version attached by the packaging
+# software (eg, RPM or Dpkg) after the upstream software version.
+#
+# This software must be invoked like so:
+#
+#     svnrev.guess <packagename>
+#
+# and it expects that release tags are of the form:
+#
+#     /tags/<packagename>-<version>
+#
+# Note that release tag versioning expects a working connection to
+# the repository (for SVN log), but all other branches don't require it.
+#
+# If there is no .svn directory or it cannot discover the repository
+# version, the script sets a version of 0.local.
+#
+
+if [ $# -lt 1 ]
+then
+    echo "Usage: svnrev.guess <packagename>" >&2
+    exit 1
+fi
+PACKAGE="$1"
+
+getstat()
+{
+    if [ ! -d .svn ]
+    then
+        return
+    fi
+    svn stat -v | awk 'BEGIN{modified = "false";lastrev = 0}
+                       /Status against/{next}
+                       /^\?/{next} 
+                       {
+                         col1=substr($0, 0, 1);
+                         if (col1 != " ") {modified = "true"}
+                         sub(/^......../, "");
+                         if ($1 > lastrev) { lastrev=$1 }
+                       }
+                       END{print modified,lastrev}'
+}
+
+#
+# Branches that are not releases get a work-in-progress package version.
+# This is 0.<svn_revision>[m].  The 0. ensures that an upcoming real
+# release, with an package version of 1, will supercede this package.
+# The "m" is added if the working tree has modifications to distinguish
+# it from a committed revision.
+#
+# If there is no repository or there is a problem getting the revision,
+# the package version is 0.local.
+#
+workingrev()
+{
+    STATINFO="$(getstat)"
+    MODIFIED=$(echo "$STATINFO" | cut -f1 -d" ")
+    LASTREV=$(echo "$STATINFO" | cut -f2 -d" ")
+
+    if [ -z "$LASTREV" ]
+    then
+        PKG_VERSION=0.local
+    else
+        PKG_VERSION=0.${LASTREV}
+        if [ "$MODIFIED" = "true" ]
+        then
+            PKG_VERSION="${PKG_VERSION}m"
+        fi
+    fi
+    echo "$PKG_VERSION"
+}
+
+#
+# If the branch is a tag (tags/project-x.y), it needs a release-based
+# package version (-1, -2, etc).  Generally, it will be the tip of the
+# branch (package version 1).  However, if there is a slight release
+# fixup, that warrants bumping the package version.
+#
+# The logic is pretty simple.  Walk the history looking for the
+# creation of the tag (A /tags/project-x.y).  For each revsion later
+# than the creation of the tag, bump the package version.
+# 
+releaserev()
+{
+    BRANCH="$1"
+    BRANCH_SEARCH="`echo "$BRANCH" | sed -e 's/\//\\\\\//g'`"
+    svn log -v 2>&1 |
+        awk 'BEGIN{rev=0}
+             /^r[0-9]+ \|/{rev += 1}
+             /^ +A \/'"$BRANCH_SEARCH"'$/{exit}
+             /^ +A \/'"$BRANCH_SEARCH"' (.*)$/{exit}
+             END{print rev}'
+}
+
+
+# 
+# Tag branches are releases, and need a release-style package version.
+# All other branches are non-release, and get an obviously
+# work-in-progress package version.
+#
+# guessbranch() expects the standard Subversion layout of
+#     /trunk
+#     /branches/<branchname>
+#     /tags/<tagname>
+#
+guessbranch()
+{
+    if [ ! -d .svn ]
+    then
+        return
+    fi
+    svn info | awk '/URL: .*\/trunk\/?$/{print "trunk"; exit 0}
+                    /URL: .*\/branches\/[^/]+\/?/{
+                                                   gsub(/\/$/, "", $2);
+                                                   sub(/^.*\/branches\//, "", $2);
+                                                   print "branches/"$2;
+                                                   exit 0;
+                                                 }
+                    /URL: .*\/tags\/[^/]+\/?/{
+                                                   gsub(/\/$/, "", $2);
+                                                   sub(/^.*\/tags\//, "", $2);
+                                                   print "tags/"$2;
+                                                   exit 0;
+                                                 }'
+}
+
+if ! which svn 1>/dev/null 2>&1
+then
+    echo "0.local"
+else
+    BRANCH=$(guessbranch)
+    case "$BRANCH" in
+    tags/${PACKAGE}*)
+        releaserev "$BRANCH"
+        ;;
+    *)
+        workingrev
+        ;;
+    esac
+fi

@@ -12,9 +12,6 @@ MINOR_VERSION=2
 MICRO_VERSION=5
 EXTRA_VERSION=
 
-# Adjust this only to bump the RPM packaging version
-RPM_VERSION=1
-
 DIST_VERSION=$MAJOR_VERSION.$MINOR_VERSION.$MICRO_VERSION
 if test -z "$EXTRA_VERSION"; then
     VERSION=$DIST_VERSION
@@ -29,7 +26,6 @@ AC_SUBST(EXTRA_VERSION)
 
 AC_SUBST(DIST_VERSION)
 AC_SUBST(VERSION)
-AC_SUBST(RPM_VERSION)
 
 AC_CANONICAL_HOST
 
@@ -52,6 +48,8 @@ AC_PATH_PROG(AR, ar)
 
 AC_HEADER_STDC
 AC_C_CONST
+
+MB_VENDOR(VENDOR)
 
 if test "x$GCC" != "xyes"; then
   AC_MSG_ERROR(GCC is required)
@@ -218,7 +216,7 @@ ocfs2_hb_ctl/ocfs2_hb_ctl.8
 ocfs2cdsl/ocfs2cdsl.8
 ocfs2console/ocfs2console.8
 tunefs.ocfs2/tunefs.ocfs2.8
-vendor/common/ocfs2-tools.spec
+vendor/common/ocfs2-tools.spec-generic
 ])
 
 AC_OUTPUT

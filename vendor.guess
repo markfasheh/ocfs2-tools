@@ -1,0 +1,34 @@
+#!/bin/sh
+
+list_vendors()
+{
+    ls -1 vendor | while read -r line
+    do
+        if [ "$line" = "common" ]
+        then
+            continue
+        fi
+        if [ ! -d "vendor/$line" ]
+        then
+            continue
+        fi
+        echo $line
+    done
+
+    # Make common last
+    if [ -d "vendor/common" ]
+    then
+        echo "common"
+    fi
+}
+
+list_vendors | while read -r v
+do
+    if [ -x "vendor/${v}/vendor.guess" ]
+    then
+        if "vendor/${v}/vendor.guess" >/dev/null 2>&1
+        then
+            echo "$v"
+        fi
+    fi
+done

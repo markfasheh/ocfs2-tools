@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ ! -f /etc/redhat-release ]
+then
+    exit 1
+fi
+
+case "`rpm -qf /etc/redhat-release --qf '%{VERSION}' 2>/dev/null`" in
+    4.9*) ;;
+    5*) ;;
+    *) exit 1;;
+esac
+
+exit 0

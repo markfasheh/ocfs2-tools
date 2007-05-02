@@ -14,10 +14,12 @@
 %define brokenrhlibdir %{_libdir}
 %endif
 
+%define compile_py @@COMPILE_PY@@
+
 Summary: Tools for managing the Oracle Cluster Filesystem 2
 Name: ocfs2-tools
 Version: @DIST_VERSION@
-Release: @RPM_VERSION@
+Release: @@PKG_VERSION@@.@@VENDOR_EXTENSION@@
 License: GPL
 Group: System Environment/Kernel
 Source: ocfs2-tools-@DIST_VERSION@.tar.gz
@@ -26,8 +28,8 @@ Distribution: Oracle
 Vendor: Oracle
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: bash, coreutils, net-tools, modutils, e2fsprogs, %{chkconfig_dep}, glib2 >= 2.2.3
-BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, %{pygtk_name} >= 1.99.16, python-devel >= %{pyversion}
+Requires: bash, coreutils, net-tools, modutils, e2fsprogs, @@CHKCONFIG_DEP@@, glib2 >= 2.2.3
+BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, @@PYGTK_NAME@@ >= 1.99.16, python-devel >= @@PYVERSION@@
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 
@@ -38,7 +40,7 @@ Tools to manage Oracle Cluster Filesystem 2 volumes.
 %package -n ocfs2console
 Summary: GUI frontend for OCFS2 management
 Group: System Environment/Kernel
-Requires: e2fsprogs, glib2 >= 2.2.3, vte >= 0.11.10, %{pygtk_name} >= 1.99.16, python >= %{pyversion}, ocfs2-tools = %{version}
+Requires: e2fsprogs, glib2 >= 2.2.3, vte >= 0.11.10, @@PYGTK_NAME@@ >= 1.99.16, python >= @@PYVERSION@@, ocfs2-tools = %{version}
 AutoReqProv: No
 
 
@@ -86,7 +88,7 @@ cp -f vendor/common/o2cb.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/o2cb
 make DESTDIR="$RPM_BUILD_ROOT" install
 
 %if %{compile_py}
-%{__python} -c "import compileall; compileall.compile_dir('$RPM_BUILD_ROOT/%{brokenrhlibdir}/python%{pyversion}/site-packages/ocfs2interface', ddir='%{brokenrhlibdir}/python%{pyversion}/site-packages/ocfs2interface')"
+%{__python} -c "import compileall; compileall.compile_dir('$RPM_BUILD_ROOT/%{brokenrhlibdir}/python@@PYVERSION@@/site-packages/ocfs2interface', ddir='%{brokenrhlibdir}/python@@PYVERSION@@/site-packages/ocfs2interface')"
 %endif
 
 
@@ -134,7 +136,7 @@ fi
 
 %files -n ocfs2console
 %defattr(-,root,root)
-%{brokenrhlibdir}/python%{pyversion}/site-packages/ocfs2interface
+%{brokenrhlibdir}/python@@PYVERSION@@/site-packages/ocfs2interface
 /usr/sbin/ocfs2console
 /usr/share/man/man8/ocfs2console.8.gz
 

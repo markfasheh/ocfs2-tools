@@ -20,12 +20,6 @@ CHKCONFIG_DEP = chkconfig
 COMPILE_PY = 1
 endif
 
-TOOLSARCH = $(shell $(TOPDIR)/rpmarch.guess tools $(TOPDIR))
-
-ifeq ($(TOOLSARCH),error)
-$(error could not detect architecture for tools)
-endif
-
 SUBDIRS = libo2dlm libo2cb libocfs2 fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 listuuid sizetest extras patches
 
 ifdef BUILD_OCFS2CDSL
@@ -76,6 +70,7 @@ DIST_FILES = \
 	aclocal.m4				\
 	blkid.m4				\
 	glib-2.0.m4				\
+	mbvendor.m4				\
 	python.m4				\
 	pythondev.m4				\
 	runlog.m4				\
@@ -86,6 +81,9 @@ DIST_FILES = \
 	install-sh				\
 	mkinstalldirs				\
 	rpmarch.guess				\
+	svnrev.guess				\
+	Vendor.make				\
+	vendor.guess				\
 	documentation/ocfs2_faq.txt		\
 	documentation/users_guide.txt		\
 	documentation/samples/cluster.conf	\
@@ -121,11 +119,8 @@ install-pkgconfig: $(PKGCONFIG_FILES)
 	  $(INSTALL_DATA) $$p $(DESTDIR)$(libdir)/pkgconfig/$$p; \
         done
 
-srpm: dist
-	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --define "compile_py $(COMPILE_PY)" $(TOPDIR)/vendor/common/ocfs2-tools.spec
 
-rpm: srpm
-	$(RPMBUILD) --rebuild --define "pygtk_name $(PYGTK_NAME)" --define "pyversion $(PYVERSION)" --define "chkconfig_dep $(CHKCONFIG_DEP)" --define "compile_py $(COMPILE_PY)" $(TOOLSARCH) "ocfs2-tools-$(DIST_VERSION)-$(RPM_VERSION).src.rpm"
+include Vendor.make
 
 def:
 	@echo $(TOOLSARCH)
