@@ -368,6 +368,11 @@ errcode_t find_block_inode(ocfs2_filesys *fs, uint64_t *blkno, int count,
 			   strlen(OCFS2_INODE_SIGNATURE)))
 			continue;
 
+		ocfs2_swap_inode_to_cpu(di);
+
+		if (di->i_fs_generation != fs->fs_super->i_fs_generation)
+			continue;
+
 		if (!(di->i_flags & OCFS2_VALID_FL))
 			continue;
 
