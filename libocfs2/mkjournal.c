@@ -301,6 +301,19 @@ errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
 		ret = ocfs2_write_inode(fs, blkno, (char *)di);
 		if (ret)
 			goto out;
+	} else if (clusters < di->i_clusters) {
+		uint64_t new_size = clusters <<
+			   OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+		ret = ocfs2_truncate(fs, blkno, new_size);
+		if (ret)
+			goto out;
+
+		ocfs2_free_cached_inode(fs, ci);
+		ret = ocfs2_read_cached_inode(fs, blkno, &ci);
+		if (ret) {
+			ci = NULL;
+			goto out;
+		}
 	}
 
 	ret = ocfs2_format_journal(fs, ci);

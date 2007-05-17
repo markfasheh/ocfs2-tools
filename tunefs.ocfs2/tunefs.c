@@ -976,7 +976,7 @@ static errcode_t update_journal_size(ocfs2_filesys *fs, int *changed)
 		}
 
 		di = (struct ocfs2_dinode *)buf;
-		if (num_clusters <= di->i_clusters)
+		if (num_clusters == di->i_clusters)
 			continue;
 
 		printf("Updating %s...  ", jrnl_file);
@@ -1445,17 +1445,9 @@ int main(int argc, char **argv)
 		opts.jrnl_size = num_clusters <<
 				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 
-		if (opts.jrnl_size > def_jrnl_size)
+		if (opts.jrnl_size != def_jrnl_size)
 			printf("Changing journal size %"PRIu64" to %"PRIu64"\n",
 			       def_jrnl_size, opts.jrnl_size);
-		else {
-			if (!opts.num_slots) {
-				com_err(opts.progname, 0, "Journal size %"PRIu64" "
-					"has to be larger " "than %"PRIu64"",
-					opts.jrnl_size, def_jrnl_size);
-				goto unlock;
-			}
-		}
 	}
 
 	/* validate volume size */
