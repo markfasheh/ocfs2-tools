@@ -1176,11 +1176,12 @@ static void do_slotmap (char **args)
 	FILE *out;
 	errcode_t ret;
 	char *buf = NULL;
-	uint32_t len = gbls.fs->fs_blocksize;
+	uint32_t len;
 
 	if (check_device_open())
 		return ;
 
+	len = gbls.fs->fs_blocksize;
 	/* read in the first block of the slot_map file */
 	ret = read_whole_file(gbls.fs, gbls.slotmap_blkno, &buf, &len);
 	if (ret) {
