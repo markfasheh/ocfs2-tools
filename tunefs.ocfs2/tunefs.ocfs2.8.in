@@ -1,8 +1,8 @@
-.TH "tunefs.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "June 2007" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
-\fBtunefs.ocfs2\fR [\fB\-J\fR \fIjournal-options\fR] [\fB\-L\fR \fIvolume-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber-of-node-slots\fR] [\fB\-qSUvV\fR] [\fB\-\-backup-super\fR] \fIdevice\fR  [\fIblocks-count\fR]
+\fBtunefs.ocfs2\fR [\fB\-J\fR \fIjournal-options\fR] [\fB\-L\fR \fIvolume-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber-of-node-slots\fR] [\fB\-Q\fR \fIquery-format\fR] [\fB\-qSUvV\fR] [\fB\-\-backup-super\fR] \fIdevice\fR  [\fIblocks-count\fR]
 .SH "DESCRIPTION"
 .PP
 \fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
@@ -46,6 +46,31 @@ specified, \fBtunefs.ocfs2\fR extends the volume to the current size of
 the device.
 
 .TP
+\fB\-Q, \-\-query\fR \fIquery\-format\fR
+Query the file system for its attributes like block size, label, etc. Query formats are modified
+versions of the standard printf(3) formatting. The format is made up of static strings (which may
+include standard C character escapes for newlines, tabs, and other special characters) and
+printf(3) type formatters. The list of type specifiers is as follows:
+.RS 1.2i
+.TP
+\fBB\fR	Block size in bytes
+.TP
+\fBT\fR	Cluster size in bytes
+.TP
+\fBN\fR	Number of node slots
+.TP
+\fBR\fR	Root directory block number
+.TP
+\fBY\fR	System directory block number
+.TP
+\fBP\fR	First cluster group block number
+.TP
+\fBV\fR	Volume label
+.TP
+\fBU\fR	Volume uuid
+.RE
+
+.TP
 \fB\-q, \-\-quiet\fR
 Quiet mode.
 
@@ -75,6 +100,14 @@ During resize, \fBtunefs.ocfs2\fR automatically determines the size of the given
 device and grows the file system such that it uses all of the available space on
 the device. This optional argument specifies that the file system should be
 extended to consume only the given number of file system blocks on the device.
+
+.SH "EXAMPLES"
+[root@node1 ~]# tunefs.ocfs2 -q -Q "BS=%5B\\nUUID=%U\\n" /dev/sda1
+.br
+BS= 2048 
+.br
+UUID=80d1adf4-3fde-40dd-9b56-d370462ace17
+.br
 
 .SH "SEE ALSO"
 .BR mkfs.ocfs2(8)

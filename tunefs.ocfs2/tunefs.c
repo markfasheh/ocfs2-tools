@@ -23,82 +23,17 @@
  * Authors: Sunil Mushran
  */
 
-#define _LARGEFILE64_SOURCE
-#define _GNU_SOURCE /* Because libc really doesn't want us using O_DIRECT? */
+#include <tunefs.h>
 
-#include <sys/types.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <linux/fd.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <string.h>
-#include <getopt.h>
-#include <malloc.h>
-#include <time.h>
-#include <libgen.h>
-#include <netinet/in.h>
-#include <inttypes.h>
-#include <ctype.h>
-#include <signal.h>
-#include <uuid/uuid.h>
-
-#include <ocfs2.h>
-#include <ocfs2_fs.h>
-#include <ocfs1_fs_compat.h>
-#include <bitops.h>
-
-#include <jbd.h>
-
-#include <kernel-list.h>
-
-#define SYSTEM_FILE_NAME_MAX   40
-
-#ifndef MIN
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
-#ifndef MAX
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
-
-#define MOUNT_LOCAL             1
-#define MOUNT_CLUSTER           2
-#define MOUNT_LOCAL_STR         "local"
-#define MOUNT_CLUSTER_STR       "cluster"
-
-enum {
-	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
-};
-
-typedef struct _ocfs2_tune_opts {
-	uint16_t num_slots;
-	uint64_t num_blocks;
-	uint64_t jrnl_size;
-	char *vol_label;
-	char *progname;
-	char *device;
-	char *vol_uuid;
-	int mount;
-	int verbose;
-	int quiet;
-	int prompt;
-	int backup_super;
-	time_t tune_time;
-	int fd;
-} ocfs2_tune_opts;
-
-static ocfs2_tune_opts opts;
-static ocfs2_filesys *fs_gbl = NULL;
+ocfs2_tune_opts opts;
+ocfs2_filesys *fs_gbl = NULL;
 static int cluster_locked = 0;
 static int resize = 0;
 
 static void usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-J journal-options] [-L volume-label]\n"
-			"\t\t[-M mount-type] [-N number-of-node-slots]\n"
+			"\t\t[-M mount-type] [-N number-of-node-slots] [-Q query-fmt]\n"
 			"\t\t[-qSUvV] [--backup-super] device [blocks-count]\n",
 			progname);
 	exit(0);
@@ -253,6 +188,7 @@ static void get_options(int argc, char **argv)
 		{ "node-slots", 1, 0, 'N' },
 		{ "verbose", 0, 0, 'v' },
 		{ "quiet", 0, 0, 'q' },
+		{ "query", 1, 0, 'Q' },
 		{ "version", 0, 0, 'V' },
 		{ "journal-options", 0, 0, 'J'},
 		{ "volume-size", 0, 0, 'S'},
@@ -270,7 +206,7 @@ static void get_options(int argc, char **argv)
 	opts.prompt = 1;
 
 	while (1) {
-		c = getopt_long(argc, argv, "L:N:J:M:SUvqVxb", long_options,
+		c = getopt_long(argc, argv, "L:N:J:M:Q:SUvqVxb", long_options,
 				NULL);
 
 		if (c == -1)
@@ -319,6 +255,9 @@ static void get_options(int argc, char **argv)
 					"least 2");
 				exit(1);
 			}
+			break;
+		case 'Q':
+			opts.queryfmt = strdup(optarg);
 			break;
 
 		case 'J':
@@ -1288,6 +1227,18 @@ bail:
 	return ret;
 }
 
+static void free_opts(void)
+{
+	if (opts.vol_uuid)
+		free(opts.vol_uuid);
+	if (opts.vol_label)
+		free(opts.vol_label);
+	if (opts.queryfmt)
+		free(opts.queryfmt);
+	if (opts.device)
+		free(opts.device);
+}
+
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
@@ -1338,6 +1289,11 @@ int main(int argc, char **argv)
 		goto close;
 	}
 	fs_gbl = fs;
+
+	if (opts.queryfmt) {
+		print_query(opts.queryfmt);
+		goto close;
+	}
 
 	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
 	    OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
@@ -1623,12 +1579,8 @@ close:
 		ocfs2_shutdown_dlm(fs);
 	block_signals(SIG_UNBLOCK);
 
-	if (opts.vol_uuid)
-		free(opts.vol_uuid);
-	if (opts.vol_label)
-		free(opts.vol_label);
-	if (opts.device)
-		free(opts.device);
+	free_opts();
+
 	if (fs)
 		ocfs2_close(fs);
 
