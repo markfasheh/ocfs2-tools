@@ -395,7 +395,8 @@ int main(int argc, char **argv)
 
 	run_hb_ctl (hb_ctl_path, mo.dev, "-P");
 	update_mtab_entry(mo.dev, mo.dir, OCFS2_FS_NAME,
-			  fix_opts_string(((mo.flags & ~MS_NOMTAB) | MS_NETDEV),
+			  fix_opts_string(((mo.flags & ~MS_NOMTAB) |
+					   (clustered ? MS_NETDEV : 0)),
 					  extra, NULL),
 			  mo.flags, 0, 0);
 
