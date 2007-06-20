@@ -34,6 +34,7 @@ OCFS2 - FREQUENTLY ASKED QUESTIONS
 <li><a href=#BUILD>Build RPMs for Hotfix Kernels</a>
 <li><a href=#BACKUPSB>Backup Super block</a>
 <li><a href=#TIMEOUT>Configuring Cluster Timeouts</a>
+<li><a href=#EL5>Enterprise Linux 5</a>
 </ul>
 
 <ol>
@@ -79,7 +80,7 @@ To enable the above on every reboot, add the following to /etc/sysctl.conf:
 <font size=+1>
 <li>Where do I get the packages from?<br>
 </font>
-For Oracle Enterprise Linux 4, use the up2date command as follows:
+For Oracle Enterprise Linux 4 and 5, use the up2date command as follows:
 <pre>
 	# up2date --install ocfs2-tools ocfs2console
 	# up2date --install ocfs2-`uname -r`
@@ -87,7 +88,7 @@ For Oracle Enterprise Linux 4, use the up2date command as follows:
 For Novell's SLES9, use yast to upgrade to the latest SP3 kernel to get the required
 modules installed. Also, install the ocfs2-tools and ocfs2console packages.<br>
 For Novell's SLES10, install ocfs2-tools and ocfs2console packages.</b>
-For Red Hat's RHEL4, download and install the appropriate module package and the two tools
+For Red Hat's RHEL4 and RHEL5, download and install the appropriate module package and the two tools
 packages, ocfs2-tools and ocfs2console. Appropriate module refers to one matching the
 kernel version, flavor and architecture. Flavor refers to smp, hugemem, etc.<br>
 
@@ -95,8 +96,10 @@ kernel version, flavor and architecture. Flavor refers to smp, hugemem, etc.<br>
 <font size=+1>
 <li>What are the latest versions of the OCFS2 packages?<br>
 </font>
-The latest module package version is 1.2.5-1. The latest tools/console packages
-versions are 1.2.4-1.</br>
+For Enterprise Linux 5, the latest module package version is 1.2.6-1 and the latest
+tools/console package version is 1.2.6-1.<br>
+For Enterprise Linux 4, the latest module package version is 1.2.5-1 and the latest
+tools/console package version is 1.2.4-1.<br>
 </span>
 
 <font size=+1>
@@ -163,13 +166,16 @@ ocfs2-tools.<br>
 <li>What modules are installed with the OCFS2 1.2 package?<br>
 </font>
 <ul>
-<li>configfs.ko
 <li>ocfs2.ko
 <li>ocfs2_dlm.ko
 <li>ocfs2_dlmfs.ko
 <li>ocfs2_nodemanager.ko
-<li>debugfs
+<li>configfs.ko (only Enterprise Linux 4)
+<li>debugfs.ko (only Enterprise Linux 4)<br>
 </ul>
+<span style="color: #F00;">
+The kernel shipped alongwith Enterprise Linux 5 includes configfs.ko and debugfs.ko.<br>
+</span>
 
 <font size=+1>
 <li>What tools are installed with the ocfs2-tools 1.2 package?<br>
@@ -278,8 +284,8 @@ Notice the "-i" argument is not required as the cluster is not online.
 <pre>
 	# /etc/init.d/o2cb configure
 </pre>
-Enter 'y' if you want the service to load on boot and the name of the
-cluster (as listed in /etc/ocfs2/cluster.conf).<br>
+Enter 'y' if you want the service to load on boot, the name of the
+cluster (as listed in /etc/ocfs2/cluster.conf) and the <a href=#TIMEOUT>cluster timeouts</a>.<br>
 
 <font size=+1>
 <li>How do I start the cluster service?<br>
@@ -337,6 +343,16 @@ to be online.<br>
 <p>
 <A name="FORMAT"><font size=+1><b>FORMAT</b></font></A>
 </p>
+
+<span style="color: #F00;">
+<font size=+1>
+<li>Should I partition a disk before formatting?<br>
+</font>
+Yes, partitioning is recommended even if one is planning to use the entire disk
+for ocfs2. Apart from the fact that partitioned disks are less likely to be "reused"
+by mistake, some features like mount-by-label only work with partitioned volumes.<br>
+Use fdisk or parted or any other tool for the task.<br>
+</span>
 
 <font size=+1>
 <li>How do I format a volume?<br>
@@ -542,7 +558,6 @@ It takes around 5 secs for a volume to mount. It does so so as to let the heartb
 thread stabilize. In a later release, we plan to add support for a global
 heartbeat, which will make most mounts instant.<br>
 
-<span style="color: #F00;">
 <font size=+1>
 <li>Why does it take so much time to umount the volume?<br>
 </font>
@@ -559,7 +574,6 @@ To find the number of lockres in all dlm domains, do:
 </pre>
 <i>local</i> refers to locally mastered lockres'.
 </br>
-</span>
 
 <p>
 <A name="RAC"><font size=+1><b>ORACLE RAC</b></font></A>
@@ -589,7 +603,7 @@ files listed above.
 Also as OCFS2 does not currently support shared writeable mmap, the health check (GIMH)
 file <i>$ORACLE_HOME/dbs/hc_ORACLESID.dat</i> and the ASM file <i>$ASM_HOME/dbs/ab_ORACLESID.dat</i>
 should be symlinked to local filesystem. We expect to support shared writeable mmap in the
-RHEL5 timeframe.
+OCFS2 1.4 release.
 
 <font size=+1>
 <li>Does that mean I cannot have my data file and Oracle home on the same volume?<br>
@@ -609,13 +623,9 @@ While this does not affect most uses of the filesystem, as one variably changes 
 file size during write, the one usage where this is most commonly experienced is with
 Oracle datafiles and redologs. This is because Oracle rarely resizes these files and
 thus almost all writes are non-extending.<br>
-In the short term (1.2.x), we intend to provide a mount option (nocmtime) to allow users to
-explicitly ask the filesystem to not change the modification time during non-extending
-writes. While this is not the complete solution, this will ensure that the times
-are consistent across the cluster.<br>
-In the long term (1.4.x), we intend to fix this by updating modification times for
-all writes while providing an opt-out option (nocmtime) for users who would prefer
-to avoid the performance overhead associated with this feature. 
+In OCFS2 1.4, we intend to fix this by updating modification times for all writes
+while providing an opt-out mount option (nocmtime) for users who would prefer
+to avoid the performance overhead associated with this feature.<br>
 
 <p>
 <A name="MIGRATE"><font size=+1><b>MIGRATE DATA FROM OCFS (RELEASE 1) TO OCFS2</b></font></A>
@@ -727,9 +737,11 @@ To disable heartbeat tracing, do:
 </font>
 OCFS2 1.0.9+ has this feature. To get this list, do:
 <ul>
-<li>Mount debugfs is mounted at /debug.
+<li>Mount debugfs is mounted at /debug (EL4) or /sys/kernel/debug (EL5).
 <pre>
 	# mount -t debugfs debugfs /debug
+	- OR -
+	# mount -t debugfs debugfs /sys/kernel/debug
 </pre>
 <li>Dump the locks.
 <pre>
@@ -1197,6 +1209,10 @@ the appropriate ocfs2 module package for the kernel version, flavor and architec
 	# chkconfig --list ocfs2
 	ocfs2     0:off   1:off   2:on    3:on    4:on    5:on    6:off
 </pre>
+<li>To update the cluster timeouts, do:
+<pre>
+	# /etc/init.d/o2cb configure
+
 <li>At this stage one could either reboot the node or simply, restart the cluster
 and mount the volume.
 </ul>
@@ -1465,7 +1481,6 @@ To recover a volume using the second backup super block, do:
 </pre>
 For more, refer to the man pages.
 
-<span style="color: #F00;">
 <p>
 <A name="TIMEOUT"><font size=+1><b>CONFIGURING CLUSTER TIMEOUTS</b></font></A>
 </p>
@@ -1516,6 +1531,10 @@ The timeouts used during release testing were as follows:
 	O2CB_KEEPALIVE_DELAY_MS = 2000
 	O2CB_RECONNECT_DELAY_MS = 2000
 </pre>
+<span style="color: #F00;">
+The default cluster timeouts in OCFS2 1.2.6 for EL5 have been set to the above.
+<b>The upcoming release, OCFS2 1.2.7 (EL4 and EL5), will make the above default
+for both EL4 and EL5.</b></span><br>
 
 <font size=+1>
 <li>Can one change these timeout values in a round robin fashion?
@@ -1601,6 +1620,23 @@ after the timeouts have been set on all nodes.
 	O2CB_RECONNECT_DELAY_MS=2000
 </b>
 </pre>
+
+<span style="color: #F00;">
+<p>
+<A name="EL5"><font size=+1><b>ENTERPRISE LINUX 5</b></font></A>
+</p>
+
+<font size=+1>
+<li>What are the changes in EL5 as compared to EL4 as it pertains to OCFS2?
+</font>
+<ul>
+<li>The in-memory filesystems, configfs and debugfs, have new mountpoints.
+configfs is mounted at /sys/kernel/config, instead of /config, and debugfs at /sys/kernel/debug,
+instead of /debug. (dlmfs still mounts at the old mountpoint /dlm.)
+<li>While not related to EL5 per se, it just so happens that the default O2CB Cluster timeouts
+for OCFS2 on EL5 are different than on EL4. This difference is temporary in nature as in the next
+release of OCFS2 (1.2.7), the same timeouts will be made defaults for both EL4 and EL5.
+</ul>
 
 </span>
 </ol>
