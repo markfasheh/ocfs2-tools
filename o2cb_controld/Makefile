@@ -28,8 +28,7 @@ DEFINES = -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 CFILES = main.c action.c member_cman.c
 
-#HFILES = $(subst .c,.h,$(CFILES))
-#HFILES += mount_constants.h nls.h paths.h
+HFILES = o2cb_controld.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 #MANS = ocfs2_dlm_controld
