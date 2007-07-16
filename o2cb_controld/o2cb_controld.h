@@ -1,3 +1,7 @@
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ */
+
 /******************************************************************************
 *******************************************************************************
 **
@@ -9,6 +13,14 @@
 **
 *******************************************************************************
 ******************************************************************************/
+
+/*
+ * Copyright (C) 2007 Oracle.  All rights reserved.
+ *
+ *  This copyrighted material is made available to anyone wishing to use,
+ *  modify, copy, or redistribute it subject to the terms and conditions
+ *  of the GNU General Public License v.2.
+ */
 
 #ifndef __O2CB_CONTROLD_H__
 #define __O2CB_CONTROLD_H__
@@ -51,7 +63,6 @@
 
 extern char *prog_name;
 extern int daemon_debug_opt;
-extern int kernel_debug_opt;
 extern char daemon_debug_buf[256];
 
 #define log_debug(fmt, args...) \
@@ -68,15 +79,11 @@ do { \
 
 
 /* action.c */
-int set_control(char *name, int val);
-int set_event_done(char *name, int val);
 int add_configfs_node(const char *name, int nodeid, char *addr, int addrlen,
                       int local);
 void del_configfs_node(const char *name);
-void clear_configfs(void);
-int set_members(char *name, int new_count, int *new_members);
-int set_id(char *name, uint32_t id);
-void set_ccs_options(void);
+void finalize_cluster(void);
+void initialize_o2cb(void);
 
 /* member_xxx.c */
 int setup_member(void);

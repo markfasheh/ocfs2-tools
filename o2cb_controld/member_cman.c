@@ -145,6 +145,7 @@ static void member_callback(cman_handle_t h, void *private, int reason, int arg)
 {
 	switch (reason) {
 	case CMAN_REASON_TRY_SHUTDOWN:
+		/* XXX we need to check heartbeat here */
 #if 0
 		if (list_empty(&lockspaces))
 #endif
@@ -171,7 +172,7 @@ int process_member(void)
 		/* do we want to try to forcibly clean some stuff up
 		   in the kernel here? */
 		log_error("cluster is down, exiting");
-		clear_configfs();
+		finalize_cluster();
 		exit(1);
 	}
 	return 0;
@@ -184,7 +185,7 @@ int setup_member(void)
 
 	ch = cman_init(NULL);
 	if (!ch) {
-		log_error("cman_init error %d %d", (int) ch, errno);
+		log_error("cman_init error %d", errno);
 		return -ENOTCONN;
 	}
 

@@ -27,14 +27,11 @@
 #define OPTION_STRING			"DhV"
 #define LOCKFILE_NAME			"/var/run/o2cb_controld.pid"
 
-#if 0
-static int uevent_fd;
-#endif
 static int member_fd;
 
 static void sigterm_handler(int sig)
 {
-	clear_configfs();
+	finalize_cluster();
 }
 
 static int loop(void)
@@ -72,7 +69,7 @@ static int loop(void)
 			if (pollfd[i].revents & POLLHUP) {
 				if (pollfd[i].fd == member_fd) {
 					log_error("cluster is down, exiting");
-					clear_configfs();
+					finalize_cluster();
 					exit(1);
 				}
 				log_debug("closing fd %d", pollfd[i].fd);
@@ -250,14 +247,12 @@ int main(int argc, char **argv)
 	set_scheduler();
 	set_oom_adj(-16);
 
+	initialize_o2cb();
+
 	/* if this daemon was killed and the cluster shut down, and
 	   then the cluster brought back up and this daemon restarted,
 	   there will be old configfs entries we need to clear out */
-	clear_configfs();
-
-#if 0
-	set_ccs_options();
-#endif
+	finalize_cluster();
 
 	return loop();
 }
