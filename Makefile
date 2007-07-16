@@ -20,10 +20,14 @@ CHKCONFIG_DEP = chkconfig
 COMPILE_PY = 1
 endif
 
-SUBDIRS = libo2dlm libo2cb libocfs2 fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2cdsl listuuid sizetest extras patches o2cb_controld
+SUBDIRS = libo2dlm libo2cb libocfs2 fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2cdsl listuuid sizetest extras patches
 
 ifdef BUILD_OCFS2CONSOLE
 SUBDIRS += ocfs2console
+endif
+
+ifdef BUILD_CMAN_SUPPORT
+SUBDIRS += o2cb_controld
 endif
 
 SUBDIRS += vendor
