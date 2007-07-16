@@ -1,3 +1,7 @@
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ */
+
 /******************************************************************************
 *******************************************************************************
 **
@@ -106,15 +110,19 @@ static void statechange(void)
 		if (cman_nodes[i].cn_member &&
 		    !is_old_member(cman_nodes[i].cn_nodeid)) {
 
-			log_debug("cman: node %d added",
+			log_debug("cman: node %d adding",
 				  cman_nodes[i].cn_nodeid);
 
-			add_configfs_node(cman_nodes[i].cn_name,
-                                          cman_nodes[i].cn_nodeid,
-					  cman_nodes[i].cn_address.cna_address,
-					  cman_nodes[i].cn_address.cna_addrlen,
-					  (cman_nodes[i].cn_nodeid ==
-					   local_nodeid));
+			rv = add_configfs_node(cman_nodes[i].cn_name,
+					       cman_nodes[i].cn_nodeid,
+					       cman_nodes[i].cn_address.cna_address,
+					       cman_nodes[i].cn_address.cna_addrlen,
+					       (cman_nodes[i].cn_nodeid ==
+						local_nodeid));
+			if (!rv)
+				log_debug("cman: node %d added",
+					  cman_nodes[i].cn_nodeid);
+
 		}
 	}
 }

@@ -58,7 +58,7 @@ static char nodes_dir[PATH_MAX] = "";
 
 #define CLUSTER_BASE     "/sys/kernel/config/cluster"
 #define CLUSTER_FORMAT  CLUSTER_BASE "/%s"
-#define NODES_FORMAT    CLUSTER_FORMAT "/nodes"
+#define NODES_FORMAT    CLUSTER_FORMAT "/node"
 
 
 static int do_write(int fd, void *buf, size_t count)
@@ -410,7 +410,8 @@ char *str_ip(char *addr)
 
 static char *str_ip(char *addr)
 {
-	static char str_ip_buf[INET6_ADDRSTRLEN];
+	int len;
+	static char str_ip_buf[INET6_ADDRSTRLEN + 1];
 	struct sockaddr_storage *ss = (struct sockaddr_storage *)addr;
 	struct sockaddr_in *sin = (struct sockaddr_in *)addr;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)addr;
@@ -422,6 +423,11 @@ static char *str_ip(char *addr)
 		saddr = &sin->sin_addr;
 
 	inet_ntop(ss->ss_family, saddr, str_ip_buf, sizeof(str_ip_buf));
+	len = strlen(str_ip_buf);
+	str_ip_buf[len] = '\n';
+	len++;
+	str_ip_buf[len] = '\0';
+
 	return str_ip_buf;
 }
 
@@ -438,7 +444,11 @@ static char *str_port(char *addr)
 	else
 		port = ntohs(sin->sin_port);
 
-	snprintf(str_port_buf, sizeof(str_port_buf), "%d", port);
+	/* Fall back to default port */
+	if (!port)
+		port = 7777;
+
+	snprintf(str_port_buf, sizeof(str_port_buf), "%d\n", port);
 	return str_port_buf;
 }
 
@@ -553,23 +563,27 @@ void clear_configfs(void)
 
 static int add_configfs_base(void)
 {
-	int rv = -1;
+	int rv = 0;
 	char *cluster_name;
 
 	if (!path_exists("/sys/kernel/config")) {
 		log_error("No /sys/kernel/config, is configfs loaded?");
+		rv = -1;
 		goto out;
 	}
 
 	if (!path_exists("/sys/kernel/config/cluster")) {
+		rv = -1;
 		log_error("No /sys/kernel/config/cluster, is ocfs2_nodemanager loaded?");
 		goto out;
 	}
 
 	if (!nodes_dir[0] || !cluster_dir[0]) {
 		cluster_name = get_cluster_name();
-		if (!cluster_name)
+		if (!cluster_name) {
+			rv = -1;
 			goto out;
+		}
 
 		snprintf(cluster_dir, PATH_MAX, CLUSTER_FORMAT,
 			 cluster_name);
@@ -598,7 +612,7 @@ static int do_set(const char *name, const char *attr, const char *val)
 	int fd, rv;
 
 	memset(path, 0, PATH_MAX);
-	snprintf(path, PATH_MAX, "%s/%s/num", nodes_dir, name);
+	snprintf(path, PATH_MAX, "%s/%s/%s", nodes_dir, name, attr);
 
 	fd = open(path, O_WRONLY);
 	if (fd < 0) {
@@ -643,24 +657,6 @@ int add_configfs_node(const char *name, int nodeid, char *addr, int addrlen,
 		return -1;
 
 	/*
-	 * set the nodeid
-	 */
-
-	memset(buf, 0, sizeof(buf));
-	snprintf(buf, 32, "%d", nodeid);
-	rv = do_set(name, "num", buf);
-	if (rv < 0)
-		return -1;
-
-	/*
-	 * set the address
-	 */
-
-	rv = do_set(name, "ipv4_addr", str_ip(addr));
-	if (rv < 0)
-		return -1;
-
-	/*
 	 * set the port
 	 */
 
@@ -669,11 +665,29 @@ int add_configfs_node(const char *name, int nodeid, char *addr, int addrlen,
 		return -1;
 
 	/*
+	 * set the address
+	 */
+
+	rv = do_set(name, "ipv4_address", str_ip(addr));
+	if (rv < 0)
+		return -1;
+
+	/*
+	 * set the nodeid
+	 */
+
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, 32, "%d\n", nodeid);
+	rv = do_set(name, "num", buf);
+	if (rv < 0)
+		return -1;
+
+	/*
 	 * set local
 	 */
 
 	if (local) {
-		rv = do_set(name, "local", "1");
+		rv = do_set(name, "local", "1\n");
 		if (rv < 0)
 			return -1;
 	}

@@ -1,3 +1,7 @@
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ */
+
 /******************************************************************************
 *******************************************************************************
 **
@@ -238,6 +242,8 @@ int main(int argc, char **argv)
 
 	if (!daemon_debug_opt)
 		daemonize();
+        else
+                signal(SIGINT, sigterm_handler);
 
 	signal(SIGTERM, sigterm_handler);
 
