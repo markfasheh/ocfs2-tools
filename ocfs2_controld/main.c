@@ -48,7 +48,6 @@ static int groupd_fd;
 extern struct list_head mounts;
 extern struct list_head withdrawn_mounts;
 int no_withdraw;
-int dmsetup_wait;
 
 int do_read(int fd, void *buf, size_t count)
 {
@@ -364,7 +363,7 @@ static int setup_listen(void)
 	return s;
 }
 
-int loop(void)
+static int loop(void)
 {
 	int rv, i, f, poll_timeout = -1;
 
@@ -422,17 +421,6 @@ int loop(void)
 					exit_cman();
 				}
 				client_dead(i);
-			}
-
-			if (dmsetup_wait) {
-				update_dmsetup_wait();
-				if (dmsetup_wait) {
-					if (poll_timeout == -1)
-						poll_timeout = 1000;
-				} else {
-					if (poll_timeout == 1000)
-						poll_timeout = -1;
-				}
 			}
 		}
 	}

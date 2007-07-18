@@ -163,28 +163,10 @@ struct mountgroup {
 	int			kernel_mount_error;
 	int			kernel_mount_done;
 	int			got_kernel_mount;
-	int			first_mount_pending_stop;
-	int			first_mounter;
-	int			first_mounter_done;
-	int			global_first_recover_done;
-	int			emulate_first_mounter;
-	int			wait_first_done;
-	int			low_nodeid;
-	int			master_nodeid;
-	int			save_plocks;
 
-	uint64_t		cp_handle;
-	time_t			last_checkpoint_time;
-	time_t			last_plock_time;
-
-	int			needs_recovery;
-	int			our_jid;
 	int			spectator;
 	int			readonly;
 	int			rw;
-	int			withdraw;
-	int			dmsetup_wait;
-	pid_t			dmsetup_pid;
 
 	struct list_head	saved_messages;
 	void			*start2_fn;
@@ -218,25 +200,17 @@ enum {
 struct mg_member {
 	struct list_head	list;
 	int			nodeid;
-	int			jid;
 
 	int			spectator;
 	int			readonly;
 	int			rw;
 	uint32_t		opts;
 
-	int			tell_gfs_to_recover;
-	int			wait_gfs_recover_done;
 	int			gone_event;
 	int			gone_type;
 	int			finished;
-	int			local_recovery_status;
-	int			recovery_status;
-	int			withdrawing;
-	int			needs_journals;
 
 	int			ms_kernel_mount_done;
-	int			ms_first_mounter;
 	int			ms_kernel_mount_error;
 };
 
@@ -251,25 +225,6 @@ enum {
 	MSG_RECOVERY_DONE,
 };
 
-#define GDLM_VER_MAJOR 1
-#define GDLM_VER_MINOR 0
-#define GDLM_VER_PATCH 0
-
-struct gdlm_header {
-	uint16_t		version[3];
-	uint16_t		type;			/* MSG_ */
-	uint32_t		nodeid;			/* sender */
-	uint32_t		to_nodeid;		/* 0 if to all */
-	char			name[MAXNAME];
-};
-
-struct save_msg {
-	struct list_head list;
-	int nodeid;
-	int len;
-	int type;
-	char buf[0];
-};
 
 int do_read(int fd, void *buf, size_t count);
 int do_write(int fd, void *buf, size_t count);
@@ -278,35 +233,19 @@ struct mountgroup *find_mg_id(uint32_t id);
 
 int setup_cman(void);
 int process_cman(void);
-int setup_cpg(void);
-int process_cpg(void);
 int setup_groupd(void);
 int process_groupd(void);
-int setup_plocks(void);
-int process_plocks(void);
 void exit_cman(void);
 
 int do_mount(int ci, char *dir, char *type, char *proto, char *table,
 	     char *options, char *dev, struct mountgroup **mg_ret);
 int do_unmount(int ci, char *dir, int mnterr);
 int do_remount(int ci, char *dir, char *mode);
-int do_withdraw(char *name);
-int kernel_recovery_done(char *name);
 void ping_kernel_mount(char *table);
-void save_message(struct mountgroup *mg, char *buf, int len, int from, int type);
 void got_mount_result(struct mountgroup *mg, int result, int ci, int another);
 
 int client_send(int ci, char *buf, int len);
 
-int send_group_message(struct mountgroup *mg, int len, char *buf);
 void update_flow_control_status(void);
-
-void store_plocks(struct mountgroup *mg, int nodeid);
-void retrieve_plocks(struct mountgroup *mg);
-int dump_plocks(char *name, int fd);
-void process_saved_plocks(struct mountgroup *mg);
-void purge_plocks(struct mountgroup *mg, int nodeid, int unmount);
-int unlink_checkpoint(struct mountgroup *mg);
-void update_dmsetup_wait(void);
 
 #endif
