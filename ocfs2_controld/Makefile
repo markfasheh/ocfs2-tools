@@ -26,7 +26,7 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 
 DEFINES = -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-CFILES = main.c member_cman.c group.c
+CFILES = group.c main.c member_cman.c
 
 
 HFILES = ocfs2_controld.h
@@ -36,7 +36,7 @@ OBJS = $(subst .c,.o,$(CFILES))
 
 DIST_FILES = $(CFILES) $(HFILES) $(addsuffix .in,$(MANS))
 
-o2cb_controld: $(OBJS) $(LIBO2CB_DEPS)
-	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) -lcman
+ocfs2_controld: $(OBJS) $(LIBO2CB_DEPS)
+	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) -lgroup -lcman
 
 include $(TOPDIR)/Postamble.make

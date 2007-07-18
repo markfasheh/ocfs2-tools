@@ -46,8 +46,7 @@
 #include <sys/errno.h>
 #include <linux/netlink.h>
 
-#include "list.h"
-#include "linux_endian.h"
+#include "kernel-list.h"
 #include "libgroup.h"
 
 #define MAXARGS			16

@@ -187,8 +187,12 @@ AC_SUBST(BUILD_DEBUGOCFS2)
 # We use cman_replyto_shutdown to insure a new enough libcman
 BUILD_CMAN_SUPPORT=
 AC_CHECK_LIB(cman, cman_replyto_shutdown,
-  [AC_CHECK_HEADER(libcman.h, BUILD_CMAN_SUPPORT=yes,
-    [AC_MSG_WARN([libcman not found, cman support will not be built])])],
+  [AC_CHECK_HEADER(libcman.h,
+    [AC_CHECK_LIB(group, group_init,
+      [AC_CHECK_HEADER(libgroup.h, BUILD_CMAN_SUPPORT=yes,
+        [AC_MSG_WARN([libgroup.h not found, cman support will not be built])])],
+      [AC_MSG_WARN([libgroup not found, cman support will not be built])])],
+    [AC_MSG_WARN([libcman.h not found, cman support will not be built])])],
   [AC_MSG_WARN([libcman not found, cman support will not be built])])
 
 AC_SUBST(BUILD_CMAN_SUPPORT)

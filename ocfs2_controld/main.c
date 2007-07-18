@@ -42,18 +42,12 @@ static struct client *client = NULL;
 static struct pollfd *pollfd = NULL;
 
 static int cman_fd;
-static int cpg_fd;
 static int listen_fd;
 static int groupd_fd;
-static int uevent_fd;
-static int plocks_fd;
-static int plocks_ci;
 
 extern struct list_head mounts;
 extern struct list_head withdrawn_mounts;
 int no_withdraw;
-int no_plock;
-uint32_t plock_rate_limit = DEFAULT_PLOCK_RATE_LIMIT;
 int dmsetup_wait;
 
 int do_read(int fd, void *buf, size_t count)
@@ -192,18 +186,6 @@ static void client_dead(int ci)
 	client[ci].mg = NULL;
 }
 
-static void client_ignore(int ci, int fd)
-{
-	pollfd[ci].fd = -1;
-	pollfd[ci].events = 0;
-}
-
-static void client_back(int ci, int fd)
-{
-	pollfd[ci].fd = fd;
-	pollfd[ci].events = POLLIN;
-}
-
 int client_send(int ci, char *buf, int len)
 {
 	return do_write(client[ci].fd, buf, len);
@@ -331,10 +313,6 @@ static int process_client(int ci)
 	} else if (!strcmp(cmd, "dump")) {
 		dump_debug(ci);
 
-	} else if (!strcmp(cmd, "plocks")) {
-		dump_plocks(argv[1], client[ci].fd);
-		client_dead(ci);
-
 	} else {
 		rv = -EINVAL;
 		goto reply;
@@ -386,72 +364,9 @@ static int setup_listen(void)
 	return s;
 }
 
-int process_uevent(void)
-{
-	char buf[MAXLINE];
-	char *argv[MAXARGS], *act;
-	int rv, argc = 0;
-
-	memset(buf, 0, sizeof(buf));
-	memset(argv, 0, sizeof(char *) * MAXARGS);
-
-	rv = recv(uevent_fd, &buf, sizeof(buf), 0);
-	if (rv < 0) {
-		log_error("uevent recv error %d errno %d", rv, errno);
-		return -1;
-	}
-
-	if (!strstr(buf, "gfs") || !strstr(buf, "lock_module"))
-		return 0;
-
-	get_args(buf, &argc, argv, '/', 4);
-	if (argc != 4)
-		log_error("uevent message has %d args", argc);
-	act = argv[0];
-
-	log_debug("kernel: %s %s", act, argv[3]);
-
-	if (!strcmp(act, "change@"))
-		kernel_recovery_done(argv[3]);
-	else if (!strcmp(act, "offline@"))
-		do_withdraw(argv[3]);
-	else
-		ping_kernel_mount(argv[3]);
-
-	return 0;
-}
-
-int setup_uevent(void)
-{
-	struct sockaddr_nl snl;
-	int s, rv;
-
-	s = socket(AF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
-	if (s < 0) {
-		log_error("netlink socket error %d errno %d", s, errno);
-		return s;
-	}
-
-	memset(&snl, 0, sizeof(snl));
-	snl.nl_family = AF_NETLINK;
-	snl.nl_pid = getpid();
-	snl.nl_groups = 1;
-
-	rv = bind(s, (struct sockaddr *) &snl, sizeof(snl));
-	if (rv < 0) {
-		log_error("uevent bind error %d errno %d", rv, errno);
-		close(s);
-		return rv;
-	}
-
-	log_debug("uevent %d", s);
-
-	return s;
-}
-
 int loop(void)
 {
-	int rv, i, f, error, poll_timeout = -1, ignore_plocks_fd = 0;
+	int rv, i, f, poll_timeout = -1;
 
 	rv = listen_fd = setup_listen();
 	if (rv < 0)
@@ -463,25 +378,10 @@ int loop(void)
 		goto out;
 	client_add(cman_fd);
 
-	rv = cpg_fd = setup_cpg();
-	if (rv < 0)
-		goto out;
-	client_add(cpg_fd);
-
 	rv = groupd_fd = setup_groupd();
 	if (rv < 0)
 		goto out;
 	client_add(groupd_fd);
-
-	rv = uevent_fd = setup_uevent();
-	if (rv < 0)
-		goto out;
-	client_add(uevent_fd);
-
-	rv = plocks_fd = setup_plocks();
-	if (rv < 0)
-		goto out;
-	plocks_ci = client_add(plocks_fd);
 
 	log_debug("setup done");
 
@@ -509,19 +409,7 @@ int loop(void)
 					process_groupd();
 				else if (pollfd[i].fd == cman_fd)
 					process_cman();
-				else if (pollfd[i].fd == cpg_fd)
-					process_cpg();
-				else if (pollfd[i].fd == uevent_fd)
-					process_uevent();
-				else if (pollfd[i].fd == plocks_fd) {
-					error = process_plocks();
-					if (error == -EBUSY) {
-						client_ignore(plocks_ci,
-							      plocks_fd);
-						ignore_plocks_fd = 1;
-						poll_timeout = 100;
-					}
-				} else
+				else
 					process_client(i);
 			}
 
@@ -532,23 +420,8 @@ int loop(void)
 				} else if (pollfd[i].fd == groupd_fd) {
 					log_error("groupd connection died");
 					exit_cman();
-				} else if (pollfd[i].fd == cpg_fd) {
-					log_error("cpg connection died");
-					exit_cman();
 				}
 				client_dead(i);
-			}
-
-			/* check if our plock rate limit has expired so we
-			   can start taking more local plock requests again */
-
-			if (ignore_plocks_fd) {
-				error = process_plocks();
-				if (error != -EBUSY) {
-					client_back(plocks_ci, plocks_fd);
-					ignore_plocks_fd = 0;
-					poll_timeout = -1;
-				}
 			}
 
 			if (dmsetup_wait) {
@@ -610,7 +483,7 @@ static void lockfile(void)
 	}
 }
 
-void daemonize(void)
+static void daemonize(void)
 {
 	pid_t pid = fork();
 	if (pid < 0) {
@@ -639,10 +512,6 @@ static void print_usage(void)
 	printf("Options:\n");
 	printf("\n");
 	printf("  -D	       Enable debugging code and don't fork\n");
-	printf("  -P	       Enable plock debugging\n");
-	printf("  -p	       Disable plocks\n");
-	printf("  -l <limit>   Limit the rate of plock operations\n");
-	printf("	       Default is %d, set to 0 for no limit\n", DEFAULT_PLOCK_RATE_LIMIT);
 	printf("  -w	       Disable withdraw\n");
 	printf("  -h	       Print this help, then exit\n");
 	printf("  -V	       Print program version information, then exit\n");
@@ -664,18 +533,6 @@ static void decode_arguments(int argc, char **argv)
 
 		case 'D':
 			daemon_debug_opt = 1;
-			break;
-
-		case 'P':
-			plock_debug_opt = 1;
-			break;
-
-		case 'l':
-			plock_rate_limit = atoi(optarg);
-			break;
-
-		case 'p':
-			no_plock = 1;
 			break;
 
 		case 'h':
@@ -707,7 +564,7 @@ static void decode_arguments(int argc, char **argv)
 	}
 }
 
-void set_oom_adj(int val)
+static void set_oom_adj(int val)
 {
 	FILE *fp;
 
@@ -719,7 +576,7 @@ void set_oom_adj(int val)
 	fclose(fp);
 }
 
-void set_scheduler(void)
+static void set_scheduler(void)
 {
 	struct sched_param sched_param;
 	int rv;
@@ -771,7 +628,6 @@ void daemon_dump_save(void)
 }
 
 char *prog_name;
-int plock_debug_opt;
 int daemon_debug_opt;
 char daemon_debug_buf[256];
 char dump_buf[DUMP_SIZE];

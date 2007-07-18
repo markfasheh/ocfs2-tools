@@ -27,7 +27,7 @@ SUBDIRS += ocfs2console
 endif
 
 ifdef BUILD_CMAN_SUPPORT
-SUBDIRS += o2cb_controld # ocfs2_controld
+SUBDIRS += o2cb_controld ocfs2_controld
 endif
 
 SUBDIRS += vendor

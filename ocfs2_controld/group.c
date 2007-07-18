@@ -106,7 +106,7 @@ static group_callbacks_t callbacks = {
 	deliver_cbfn
 };
 
-char *str_members(void)
+static char *str_members(void)
 {
 	static char buf[MAXLINE];
 	int i, len = 0;
@@ -189,7 +189,7 @@ int setup_groupd(void)
 	gh = group_init(NULL, OCFS2_CONTROLD_GROUP_NAME,
 			OCFS2_CONTROLD_GROUP_LEVEL, &callbacks, 10);
 	if (!gh) {
-		log_error("group_init error %d %d", (int) gh, errno);
+		log_error("group_init error %d", errno);
 		return -ENOTCONN;
 	}
 
