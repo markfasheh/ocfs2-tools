@@ -145,7 +145,7 @@ static void member_callback(cman_handle_t h, void *private, int reason, int arg)
 {
 	switch (reason) {
 	case CMAN_REASON_TRY_SHUTDOWN:
-		/* XXX we need to check heartbeat here */
+		/* XXX do we need to check heartbeat here */
 #if 0
 		if (list_empty(&lockspaces))
 #endif
