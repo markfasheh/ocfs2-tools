@@ -22,7 +22,8 @@
  *  of the GNU General Public License v.2.
  */
 
-#include "ocfs2_controld.h"
+//#include "ocfs2_controld.h"
+#include "ocfs2_controld_internal.h"
 
 #define OCFS2_CONTROLD_GROUP_NAME "ocfs2"
 #define OCFS2_CONTROLD_GROUP_LEVEL 2  /* Because gfs_controld uses 2.

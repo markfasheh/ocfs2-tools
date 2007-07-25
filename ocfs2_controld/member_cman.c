@@ -32,7 +32,8 @@
 #include <arpa/inet.h>
 #include <libcman.h>
 
-#include "ocfs2_controld.h"
+//#include "ocfs2_controld.h"
+#include "ocfs2_controld_internal.h"
 
 int			our_nodeid;
 char *			clustername;

@@ -22,7 +22,8 @@
  *  of the GNU General Public License v.2.
  */
 
-#include "ocfs2_controld.h"
+//#include "ocfs2_controld.h"
+#include "ocfs2_controld_internal.h"
 
 #define OPTION_STRING			"DPhVwpl:"
 #define LOCKFILE_NAME			"/var/run/gfs_controld.pid"
