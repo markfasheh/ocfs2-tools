@@ -22,7 +22,6 @@
  *  of the GNU General Public License v.2.
  */
 
-//#include "ocfs2_controld.h"
 #include "ocfs2_controld_internal.h"
 
 #define OCFS2_CONTROLD_GROUP_NAME "ocfs2"
@@ -43,11 +42,6 @@ static unsigned int cb_id;
 static int cb_type;
 static int cb_member_count;
 static int cb_members[MAX_GROUP_MEMBERS];
-
-int do_stop(struct mountgroup *mg);
-int do_finish(struct mountgroup *mg);
-int do_terminate(struct mountgroup *mg);
-int do_start(struct mountgroup *mg, int type, int count, int *nodeids);
 
 
 static void stop_cbfn(group_handle_t h, void *private, char *name)
@@ -109,12 +103,13 @@ static group_callbacks_t callbacks = {
 
 static char *str_members(void)
 {
-	static char buf[MAXLINE];
+#define LINESIZE 1024
+	static char buf[LINESIZE];
 	int i, len = 0;
 
-	memset(buf, 0, MAXLINE);
+	memset(buf, 0, LINESIZE);
 
-	for (i = 0; i < cb_member_count; i++)
+	for (i = 0; (i < cb_member_count) && (len < LINESIZE); i++)
 		len += sprintf(buf+len, "%d ", cb_members[i]);
 	return buf;
 }

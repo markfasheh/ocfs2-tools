@@ -22,11 +22,11 @@
  *  of the GNU General Public License v.2.
  */
 
-//#include "ocfs2_controld.h"
+#include "ocfs2_controld.h"
 #include "ocfs2_controld_internal.h"
 
-#define OPTION_STRING			"DPhVwpl:"
-#define LOCKFILE_NAME			"/var/run/gfs_controld.pid"
+#define OPTION_STRING			"DhVw"
+#define LOCKFILE_NAME			"/var/run/ocfs2_controld.pid"
 
 #define DEFAULT_PLOCK_RATE_LIMIT 100
 
@@ -88,55 +88,6 @@ int do_write(int fd, void *buf, size_t count)
 	return 0;
 }
 
-#if 0
-static void make_args(char *buf, int *argc, char **argv, char sep)
-{
-	char *p = buf;
-	int i;
-
-	argv[0] = p;
-
-	for (i = 1; i < MAXARGS; i++) {
-		p = strchr(buf, sep);
-		if (!p)
-			break;
-		*p = '\0';
-		argv[i] = p + 1;
-		buf = p + 1;
-	}
-	*argc = i;
-}
-#endif
-
-static char *get_args(char *buf, int *argc, char **argv, char sep, int want)
-{
-	char *p = buf, *rp = NULL;
-	int i;
-
-	argv[0] = p;
-
-	for (i = 1; i < MAXARGS; i++) {
-		p = strchr(buf, sep);
-		if (!p)
-			break;
-		*p = '\0';
-
-		if (want == i) { 
-			rp = p + 1;
-			break;
-		}
-
-		argv[i] = p + 1;
-		buf = p + 1;
-	}
-	*argc = i;
-
-	/* we ended by hitting \0, return the point following that */
-	if (!rp)
-		rp = strchr(buf, '\0') + 1;
-
-	return rp;
-}
 
 static int client_add(int fd)
 {
@@ -184,11 +135,6 @@ static void client_dead(int ci)
 	client[ci].fd = -1;
 	pollfd[ci].fd = -1;
 	client[ci].mg = NULL;
-}
-
-int client_send(int ci, char *buf, int len)
-{
-	return do_write(client[ci].fd, buf, len);
 }
 
 static int dump_debug(int ci)
@@ -260,45 +206,63 @@ void setup_mount_error_fd(struct mountgroup *mg)
 static int process_client(int ci)
 {
 	struct mountgroup *mg;
-	char buf[MAXLINE], *argv[MAXARGS], out[MAXLINE];
-	char *cmd = NULL;
-	int argc = 0, rv, fd;
+	client_message message;
+	char out[OCFS2_CONTROLD_MAXLINE];
+	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+	int rv, fd = client[ci].fd;
 
-	memset(buf, 0, MAXLINE);
-	memset(out, 0, MAXLINE);
-	memset(argv, 0, sizeof(char *) * MAXARGS);
+	memset(out, 0, OCFS2_CONTROLD_MAXLINE);
 
-	rv = read(client[ci].fd, buf, MAXLINE);
-	if (!rv) {
+	/* receive_message ensures we have the proper number of arguments */
+	rv = receive_message(fd, &message, argv);
+	if (rv == -EPIPE) {
 		client_dead(ci);
 		return 0;
 	}
 	if (rv < 0) {
-		log_debug("client %d fd %d read error %d %d", ci,
-			   client[ci].fd, rv, errno);
+		/* XXX: Should print better errors matching our returns */
+		log_debug("client %d fd %d read error %d", ci, fd, -rv);
 		return rv;
 	}
 
-	log_debug("client %d: %s", ci, buf);
+	log_debug("client message %d: %d", ci, message);
 
-	get_args(buf, &argc, argv, ' ', 7);
-	cmd = argv[0];
-	rv = 0;
-
-	if (!strcmp(cmd, "join")) {
-		/* ci, dir (mountpoint), type (gfs/gfs2), proto (lock_dlm),
-		   table (fsname:clustername), extra (rw), dev (/dev/sda1) */
-
-		rv = do_mount(ci, argv[1], argv[2], argv[3], argv[4], argv[5],
-			      argv[6], &mg);
-		fd = client[ci].fd;
+	switch (message) {
+		case CM_MOUNT:
+		rv = do_mount(ci, fd, argv[0], argv[1], argv[2], argv[3],
+			      argv[4], &mg);
 		fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
 		if (!rv || rv == -EALREADY) {
 			client[ci].another_mount = rv;
 			client[ci].mg = mg;
 			mg->mount_client_fd = fd;
 		}
-		goto reply;
+		break;
+
+		case CM_MRESULT:
+		rv = do_mount_result(client[ci].mg, ci,
+				     client[ci].another_mount,
+				     argv[0], argv[1], argv[2], argv[3]);
+		break;
+
+		case CM_UNMOUNT:
+		rv = do_unmount(ci, fd, argv[0], argv[1], argv[2]);
+		if (!rv) {
+			client[ci].mg = mg;
+			mg->mount_client_fd = fd;
+		}
+		break;
+
+		case CM_STATUS:
+		log_error("Someone sent us cm_status!");
+		break;
+
+		default:
+		log_error("Invalid message received");
+		break;
+	}
+
+#if 0
 	} else if (!strcmp(cmd, "mount_result")) {
 		got_mount_result(client[ci].mg, atoi(argv[3]), ci,
 				 client[ci].another_mount);
@@ -317,58 +281,16 @@ static int process_client(int ci)
 		rv = -EINVAL;
 		goto reply;
 	}
+#endif
 
 	return rv;
-
- reply:
-	sprintf(out, "%d", rv);
-	rv = client_send(ci, out, MAXLINE);
-	return rv;
-}
-
-static int setup_listen(void)
-{
-	struct sockaddr_un addr;
-	socklen_t addrlen;
-	int rv, s;
-
-	/* we listen for new client connections on socket s */
-
-	s = socket(AF_LOCAL, SOCK_STREAM, 0);
-	if (s < 0) {
-		log_error("socket error %d %d", s, errno);
-		return s;
-	}
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sun_family = AF_LOCAL;
-	strcpy(&addr.sun_path[1], OCFS2_CONTROLD_SOCK_PATH);
-	addrlen = sizeof(sa_family_t) + strlen(addr.sun_path+1) + 1;
-
-	rv = bind(s, (struct sockaddr *) &addr, addrlen);
-	if (rv < 0) {
-		log_error("bind error %d %d", rv, errno);
-		close(s);
-		return rv;
-	}
-
-	rv = listen(s, 5);
-	if (rv < 0) {
-		log_error("listen error %d %d", rv, errno);
-		close(s);
-		return rv;
-	}
-
-	log_debug("listen %d", s);
-
-	return s;
 }
 
 static int loop(void)
 {
 	int rv, i, f, poll_timeout = -1;
 
-	rv = listen_fd = setup_listen();
+	rv = listen_fd = client_listen();
 	if (rv < 0)
 		goto out;
 	client_add(listen_fd);
@@ -587,7 +509,7 @@ int main(int argc, char **argv)
 {
 	prog_name = argv[0];
 	INIT_LIST_HEAD(&mounts);
-	INIT_LIST_HEAD(&withdrawn_mounts);
+	/* INIT_LIST_HEAD(&withdrawn_mounts); */
 
 	decode_arguments(argc, argv);
 

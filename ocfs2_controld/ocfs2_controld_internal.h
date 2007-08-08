@@ -22,8 +22,8 @@
  *  of the GNU General Public License v.2.
  */
 
-#ifndef __OCFS2_CONTROLD_H
-#define __OCFS2_CONTROLD_H
+#ifndef __OCFS2_CONTROLD_INTERNAL_H
+#define __OCFS2_CONTROLD_INTERNAL_H
 
 #include <unistd.h>
 #include <stdio.h>
@@ -39,13 +39,13 @@
 #include <asm/types.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
-#include <sys/un.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/errno.h>
 #include <linux/netlink.h>
 
+#include <sys/un.h>
 #include "kernel-list.h"
 #include "libgroup.h"
 
@@ -76,6 +76,9 @@ enum {
 };
 
 extern char *prog_name;
+extern char *clustername;
+extern int our_nodeid;
+extern group_handle_t gh;
 extern int daemon_debug_opt;
 extern char daemon_debug_buf[256];
 extern char dump_buf[DUMP_SIZE];
@@ -94,16 +97,9 @@ do { \
 #define log_group(g, fmt, args...) \
 do { \
 	snprintf(daemon_debug_buf, 255, "%ld %s " fmt "\n", time(NULL), \
-		 (g)->name, ##args); \
+		 (g)->uuid, ##args); \
 	if (daemon_debug_opt) fprintf(stderr, "%s", daemon_debug_buf); \
 	daemon_dump_save(); \
-} while (0)
-
-#define log_plock(g, fmt, args...) \
-do { \
-	snprintf(daemon_debug_buf, 255, "%ld %s " fmt "\n", time(NULL), \
-		 (g)->name, ##args); \
-	if (plock_debug_opt) fprintf(stderr, "%s", daemon_debug_buf); \
 } while (0)
 
 #define log_error(fmt, args...) \
@@ -123,7 +119,7 @@ do { \
 
 struct mountpoint {
 	struct list_head	list;
-	char			dir[PATH_MAX+1];
+	char			mountpoint[PATH_MAX+1];
 	int			client;
 };
 
@@ -131,16 +127,14 @@ struct mountgroup {
 	struct list_head	list;
 	uint32_t		id;
 	struct list_head	members;
-	struct list_head	members_gone;
 	int			memb_count;
-	struct list_head	resources; /* for plocks */
 	struct list_head	mountpoints;
 
-	char			name[MAXNAME+1];
-	char			table[MAXNAME+1];
+	char			uuid[MAXNAME+1];
+	char			cluster[MAXNAME+1];
 	char			type[5];
 	char			options[MAX_OPTIONS_LEN+1];
-	char			dev[PATH_MAX+1];
+	char			device[PATH_MAX+1];
 
 	int			last_stop;
 	int			last_start;
@@ -149,6 +143,7 @@ struct mountgroup {
 	int			start_event_nr;
 	int			start_type;
 
+	int			error;
 	char			error_msg[128];
 	int			mount_client;
 	int			mount_client_fd;
@@ -156,7 +151,7 @@ struct mountgroup {
 	int			mount_client_delay;
 	int                     group_leave_on_finish;
 	int			remount_client;
-	int			init;
+	int			state;
 	int			got_our_options;
 	int			got_our_journals;
 	int			delay_send_journals;
@@ -168,7 +163,6 @@ struct mountgroup {
 	int			readonly;
 	int			rw;
 
-	struct list_head	saved_messages;
 	void			*start2_fn;
 };
 
@@ -200,6 +194,7 @@ enum {
 struct mg_member {
 	struct list_head	list;
 	int			nodeid;
+	char			name[NAME_MAX+1];
 
 	int			spectator;
 	int			readonly;
@@ -228,21 +223,31 @@ enum {
 
 int do_read(int fd, void *buf, size_t count);
 int do_write(int fd, void *buf, size_t count);
-struct mountgroup *find_mg(char *name);
+struct mountgroup *find_mg(const char *uuid);
 struct mountgroup *find_mg_id(uint32_t id);
+void do_stop(struct mountgroup *mg);
+void do_start(struct mountgroup *mg, int type, int member_count,
+	      int *nodeids);
+void do_finish(struct mountgroup *mg);
+void do_terminate(struct mountgroup *mg);
 
 int setup_cman(void);
 int process_cman(void);
+char *nodeid2name(int nodeid);
 int setup_groupd(void);
 int process_groupd(void);
 void exit_cman(void);
 
-int do_mount(int ci, char *dir, char *type, char *proto, char *table,
-	     char *options, char *dev, struct mountgroup **mg_ret);
-int do_unmount(int ci, char *dir, int mnterr);
+int do_mount(int ci, int fd, const char *fstype, const char *uuid,
+	     const char *cluster, const char *device,
+	     const char *mountpoint, struct mountgroup **mg_ret);
+int do_mount_result(struct mountgroup *mg, int ci, int another,
+		    const char *fstype, const char *uuid,
+		    const char *errcode, const char *mountpoint);
+int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
+	       const char *mountpoint);
 int do_remount(int ci, char *dir, char *mode);
 void ping_kernel_mount(char *table);
-void got_mount_result(struct mountgroup *mg, int result, int ci, int another);
 
 int client_send(int ci, char *buf, int len);
 

@@ -32,7 +32,7 @@
 #include <arpa/inet.h>
 #include <libcman.h>
 
-//#include "ocfs2_controld.h"
+#include "o2cb.h"
 #include "ocfs2_controld_internal.h"
 
 int			our_nodeid;
@@ -40,17 +40,105 @@ char *			clustername;
 cman_cluster_t		cluster;
 static cman_handle_t	ch;
 extern struct list_head mounts;
+static cman_node_t      old_nodes[O2NM_MAX_NODES];
+static int              old_node_count;
+static cman_node_t      cman_nodes[O2NM_MAX_NODES];
+static int              cman_node_count;
 
+
+static int is_member(cman_node_t *node_list, int count, int nodeid)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		if (node_list[i].cn_nodeid == nodeid)
+			return node_list[i].cn_member;
+	}
+	return 0;
+}
+
+static int is_old_member(int nodeid)
+{
+	return is_member(old_nodes, old_node_count, nodeid);
+}
+
+static int is_cman_member(int nodeid)
+{
+	return is_member(cman_nodes, cman_node_count, nodeid);
+}
+
+static cman_node_t *find_cman_node(int nodeid)
+{
+	int i;
+
+	for (i = 0; i < cman_node_count; i++) {
+		if (cman_nodes[i].cn_nodeid == nodeid)
+			return &cman_nodes[i];
+	}
+	return NULL;
+}
+
+char *nodeid2name(int nodeid)
+{
+	cman_node_t *cn;
+
+	cn = find_cman_node(nodeid);
+	if (!cn)
+		return NULL;
+	return cn->cn_name;
+}
+
+/* keep track of the nodes */
+static void statechange(void)
+{
+	int i, rv;
+
+	old_node_count = cman_node_count;
+	memcpy(&old_nodes, &cman_nodes, sizeof(old_nodes));
+
+	cman_node_count = 0;
+	memset(&cman_nodes, 0, sizeof(cman_nodes));
+	rv = cman_get_nodes(ch, O2NM_MAX_NODES, &cman_node_count,
+			    cman_nodes);
+	if (rv < 0) {
+		log_debug("cman_get_nodes error %d %d", rv, errno);
+		return;
+	}
+
+	for (i = 0; i < old_node_count; i++) {
+		if (old_nodes[i].cn_member &&
+		    !is_cman_member(old_nodes[i].cn_nodeid)) {
+
+			log_debug("cman: node %d removed",
+				   old_nodes[i].cn_nodeid);
+		}
+	}
+
+	for (i = 0; i < cman_node_count; i++) {
+		if (cman_nodes[i].cn_member &&
+		    !is_old_member(cman_nodes[i].cn_nodeid)) {
+
+			log_debug("cman: node %d added",
+				  cman_nodes[i].cn_nodeid);
+		}
+	}
+}
 
 static void cman_callback(cman_handle_t h, void *private, int reason, int arg)
 {
-	if (reason == CMAN_REASON_TRY_SHUTDOWN) {
-		if (list_empty(&mounts))
-			cman_replyto_shutdown(ch, 1);
-		else {
-			log_debug("no to cman shutdown");
-			cman_replyto_shutdown(ch, 0);
-		}
+	switch (reason) {
+		case CMAN_REASON_TRY_SHUTDOWN:
+			if (list_empty(&mounts))
+				cman_replyto_shutdown(ch, 1);
+			else {
+				log_debug("no to cman shutdown");
+				cman_replyto_shutdown(ch, 0);
+			}
+			break;
+
+		case CMAN_REASON_STATECHANGE:
+			statechange();
+			break;
 	}
 }
 
@@ -108,6 +196,15 @@ int setup_cman(void)
 	our_nodeid = node.cn_nodeid;
 
 	fd = cman_get_fd(ch);
+
+	old_node_count = 0;
+	memset(&old_nodes, 0, sizeof(old_nodes));
+	cman_node_count = 0;
+	memset(&cman_nodes, 0, sizeof(cman_nodes));
+
+	/* Fill the node list */
+	statechange();
+
 	return fd;
 
  fail_stop:

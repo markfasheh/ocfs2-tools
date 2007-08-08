@@ -26,7 +26,7 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 
 DEFINES = -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-CFILES = group.c main.c member_cman.c
+CFILES = group.c main.c member_cman.c client_proto.c action.c
 
 
 HFILES = ocfs2_controld.h
