@@ -33,19 +33,19 @@
 
 
 enum mountgroup_state {
-	MG_CREATED		= 1 << 0,
-	MG_JOIN_SENT		= 1 << 1,
-	MG_JOIN_START		= 1 << 2,
-	MG_JOIN_START_DONE	= 1 << 3,
+	MG_CREATED		= 0x0001,
+	MG_JOIN_SENT		= 0x0002,
+	MG_JOIN_START		= 0x0004,
+	MG_JOIN_START_DONE	= 0x0008,
 #define MG_JOINING	(MG_JOIN_SENT | MG_JOIN_START | MG_JOIN_START_DONE)
-	MG_JOINED		= 1 << 4,
-	MG_MOUNTED		= 1 << 5,
+	MG_JOINED		= 0x0010,
+	MG_MOUNTED		= 0x0020,
 #define MG_MEMBER	(MG_JOINED | MG_MOUNTED)
-	MG_LEAVE_SENT		= 1 << 6,
-	MG_LEAVE_START		= 1 << 7,
-	MG_LEAVE_START_DONE	= 1 << 8,
+	MG_LEAVE_SENT		= 0x0040,
+	MG_LEAVE_START		= 0x0080,
+	MG_LEAVE_START_DONE	= 0x0100,
 #define MG_LEAVING	(MG_LEAVE_SENT | MG_LEAVE_START | MG_LEAVE_START_DONE)
-	MG_DEAD			= 1 << 9,
+	MG_DEAD			= 0x0200,
 };
 
 struct list_head mounts;
@@ -70,10 +70,17 @@ static void fill_error(struct mountgroup *mg, int error, char *errfmt, ...)
 	}
 }
 
+static void mg_statechange(struct mountgroup *mg, enum mountgroup_state new)
+{
+	log_group(mg, "Changing from state 0x%x to 0x%x", mg->state, new);
+
+	mg->state = new;
+}
+
 static int mg_statep(struct mountgroup *mg, enum mountgroup_state test,
 		     enum mountgroup_state allowed)
 {
-	if (mg->state == test)
+	if (mg->state & test)
 		return 1;
 
 	if (allowed) {
@@ -104,11 +111,11 @@ static void notify_mount_client(struct mountgroup *mg)
 		if (mg->error_msg[0]) {
 			error_msg = mg->error_msg;
 		} else
-			error_msg = strerror(-error);
+			error_msg = strerror(error);
 		mg->error = 0;
 	}
 
-	log_group(mg, "notify_mount_client sending %d \"%s\"", -error,
+	log_group(mg, "notify_mount_client sending %d \"%s\"", error,
 		  error_msg);
 
 	error = send_message(mg->mount_client_fd, CM_STATUS, error,
@@ -185,14 +192,14 @@ static void add_another_mountpoint(struct mountgroup *mg,
 		  mountpoint, device, ci);
 
 	if (strcmp(mg->device, device)) {
-		fill_error(mg, -EINVAL,
+		fill_error(mg, EINVAL,
 			   "Trying to mount fs %s on device %s, but it already is mounted from device %s",
 			   mg->uuid, mg->device, device);
 		goto out;
 	}
 
 	if (find_mountpoint(mg, mountpoint, 0)) {
-		fill_error(mg, -EBUSY,
+		fill_error(mg, EBUSY,
 			   "Filesystem %s is already mounted on %s",
 			   mg->uuid, mountpoint);
 		goto out;
@@ -204,7 +211,7 @@ static void add_another_mountpoint(struct mountgroup *mg,
 	}
 
 	if (create_mountpoint(mg, mountpoint, ci)) {
-		fill_error(mg, -ENOMEM,
+		fill_error(mg, ENOMEM,
 			   "Unable to allocate mountpoint structure");
 		goto out;
 	}
@@ -216,7 +223,7 @@ static void add_another_mountpoint(struct mountgroup *mg,
 	 * the mount is a secondary one and no additional work is required.
 	 * It will just call mount(2).
 	 */
-	fill_error(mg, -EALREADY, "Kernel mounted, go ahead");
+	fill_error(mg, EALREADY, "Kernel mounted, go ahead");
 
 out:
 	return;
@@ -248,7 +255,7 @@ static struct mountgroup *create_mg(const char *uuid, const char *mountpoint,
 	memset(mg, 0, sizeof(struct mountgroup));
 	INIT_LIST_HEAD(&mg->members);
 	INIT_LIST_HEAD(&mg->mountpoints);
-	mg->state = MG_CREATED;
+	mg_statechange(mg, MG_CREATED);
 	strncpy(mg->uuid, uuid, sizeof(mg->uuid));
 
 	if (create_mountpoint(mg, mountpoint, ci)) {
@@ -270,24 +277,25 @@ int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 	};
 	struct mountgroup *mg = &mg_error;
 
+	fprintf(stderr, "%d \"%s\"\n", strlen(uuid), uuid);
 	log_debug("mount: MOUNT %s %s %s %s %s",
 		  fstype, uuid, cluster, device, mountpoint);
 
 	if (strcmp(fstype, "ocfs2")) {
-		fill_error(mg, -EINVAL, "Unsupported fstype: %s", fstype);
+		fill_error(mg, EINVAL, "Unsupported fstype: %s", fstype);
 		goto out;
 	}
 
 	if (!strlen(cluster) || (strlen(cluster) != strlen(clustername)) ||
 	    strcmp(cluster, clustername)) {
-		fill_error(mg, -EINVAL,
+		fill_error(mg, EINVAL,
 			   "Request for mount in cluster %s but we belong to %s",
 			  cluster, clustername);
 		goto out;
 	}
 
 	if (strlen(uuid) > MAXNAME) {
-		fill_error(mg, -ENAMETOOLONG, "UUID too long: %s", uuid);
+		fill_error(mg, ENAMETOOLONG, "UUID too long: %s", uuid);
 		goto out;
 	}
 
@@ -301,7 +309,7 @@ int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 	mg = create_mg(uuid, mountpoint, ci);
 	if (!mg) {
 		mg = &mg_error;  /* Well, almost */
-		fill_error(mg, -ENOMEM,
+		fill_error(mg, ENOMEM,
 			   "Unable to allocate mountgroup structure");
 		goto out;
 	}
@@ -314,7 +322,7 @@ int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 
 	rc = group_join(gh, (char *)uuid);
 	if (rc) {
-		fill_error(mg, -errno, "Unable to start group join: %s",
+		fill_error(mg, errno, "Unable to start group join: %s",
 			   strerror(errno));
 
 		/*
@@ -325,7 +333,7 @@ int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 		goto out;
 	}
 
-	mg->state = MG_JOIN_SENT;
+	mg_statechange(mg, MG_JOIN_SENT);
 
 	*mg_ret = mg;
 	log_group(mg, "mount successfully started");
@@ -336,11 +344,11 @@ out:
 	 * until join completes (notify_mount_client()).
 	 */
 	if (mg->error) {
-		rc = mg->error;
+		rc = -mg->error;
 		send_message(fd, CM_STATUS, mg->error, mg->error_msg);
 
 		/* -EALREADY magic is sent, clear it */
-		if (mg->error == -EALREADY)
+		if (mg->error == EALREADY)
 			mg->error = 0;
 		else {
 			log_error("mount: %s", mg->error_msg);
@@ -363,28 +371,29 @@ int do_mount_result(struct mountgroup *mg, int ci, int another,
 		    const char *errcode, const char *mountpoint)
 {
 	int rc = 0;
+	int reply_fd = mg->mount_client_fd;
 	int reply = 1;
 	char *ptr = NULL;
 	long err;
 
-	log_debug("mount: MRESULT %s %s %s %s",
+	log_debug("mresult: MRESULT %s %s %s %s",
 		  fstype, uuid, errcode, mountpoint);
 
 	assert(mg->mount_client == ci);
 	assert(!mg->error);
 
 	if (strcmp(fstype, "ocfs2")) {
-		fill_error(mg, -EINVAL, "Unsupported fstype: %s", fstype);
+		fill_error(mg, EINVAL, "Unsupported fstype: %s", fstype);
 		goto out;
 	}
 
 	if (strlen(uuid) > MAXNAME) {
-		fill_error(mg, -ENAMETOOLONG, "UUID too long: %s", uuid);
+		fill_error(mg, ENAMETOOLONG, "UUID too long: %s", uuid);
 		goto out;
 	}
 
 	if (strcmp(uuid, mg->uuid)) {
-		fill_error(mg, -EINVAL,
+		fill_error(mg, EINVAL,
 			   "UUID %s does not match mountgroup %s", uuid,
 			   mg->uuid);
 		goto out;
@@ -394,13 +403,13 @@ int do_mount_result(struct mountgroup *mg, int ci, int another,
 
 	err = strtol(errcode, &ptr, 10);
 	if (ptr && *ptr != '\0') {
-		fill_error(mg, -EINVAL, "Invalid error code string: %s",
+		fill_error(mg, EINVAL, "Invalid error code string: %s",
 			   errcode);
 		goto out;
 	}
 	if ((err == LONG_MIN) || (err == LONG_MAX) || (err < INT_MIN) ||
 	    (err > INT_MAX)) {
-		fill_error(mg, -ERANGE, "Error code %ld out of range", err);
+		fill_error(mg, ERANGE, "Error code %ld out of range", err);
 		goto out;
 	}
 
@@ -421,6 +430,7 @@ int do_mount_result(struct mountgroup *mg, int ci, int another,
 
 	if (!err) {
 		/* Everyone's happy */
+		mg_statechange(mg, MG_MOUNTED);
 		mg->mount_client = 0;
 		mg->mount_client_fd = 0;
 
@@ -444,14 +454,14 @@ int do_mount_result(struct mountgroup *mg, int ci, int another,
 	}
 
 	if (group_leave(gh, mg->uuid))
-		fill_error(mg, -errno, "Unable to start group leave: %s",
+		fill_error(mg, errno, "Unable to start group leave: %s",
 			   strerror(errno));
 	else
-		mg->state = MG_LEAVE_SENT;
+		mg_statechange(mg, MG_LEAVE_SENT);
 
 out:
 	if (reply)
-		send_message(mg->mount_client_fd, CM_STATUS, mg->error,
+		send_message(reply_fd, CM_STATUS, mg->error,
 			     mg->error ? mg->error_msg : "OK");
 
 	return rc;
@@ -472,13 +482,13 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 		  fstype, uuid, mountpoint);
 
 	if (strcmp(fstype, "ocfs2")) {
-		fill_error(&mg_error, -EINVAL, "Unsupported fstype: %s",
+		fill_error(&mg_error, EINVAL, "Unsupported fstype: %s",
 			   fstype);
 		goto out;
 	}
 
 	if (strlen(uuid) > MAXNAME) {
-		fill_error(&mg_error, -ENAMETOOLONG, "UUID too long: %s",
+		fill_error(&mg_error, ENAMETOOLONG, "UUID too long: %s",
 			   uuid);
 		goto out;
 	}
@@ -486,7 +496,7 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 	/* Once we have our mg, we're done with &mg_error */
 	mg = find_mg(uuid);
 	if (!mg) {
-		fill_error(&mg_error, -ENOENT, "Unknown uuid %s", uuid);
+		fill_error(&mg_error, ENOENT, "Unknown uuid %s", uuid);
 		goto out;
 	}
 
@@ -495,7 +505,7 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 
 	mp = find_mountpoint(mg, mountpoint, 0);
 	if (!mp) {
-		fill_error(&mg_error, -ENOENT,
+		fill_error(&mg_error, ENOENT,
 			   "Filesystem %s is not mounted on %s", uuid,
 			   mountpoint);
 		goto out;
@@ -525,6 +535,7 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 	 * we get to MG_MEMBER, but let's be safe
 	 */
 	if (!mg_statep(mg, MG_MEMBER, MG_MEMBER)) {
+		log_group(mg, "Postponing leave, state is 0x%x", mg->state);
 		mg->group_leave_on_finish = 1;
 		goto out;
 	}
@@ -533,15 +544,17 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 		/* We spoke too soon! */
 		/* XXX How can a client clean this up? */
 		reply = 1;
-		fill_error(&mg_error, -errno, "Unable to leave group: %s",
+		fill_error(&mg_error, errno, "Unable to leave group: %s",
 			   strerror(errno));
 	} else
-		mg->state = MG_LEAVE_SENT;
+		mg_statechange(mg, MG_LEAVE_SENT);
 
 out:
 	if (reply)
 		send_message(fd, CM_STATUS, mg_error.error,
 			     mg_error.error ? mg_error.error_msg : "OK");
+	if (mg_error.error)
+		rc = -mg_error.error;
 
 	return rc;
 }
@@ -806,9 +819,9 @@ void do_start(struct mountgroup *mg, int type, int member_count,
 	      int *nodeids)
 {
 	if (mg_statep(mg, MG_JOIN_SENT, MG_MEMBER | MG_LEAVE_SENT))
-		mg->state = MG_JOIN_START;
+		mg_statechange(mg, MG_JOIN_START);
 	else if (mg_statep(mg, MG_LEAVE_SENT, MG_MEMBER | MG_JOIN_SENT))
-		mg->state = MG_LEAVE_START;
+		mg_statechange(mg, MG_LEAVE_START);
 
 	mg->start_event_nr = mg->last_start;
 	mg->start_type = type;
@@ -829,9 +842,9 @@ void do_start(struct mountgroup *mg, int type, int member_count,
 out:
 	group_start_done(gh, mg->uuid, mg->start_event_nr);
 	if (mg_statep(mg, MG_JOIN_START, MG_MEMBER | MG_LEAVE_START))
-		mg->state = MG_JOIN_START_DONE;
+		mg_statechange(mg, MG_JOIN_START_DONE);
 	else if (mg_statep(mg, MG_LEAVE_START, MG_MEMBER | MG_JOIN_START))
-		mg->state = MG_LEAVE_START_DONE;
+		mg_statechange(mg, MG_LEAVE_START_DONE);
 }
 
 void do_finish(struct mountgroup *mg)
@@ -839,7 +852,7 @@ void do_finish(struct mountgroup *mg)
 	log_group(mg, "finish called");
 
 	if (mg_statep(mg, MG_JOIN_START_DONE, MG_MEMBER)) {
-		mg->state = MG_JOINED;
+		mg_statechange(mg, MG_JOINED);
 		if (!mg->error) {
 			assert(!mg->group_leave_on_finish);
 			notify_mount_client(mg);
@@ -870,7 +883,7 @@ void do_finish(struct mountgroup *mg)
 			log_error("group_leave(%s) failed: %s",
 				  mg->uuid, strerror(errno));
 		else
-			mg->state = MG_LEAVE_SENT;
+			mg_statechange(mg, MG_LEAVE_SENT);
 		mg->group_leave_on_finish = 0;
 	}
 }
@@ -883,7 +896,7 @@ void do_terminate(struct mountgroup *mg)
 		log_error("terminate called from state %d for group %s",
 			  mg->state, mg->uuid);
 
-	mg->state = MG_DEAD;
+	mg_statechange(mg, MG_DEAD);
 
 	if (mg->mount_client)
 		notify_mount_client(mg);
@@ -908,4 +921,30 @@ void do_terminate(struct mountgroup *mg)
 
 	list_del(&mg->list);
 	free(mg);
+}
+
+void dump_state(void)
+{
+	struct list_head *mgp, *mpp;
+	struct mountgroup *mg;
+	struct mountpoint *mp;
+
+	list_for_each(mgp, &mounts) {
+		mg = list_entry(mgp, struct mountgroup, list);
+		log_group(mg, "Cluster \"%s\", Device \"%s\"", mg->cluster,
+			  mg->device);
+		log_group(mg, "Last (stop %d) (start %d) (finish %d)",
+			  mg->last_stop, mg->last_start, mg->last_finish);
+		log_group(mg, "start_event_nr %d, start_type %d",
+			  mg->start_event_nr, mg->start_type);
+		log_group(mg, "error %d, error_msg \"%s\"",
+			  mg->error, mg->error ? mg->error_msg : "");
+		log_group(mg, "mount_client %d, mount_client_fd %d",
+			  mg->mount_client, mg->mount_client_fd);
+		list_for_each(mpp, &mg->mountpoints) {
+			mp = list_entry(mpp, struct mountpoint, list);
+			log_group(mg, "Mountpoint \"%s\", client %d",
+				  mp->mountpoint, mp->client);
+		}
+	}
 }

@@ -207,14 +207,12 @@ static int process_client(int ci)
 {
 	struct mountgroup *mg;
 	client_message message;
-	char out[OCFS2_CONTROLD_MAXLINE];
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+	char buf[OCFS2_CONTROLD_MAXLINE];
 	int rv, fd = client[ci].fd;
 
-	memset(out, 0, OCFS2_CONTROLD_MAXLINE);
-
 	/* receive_message ensures we have the proper number of arguments */
-	rv = receive_message(fd, &message, argv);
+	rv = receive_message(fd, buf, &message, argv);
 	if (rv == -EPIPE) {
 		client_dead(ci);
 		return 0;
@@ -225,7 +223,8 @@ static int process_client(int ci)
 		return rv;
 	}
 
-	log_debug("client message %d: %d", ci, message);
+	log_debug("client message %d from %d: %s", message, ci,
+		  message_to_string(message));
 
 	switch (message) {
 		case CM_MOUNT:
@@ -261,19 +260,10 @@ static int process_client(int ci)
 		log_error("Invalid message received");
 		break;
 	}
+	if (daemon_debug_opt)
+		dump_state();
 
 #if 0
-	} else if (!strcmp(cmd, "mount_result")) {
-		got_mount_result(client[ci].mg, atoi(argv[3]), ci,
-				 client[ci].another_mount);
-	} else if (!strcmp(cmd, "leave")) {
-		rv = do_unmount(ci, argv[1], atoi(argv[3]));
-		goto reply;
-
-	} else if (!strcmp(cmd, "remount")) {
-		rv = do_remount(ci, argv[1], argv[3]);
-		goto reply;
-
 	} else if (!strcmp(cmd, "dump")) {
 		dump_debug(ci);
 
@@ -540,7 +530,7 @@ void daemon_dump_save(void)
 
 char *prog_name;
 int daemon_debug_opt;
-char daemon_debug_buf[256];
+char daemon_debug_buf[1024];
 char dump_buf[DUMP_SIZE];
 int dump_point;
 int dump_wrap;

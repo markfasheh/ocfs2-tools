@@ -80,7 +80,7 @@ extern char *clustername;
 extern int our_nodeid;
 extern group_handle_t gh;
 extern int daemon_debug_opt;
-extern char daemon_debug_buf[256];
+extern char daemon_debug_buf[1024];
 extern char dump_buf[DUMP_SIZE];
 extern int dump_point;
 extern int dump_wrap;
@@ -89,14 +89,16 @@ extern void daemon_dump_save(void);
 
 #define log_debug(fmt, args...) \
 do { \
-	snprintf(daemon_debug_buf, 255, "%ld " fmt "\n", time(NULL), ##args); \
+	snprintf(daemon_debug_buf, 1023, "%ld %s@%d: " fmt "\n", \
+		 time(NULL), __FUNCTION__, __LINE__, ##args); \
 	if (daemon_debug_opt) fprintf(stderr, "%s", daemon_debug_buf); \
 	daemon_dump_save(); \
 } while (0)
 
 #define log_group(g, fmt, args...) \
 do { \
-	snprintf(daemon_debug_buf, 255, "%ld %s " fmt "\n", time(NULL), \
+	snprintf(daemon_debug_buf, 1023, "%ld %s@%d %s " fmt "\n", \
+		 time(NULL), __FUNCTION__, __LINE__, \
 		 (g)->uuid, ##args); \
 	if (daemon_debug_opt) fprintf(stderr, "%s", daemon_debug_buf); \
 	daemon_dump_save(); \
@@ -152,9 +154,6 @@ struct mountgroup {
 	int                     group_leave_on_finish;
 	int			remount_client;
 	int			state;
-	int			got_our_options;
-	int			got_our_journals;
-	int			delay_send_journals;
 	int			kernel_mount_error;
 	int			kernel_mount_done;
 	int			got_kernel_mount;
@@ -252,5 +251,7 @@ void ping_kernel_mount(char *table);
 int client_send(int ci, char *buf, int len);
 
 void update_flow_control_status(void);
+
+void dump_state(void);
 
 #endif

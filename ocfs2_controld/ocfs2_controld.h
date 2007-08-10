@@ -40,9 +40,11 @@ typedef enum {
 
 int client_listen(void);
 int client_connect(void);
+const char *message_to_string(client_message message);
 int send_message(int fd, client_message message, ...);
-int receive_message(int fd, client_message *message, char **argv);
-int receive_message_full(int fd, client_message *message, char **argv,
-			 char **rest);
+int receive_message(int fd, char *buf, client_message *message,
+		    char **argv);
+int receive_message_full(int fd, char *buf, client_message *message,
+			 char **argv, char **rest);
 
 #endif

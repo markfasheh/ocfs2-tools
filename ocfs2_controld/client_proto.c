@@ -41,6 +41,11 @@ DEFINE_MESSAGE(UNMOUNT, 3, "%s %s %s")
 DEFINE_MESSAGE(STATUS, 2, "%d %s")
 END_MESSAGES(message_list)
 
+const char *message_to_string(client_message message)
+{
+	return message_list[message].cm_command;
+}
+
 /* No short reads allowed */
 static int full_read(int fd, void *buf, size_t count)
 {
@@ -91,6 +96,7 @@ int send_message(int fd, client_message message, ...)
 	va_list args;
 	char mbuf[OCFS2_CONTROLD_MAXLINE];
 
+	memset(mbuf, 0, OCFS2_CONTROLD_MAXLINE);
 	va_start(args, message);
 	rc = vsnprintf(mbuf, OCFS2_CONTROLD_MAXLINE,
 		       message_list[message].cm_format, args);
@@ -144,26 +150,26 @@ out:
 	return rp;
 }
 
-int receive_message_full(int fd, client_message *message, char **argv,
-			 char **rest)
+int receive_message_full(int fd, char *buf, client_message *message,
+			 char **argv, char **rest)
 {
 	int i, rc, len, count;
 	client_message msg;
 	char *r;
-	char mbuf[OCFS2_CONTROLD_MAXLINE];
 
-	rc = full_read(fd, mbuf, OCFS2_CONTROLD_MAXLINE);
+	rc = full_read(fd, buf, OCFS2_CONTROLD_MAXLINE);
 	if (rc)
 		goto out;
 
 	/* Safety first */
-	mbuf[OCFS2_CONTROLD_MAXLINE - 1] = '\0';
+	buf[OCFS2_CONTROLD_MAXLINE - 1] = '\0';
+	fprintf(stderr, "Got messsage \"%s\"\n", buf);
 
 
 	for (i = 0; i < message_list_len; i++) {
 		len = strlen(message_list[i].cm_command);
-		if (!strncmp(mbuf, message_list[i].cm_command, len) &&
-		    (mbuf[len] == ' '))
+		if (!strncmp(buf, message_list[i].cm_command, len) &&
+		    (buf[len] == ' '))
 			break;
 	}
 	if (i >= message_list_len) {
@@ -172,11 +178,13 @@ int receive_message_full(int fd, client_message *message, char **argv,
 	}
 	msg = i;
 	
-	r = get_args(mbuf, &count, argv, ' ',
+	r = get_args(buf, &count, argv, ' ',
 		     message_list[msg].cm_argcount);
 	if (count != message_list[msg].cm_argcount) {
 		rc = -EBADMSG;
 	} else {
+		for (i = 0; i < count; i++)
+			fprintf(stderr, "Arg %d: \"%s\"\n", i, argv[i]);
 		if (message)
 			*message = msg;
 		if (rest)
@@ -187,9 +195,9 @@ out:
 	return rc;
 }
 
-int receive_message(int fd, client_message *message, char **argv)
+int receive_message(int fd, char *buf, client_message *message, char **argv)
 {
-	return receive_message_full(fd, message, argv, NULL);
+	return receive_message_full(fd, buf, message, argv, NULL);
 }
 
 int client_listen(void)
@@ -237,8 +245,10 @@ int client_connect(void)
 	int rv, fd;
 
 	fd = socket(PF_UNIX, SOCK_STREAM, 0);
-	if (fd < 0)
+	if (fd < 0) {
+		fd = -errno;
 		goto out;
+	}
 
 	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
@@ -248,7 +258,7 @@ int client_connect(void)
 	rv = connect(fd, (struct sockaddr *) &sun, addrlen);
 	if (rv < 0) {
 		close(fd);
-		fd = rv;
+		fd = -errno;
 	}
  out:
 	return fd;
