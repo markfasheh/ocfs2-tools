@@ -475,7 +475,7 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 	struct mountgroup mg_error = {
 		.error = 0,
 	};
-	struct mountgroup *mg;
+	struct mountgroup *mg = NULL;
 	struct mountpoint *mp;
 
 	log_debug("unmount: UMOUNT %s %s %s",
@@ -529,6 +529,7 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 	 */
 
 	reply = 0;
+	mg->mount_client = ci;
 
 	/*
 	 * We shouldn't be allowing another client to connect before
@@ -553,8 +554,11 @@ out:
 	if (reply)
 		send_message(fd, CM_STATUS, mg_error.error,
 			     mg_error.error ? mg_error.error_msg : "OK");
-	if (mg_error.error)
+	if (mg_error.error) {
+		if (mg)
+			mg->mount_client = 0;
 		rc = -mg_error.error;
+	}
 
 	return rc;
 }
@@ -572,7 +576,7 @@ static struct mg_member *find_memb_nodeid(struct mountgroup *mg, int nodeid)
 	return NULL;
 }
 
-#define MEMBER_LINK_FORMAT	"/sys/kernel/config/cluster/%s/region/%s/%s"
+#define MEMBER_LINK_FORMAT	"/sys/kernel/config/cluster/%s/heartbeat/%s/%s"
 #define MEMBER_TARGET_FORMAT	"/sys/kernel/config/cluster/%s/node/%s"
 static int drop_member(struct mountgroup *mg, struct mg_member *memb)
 {
@@ -591,9 +595,9 @@ static int drop_member(struct mountgroup *mg, struct mg_member *memb)
 
 	snprintf(link, PATH_MAX, MEMBER_LINK_FORMAT, clustername, mg->uuid,
 		 memb->name);
-	rc = rmdir(link);
+	rc = unlink(link);
 	if (rc)
-		log_error("rmdir of %s failed: %d", link, errno);
+		log_error("unlink of %s failed: %d", link, errno);
 
 	free(memb);
 
@@ -639,9 +643,12 @@ static int add_member(struct mountgroup *mg, int nodeid)
 	snprintf(nodepath, PATH_MAX, MEMBER_TARGET_FORMAT, clustername,
 		 memb->name);
 
+	log_group(mg, "Adding heartbeat link %s -> %s", link, nodepath);
 	rc = symlink(nodepath, link);
 	if (rc) {
 		rc = -errno;
+		log_error("Unable to create heartbeat link %s -> %s", link,
+			  nodepath);
 		goto out_free;
 	}
 
@@ -906,13 +913,16 @@ void do_terminate(struct mountgroup *mg)
 	 * the mountpoint.  A failed mount means that do_mount_result()
 	 * cleared the mountpoint.  Either way, the list of mountpoints
 	 * had better be empty by the time we've left the group.
+	 * XXX: A failed group join doesn't clear it yet...
 	 */
 	assert(list_empty(&mg->mountpoints));
 
 	/*
 	 * Drop all members from our local region, as we don't care about
-	 * them anymore.
+	 * them anymore.  Force start_type to LEAVE so that down_members()
+	 * doesn't complain.
 	 */
+	mg->start_type = GROUP_NODE_LEAVE;
 	down_members(mg, 0, NULL);
 	assert(list_empty(&mg->members));
 
