@@ -249,9 +249,14 @@ int main(int argc, char **argv)
 
 	initialize_o2cb();
 
-	/* if this daemon was killed and the cluster shut down, and
-	   then the cluster brought back up and this daemon restarted,
-	   there will be old configfs entries we need to clear out */
+	/*
+	 * If this daemon was killed and the cluster shut down, and
+	 * then the cluster brought back up and this daemon restarted,
+	 * there will be old configfs entries we need to clear out.
+	 * XXX: This can't work becasue we don't have cman to talk to.  We
+	 * need a cleanup that doesn't use cman_get_cluster().  Probably
+	 * needs to look at o2cb_list_clusters() and go from there.
+	 */
 	finalize_cluster();
 
 	return loop();
