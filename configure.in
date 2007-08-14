@@ -270,6 +270,7 @@ ocfs2cdsl/ocfs2cdsl.8
 ocfs2console/ocfs2console.8
 tunefs.ocfs2/tunefs.ocfs2.8
 vendor/common/ocfs2-tools.spec-generic
+vendor/common/o2cb.init
 ])
 
 AC_OUTPUT
