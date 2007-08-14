@@ -195,6 +195,34 @@ AC_CHECK_LIB(cman, cman_replyto_shutdown,
     [AC_MSG_WARN([libcman.h not found, cman support will not be built])])],
   [AC_MSG_WARN([libcman not found, cman support will not be built])])
 
+umount_newp()
+{
+    NEEDVER="2.12j"
+    FOUNDVER="`/bin/umount -V | awk '
+        /util-linux/{sub(/\)$/, "", $3); print $3}
+        /mount-/{sub(/^.*mount-/, ""); print}'`"
+
+    test "x$FOUNDVER" = "x" && return 1
+    test "x$FOUNDVER" = "x$NEEDVER" && return 0
+
+    # If we don't have exactly NEEDVER, we better sort to something better.
+    RESVER="`(echo "$NEEDVER"; echo "$FOUNDVER") | sort -n | tail -1`"
+    if test "x$RESVER" = "x$NEEDVER"; then
+        return 1
+    else
+        return 0
+    fi
+}
+if test "x$BUILD_CMAN_SUPPORT" = "xyes"; then
+    AC_MSG_CHECKING([for a new enough umount])
+    if umount_newp; then
+        AC_MSG_RESULT([found])
+    else
+        BUILD_CMAN_SUPPORT=
+        AC_MSG_RESULT([not found])
+        AC_MSG_WARN([umount is not new enough, cman support will not be built])
+    fi
+fi
 AC_SUBST(BUILD_CMAN_SUPPORT)
 
 BUILD_OCFS2CONSOLE=
