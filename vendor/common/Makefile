@@ -2,8 +2,22 @@ TOPDIR = ../..
 
 include $(TOPDIR)/Preamble.make
 
+SCRIPT_SH = o2cb.init.sh
+SCRIPTS = $(patsubst %.sh,%,$(SCRIPT_SH))
+
+# Depend on the substitution values
+$(SCRIPTS): $(TOPDIR)/Config.make
+
+$(patsubst %.sh,%,$(SCRIPT_SH)) : % : %.sh
+	rm -f $@ $@+
+	sed -e 's/@@CMAN_SUPPORTED@@/$(BUILD_CMAN_SUPPORT)/g' $@.sh >$@+
+	chmod +x $@+
+	mv $@+ $@
+
+ALL_RULES = $(SCRIPTS)
+
 DIST_FILES =					\
-	o2cb.init				\
+	$(SCRIPT_SH)				\
 	o2cb.sysconfig				\
 	ocfs2.init				\
 	ocfs2-tools.spec-generic.in		\

@@ -46,7 +46,7 @@ MIN_IDLE_TIMEOUT_MS=5000
 MIN_KEEPALIVE_DELAY_MS=1000
 MIN_RECONNECT_DELAY_MS=2000
 
-CMAN_SUPPORTED=@BUILD_CMAN_SUPPORT@
+CMAN_SUPPORTED=@@CMAN_SUPPORTED@@
 [ "$CMAN_SUPPORTED" != "yes" ] && CMAN_SUPPORTED=
 
 # Source configuration, 
@@ -309,6 +309,7 @@ EOF
         o2cb|heartbeat2)
             O2CB_STACK="$LINE"
             break
+            ;;
         cman)
             if [ "$CMAN_SUPPORTED" = "yes" ]
             then
