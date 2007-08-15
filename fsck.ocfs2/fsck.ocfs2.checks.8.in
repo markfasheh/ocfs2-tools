@@ -150,6 +150,13 @@ inode that doesn't match the descriptor's parent pointer.
 Answering yes updates the group descriptor's parent pointer to match the inode
 it resides in.
 
+.SS "GROUP_DUPLICATE"
+Group descriptors contain a pointer to the allocator inode which contains
+the chain they belong to.  A group descriptor was found in two allocator
+inodes so it may be duplicated.
+
+Answering yes removes the group descriptor from current allocator inode.
+
 .SS "GROUP_BLKNO"
 Group descriptors have a field which records their block location on disk.  A
 group descriptor was found at a given location but is recorded as being
@@ -656,6 +663,21 @@ with that backup.
 Answering yes will refresh the superblock from the backup. Answering no will
 only disable the copying of the backup superblock and will not effect the
 remaining \fIfsck.ocfs2\fR processing.
+
+.SS "ORPHAN_DIR_MISSING"
+While files are being deleted they are placed in an internal directory, named
+orphan directory. If an orphan directory does't exist, an OCFS2 volume can't
+be mounted successfully. Fsck has found the orphan directory is missing and
+would like to create it for future use.
+
+Answering yes creates the orphan directory in the system directory.
+
+.SS "JOURNAL_FILE_INVALID"
+OCFS2 uses JDB for journalling and some journal files exist in the
+system directory. Fsck has found some journal file is whther empty or has
+bad journal superblock and would like to fix it for future use.
+
+Answering yes reformats the journal file in the system directory.
 
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)

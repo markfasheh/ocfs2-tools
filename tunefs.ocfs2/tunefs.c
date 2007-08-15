@@ -249,10 +249,10 @@ static void get_options(int argc, char **argv)
 					"than %d",
 					OCFS2_MAX_SLOTS);
 				exit(1);
-			} else if (opts.num_slots < 2) {
+			} else if (opts.num_slots < 1) {
 				com_err(opts.progname, 0,
 					"Number of node slots must be at "
-					"least 2");
+					"least 1");
 				exit(1);
 			}
 			break;
@@ -863,7 +863,10 @@ static errcode_t update_slots(ocfs2_filesys *fs, int *changed)
 	errcode_t ret = 0;
 
 	block_signals(SIG_BLOCK);
-	ret = add_slots(fs);
+	if (opts.num_slots > OCFS2_RAW_SB(fs->fs_super)->s_max_slots)
+		ret = add_slots(fs);
+	else
+		ret = remove_slots(fs);
 	block_signals(SIG_UNBLOCK);
 	if (ret)
 		return ret;
@@ -1253,7 +1256,7 @@ int main(int argc, char **argv)
 	int upd_incompat = 0;
 	int upd_backup_super = 0;
 	char *tmpstr;
-	uint16_t tmp;
+	uint16_t max_slots;
 	uint64_t def_jrnl_size = 0;
 	uint64_t num_clusters;
 	int dirty = 0;
@@ -1298,6 +1301,13 @@ int main(int argc, char **argv)
 	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
 	    OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
 		fprintf(stderr, "Aborted resize detected. Run fsck.ocfs2 -f <device>.\n");
+		goto close;
+	}
+
+	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
+	    OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG) {
+		fprintf(stderr, "Aborted tunefs operation detected. "
+			"Run fsck.ocfs2 -f <device>.\n");
 		goto close;
 	}
 
@@ -1377,20 +1387,29 @@ int main(int argc, char **argv)
 	}
 
 	/* validate num slots */
+	max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	if (opts.num_slots) {
-		tmp = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
-		if (opts.num_slots > tmp) {
-			printf("Changing number of node slots from %d to %d\n",
-			       tmp, opts.num_slots);
+		if (opts.num_slots < max_slots) {
+			ret = remove_slot_check(fs);
+			if (ret) {
+				com_err(opts.progname, 0,
+					"remove slot check failed. ");
+				goto unlock;
+			}
+		}
+		else if (opts.num_slots > max_slots) {
+			if (!opts.jrnl_size)
+				opts.jrnl_size = def_jrnl_size;
+
 		} else {
-			com_err(opts.progname, 0, "Node slots (%d) has to be "
-				"more than the configured node slots (%d)",
-			       opts.num_slots, tmp);
-			goto unlock;
+			printf("Giving the same number of nodes. "
+				"Ignore the change of slots.");
+			opts.num_slots = 0;
 		}
 
-		if (!opts.jrnl_size)
-			opts.jrnl_size = def_jrnl_size;
+		if (opts.num_slots)
+			printf("Changing number of node slots from %d to %d\n",
+			       max_slots, opts.num_slots);
 	}
 
 	/* validate journal size */
@@ -1433,9 +1452,17 @@ int main(int argc, char **argv)
 	}
 
 	/* Set resize incompat flag on superblock */
-	if (opts.num_blocks) {
-		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
-			OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+	if (opts.num_blocks || opts.num_slots < max_slots) {
+		if (opts.num_blocks)
+			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+				OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+		else {
+			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+				OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
+			OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag |=
+				OCFS2_TUNEFS_INPROG_REMOVE_SLOT;
+		}
+
 		ret = ocfs2_write_super(fs);
 		if (ret) {
 			com_err(opts.progname, ret,
@@ -1467,8 +1494,15 @@ int main(int argc, char **argv)
 				"while updating node slots");
 			goto unlock;
 		}
+		/* Clear remove slot incompat flag on superblock */
+		if (opts.num_slots < max_slots) {
+			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+				~OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
+			OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag &=
+				~OCFS2_TUNEFS_INPROG_REMOVE_SLOT;
+		}
 		if (upd_slots)
-			printf("Added node slots\n");
+			printf("Changed node slots\n");
 	}
 
 	/* change mount type */

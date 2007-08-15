@@ -91,11 +91,76 @@ static void find_max_free_bits(struct ocfs2_group_desc *gd, int *max_free_bits)
 	}
 }
 
+/* check whether the group really exists in the specified chain of
+ * the specified allocator file.
+ */
+static errcode_t check_group_parent(ocfs2_filesys *fs, uint64_t group,
+				    uint64_t ino, uint16_t chain,int *exist)
+{
+	errcode_t ret;
+	uint64_t gd_blkno;
+	char *buf = NULL, *gd_buf = NULL;
+	struct ocfs2_dinode *di = NULL;
+	struct ocfs2_group_desc *gd = NULL;
+	struct ocfs2_chain_rec *cr = NULL;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_inode(fs, ino, buf);
+	if (ret) {
+		goto out;
+	}
+
+	di = (struct ocfs2_dinode *)buf;
+
+	if (!(di->i_flags & OCFS2_VALID_FL) ||
+	    !(di->i_flags & OCFS2_BITMAP_FL) ||
+	    !(di->i_flags & OCFS2_CHAIN_FL))
+		goto out;
+
+	if (di->id1.bitmap1.i_total == 0)
+		goto out;
+
+	if (di->id2.i_chain.cl_next_free_rec <= chain)
+		goto out;
+
+	cr = &di->id2.i_chain.cl_recs[chain];
+
+	ret = ocfs2_malloc_block(fs->fs_io, &gd_buf);
+	if (ret)
+		goto out;
+
+	gd_blkno = cr->c_blkno;
+	while (gd_blkno) {
+		if (gd_blkno ==  group) {
+			*exist = 1;
+			break;
+		}
+
+		ret = ocfs2_read_group_desc(fs, gd_blkno, gd_buf);
+		if (ret)
+			goto out;
+		gd = (struct ocfs2_group_desc *)gd_buf;
+
+		gd_blkno = gd->bg_next_group;
+	}
+
+out:
+	if (gd_buf)
+		ocfs2_free(&gd_buf);
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 static errcode_t repair_group_desc(o2fsck_state *ost,
 				   struct ocfs2_dinode *di,
 				   struct chain_state *cs,
 				   struct ocfs2_group_desc *bg,
-				   uint64_t blkno)
+				   uint64_t blkno,
+				   int *clear_ref)
 {
 	errcode_t ret = 0;
 	int changed = 0;
@@ -121,14 +186,36 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 	/* XXX maybe for advanced pain we could check to see if these 
 	 * kinds of descs have valid generations for the inodes they
 	 * reference */
-	if ((bg->bg_parent_dinode != di->i_blkno) &&
-	    prompt(ost, PY, PR_GROUP_PARENT,
+	if ((bg->bg_parent_dinode != di->i_blkno)) {
+		int exist = 0;
+		ret = check_group_parent(ost->ost_fs, bg->bg_blkno,
+					 bg->bg_parent_dinode,
+					 bg->bg_chain, &exist);
+
+		/* If we finds that the group really exists in the specified
+		 * chain of the specified alloc inode, then this may be a
+		 * duplicated group and we may need to remove it from current
+		 * inode.
+		 */
+		if (!ret && exist && prompt(ost, PY, PR_GROUP_DUPLICATE,
+		   "Group descriptor at block %"PRIu64" is "
+		   "referenced by inode %"PRIu64" but thinks its parent inode "
+		   "is %"PRIu64" and we can also see it in that inode."
+		    " So it may be duplicated.  Remove it from this inode?",
+		    blkno, di->i_blkno, bg->bg_parent_dinode)) {
+			*clear_ref = 1;
+			goto out;
+		}
+
+		if (prompt(ost, PY, PR_GROUP_PARENT,
 		   "Group descriptor at block %"PRIu64" is "
 		   "referenced by inode %"PRIu64" but thinks its parent inode "
 		   "is %"PRIu64".  Fix the descriptor's parent inode?", blkno,
 		   di->i_blkno, bg->bg_parent_dinode)) {
-		bg->bg_parent_dinode = di->i_blkno;
-		changed = 1;
+			bg->bg_parent_dinode = di->i_blkno;
+			changed = 1;
+		}
+
 	}
 
 	if ((bg->bg_blkno != blkno) &&
@@ -179,7 +266,7 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 
 	cs->cs_total_bits += bg->bg_bits;
 	cs->cs_free_bits += bg->bg_free_bits_count;
-
+out:
 	return ret;
 }
 
@@ -474,10 +561,19 @@ static errcode_t check_chain(o2fsck_state *ost,
 			break;
 		}
 
-		ret = repair_group_desc(ost, di, cs, bg2, blkno);
+		ret = repair_group_desc(ost, di, cs, bg2, blkno, &clear_ref);
 		if (ret)
 			goto out;
 
+		/* we found a duplicate chain, so we need to clear them from
+		 * current chain.
+		 *
+		 * Please note that all the groups below this group will also
+		 * be removed from this chain because this is the mechanism
+		 * of removing slots in tunefs.ocfs2.
+		 */
+		if (clear_ref)
+			break;
 
 		/* the loop will now start by reading bg1->next_group */
 		memcpy(buf1, buf2, ost->ost_fs->fs_blocksize);

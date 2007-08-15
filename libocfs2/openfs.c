@@ -264,6 +264,16 @@ errcode_t ocfs2_open(const char *name, int flags,
 		if (OCFS2_RAW_SB(fs->fs_super)->s_feature_compat &
 		    ~OCFS2_LIB_FEATURE_COMPAT_SUPP)
 			    goto out;
+
+		/* We need to check s_tunefs_flag also to make sure
+		 * fsck.ocfs2 won't try to clean up an aborted tunefs
+		 * that it doesn't know.
+		 */
+		if (OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG) &&
+		    (OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag &
+		     ~OCFS2_LIB_ABORTED_TUNEFS_SUPP))
+			goto out;
 	}
 
 	ret = OCFS2_ET_UNSUPP_FEATURE;

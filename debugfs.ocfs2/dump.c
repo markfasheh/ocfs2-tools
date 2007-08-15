@@ -39,10 +39,12 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	GString *compat = NULL;
 	GString *incompat = NULL;
 	GString *rocompat = NULL;
+	GString *tunefs_flag = NULL;
 
 	compat = g_string_new(NULL);
 	incompat = g_string_new(NULL);
 	rocompat = g_string_new(NULL);
+	tunefs_flag = g_string_new(NULL);
 
 	fprintf(out, "\tRevision: %u.%u\n", sb->s_major_rev_level, sb->s_minor_rev_level);
 	fprintf(out, "\tMount Count: %u   Max Mount Count: %u\n", sb->s_mnt_count,
@@ -57,12 +59,16 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 
 	get_compat_flag(sb->s_feature_compat, compat);
 	get_incompat_flag(sb->s_feature_incompat, incompat);
+	get_tunefs_flag(sb->s_feature_incompat,
+			sb->s_tunefs_flag, tunefs_flag);
 	get_rocompat_flag(sb->s_feature_ro_compat, rocompat);
 
 	fprintf(out, "\tFeature Compat: %u %s\n", sb->s_feature_compat,
 		compat->str);
 	fprintf(out, "\tFeature Incompat: %u %s\n", sb->s_feature_incompat,
 		incompat->str);
+	fprintf(out, "\tTunefs Incomplete: %u %s\n", sb->s_tunefs_flag,
+		tunefs_flag->str);
 	fprintf(out, "\tFeature RO compat: %u %s\n", sb->s_feature_ro_compat,
 		rocompat->str);
 

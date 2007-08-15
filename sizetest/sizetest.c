@@ -137,8 +137,8 @@ static void print_ocfs2_super_block(void)
 	SHOW_OFFSET(struct ocfs2_super_block, s_blocksize_bits);
 	SHOW_OFFSET(struct ocfs2_super_block, s_clustersize_bits);
 	SHOW_OFFSET(struct ocfs2_super_block, s_max_slots);
+	SHOW_OFFSET(struct ocfs2_super_block, s_tunefs_flag);
 	SHOW_OFFSET(struct ocfs2_super_block, s_reserved1);
-	SHOW_OFFSET(struct ocfs2_super_block, s_reserved2);
 	SHOW_OFFSET(struct ocfs2_super_block, s_first_cluster_group);
 	SHOW_OFFSET(struct ocfs2_super_block, s_label);
 	SHOW_OFFSET(struct ocfs2_super_block, s_uuid);

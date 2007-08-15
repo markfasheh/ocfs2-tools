@@ -42,14 +42,35 @@ void get_incompat_flag(uint32_t flag, GString *str)
 	if (flag & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
 		g_string_append(str, "Sparse ");
 
+	if (flag & OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG) {
+		g_string_append(str, "AbortedTunefs ");
+	}
+
 	if (flag & ~(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV |
 		     OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG |
 		     OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT |
-		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC))
+		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
+		     OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG))
 		g_string_append(str, "Unknown ");
 
 	if (!str->len)
 		g_string_append(str, "None");
+
+	return;
+}
+
+void get_tunefs_flag(uint32_t incompat_flag, uint16_t flag, GString *str)
+{
+	if (!(incompat_flag & OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG)) {
+		g_string_append(str, "None");
+		return;
+	}
+
+	if (flag & OCFS2_TUNEFS_INPROG_REMOVE_SLOT)
+		g_string_append(str, "RemoveSlot ");
+
+	if (flag & ~OCFS2_TUNEFS_INPROG_REMOVE_SLOT)
+		g_string_append(str, "Unknown ");
 
 	return;
 }

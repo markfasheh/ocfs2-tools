@@ -735,3 +735,87 @@ out:
 
 	return ret;
 }
+
+static errcode_t check_journal_super(ocfs2_filesys *fs,
+				     ocfs2_cached_inode *ci)
+{
+	errcode_t ret;
+	int contig;
+	uint64_t blkno;
+	char *buf = NULL;
+
+	ret = ocfs2_malloc_blocks(fs->fs_io, 1, &buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_extent_map_init(fs, ci);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &blkno, &contig);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_journal_superblock(fs, blkno, buf);
+out:
+	return ret;
+}
+
+/* When we remove slot in tunefs.ocfs2, there may be some panic and
+ * we may corrupt some journal files, so we have to check whether the
+ * journal file is corrupted and recreate it.
+ */
+errcode_t o2fsck_check_journals(o2fsck_state *ost)
+{
+	errcode_t ret = 0;
+	uint64_t blkno;
+	uint32_t num_clusters = 0;
+	ocfs2_filesys *fs = ost->ost_fs;
+	char fname[OCFS2_MAX_FILENAME_LEN];
+	uint16_t i, max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	ocfs2_cached_inode *ci = NULL;
+
+	for (i = 0; i < max_slots; i++) {
+		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
+						&blkno);
+		if (ret)
+			goto out;
+
+		ret = ocfs2_read_cached_inode(fs, blkno, &ci);
+		if (ret)
+			goto out;
+
+		if (ci->ci_inode->i_clusters > 0) {
+			/* check whether the file contains valid super block. */
+			ret = check_journal_super(fs, ci);
+			if (!ret) {
+				/* record the valid cluster size. */
+				num_clusters = ci->ci_inode->i_clusters;
+				continue;
+			}
+		}
+
+		if (num_clusters == 0) {
+			/* none of the journal is valid, servere errors. */
+			ret = OCFS2_ET_JOURNAL_TOO_SMALL;
+			goto out;
+		}
+
+		sprintf(fname,
+			ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
+		if (!prompt(ost, PY, PR_JOURNAL_FILE_INVALID,
+			    "journal file %s is invalid, regenerate it?",
+			    fname))
+			continue;
+
+		ret = ocfs2_make_journal(fs, blkno, num_clusters);
+		if (ret)
+			goto out;
+	}
+
+out:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+	return ret;
+}
+

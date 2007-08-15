@@ -34,6 +34,7 @@ typedef struct _rdump_opts {
 } rdump_opts;
 
 void get_incompat_flag(uint32_t flag, GString *str);
+void get_tunefs_flag(uint32_t incompat_flag, uint16_t flag, GString *str);
 void get_compat_flag(uint32_t flag, GString *str);
 void get_rocompat_flag(uint32_t flag, GString *str);
 void get_vote_flag (uint32_t flag, GString *str);

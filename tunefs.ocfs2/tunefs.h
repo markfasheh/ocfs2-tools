@@ -92,3 +92,5 @@ typedef struct _ocfs2_tune_opts {
 
 void print_query(char *queryfmt);
 
+errcode_t remove_slots(ocfs2_filesys *fs);
+errcode_t remove_slot_check(ocfs2_filesys *fs);

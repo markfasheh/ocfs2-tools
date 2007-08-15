@@ -152,6 +152,46 @@ out:
 	return ret_flags;
 }
 
+static errcode_t create_orphan_dir(o2fsck_state *ost, char *fname)
+{
+	errcode_t ret;
+	uint64_t blkno;
+	ocfs2_filesys *fs = ost->ost_fs;
+
+	/* create inode for system file */
+	ret = ocfs2_new_system_inode(fs, &blkno,
+			ocfs2_system_inodes[ORPHAN_DIR_SYSTEM_INODE].si_mode,
+			ocfs2_system_inodes[ORPHAN_DIR_SYSTEM_INODE].si_iflags);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_expand_dir(fs, blkno, fs->fs_sysdir_blkno);
+	if (ret)
+		goto bail;
+
+	/* Add the inode to the system dir */
+	ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname, blkno,
+			 OCFS2_FT_DIR);
+	if (ret == OCFS2_ET_DIR_NO_SPACE) {
+		ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno,
+				       fs->fs_sysdir_blkno);
+		if (!ret)
+			ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
+					 fname, blkno, OCFS2_FT_DIR);
+	}
+
+	if (ret)
+		goto bail;
+
+	/* we have created an orphan dir under system dir and updated the disk,
+	 * so we have to update the refs in ost accordingly.
+	 */
+	o2fsck_icount_delta(ost->ost_icount_refs, fs->fs_sysdir_blkno, 1);
+	o2fsck_icount_delta(ost->ost_icount_in_inodes, fs->fs_sysdir_blkno, 1);
+bail:
+	return ret;
+}
+
 static errcode_t replay_orphan_dir(o2fsck_state *ost)
 {
 	errcode_t ret = OCFS2_ET_CORRUPT_SUPERBLOCK;
@@ -171,8 +211,25 @@ static errcode_t replay_orphan_dir(o2fsck_state *ost)
 
 		ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_sysdir_blkno,
 				   name, bytes, NULL, &ino);
-		if (ret)
-			goto out;
+		if (ret) {
+			if (ret != OCFS2_ET_FILE_NOT_FOUND)
+				goto out;
+
+			/* orphan dir is missing, it may be caused by an
+			 * unsuccessful removing slots in tunefs.ocfs2.
+			 * so create it.
+			 */
+	   		if (prompt(ost, PY, PR_ORPHAN_DIR_MISSING,
+				   "%s is missing in system directory. "
+				   "Create it?", name)) {
+				ret = create_orphan_dir(ost, name);
+				if (ret) {
+					com_err(whoami, ret, "while creating"
+						"orphan directory %s", name);
+					continue;
+				}
+			}
+		}
 
 		ret = ocfs2_dir_iterate(ost->ost_fs, ino,
 					OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,

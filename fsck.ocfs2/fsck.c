@@ -182,6 +182,12 @@ static errcode_t write_out_superblock(o2fsck_state *ost)
 	if (sb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG)
 		sb->s_feature_incompat &= ~OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
 
+	if (sb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG) {
+		sb->s_feature_incompat &=
+				 ~OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
+		sb->s_tunefs_flag = 0;
+	}
+
 	if (ost->ost_num_clusters)
 		di->i_clusters = ost->ost_num_clusters;
 
@@ -262,6 +268,9 @@ static int fs_is_clean(o2fsck_state *ost, char *filename)
 	else if ((OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_incompat &
 		  OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG))
 		strcpy(reason, "incomplete volume resize detected");
+	else if ((OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_incompat &
+		  OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG))
+		strcpy(reason, "incomplete tunefs operation detected");
 	else if (sb->s_state & OCFS2_ERROR_FS)
 		strcpy(reason, "contains a file system with errors");
 	else if (sb->s_max_mnt_count > 0 &&
@@ -654,6 +663,15 @@ int main(int argc, char **argv)
 	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
 	printf("  max slots:          %u\n\n", 
 	       OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots);
+
+	if (open_flags & OCFS2_FLAG_RW) {
+		ret = o2fsck_check_journals(ost);
+		if (ret) {
+			printf("fsck saw unrecoverable errors in the journal "
+				"files and will not continue.\n");
+			goto unlock;
+		}
+	}
 
 	ret = maybe_replay_journals(ost, filename, open_flags, blkno, blksize);
 	if (ret) {
