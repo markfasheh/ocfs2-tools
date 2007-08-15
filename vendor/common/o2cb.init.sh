@@ -17,6 +17,14 @@
 # Force LC_ALL=C
 export LC_ALL=C
 
+# Let's try to use the LSB functions
+. /lib/lsb/init-functions
+if [ $? != 0 ]
+then
+    echo "Unable to load LSB init functions" >&2
+    exit 1
+fi
+
 CLUSTERCONF=/etc/ocfs2/cluster.conf
 
 if [ -f /etc/sysconfig/o2cb ]
@@ -33,6 +41,9 @@ then
 else
     CONFIGURATION=/etc/default/o2cb
 fi
+
+# How long to wait to start things
+BRINGUP_TIMEOUT=5
 
 # The default values should always be in sync with the kernel
 DEF_HEARTBEAT_THRESHOLD=31
@@ -953,16 +964,64 @@ load()
     return 0
 }
 
+status_heartbeat()
+{
+    case "$O2CB_STACK" in
+        o2cb) HB_METHOD="disk" ;;
+        heartbeat2) HB_METHOD="user" ;;
+        cman)
+            if [ "$CMAN_SUPPORTED" = "yes" ]
+            then
+                HB_METHOD="user"
+            else
+                echo "Cluster stack \"${O2CB_STACK}\" not supported" >&2
+                exit 1
+            fi
+            ;;
+        *)
+            echo "Invalid O2CB_STACK: $O2CB_STACK" >&2
+            exit 1
+        ;;
+    esac
+
+    echo -n "Heartbeat driver \"$HB_METHOD\": "
+    if [ ! -e "$(configfs_path)/cluster" ]
+    then
+        echo "Not loaded"
+        return
+    fi
+    
+    if [ ! -e "$(configfs_path)/cluster/heartbeat_mode" ]
+    then
+        if [ "$HB_METHOD" = "disk" ]
+        then
+            echo "Loaded"
+        else
+            echo "Not supported"
+        fi
+        return
+    fi
+    
+    CUR_METHOD="$(cat "$(configfs_path)/cluster/heartbeat_mode")"
+    if [ "$CUR_METHOD" = "$HB_METHOD" ]
+    then
+        echo "Loaded"
+        return
+    fi
+
+    if grep "$HB_METHOD" "$(configfs_path)/cluster/heartbeat_available_modes" >/dev/null 2>&1
+    then
+        echo "Loaded but not active"
+    else
+        echo "Not loaded"
+    fi
+}
+
 load_status()
 {
     status_filesystem "configfs" "$(configfs_path)"
     status_filesystem "ocfs2_dlmfs" "/dlm"
-
-    # TODO
-    # Check the status of the appropriate heartbeat driver based on our
-    # cluster type.
-
-    return 0
+    status_heartbeat
 }
 
 online_o2cb()
@@ -997,9 +1056,79 @@ online_o2cb()
     if_fail "$?" "$OUTPUT"
 }
 
+cman_name()
+{
+    /usr/sbin/cman_tool status 2>/dev/null | awk '/^Cluster Name:/{print $3}'
+}
+
+bringup_daemon()
+{
+    if [ "$#" != 1 -o -z "$1" ]
+    then
+        echo "bringup_daemon(): Requires an argument" >&2
+        return 1
+    fi
+    DAEMON="$1"
+
+    echo -n "Starting $(basename "$DAEMON"): "
+    start_daemon "$DAEMON"
+    [ $? != 0 ] && return 1
+
+    COUNT=0
+    while [ -z "$(pidofproc "$DAEMON")" ]
+    do
+        COUNT="$(expr "$COUNT" + 1)"
+        if [ "$COUNT" -gt "$BRINGUP_TIMEOUT" ]
+        then
+            return 1
+        fi
+        sleep 1
+    done
+
+    return 0
+}
+
 online_cman()
 {
-    echo "online_cman isn't working yet"
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "online_o2cb(): Requires an argument" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+
+    CMAN_CLUSTER="$(cman_name)"
+    if [ -z "$CMAN_CLUSTER" ]
+    then
+        echo -n "Checking for cman cluster: "
+        if_fail 1 "Cman not running"
+    fi
+
+    if [ "$CMAN_CLUSTER" != "$CLUSTER" ]
+    then
+        echo -n "Checking for cluster \"$CLUSTER\": "
+        if_fail 1 "Cman cluster is \"$CMAN_CLUSTER\", not \"$CLUSTER\""
+    fi
+
+    bringup_daemon /sbin/o2cb_controld
+    if_fail $? "Unable to start /sbin/o2cb_controld"
+    
+    COUNT=0
+    while [ ! -d "$(configfs_path)/cluster/${CLUSTER}" ]
+    do
+        COUNT="$(expr "$COUNT" + 1)"
+        if [ "$COUNT" -gt "$BRINGUP_TIMEOUT" ]
+        then
+            echo -n "Setting timeout values: "
+            if_fail 1 "Cluster timeout access not available"
+        fi
+        sleep 1
+    done
+
+    set_timeouts
+        
+    bringup_daemon /sbin/ocfs2_controld
+    if_fail $? "Unable to start /sbin/ocfs2_controld"
 }
 
 online()
@@ -1103,7 +1232,38 @@ offline_o2cb()
 
 offline_cman()
 {
-    echo "online_cman isn't working yet"
+    if [ "$#" -lt "2" -o -z "$1" -o -z "$2" ]
+    then
+        echo "offline_o2cb(): Missing arguments" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+    FORCE="$2"
+
+    CMAN_CLUSTER="$(cman_name)"
+    if [ -z "$CMAN_CLUSTER" ]
+    then
+        echo -n "Checking for cman cluster: "
+        if_fail 1 "Cman not running"
+    fi
+
+    if [ "$CMAN_CLUSTER" != "$CLUSTER" ]
+    then
+        echo -n "Checking for cluster \"$CLUSTER\": "
+        if_fail 1 "Cman cluster is \"$CMAN_CLUSTER\", not \"$CLUSTER\""
+    fi
+
+    echo -n "Stopping O2CB cluster ${CLUSTER}: "
+    check_heartbeat $CLUSTER
+    [ $? != 0 ] && if_fail 1 "Unable to stop cluster as heartbeat region still active"
+ 
+    echo -n "Stopping ocfs2_controld: "
+    killproc /sbin/ocfs2_controld
+    if_fail $? "Unable to stop ocfs2_controld"
+
+    echo -n "Stopping o2cb_controld: "
+    killproc /sbin/o2cb_controld
+    if_fail $? "Unable to stop o2cb_controld"
 }
 
 offline()
