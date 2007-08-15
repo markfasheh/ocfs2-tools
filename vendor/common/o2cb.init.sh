@@ -1024,6 +1024,23 @@ load_status()
     status_heartbeat
 }
 
+status_cman()
+{
+    FOUND=0
+
+    echo -n "Checking for daemons: "
+    for d in o2cb_controld ocfs2_controld
+    do
+        if [ -n "$(pidofproc "/sbin/${d}")" ]
+        then
+            FOUND=1
+            echo -n "${d} "
+        fi
+    done
+    [ "$FOUND" = 0 ] && echo -n "not running"
+    echo
+}
+
 online_o2cb()
 {
     if [ "$#" -lt "1" -o -z "$1" ]
@@ -1388,6 +1405,8 @@ status()
     then
         return 1;
     fi
+
+    [ "$O2CB_STACK" = "cman" -a "$CMAN_SUPPORTED" = "yes" ] && status_cman
 
     echo -n "Checking O2CB cluster $CLUSTER: "
     check_online $CLUSTER
