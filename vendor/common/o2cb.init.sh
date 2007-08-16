@@ -26,6 +26,7 @@ then
 fi
 
 CLUSTERCONF=/etc/ocfs2/cluster.conf
+STACKCONF=/var/run/o2cb.stack
 
 if [ -f /etc/sysconfig/o2cb ]
 then
@@ -1181,6 +1182,12 @@ online()
             ;;
     esac
 
+    echo "$O2CB_STACK" >"$STACKCONF" 2>/dev/null
+    if [ "$?" != 0 ]
+    then
+        echo -n "Setting O2CB_STACK file: "
+        if_fail $? "Unable to store cluster stack information"
+    fi
 }
 
 #
@@ -1270,9 +1277,12 @@ offline_cman()
         if_fail 1 "Cman cluster is \"$CMAN_CLUSTER\", not \"$CLUSTER\""
     fi
 
-    echo -n "Stopping O2CB cluster ${CLUSTER}: "
     check_heartbeat $CLUSTER
-    [ $? != 0 ] && if_fail 1 "Unable to stop cluster as heartbeat region still active"
+    if [ $? != 0 ]
+    then
+        echo -n "Stopping O2CB cluster ${CLUSTER}: "
+        if_fail 1 "Unable to stop cluster as heartbeat region still active"
+    fi
  
     echo -n "Stopping ocfs2_controld: "
     killproc /sbin/ocfs2_controld
@@ -1319,6 +1329,8 @@ offline()
             exit 1
             ;;
     esac
+
+    rm -f "$STACKCONF" 2>/dev/null
 
     unload_module ocfs2
     if_fail "$?"
