@@ -36,6 +36,8 @@ debug_%: debug_%.o libo2cb.a
 
 endif
 
+PROTO_CFILES = client_proto.c
+
 CFILES = 		\
 	o2cb_abi.c	\
 	o2cb_crc32.c
@@ -44,6 +46,7 @@ HFILES =				\
 	include/ocfs2_nodemanager.h	\
 	include/ocfs2_heartbeat.h	\
 	include/o2cb_abi.h		\
+	include/o2cb_client_proto.h	\
 	include/o2cb_crc32.h		\
 	include/o2cb.h			\
 	include/sparse_endian_types.h
@@ -56,6 +59,11 @@ HEADERS = $(HFILES) $(HFILES_GEN)
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2cb_err.o
+
+ifneq ($(BUILD_CMAN_SUPPORT),)
+DEFINES += -DHAVE_CMAN
+OBJS += $(subst .c,.o,$(PROTO_CFILES))
+endif
 
 $(OBJS): $(HFILES_GEN)
 
@@ -70,7 +78,7 @@ libo2cb.a: $(OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et
+DIST_FILES = $(CFILES) $(PROTO_CFILES) $(HFILES) o2cb_err.et
 
 DIST_RULES = dist-subdircreate
 

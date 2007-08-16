@@ -22,13 +22,16 @@
  *  of the GNU General Public License v.2.
  */
 
-#ifndef __OCFS2_CONTROLD_H
-#define __OCFS2_CONTROLD_H
+#ifndef __O2CB_CLIENT_PROTO_H
+#define __O2CB_CLIENT_PROTO_H
+
+#ifdef HAVE_CMAN
 
 /* Basic communication properties */
 #define OCFS2_CONTROLD_MAXLINE		256
 #define OCFS2_CONTROLD_MAXARGS		16
 #define OCFS2_CONTROLD_SOCK_PATH	"ocfs2_controld_sock"
+#define OCFS2_FSTYPE "ocfs2"
 
 /* Client messages */
 typedef enum {
@@ -47,4 +50,6 @@ int receive_message(int fd, char *buf, client_message *message,
 int receive_message_full(int fd, char *buf, client_message *message,
 			 char **argv, char **rest);
 
-#endif
+#endif  /* HAVE_CMAN */
+
+#endif  /* __O2CB_CLIENT_PROTO_H */

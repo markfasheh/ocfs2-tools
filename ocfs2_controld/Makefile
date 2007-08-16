@@ -24,26 +24,22 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
-	  -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+	  -DO2CB_FLAT_INCLUDES -DHAVE_CMAN -DVERSION=\"$(VERSION)\"
 
-PROTO_CFILES = client_proto.c
 DAEMON_CFILES = group.c main.c member_cman.c action.c
 
 
-HFILES = ocfs2_controld.h
 UNINST_HFILES = ocfs2_controld_internal.h
 
 TEST_CFILES = test_client.c
 
-DAEMON_OBJS = $(subst .c,.o,$(DAEMON_CFILES) $(PROTO_CFILES))
+DAEMON_OBJS = $(subst .c,.o,$(DAEMON_CFILES))
 TEST_OBJS = $(subst .c,.o,$(TEST_CFILES) $(PROTO_CFILES))
 MANS =
 
 DIST_FILES =				\
-	$(PROTO_CFILES)			\
 	$(DAEMON_CFILES)		\
 	$(TEST_CFILES)			\
-	$(HFILES)			\
 	$(UNINST_HFILES)		\
 	$(addsuffix .in,$(MANS))
 

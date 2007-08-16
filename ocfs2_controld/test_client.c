@@ -20,9 +20,8 @@
 #include "o2cb.h"
 #include "ocfs2_fs.h"
 #include "ocfs2.h"
-#include "ocfs2_controld.h"
+#include "o2cb_client_proto.h"
 
-#define OCFS2_FSTYPE "ocfs2"
 
 
 static int parse_status(char **args, int *error, char **error_msg)

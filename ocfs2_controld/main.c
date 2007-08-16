@@ -22,7 +22,7 @@
  *  of the GNU General Public License v.2.
  */
 
-#include "ocfs2_controld.h"
+#include "o2cb_client_proto.h"
 #include "ocfs2_controld_internal.h"
 
 #define OPTION_STRING			"DhVw"

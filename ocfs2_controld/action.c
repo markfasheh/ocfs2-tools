@@ -28,7 +28,7 @@
 #include <assert.h>
 
 #include "o2cb.h"
-#include "ocfs2_controld.h"
+#include "o2cb_client_proto.h"
 #include "ocfs2_controld_internal.h"
 
 
@@ -95,11 +95,6 @@ static int mg_statep(struct mountgroup *mg, enum mountgroup_state test,
 static int mg_joining(struct mountgroup *mg)
 {
 	return mg_statep(mg, MG_JOINING, 0);
-}
-
-static int mg_leaving(struct mountgroup *mg)
-{
-	return mg_statep(mg, MG_LEAVING, 0);
 }
 
 static void notify_mount_client(struct mountgroup *mg)

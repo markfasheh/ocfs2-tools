@@ -17,7 +17,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "ocfs2_controld.h"
+#include "o2cb_client_proto.h"
 
 struct client_message {
 	char *cm_command;
