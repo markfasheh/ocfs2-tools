@@ -29,7 +29,6 @@
 #define OCFS2_CONTROLD_MAXLINE		256
 #define OCFS2_CONTROLD_MAXARGS		16
 #define OCFS2_CONTROLD_SOCK_PATH	"ocfs2_controld_sock"
-#define OCFS2_FSTYPE			"ocfs2"
 
 /* Client messages */
 typedef enum {

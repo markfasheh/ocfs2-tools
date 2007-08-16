@@ -22,6 +22,8 @@
 #include "ocfs2.h"
 #include "ocfs2_controld.h"
 
+#define OCFS2_FSTYPE "ocfs2"
+
 
 static int parse_status(char **args, int *error, char **error_msg)
 {
