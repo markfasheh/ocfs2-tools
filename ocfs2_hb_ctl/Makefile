@@ -7,6 +7,7 @@ SBIN_PROGRAMS = ocfs2_hb_ctl
 
 INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libo2cb/include -I$(TOPDIR)/libo2dlm/include
+
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
@@ -30,6 +31,14 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
 		-DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
+ifneq ($(BUILD_CMAN_SUPPORT),)
+INCLUDES += -I$(TOPDIR)/ocfs2_controld
+CMAN_OBJS = $(TOPDIR)/ocfs2_controld/client_proto.o
+DEFINES += -DHAVE_CMAN
+else
+CMAN_OBJS =
+endif
+
 CFILES = ocfs2_hb_ctl.c
 
 HFILES = $(subst .c,.h,$(CFILES))
@@ -42,7 +51,7 @@ DIST_FILES = $(CFILES) $(HFILES) ocfs2_hb_ctl.8.in
 
 all: ocfs2_hb_ctl
 
-ocfs2_hb_ctl: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+ocfs2_hb_ctl: $(OBJS) $(CMAN_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make

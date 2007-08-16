@@ -45,14 +45,28 @@
 
 #include "o2cb.h"
 
+#ifdef HAVE_CMAN
+# include "ocfs2_controld.h"
+# define STACKCONF	"/var/run/o2cb.stack"
+#endif
+
 #define DEV_PREFIX      "/dev/"
 #define PROC_IDE_FORMAT "/proc/ide/%s/media"
 #define IONICE_PATH	"/usr/bin/ionice"
+
+enum hb_known_stacks {
+	HB_STACK_O2CB,
+	HB_STACK_HEARTBEAT2,
+#ifdef HAVE_CMAN
+	HB_STACK_CMAN,
+#endif
+};
 
 enum hb_ctl_action {
 	HB_ACTION_UNKNOWN,
 	HB_ACTION_USAGE,
 	HB_ACTION_START,
+	HB_ACTION_RESULT,
 	HB_ACTION_STOP,
 	HB_ACTION_REFINFO,
 	HB_ACTION_IONICE,
@@ -63,11 +77,24 @@ struct hb_ctl_options {
 	char *dev_str;
 	char *uuid_str;
 	int  io_prio;
+	int  error_code;
 };
 
 
 static char *progname = "ocfs2_hb_ctl";
 static struct o2cb_region_desc *region_desc = NULL;
+static enum hb_known_stacks o2cb_stack;
+
+static char *hb_stack_names[] = {
+	[HB_STACK_O2CB]		= "o2cb",
+	[HB_STACK_HEARTBEAT2]	= "heartbeat2",
+#ifdef HAVE_CMAN
+	[HB_STACK_CMAN]		= "cman",
+#endif
+};
+static int hb_stack_names_len =
+	sizeof(hb_stack_names) / sizeof(hb_stack_names[0]);
+
 
 static void block_signals(int how)
 {
@@ -77,6 +104,42 @@ static void block_signals(int how)
      sigdelset(&sigs, SIGTRAP);
      sigdelset(&sigs, SIGSEGV);
      sigprocmask(how, &sigs, NULL);
+}
+
+static errcode_t determine_stack(void)
+{
+	FILE *f;
+	char line[100];
+	int i;
+	size_t len;
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+
+	f = fopen(STACKCONF, "r");
+	if (!f)
+		goto out;
+
+	if (!fgets(line, sizeof(line), f))
+		goto out_close;
+
+	len = strlen(line);
+	if (line[len - 1] == '\n') {
+		line[len - 1] = '\0';
+		len--;
+	}
+
+	for (i = 0; i < hb_stack_names_len; i++) {
+		if (!strcmp(line, hb_stack_names[i])) {
+			o2cb_stack = i;
+			err = 0;
+			break;
+		}
+	}
+	
+out_close:
+	fclose(f);
+
+out:
+	return err;
 }
 
 static void free_desc(void)
@@ -279,15 +342,230 @@ static errcode_t lookup_dev(struct hb_ctl_options *hbo)
 	return scan_devices(compare_dev, hbo);
 }
 
+#ifdef HAVE_CMAN
+static int parse_status(char **args, int *error, char **error_msg)
+{
+	int rc = 0;
+	long err;
+	char *ptr = NULL;
+
+	err = strtol(args[0], &ptr, 10);
+	if (ptr && *ptr != '\0') {
+		fprintf(stderr, "Invalid error code string: %s", args[0]);
+		rc = -EINVAL;
+	} else if ((err == LONG_MIN) || (err == LONG_MAX) ||
+		   (err < INT_MIN) || (err > INT_MAX)) {
+		fprintf(stderr, "Error code %ld out of range", err);
+		rc = -ERANGE;
+	} else {
+		*error_msg = args[1];
+		*error = err;
+	}
+
+	return rc;
+}
+
+static int call_mount(int fd, const char *uuid, const char *cluster,
+		      const char *device, const char *mountpoint)
+{
+	int rc;
+	int error;
+	char *error_msg;
+	client_message message;
+	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+	char buf[OCFS2_CONTROLD_MAXLINE];
+
+	rc = send_message(fd, CM_MOUNT, OCFS2_FSTYPE, uuid, cluster,
+			  device, mountpoint);
+	if (rc) {
+		fprintf(stderr, "Unable to send MOUNT message: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	rc = receive_message(fd, buf, &message, argv);
+	if (rc < 0) {
+		fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	switch (message) {
+		case CM_STATUS:
+			rc = parse_status(argv, &error, &error_msg);
+			if (rc) {
+				fprintf(stderr, "Bad status message: %s\n",
+					strerror(-rc));
+				goto out;
+			}
+			if (error && (error != EALREADY)) {
+				rc = -error;
+				fprintf(stderr,
+					"Error %d from daemon: %s\n",
+					error, error_msg);
+				goto out;
+			}
+			break;
+
+		default:
+			rc = -EINVAL;
+			fprintf(stderr,
+				"Unexpected message %s from daemon\n",
+				message_to_string(message));
+			goto out;
+			break;
+	}
+
+	/* XXX Here we fake mount */
+	/* rc = mount(...); */
+	rc = 0;
+
+	rc = send_message(fd, CM_MRESULT, OCFS2_FSTYPE, uuid, rc,
+			  mountpoint);
+	if (rc) {
+		fprintf(stderr, "Unable to send MRESULT message: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	rc = receive_message(fd, buf, &message, argv);
+	if (rc < 0) {
+		fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	switch (message) {
+		case CM_STATUS:
+			rc = parse_status(argv, &error, &error_msg);
+			if (rc) {
+				fprintf(stderr, "Bad status message: %s\n",
+					strerror(-rc));
+				goto out;
+			}
+			if (error) {
+				rc = -error;
+				fprintf(stderr,
+					"Error %d from daemon: %s\n",
+					error, error_msg);
+			}
+			break;
+
+		default:
+			rc = -EINVAL;
+			fprintf(stderr,
+				"Unexpected message %s from daemon\n",
+				message_to_string(message));
+			break;
+	}
+
+out:
+	return rc;
+}
+
+static int call_unmount(int fd, const char *uuid, const char *mountpoint)
+{
+	int rc = 0;
+	int error;
+	char *error_msg;
+	client_message message;
+	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+	char buf[OCFS2_CONTROLD_MAXLINE];
+	rc = send_message(fd, CM_UNMOUNT, OCFS2_FSTYPE, uuid, mountpoint);
+	if (rc) {
+		fprintf(stderr, "Unable to send UNMOUNT message: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	rc = receive_message(fd, buf, &message, argv);
+	if (rc < 0) {
+		fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	switch (message) {
+		case CM_STATUS:
+			rc = parse_status(argv, &error, &error_msg);
+			if (rc) {
+				fprintf(stderr, "Bad status message: %s\n",
+					strerror(-rc));
+				goto out;
+			}
+			if (error) {
+				rc = -error;
+				fprintf(stderr,
+					"Error %d from daemon: %s\n",
+					error, error_msg);
+				goto out;
+			}
+			break;
+
+		default:
+			rc = -EINVAL;
+			fprintf(stderr,
+				"Unexpected message %s from daemon\n",
+				message_to_string(message));
+			goto out;
+			break;
+	}
+
+out:
+	return rc;
+}
+#endif  /* HAVE_CMAN */
+
 static errcode_t start_heartbeat(struct hb_ctl_options *hbo)
 {
 	errcode_t err = 0;
 
 	if (!hbo->dev_str)
 		err = lookup_dev(hbo);
-	if (!err) {
-		err = o2cb_start_heartbeat_region_perm(NULL,
-						       region_desc);
+	if (err)
+		goto out;
+
+	switch (o2cb_stack) {
+		case HB_STACK_HEARTBEAT2:
+			break;
+
+		case HB_STACK_O2CB:
+			err = o2cb_start_heartbeat_region_perm(NULL,
+							       region_desc);
+			break;
+
+#ifdef HAVE_CMAN
+		case HB_STACK_CMAN:
+			break;
+#endif
+
+		default:
+			err = O2CB_ET_INTERNAL_FAILURE;
+			break;
+	}
+
+out:
+	return err;
+}
+
+static errcode_t result_heartbeat(struct hb_ctl_options *hbo)
+{
+	errcode_t err = 0;
+
+	switch (o2cb_stack) {
+		case HB_STACK_HEARTBEAT2:
+		case HB_STACK_O2CB:
+			/* Do nothing */
+			break;
+
+#ifdef HAVE_CMAN
+		case HB_STACK_CMAN:
+			break;
+#endif
+
+		default:
+			err = O2CB_ET_INTERNAL_FAILURE;
+			break;
 	}
 
 	return err;
@@ -329,9 +607,27 @@ static errcode_t adjust_priority(struct hb_ctl_options *hbo)
 
 static errcode_t stop_heartbeat(struct hb_ctl_options *hbo)
 {
-	errcode_t err;
+	errcode_t err = 0;
 
-	err = o2cb_stop_heartbeat_region_perm(NULL, hbo->uuid_str);
+	switch (o2cb_stack) {
+		case HB_STACK_HEARTBEAT2:
+			/* Do nothing */
+			break;
+
+		case HB_STACK_O2CB:
+			err = o2cb_stop_heartbeat_region_perm(NULL,
+							      hbo->uuid_str);
+			break;
+
+#ifdef HAVE_CMAN
+		case HB_STACK_CMAN:
+			break;
+#endif
+
+		default:
+			err = O2CB_ET_INTERNAL_FAILURE;
+			break;
+	}
 
 	return err;
 }
@@ -355,7 +651,7 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 	ret = 0;
 
 	while(1) {
-		c = getopt(argc, argv, "ISKPd:u:n:h");
+		c = getopt(argc, argv, "ISRKPd:u:n:e:h");
 		if (c == -1)
 			break;
 
@@ -370,6 +666,10 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 
 		case 'S':
 			hbo->action = HB_ACTION_START;
+			break;
+
+		case 'R':
+			hbo->action = HB_ACTION_RESULT;
 			break;
 
 		case 'P':
@@ -389,6 +689,11 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 		case 'n':
 			if (optarg)
 				hbo->io_prio = atoi(optarg);
+			break;
+
+		case 'e':
+			if (optarg)
+				hbo->error_code = atoi(optarg);
 			break;
 
 		case 'I':
@@ -415,6 +720,16 @@ static int process_options(struct hb_ctl_options *hbo)
 		/* For start must specify exactly one of uuid or device. */
 		if ((hbo->uuid_str && hbo->dev_str) ||
 		    (!hbo->uuid_str && !hbo->dev_str))
+			ret = -EINVAL;
+		break;
+
+	case HB_ACTION_RESULT:
+		/* For result must specify exactly one of uuid or device. */
+		if ((hbo->uuid_str && hbo->dev_str) ||
+		    (!hbo->uuid_str && !hbo->dev_str))
+			ret = -EINVAL;
+		/* And error_code must be set */
+		else if (hbo->error_code == -1)
 			ret = -EINVAL;
 		break;
 
@@ -458,6 +773,8 @@ static void print_usage(int err)
 
 	fprintf(output, "Usage: %s -S -d <device>\n", progname);
 	fprintf(output, "       %s -S -u <uuid>\n", progname);
+	fprintf(output, "       %s -R -d <device> -e <code>\n", progname);
+	fprintf(output, "       %s -R -u <uuid> -e <code>\n", progname);
 	fprintf(output, "       %s -K -d <device>\n", progname);
 	fprintf(output, "       %s -K -u <uuid>\n", progname);
 	fprintf(output, "       %s -I -d <device>\n", progname);
@@ -471,8 +788,11 @@ int main(int argc, char **argv)
 {
 	errcode_t err = 0;
 	int ret = 0;
-	struct hb_ctl_options hbo = { HB_ACTION_UNKNOWN, NULL, NULL, 0 };
 	char hbuuid[33];
+	struct hb_ctl_options hbo = {
+	       	.action		= HB_ACTION_UNKNOWN,
+		.error_code	= -1,
+	};
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -505,6 +825,13 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
+	err = determine_stack();
+	if (err) {
+		com_err(progname, err, "trying to determine cluster stack");
+		ret = -EINVAL;
+		goto bail;
+	}
+
 	if (!hbo.uuid_str) {
 		err = get_uuid(hbo.dev_str, hbuuid);
 		if (err) {
@@ -528,6 +855,15 @@ int main(int argc, char **argv)
 		err = start_heartbeat(&hbo);
 		if (err) {
 			com_err(progname, err, "while starting heartbeat");
+			ret = -EINVAL;
+		}
+		break;
+
+	case HB_ACTION_RESULT:
+		err = result_heartbeat(&hbo);
+		if (err) {
+			com_err(progname, err,
+				"while completing heartbeat startup");
 			ret = -EINVAL;
 		}
 		break;

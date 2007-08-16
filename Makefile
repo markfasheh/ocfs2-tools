@@ -20,17 +20,31 @@ CHKCONFIG_DEP = chkconfig
 COMPILE_PY = 1
 endif
 
-SUBDIRS = libo2dlm libo2cb libocfs2 fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2cdsl listuuid sizetest extras patches
-
-ifdef BUILD_OCFS2CONSOLE
-SUBDIRS += ocfs2console
-endif
-
-ifdef BUILD_CMAN_SUPPORT
-SUBDIRS += o2cb_controld ocfs2_controld
-endif
-
-SUBDIRS += vendor
+#
+# ORDER MATTERS!!!
+# The programs need the libraries.
+# ocfs2_hb_ctl needs ocfs2_controld/client_proto.o
+#
+SUBDIRS =			\
+	libo2dlm		\
+	libo2cb			\
+	libocfs2		\
+	$(if $(BUILD_CMAN_SUPPORT),o2cb_controld ocfs2_controld)	\
+	fsck.ocfs2		\
+	mkfs.ocfs2		\
+	mounted.ocfs2		\
+	tunefs.ocfs2		\
+	debugfs.ocfs2		\
+	o2cb_ctl		\
+	ocfs2_hb_ctl		\
+	mount.ocfs2		\
+	ocfs2cdsl		\
+	$(if $(BUILD_OCFS2CONSOLE),ocfs2console)			\
+	listuuid		\
+	sizetest		\
+	extras			\
+	patches			\
+	vendor
 
 PKGCONFIG_SOURCES =	\
 	o2cb.pc.in	\
