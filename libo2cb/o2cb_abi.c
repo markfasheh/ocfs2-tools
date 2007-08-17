@@ -47,7 +47,163 @@
 #include "o2cb_crc32.h"
 #include "ocfs2_nodemanager.h"
 
+#ifdef HAVE_CMAN
+# include "o2cb_client_proto.h"
+# define STACKCONF	"/var/run/o2cb.stack"
+#endif
+
+struct o2cb_group_ops {
+	errcode_t (*begin_group_join)(const char *cluster_name,
+				      struct o2cb_region_desc *desc);
+	errcode_t (*complete_group_join)(const char *cluster_name,
+					 struct o2cb_region_desc *desc,
+					 int error);
+	errcode_t (*group_leave)(const char *cluster_name,
+				 struct o2cb_region_desc *desc);
+};
+
+struct o2cb_stack {
+	char *s_name;
+	struct o2cb_group_ops *s_ops;
+};
+
+static struct o2cb_stack none_stack = {
+	.s_name 	= "none",
+	.s_ops		= NULL,
+};
+
+static errcode_t classic_begin_group_join(const char *cluster_name,
+					  struct o2cb_region_desc *desc);
+static errcode_t classic_complete_group_join(const char *cluster_name,
+					     struct o2cb_region_desc *desc,
+					     int error);
+static errcode_t classic_group_leave(const char *cluster_name,
+				     struct o2cb_region_desc *desc);
+static struct o2cb_group_ops classic_ops = {
+	.begin_group_join	= classic_begin_group_join,
+	.complete_group_join	= classic_complete_group_join,
+	.group_leave		= classic_group_leave,
+};
+static struct o2cb_stack classic_stack = {
+	.s_name 	= "o2cb",
+	.s_ops		= &classic_ops,
+};
+
+static errcode_t heartbeat2_begin_group_join(const char *cluster_name,
+					     struct o2cb_region_desc *desc);
+static errcode_t heartbeat2_complete_group_join(const char *cluster_name,
+						struct o2cb_region_desc *desc,
+						int error);
+static errcode_t heartbeat2_group_leave(const char *cluster_name,
+					struct o2cb_region_desc *desc);
+static struct o2cb_group_ops heartbeat2_ops = {
+	.begin_group_join	= heartbeat2_begin_group_join,
+	.complete_group_join	= heartbeat2_complete_group_join,
+	.group_leave		= heartbeat2_group_leave,
+};
+static struct o2cb_stack heartbeat2_stack = {
+	.s_name 	= "heartbeat2",
+	.s_ops		= &heartbeat2_ops,
+};
+
+#ifdef HAVE_CMAN
+static errcode_t cman_begin_group_join(const char *cluster_name,
+				       struct o2cb_region_desc *desc);
+static errcode_t cman_complete_group_join(const char *cluster_name,
+					  struct o2cb_region_desc *desc,
+					  int error);
+static errcode_t cman_group_leave(const char *cluster_name,
+				  struct o2cb_region_desc *desc);
+static struct o2cb_group_ops cman_ops = {
+	.begin_group_join	= cman_begin_group_join,
+	.complete_group_join	= cman_complete_group_join,
+	.group_leave		= cman_group_leave,
+};
+static struct o2cb_stack cman_stack = {
+	.s_name 	= "cman",
+	.s_ops		= &cman_ops,
+};
+#endif  /* HAVE_CMAN */
+
+static struct o2cb_stack *o2cb_stacks[] = {
+	[O2CB_STACK_NONE]	= &none_stack,
+	[O2CB_STACK_O2CB]	= &classic_stack,
+	[O2CB_STACK_HEARTBEAT2]	= &heartbeat2_stack,
+#ifdef HAVE_CMAN
+	[O2CB_STACK_CMAN]	= &cman_stack,
+#endif
+};
+static int o2cb_stacks_len =
+	sizeof(o2cb_stacks) / sizeof(o2cb_stacks[0]);
+static enum o2cb_known_stacks current_stack = O2CB_STACK_NONE;
+
 static char *configfs_path;
+
+
+static errcode_t determine_stack(void)
+{
+	FILE *f;
+	char line[100];
+	int i;
+	size_t len;
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+
+	f = fopen(STACKCONF, "r");
+	if (!f)
+		goto out;
+
+	if (!fgets(line, sizeof(line), f))
+		goto out_close;
+
+	len = strlen(line);
+	if (line[len - 1] == '\n') {
+		line[len - 1] = '\0';
+		len--;
+	}
+
+	for (i = 0; i < o2cb_stacks_len; i++) {
+		if (!strcmp(line, o2cb_stacks[i]->s_name)) {
+			current_stack = i;
+			err = 0;
+			break;
+		}
+	}
+	
+	/* If some joker put 'none' in STACKCONF, it's a failure */
+	if (!err && (current_stack == O2CB_STACK_NONE))
+		err = O2CB_ET_INTERNAL_FAILURE;
+
+out_close:
+	fclose(f);
+
+out:
+	return err;
+}
+
+errcode_t o2cb_get_stack(enum o2cb_known_stacks *stack)
+{
+	errcode_t err = 0;
+
+	if (current_stack == O2CB_STACK_NONE)
+		err = O2CB_ET_SERVICE_UNAVAILABLE;
+	else
+		*stack = current_stack;
+
+	return err;
+}
+
+errcode_t o2cb_get_stack_name(const char **name)
+{
+	errcode_t err;
+	enum o2cb_known_stacks stack;
+
+	err = o2cb_get_stack(&stack);
+	if (!err)
+		*name = o2cb_stacks[stack]->s_name;
+
+	return err;
+}
+
 
 errcode_t o2cb_create_cluster(const char *cluster_name)
 {
@@ -492,6 +648,10 @@ errcode_t o2cb_init(void)
 	unsigned int module_version;
 	errcode_t err;
 	char revision_string[16];
+
+	err = determine_stack();
+	if (err)
+		return err;
 
 	err = try_file(O2CB_INTERFACE_REVISION_PATH, &fd);
 	if (err == O2CB_ET_SERVICE_UNAVAILABLE)
@@ -996,8 +1156,8 @@ out:
  * to drop the reference taken during startup, otherwise that
  * reference was dropped automatically at process shutdown so there's
  * no need to drop one here. */
-errcode_t o2cb_group_leave(const char *cluster_name,
-			   struct o2cb_region_desc *desc)
+static errcode_t classic_group_leave(const char *cluster_name,
+				     struct o2cb_region_desc *desc)
 {
 	errcode_t ret, up_ret;
 	int hb_refs;
@@ -1047,8 +1207,8 @@ done:
 	return ret;
 }
 
-errcode_t o2cb_begin_group_join(const char *cluster_name,
-				struct o2cb_region_desc *desc)
+static errcode_t classic_begin_group_join(const char *cluster_name,
+					  struct o2cb_region_desc *desc)
 {
 	errcode_t ret, up_ret;
 	int semid;
@@ -1076,9 +1236,9 @@ up:
 	return ret;
 }
 
-errcode_t o2cb_complete_group_join(const char *cluster_name,
-				   struct o2cb_region_desc *desc,
-				   int error)
+static errcode_t classic_complete_group_join(const char *cluster_name,
+					     struct o2cb_region_desc *desc,
+					     int error)
 {
 	errcode_t ret = 0;
 
@@ -1087,6 +1247,110 @@ errcode_t o2cb_complete_group_join(const char *cluster_name,
 
 	return ret;
 }
+
+static errcode_t heartbeat2_begin_group_join(const char *cluster_name,
+					     struct o2cb_region_desc *desc)
+{
+	return 0;
+}
+static errcode_t heartbeat2_complete_group_join(const char *cluster_name,
+						struct o2cb_region_desc *desc,
+						int error)
+{
+	return 0;
+}
+static errcode_t heartbeat2_group_leave(const char *cluster_name,
+					struct o2cb_region_desc *desc)
+{
+	return 0;
+}
+
+#ifdef HAVE_CMAN
+static errcode_t cman_begin_group_join(const char *cluster_name,
+				       struct o2cb_region_desc *desc)
+{
+	return 0;
+}
+static errcode_t cman_complete_group_join(const char *cluster_name,
+					  struct o2cb_region_desc *desc,
+					  int error)
+{
+	return 0;
+}
+static errcode_t cman_group_leave(const char *cluster_name,
+				  struct o2cb_region_desc *desc)
+{
+	return 0;
+}
+#endif
+
+errcode_t o2cb_begin_group_join(const char *cluster_name,
+				struct o2cb_region_desc *desc)
+{
+	errcode_t err;
+	char _fake_cluster_name[NAME_MAX];
+	struct o2cb_group_ops *ops;
+
+	if (current_stack == O2CB_STACK_NONE)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+	else
+		ops = o2cb_stacks[current_stack]->s_ops;
+
+	if (!cluster_name) {
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
+		cluster_name = _fake_cluster_name;
+	}
+
+	return ops->begin_group_join(cluster_name, desc);
+}
+
+errcode_t o2cb_complete_group_join(const char *cluster_name,
+				   struct o2cb_region_desc *desc,
+				   int error)
+{
+	errcode_t err;
+	char _fake_cluster_name[NAME_MAX];
+	struct o2cb_group_ops *ops;
+
+	if (current_stack == O2CB_STACK_NONE)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+	else
+		ops = o2cb_stacks[current_stack]->s_ops;
+
+	if (!cluster_name) {
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
+		cluster_name = _fake_cluster_name;
+	}
+
+	return ops->complete_group_join(cluster_name, desc, error);
+}
+
+errcode_t o2cb_group_leave(const char *cluster_name,
+			   struct o2cb_region_desc *desc)
+{
+	errcode_t err;
+	char _fake_cluster_name[NAME_MAX];
+	struct o2cb_group_ops *ops;
+
+	if (current_stack == O2CB_STACK_NONE)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+	else
+		ops = o2cb_stacks[current_stack]->s_ops;
+
+	if (!cluster_name) {
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
+		cluster_name = _fake_cluster_name;
+	}
+
+	return ops->group_leave(cluster_name, desc);
+}
+
 
 static inline int is_dots(const char *name)
 {

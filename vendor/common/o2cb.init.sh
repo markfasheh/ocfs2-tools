@@ -1177,6 +1177,13 @@ online()
         return
     fi
 
+    echo "$O2CB_STACK" >"$STACKCONF" 2>/dev/null
+    if [ "$?" != 0 ]
+    then
+        echo -n "Setting O2CB_STACK file: "
+        if_fail $? "Unable to store cluster stack information"
+    fi
+
     case "$O2CB_STACK" in
         o2cb|heartbeat2) online_o2cb "$CLUSTER" ;;
         cman)
@@ -1193,13 +1200,6 @@ online()
             exit 1
             ;;
     esac
-
-    echo "$O2CB_STACK" >"$STACKCONF" 2>/dev/null
-    if [ "$?" != 0 ]
-    then
-        echo -n "Setting O2CB_STACK file: "
-        if_fail $? "Unable to store cluster stack information"
-    fi
 }
 
 #

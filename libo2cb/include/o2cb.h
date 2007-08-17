@@ -63,8 +63,19 @@
 
 #define OCFS2_FS_NAME		"ocfs2"
 
+enum o2cb_known_stacks {
+	O2CB_STACK_NONE = 0,
+	O2CB_STACK_O2CB,
+	O2CB_STACK_HEARTBEAT2,
+#ifdef HAVE_CMAN
+	O2CB_STACK_CMAN,
+#endif
+};
+
 errcode_t o2cb_init(void);
 
+errcode_t o2cb_get_stack(enum o2cb_known_stacks *stack);
+errcode_t o2cb_get_stack_name(const char **name);
 errcode_t o2cb_create_cluster(const char *cluster_name);
 errcode_t o2cb_remove_cluster(const char *cluster_name);
 
