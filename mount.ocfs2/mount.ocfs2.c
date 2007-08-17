@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * mount.ocfs2.c  Mounts ocfs2 volume
  *
  * Copyright (C) 2005 Oracle.  All rights reserved.
@@ -22,8 +24,6 @@
 
 #include "mount.ocfs2.h"
 #include "o2cb.h"
-
-#define OCFS2_FS_NAME		"ocfs2"
 
 int verbose = 0;
 int mount_quiet = 0;
@@ -212,19 +212,6 @@ static int check_dev_readonly(const char *dev, int *dev_ro)
 	return 0;
 }
 
-static int check_for_hb_ctl(const char *hb_ctl_path)
-{
-	int ret;
-
-	ret = access(hb_ctl_path, X_OK);
-	if (ret < 0) {
-		ret = errno;
-		return ret;
-	}
-
-	return ret;
-}
-
 static int run_hb_ctl(const char *hb_ctl_path,
 		      const char *device, const char *arg)
 {
@@ -264,25 +251,6 @@ bail:
 	return ret;
 }
 
-static int start_heartbeat(const char *hb_ctl_path,
-			   const char *device)
-{
-	int ret;
-
-	ret = check_for_hb_ctl(hb_ctl_path);
-	if (ret)
-		return ret;
-
-	ret = run_hb_ctl(hb_ctl_path, device, "-S");
-
-	return ret;
-}
-
-static int stop_heartbeat(const char *hb_ctl_path,
-			  const char *device)
-{
-	return run_hb_ctl(hb_ctl_path, device, "-K");
-}
 
 int main(int argc, char **argv)
 {
@@ -321,14 +289,12 @@ int main(int argc, char **argv)
 		goto bail;
 
 	ret = ocfs2_open(mo.dev, OCFS2_FLAG_RO, 0, 0, &fs); //O_EXCL?
-	if (!ret) {
-		clustered = (0 == ocfs2_mount_local(fs));
-		ocfs2_close(fs);
-		fs = NULL;
-	} else {
+	if (ret) {
 		com_err(progname, ret, "while opening device %s", mo.dev);
 		goto bail;
 	}
+
+	clustered = (0 == ocfs2_mount_local(fs));
 
 	if (verbose)
 		printf("device=%s\n", mo.dev);
@@ -359,11 +325,11 @@ int main(int argc, char **argv)
 	block_signals (SIG_BLOCK);
 
 	if (!(mo.flags & MS_REMOUNT) && !dev_ro && clustered) {
-		ret = start_heartbeat(hb_ctl_path, mo.dev);
+		ret = ocfs2_start_heartbeat(fs);
 		if (ret) {
 			block_signals (SIG_UNBLOCK);
-			com_err(progname, 0, "Error when attempting to run %s: "
-				"\"%s\"", hb_ctl_path, strerror(ret));
+			com_err(progname, ret,
+				"while trying to start heartbeat");
 			goto bail;
 		}
 		hb_started = 1;
@@ -385,7 +351,7 @@ int main(int argc, char **argv)
 	if (ret) {
 		ret = errno;
 		if (hb_started)
-			stop_heartbeat(hb_ctl_path, mo.dev);
+			ocfs2_stop_heartbeat(fs);
 		block_signals (SIG_UNBLOCK);
 		com_err(progname, ret, "while mounting %s on %s. "
 			"Check 'dmesg' for more information on this error.",
@@ -403,6 +369,8 @@ int main(int argc, char **argv)
 	block_signals (SIG_UNBLOCK);
 
 bail:
+	if (fs)
+		ocfs2_close(fs);
 	if (extra)
 		free(extra);
 	if (mo.dev)

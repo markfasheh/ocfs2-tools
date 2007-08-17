@@ -75,7 +75,7 @@ static int call_mount(int fd, const char *uuid, const char *cluster,
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
 
-	rc = send_message(fd, CM_MOUNT, OCFS2_FSTYPE, uuid, cluster,
+	rc = send_message(fd, CM_MOUNT, OCFS2_FS_NAME, uuid, cluster,
 			  device, mountpoint);
 	if (rc) {
 		fprintf(stderr, "Unable to send MOUNT message: %s\n",
@@ -120,7 +120,7 @@ static int call_mount(int fd, const char *uuid, const char *cluster,
 	/* rc = mount(...); */
 	rc = 0;
 
-	rc = send_message(fd, CM_MRESULT, OCFS2_FSTYPE, uuid, rc,
+	rc = send_message(fd, CM_MRESULT, OCFS2_FS_NAME, uuid, rc,
 			  mountpoint);
 	if (rc) {
 		fprintf(stderr, "Unable to send MRESULT message: %s\n",
@@ -213,7 +213,7 @@ static int call_unmount(int fd, const char *uuid, const char *mountpoint)
 	}
 #endif
 
-	rc = send_message(fd, CM_UNMOUNT, OCFS2_FSTYPE, uuid, mountpoint);
+	rc = send_message(fd, CM_UNMOUNT, OCFS2_FS_NAME, uuid, mountpoint);
 	if (rc) {
 		fprintf(stderr, "Unable to send UNMOUNT message: %s\n",
 			strerror(-rc));
