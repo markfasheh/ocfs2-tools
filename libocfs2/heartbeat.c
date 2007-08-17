@@ -111,23 +111,3 @@ leave:
 	return ret;
 }
 
-errcode_t ocfs2_start_heartbeat(ocfs2_filesys *fs)
-{
-	errcode_t ret;
-	struct o2cb_region_desc desc;
-
-	ret = ocfs2_fill_heartbeat_desc(fs, &desc);	
-	if (ret)
-		goto leave;
-
-        /* XXX: NULL cluster is a hack for right now */
-	ret = o2cb_start_heartbeat_region(NULL, &desc);
-
-leave:
-	return ret;
-}
-
-errcode_t ocfs2_stop_heartbeat(ocfs2_filesys *fs)
-{
-	return o2cb_stop_heartbeat_region(NULL, fs->uuid_str);
-}

@@ -996,15 +996,14 @@ out:
  * to drop the reference taken during startup, otherwise that
  * reference was dropped automatically at process shutdown so there's
  * no need to drop one here. */
-static errcode_t __o2cb_stop_heartbeat_region(const char *cluster_name,
-					      const char *region_name,
-					      int undo)
+errcode_t o2cb_group_leave(const char *cluster_name,
+			   struct o2cb_region_desc *desc)
 {
 	errcode_t ret, up_ret;
 	int hb_refs;
 	int semid;
 
-	ret = o2cb_mutex_down_lookup(region_name, &semid);
+	ret = o2cb_mutex_down_lookup(desc->r_name, &semid);
 	if (ret)
 		return ret;
 
@@ -1016,7 +1015,7 @@ static errcode_t __o2cb_stop_heartbeat_region(const char *cluster_name,
 	 * references on the region. We avoid a negative error count
 	 * here and clean up the region as normal. */
 	if (hb_refs) {
-		ret = __o2cb_drop_ref(semid, undo);
+		ret = __o2cb_drop_ref(semid, !desc->r_persist);
 		if (ret)
 			goto up;
 
@@ -1028,7 +1027,8 @@ static errcode_t __o2cb_stop_heartbeat_region(const char *cluster_name,
 	if (!hb_refs) {
 		/* XXX: If this fails, shouldn't we still destroy the
 		 * semaphore set? */
-		ret = o2cb_remove_heartbeat_region(cluster_name, region_name);
+		ret = o2cb_remove_heartbeat_region(cluster_name,
+						   desc->r_name);
 		if (ret)
 			goto up;
 
@@ -1047,9 +1047,8 @@ done:
 	return ret;
 }
 
-static errcode_t __o2cb_start_heartbeat_region(const char *cluster_name,
-					       struct o2cb_region_desc *desc,
-					       int undo)
+errcode_t o2cb_begin_group_join(const char *cluster_name,
+				struct o2cb_region_desc *desc)
 {
 	errcode_t ret, up_ret;
 	int semid;
@@ -1067,7 +1066,7 @@ static errcode_t __o2cb_start_heartbeat_region(const char *cluster_name,
 	if (ret && ret != O2CB_ET_REGION_EXISTS)
 		goto up;
 
-	ret = __o2cb_get_ref(semid, undo);
+	ret = __o2cb_get_ref(semid, !desc->r_persist);
 	/* XXX: Maybe stop heartbeat on error here? */
 up:
 	up_ret = o2cb_mutex_up(semid);
@@ -1077,28 +1076,16 @@ up:
 	return ret;
 }
 
-errcode_t o2cb_start_heartbeat_region(const char *cluster_name,
-				      struct o2cb_region_desc *desc)
+errcode_t o2cb_complete_group_join(const char *cluster_name,
+				   struct o2cb_region_desc *desc,
+				   int error)
 {
-	return __o2cb_start_heartbeat_region(cluster_name, desc, 1);
-}
+	errcode_t ret = 0;
 
-errcode_t o2cb_stop_heartbeat_region(const char *cluster_name,
-				     const char *region_name)
-{
-	return __o2cb_stop_heartbeat_region(cluster_name, region_name, 1);
-}
+	if (error)
+		ret = o2cb_group_leave(cluster_name, desc);
 
-errcode_t o2cb_start_heartbeat_region_perm(const char *cluster_name,
-					   struct o2cb_region_desc *desc)
-{
-	return __o2cb_start_heartbeat_region(cluster_name, desc, 0);
-}
-
-errcode_t o2cb_stop_heartbeat_region_perm(const char *cluster_name,
-					  const char *region_name)
-{
-	return __o2cb_stop_heartbeat_region(cluster_name, region_name, 0);
+	return ret;
 }
 
 static inline int is_dots(const char *name)
