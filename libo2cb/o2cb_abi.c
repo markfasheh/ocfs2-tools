@@ -1324,32 +1324,31 @@ done:
 }
 
 #ifdef HAVE_CMAN
-static int parse_status(char **args, int *error, char **error_msg)
+static errcode_t parse_status(char **args, int *error, char **error_msg)
 {
-	int rc = 0;
-	long err;
+	errcode_t err = O2CB_ET_IO;
+	long result;
 	char *ptr = NULL;
 
-	err = strtol(args[0], &ptr, 10);
+	result = strtol(args[0], &ptr, 10);
 	if (ptr && *ptr != '\0') {
 		/* fprintf(stderr, "Invalid error code string: %s", args[0]); */
-		rc = -EINVAL;
-	} else if ((err == LONG_MIN) || (err == LONG_MAX) ||
-		   (err < INT_MIN) || (err > INT_MAX)) {
+	} else if ((result == LONG_MIN) || (result == LONG_MAX) ||
+		   (result < INT_MIN) || (result > INT_MAX)) {
 		/* fprintf(stderr, "Error code %ld out of range", err); */
-		rc = -ERANGE;
 	} else {
 		*error_msg = args[1];
-		*error = err;
+		*error = result;
+		err = 0;
 	}
 
-	return rc;
+	return err;
 }
 
 static errcode_t cman_begin_group_join(const char *cluster_name,
 				       struct o2cb_region_desc *desc)
 {
-	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	errcode_t err;
 	int rc;
 	int error;
 	char *error_msg;
@@ -1359,7 +1358,7 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 
 	if (controld_fd != -1) {
 		/* fprintf(stderr, "Join already in progress!\n"); */
-		rc = -EINPROGRESS;
+		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
 	}
 
@@ -1367,6 +1366,16 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 	if (rc < 0) {
 		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
 			strerror(-rc)); */
+		switch (rc) {
+			case -EACCES:
+			case -EPERM:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			default:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+		}
 		goto out;
 	}
 	controld_fd = rc;
@@ -1377,6 +1386,7 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 	if (rc) {
 		/* fprintf(stderr, "Unable to send MOUNT message: %s\n",
 			strerror(-rc)); */
+		err = O2CB_ET_IO;
 		goto out;
 	}
 
@@ -1384,13 +1394,14 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 	if (rc < 0) {
 		/* fprintf(stderr, "Error reading from daemon: %s\n",
 			strerror(-rc)); */
+		err = O2CB_ET_IO;
 		goto out;
 	}
 
 	switch (message) {
 		case CM_STATUS:
-			rc = parse_status(argv, &error, &error_msg);
-			if (rc) {
+			err = parse_status(argv, &error, &error_msg);
+			if (err) {
 				/* fprintf(stderr, "Bad status message: %s\n",
 					strerror(-rc)); */
 				goto out;
@@ -1399,6 +1410,7 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 				/* fprintf(stderr,
 					"Error %d from daemon: %s\n",
 					error, error_msg); */
+				err = O2CB_ET_CONFIGURATION_ERROR;
 				goto out;
 			}
 			break;
@@ -1407,6 +1419,7 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 			/* fprintf(stderr,
 				"Unexpected message %s from daemon\n",
 				message_to_string(message)); */
+			err = O2CB_ET_INTERNAL_FAILURE;
 			goto out;
 			break;
 	}
@@ -1457,8 +1470,8 @@ static errcode_t cman_complete_group_join(const char *cluster_name,
 
 	switch (message) {
 		case CM_STATUS:
-			rc = parse_status(argv, &error, &error_msg);
-			if (rc) {
+			err = parse_status(argv, &error, &error_msg);
+			if (err) {
 				/* fprintf(stderr, "Bad status message: %s\n",
 					strerror(-rc)); */
 				goto out;
@@ -1531,8 +1544,8 @@ static errcode_t cman_group_leave(const char *cluster_name,
 
 	switch (message) {
 		case CM_STATUS:
-			rc = parse_status(argv, &error, &error_msg);
-			if (rc) {
+			err = parse_status(argv, &error, &error_msg);
+			if (err) {
 				/* fprintf(stderr, "Bad status message: %s\n",
 					strerror(-rc)); */
 				goto out;

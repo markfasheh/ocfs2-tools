@@ -163,7 +163,7 @@ int receive_message_full(int fd, char *buf, client_message *message,
 
 	/* Safety first */
 	buf[OCFS2_CONTROLD_MAXLINE - 1] = '\0';
-	fprintf(stderr, "Got messsage \"%s\"\n", buf);
+	/* fprintf(stderr, "Got messsage \"%s\"\n", buf); */
 
 
 	for (i = 0; i < message_list_len; i++) {
@@ -183,8 +183,8 @@ int receive_message_full(int fd, char *buf, client_message *message,
 	if (count != message_list[msg].cm_argcount) {
 		rc = -EBADMSG;
 	} else {
-		for (i = 0; i < count; i++)
-			fprintf(stderr, "Arg %d: \"%s\"\n", i, argv[i]);
+		/* for (i = 0; i < count; i++)
+			fprintf(stderr, "Arg %d: \"%s\"\n", i, argv[i]); */
 		if (message)
 			*message = msg;
 		if (rest)
