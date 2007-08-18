@@ -5,21 +5,16 @@
  *
  * Kernel<->User ABI for modifying cluster configuration.
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004,2007 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
- * License, version 2,  as published by the Free Software Foundation.
+ * License, version 2, as published by the Free Software Foundation.
  * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 021110-1307, USA.
  */
 
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
@@ -50,6 +45,7 @@
 #ifdef HAVE_CMAN
 # include "o2cb_client_proto.h"
 # define STACKCONF	"/var/run/o2cb.stack"
+static int controld_fd = -1;
 #endif
 
 struct o2cb_group_ops {
@@ -57,7 +53,7 @@ struct o2cb_group_ops {
 				      struct o2cb_region_desc *desc);
 	errcode_t (*complete_group_join)(const char *cluster_name,
 					 struct o2cb_region_desc *desc,
-					 int error);
+					 int result);
 	errcode_t (*group_leave)(const char *cluster_name,
 				 struct o2cb_region_desc *desc);
 };
@@ -76,7 +72,7 @@ static errcode_t classic_begin_group_join(const char *cluster_name,
 					  struct o2cb_region_desc *desc);
 static errcode_t classic_complete_group_join(const char *cluster_name,
 					     struct o2cb_region_desc *desc,
-					     int error);
+					     int result);
 static errcode_t classic_group_leave(const char *cluster_name,
 				     struct o2cb_region_desc *desc);
 static struct o2cb_group_ops classic_ops = {
@@ -93,7 +89,7 @@ static errcode_t heartbeat2_begin_group_join(const char *cluster_name,
 					     struct o2cb_region_desc *desc);
 static errcode_t heartbeat2_complete_group_join(const char *cluster_name,
 						struct o2cb_region_desc *desc,
-						int error);
+						int result);
 static errcode_t heartbeat2_group_leave(const char *cluster_name,
 					struct o2cb_region_desc *desc);
 static struct o2cb_group_ops heartbeat2_ops = {
@@ -111,7 +107,7 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 				       struct o2cb_region_desc *desc);
 static errcode_t cman_complete_group_join(const char *cluster_name,
 					  struct o2cb_region_desc *desc,
-					  int error);
+					  int result);
 static errcode_t cman_group_leave(const char *cluster_name,
 				  struct o2cb_region_desc *desc);
 static struct o2cb_group_ops cman_ops = {
@@ -1238,49 +1234,334 @@ up:
 
 static errcode_t classic_complete_group_join(const char *cluster_name,
 					     struct o2cb_region_desc *desc,
-					     int error)
+					     int result)
 {
 	errcode_t ret = 0;
 
-	if (error)
-		ret = o2cb_group_leave(cluster_name, desc);
+	if (result)
+		ret = classic_group_leave(cluster_name, desc);
 
 	return ret;
 }
 
+/*
+ * For ocfs2_hb_ctl reporting, we'll take the references just like
+ * the classic stack.
+ *
+ * XXX: This is something the heartbeat2 guys should comment on.
+ */
 static errcode_t heartbeat2_begin_group_join(const char *cluster_name,
 					     struct o2cb_region_desc *desc)
 {
-	return 0;
+	errcode_t ret, up_ret;
+	int semid;
+
+	ret = o2cb_mutex_down_lookup(desc->r_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = __o2cb_get_ref(semid, !desc->r_persist);
+
+	up_ret = o2cb_mutex_up(semid);
+	if (up_ret && !ret)
+		ret = up_ret;
+
+	return ret;
 }
+
 static errcode_t heartbeat2_complete_group_join(const char *cluster_name,
 						struct o2cb_region_desc *desc,
-						int error)
+						int result)
 {
-	return 0;
+	errcode_t ret = 0;
+
+	if (result)
+		ret = heartbeat2_group_leave(cluster_name, desc);
+
+	return ret;
 }
+
 static errcode_t heartbeat2_group_leave(const char *cluster_name,
 					struct o2cb_region_desc *desc)
 {
-	return 0;
+	errcode_t ret, up_ret;
+	int hb_refs;
+	int semid;
+
+	ret = o2cb_mutex_down_lookup(desc->r_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = __o2cb_get_num_refs(semid, &hb_refs);
+	if (ret)
+		goto up;
+
+	/* A previous process may have died and left us with no
+	 * references on the region. We avoid a negative error count
+	 * here and clean up the region as normal. */
+	if (hb_refs) {
+		ret = __o2cb_drop_ref(semid, !desc->r_persist);
+		if (ret)
+			goto up;
+
+		/* No need to call get_num_refs again -- this was
+		 * atomic so we know what the new value must be. */
+		hb_refs--;
+	}
+
+	if (!hb_refs) {
+		ret = o2cb_destroy_sem_set(semid);
+		if (!ret)
+			goto done;
+	}
+up:
+	up_ret = o2cb_mutex_up(semid);
+	if (up_ret && !ret) /* XXX: Maybe stop heartbeat here then? */
+		ret = up_ret;
+
+done:
+	return ret;
 }
 
 #ifdef HAVE_CMAN
+static int parse_status(char **args, int *error, char **error_msg)
+{
+	int rc = 0;
+	long err;
+	char *ptr = NULL;
+
+	err = strtol(args[0], &ptr, 10);
+	if (ptr && *ptr != '\0') {
+		/* fprintf(stderr, "Invalid error code string: %s", args[0]); */
+		rc = -EINVAL;
+	} else if ((err == LONG_MIN) || (err == LONG_MAX) ||
+		   (err < INT_MIN) || (err > INT_MAX)) {
+		/* fprintf(stderr, "Error code %ld out of range", err); */
+		rc = -ERANGE;
+	} else {
+		*error_msg = args[1];
+		*error = err;
+	}
+
+	return rc;
+}
+
 static errcode_t cman_begin_group_join(const char *cluster_name,
 				       struct o2cb_region_desc *desc)
 {
-	return 0;
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	int rc;
+	int error;
+	char *error_msg;
+	client_message message;
+	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+	char buf[OCFS2_CONTROLD_MAXLINE];
+
+	if (controld_fd != -1) {
+		/* fprintf(stderr, "Join already in progress!\n"); */
+		rc = -EINPROGRESS;
+		goto out;
+	}
+
+	rc = client_connect();
+	if (rc < 0) {
+		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+	controld_fd = rc;
+
+	rc = send_message(controld_fd, CM_MOUNT, OCFS2_FS_NAME,
+			  desc->r_name, cluster_name, desc->r_device_name,
+			  desc->r_service);
+	if (rc) {
+		/* fprintf(stderr, "Unable to send MOUNT message: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+
+	rc = receive_message(controld_fd, buf, &message, argv);
+	if (rc < 0) {
+		/* fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+
+	switch (message) {
+		case CM_STATUS:
+			rc = parse_status(argv, &error, &error_msg);
+			if (rc) {
+				/* fprintf(stderr, "Bad status message: %s\n",
+					strerror(-rc)); */
+				goto out;
+			}
+			if (error && (error != EALREADY)) {
+				/* fprintf(stderr,
+					"Error %d from daemon: %s\n",
+					error, error_msg); */
+				goto out;
+			}
+			break;
+
+		default:
+			/* fprintf(stderr,
+				"Unexpected message %s from daemon\n",
+				message_to_string(message)); */
+			goto out;
+			break;
+	}
+
+	err = 0;
+
+out:
+	if (err && (controld_fd != -1)) {
+		close(controld_fd);
+		controld_fd = -1;
+	}
+
+	return err;
 }
+
 static errcode_t cman_complete_group_join(const char *cluster_name,
 					  struct o2cb_region_desc *desc,
-					  int error)
+					  int result)
 {
-	return 0;
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	int rc;
+	int error;
+	char *error_msg;
+	client_message message;
+	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+	char buf[OCFS2_CONTROLD_MAXLINE];
+
+	if (controld_fd == -1) {
+		/* fprintf(stderr, "Join not started!\n"); */
+		rc = -EINVAL;
+		goto out;
+	}
+
+	rc = send_message(controld_fd, CM_MRESULT, OCFS2_FS_NAME,
+			  desc->r_name, result, desc->r_service);
+	if (rc) {
+		/* fprintf(stderr, "Unable to send MRESULT message: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+
+	rc = receive_message(controld_fd, buf, &message, argv);
+	if (rc < 0) {
+		/* fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+
+	switch (message) {
+		case CM_STATUS:
+			rc = parse_status(argv, &error, &error_msg);
+			if (rc) {
+				/* fprintf(stderr, "Bad status message: %s\n",
+					strerror(-rc)); */
+				goto out;
+			}
+			if (error) {
+				/* fprintf(stderr,
+					"Error %d from daemon: %s\n",
+					error, error_msg); */
+			}
+			break;
+
+		default:
+			/* fprintf(stderr,
+				"Unexpected message %s from daemon\n",
+				message_to_string(message)); */
+			goto out;
+			break;
+	}
+
+	err = 0;
+
+out:
+	if (controld_fd != -1) {
+		close(controld_fd);
+		controld_fd = -1;
+	}
+
+	return err;
 }
+
 static errcode_t cman_group_leave(const char *cluster_name,
 				  struct o2cb_region_desc *desc)
 {
-	return 0;
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	int rc;
+	int error;
+	char *error_msg;
+	client_message message;
+	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+	char buf[OCFS2_CONTROLD_MAXLINE];
+
+	if (controld_fd != -1) {
+		/* fprintf(stderr, "Join in progress!\n"); */
+		rc = -EINPROGRESS;
+		goto out;
+	}
+
+	rc = client_connect();
+	if (rc < 0) {
+		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+	controld_fd = rc;
+
+	rc = send_message(controld_fd, CM_UNMOUNT, OCFS2_FS_NAME,
+			  desc->r_name, desc->r_service);
+	if (rc) {
+		/* fprintf(stderr, "Unable to send UNMOUNT message: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+
+	rc = receive_message(controld_fd, buf, &message, argv);
+	if (rc < 0) {
+		/* fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc)); */
+		goto out;
+	}
+
+	switch (message) {
+		case CM_STATUS:
+			rc = parse_status(argv, &error, &error_msg);
+			if (rc) {
+				/* fprintf(stderr, "Bad status message: %s\n",
+					strerror(-rc)); */
+				goto out;
+			}
+			if (error) {
+				/* fprintf(stderr,
+					"Error %d from daemon: %s\n",
+					error, error_msg); */
+				goto out;
+			}
+			break;
+
+		default:
+			/* fprintf(stderr,
+				"Unexpected message %s from daemon\n",
+				message_to_string(message)); */
+			goto out;
+			break;
+	}
+
+	err = 0;
+
+out:
+	if (controld_fd != -1) {
+		close(controld_fd);
+		controld_fd = -1;
+	}
+
+	return err;
 }
 #endif
 
@@ -1308,7 +1589,7 @@ errcode_t o2cb_begin_group_join(const char *cluster_name,
 
 errcode_t o2cb_complete_group_join(const char *cluster_name,
 				   struct o2cb_region_desc *desc,
-				   int error)
+				   int result)
 {
 	errcode_t err;
 	char _fake_cluster_name[NAME_MAX];
@@ -1326,7 +1607,7 @@ errcode_t o2cb_complete_group_join(const char *cluster_name,
 		cluster_name = _fake_cluster_name;
 	}
 
-	return ops->complete_group_join(cluster_name, desc, error);
+	return ops->complete_group_join(cluster_name, desc, result);
 }
 
 errcode_t o2cb_group_leave(const char *cluster_name,

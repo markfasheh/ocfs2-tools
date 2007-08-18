@@ -1400,10 +1400,13 @@ unload()
     if_fail $?
 
     # Only unmount configfs if there are no other users
-    if [ -z "$(ls -1 "$(configfs_path)")" ]
+    if [ -d "$(configfs_path)" ]
     then
-        unmount_filesystem "configfs" "/sys/kernel/config"
-        if_fail $?
+        if [ -z "$(ls -1 "$(configfs_path)")" ]
+        then
+            unmount_filesystem "configfs" "$(configfs_path)"
+            if_fail $?
+        fi
     fi
 }
 

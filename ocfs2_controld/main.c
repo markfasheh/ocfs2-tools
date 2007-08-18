@@ -365,7 +365,7 @@ static void lockfile(void)
 
 	error = fcntl(fd, F_SETLK, &lock);
 	if (error) {
-		fprintf(stderr, "gfs_controld is already running\n");
+		fprintf(stderr, "ocfs2_controld is already running\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -399,7 +399,7 @@ static void daemonize(void)
 	close(0);
 	close(1);
 	close(2);
-	openlog("gfs_controld", LOG_PID, LOG_DAEMON);
+	openlog("ocfs2_controld", LOG_PID, LOG_DAEMON);
 
 	lockfile();
 }
@@ -442,7 +442,7 @@ static void decode_arguments(int argc, char **argv)
 			break;
 
 		case 'V':
-			printf("gfs_controld (built %s %s)\n", __DATE__, __TIME__);
+			printf("ocfs2_controld (built %s %s)\n", __DATE__, __TIME__);
 			/* printf("%s\n", REDHAT_COPYRIGHT); */
 			exit(EXIT_SUCCESS);
 			break;
