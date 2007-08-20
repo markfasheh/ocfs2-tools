@@ -28,10 +28,119 @@
 #define LOCKFILE_NAME			"/var/run/o2cb_controld.pid"
 
 static int member_fd;
+static int sigpipe_write_fd, sigpipe_fd;
 
-static void sigterm_handler(int sig)
+static void handler(int signum)
 {
-	finalize_cluster();
+	log_debug("Caught signal %d", signum);
+	if (write(sigpipe_write_fd, &signum, sizeof(signum)) < sizeof(signum))
+		log_error("Problem writing signal: %s\n", strerror(-errno));
+}
+
+static int handle_signal(void)
+{
+	int rc, caught_sig, abortp = 0;
+	static int segv_already = 0;
+
+	rc = read(sigpipe_fd, (char *)&caught_sig, sizeof(caught_sig));
+	if (rc < 0) {
+		rc = -errno;
+		log_error("Error reading from signal pipe: %s",
+			  strerror(-rc));
+		goto out;
+	}
+
+	if (rc != sizeof(caught_sig)) {
+		rc = -EIO;
+		log_error("Error reading from signal pipe: %s",
+			  strerror(-rc));
+		goto out;
+	}
+
+	switch (caught_sig) {
+		case SIGQUIT:
+			abortp = 1;
+			/* FALL THROUGH */
+
+		case SIGTERM:
+		case SIGINT:
+		case SIGHUP:
+			log_error("Caught signal %d, exiting", caught_sig);
+			rc = 1;
+#if 0  /* XXX: We probably need some safety check like this */
+			if (list_empty(&mounts)) {
+				log_error("Caught signal %d, exiting",
+					  caught_sig);
+				rc = 1;
+			} else {
+				log_error("Caught signal %d, but mounts exist.  Ignoring.",
+					  caught_sig);
+				rc = 0;
+			}
+#endif
+			break;
+
+		case SIGSEGV:
+			log_error("Segmentation fault, exiting");
+			rc = 1;
+			if (segv_already) {
+				log_error("Segmentation fault loop detected");
+				abortp = 1;
+			} else
+				segv_already = 1;
+			break;
+
+		default:
+			log_error("Caught signal %d, ignoring", caught_sig);
+			rc = 0;
+			break;
+	}
+
+	if (rc && abortp)
+		abort();
+
+out:
+	return rc;
+}
+
+static int setup_sigpipe(void)
+{
+	int rc;
+	int signal_pipe[2];
+	struct sigaction act;
+
+	rc = pipe(signal_pipe);
+	if (rc) {
+		rc = -errno;
+		log_error("Unable to set up signal pipe: %s",
+			  strerror(-rc));
+		goto out;
+	}
+
+	sigpipe_fd = signal_pipe[0];
+	sigpipe_write_fd = signal_pipe[1];
+
+	act.sa_sigaction = NULL;
+	act.sa_restorer = NULL;
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = handler;
+#ifdef SA_INTERRUPT
+	act.sa_flags = SA_INTERRUPT;
+#endif
+
+	rc += sigaction(SIGTERM, &act, NULL);
+	rc += sigaction(SIGINT, &act, NULL);
+	rc += sigaction(SIGHUP, &act, NULL);
+	rc += sigaction(SIGQUIT, &act, NULL);
+	rc += sigaction(SIGSEGV, &act, NULL);
+	act.sa_handler = SIG_IGN;
+	rc += sigaction(SIGPIPE, &act, NULL);  /* Get EPIPE instead */
+
+	if (rc)
+		log_error("Unable to set up signal handlers");
+
+out:
+	return rc;
 }
 
 static int loop(void)
@@ -49,7 +158,13 @@ static int loop(void)
 	pollfd[0].fd = member_fd;
 	pollfd[0].events = POLLIN;
 
-	maxi = 0;
+	rv = setup_sigpipe();
+	if (rv)
+		goto out;
+	pollfd[1].fd = sigpipe_fd;
+	pollfd[1].events = POLLIN;
+
+	maxi = 1;
 
 	for (;;) {
 		rv = poll(pollfd, maxi + 1, -1);
@@ -57,20 +172,26 @@ static int loop(void)
 			continue;
 		if (rv < 0) {
 			log_error("poll errno %d", errno);
-			goto out;
+			goto stop;
 		}
 
 		for (i = 0; i <= maxi; i++) {
 			if (pollfd[i].revents & POLLIN) {
-				if (pollfd[i].fd == member_fd)
-					process_member();
+				if (pollfd[i].fd == member_fd) {
+					rv = process_member();
+					if (rv)
+						goto stop;
+				} else if (pollfd[i].fd == sigpipe_fd) {
+					rv = handle_signal();
+					if (rv)
+						goto stop;
+				}
 			}
 
 			if (pollfd[i].revents & POLLHUP) {
 				if (pollfd[i].fd == member_fd) {
 					log_error("cluster is down, exiting");
-					finalize_cluster();
-					exit(1);
+					goto stop;
 				}
 				log_debug("closing fd %d", pollfd[i].fd);
 				close(pollfd[i].fd);
@@ -78,7 +199,11 @@ static int loop(void)
 		}
 	}
 	rv = 0;
- out:
+
+stop:
+	finalize_cluster(NULL);
+
+out:
 	free(pollfd);
 	return rv;
 }
@@ -239,10 +364,6 @@ int main(int argc, char **argv)
 
 	if (!daemon_debug_opt)
 		daemonize();
-        else
-                signal(SIGINT, sigterm_handler);
-
-	signal(SIGTERM, sigterm_handler);
 
 	set_scheduler();
 	set_oom_adj(-16);
@@ -253,11 +374,8 @@ int main(int argc, char **argv)
 	 * If this daemon was killed and the cluster shut down, and
 	 * then the cluster brought back up and this daemon restarted,
 	 * there will be old configfs entries we need to clear out.
-	 * XXX: This can't work becasue we don't have cman to talk to.  We
-	 * need a cleanup that doesn't use cman_get_cluster().  Probably
-	 * needs to look at o2cb_list_clusters() and go from there.
 	 */
-	finalize_cluster();
+	remove_stale_clusters();
 
 	return loop();
 }

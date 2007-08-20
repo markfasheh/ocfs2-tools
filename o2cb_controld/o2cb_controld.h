@@ -82,8 +82,9 @@ do { \
 int add_configfs_node(const char *name, int nodeid, char *addr, int addrlen,
                       int local);
 void del_configfs_node(const char *name);
-void finalize_cluster(void);
+void finalize_cluster(const char *name);
 void initialize_o2cb(void);
+void remove_stale_clusters(void);
 
 /* member_xxx.c */
 int setup_member(void);

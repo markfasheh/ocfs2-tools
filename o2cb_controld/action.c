@@ -95,44 +95,95 @@ static int fill_cluster_name(void)
 	return 0;
 }
 
-static void finalize_nodes(void)
+static void del_configfs_node_full(const char *cluster, const char *name)
+{
+	errcode_t err;
+
+	log_debug("del_configfs_node \"%s\"", name);
+
+	err = o2cb_del_node(cluster, name);
+	if (err) {
+		com_err(prog_name, err,
+			"while deleting node \"%s\" in cluster\"%s\"",
+			name, cluster);
+	}
+}
+
+void del_configfs_node(const char *name)
+{
+	del_configfs_node_full(cluster_name, name);
+}
+
+static void finalize_nodes(const char *cluster)
 {
 	int i;
 	char **nodes = NULL;
 	errcode_t err;
 
-	err = o2cb_list_nodes(cluster_name, &nodes);
+	err = o2cb_list_nodes((char *)cluster, &nodes);
 	if (err) {
 		if (err != O2CB_ET_SERVICE_UNAVAILABLE) {
 			com_err(prog_name, err,
 				"while listing nodes for cluster \"%s\"",
-				cluster_name);
+				cluster);
 		}
 		return;
 	}
 
 	for (i = 0; nodes && nodes[i] && &(nodes[i]); i++)
-		del_configfs_node(nodes[i]);
+		del_configfs_node_full(cluster, nodes[i]);
 
 	o2cb_free_nodes_list(nodes);
 }
 
-void finalize_cluster(void)
+/*
+ * This can be called with NULL and it will query cman for the name
+ */
+void finalize_cluster(const char *cluster)
 {
 	errcode_t err;
 
-	if (fill_cluster_name())
-		return;
+	if (!cluster) {
+		if (fill_cluster_name())
+			return;
+		cluster = cluster_name;
+	}
 
-	log_debug("Cleaning up cluster \"%s\"", cluster_name);
+	log_debug("Cleaning up cluster \"%s\"", cluster);
 
-	finalize_nodes();
+	finalize_nodes(cluster);
 
-	err = o2cb_remove_cluster(cluster_name);
+	err = o2cb_remove_cluster(cluster);
 	if (err && (err != O2CB_ET_SERVICE_UNAVAILABLE))
 		com_err(prog_name, err,
-			"Unable to de-configure cluster \"%s\"",
-			cluster_name);
+			"Unable to de-configure cluster \"%s\"", cluster);
+}
+
+/*
+ * This is used during startup.  CMan is not connected, so we'll use
+ * o2cb to find any stale clusters.
+ */
+void remove_stale_clusters(void)
+{
+	errcode_t err;
+	int i;
+	char **clusters;
+
+	err = o2cb_list_clusters(&clusters);
+	if (err) {
+		/*
+		 * We shouldn't get SERVICE_UNAVAILABLE, as o2cb_init()
+		 * would have failed.
+		 */
+		com_err(prog_name, err,
+			"while trying to find any stale clusters");
+		return;
+	}
+
+	for (i = 0; clusters && clusters[i] && &(clusters[i]); i++)
+		finalize_cluster(clusters[i]);
+
+	o2cb_free_cluster_list(clusters);
 }
 
 static int initialize_cluster(void)
@@ -187,28 +238,17 @@ int add_configfs_node(const char *name, int nodeid, char *addr, int addrlen,
 	return rv;
 }
 
-void del_configfs_node(const char *name)
-{
-	errcode_t err;
-
-	log_debug("del_configfs_node \"%s\"", name);
-
-	err = o2cb_del_node(cluster_name, name);
-	if (err) {
-		com_err(prog_name, err,
-			"while deleting node \"%s\" in cluster\"%s\"",
-			name, cluster_name);
-	}
-}
 
 
 void initialize_o2cb(void)
 {
 	errcode_t err;
 
+	initialize_o2cb_error_table();
+
 	err = o2cb_init();
 	if (err) {
-		com_err(prog_name, err, "Cannot initialize o2cb\n");
+		com_err(prog_name, err, "while initializing o2cb");
 		exit(EXIT_FAILURE);
 	}
 }

@@ -54,9 +54,9 @@ int no_withdraw;
 
 static void handler(int signum)
 {
-	log_debug("Caught signal %d\n", signum);
+	log_debug("Caught signal %d", signum);
 	if (write(sigpipe_write_fd, &signum, sizeof(signum)) < sizeof(signum))
-		log_error("Problem writing signal: %s\n", strerror(-errno));
+		log_error("Problem writing signal: %s", strerror(-errno));
 }
 
 static int handle_signal(void)
