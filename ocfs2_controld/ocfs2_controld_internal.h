@@ -247,6 +247,7 @@ int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
 	       const char *mountpoint);
 int do_remount(int ci, char *dir, char *mode);
 void ping_kernel_mount(char *table);
+void clean_up_mountgroup(struct mountgroup *mg);
 
 int client_send(int ci, char *buf, int len);
 

@@ -44,11 +44,122 @@ static struct pollfd *pollfd = NULL;
 
 static int cman_fd;
 static int listen_fd;
+static int sigpipe_fd;
+static int sigpipe_write_fd;
 static int groupd_fd;
 
 extern struct list_head mounts;
 extern struct list_head withdrawn_mounts;
 int no_withdraw;
+
+static void handler(int signum)
+{
+	log_debug("Caught signal %d\n", signum);
+	if (write(sigpipe_write_fd, &signum, sizeof(signum)) < sizeof(signum))
+		log_error("Problem writing signal: %s\n", strerror(-errno));
+}
+
+static int handle_signal(void)
+{
+	int rc, caught_sig, abortp = 0;
+	static int segv_already = 0;
+
+	rc = read(sigpipe_fd, (char *)&caught_sig, sizeof(caught_sig));
+	if (rc < 0) {
+		rc = -errno;
+		log_error("Error reading from signal pipe: %s",
+			  strerror(-rc));
+		goto out;
+	}
+
+	if (rc != sizeof(caught_sig)) {
+		rc = -EIO;
+		log_error("Error reading from signal pipe: %s",
+			  strerror(-rc));
+		goto out;
+	}
+
+	switch (caught_sig) {
+		case SIGQUIT:
+			abortp = 1;
+			/* FALL THROUGH */
+
+		case SIGTERM:
+		case SIGINT:
+		case SIGHUP:
+			if (list_empty(&mounts)) {
+				log_error("Caught signal %d, exiting",
+					  caught_sig);
+				rc = 1;
+			} else {
+				log_error("Caught signal %d, but mounts exist.  Ignoring.",
+					  caught_sig);
+				rc = 0;
+			}
+			break;
+
+		case SIGSEGV:
+			log_error("Segmentation fault, exiting");
+			rc = 1;
+			if (segv_already) {
+				log_error("Segmentation fault loop detected");
+				abortp = 1;
+			} else
+				segv_already = 1;
+			break;
+
+		default:
+			log_error("Caught signal %d, ignoring", caught_sig);
+			rc = 0;
+			break;
+	}
+
+	if (rc && abortp)
+		abort();
+
+out:
+	return rc;
+}
+
+static int setup_sigpipe(void)
+{
+	int rc;
+	int signal_pipe[2];
+	struct sigaction act;
+
+	rc = pipe(signal_pipe);
+	if (rc) {
+		rc = -errno;
+		log_error("Unable to set up signal pipe: %s",
+			  strerror(-rc));
+		goto out;
+	}
+
+	sigpipe_fd = signal_pipe[0];
+	sigpipe_write_fd = signal_pipe[1];
+
+	act.sa_sigaction = NULL;
+	act.sa_restorer = NULL;
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = handler;
+#ifdef SA_INTERRUPT
+	act.sa_flags = SA_INTERRUPT;
+#endif
+
+	rc += sigaction(SIGTERM, &act, NULL);
+	rc += sigaction(SIGINT, &act, NULL);
+	rc += sigaction(SIGHUP, &act, NULL);
+	rc += sigaction(SIGQUIT, &act, NULL);
+	rc += sigaction(SIGSEGV, &act, NULL);
+	act.sa_handler = SIG_IGN;
+	rc += sigaction(SIGPIPE, &act, NULL);  /* Get EPIPE instead */
+
+	if (rc)
+		log_error("Unable to set up signal handlers");
+
+out:
+	return rc;
+}
 
 int do_read(int fd, void *buf, size_t count)
 {
@@ -276,6 +387,27 @@ static int process_client(int ci)
 	return rv;
 }
 
+/*
+ * THIS FUNCTION CAUSES PROBLEMS.
+ *
+ * bail_on_mounts() is called when we are forced to exit via a signal or
+ * cman dying on us.  As such, it removes regions from o2cb but does
+ * not communicate with cman.  This can cause o2cb to self-fence or cman
+ * to go nuts.  But hey, if you SIGKILL the daemon, you get what you pay 
+ * for.
+ */
+static void bail_on_mounts(void)
+{
+	struct list_head *p, *t;
+	struct mountgroup *mg;
+
+	list_for_each_safe(p, t, &mounts) {
+		mg = list_entry(p, struct mountgroup, list);
+		clean_up_mountgroup(mg);
+	}
+}
+
+
 static int loop(void)
 {
 	int rv, i, f, poll_timeout = -1;
@@ -284,6 +416,11 @@ static int loop(void)
 	if (rv < 0)
 		goto out;
 	client_add(listen_fd);
+
+	rv = setup_sigpipe();
+	if (rv < 0)
+		goto out;
+	client_add(sigpipe_fd);
 
 	rv = cman_fd = setup_cman();
 	if (rv < 0)
@@ -299,8 +436,9 @@ static int loop(void)
 
 	for (;;) {
 		rv = poll(pollfd, client_maxi + 1, poll_timeout);
-		if (rv < 0)
+		if ((rv < 0) && (errno != EINTR))
 			log_error("poll error %d errno %d", rv, errno);
+		rv = 0;
 
 		/* client[0] is listening for new connections */
 
@@ -321,23 +459,33 @@ static int loop(void)
 					process_groupd();
 				else if (pollfd[i].fd == cman_fd)
 					process_cman();
-				else
+				else if (pollfd[i].fd == sigpipe_fd) {
+					rv = handle_signal();
+					if (rv)
+						goto stop;
+				} else
 					process_client(i);
 			}
 
 			if (pollfd[i].revents & POLLHUP) {
 				if (pollfd[i].fd == cman_fd) {
 					log_error("cman connection died");
-					exit_cman();
+					goto stop;
 				} else if (pollfd[i].fd == groupd_fd) {
 					log_error("groupd connection died");
-					exit_cman();
+					goto stop;
 				}
 				client_dead(i);
 			}
 		}
 	}
-	rv = 0;
+
+stop:
+	if (!rv && !list_empty(&mounts))
+		rv = 1;
+
+	bail_on_mounts();
+
  out:
 	return rv;
 }

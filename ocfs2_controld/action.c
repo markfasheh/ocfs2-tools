@@ -890,6 +890,36 @@ void do_finish(struct mountgroup *mg)
 	}
 }
 
+/*
+ * THIS FUNCTION CAN CAUSE PROBLEMS.
+ *
+ * clean_up_mountgroup() can be called from do_terminate() on a normal
+ * group_leave().  In this case, it will safely do its thing.
+ *
+ * However, it can also be called when we exit due to a signal or
+ * cman dying on us.  As such, it will remove the region from o2cb but do
+ * no communication with cman.  This can cause o2cb to self-fence or cman
+ * to go nuts.  But hey, if you SIGKILL the daemon, you get what you pay 
+ * for.
+ */
+void clean_up_mountgroup(struct mountgroup *mg)
+{
+	/*
+	 * Drop all members from our local region, as we don't care about
+	 * them anymore.  Force start_type to LEAVE so that down_members()
+	 * doesn't complain.
+	 */
+	mg->start_type = GROUP_NODE_LEAVE;
+	down_members(mg, 0, NULL);
+	assert(list_empty(&mg->members));
+
+	if (drop_region(mg))
+		log_error("Error removing region %s", mg->uuid);
+
+	list_del(&mg->list);
+	free(mg);
+}
+
 void do_terminate(struct mountgroup *mg)
 {
 	log_group(mg, "termination of our unmount leave");
@@ -912,20 +942,7 @@ void do_terminate(struct mountgroup *mg)
 	 */
 	assert(list_empty(&mg->mountpoints));
 
-	/*
-	 * Drop all members from our local region, as we don't care about
-	 * them anymore.  Force start_type to LEAVE so that down_members()
-	 * doesn't complain.
-	 */
-	mg->start_type = GROUP_NODE_LEAVE;
-	down_members(mg, 0, NULL);
-	assert(list_empty(&mg->members));
-
-	if (drop_region(mg))
-		log_error("Error removing region %s", mg->uuid);
-
-	list_del(&mg->list);
-	free(mg);
+	clean_up_mountgroup(mg);
 }
 
 void dump_state(void)
