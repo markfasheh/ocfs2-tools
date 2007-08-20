@@ -1449,7 +1449,7 @@ static errcode_t cman_complete_group_join(const char *cluster_name,
 
 	if (controld_fd == -1) {
 		/* fprintf(stderr, "Join not started!\n"); */
-		rc = -EINVAL;
+		err = O2CB_ET_SERVICE_UNAVAILABLE;
 		goto out;
 	}
 
@@ -1458,6 +1458,7 @@ static errcode_t cman_complete_group_join(const char *cluster_name,
 	if (rc) {
 		/* fprintf(stderr, "Unable to send MRESULT message: %s\n",
 			strerror(-rc)); */
+		err = O2CB_ET_IO;
 		goto out;
 	}
 
@@ -1465,6 +1466,7 @@ static errcode_t cman_complete_group_join(const char *cluster_name,
 	if (rc < 0) {
 		/* fprintf(stderr, "Error reading from daemon: %s\n",
 			strerror(-rc)); */
+		err = O2CB_ET_IO;
 		goto out;
 	}
 
@@ -1480,6 +1482,7 @@ static errcode_t cman_complete_group_join(const char *cluster_name,
 				/* fprintf(stderr,
 					"Error %d from daemon: %s\n",
 					error, error_msg); */
+				err = O2CB_ET_CONFIGURATION_ERROR;
 			}
 			break;
 
@@ -1487,6 +1490,7 @@ static errcode_t cman_complete_group_join(const char *cluster_name,
 			/* fprintf(stderr,
 				"Unexpected message %s from daemon\n",
 				message_to_string(message)); */
+			err = O2CB_ET_INTERNAL_FAILURE;
 			goto out;
 			break;
 	}
@@ -1515,7 +1519,7 @@ static errcode_t cman_group_leave(const char *cluster_name,
 
 	if (controld_fd != -1) {
 		/* fprintf(stderr, "Join in progress!\n"); */
-		rc = -EINPROGRESS;
+		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
 	}
 
@@ -1523,6 +1527,16 @@ static errcode_t cman_group_leave(const char *cluster_name,
 	if (rc < 0) {
 		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
 			strerror(-rc)); */
+		switch (rc) {
+			case -EACCES:
+			case -EPERM:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			default:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+		}
 		goto out;
 	}
 	controld_fd = rc;
@@ -1532,6 +1546,7 @@ static errcode_t cman_group_leave(const char *cluster_name,
 	if (rc) {
 		/* fprintf(stderr, "Unable to send UNMOUNT message: %s\n",
 			strerror(-rc)); */
+		err = O2CB_ET_IO;
 		goto out;
 	}
 
@@ -1539,6 +1554,7 @@ static errcode_t cman_group_leave(const char *cluster_name,
 	if (rc < 0) {
 		/* fprintf(stderr, "Error reading from daemon: %s\n",
 			strerror(-rc)); */
+		err = O2CB_ET_IO;
 		goto out;
 	}
 
@@ -1554,6 +1570,7 @@ static errcode_t cman_group_leave(const char *cluster_name,
 				/* fprintf(stderr,
 					"Error %d from daemon: %s\n",
 					error, error_msg); */
+				err = O2CB_ET_CONFIGURATION_ERROR;
 				goto out;
 			}
 			break;
@@ -1562,6 +1579,7 @@ static errcode_t cman_group_leave(const char *cluster_name,
 			/* fprintf(stderr,
 				"Unexpected message %s from daemon\n",
 				message_to_string(message)); */
+			err = O2CB_ET_INTERNAL_FAILURE;
 			goto out;
 			break;
 	}

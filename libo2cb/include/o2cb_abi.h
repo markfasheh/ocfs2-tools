@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * o2cb_abi.c
+ * o2cb_abi.h
  *
  * Layout of configfs paths for O2CB cluster configuration.
  *
