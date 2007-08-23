@@ -393,7 +393,18 @@ int do_mount_result(struct mountgroup *mg, int ci, int another,
 		goto out;
 	}
 
-	/* XXX Check that mountpoint is valid */
+	if (!find_mountpoint(mg, mountpoint, ci)) {
+		if (find_mountpoint(mg, mountpoint, 0))
+			fill_error(mg, ENOENT,
+				   "Mountpoint %s for UUID %s does not match this client",
+				   mountpoint, uuid);
+		else
+			fill_error(mg, ENOENT,
+				   "Mountpoint %s for UUID %s is not in progress",
+				   mountpoint, uuid);
+
+		goto out;
+	}
 
 	err = strtol(errcode, &ptr, 10);
 	if (ptr && *ptr != '\0') {
