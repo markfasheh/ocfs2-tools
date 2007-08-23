@@ -272,7 +272,6 @@ int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 	};
 	struct mountgroup *mg = &mg_error;
 
-	fprintf(stderr, "%d \"%s\"\n", strlen(uuid), uuid);
 	log_debug("mount: MOUNT %s %s %s %s %s",
 		  fstype, uuid, cluster, device, mountpoint);
 
@@ -665,51 +664,24 @@ static int is_member(struct mountgroup *mg, int nodeid)
 	return find_memb_nodeid(mg, nodeid) != NULL;
 }
 
-static int path_exists(const char *path)
-{
-	struct stat buf;
 
-	if (stat(path, &buf) < 0) {
-		if (errno != ENOENT)
-			log_error("%s: stat failed: %d", path, errno);
-		return 0;
-	}
-	return 1;
-}
-
-static int create_path(char *path)
-{
-	mode_t old_umask;
-	int rv;
-
-	old_umask = umask(0022);
-	rv = mkdir(path, 0777);
-	umask(old_umask);
-
-	if (rv < 0) {
-		rv = -errno;
-		log_error("%s: mkdir failed: %d", path, -rv);
-		if (-rv == EEXIST)
-			rv = 0;
-	}
-	return rv;
-}
-
-#define REGION_FORMAT "/sys/kernel/config/cluster/%s/heartbeat/%s"
 static int initialize_region(struct mountgroup *mg)
 {
 	int rc = 0;
-	char path[PATH_MAX+1];
+	errcode_t err;
+	struct o2cb_region_desc desc = {
+		.r_name = mg->uuid,
+	};
 
-	snprintf(path, PATH_MAX, REGION_FORMAT, clustername, mg->uuid);
-
-	if (!path_exists(path)) {
-		rc = create_path(path);
-		if (rc) {
-			fill_error(mg, -rc, "Unable to create region %s",
-				   mg->uuid);
-			mg->group_leave_on_finish = 1;
-		}
+	err = o2cb_create_heartbeat_region(clustername, &desc);
+	if (err == O2CB_ET_REGION_EXISTS)
+		err = 0;
+	if (err) {
+		rc = -ENOENT;
+		fill_error(mg, -rc,
+			   "%s while trying to initialize region %s",
+			   error_message(err), mg->uuid);
+		mg->group_leave_on_finish = 1;
 	}
 
 	return rc;
@@ -718,17 +690,18 @@ static int initialize_region(struct mountgroup *mg)
 static int drop_region(struct mountgroup *mg)
 {
 	int rc = 0;
-	char path[PATH_MAX+1];
+	errcode_t err;
+	struct o2cb_region_desc desc = {
+		.r_name = mg->uuid,
+	};
 
-	snprintf(path, PATH_MAX, REGION_FORMAT, clustername, mg->uuid);
-
-	if (path_exists(path)) {
-		rc = rmdir(path);
-		if (rc) {
-			rc = -errno;
-			fill_error(mg, -rc, "Unable to remove region %s",
-				   mg->uuid);
-		}
+	err = o2cb_remove_heartbeat_region(clustername, &desc);
+	if (err) {
+		/* XXX: Should we ignore EBUSY or ENOENT? */
+		rc = -ENOENT;
+		fill_error(mg, -rc,
+			   "%s while trying to remove region %s",
+			   error_message(err), mg->uuid);
 	}
 
 	return rc;

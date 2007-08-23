@@ -22,6 +22,7 @@
  *  of the GNU General Public License v.2.
  */
 
+#include "o2cb.h"
 #include "o2cb_client_proto.h"
 #include "ocfs2_controld_internal.h"
 
@@ -645,9 +646,17 @@ static void set_scheduler(void)
 
 int main(int argc, char **argv)
 {
+	errcode_t err;
 	prog_name = argv[0];
 	INIT_LIST_HEAD(&mounts);
 	/* INIT_LIST_HEAD(&withdrawn_mounts); */
+
+	initialize_o2cb_error_table();
+	err = o2cb_init();
+	if (err) {
+		com_err(prog_name, err, "while trying to initialize o2cb");
+		return 1;
+	}
 
 	decode_arguments(argc, argv);
 

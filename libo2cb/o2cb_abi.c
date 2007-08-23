@@ -755,7 +755,7 @@ errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 		goto out;
 	}
 
-	ret = mkdir(desc->r_name,
+	ret = mkdir(region_path,
 		    S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 	if (ret) {
 		switch (errno) {
