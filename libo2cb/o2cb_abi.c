@@ -712,18 +712,17 @@ static errcode_t _fake_default_cluster(char *cluster)
 	return 0;
 }
 
-static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
-					      const char *region_name,
-					      const char *device_name,
-					      int block_bytes,
-					      uint64_t start_block,
-					      uint64_t blocks)
+errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
+				       struct o2cb_region_desc *desc)
 {
 	char _fake_cluster_name[NAME_MAX];
 	char region_path[PATH_MAX];
 	char num_buf[NAME_MAX];
 	int ret, fd;
 	errcode_t err;
+
+	if (current_stack == O2CB_STACK_NONE)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
 
 	if (!cluster_name) {
 		err = _fake_default_cluster(_fake_cluster_name);
@@ -732,27 +731,31 @@ static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 		cluster_name = _fake_cluster_name;
 	}
 
+	if (current_stack == O2CB_STACK_O2CB) {
 #define O2CB_MAXIMUM_HEARTBEAT_BLOCKSIZE 4096
-	if (block_bytes > O2CB_MAXIMUM_HEARTBEAT_BLOCKSIZE) {
-		err = O2CB_ET_INVALID_BLOCK_SIZE;
-		goto out;
-	}
+		if (desc->r_block_bytes >
+		    O2CB_MAXIMUM_HEARTBEAT_BLOCKSIZE) {
+			err = O2CB_ET_INVALID_BLOCK_SIZE;
+			goto out;
+		}
 
 #define O2CB_MAX_NODE_COUNT 255
-	if (!blocks || (blocks > O2CB_MAX_NODE_COUNT)) {
-		err = O2CB_ET_INVALID_BLOCK_COUNT;
-		goto out;
+		if (!desc->r_blocks ||
+		    (desc->r_blocks > O2CB_MAX_NODE_COUNT)) {
+			err = O2CB_ET_INVALID_BLOCK_COUNT;
+			goto out;
+		}
 	}
 
 	ret = snprintf(region_path, PATH_MAX - 1,
 		       O2CB_FORMAT_HEARTBEAT_REGION,
-		       configfs_path, cluster_name, region_name);
+		       configfs_path, cluster_name, desc->r_name);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
 	}
 
-	ret = mkdir(region_path,
+	ret = mkdir(desc->r_name,
 		    S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 	if (ret) {
 		switch (errno) {
@@ -783,40 +786,44 @@ static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 		goto out;
 	}
 
-	ret = snprintf(num_buf, NAME_MAX - 1, "%d", block_bytes);
+	if (current_stack != O2CB_STACK_O2CB)
+		goto out;
+
+	ret = snprintf(num_buf, NAME_MAX - 1, "%d", desc->r_block_bytes);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out_rmdir;
 	}
 
-	err = o2cb_set_region_attribute(cluster_name, region_name,
+	err = o2cb_set_region_attribute(cluster_name, desc->r_name,
 					"block_bytes", num_buf);
 	if (err)
 		goto out_rmdir;
 
-	ret = snprintf(num_buf, NAME_MAX - 1, "%"PRIu64, start_block);
+	ret = snprintf(num_buf, NAME_MAX - 1, "%"PRIu64,
+		       desc->r_start_block);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out_rmdir;
 	}
 
-	err = o2cb_set_region_attribute(cluster_name, region_name,
+	err = o2cb_set_region_attribute(cluster_name, desc->r_name,
 					"start_block", num_buf);
 	if (err)
 		goto out_rmdir;
 
-	ret = snprintf(num_buf, NAME_MAX - 1, "%"PRIu64, blocks);
+	ret = snprintf(num_buf, NAME_MAX - 1, "%"PRIu64, desc->r_blocks);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out_rmdir;
 	}
 
-	err = o2cb_set_region_attribute(cluster_name, region_name,
+	err = o2cb_set_region_attribute(cluster_name, desc->r_name,
 					"blocks", num_buf);
 	if (err)
 		goto out_rmdir;
 
-	fd = open64(device_name, O_RDWR);
+	fd = open64(desc->r_device_name, O_RDWR);
 	if (fd < 0) {
 		switch (errno) {
 			default:
@@ -845,7 +852,7 @@ static errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 		goto out_close;
 	}
 
-	err = o2cb_set_region_attribute(cluster_name, region_name,
+	err = o2cb_set_region_attribute(cluster_name, desc->r_name,
 					"dev", num_buf);
 
 out_close:
@@ -1091,13 +1098,16 @@ errcode_t o2cb_num_region_refs(const char *region_name,
 	return ret;
 }
 
-static errcode_t o2cb_remove_heartbeat_region(const char *cluster_name,
-					      const char *region_name)
+errcode_t o2cb_remove_heartbeat_region(const char *cluster_name,
+				       struct o2cb_region_desc *desc)
 {
 	char _fake_cluster_name[NAME_MAX];
 	char region_path[PATH_MAX];
 	int ret;
 	errcode_t err = 0;
+
+	if (current_stack == O2CB_STACK_NONE)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
 
 	if (!cluster_name) {
 		err = _fake_default_cluster(_fake_cluster_name);
@@ -1108,7 +1118,7 @@ static errcode_t o2cb_remove_heartbeat_region(const char *cluster_name,
 
 	ret = snprintf(region_path, PATH_MAX - 1,
 		       O2CB_FORMAT_HEARTBEAT_REGION,
-		       configfs_path, cluster_name, region_name);
+		       configfs_path, cluster_name, desc->r_name);
 	if (ret <= 0 || ret == PATH_MAX - 1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
@@ -1183,8 +1193,7 @@ static errcode_t classic_group_leave(const char *cluster_name,
 	if (!hb_refs) {
 		/* XXX: If this fails, shouldn't we still destroy the
 		 * semaphore set? */
-		ret = o2cb_remove_heartbeat_region(cluster_name,
-						   desc->r_name);
+		ret = o2cb_remove_heartbeat_region(cluster_name, desc);
 		if (ret)
 			goto up;
 
@@ -1213,12 +1222,7 @@ static errcode_t classic_begin_group_join(const char *cluster_name,
 	if (ret)
 		return ret;
 
-	ret = o2cb_create_heartbeat_region(cluster_name,
-					   desc->r_name,
-					   desc->r_device_name,
-					   desc->r_block_bytes,
-					   desc->r_start_block,
-					   desc->r_blocks);
+	ret = o2cb_create_heartbeat_region(cluster_name, desc);
 	if (ret && ret != O2CB_ET_REGION_EXISTS)
 		goto up;
 

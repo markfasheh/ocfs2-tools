@@ -63,6 +63,21 @@
 
 #define OCFS2_FS_NAME		"ocfs2"
 
+/* Expected use case for the region descriptor is to allocate it on
+ * the stack and completely fill it before calling
+ * begin_group_join().  Regular programs (not mount.ocfs2) should provide
+ * a mountpoint that does not begin with a '/'.  Eg, fsck could use ":fsck"
+ */
+struct o2cb_region_desc {
+	char		*r_name;	/* The uuid of the region */
+	char		*r_device_name; /* The device the region is on */
+	char		*r_service;	/* A program or mountpoint */
+	int		r_block_bytes;
+	uint64_t	r_start_block;
+	uint64_t	r_blocks;
+	int		r_persist;	/* Persist past process exit */
+};
+
 enum o2cb_known_stacks {
 	O2CB_STACK_NONE = 0,
 	O2CB_STACK_O2CB,
@@ -76,35 +91,45 @@ errcode_t o2cb_init(void);
 
 errcode_t o2cb_get_stack(enum o2cb_known_stacks *stack);
 errcode_t o2cb_get_stack_name(const char **name);
+
+/*
+ * These functions modify the o2cb files.  They are "low level" and
+ * barely aware of the backend cluster stack.  You probably want to
+ * call o2cb_ctl(8) for configuration changes and group_join/leave for
+ * heartbeat startup.
+ */
 errcode_t o2cb_create_cluster(const char *cluster_name);
 errcode_t o2cb_remove_cluster(const char *cluster_name);
-
 errcode_t o2cb_add_node(const char *cluster_name,
 			const char *node_name, const char *node_num,
 			const char *ip_address, const char *ip_port,
 			const char *local);
 errcode_t o2cb_del_node(const char *cluster_name, const char *node_name);
+errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
+				       struct o2cb_region_desc *desc);
+errcode_t o2cb_remove_heartbeat_region(const char *cluster_name,
+				       struct o2cb_region_desc *desc);
+errcode_t o2cb_get_region_ref(const char *region_name, int undo);
+errcode_t o2cb_put_region_ref(const char *region_name, int undo);
+errcode_t o2cb_num_region_refs(const char *region_name, int *num_refs);
+errcode_t o2cb_get_hb_ctl_path(char *buf, int count);
+errcode_t o2cb_get_hb_thread_pid (const char *cluster_name, 
+				  const char *region_name, 
+				  pid_t *pid);
 
+
+/* Get information about the current cluster */
 errcode_t o2cb_list_clusters(char ***clusters);
 void o2cb_free_cluster_list(char **clusters);
-
 errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes);
 void o2cb_free_nodes_list(char **nodes);
+errcode_t o2cb_get_node_num(const char *cluster_name,
+			    const char *node_name,
+			    uint16_t *node_num);
 
-struct o2cb_region_desc {
-	char		*r_name;	/* The uuid of the region */
-	char		*r_device_name; /* The device the region is on */
-	char		*r_service;	/* A program or mountpoint */
-	int		r_block_bytes;
-	uint64_t	r_start_block;
-	uint64_t	r_blocks;
-	int		r_persist;	/* Persist past process exit */
-};
-
-/* Expected use case for the region descriptor is to allocate it on
- * the stack and completely fill it before calling
- * begin_group_join().  Regular programs (not mount.ocfs2) should provide
- * a mountpoint that does not begin with a '/'.  Eg, fsck could use ":fsck"
+/*
+ * Join or leave groups.  These functions are cluster stack aware and
+ * will do the right thing.
  */
 errcode_t o2cb_begin_group_join(const char *cluster_name,
 				struct o2cb_region_desc *desc);
@@ -113,22 +138,5 @@ errcode_t o2cb_complete_group_join(const char *cluster_name,
 				   int result);
 errcode_t o2cb_group_leave(const char *cluster_name,
 			   struct o2cb_region_desc *desc);
-
-errcode_t o2cb_get_hb_thread_pid (const char *cluster_name, 
-				  const char *region_name, 
-				  pid_t *pid);
-
-errcode_t o2cb_get_region_ref(const char *region_name,
-			      int undo);
-errcode_t o2cb_put_region_ref(const char *region_name,
-			      int undo);
-errcode_t o2cb_num_region_refs(const char *region_name,
-			       int *num_refs);
-
-errcode_t o2cb_get_node_num(const char *cluster_name,
-			    const char *node_name,
-			    uint16_t *node_num);
-
-errcode_t o2cb_get_hb_ctl_path(char *buf, int count);
 
 #endif  /* _O2CB_H */
