@@ -109,6 +109,12 @@ errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 				       struct o2cb_region_desc *desc);
 errcode_t o2cb_remove_heartbeat_region(const char *cluster_name,
 				       struct o2cb_region_desc *desc);
+errcode_t o2cb_user_heartbeat_node_down(const char *cluster_name,
+					const char *region_name,
+					const char *node_name);
+errcode_t o2cb_user_heartbeat_node_up(const char *cluster_name,
+				      const char *region_name,
+				      const char *node_name);
 errcode_t o2cb_get_region_ref(const char *region_name, int undo);
 errcode_t o2cb_put_region_ref(const char *region_name, int undo);
 errcode_t o2cb_num_region_refs(const char *region_name, int *num_refs);

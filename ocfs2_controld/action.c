@@ -570,12 +570,9 @@ static struct mg_member *find_memb_nodeid(struct mountgroup *mg, int nodeid)
 	return NULL;
 }
 
-#define MEMBER_LINK_FORMAT	"/sys/kernel/config/cluster/%s/heartbeat/%s/%s"
-#define MEMBER_TARGET_FORMAT	"/sys/kernel/config/cluster/%s/node/%s"
 static int drop_member(struct mountgroup *mg, struct mg_member *memb)
 {
-	int rc;
-	char link[PATH_MAX+1];
+	errcode_t err;
 
 	/* 
 	 * XXX Can we just remove here, or should we wait until
@@ -587,24 +584,24 @@ static int drop_member(struct mountgroup *mg, struct mg_member *memb)
 	memb->gone_type = mg->start_type;
 	mg->memb_count--;
 
-	snprintf(link, PATH_MAX, MEMBER_LINK_FORMAT, clustername, mg->uuid,
-		 memb->name);
-	rc = unlink(link);
-	if (rc)
-		log_error("unlink of %s failed: %d", link, errno);
+	err = o2cb_user_heartbeat_node_down(clustername, mg->uuid,
+					    memb->name);
+	if (err)
+		log_error("%s while removing node %s from region %s",
+			  error_message(err), memb->name, mg->uuid);
 
 	free(memb);
 
-	return rc;
+	return err;
 }
 
 static int add_member(struct mountgroup *mg, int nodeid)
 {
-	int rc;
+	int rc = 0;
+	errcode_t err;
 	struct list_head *p;
 	char *node_name;
 	struct mg_member *memb, *test, *target = NULL;
-	char link[PATH_MAX+1], nodepath[PATH_MAX+1];
 
 	memb = malloc(sizeof(struct mg_member));
 	if (!memb) {
@@ -632,17 +629,15 @@ static int add_member(struct mountgroup *mg, int nodeid)
 		}
 	}
 
-	snprintf(link, PATH_MAX, MEMBER_LINK_FORMAT, clustername, mg->uuid,
-		 memb->name);
-	snprintf(nodepath, PATH_MAX, MEMBER_TARGET_FORMAT, clustername,
-		 memb->name);
+	log_group(mg, "Adding heartbeat link for node %s in region %s",
+		  memb->name, mg->uuid);
 
-	log_group(mg, "Adding heartbeat link %s -> %s", link, nodepath);
-	rc = symlink(nodepath, link);
-	if (rc) {
-		rc = -errno;
-		log_error("Unable to create heartbeat link %s -> %s", link,
-			  nodepath);
+	err = o2cb_user_heartbeat_node_up(clustername, mg->uuid,
+					  memb->name);
+	if (err) {
+		rc = -EIO;
+		log_error("%s while creating heartbeat link for node %s in region %s",
+			  error_message(err), memb->name, mg->uuid);
 		goto out_free;
 	}
 

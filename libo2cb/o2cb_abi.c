@@ -712,6 +712,144 @@ static errcode_t _fake_default_cluster(char *cluster)
 	return 0;
 }
 
+errcode_t o2cb_user_heartbeat_node_up(const char *cluster_name,
+				      const char *region_name,
+				      const char *node_name)
+{
+	int rc;
+	errcode_t err = 0;
+	char link_path[PATH_MAX];
+	char target_path[PATH_MAX];
+
+	if (current_stack == O2CB_STACK_NONE) {
+		err = O2CB_ET_SERVICE_UNAVAILABLE;
+		goto out;
+	}
+
+	if (current_stack == O2CB_STACK_O2CB) {
+	       err = O2CB_ET_CONFIGURATION_ERROR;
+	       goto out;
+	}
+
+	rc = snprintf(link_path, PATH_MAX, O2CB_FORMAT_USER_HEARTBEAT_NODE,
+		      configfs_path, cluster_name, region_name, node_name);
+	if (rc <= 0 || rc == PATH_MAX - 1) {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	rc = snprintf(target_path, PATH_MAX, O2CB_FORMAT_NODE,
+		      configfs_path, cluster_name, node_name);
+	if (rc <= 0 || rc == PATH_MAX - 1) {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	/*
+	 * We don't need to check that target_path exists.  Configfs
+	 * will do it for us.
+	 */
+	rc = symlink(target_path, link_path);
+	if (rc) {
+		switch (errno) {
+			case EACCES:
+			case EPERM:
+			case EROFS:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			case ENOMEM:
+				err = O2CB_ET_NO_MEMORY;
+				break;
+
+			case ENOTDIR:
+			case ENOENT:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			case EEXIST:
+				err = O2CB_ET_NODE_EXISTS;
+				break;
+
+			case EBUSY:
+				err = O2CB_ET_REGION_IN_USE;
+				break;
+
+			default:
+				/*
+				 * This includes EISDIR, which the
+				 * kernel driver shouldn't allow.
+				 */
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+		}
+	}
+
+out:
+	return err;
+}
+
+errcode_t o2cb_user_heartbeat_node_down(const char *cluster_name,
+					const char *region_name,
+					const char *node_name)
+{
+	int rc;
+	errcode_t err = 0;
+	char link_path[PATH_MAX];
+
+	if (current_stack == O2CB_STACK_NONE) {
+		err = O2CB_ET_SERVICE_UNAVAILABLE;
+		goto out;
+	}
+
+	if (current_stack == O2CB_STACK_O2CB) {
+	       err = O2CB_ET_CONFIGURATION_ERROR;
+	       goto out;
+	}
+
+	rc = snprintf(link_path, PATH_MAX, O2CB_FORMAT_USER_HEARTBEAT_NODE,
+		      configfs_path, cluster_name, region_name, node_name);
+	if (rc <= 0 || rc == PATH_MAX - 1) {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	rc = unlink(link_path);
+	if (rc) {
+		switch (errno) {
+			case EACCES:
+			case EPERM:
+			case EROFS:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			case ENOMEM:
+				err = O2CB_ET_NO_MEMORY;
+				break;
+
+			case ENOTDIR:
+			case ENOENT:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			case EBUSY:
+				err = O2CB_ET_REGION_IN_USE;
+				break;
+
+			default:
+				/*
+				 * This includes EISDIR, which the
+				 * kernel driver shouldn't allow.
+				 */
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+		}
+	}
+
+out:
+	return err;
+}
+
 errcode_t o2cb_create_heartbeat_region(const char *cluster_name,
 				       struct o2cb_region_desc *desc)
 {
