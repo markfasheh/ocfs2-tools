@@ -217,10 +217,6 @@ static errcode_t ocfs2_format_journal(ocfs2_filesys *fs,
 	uint64_t offset = 0;
 	uint32_t wrote, count, jrnl_blocks;
 
-	ret = ocfs2_extent_map_init(fs, ci);
-	if (ret)
-		goto out;
-
 #define BUFLEN	1048576
 	ret = ocfs2_malloc_blocks(fs->fs_io, (BUFLEN >> bs_bits), &buf);
 	if (ret)

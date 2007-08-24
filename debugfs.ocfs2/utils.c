@@ -443,12 +443,6 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 		goto bail;
 	}
 
-	ret = ocfs2_extent_map_init(fs, ci);
-	if (ret) {
-		com_err(gbls.cmd, ret, "while initializing extent map");
-		goto bail;
-	}
-
 	buflen = 1024 * 1024;
 
 	ret = ocfs2_malloc_blocks(fs->fs_io,
@@ -514,12 +508,6 @@ errcode_t read_whole_file(ocfs2_filesys *fs, uint64_t ino, char **buf,
 	ret = ocfs2_read_cached_inode(fs, ino, &ci);
 	if (ret) {
 		com_err(gbls.cmd, ret, "while reading inode %"PRIu64, ino);
-		goto bail;
-	}
-
-	ret = ocfs2_extent_map_init(fs, ci);
-	if (ret) {
-		com_err(gbls.cmd, ret, "while initializing extent map");
 		goto bail;
 	}
 

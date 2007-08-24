@@ -134,7 +134,7 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 	errcode_t ret;
 	char *buf = NULL;
 	uint64_t blkno, tmp_blkno;
-	int contig;
+	uint64_t contig;
 	ocfs2_cached_inode *cinode = NULL;
 	struct ocfs2_dir_entry *de = NULL, *newent = NULL;
 	char name[OCFS2_MAX_FILENAME_LEN];
@@ -142,10 +142,6 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 	mode_t mode;
 
 	ret = ocfs2_read_cached_inode(fs, dir, &cinode);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_extent_map_init(fs, cinode);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
@@ -336,7 +332,7 @@ void mess_up_dir_ent(ocfs2_filesys *fs, uint64_t blkno)
 void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno)
 {
 	errcode_t ret;
-	int contig;
+	uint64_t contig;
 	uint64_t parent1, parent2, tmp_blkno,extblk;
 	char *buf = NULL;
 	struct ocfs2_dir_entry *de = NULL, *newent = NULL;
@@ -357,10 +353,6 @@ void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno)
 	 * parents: parent1 and parent2.
 	 */
 	ret = ocfs2_read_cached_inode(fs, parent2, &cinode);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_extent_map_init(fs, cinode);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 

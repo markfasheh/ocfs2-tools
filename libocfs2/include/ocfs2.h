@@ -190,7 +190,6 @@ typedef void (*ocfs2_chb_notify)(int state, char *progress, void *data);
 typedef struct _ocfs2_filesys ocfs2_filesys;
 typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
 typedef struct _io_channel io_channel;
-typedef struct _ocfs2_extent_map ocfs2_extent_map;
 typedef struct _ocfs2_inode_scan ocfs2_inode_scan;
 typedef struct _ocfs2_dir_scan ocfs2_dir_scan;
 typedef struct _ocfs2_bitmap ocfs2_bitmap;
@@ -229,7 +228,6 @@ struct _ocfs2_cached_inode {
 	struct _ocfs2_filesys *ci_fs;
 	uint64_t ci_blkno;
 	struct ocfs2_dinode *ci_inode;
-	ocfs2_extent_map *ci_map;
 	ocfs2_bitmap *ci_chains;
 };
 
@@ -295,30 +293,12 @@ errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 
 void ocfs2_swap_extent_list_from_cpu(struct ocfs2_extent_list *el);
 void ocfs2_swap_extent_list_to_cpu(struct ocfs2_extent_list *el);
-errcode_t ocfs2_extent_map_init(ocfs2_filesys *fs,
-				ocfs2_cached_inode *cinode);
-void ocfs2_extent_map_free(ocfs2_cached_inode *cinode);
-errcode_t ocfs2_extent_map_insert(ocfs2_cached_inode *cinode,
-				  struct ocfs2_extent_rec *rec,
-				  int tree_depth);
-errcode_t ocfs2_extent_map_drop(ocfs2_cached_inode *cinode,
-				 uint32_t new_clusters);
-errcode_t ocfs2_extent_map_trunc(ocfs2_cached_inode *cinode,
-				 uint32_t new_clusters);
-errcode_t ocfs2_extent_map_get_rec(ocfs2_cached_inode *cinode,
-				   uint32_t cpos,
-				   struct ocfs2_extent_rec **rec);
-errcode_t ocfs2_extent_map_get_clusters(ocfs2_cached_inode *cinode,
-					uint32_t v_cpos, int count,
-					uint32_t *p_cpos,
-					int *ret_count);
 errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
 				      uint64_t *p_blkno,
-				      int *ret_count);
-errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
-				ocfs2_cached_inode *cinode);
-
+				      uint64_t *ret_count);
+int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+		    uint32_t cpos, char **leaf_buf);
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb);
 errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
 					int buflen, uint32_t jrnl_size);
@@ -541,7 +521,7 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs,
 errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 			      uint64_t parent_ino, char **block);
 
-errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino,
+errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 			      uint64_t c_blkno, uint32_t clusters);
 
 errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
@@ -549,8 +529,14 @@ errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode, int
 errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino);
 errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno);
 errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno);
+/*
+ * Allocate the blocks and insert them to the file.
+ * only i_clusters of dinode will be updated accordingly, i_size not changed.
+ */
 errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint32_t new_clusters);
+/* Extend the file to the new size. No clusters will be allocated. */
+errcode_t ocfs2_extend_file(ocfs2_filesys *fs, uint64_t ino, uint64_t new_size);
 errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size);
 errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
 			     uint32_t min,
@@ -734,6 +720,35 @@ static inline void ocfs2_calc_cluster_groups(uint64_t clusters,
 	cgs->cgs_tail_group_bits = clusters % cgs->cgs_cpg;
 	if (cgs->cgs_tail_group_bits == 0)
 		cgs->cgs_tail_group_bits = cgs->cgs_cpg;
+}
+
+/*
+ * Helper function to look at the # of clusters in an extent record.
+ */
+static inline uint32_t ocfs2_rec_clusters(uint16_t tree_depth,
+					  struct ocfs2_extent_rec *rec)
+{
+	/*
+	 * Cluster count in extent records is slightly different
+	 * between interior nodes and leaf nodes. This is to support
+	 * unwritten extents which need a flags field in leaf node
+	 * records, thus shrinking the available space for a clusters
+	 * field.
+	 */
+	if (tree_depth)
+		return rec->e_int_clusters;
+	else
+		return rec->e_leaf_clusters;
+}
+
+static inline void ocfs2_set_rec_clusters(uint16_t tree_depth,
+					  struct ocfs2_extent_rec *rec,
+					  uint32_t clusters)
+{
+	if (tree_depth)
+		rec->e_int_clusters = clusters;
+	else
+		rec->e_leaf_clusters = clusters;
 }
 
 /*

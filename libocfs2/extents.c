@@ -49,7 +49,10 @@ static void ocfs2_swap_extent_list_secondary(struct ocfs2_extent_list *el)
 		struct ocfs2_extent_rec *rec = &el->l_recs[i];
 
 		rec->e_cpos = bswap_32(rec->e_cpos);
-		rec->e_clusters = bswap_32(rec->e_clusters);
+		if (el->l_tree_depth)
+			rec->e_int_clusters = bswap_32(rec->e_int_clusters);
+		else
+			rec->e_leaf_clusters = bswap_16(rec->e_leaf_clusters);
 		rec->e_blkno = bswap_64(rec->e_blkno);
 	}
 }
@@ -248,7 +251,7 @@ static int extent_iterate_el(struct ocfs2_extent_list *el,
 				iret |= update_eb_rec(ctxt, &before,
 						      &el->l_recs[i]);
 
-			if (el->l_recs[i].e_clusters &&
+			if (el->l_recs[i].e_int_clusters &&
 			   (el->l_recs[i].e_cpos >= ctxt->last_eb_cpos)) {
 				/*
 				 * Only set last_eb_blkno if current extent
@@ -261,6 +264,12 @@ static int extent_iterate_el(struct ocfs2_extent_list *el,
 			}
 
 		} else {
+			/*
+			 * For a sparse file, we may find an empty record
+			 * in the left most record. Just skip it.
+			 */
+			if (!i && !el->l_recs[i].e_leaf_clusters)
+				continue;
 			iret |= (*ctxt->func)(ctxt->fs, &el->l_recs[i],
 					      el->l_tree_depth,
 					      ctxt->ccount, ref_blkno,
@@ -268,7 +277,8 @@ static int extent_iterate_el(struct ocfs2_extent_list *el,
 			if (iret & OCFS2_EXTENT_CHANGED)
 				iret |= update_leaf_rec(ctxt, &before,
 							&el->l_recs[i]);
-			ctxt->ccount += el->l_recs[i].e_clusters;
+			ctxt->ccount += ocfs2_rec_clusters(el->l_tree_depth,
+							   &el->l_recs[i]);
 		}
 		if (iret & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR))
 			break;
@@ -276,7 +286,8 @@ static int extent_iterate_el(struct ocfs2_extent_list *el,
 
 	if (iret & OCFS2_EXTENT_CHANGED) {
 		for (i = 0; i < el->l_count; i++) {
-			if (el->l_recs[i].e_clusters)
+			if (ocfs2_rec_clusters(el->l_tree_depth,
+					       &el->l_recs[i]))
 				continue;
 			el->l_next_free_rec = i;
 			break;
@@ -334,9 +345,12 @@ static int extent_iterate_eb(struct ocfs2_extent_rec *eb_rec,
 	if (flags & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR))
 		iret |= flags & (OCFS2_EXTENT_ABORT | OCFS2_EXTENT_ERROR);
 
-	/* if the list was changed and we still have recs then we need
-	 * to write the changes to disk */
-	if (changed & OCFS2_EXTENT_CHANGED && el->l_next_free_rec) {
+	/*
+	 * If the list was changed, we should write the changes to disk.
+	 * Note:
+	 * For a sparse file, we may have an empty extent block.
+	 */
+	if (changed & OCFS2_EXTENT_CHANGED) {
 		ctxt->errcode = ocfs2_write_extent_block(ctxt->fs,
 							 eb_rec->e_blkno,
 						ctxt->eb_bufs[tree_depth]);
@@ -508,8 +522,9 @@ static int block_iterate_func(ocfs2_filesys *fs,
 	uint64_t blkno, bcount, bend;
 	int iret = 0;
 
-	bcount = ocfs2_clusters_to_blocks(fs, ccount);
-	bend = bcount + ocfs2_clusters_to_blocks(fs, rec->e_clusters);
+	bcount = ocfs2_clusters_to_blocks(fs, rec->e_cpos);
+	bend = bcount + ocfs2_clusters_to_blocks(fs,
+					ocfs2_rec_clusters(tree_depth, rec));
 
 	for (blkno = rec->e_blkno; bcount < bend; blkno++, bcount++) {
 		if (((bcount * fs->fs_blocksize) >= ctxt->inode->i_size) &&
@@ -627,12 +642,14 @@ static int walk_extents_func(ocfs2_filesys *fs,
 		fprintf(stdout, " ");
 	fprintf(stdout, "(%08"PRIu32", %08"PRIu32", %08"PRIu64") |"
 			" + %08"PRIu32" = %08"PRIu32" / %08"PRIu32"\n",
-		rec->e_cpos, rec->e_clusters,
-		rec->e_blkno, ccount, ccount + rec->e_clusters,
+		rec->e_cpos, ocfs2_rec_clustes(tree_depth, rec),
+		rec->e_blkno, ccount,
+		ccount + ocfs2_rec_clusters(tree_depth, rec),
 		wi->di->i_clusters);
 
 	if (!tree_depth &&
-	    ((ccount + rec->e_clusters) == wi->di->i_clusters))
+	    ((ccount + ocfs2_rec_clusters(tree_depth, rec)) ==
+							 wi->di->i_clusters))
 		fprintf(stdout, "TOTAL: %u\n", wi->di->i_clusters);
 
 	return 0;

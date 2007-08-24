@@ -128,7 +128,7 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	errcode_t	ret = 0;
 	char		*ptr = (char *) buf;
 	uint32_t	wanted_blocks;
-	uint32_t	contig_blocks;
+	uint64_t	contig_blocks;
 	uint64_t	v_blkno;
 	uint64_t	p_blkno;
 	uint32_t	tmp;
@@ -162,9 +162,15 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 		if (contig_blocks > wanted_blocks)
 			contig_blocks = wanted_blocks;
 
-		ret = io_read_block(fs->fs_io, p_blkno, contig_blocks, ptr);
-		if (ret)
-			return ret;
+		if (!p_blkno) {
+			/* we meet with a hole, just empty the content.*/
+			memset(ptr, 0, contig_blocks * fs->fs_blocksize);
+		} else {
+			ret = io_read_block(fs->fs_io, p_blkno,
+					    contig_blocks, ptr);
+			if (ret)
+				return ret;
+		}
 
 		*got += (contig_blocks <<
 			 OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits);
@@ -184,6 +190,38 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	return ret;
 }
 
+/*
+ * Emtpy the blocks on the disk.
+ */
+static errcode_t empty_blocks(ocfs2_filesys *fs,
+			      uint64_t start_blk,
+			      uint64_t num_blocks)
+{
+	errcode_t ret;
+	char *buf = NULL;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto bail;
+
+	memset(buf, 0, fs->fs_blocksize);
+
+	while (num_blocks) {
+		ret = io_write_block(fs->fs_io, start_blk, 1, buf);
+		if (ret)
+			goto bail;
+
+		num_blocks--;
+		start_blk++;
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
 errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			   uint64_t offset, uint32_t *wrote)
 {
@@ -191,12 +229,16 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	errcode_t	ret = 0;
 	char		*ptr = (char *) buf;
 	uint32_t	wanted_blocks;
-	uint32_t	contig_blocks;
+	uint64_t	contig_blocks;
 	uint64_t	v_blkno;
-	uint64_t	p_blkno;
+	uint64_t	p_blkno, p_alloc, p_offset = 0;
 	uint32_t	tmp;
 	uint64_t	num_blocks;
 	int		bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	uint64_t	ino = ci->ci_blkno;
+	uint32_t	n_clusters, cluster_begin, cluster_end;
+	uint64_t	bpc = fs->fs_clustersize/fs->fs_blocksize;
+	int		insert = 0;
 
 	/* o_direct requires aligned io */
 	tmp = fs->fs_blocksize - 1;
@@ -225,9 +267,88 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 		if (contig_blocks > wanted_blocks)
 			contig_blocks = wanted_blocks;
 
+	 	if (!p_blkno) {
+			/*
+			 * We meet with a hole here, so we allocate clusters
+			 * and empty the both ends in case.
+			 *
+			 * We will postpone the extent insertion after we
+			 * successfully write the extent block, so that and
+			 * problems happens in block writing would not affect
+			 * the file.
+			 */
+			cluster_begin = ocfs2_blocks_to_clusters(fs, v_blkno);
+			cluster_end = ocfs2_blocks_to_clusters(fs,
+						v_blkno + contig_blocks -1);
+			n_clusters = cluster_end - cluster_begin + 1;
+			ret = ocfs2_new_clusters(fs, 1, n_clusters, &p_alloc,
+						 &n_clusters);
+			if (ret || n_clusters == 0)
+				return ret;
+
+			p_offset = v_blkno & (bpc - 1);
+			p_blkno = p_alloc + p_offset;
+			if (p_offset) {
+				/*
+				 * The user don't write the first blocks,
+				 * so we have to clear them.
+				 */
+				ret = empty_blocks(fs, p_alloc, p_offset);
+				if (ret)
+					return ret;
+			}
+
+			contig_blocks = n_clusters * bpc - p_offset;
+			if (contig_blocks > wanted_blocks) {
+				/*
+				 * we don't need to write that many blocks,
+				 * so empty the blocks at the bottom.
+				 */
+				ret = empty_blocks(fs, p_blkno + wanted_blocks,
+						contig_blocks - wanted_blocks);
+				if (ret)
+					return ret;
+				contig_blocks = wanted_blocks;
+			}
+
+			insert = 1;
+		}
+
 		ret = io_write_block(fs->fs_io, p_blkno, contig_blocks, ptr);
 		if (ret)
 			return ret;
+
+		if (insert) {
+	 		ret = ocfs2_insert_extent(fs, ci->ci_blkno,
+					ocfs2_blocks_to_clusters(fs,v_blkno),
+					p_alloc, n_clusters);
+			if (ret) {
+				/*
+				 * XXX: We don't wan't to overwrite the error
+				 * from insert_extent().  But we probably need
+				 * to BE LOUDLY UPSET.
+				 */
+				ocfs2_free_clusters(fs, n_clusters, p_alloc);
+				return ret;
+			}
+
+			/*
+			 * since the inode information has been changed, we
+			 * may need to reinitialize it and test whether we can
+			 * really find the inserted extents.
+			 */
+			ocfs2_free_cached_inode(fs, ci);
+			ret = ocfs2_read_cached_inode(fs,ino, &ci);
+			ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
+						&p_blkno, NULL);
+			/* now we shouldn't find a hole. */
+			if (!p_blkno || p_blkno != p_alloc + p_offset)
+				ret = OCFS2_ET_INTERNAL_FAILURE;
+			if (ret)
+				return ret;
+
+			insert = 0;
+		}
 
 		*wrote += (contig_blocks << bs_bits);
 		wanted_blocks -= contig_blocks;
@@ -240,6 +361,7 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 				*wrote = (uint32_t) (ci->ci_inode->i_size - offset);
 			/* break */
 		}
+
 	}
 
 	return ret;
@@ -432,4 +554,3 @@ out:
 	return 0;
 }
 #endif  /* DEBUG_EXE */
-

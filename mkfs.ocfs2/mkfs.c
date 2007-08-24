@@ -116,6 +116,80 @@ static struct fs_type_translation ocfs2_fs_types_table[] = {
 
 enum {
 	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
+	FEATURE_LEVEL,
+	FEATURES_OPTION,
+};
+
+struct fs_feature_flags {
+	const char *ff_str;
+	/* this flag is the feature's own flag. */
+	fs_options ff_own_flags;
+	/*
+	 * this flag includes the feature's own flag and
+	 * all the other features' flag it depends on.
+	 */
+	fs_options ff_flags;
+};
+
+static struct fs_feature_flags ocfs2_supported_features[] = {
+	{
+		"local",
+		{0, OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, 0},
+		{0, OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, 0},
+	},
+	{
+		"sparse",
+		{0, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, 0},
+		{0, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, 0},
+	},
+	{
+		"backup-super",
+		{OCFS2_FEATURE_COMPAT_BACKUP_SB, 0, 0},
+		{OCFS2_FEATURE_COMPAT_BACKUP_SB, 0, 0},
+	},
+	{
+		"unwritten",
+		{0, 0, OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},
+		{0, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC,
+		 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},
+	},
+	{
+		NULL,
+		{0, 0, 0},
+		{0, 0, 0}
+	},
+};
+
+enum feature_level_indexes {
+	FEATURE_LEVEL_DEFAULT = 0,
+	FEATURE_LEVEL_MAX_COMPAT,
+	FEATURE_LEVEL_MAX_FEATURES,
+};
+
+struct feature_level_translation {
+	const char *fl_str;
+	enum feature_level_indexes fl_type;
+};
+
+static struct feature_level_translation ocfs2_feature_levels_table[] = {
+	{"default", FEATURE_LEVEL_DEFAULT},
+	{"max-compat", FEATURE_LEVEL_MAX_COMPAT},
+	{"max-features", FEATURE_LEVEL_MAX_FEATURES},
+	{NULL, FEATURE_LEVEL_DEFAULT},
+};
+
+static fs_options feature_level_defaults[] = {
+	{OCFS2_FEATURE_COMPAT_BACKUP_SB,
+	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC,
+	 0},  /* FEATURE_LEVEL_DEFAULT */
+
+	{OCFS2_FEATURE_COMPAT_BACKUP_SB,
+	 0,
+	 0}, /* FEATURE_LEVEL_MAX_COMPAT */
+
+	{OCFS2_FEATURE_COMPAT_BACKUP_SB,
+	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC,
+	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN}, /* FEATURE_LEVEL_MAX_FEATURES */
 };
 
 static uint64_t align_bytes_to_clusters_ceil(State *s,
@@ -505,6 +579,159 @@ parse_fs_type_opts(char *progname, const char *typestr,
 	}
 }
 
+/* Get the feature level according to the value set by "--fs-feature-level". */
+static void parse_feature_level_opts(char *progname, const char *typestr,
+				     enum feature_level_indexes *index)
+{
+	int i;
+
+	for(i = 0; ocfs2_feature_levels_table[i].fl_str; i++) {
+		if (strcmp(typestr,
+			  ocfs2_feature_levels_table[i].fl_str) == 0) {
+			*index = ocfs2_feature_levels_table[i].fl_type;
+			break;
+		}
+	}
+
+	if (!ocfs2_feature_levels_table[i].fl_str) {
+		com_err(progname, 0,
+			"unrecognized fs-feature-level:%s", typestr);
+		exit(1);
+	}
+}
+
+static void inline merge_features(fs_options *features,
+				  fs_options new_features)
+{
+	features->compat |= new_features.compat;
+	features->incompat |= new_features.incompat;
+	features->ro_compat |= new_features.ro_compat;
+}
+
+/*
+ * Parse the feature string set by the user in "--fs-features".
+ * for all the features the user want to set, they are added into
+ * the "feature_flags". For those the user want to clear(with "no"
+ * in the beginning), they are stored in the "reverse_flags".
+ */
+static void parse_feature_opts(char *progname, const char *opts,
+			       fs_options *feature_flags,
+			       fs_options *reverse_flags)
+{
+	char *options, *token, *next, *p, *arg;
+	int i, reverse = 0;
+
+	memset(feature_flags, 0, sizeof(fs_options));
+	memset(reverse_flags, 0, sizeof(fs_options));
+
+	options = strdup(opts);
+	for (token = options; token && *token; token = next) {
+		reverse = 0;
+		p = strchr(token, ',');
+		next = NULL;
+
+		if (p) {
+			*p = '\0';
+			next = p + 1;
+		}
+
+		arg = strstr(token, "no");
+		if (arg && arg == token) {
+			reverse = 1;
+			token += 2;
+		}
+
+		for(i = 0; ocfs2_supported_features[i].ff_str; i++) {
+			if (strcmp(token,
+				   ocfs2_supported_features[i].ff_str) == 0) {
+				if (!reverse)
+					merge_features(feature_flags,
+					ocfs2_supported_features[i].ff_flags);
+				else
+					merge_features(reverse_flags,
+					ocfs2_supported_features[i].ff_own_flags);
+				break;
+			}
+		}
+		if (!ocfs2_supported_features[i].ff_str) {
+			com_err(progname, 0,
+				"unrecognized fs-feature-string:%s", token);
+			exit(1);
+		}
+	}
+
+	free(options);
+}
+
+static int check_feature_flags(fs_options *fs_flags,
+			       fs_options *fs_r_flags)
+{
+	int ret = 1;
+
+	if (fs_r_flags->compat &&
+	    fs_flags->compat & fs_r_flags->compat)
+		ret = 0;
+	else if (fs_r_flags->incompat &&
+		 fs_flags->incompat & fs_r_flags->incompat)
+		ret = 0;
+	else if (fs_r_flags->ro_compat &&
+		 fs_flags->ro_compat & fs_r_flags->ro_compat)
+		ret = 0;
+
+	return ret;
+}
+
+/*
+ * Check and Merge all the diffent features set by the user.
+ *
+ * level_set: all the features a user set by choose a feature level.
+ * feature_set: all the features a user set by "--fs-features".
+ * reverse_set: all the features a user want to clear by "--fs-features".
+ */
+static int merge_feature_flags_with_level(State *s,
+					  fs_options *level_set,
+					  fs_options *feature_set,
+					  fs_options *reverse_set)
+{
+	int i;
+
+	/*
+	 * "Check whether the user asked for a flag to be set and cleared,
+	 * which is illegal. The feature_set and reverse_set are both set
+	 * by "--fs-features", so they shouldn't collide with each other.
+	 */
+	if (!check_feature_flags(feature_set, reverse_set))
+		return 0;
+
+	/* Now combine all the features the user has set. */
+	s->feature_flags = *level_set;
+	merge_features(&s->feature_flags, *feature_set);
+
+	/*
+	 * We have to remove all the features in the reverse set
+	 * and other features which depend on them.
+	 */
+	for(i = 0; ocfs2_supported_features[i].ff_str; i++) {
+		if ((reverse_set->compat &
+			ocfs2_supported_features[i].ff_flags.compat) ||
+		    (reverse_set->incompat &
+			ocfs2_supported_features[i].ff_flags.incompat) ||
+		    (reverse_set->ro_compat &
+			ocfs2_supported_features[i].ff_flags.ro_compat)) {
+			s->feature_flags.compat &=
+	    		~ocfs2_supported_features[i].ff_own_flags.compat;
+
+			s->feature_flags.incompat &=
+	    		~ocfs2_supported_features[i].ff_own_flags.incompat;
+
+			s->feature_flags.ro_compat &=
+	    		~ocfs2_supported_features[i].ff_own_flags.ro_compat;
+		}
+	}
+
+	return 1;
+}
+
 static State *
 get_state(int argc, char **argv)
 {
@@ -523,8 +750,10 @@ get_state(int argc, char **argv)
 	uint64_t val;
 	uint64_t journal_size_in_bytes = 0;
 	enum ocfs2_fs_types fs_type = FS_DEFAULT;
-	int mount = 0;
-	int no_backup_super = 0;
+	int mount = -1;
+	int no_backup_super = -1;
+	enum feature_level_indexes index = FEATURE_LEVEL_DEFAULT;
+	fs_options feature_flags ={0,0,0}, reverse_flags = {0,0,0};
 
 	static struct option long_options[] = {
 		{ "block-size", 1, 0, 'b' },
@@ -539,6 +768,8 @@ get_state(int argc, char **argv)
 		{ "force", 0, 0, 'F'},
 		{ "mount", 1, 0, 'M'},
 		{ "no-backup-super", 0, 0, BACKUP_SUPER_OPTION },
+		{ "fs-feature-level=", 1, 0, FEATURE_LEVEL },
+		{ "fs-features=", 1, 0, FEATURES_OPTION },
 		{ 0, 0, 0, 0}
 	};
 
@@ -673,6 +904,17 @@ get_state(int argc, char **argv)
 			no_backup_super = 1;
 			break;
 
+		case FEATURE_LEVEL:
+			parse_feature_level_opts(progname, optarg,
+						 &index);
+			break;
+
+		case FEATURES_OPTION:
+			parse_feature_opts(progname, optarg,
+					      &feature_flags,
+					      &reverse_flags);
+			break;
+
 		default:
 			usage(progname);
 			break;
@@ -735,9 +977,32 @@ get_state(int argc, char **argv)
 
 	s->fs_type = fs_type;
 
-	s->mount = mount;
+	if(!merge_feature_flags_with_level(s, &feature_level_defaults[index],
+					   &feature_flags, &reverse_flags)) {
+		com_err(s->progname, 0,
+			"Incompatible feature flags"
+			" were specified\n");
+		exit(1);
+	}
 
-	s->no_backup_super = no_backup_super;
+	if (s->feature_flags.incompat & OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT)
+		s->mount = MOUNT_LOCAL;
+	else
+		s->mount = MOUNT_CLUSTER;
+	if (s->feature_flags.compat & OCFS2_FEATURE_COMPAT_BACKUP_SB)
+		s->no_backup_super = 0;
+	else
+		s->no_backup_super = 1;
+
+
+	/* Here if the user set these flags explicitly, we will use them and
+	 * discard the setting in the features set.
+	 */
+	if (mount != -1)
+		s->mount = mount;
+
+	if (no_backup_super != -1)
+		s->no_backup_super = no_backup_super;
 
 	return s;
 }
@@ -851,6 +1116,8 @@ usage(const char *progname)
 	fprintf(stderr, "usage: %s [-b block-size] [-C cluster-size] "
 		"[-J journal-options]\n\t\t[-L volume-label] [-M mount-type] "
 		"[-N number-of-node-slots]\n\t\t[-T filesystem-type] [-HFqvV] "
+		"\n\t\t[--fs-feature-level=[default|max-compat|max-features]] "
+		"\n\t\t[--fs-features=[[no]sparse,...]]"
 		"[--no-backup-super] device [blocks-count]\n", progname);
 	exit(0);
 }
@@ -1716,7 +1983,6 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 		  SystemFileDiskRecord *root_rec, SystemFileDiskRecord *sys_rec)
 {
 	struct ocfs2_dinode *di;
-	uint32_t incompat;
 	uint64_t super_off = rec->fe_off;
 
 	di = do_malloc(s, s->blocksize);
@@ -1750,14 +2016,27 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_max_slots = s->initial_slots;
 	di->id2.i_super.s_first_cluster_group = s->first_cluster_group_blkno;
 
-	incompat = 0;
-	if (s->hb_dev)
-		incompat |= OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
+	if (s->hb_dev) {
+		s->feature_flags.incompat =
+				 	OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
+		s->feature_flags.compat = 0;
+		s->feature_flags.ro_compat = 0;
+	}
 
 	if (s->mount == MOUNT_LOCAL)
-		incompat |= OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
+		s->feature_flags.incompat |=
+					 OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
+	/*
+	 * we clear the "backup_sb" here since it should be written by
+	 * format_backup_super, not by us. And we have already set the
+	 * "s->no_backup_super" according to the features in get_state,
+	 * so it is safe to clear the flag here.
+	 */
+	s->feature_flags.compat &= !OCFS2_FEATURE_COMPAT_BACKUP_SB;
 
-	di->id2.i_super.s_feature_incompat = incompat;
+	di->id2.i_super.s_feature_incompat = s->feature_flags.incompat;
+	di->id2.i_super.s_feature_compat = s->feature_flags.compat;
+	di->id2.i_super.s_feature_ro_compat = s->feature_flags.ro_compat;
 
 	strcpy(di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
@@ -1899,7 +2178,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	if (rec->extent_len) {
 		di->id2.i_list.l_next_free_rec = 1;
 		di->id2.i_list.l_recs[0].e_cpos = 0;
-		di->id2.i_list.l_recs[0].e_clusters = clusters;
+		ocfs2_set_rec_clusters(0, &di->id2.i_list.l_recs[0], clusters);
 		di->id2.i_list.l_recs[0].e_blkno =
 			rec->extent_off >> s->blocksize_bits;
 	}

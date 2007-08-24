@@ -89,7 +89,7 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 		goto leave;
 	}
 
-	blocks = rec->e_clusters << cluster_bits;
+	blocks = ocfs2_rec_clusters(0, rec) << cluster_bits;
 	blocks >>= block_bits;
 
 	if (blocks > O2NM_MAX_NODES)

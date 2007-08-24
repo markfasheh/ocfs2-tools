@@ -155,10 +155,11 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 {
 	errcode_t ret = 0;
 	uint64_t first_block;
-	uint32_t last_cluster;
+	uint32_t last_cluster, clusters;
 
+	clusters = ocfs2_rec_clusters(el->l_tree_depth, er);
 	verbosef("cpos %u clusters %u blkno %"PRIu64"\n", er->e_cpos,
-		 er->e_clusters, er->e_blkno);
+		 clusters, er->e_blkno);
 
 	if (ocfs2_block_out_of_range(ost->ost_fs, er->e_blkno))
 		goto out;
@@ -204,7 +205,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 	/* imagine blkno 0, 1 er_clusters.  last_cluster is 1 and 
 	 * fs_clusters is 1, which is ok.. */
 	last_cluster = ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno) +
-		       er->e_clusters;
+		       clusters;
 
 	if (last_cluster > ost->ost_fs->fs_clusters &&
 	    prompt(ost, PY, PR_EXTENT_CLUSTERS_OVERRUN,
@@ -214,7 +215,8 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		   "clusters to fit it in the volume?", er->e_cpos, 
 		   di->i_blkno, last_cluster - ost->ost_fs->fs_clusters)) {
 
-		er->e_clusters -= last_cluster - ost->ost_fs->fs_clusters;
+		clusters -= last_cluster - ost->ost_fs->fs_clusters;
+		ocfs2_set_rec_clusters(el->l_tree_depth, er, clusters);
 		*changed = 1;
 	}
 	
@@ -236,6 +238,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 	struct ocfs2_extent_rec *er;
 	uint64_t max_size;
 	uint16_t i;
+	uint32_t clusters;
 	size_t cpy;
 
 	verbosef("depth %u count %u next_free %u\n", el->l_tree_depth,
@@ -286,6 +289,16 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 
 	for (i = 0; i < max_recs; i++) {
 		er = &el->l_recs[i];
+		clusters = ocfs2_rec_clusters(el->l_tree_depth, er);
+
+		/*
+		 * For a sparse file, we may find an empty record
+		 * in the left most record. Just skip it.
+		 */
+		if ((OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_incompat
+		     & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) &&
+		    el->l_tree_depth && !i && !clusters)
+			continue;
 
 		/* returns immediately if blkno is out of range.
 		 * descends into eb.  checks that data er doesn't
@@ -328,11 +341,11 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		/* mark the data clusters as used */
 		o2fsck_mark_clusters_allocated(ost,
 			ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno),
-			er->e_clusters);
+			clusters);
 
-		ei->ei_clusters += er->e_clusters;
+		ei->ei_clusters += clusters;
 
-		max_size = (er->e_cpos + er->e_clusters) <<
+		max_size = (er->e_cpos + clusters) <<
 			   OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_clustersize_bits;
 		if (max_size > ei->ei_max_size)
 			ei->ei_max_size = max_size;

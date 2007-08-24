@@ -739,7 +739,7 @@ static int clear_block(ocfs2_filesys *fs,
 static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 				     uint64_t blkno, struct ocfs2_dinode *di)
 {
-	uint64_t expected = 0;
+	uint64_t expected = 0, unexpected = 0;
 	errcode_t ret;
 	struct verifying_blocks vb = {
 		.vb_ost = ost,
@@ -804,29 +804,82 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		goto out;	
 	}
 
-	if (vb.vb_num_blocks > 0)
-		expected = (vb.vb_last_block + 1) * fs->fs_blocksize;
+	/*
+	 * i_size and i_cluster mean quite different between a non-sparse
+	 * and sparse file system.
+	 *
+	 * For a non-sparse file system, the file size should be within the
+	 * clusters it is allocated, and the cluster size should be the same
+	 * as the number we calculate from extent iteration.
+	 *
+	 * For a sparse file, the file size can be greater than the real
+	 * last block offsets recorded in the extent list, but it shouldn't be
+	 * less than that cluster offset since we have already allocated some
+	 * blocks at that offset, so if the size is too small, fix it to the
+	 * end of the visible cluster end. It is also reasonable for a file
+	 * which has no allocated blocks but any number of byte sizes,
+	 * so we don't need to check its size either.
+	 */
+	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
+	    OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) {
+		if (vb.vb_num_blocks > 0) {
+			expected = ocfs2_blocks_to_clusters(fs,
+							 vb.vb_last_block + 1);
+			expected *=  fs->fs_clustersize;
+			unexpected = expected - fs->fs_clustersize;
 
-	/* i_size is checked for symlinks elsewhere */
-	if (!S_ISLNK(di->i_mode) && di->i_size > expected &&
-	    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64" has a size of "
-		   "%"PRIu64" but has %"PRIu64" bytes of actual data. "
-		   "Correct the file size?",
-		    di->i_blkno, di->i_size, expected)) {
-		di->i_size = expected;
-		o2fsck_write_inode(ost, blkno, di);
-	}
+			/* i_size is checked for symlinks elsewhere */
+			if (!S_ISLNK(di->i_mode) && di->i_size <= unexpected &&
+			    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64
+				   " has a size of %"PRIu64" but has %"PRIu64
+				   " blocks of actual data. "
+				   "Correct the file size?",
+				    di->i_blkno, di->i_size,
+				    vb.vb_last_block + 1)) {
+				di->i_size = expected;
+				o2fsck_write_inode(ost, blkno, di);
+			}
+		}
 
-	if (vb.vb_num_blocks > 0)
-		expected = ocfs2_clusters_in_blocks(fs, vb.vb_last_block + 1);
+		if (vb.vb_num_blocks > 0)
+			expected = ocfs2_clusters_in_blocks(fs, vb.vb_num_blocks);
 
-	if (di->i_clusters < expected &&
-	    prompt(ost, PY, PR_INODE_CLUSTERS,
-		   "Inode %"PRIu64" has %"PRIu32" clusters but its "
-		   "blocks fit in %"PRIu64" clusters.  Correct the number of "
-		   "clusters?", di->i_blkno, di->i_clusters, expected)) {
-		di->i_clusters = expected;
-		o2fsck_write_inode(ost, blkno, di);
+		if (di->i_clusters < expected &&
+		    prompt(ost, PY, PR_INODE_CLUSTERS,
+			   "Inode %"PRIu64" has %"PRIu32" clusters but its "
+			   "blocks fit in %"PRIu64" clusters. "
+			   "Correct the number of clusters?",
+			   di->i_blkno, di->i_clusters, expected)) {
+			di->i_clusters = expected;
+			o2fsck_write_inode(ost, blkno, di);
+		}
+	} else {
+		if (vb.vb_num_blocks > 0)
+			expected = (vb.vb_last_block + 1) * fs->fs_blocksize;
+
+		/* i_size is checked for symlinks elsewhere */
+		if (!S_ISLNK(di->i_mode) && di->i_size > expected &&
+		    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64" has a size of "
+			   "%"PRIu64" but has %"PRIu64" bytes of actual data. "
+			   "Correct the file size?",
+			    di->i_blkno, di->i_size, expected)) {
+			di->i_size = expected;
+			o2fsck_write_inode(ost, blkno, di);
+		}
+
+		if (vb.vb_num_blocks > 0)
+			expected = ocfs2_clusters_in_blocks(fs,
+							vb.vb_last_block + 1);
+
+		if (di->i_clusters < expected &&
+		    prompt(ost, PY, PR_INODE_CLUSTERS,
+			   "Inode %"PRIu64" has %"PRIu32" clusters but its "
+			   "blocks fit in %"PRIu64" clusters.  Correct the "
+			   "number of clusters?",
+			   di->i_blkno, di->i_clusters, expected)) {
+			di->i_clusters = expected;
+			o2fsck_write_inode(ost, blkno, di);
+		}
 	}
 out:
 	return ret;

@@ -1,6 +1,6 @@
 [off]	ocfs2_extent_rec    	[size]
 0x000	e_cpos              	+0x04
-0x004	e_clusters          	+0x04
+0x004	e_int_clusters         	+0x04
 0x008	e_blkno             	+0x08
 	Total               	0x010
 

@@ -50,7 +50,7 @@ static errcode_t get_more_dir_blocks(ocfs2_dir_scan *scan)
 {
 	errcode_t ret;
 	uint64_t blkno;
-	int cblocks;
+	uint64_t cblocks;
 
 	if (scan->blocks_read == scan->total_blocks)
 		return OCFS2_ET_ITERATION_COMPLETE;
@@ -146,10 +146,6 @@ errcode_t ocfs2_open_dir_scan(ocfs2_filesys *fs, uint64_t dir, int flags,
 	if (ret)
 		goto bail_dir_block;
 
-	ret = ocfs2_extent_map_init(fs, scan->inode);
-	if (ret)
-		goto bail_inode;
-
 	scan->total_blocks = scan->inode->ci_inode->i_size /
 		fs->fs_blocksize;
 	/*
@@ -162,9 +158,6 @@ errcode_t ocfs2_open_dir_scan(ocfs2_filesys *fs, uint64_t dir, int flags,
 	*ret_scan = scan;
 
 	return 0;
-
-bail_inode:
-	ocfs2_free_cached_inode(scan->fs, scan->inode);
 
 bail_dir_block:
 	ocfs2_free(&scan->buf);

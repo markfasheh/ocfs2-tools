@@ -49,7 +49,7 @@ static void print_ocfs2_extent_rec(void)
 	START_TYPE(ocfs2_extent_rec);
 
 	SHOW_OFFSET(struct ocfs2_extent_rec, e_cpos);
-	SHOW_OFFSET(struct ocfs2_extent_rec, e_clusters);
+	SHOW_OFFSET(struct ocfs2_extent_rec, e_int_clusters);
 	SHOW_OFFSET(struct ocfs2_extent_rec, e_blkno);
 
 	END_TYPE(struct ocfs2_extent_rec);

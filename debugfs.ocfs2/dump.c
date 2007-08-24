@@ -296,6 +296,7 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 {
 	struct ocfs2_extent_rec *rec;
 	int i;
+	uint32_t clusters;
 
 	fprintf(out, "\tTree Depth: %u   Count: %u   Next Free Rec: %u\n",
 		ext->l_tree_depth, ext->l_count, ext->l_next_free_rec);
@@ -303,12 +304,25 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 	if (!ext->l_next_free_rec)
 		goto bail;
 
-	fprintf(out, "\t## %-11s   %-12s   %-s\n", "Offset", "Clusters", "Block#");
+	if (ext->l_tree_depth)
+		fprintf(out, "\t## %-11s   %-12s   %-s\n", "Offset",
+			"Clusters", "Block#");
+	else
+		fprintf(out, "\t## %-11s   %-12s   %-13s   %s\n", "Offset",
+			"Clusters", "Block#", "Flags");
 
 	for (i = 0; i < ext->l_next_free_rec; ++i) {
 		rec = &(ext->l_recs[i]);
-		fprintf(out, "\t%-2d %-11u   %-12u   %"PRIu64"\n",
-		       	i, rec->e_cpos, rec->e_clusters, rec->e_blkno);
+		clusters = ocfs2_rec_clusters(ext->l_tree_depth, rec);
+
+		if (ext->l_tree_depth)
+			fprintf(out, "\t%-2d %-11u   %-12u   %"PRIu64"\n",
+				i, rec->e_cpos, clusters, rec->e_blkno);
+		else
+			fprintf(out,
+				"\t%-2d %-11u   %-12u   %-13"PRIu64"   0x%x\n",
+				i, rec->e_cpos, clusters, rec->e_blkno,
+				rec->e_flags);
 	}
 
 bail:

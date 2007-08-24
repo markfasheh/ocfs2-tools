@@ -86,7 +86,8 @@
 	OCFS2_SB(sb)->s_feature_incompat &= ~(mask)
 
 #define OCFS2_FEATURE_COMPAT_SUPP	OCFS2_FEATURE_COMPAT_BACKUP_SB
-#define OCFS2_FEATURE_INCOMPAT_SUPP	OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT
+#define OCFS2_FEATURE_INCOMPAT_SUPP	(OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT \
+					 | OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
 #define OCFS2_FEATURE_RO_COMPAT_SUPP	0
 
 /*
@@ -123,6 +124,11 @@
  * has backup superblocks.
  */
 #define OCFS2_FEATURE_COMPAT_BACKUP_SB		0x0001
+
+/*
+ * Unwritten extents support.
+ */
+#define OCFS2_FEATURE_RO_COMPAT_UNWRITTEN	0x0001
 
 /* The byte offset of the first backup block will be 1G.
  * The following will be 4G, 16G, 64G, 256G and 1T.
@@ -164,10 +170,44 @@
 #define OCFS2_FL_MODIFIABLE	(0x000100FF)	/* User modifiable flags */
 
 /*
+ * Extent record flags (e_node.leaf.flags)
+ */
+#define OCFS2_EXT_UNWRITTEN	(0x01)	/* Extent is allocated but
+					 * unwritten */
+
+/*
  * ioctl commands
  */
 #define OCFS2_IOC_GETFLAGS	_IOR('f', 1, long)
 #define OCFS2_IOC_SETFLAGS	_IOW('f', 2, long)
+#define OCFS2_IOC32_GETFLAGS	_IOR('f', 1, int)
+#define OCFS2_IOC32_SETFLAGS	_IOW('f', 2, int)
+
+/*
+ * Space reservation / allocation / free ioctls and argument structure
+ * are designed to be compatible with XFS.
+ *
+ * ALLOCSP* and FREESP* are not and will never be supported, but are
+ * included here for completeness.
+ */
+struct ocfs2_space_resv {
+	__s16		l_type;
+	__s16		l_whence;
+	__s64		l_start;
+	__s64		l_len;		/* len == 0 means until end of file */
+	__s32		l_sysid;
+	__u32		l_pid;
+	__s32		l_pad[4];	/* reserve area			    */
+};
+
+#define OCFS2_IOC_ALLOCSP		_IOW ('X', 10, struct ocfs2_space_resv)
+#define OCFS2_IOC_FREESP		_IOW ('X', 11, struct ocfs2_space_resv)
+#define OCFS2_IOC_RESVSP		_IOW ('X', 40, struct ocfs2_space_resv)
+#define OCFS2_IOC_UNRESVSP	_IOW ('X', 41, struct ocfs2_space_resv)
+#define OCFS2_IOC_ALLOCSP64	_IOW ('X', 36, struct ocfs2_space_resv)
+#define OCFS2_IOC_FREESP64	_IOW ('X', 37, struct ocfs2_space_resv)
+#define OCFS2_IOC_RESVSP64	_IOW ('X', 42, struct ocfs2_space_resv)
+#define OCFS2_IOC_UNRESVSP64	_IOW ('X', 43, struct ocfs2_space_resv)
 
 /*
  * Journal Flags (ocfs2_dinode.id1.journal1.i_flags)
@@ -291,10 +331,21 @@ static unsigned char ocfs2_type_by_mode[S_IFMT >> S_SHIFT] = {
 /*
  * On disk extent record for OCFS2
  * It describes a range of clusters on disk.
+ *
+ * Length fields are divided into interior and leaf node versions.
+ * This leaves room for a flags field (OCFS2_EXT_*) in the leaf nodes.
  */
 struct ocfs2_extent_rec {
 /*00*/	__le32 e_cpos;		/* Offset into the file, in clusters */
-	__le32 e_clusters;	/* Clusters covered by this extent */
+	union {
+		__le32 e_int_clusters; /* Clusters covered by all children */
+		struct {
+			__le16 e_leaf_clusters; /* Clusters covered by this
+						   extent */
+			__u8 e_reserved1;
+			__u8 e_flags; /* Extent flags */
+		};
+	};
 	__le64 e_blkno;		/* Physical disk offset, in blocks */
 /*10*/
 };
@@ -320,7 +371,10 @@ struct ocfs2_extent_list {
 /*00*/	__le16 l_tree_depth;		/* Extent tree depth from this
 					   point.  0 means data extents
 					   hang directly off this
-					   header (a leaf) */
+					   header (a leaf)
+					   NOTE: The high 8 bits cannot be
+					   used - tree_depth is never that big.
+					*/
 	__le16 l_count;			/* Number of extent records */
 	__le16 l_next_free_rec;		/* Next unused extent slot */
 	__le16 l_reserved1;
@@ -455,7 +509,9 @@ struct ocfs2_dinode {
 	__le32 i_ctime_nsec;
 	__le32 i_mtime_nsec;
 	__le32 i_attr;
-	__le32 i_reserved1;
+	__le16 i_orphaned_slot;		/* Only valid when OCFS2_ORPHANED_FL
+					   was set in i_flags */
+	__le16 i_reserved1;
 /*70*/	__le64 i_reserved2[8];
 /*B8*/	union {
 		__le64 i_pad1;		/* Generic way to refer to this
@@ -596,7 +652,7 @@ static inline u64 ocfs2_backup_super_blkno(struct super_block *sb, int index)
 
 	if (index >= 0 && index < OCFS2_MAX_BACKUP_SUPERBLOCKS) {
 		offset <<= (2 * index);
-		offset /= sb->s_blocksize;
+		offset >>= sb->s_blocksize_bits;
 		return offset;
 	}
 

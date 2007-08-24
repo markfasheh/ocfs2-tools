@@ -68,7 +68,7 @@ static int extent_set_func(ocfs2_filesys *fs,
 		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 
 	cluster = (uint32_t)(rec->e_blkno >> b_to_c_bits);
-	for (i = 0; i < rec->e_clusters; i++) {
+	for (i = 0; i < ocfs2_rec_clusters(tree_depth, rec); i++) {
 		ret = ocfs2_bitmap_set(we->extent_map,
 				       cluster + i,
 				       &oldval);
@@ -112,7 +112,7 @@ static int extent_test_func(ocfs2_filesys *fs,
 		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 
 	cluster = (uint32_t)(rec->e_blkno >> b_to_c_bits);
-	for (i = 0; i < rec->e_clusters; i++) {
+	for (i = 0; i < ocfs2_rec_clusters(tree_depth, rec); i++) {
 		ret = ocfs2_bitmap_test(we->dup_map,
 					cluster + i,
 					&oldval);

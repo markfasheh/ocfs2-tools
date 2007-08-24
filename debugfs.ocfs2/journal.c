@@ -88,12 +88,6 @@ errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out)
 		goto bail;
 	}
 
-	ret = ocfs2_extent_map_init(fs, ci);
-	if (ret) {
-		com_err(gbls.cmd, ret, "while initializing extent map");
-		goto bail;
-	}
-
 	buflenbits = buflen >>
 			OCFS2_RAW_SB(gbls.fs->fs_super)->s_blocksize_bits;
 	ret = ocfs2_malloc_blocks(fs->fs_io, buflenbits, &buf);

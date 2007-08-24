@@ -238,7 +238,7 @@ static errcode_t lookup_journal_block(ocfs2_filesys *fs,
 				      int check_dup)
 {
 	errcode_t ret;
-	int contig;
+	uint64_t contig;
 	int was_set;
 
 	ret = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff, 1, blkno,
@@ -482,12 +482,6 @@ static errcode_t prep_journal_info(ocfs2_filesys *fs, int slot,
 	      OCFS2_JOURNAL_DIRTY_FL))
 		goto out;
 
-	err = ocfs2_extent_map_init(fs, ji->ji_cinode);
-	if (err) {
-		com_err(whoami, err, "while initializing extent map");
-		goto out;
-	}
-
 	err = lookup_journal_block(fs, ji, 0, &ji->ji_jsb_block, 1);
 	if (err)
 		goto out;
@@ -529,7 +523,8 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 	uint64_t blkno;
 	errcode_t ret;
 	ocfs2_cached_inode *cinode = NULL;
-	int contig, is_dirty;
+	int is_dirty;
+	uint64_t contig;
 	journal_superblock_t *jsb;
 
 	*should = 0;
@@ -561,12 +556,6 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 		if (ret) {
 			com_err(whoami, ret, "while reading cached inode "
 				"%"PRIu64" for slot %d's journal", blkno, i);
-			goto out;
-		}
-
-		ret = ocfs2_extent_map_init(fs, cinode);
-		if (ret) {
-			com_err(whoami, ret, "while initializing extent map");
 			goto out;
 		}
 
@@ -740,15 +729,11 @@ static errcode_t check_journal_super(ocfs2_filesys *fs,
 				     ocfs2_cached_inode *ci)
 {
 	errcode_t ret;
-	int contig;
+	uint64_t contig;
 	uint64_t blkno;
 	char *buf = NULL;
 
 	ret = ocfs2_malloc_blocks(fs->fs_io, 1, &buf);
-	if (ret)
-		goto out;
-
-	ret = ocfs2_extent_map_init(fs, ci);
 	if (ret)
 		goto out;
 

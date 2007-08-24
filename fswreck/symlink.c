@@ -76,14 +76,10 @@ static void add_symlink(ocfs2_filesys *fs, uint64_t blkno)
 	errcode_t ret = 0;
 	ocfs2_cached_inode *cinode = NULL;
 	uint64_t new_blk;
-	int contig;
+	uint64_t contig;
 	char *buf = NULL;
 
 	ret = ocfs2_read_cached_inode(fs, blkno, &cinode);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_extent_map_init(fs, cinode);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
@@ -214,9 +210,9 @@ static void corrupt_symlink_file(ocfs2_filesys *fs, uint64_t blkno,
 		er = el->l_recs;
 		fprintf(stdout, "LINK_BLOCKS: "
 			"Corrupt inode#%"PRIu64","
-			"change e_clusters from %u to %u\n",
-			blkno, er->e_clusters, (er->e_clusters + 1));
-		er->e_clusters += 1;
+			"change e_leaf_clusters from %u to %u\n",
+			blkno, er->e_leaf_clusters, (er->e_leaf_clusters + 1));
+		er->e_leaf_clusters += 1;
 		break;
 	default:
 		FSWRK_FATAL("Invalid type[%d]\n", type);

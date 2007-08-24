@@ -49,6 +49,7 @@ static errcode_t lookup_regular(ocfs2_filesys *fs, uint64_t inode,
 	int i;
 	int j;
 	uint64_t numblks;
+	uint32_t clusters;
 
 	if (*found >= count)
 		return 0;
@@ -63,6 +64,15 @@ static errcode_t lookup_regular(ocfs2_filesys *fs, uint64_t inode,
 
 	for (i = 0; i < el->l_next_free_rec; ++i) {
 		rec = &(el->l_recs[i]);
+		clusters = ocfs2_rec_clusters(el->l_tree_depth, rec);
+
+		/*
+		 * For a sparse file, we may find an empty record.
+		 * Just skip it.
+		 */
+		if (!clusters)
+			continue;
+
 		if (el->l_tree_depth) {
 			ret = ocfs2_read_extent_block(fs, rec->e_blkno, buf);
 			if (ret) {
@@ -91,7 +101,7 @@ static errcode_t lookup_regular(ocfs2_filesys *fs, uint64_t inode,
 			if (ba[j].status != STATUS_UNKNOWN)
 				continue;
 
-			numblks = ocfs2_clusters_to_blocks(fs, rec->e_clusters);
+			numblks = ocfs2_clusters_to_blocks(fs, clusters);
 
 			if (ba[j].blkno >= rec->e_blkno &&
 			    ba[j].blkno < rec->e_blkno + numblks) {

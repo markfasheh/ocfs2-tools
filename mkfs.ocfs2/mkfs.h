@@ -192,6 +192,14 @@ struct _DirData {
 	SystemFileDiskRecord *record;
 };
 
+typedef struct _fs_options fs_options;
+
+struct _fs_options {
+	uint32_t compat;
+	uint32_t incompat;
+	uint32_t ro_compat;
+};
+
 typedef struct _State State;
 
 struct _State {
@@ -240,6 +248,8 @@ struct _State {
 	uint16_t tail_group_bits;
 	uint32_t first_cluster_group;
 	uint64_t first_cluster_group_blkno;
+
+	fs_options feature_flags;
 
 	enum ocfs2_fs_types fs_type;
 };

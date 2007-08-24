@@ -426,21 +426,34 @@ static errcode_t find_block_offset(ocfs2_filesys *fs,
 	errcode_t ret = 0;
 	char *buf = NULL;
 	int i;
-	uint32_t clstoff;
+	uint32_t clstoff, clusters;
 	uint32_t tmp;
 
 	clstoff = ocfs2_blocks_to_clusters(fs, blkoff);
 
 	for (i = 0; i < el->l_next_free_rec; ++i) {
 		rec = &(el->l_recs[i]);
+		clusters = ocfs2_rec_clusters(el->l_tree_depth, rec);
 
-		/* TODO Fix to handle sparse trees */
-		if (clstoff >= (rec->e_cpos + rec->e_clusters))
+		/*
+		 * For a sparse file, we may find an empty record.
+		 * Just skip it.
+		 */
+		if (!clusters)
+			continue;
+
+		if (clstoff >= (rec->e_cpos + clusters))
 			continue;
 
 		if (!el->l_tree_depth) {
-			tmp = blkoff - ocfs2_clusters_to_blocks(fs, clstoff);
-			dump_logical_blkno(out, rec->e_blkno + tmp);
+			if (clstoff < rec->e_cpos) {
+				dump_logical_blkno(out, 0);
+			} else {
+				tmp = blkoff -
+					ocfs2_clusters_to_blocks(fs,
+								 rec->e_cpos);
+				dump_logical_blkno(out, rec->e_blkno + tmp);
+			}
 			goto bail;
 		}
 
@@ -482,11 +495,23 @@ static errcode_t traverse_extents (ocfs2_filesys *fs, struct ocfs2_extent_list *
 	errcode_t ret = 0;
 	char *buf = NULL;
 	int i;
+	uint32_t clusters;
 
 	dump_extent_list (out, el);
 
 	for (i = 0; i < el->l_next_free_rec; ++i) {
 		rec = &(el->l_recs[i]);
+		clusters = ocfs2_rec_clusters(el->l_tree_depth, rec);
+
+		/*
+		 * In a unsuccessful insertion, we may shift a tree
+		 * add a new branch for it and do no insertion. So we
+		 * may meet a extent block which have
+		 * clusters == 0, this should only be happen
+		 * in the last extent rec. */
+		if (!clusters && i == el->l_next_free_rec - 1)
+			break;
+
 		if (el->l_tree_depth) {
 			ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
 			if (ret)
