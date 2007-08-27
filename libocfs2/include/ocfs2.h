@@ -265,6 +265,9 @@ errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 			char *data);
 errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
 			 const char *data);
+errcode_t io_init_cache(io_channel *channel, size_t nr_blocks);
+errcode_t io_init_cache_size(io_channel *channel, size_t bytes);
+void io_destroy_cache(io_channel *channel);
 
 errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb);
 errcode_t ocfs2_write_super(ocfs2_filesys *fs);
