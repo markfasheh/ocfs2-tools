@@ -149,7 +149,7 @@ $(CLEAN_SUBDIRS):
 	$(MAKE) -C $(subst -clean,,$@) clean
 
 clean: clean-subdirs $(CLEAN_RULES)
-	rm -f *.o *.p .*.d core $(BIN_PROGRAMS) $(SBIN_PROGRAMS) $(LIBRARIES) $(UNINST_PROGRAMS) stamp-md5
+	rm -f *.o *.p .*.d core $(BIN_PROGRAMS) $(SBIN_PROGRAMS) $(LIBRARIES) $(UNINST_PROGRAMS) $(UNINST_LIBRARIES) stamp-md5
 
 
 DIST_SUBDIRS = $(addsuffix -dist,$(SUBDIRS))
