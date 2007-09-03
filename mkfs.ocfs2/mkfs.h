@@ -94,6 +94,7 @@
 
 #define AUTO_CLUSTERSIZE       65536
 
+#define CLUSTERS_MAX           (UINT32_MAX - 1)
 
 enum {
 	SFI_JOURNAL,
