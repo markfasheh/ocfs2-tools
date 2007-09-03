@@ -940,21 +940,18 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 
 static uint32_t cluster_size_default(State *s)
 {
-	uint32_t volume_size, cluster_size, cluster_size_bits, need;
+	uint32_t cluster_size, cluster_size_bits;
+	uint64_t volume_size;
 
 	for (cluster_size = OCFS2_MIN_CLUSTERSIZE;
-	     cluster_size < AUTO_CLUSTERSIZE;
+	     cluster_size < OCFS2_MAX_CLUSTERSIZE;
 	     cluster_size <<= 1) {
 		cluster_size_bits = get_bits(s, cluster_size);
 
 		volume_size =
 			s->volume_size_in_bytes >> cluster_size_bits;
 
-		need = (volume_size + 7) >> 3;
-		need = ((need + cluster_size - 1) >>
-			cluster_size_bits) << cluster_size_bits;
-
-		if (need <= BITMAP_AUTO_MAX) 
+		if (volume_size <= CLUSTERS_MAX)
 			break;
 	}
 
