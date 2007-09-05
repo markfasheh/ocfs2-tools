@@ -2,7 +2,7 @@
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
-\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-FqvV\fR] [\fB\-\-no\-backup\-super\fR] \fIdevice\fR [\fIblocks-count\fI]
+\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-\-fs\-features=\fR\fI[no]sparse...\fR] [\fB\-\-fs\-feature\-level=\fR\fIfeature\-level\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-FqvV\fR] [\fB\-\-no\-backup\-super\fR] \fIdevice\fR [\fIblocks-count\fI]
 .SH "DESCRIPTION"
 .PP
 \fBmkfs.ocfs2\fR is used to create an \fIOCFS2\fR file system on a \fIdevice\fR,
@@ -81,6 +81,50 @@ updates. Creates a larger journal.
 Appropriate for file systems which will host a relatively small number
 of very large files. A small journal is selected. Cluster size will be
 at least 128K.
+.RE
+
+.TP
+\fB\-\-fs\-features=\fR\fR\fI[no]sparse...\fR
+Turn specific file system features on or off. A comma separated list of feature flags can be provided, and mkfs.ocfs2 will try to create the file system with those features set according to the list. To turn a feature on, include it in the list. To turn a feature off, prepend \fBno\fR to the name. Choices here will override individual features set via the \fB\-\-fs\-feature\-level\fR option.
+The following flags are supported:
+.RS 1.2i
+.TP
+\fBlocal\fR
+Create the file system as a local mount, so that it can be mounted without a cluster stack. See the \fB-M\fR option for more information.
+.RE
+.RS 1.2i
+.TP
+\fBbackup-super\fR
+Create backup super blocks for this volume.
+.RE
+.RS 1.2i
+.TP
+\fBsparse\fR
+Enable support for sparse files. With this, Ocfs2 can avoid allocating (and zeroing) data to fill holes. Turn this feature on if you can, otherwise extends and some writes might be less performant.
+.RE
+.RS 1.2i
+.TP
+\fBunwritten\fR
+Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. Ocfs2 will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on.
+.RE
+
+.TP
+\fB\-\-fs\-feature\-level=\fR\fR\fIfeature\-level\fR
+Choose from a set of pre-determined file-system features. This option is designed to allow users to conveniently choose a set of file system features which fits their needs. There is no downside to trying a set of features which your module might not support - if it won't mount the new file system simply reformat at a lower level. Feature levels can be fine-tuned via the \fB\-\-fs\-features\fR option. Currently, there are 3 types of feature levels:
+.RS 1.2i
+.TP
+\fBmax-compat\fR
+Chooses fewer features but ensures that the file system can be mounted from older versions of the Ocfs2 module.
+.RE
+.RS 1.2i
+.TP
+\fBdefault\fR
+The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of Ocfs2.
+.RE
+.RS 1.2i
+.TP
+\fBmax-features\fR
+Choose the maximum amount of features available. This will typically provide the best performance from Ocfs2 at the expense of creating a file system that is only compatible with very recent versions of the Ocfs2 kernel module.
 .RE
 
 .TP
