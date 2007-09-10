@@ -42,9 +42,11 @@
 #include "o2cb_crc32.h"
 #include "ocfs2_nodemanager.h"
 
+
+#define STACKCONF	"/var/run/o2cb.stack"
+
 #ifdef HAVE_CMAN
 # include "o2cb_client_proto.h"
-# define STACKCONF	"/var/run/o2cb.stack"
 static int controld_fd = -1;
 #endif
 
