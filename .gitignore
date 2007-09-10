@@ -1,5 +1,6 @@
 cscope.*
 *.a
+*.o
 stamp-md5
 configure
 Config.make
