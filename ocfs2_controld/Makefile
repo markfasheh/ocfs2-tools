@@ -2,6 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
+sbindir = $(root_sbindir)
 SBIN_PROGRAMS = ocfs2_controld
 UNINST_PROGRAMS = test_client
 
