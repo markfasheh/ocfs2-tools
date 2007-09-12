@@ -458,9 +458,13 @@ static int loop(void)
 			if (pollfd[i].revents & POLLIN) {
 				if (pollfd[i].fd == groupd_fd)
 					process_groupd();
-				else if (pollfd[i].fd == cman_fd)
-					process_cman();
-				else if (pollfd[i].fd == sigpipe_fd) {
+				else if (pollfd[i].fd == cman_fd) {
+					rv = process_cman();
+					if (rv) {
+						log_error("cman connection died");
+						goto stop;
+					}
+				} else if (pollfd[i].fd == sigpipe_fd) {
 					rv = handle_signal();
 					if (rv)
 						goto stop;
@@ -487,7 +491,7 @@ stop:
 
 	bail_on_mounts();
 
- out:
+out:
 	return rv;
 }
 

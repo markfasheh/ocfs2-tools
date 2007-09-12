@@ -155,7 +155,7 @@ int process_cman(void)
 	rv = cman_dispatch(ch, CMAN_DISPATCH_ALL);
 
 	if (rv == -1 && errno == EHOSTDOWN)
-		exit_cman();
+		return 1;
 
 	return 0;
 }
