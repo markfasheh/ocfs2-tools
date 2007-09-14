@@ -4,7 +4,7 @@ include $(TOPDIR)/Preamble.make
 
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = ocfs2_controld
-UNINST_PROGRAMS = test_client
+UNINST_PROGRAMS = test_client groupctl
 
 #LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
 #LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
@@ -33,14 +33,17 @@ DAEMON_CFILES = group.c main.c member_cman.c action.c
 UNINST_HFILES = ocfs2_controld_internal.h
 
 TEST_CFILES = test_client.c
+GROUPCTL_CFILES = groupctl.c
 
 DAEMON_OBJS = $(subst .c,.o,$(DAEMON_CFILES))
 TEST_OBJS = $(subst .c,.o,$(TEST_CFILES) $(PROTO_CFILES))
+GROUPCTL_OBJS = $(subst .c,.o,$(GROUPCTL_CFILES))
 MANS =
 
 DIST_FILES =				\
 	$(DAEMON_CFILES)		\
 	$(TEST_CFILES)			\
+	$(GROUPCTL_CFILES)		\
 	$(UNINST_HFILES)		\
 	$(addsuffix .in,$(MANS))
 
@@ -49,5 +52,8 @@ ocfs2_controld: $(DAEMON_OBJS) $(LIBO2CB_DEPS)
 
 test_client: $(TEST_OBJS) $(LIBO2CB_DEPS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+
+groupctl: $(GROUPCTL_OBJS)
+	$(LINK) -lgroup -lcman $(READLINE_LIBS) $(NCURSES_LIBS)
 
 include $(TOPDIR)/Postamble.make

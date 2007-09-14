@@ -2,3 +2,4 @@
 .*.d
 ocfs2_controld
 test_client
+groupctl
