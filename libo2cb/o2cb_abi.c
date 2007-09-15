@@ -1506,7 +1506,7 @@ static errcode_t cman_begin_group_join(const char *cluster_name,
 		goto out;
 	}
 
-	rc = client_connect();
+	rc = ocfs2_client_connect();
 	if (rc < 0) {
 		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
 			strerror(-rc)); */
@@ -1667,7 +1667,7 @@ static errcode_t cman_group_leave(const char *cluster_name,
 		goto out;
 	}
 
-	rc = client_connect();
+	rc = ocfs2_client_connect();
 	if (rc < 0) {
 		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
 			strerror(-rc)); */

@@ -303,7 +303,7 @@ int main(int argc, char **argv)
 	if (rc)
 		goto out;
 
-	rc = client_connect();
+	rc = ocfs2_client_connect();
 	if (rc < 0) {
 		fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
 			strerror(-rc));

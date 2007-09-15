@@ -31,6 +31,7 @@
 #define OCFS2_CONTROLD_MAXLINE		256
 #define OCFS2_CONTROLD_MAXARGS		16
 #define OCFS2_CONTROLD_SOCK_PATH	"ocfs2_controld_sock"
+#define O2CB_CONTROLD_SOCK_PATH		"o2cb_controld_sock"
 
 /* Client messages */
 typedef enum {
@@ -40,8 +41,19 @@ typedef enum {
 	CM_STATUS,
 } client_message;
 
-int client_listen(void);
-int client_connect(void);
+int client_listen(const char *path);
+int client_connect(const char *path);
+
+static inline int ocfs2_client_listen(void)
+{
+	return client_listen(OCFS2_CONTROLD_SOCK_PATH);
+}
+
+static inline int ocfs2_client_connect(void)
+{
+	return client_connect(OCFS2_CONTROLD_SOCK_PATH);
+}
+
 const char *message_to_string(client_message message);
 int send_message(int fd, client_message message, ...);
 int receive_message(int fd, char *buf, client_message *message,

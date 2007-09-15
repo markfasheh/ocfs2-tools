@@ -25,7 +25,7 @@ endif
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
-DEFINES = -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+DEFINES = -DO2CB_FLAT_INCLUDES -DHAVE_CMAN -DVERSION=\"$(VERSION)\"
 
 CFILES = main.c action.c member_cman.c
 

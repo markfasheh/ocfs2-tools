@@ -200,7 +200,7 @@ int receive_message(int fd, char *buf, client_message *message, char **argv)
 	return receive_message_full(fd, buf, message, argv, NULL);
 }
 
-int client_listen(void)
+int client_listen(const char *path)
 {
 	struct sockaddr_un addr;
 	socklen_t addrlen;
@@ -216,7 +216,7 @@ int client_listen(void)
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sun_family = AF_LOCAL;
-	strcpy(&addr.sun_path[1], OCFS2_CONTROLD_SOCK_PATH);
+	strcpy(&addr.sun_path[1], path);
 	addrlen = sizeof(sa_family_t) + strlen(addr.sun_path+1) + 1;
 
 	rv = bind(s, (struct sockaddr *) &addr, addrlen);
@@ -238,7 +238,7 @@ int client_listen(void)
 	return s;
 }
 
-int client_connect(void)
+int client_connect(const char *path)
 {
 	struct sockaddr_un sun;
 	socklen_t addrlen;
@@ -252,7 +252,7 @@ int client_connect(void)
 
 	memset(&sun, 0, sizeof(sun));
 	sun.sun_family = AF_UNIX;
-	strcpy(&sun.sun_path[1], OCFS2_CONTROLD_SOCK_PATH);
+	strcpy(&sun.sun_path[1], path);
 	addrlen = sizeof(sa_family_t) + strlen(sun.sun_path+1) + 1;
 
 	rv = connect(fd, (struct sockaddr *) &sun, addrlen);

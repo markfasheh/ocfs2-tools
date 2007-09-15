@@ -43,6 +43,7 @@ static int client_size = 0;
 static struct client *client = NULL;
 static struct pollfd *pollfd = NULL;
 
+static int o2cb_fd;
 static int cman_fd;
 static int listen_fd;
 static int sigpipe_fd;
@@ -413,15 +414,26 @@ static int loop(void)
 {
 	int rv, i, f, poll_timeout = -1;
 
-	rv = listen_fd = client_listen();
-	if (rv < 0)
+	rv = listen_fd = ocfs2_client_listen();
+	if (rv < 0) {
+		log_error("Unable to start listening socket: %s",
+			  strerror(-rv));
 		goto out;
+	}
 	client_add(listen_fd);
 
 	rv = setup_sigpipe();
 	if (rv < 0)
 		goto out;
 	client_add(sigpipe_fd);
+
+	rv = o2cb_fd = client_connect(O2CB_CONTROLD_SOCK_PATH);
+	if (rv < 0) {
+		log_error("Unable to connect to o2cb_controld: %s",
+			  strerror(-rv));
+		goto out;
+	}
+	client_add(o2cb_fd);
 
 	rv = cman_fd = setup_cman();
 	if (rv < 0)
@@ -468,6 +480,8 @@ static int loop(void)
 					rv = handle_signal();
 					if (rv)
 						goto stop;
+				} else if (pollfd[i].fd == o2cb_fd) {
+					log_debug("Message from o2cb_controld?");
 				} else
 					process_client(i);
 			}
@@ -478,6 +492,9 @@ static int loop(void)
 					goto stop;
 				} else if (pollfd[i].fd == groupd_fd) {
 					log_error("groupd connection died");
+					goto stop;
+				} else if (pollfd[i].fd == o2cb_fd) {
+					log_error("o2cb_controld connection died");
 					goto stop;
 				}
 				client_dead(i);

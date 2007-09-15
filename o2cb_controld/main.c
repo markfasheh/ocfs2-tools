@@ -23,12 +23,23 @@
  */
 
 #include "o2cb_controld.h"
+#include "o2cb_client_proto.h"
 
 #define OPTION_STRING			"DhV"
 #define LOCKFILE_NAME			"/var/run/o2cb_controld.pid"
 
-static int member_fd;
+static int listen_fd, member_fd;
 static int sigpipe_write_fd, sigpipe_fd;
+struct client {
+	int fd;
+};
+
+static int client_maxi;
+static int client_size = 0;
+static struct client *client = NULL;
+static struct pollfd *pollfd = NULL;
+static int live_clients = 0;
+
 
 static void handler(int signum)
 {
@@ -65,19 +76,15 @@ static int handle_signal(void)
 		case SIGTERM:
 		case SIGINT:
 		case SIGHUP:
-			log_error("Caught signal %d, exiting", caught_sig);
-			rc = 1;
-#if 0  /* XXX: We probably need some safety check like this */
-			if (list_empty(&mounts)) {
+			if (live_clients) {
+				log_error("Caught signal %d, but clients exist.  Ignoring.",
+					  caught_sig);
+				rc = 0;
+			} else {
 				log_error("Caught signal %d, exiting",
 					  caught_sig);
 				rc = 1;
-			} else {
-				log_error("Caught signal %d, but mounts exist.  Ignoring.",
-					  caught_sig);
-				rc = 0;
 			}
-#endif
 			break;
 
 		case SIGSEGV:
@@ -143,31 +150,76 @@ out:
 	return rc;
 }
 
+#define MAX_CLIENTS 8
+static int client_add(int fd)
+{
+	int i;
+
+	while (1) {
+		/* This fails the first time with client_size of zero */
+		for (i = 0; i < client_size; i++) {
+			if (client[i].fd == -1) {
+				client[i].fd = fd;
+				pollfd[i].fd = fd;
+				pollfd[i].events = POLLIN;
+				if (i > client_maxi)
+					client_maxi = i;
+				return i;
+			}
+		}
+
+		/* We didn't find an empty slot, so allocate more. */
+		client_size += MAX_CLIENTS;
+
+		if (!client) {
+			client = malloc(client_size * sizeof(struct client));
+			pollfd = malloc(client_size * sizeof(struct pollfd));
+		} else {
+			client = realloc(client, client_size *
+						 sizeof(struct client));
+			pollfd = realloc(pollfd, client_size *
+						 sizeof(struct pollfd));
+		}
+		if (!client || !pollfd)
+			log_error("Can't allocate client memory.");
+
+		for (i = client_size - MAX_CLIENTS; i < client_size; i++) {
+			client[i].fd = -1;
+			pollfd[i].fd = -1;
+		}
+	}
+}
+
+static void client_dead(int ci)
+{
+	log_debug("client %d fd %d dead", ci, client[ci].fd);
+	close(client[ci].fd);
+	client[ci].fd = -1;
+	pollfd[ci].fd = -1;
+}
+
+
 static int loop(void)
 {
-	struct pollfd *pollfd;
-	int rv, i, maxi;
+	int rv, i;
 
-	pollfd = malloc(MAXCON * sizeof(struct pollfd));
-	if (!pollfd)
-		return -1;
+	rv = listen_fd = client_listen(O2CB_CONTROLD_SOCK_PATH);
+	if (rv < 0)
+		goto out;
+	client_add(listen_fd);
 
 	rv = member_fd = setup_member();
 	if (rv < 0)
 		goto out;
-	pollfd[0].fd = member_fd;
-	pollfd[0].events = POLLIN;
+	client_add(member_fd);
 
 	rv = setup_sigpipe();
 	if (rv)
 		goto out;
-	pollfd[1].fd = sigpipe_fd;
-	pollfd[1].events = POLLIN;
-
-	maxi = 1;
+	client_add(sigpipe_fd);
 
 	for (;;) {
-		rv = poll(pollfd, maxi + 1, -1);
+		rv = poll(pollfd, client_maxi + 1, -1);
 		if (rv == -1 && errno == EINTR)
 			continue;
 		if (rv < 0) {
@@ -175,9 +227,18 @@ static int loop(void)
 			goto stop;
 		}
 
-		for (i = 0; i <= maxi; i++) {
+		for (i = 0; i <= client_maxi; i++) {
 			if (pollfd[i].revents & POLLIN) {
-				if (pollfd[i].fd == member_fd) {
+				if (pollfd[i].fd == listen_fd) {
+					rv = accept(listen_fd, NULL, NULL);
+					if (rv < 0) {
+						log_debug("accept error %d %d",
+							  rv, errno);
+					} else {
+						client_add(rv);
+						live_clients++;
+					}
+				} else if (pollfd[i].fd == member_fd) {
 					rv = process_member();
 					if (rv)
 						goto stop;
@@ -192,9 +253,16 @@ static int loop(void)
 				if (pollfd[i].fd == member_fd) {
 					log_error("cluster is down, exiting");
 					goto stop;
+				} else if (pollfd[i].fd == listen_fd) {
+					log_error("listening fd died, exiting");
+					goto stop;
+				} else if (pollfd[i].fd == sigpipe_fd) {
+					log_error("signal fd died, exiting");
+					goto stop;
 				}
 				log_debug("closing fd %d", pollfd[i].fd);
-				close(pollfd[i].fd);
+				client_dead(i);
+				live_clients--;
 			}
 		}
 	}
@@ -204,7 +272,6 @@ stop:
 	finalize_cluster(NULL);
 
 out:
-	free(pollfd);
 	return rv;
 }
 
