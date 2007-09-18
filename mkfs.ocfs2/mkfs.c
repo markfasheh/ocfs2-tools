@@ -517,21 +517,21 @@ main(int argc, char **argv)
 	if (!s->quiet)
 		printf("done\n");
 
-	if (!s->no_backup_super) {
-		if (!s->quiet)
-			printf("Writing backup superblock: ");
-
-		num = format_backup_super(s);
-		if (!s->quiet)
-			printf("%d block(s)\n", num);
-	}
-
 	if (!s->hb_dev) {
 		/* These routines use libocfs2 to do their work. We
 		 * don't share an ocfs2_filesys context between the
 		 * journal format and the lost+found create so that
 		 * the library can use the journal for the latter in
 		 * future revisions. */
+
+		if (!s->no_backup_super) {
+			if (!s->quiet)
+				printf("Writing backup superblock: ");
+
+			num = format_backup_super(s);
+			if (!s->quiet)
+				printf("%d block(s)\n", num);
+		}
 
 		if (!s->quiet)
 			printf("Formatting Journals: ");
@@ -1411,7 +1411,11 @@ fill_defaults(State *s)
 	printf("nr_cluster_groups = %u\n", s->nr_cluster_groups);
 	printf("tail_group_bits = %u\n", s->tail_group_bits);
 #endif
-	if (!s->initial_slots) {
+
+	if (s->hb_dev)
+		s->initial_slots = 0;
+
+	if (!s->hb_dev && !s->initial_slots) {
 		if (s->mount == MOUNT_LOCAL)
 			s->initial_slots = 1;
 		else
