@@ -38,7 +38,7 @@ struct ocfs2_bitmap_region {
 					   int offsets */
 	size_t br_bytes;
 	int br_set_bits;
-	char *br_bitmap;
+	uint8_t *br_bitmap;
 	void *br_private;
 };
 

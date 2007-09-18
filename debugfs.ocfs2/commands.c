@@ -347,7 +347,8 @@ static int process_open_args(char **args,
 	errcode_t ret = 0;
 	uint32_t s;
 	char *ptr;
-	uint64_t byte_off[OCFS2_MAX_BACKUP_SUPERBLOCKS], blksize;
+	uint64_t byte_off[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+	uint64_t blksize = 0;
 	int num, ind = 2;
 
 	if (!args[ind])
@@ -935,7 +936,7 @@ static void do_stat (char **args)
 	else if ((inode->i_flags & OCFS2_CHAIN_FL))
 		ret = traverse_chains(gbls.fs, &(inode->id2.i_chain), out);
 	else if (S_ISLNK(inode->i_mode) && !inode->i_clusters)
-		dump_fast_symlink(out, inode->id2.i_symlink);
+		dump_fast_symlink(out, (char *)inode->id2.i_symlink);
 	else if (inode->i_flags & OCFS2_DEALLOC_FL)
 		dump_truncate_log(out, &(inode->id2.i_dealloc));
 	else

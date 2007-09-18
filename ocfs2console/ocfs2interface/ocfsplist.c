@@ -86,7 +86,7 @@ async_loop_run (gboolean     async,
 {
   if (async)
     {
-      *count++;
+      (*count)++;
 
       if (*count % num_iterations == 0)
 	while (g_main_context_iteration (NULL, FALSE));

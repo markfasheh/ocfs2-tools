@@ -1060,6 +1060,7 @@ JConfigStanza *j_config_add_stanza(JConfig *cf,
 {
     JConfigStanza *cfs;
     GList *elem;
+    GList *tmp;
 
     g_return_val_if_fail(cf != NULL, NULL);
     g_return_val_if_fail(stanza_name != NULL, NULL);
@@ -1086,7 +1087,7 @@ JConfigStanza *j_config_add_stanza(JConfig *cf,
                             elem);
     }
     else
-        g_list_append(elem, cfs);
+        tmp = g_list_append(elem, cfs);
 
     return(cfs);
 }  /* j_config_add_stanza() */

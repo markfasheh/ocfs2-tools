@@ -348,7 +348,7 @@ SUPER_U64_GETTER (first_cluster_group)
 static PyObject *
 super_uuid (SuperBlock *self, void *closure)
 {
-  return PyString_FromStringAndSize (self->super.s_uuid,
+  return PyString_FromStringAndSize ((char *)self->super.s_uuid,
                                      sizeof (self->super.s_uuid));
 }
 

@@ -486,7 +486,7 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs,
 {
 	memset(gd, 0, fs->fs_blocksize);
 
-	strcpy(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
+	strcpy((char *)gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
 	gd->bg_generation = generation;
 	gd->bg_size = ocfs2_group_bitmap_size(fs->fs_blocksize);
 	gd->bg_bits = bits;

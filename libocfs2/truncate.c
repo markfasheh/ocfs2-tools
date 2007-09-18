@@ -41,7 +41,7 @@ static int truncate_iterate(ocfs2_filesys *fs,
 			    uint64_t ref_blkno, int ref_recno,
 			    void *priv_data)
 {
-	uint32_t len, new_i_clusters = *(uint32_t *)priv_data;
+	uint32_t len = 0, new_i_clusters = *(uint32_t *)priv_data;
 	uint64_t start = 0;
 	errcode_t ret;
 
