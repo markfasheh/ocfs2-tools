@@ -276,7 +276,7 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 	struct ocfs2_dinode *di;
 	char *buf = NULL;
 	errcode_t ret;
-	uint64_t blkno, start;
+	uint64_t blkno = 0, start;
 
 	printf("Pass 4a: checking for orphaned inodes\n");
 

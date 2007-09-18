@@ -235,7 +235,7 @@ struct _State {
 
 	char *vol_label;
 	char *device_name;
-	char *uuid;
+	unsigned char *uuid;
 	uint32_t vol_generation;
 
 	int fd;

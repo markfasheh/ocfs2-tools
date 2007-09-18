@@ -236,7 +236,7 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 {
 	errcode_t ret;
 	int bpc;
-	uint32_t cpos, num_clusters, p_cluster;
+	uint32_t cpos, num_clusters = -1, p_cluster = -1;
 	uint64_t boff = 0;
 	ocfs2_filesys *fs = cinode->ci_fs;
 

@@ -1509,7 +1509,7 @@ initialize_alloc_group(State *s, const char *name,
 	group->gd = do_malloc(s, s->blocksize);
 	memset(group->gd, 0, s->blocksize);
 
-	strcpy(group->gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
+	strcpy((char *)group->gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
 	group->gd->bg_generation = s->vol_generation;
 	group->gd->bg_size = (uint32_t)ocfs2_group_bitmap_size(s->blocksize);
 	group->gd->bg_bits = cpg * bpc;
@@ -1985,7 +1985,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di = do_malloc(s, s->blocksize);
 	memset(di, 0, s->blocksize);
 
-	strcpy(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE);
+	strcpy((char *)di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE);
 	di->i_suballoc_slot = (__u16)OCFS2_INVALID_SLOT;
 	di->i_suballoc_bit = (__u16)-1;
 	di->i_generation = s->vol_generation;
@@ -2035,7 +2035,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_feature_compat = s->feature_flags.compat;
 	di->id2.i_super.s_feature_ro_compat = s->feature_flags.ro_compat;
 
-	strcpy(di->id2.i_super.s_label, s->vol_label);
+	strcpy((char *)di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
 
 	ocfs2_swap_inode_from_cpu(di);
@@ -2085,7 +2085,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	di = do_malloc(s, s->blocksize);
 	memset(di, 0, s->blocksize);
 
-	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
+	strcpy((char *)di->i_signature, OCFS2_INODE_SIGNATURE);
 	di->i_generation = s->vol_generation;
 	di->i_fs_generation = s->vol_generation;
 	di->i_suballoc_slot = (__u16)OCFS2_INVALID_SLOT;
@@ -2216,7 +2216,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 	parent_blkno = bitmap->bm_record->fe_off >> s->blocksize_bits;
 	for(i = 0; i < s->nr_cluster_groups; i++) {
 		gd = bitmap->groups[i]->gd;
-		if (strcmp(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE)) {
+		if (strcmp((char *)gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE)) {
 			fprintf(stderr, "bad group descriptor!\n");
 			exit(1);
 		}
@@ -2290,13 +2290,13 @@ format_leading_space(State *s)
 	memset(buf, 2, size);
 
 	hdr = buf;
-	strcpy(hdr->signature, "this is an ocfs2 volume");
-	strcpy(hdr->mount_point, "this is an ocfs2 volume");
+	strcpy((char *)hdr->signature, "this is an ocfs2 volume");
+	strcpy((char *)hdr->mount_point, "this is an ocfs2 volume");
 
 	p += 512;
 	lbl = (struct ocfs1_vol_label *)p;
-	strcpy(lbl->label, "this is an ocfs2 volume");
-	strcpy(lbl->cluster_name, "this is an ocfs2 volume");
+	strcpy((char *)lbl->label, "this is an ocfs2 volume");
+	strcpy((char *)lbl->cluster_name, "this is an ocfs2 volume");
 
 	do_pwrite(s, buf, size, 0);
 	free(buf);

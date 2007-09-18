@@ -79,7 +79,7 @@ typedef struct _ocfs2_tune_opts {
 	char *vol_label;
 	char *progname;
 	char *device;
-	char *vol_uuid;
+	unsigned char *vol_uuid;
 	char *queryfmt;
 	int mount;
 	int verbose;

@@ -318,7 +318,7 @@ static int fs_is_clean(o2fsck_state *ost, char *filename)
 
 static void print_label(o2fsck_state *ost)
 {
-	char *label = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_label;
+	unsigned char *label = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_label;
 	size_t i, max = sizeof(OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_label);
 
 	for(i = 0; i < max && label[i]; i++) {

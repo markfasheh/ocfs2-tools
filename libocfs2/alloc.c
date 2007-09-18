@@ -140,7 +140,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		di->i_links_count = 2;
 	else
 		di->i_links_count = 1;
-	strcpy(di->i_signature, OCFS2_INODE_SIGNATURE);
+	strcpy((char *)di->i_signature, OCFS2_INODE_SIGNATURE);
 	di->i_atime = di->i_ctime = di->i_mtime = time(NULL);
 	di->i_dtime = 0;
 
@@ -181,7 +181,7 @@ static void ocfs2_init_eb(ocfs2_filesys *fs,
 			  struct ocfs2_extent_block *eb,
 			  uint64_t gd_blkno, uint64_t blkno)
 {
-	strcpy(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE);
+	strcpy((char *)eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE);
 	eb->h_fs_generation = fs->fs_super->i_fs_generation;
 	eb->h_blkno = blkno;
 	eb->h_suballoc_slot = 0;

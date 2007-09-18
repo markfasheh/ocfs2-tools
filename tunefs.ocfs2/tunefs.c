@@ -572,7 +572,7 @@ bail:
 	return ret;
 }
 
-static void get_total_free_bits(struct ocfs2_group_desc *gd, int *bits)
+static void get_total_free_bits(struct ocfs2_group_desc *gd, uint16_t *bits)
 {
 	int end = 0;
 	int start;
@@ -599,7 +599,7 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 	struct ocfs2_chain_rec *cr;
 	uint32_t total = 0;
 	uint32_t free = 0;
-	uint32_t bits;
+	uint16_t bits;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
@@ -824,7 +824,7 @@ static void update_volume_label(ocfs2_filesys *fs, int *changed)
 {
   	memset (OCFS2_RAW_SB(fs->fs_super)->s_label, 0,
 		OCFS2_MAX_VOL_LABEL_LEN);
-	strncpy (OCFS2_RAW_SB(fs->fs_super)->s_label, opts.vol_label,
+	strncpy ((char *)OCFS2_RAW_SB(fs->fs_super)->s_label, opts.vol_label,
 		 OCFS2_MAX_VOL_LABEL_LEN);
 
 	*changed = 1;

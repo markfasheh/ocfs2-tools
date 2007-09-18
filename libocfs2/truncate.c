@@ -47,7 +47,7 @@ static int truncate_iterate(ocfs2_filesys *fs,
 			    void *priv_data)
 {
 	struct truncate_ctxt *ctxt = (struct truncate_ctxt *)priv_data;
-	uint32_t len, new_size_in_clusters = ctxt->new_size_in_clusters;
+	uint32_t len = 0, new_size_in_clusters = ctxt->new_size_in_clusters;
 	uint64_t start = 0;
 	errcode_t ret;
 	int func_ret = OCFS2_EXTENT_ERROR;

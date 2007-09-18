@@ -97,7 +97,7 @@ static int expected_dots(o2fsck_dirblock_entry *dbe, int offset)
 
 static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 				 struct ocfs2_dir_entry *dirent, int offset, 
-				 int left, int *flags)
+				 int left, unsigned int *flags)
 {
 	int expect_dots = expected_dots(dbe, offset);
 	int changed_len = 0;
@@ -213,7 +213,7 @@ static int dirent_leaves_partial(struct ocfs2_dir_entry *dirent, int left)
  */
 static void fix_dirent_lengths(struct ocfs2_dir_entry *dirent,
 			       int left, struct ocfs2_dir_entry *prev,
-			       int *flags)
+			       unsigned int *flags)
 {
 	/* 
 	 * as described above we can't reconstruct either value if it is
@@ -286,7 +286,7 @@ out:
 
 static void fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 			    struct ocfs2_dir_entry *dirent, int offset,
-			    int *flags)
+			    unsigned int *flags)
 {
 	char *chr = dirent->name;
 	int len = dirent->name_len, fix = 0;
@@ -318,7 +318,7 @@ static void fix_dirent_name(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 
 static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 			     struct ocfs2_dir_entry *dirent, int offset,
-			     int *flags)
+			     unsigned int *flags)
 {
 	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode) &&
 	    prompt(ost, PY, PR_DIRENT_INODE_RANGE,
@@ -368,7 +368,7 @@ static errcode_t fix_dirent_filetype(o2fsck_state *ost,
 				     o2fsck_dirblock_entry *dbe,
 				     struct ocfs2_dir_entry *dirent,
 				     int offset,
-				     int *flags)
+				     unsigned int *flags)
 {
 	uint8_t expected_type;
 	errcode_t ret;
@@ -430,7 +430,7 @@ static errcode_t fix_dirent_linkage(o2fsck_state *ost,
 				    o2fsck_dirblock_entry *dbe,
 				    struct ocfs2_dir_entry *dirent,
 				    int offset,
-				    int *flags)
+				    unsigned int *flags)
 {
 	int expect_dots = expected_dots(dbe, offset);
 	o2fsck_dir_parent *dp;
@@ -499,7 +499,7 @@ static errcode_t fix_dirent_dups(o2fsck_state *ost,
 				 o2fsck_dirblock_entry *dbe,
 				 struct ocfs2_dir_entry *dirent,
 				 o2fsck_strings *strings,
-				 int *flags)
+				 unsigned int *flags)
 {
 	errcode_t ret = 0;
 	char *new_name = NULL;
