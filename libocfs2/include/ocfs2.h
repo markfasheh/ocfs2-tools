@@ -240,6 +240,7 @@ struct _ocfs2_devices {
 	uint8_t uuid[16];
 	int mount_flags;
 	int fs_type;			/* 0=unknown, 1=ocfs, 2=ocfs2 */
+	int hb_dev;
 	uint32_t maj_num;		/* major number of the device */
 	uint32_t min_num;		/* minor number of the device */
 	errcode_t errcode;		/* error encountered reading device */

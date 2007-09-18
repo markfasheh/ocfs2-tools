@@ -109,6 +109,10 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 			fflush(stdout);
 			com_err("Unknown", dev->errcode, " ");
 		} else {
+			if (dev->hb_dev) {
+				printf("Heartbeat device\n");
+				continue;
+			}
 			if (dev->node_nums[0] == O2NM_MAX_NODES) {
 				printf("Not mounted\n");
 				continue;

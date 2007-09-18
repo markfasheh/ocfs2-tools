@@ -1246,7 +1246,7 @@ int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	ocfs2_filesys *fs = NULL;
-	int open_flags = OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
+	int open_flags;
 	int upd_label = 0;
 	int upd_uuid = 0;
 	int upd_slots = 0;
@@ -1270,21 +1270,26 @@ int main(int argc, char **argv)
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
-	if (signal(SIGTERM, handle_signal) == SIG_ERR) {
-		fprintf(stderr, "Could not set SIGTERM\n");
-		exit(1);
-	}
-
-	if (signal(SIGINT, handle_signal) == SIG_ERR) {
-		fprintf(stderr, "Could not set SIGINT\n");
-		exit(1);
-	}
-
 	memset (&opts, 0, sizeof(opts));
 
 	get_options(argc, argv);
 
-	/* strict compat flag check */
+	if (signal(SIGTERM, handle_signal) == SIG_ERR) {
+		com_err(opts.progname, 0, "Could not set SIGTERM");
+		exit(1);
+	}
+
+	if (signal(SIGINT, handle_signal) == SIG_ERR) {
+		com_err(opts.progname, 0, "Could not set SIGINT");
+		exit(1);
+	}
+
+	open_flags = OCFS2_FLAG_HEARTBEAT_DEV_OK;
+	if (opts.queryfmt)
+		open_flags |= OCFS2_FLAG_RO;
+	else
+		open_flags |= OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
+
 	ret = ocfs2_open(opts.device, open_flags, 0, 0, &fs); //O_EXCL?
 	if (ret) {
 		com_err(opts.progname, ret, "while opening device %s",
@@ -1299,8 +1304,16 @@ int main(int argc, char **argv)
 	}
 
 	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
+	    OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV) {
+		com_err(opts.progname, 0, "Heartbeat devices cannot be tuned, "
+			"only re-formatted using mkfs.ocfs2");
+		goto close;
+	}
+
+	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
 	    OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
-		fprintf(stderr, "Aborted resize detected. Run fsck.ocfs2 -f <device>.\n");
+		com_err(opts.progname, 0, "Aborted resize detected. "
+			"Run fsck.ocfs2 -f <device>.\n");
 		goto close;
 	}
 

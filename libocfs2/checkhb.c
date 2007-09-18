@@ -93,6 +93,7 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 	struct list_head *pos;
 	ocfs2_devices *dev = NULL;
 	char *device= NULL;
+	int open_flags;
 
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
@@ -100,15 +101,20 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 
 		/* open	fs */
 		fs = NULL;
-		ret = ocfs2_open(device, OCFS2_FLAG_RO, 0, 0, &fs);
+		open_flags = OCFS2_FLAG_RO | OCFS2_FLAG_HEARTBEAT_DEV_OK;
+		ret = ocfs2_open(device, open_flags, 0, 0, &fs);
 		if (ret) {
 			ret = 0;
 			continue;
 		} else
 			dev->fs_type = 2;
 
+		if (OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					  OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV))
+			dev->hb_dev = 1;
+
 		/* is it locally mounted */
-		if (!ignore_local) {
+		if (!ignore_local || !dev->hb_dev) {
 			ret = ocfs2_check_mount_point(device, &dev->mount_flags,
 						      NULL, 0);
 			if (ret)
@@ -130,6 +136,9 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 		memset(dev->node_nums, OCFS2_MAX_SLOTS,
 		       (sizeof(uint8_t) * dev->max_slots));
 
+		if (dev->hb_dev)
+			goto close;
+
 		/* read slotmap to get nodes on which the volume is mounted */
 		ret = ocfs2_read_slotmap(fs, dev->node_nums);
 		if (ret) {
@@ -139,6 +148,7 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 			if (dev->node_nums[0] != OCFS2_MAX_SLOTS)
 				dev->mount_flags |= OCFS2_MF_MOUNTED_CLUSTER;
 		}
+close:
 		ocfs2_close(fs);
 	}
 
