@@ -27,7 +27,6 @@
 #include <asm/types.h>
 #include <inttypes.h>
 
-#include <asm/page.h>
 #include <sys/mount.h>
 #include <dirent.h>
 #include <stdio.h>
