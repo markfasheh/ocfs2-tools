@@ -109,14 +109,16 @@
 /* Support for sparse allocation in b-trees */
 #define OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC	0x0010
 
-/* tunefs sets this incompat flag before starting the operation and clears it
- * at the end. This flag protects users from inadvertently mounting the fs
- * after an aborted run without fsck-ing.
+/*
+ * Tunefs sets this incompat flag before starting an operation which
+ * would require cleanup on abort. This is done to protect users from
+ * inadvertently mounting the fs after an aborted run without
+ * fsck-ing.
+ *
+ * s_tunefs_flags on the super block describes precisely which
+ * operations were in progress.
  */
 #define OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG	0x0020
-
-/* tunefs set this in s_tunefs_flag when removing slots. */
-#define OCFS2_TUNEFS_INPROG_REMOVE_SLOT		0x0001
 
 /*
  * backup superblock flag is used to indicate that this volume
@@ -131,6 +133,11 @@
 
 /* the max backup superblock nums */
 #define OCFS2_MAX_BACKUP_SUPERBLOCKS	6
+
+/*
+ * Flags on ocfs2_super_block.s_tunefs_flags
+ */
+#define OCFS2_TUNEFS_INPROG_REMOVE_SLOT		0x0001	/* Removing slots */
 
 /*
  * Flags on ocfs2_dinode.i_flags
