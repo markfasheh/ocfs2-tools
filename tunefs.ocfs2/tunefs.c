@@ -1452,7 +1452,8 @@ int main(int argc, char **argv)
 	}
 
 	/* Set resize incompat flag on superblock */
-	if (opts.num_blocks || opts.num_slots < max_slots) {
+	if (opts.num_blocks ||
+	    (opts.num_slots && opts.num_slots < max_slots)) {
 		if (opts.num_blocks)
 			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
 				OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
