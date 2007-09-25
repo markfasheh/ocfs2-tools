@@ -95,6 +95,7 @@
  * this in OCFS2_FEATURE_INCOMPAT_SUPP, *ever*.
  */
 #define OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV	0x0002
+#define OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV_STR	"Heartbeat"
 
 /*
  * tunefs sets this incompat flag before starting the resize and clears it
@@ -102,12 +103,15 @@
  * after an aborted run without fsck-ing.
  */
 #define OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG    0x0004
+#define OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG_STR	"AbortedResize"
 
 /* Used to denote a non-clustered volume */
 #define OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT	0x0008
+#define OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT_STR		"Local"
 
 /* Support for sparse allocation in b-trees */
 #define OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC	0x0010
+#define OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC_STR		"SparseAlloc"
 
 /*
  * Tunefs sets this incompat flag before starting an operation which
@@ -119,12 +123,20 @@
  * operations were in progress.
  */
 #define OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG	0x0020
+#define OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG_STR	"TunefsAbort"
 
 /*
  * backup superblock flag is used to indicate that this volume
  * has backup superblocks.
  */
 #define OCFS2_FEATURE_COMPAT_BACKUP_SB		0x0001
+#define OCFS2_FEATURE_COMPAT_BACKUP_SB_STR		"BackupSuper"
+
+/*
+ * Unwritten extents support.
+ */
+#define OCFS2_FEATURE_RO_COMPAT_UNWRITTEN	0x0001
+#define OCFS2_FEATURE_RO_COMPAT_UNWRITTEN_STR		"UnwrittenExtents"
 
 /* The byte offset of the first backup block will be 1G.
  * The following will be 4G, 16G, 64G, 256G and 1T.
@@ -138,6 +150,7 @@
  * Flags on ocfs2_super_block.s_tunefs_flags
  */
 #define OCFS2_TUNEFS_INPROG_REMOVE_SLOT		0x0001	/* Removing slots */
+#define OCFS2_TUNEFS_INPROG_REMOVE_SLOT_STR		"RemoveSlot"
 
 /*
  * Flags on ocfs2_dinode.i_flags
