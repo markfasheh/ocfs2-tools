@@ -1,4 +1,4 @@
-.TH "tunefs.ocfs2" "8" "June 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "September 2007" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
@@ -68,6 +68,12 @@ printf(3) type formatters. The list of type specifiers is as follows:
 \fBV\fR	Volume label
 .TP
 \fBU\fR	Volume uuid
+.TP
+\fBM\fR	Compat flags
+.TP
+\fBH\fR	Incompat flags
+.TP
+\fBO\fR	RO Compat flags
 .RE
 
 .TP

@@ -24,9 +24,58 @@
 
 #include <tunefs.h>
 #include <printf.h>
+#include <glib.h>
 
 extern ocfs2_filesys *fs_gbl;
 extern ocfs2_tune_opts opts;
+
+#define prepend_flgstr(_flag, _FLAG, _str, _sep) \
+	do { \
+		if ((_flag) & (_FLAG)) { \
+			g_string_prepend((_str), (_sep)); \
+			g_string_prepend((_str), _FLAG##_STR); \
+		} \
+	} while (0)
+
+static void tunefs_inprog_flag_in_str(uint32_t flag, GString *str)
+{
+	prepend_flgstr(flag, OCFS2_TUNEFS_INPROG_REMOVE_SLOT, str, " ");
+
+	if (flag & ~(OCFS2_TUNEFS_INPROG_REMOVE_SLOT))
+		g_string_prepend(str, "Unknown ");
+}
+
+static void incompat_flag_in_str(uint32_t flag, GString *str)
+{
+	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV, str, " ");
+	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG, str, " ");
+	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, str, " ");
+	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, str, " ");
+
+	if (flag & ~(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV |
+		     OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG |
+		     OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT |
+		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
+		     OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG)) {
+		g_string_prepend(str, "Unknown ");
+	}
+}
+
+static void compat_flag_in_str(uint32_t flag, GString *str)
+{
+	prepend_flgstr(flag, OCFS2_FEATURE_COMPAT_BACKUP_SB, str, " ");
+
+	if (flag & ~(OCFS2_FEATURE_COMPAT_BACKUP_SB))
+		g_string_prepend(str, "Unknown ");
+}
+
+static void ro_compat_flag_in_str(uint32_t flag, GString *str)
+{
+	prepend_flgstr(flag, OCFS2_FEATURE_RO_COMPAT_UNWRITTEN, str, " ");
+
+	if (flag & ~(OCFS2_FEATURE_RO_COMPAT_UNWRITTEN))
+		g_string_prepend(str, "Unknown ");
+}
 
 static int print_ulong(FILE *stream, const struct printf_info *info,
 		       const void *const *args, unsigned long val)
@@ -121,6 +170,69 @@ static int handle_uuid(FILE *stream, const struct printf_info *info,
 	return print_string(stream, info, args, uuid);
 }
 
+static int handle_flag(FILE *stream, const struct printf_info *info,
+		       const void *const *args, uint32_t flag,
+		       void(*flag_func)(uint32_t flag, GString *str))
+{
+	GString *str = NULL;
+	int len = 0;
+
+	str = g_string_new(NULL);
+
+	(flag_func)(flag, str);
+
+	if (str->len)
+		len = print_string(stream, info, args, str->str);
+
+	g_string_free(str, 1);
+
+	return len;
+}
+
+static int handle_compat(FILE *stream, const struct printf_info *info,
+			 const void *const *args)
+{
+	int len;
+	len = handle_flag(stream, info, args,
+			  OCFS2_RAW_SB(fs_gbl->fs_super)->s_feature_compat,
+			  compat_flag_in_str);
+	if (!len)
+		len = print_string(stream, info, args, "None");
+	return len;
+}
+
+static int handle_incompat(FILE *stream, const struct printf_info *info,
+			   const void *const *args)
+{
+	int len;
+
+	len = handle_flag(stream, info, args,
+			  OCFS2_RAW_SB(fs_gbl->fs_super)->s_feature_incompat,
+			  incompat_flag_in_str);
+
+	if (OCFS2_RAW_SB(fs_gbl->fs_super)->s_tunefs_flag)
+		len += handle_flag(stream, info, args,
+				   OCFS2_RAW_SB(fs_gbl->fs_super)->s_tunefs_flag,
+				   tunefs_inprog_flag_in_str);
+
+	if (!len)
+		len = print_string(stream, info, args, "None");
+	return len;
+}
+
+static int handle_ro_compat(FILE *stream, const struct printf_info *info,
+			    const void *const *args)
+{
+	int len;
+
+	len =  handle_flag(stream, info, args,
+			   OCFS2_RAW_SB(fs_gbl->fs_super)->s_feature_ro_compat,
+			   ro_compat_flag_in_str);
+	if (!len)
+		len = print_string(stream, info, args, "None");
+	return len;
+}
+
 static int handle_arginfo(const struct printf_info *info, size_t n, int *types)
 {
 	return 0;
@@ -209,6 +321,10 @@ void print_query(char *queryfmt)
 
 	register_printf_function('V', handle_label, handle_arginfo);
 	register_printf_function('U', handle_uuid, handle_arginfo);
+
+	register_printf_function('M', handle_compat, handle_arginfo);
+	register_printf_function('H', handle_incompat, handle_arginfo);
+	register_printf_function('O', handle_ro_compat, handle_arginfo);
 
 	fprintf(stdout, fmt);
 	free(fmt);
