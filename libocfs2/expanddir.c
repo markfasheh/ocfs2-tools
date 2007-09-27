@@ -50,7 +50,6 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	uint64_t used_blks;
 	uint64_t totl_blks;
 	uint64_t new_blk;
-	int contig;
 	char *buf = NULL;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
@@ -91,8 +90,7 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 		goto bail;
 
 	/* get the next free block */
-	ret = ocfs2_extent_map_get_blocks(cinode, used_blks, 1,
-					  &new_blk, &contig);
+	ret = ocfs2_extent_map_get_blocks(cinode, used_blks, 1, &new_blk, NULL);
 	if (ret) 
 		goto bail;
 

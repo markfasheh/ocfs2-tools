@@ -50,14 +50,13 @@ static errcode_t get_more_dir_blocks(ocfs2_dir_scan *scan)
 {
 	errcode_t ret;
 	uint64_t blkno;
-	int cblocks;
 
 	if (scan->blocks_read == scan->total_blocks)
 		return OCFS2_ET_ITERATION_COMPLETE;
 
 	ret = ocfs2_extent_map_get_blocks(scan->inode,
 					  scan->blocks_read, 1,
-					  &blkno, &cblocks);
+					  &blkno, NULL);
 	if (ret)
 		return ret;
 

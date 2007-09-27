@@ -129,6 +129,7 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	char		*ptr = (char *) buf;
 	uint32_t	wanted_blocks;
 	uint32_t	contig_blocks;
+	uint64_t	cblks;
 	uint64_t	v_blkno;
 	uint64_t	p_blkno;
 	uint32_t	tmp;
@@ -155,10 +156,11 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 
 	while(wanted_blocks) {
 		ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
-						  &p_blkno, &contig_blocks);
+						  &p_blkno, &cblks);
 		if (ret)
 			return ret;
 
+		contig_blocks = (uint32_t)cblks;
 		if (contig_blocks > wanted_blocks)
 			contig_blocks = wanted_blocks;
 
@@ -192,6 +194,7 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	char		*ptr = (char *) buf;
 	uint32_t	wanted_blocks;
 	uint32_t	contig_blocks;
+	uint64_t	cblks;
 	uint64_t	v_blkno;
 	uint64_t	p_blkno;
 	uint32_t	tmp;
@@ -218,10 +221,11 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 
 	while(wanted_blocks) {
 		ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
-						  &p_blkno, &contig_blocks);
+						  &p_blkno, &cblks);
 		if (ret)
 			return ret;
 
+		contig_blocks = cblks;
 		if (contig_blocks > wanted_blocks)
 			contig_blocks = wanted_blocks;
 

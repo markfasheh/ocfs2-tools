@@ -238,11 +238,10 @@ static errcode_t lookup_journal_block(ocfs2_filesys *fs,
 				      int check_dup)
 {
 	errcode_t ret;
-	int contig;
 	int was_set;
 
 	ret = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff, 1, blkno,
-					  &contig);
+					  NULL);
 	if (ret) {
 		com_err(whoami, ret, "while looking up logical block "
 			"%"PRIu64" in slot %d's journal", blkoff, ji->ji_slot);
@@ -529,7 +528,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 	uint64_t blkno;
 	errcode_t ret;
 	ocfs2_cached_inode *cinode = NULL;
-	int contig, is_dirty;
+	int is_dirty;
 	journal_superblock_t *jsb;
 
 	*should = 0;
@@ -576,8 +575,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 		if (!is_dirty)
 			continue;
 
-		ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno,
-						  &contig);
+		ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno, NULL);
 		if (ret) {
 			com_err(whoami, ret, "while looking up the journal "
 				"super block in slot %d's journal", i);
@@ -740,7 +738,6 @@ static errcode_t check_journal_super(ocfs2_filesys *fs,
 				     ocfs2_cached_inode *ci)
 {
 	errcode_t ret;
-	int contig;
 	uint64_t blkno;
 	char *buf = NULL;
 
@@ -752,7 +749,7 @@ static errcode_t check_journal_super(ocfs2_filesys *fs,
 	if (ret)
 		goto out;
 
-	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &blkno, &contig);
+	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &blkno, NULL);
 	if (ret)
 		goto out;
 

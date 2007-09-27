@@ -316,7 +316,7 @@ errcode_t ocfs2_extent_map_get_clusters(ocfs2_cached_inode *cinode,
 errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
 				      uint64_t *p_blkno,
-				      int *ret_count);
+				      uint64_t *ret_count);
 errcode_t ocfs2_load_extent_map(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
 

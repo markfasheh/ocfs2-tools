@@ -76,7 +76,6 @@ static void add_symlink(ocfs2_filesys *fs, uint64_t blkno)
 	errcode_t ret = 0;
 	ocfs2_cached_inode *cinode = NULL;
 	uint64_t new_blk;
-	int contig;
 	char *buf = NULL;
 
 	ret = ocfs2_read_cached_inode(fs, blkno, &cinode);
@@ -88,8 +87,7 @@ static void add_symlink(ocfs2_filesys *fs, uint64_t blkno)
 		FSWRK_COM_FATAL(progname, ret);
 
 	/* get first block of the file */
-	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1,
-					  &new_blk, &contig);
+	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &new_blk, NULL);
 	if (ret) 
 		FSWRK_COM_FATAL(progname, ret);
 

@@ -444,7 +444,7 @@ errcode_t ocfs2_extent_map_get_clusters(ocfs2_cached_inode *cinode,
 
 errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
-				      uint64_t *p_blkno, int *ret_count)
+				      uint64_t *p_blkno, uint64_t *ret_count)
 {
 	errcode_t ret;
 	uint64_t boff;
@@ -840,7 +840,9 @@ int main(int argc, char *argv[])
 	errcode_t ret;
 	uint64_t blkno, blkoff;
 	uint32_t cpos, coff;
-	int count, contig;
+	int count;
+	uint64_t cblks;
+	int cclts;
 	int c, op = 0;
 	char *filename;
 	ocfs2_filesys *fs;
@@ -971,14 +973,15 @@ int main(int argc, char *argv[])
 								  blkoff,
 								  count,
 								  &blkno,
-								  &contig);
+								  &cblks);
 				if (ret) {
 					com_err(argv[0], ret, 
 						"looking up block range %"PRIu64":%d", blkoff, count);
 					goto out_free;
 				}
-				fprintf(stdout, "Lookup of block range %"PRIu64":%d returned %"PRIu64":%d\n",
-					blkoff, count, blkno, contig);
+				fprintf(stdout, "Lookup of block range %"PRIu64":%d "
+					"returned %"PRIu64":%"PRIu64"\n",
+					blkoff, count, blkno, cblks);
 				break;
 
 			case OP_LOOKUP_CLUSTER:
@@ -986,14 +989,14 @@ int main(int argc, char *argv[])
 								  cpos,
 								  count,
 								  &coff,
-								  &contig);
+								  &cclts);
 				if (ret) {
 					com_err(argv[0], ret, 
 						"looking up cluster range %"PRIu32":%d", cpos, count);
 					goto out_free;
 				}
 				fprintf(stdout, "Lookup of cluster range %"PRIu32":%d returned %"PRIu32":%d\n",
-					cpos, count, coff, contig);
+					cpos, count, coff, cclts);
 				break;
 				
 			case OP_LOOKUP_REC:
