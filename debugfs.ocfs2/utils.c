@@ -91,7 +91,10 @@ void get_compat_flag(uint32_t flag, GString *str)
 
 void get_rocompat_flag(uint32_t flag, GString *str)
 {
-	if (flag)
+	if (flag & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
+		g_string_append(str, "Unwritten ");
+
+	if (flag & ~OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
 		 g_string_append(str, "Unknown ");
 
 	if (!str->len)
