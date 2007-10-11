@@ -1356,7 +1356,9 @@ out_ret_path:
  * copying all extent records from the dinode into the extent block,
  * and then pointing the dinode to the new extent_block.
  */
-static errcode_t shift_tree_depth(struct insert_ctxt *ctxt, char **new_eb)
+static errcode_t shift_tree_depth(ocfs2_filesys *fs,
+				  struct ocfs2_dinode *di,
+				  char **new_eb)
 {
 	errcode_t ret;
 	char *buf = NULL;
@@ -1365,19 +1367,19 @@ static errcode_t shift_tree_depth(struct insert_ctxt *ctxt, char **new_eb)
 	struct ocfs2_extent_list *el;
 	uint32_t new_clusters;
 
-	el = &ctxt->di->id2.i_list;
+	el = &di->id2.i_list;
 	if (el->l_next_free_rec != el->l_count)
 		return OCFS2_ET_INTERNAL_FAILURE;
 
-	ret = ocfs2_malloc_block(ctxt->fs->fs_io, &buf);
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
 
-	ret = ocfs2_new_extent_block(ctxt->fs, &blkno);
+	ret = ocfs2_new_extent_block(fs, &blkno);
 	if (ret)
 		goto out;
 
-	ret = ocfs2_read_extent_block(ctxt->fs, blkno, buf);
+	ret = ocfs2_read_extent_block(fs, blkno, buf);
 	if (ret)
 		goto out;
 
@@ -1398,9 +1400,9 @@ static errcode_t shift_tree_depth(struct insert_ctxt *ctxt, char **new_eb)
 	el->l_next_free_rec = 1;
 
 	if (el->l_tree_depth == 1)
-		ctxt->di->i_last_eb_blk = blkno;
+		di->i_last_eb_blk = blkno;
 
-	ret = ocfs2_write_extent_block(ctxt->fs, blkno, buf);
+	ret = ocfs2_write_extent_block(fs, blkno, buf);
 	if (!ret)
 		*new_eb = buf;
 out:
@@ -2095,16 +2097,68 @@ static void free_duplicated_extent_block_dinode(ocfs2_filesys *fs,
 }
 
 /*
+ * Grow a b-tree so that it has more records.
+ *
+ * We might shift the tree depth in which case existing paths should
+ * be considered invalid.
+ *
+ * Tree depth after the grow is returned via *final_depth.
+ */
+static int ocfs2_grow_tree(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			   int *final_depth, char *last_eb)
+{
+	errcode_t ret;
+	char *eb_buf = NULL;
+	int shift;
+	int depth = di->id2.i_list.l_tree_depth;
+
+	shift = ocfs2_find_branch_target(fs, di, &eb_buf);
+	if (shift < 0) {
+		ret = shift;
+		goto out;
+	}
+
+	/* We traveled all the way to the bottom of the allocation tree
+	 * and didn't find room for any more extents - we need to add
+	 * another tree level */
+	if (shift) {
+
+		/* shift_tree_depth will return us a buffer with
+		 * the new extent block (so we can pass that to
+		 * ocfs2_add_branch). */
+		ret = shift_tree_depth(fs, di, &eb_buf);
+		if (ret)
+			goto out;
+
+		depth++;
+		/*
+		 * Special case: we have room now if we shifted from
+		 * tree_depth 0, so no more work needs to be done.
+		 */
+		if (depth == 1)
+			goto out;
+	}
+
+	/* call ocfs2_add_branch to add the final part of the tree with
+	 * the new data. */
+	ret = ocfs2_add_branch(fs, di, eb_buf, last_eb);
+
+out:
+	if (final_depth)
+		*final_depth = depth;
+	return ret;
+}
+
+/*
  * Insert an extent into an inode btree.
  */
 errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 			      uint64_t c_blkno, uint32_t clusters)
 {
 	errcode_t ret;
-	int shift;
 	struct insert_ctxt ctxt;
 	struct ocfs2_insert_type insert = {0, };
-	char *di_buf = NULL, *last_eb = NULL, *eb_buf = NULL;
+	char *di_buf = NULL, *last_eb = NULL;
 	char *backup_buf = NULL;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &di_buf);
@@ -2154,44 +2208,13 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 	if (ret)
 		goto bail;
 
-	/*
-	 * Avoid growing the tree unless we're out of records and the
-	 * insert type requres one.
-	 */
-	if (insert.ins_contig != CONTIG_NONE || insert.ins_free_records)
-		goto out_add;
-
-	shift = ocfs2_find_branch_target(fs, ctxt.di, &eb_buf);
-	if (shift < 0) {
-		ret = shift;
-		goto bail;
-	}
-
-	/* We traveled all the way to the bottom of the allocation tree
-	 * and didn't find room for any more extents - we need to add
-	 * another tree level */
-	if (shift) {
-
-		/* shift_tree_depth will return us a buffer with
-		 * the new extent block (so we can pass that to
-		 * ocfs2_add_branch). */
-		ret = shift_tree_depth(&ctxt, &eb_buf);
+	if (insert.ins_contig == CONTIG_NONE && insert.ins_free_records == 0) {
+		ret = ocfs2_grow_tree(fs, ctxt.di,
+				      &insert.ins_tree_depth, last_eb);
 		if (ret)
 			goto bail;
-
-		insert.ins_tree_depth++;
-
-		if (insert.ins_tree_depth == 1)
-			goto out_add;
 	}
 
-	/* call ocfs2_add_branch to add the final part of the tree with
-	 * the new data. */
-	ret = ocfs2_add_branch(ctxt.fs, ctxt.di, eb_buf, last_eb);
-	if (ret)
-		goto bail;
-
-out_add:
 	/* Finally, we can add clusters. This might rotate the tree for us. */
 	ret = ocfs2_do_insert_extent(&ctxt, &insert);
 	if (ret)
@@ -2212,8 +2235,6 @@ bail:
 		ocfs2_free(&backup_buf);
 	}
 
-	if (eb_buf)
-		ocfs2_free(&eb_buf);
 	if (last_eb)
 		ocfs2_free(&last_eb);
 	if (di_buf)
