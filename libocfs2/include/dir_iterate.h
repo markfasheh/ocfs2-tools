@@ -45,6 +45,7 @@ struct dir_context {
 extern int ocfs2_process_dir_block(ocfs2_filesys *fs,
 				   uint64_t	blocknr,
 				   uint64_t	blockcnt,
+				   uint16_t	ext_flags,
 				   void		*priv_data);
 
 #endif  /* _DIR_ITERATE_H */

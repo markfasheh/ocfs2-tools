@@ -37,6 +37,7 @@ extern char *progname;
 static int fillup_block(ocfs2_filesys *fs,
 			uint64_t blkno,
 			uint64_t bcount,
+			uint16_t ext_flags,
 			void *priv_data)
 {
 	errcode_t ret = 0;

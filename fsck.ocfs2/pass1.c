@@ -683,6 +683,7 @@ static void check_link_data(struct verifying_blocks *vb)
 static int verify_block(ocfs2_filesys *fs,
 			uint64_t blkno,
 			uint64_t bcount,
+			uint16_t ext_flags,
 			void *priv_data)
 {
 	struct verifying_blocks *vb = priv_data;
@@ -721,6 +722,7 @@ static int verify_block(ocfs2_filesys *fs,
 static int clear_block(ocfs2_filesys *fs,
 			uint64_t blkno,
 			uint64_t bcount,
+			uint16_t ext_flags,
 			void *priv_data)
 {
 	struct verifying_blocks *vb = priv_data;

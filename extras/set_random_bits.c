@@ -68,6 +68,7 @@ struct walk_block {
 static int walk_blocks_func(ocfs2_filesys *fs,
 			    uint64_t blkno,
 			    uint64_t bcount,
+			    uint16_t ext_flags,
 			    void *priv_data)
 {
 	struct walk_block *wb = priv_data;

@@ -503,6 +503,7 @@ struct block_context {
 	int (*func)(ocfs2_filesys *fs,
 		    uint64_t blkno,
 		    uint64_t bcount,
+		    uint16_t ext_flags,
 		    void *priv_data);
 	int flags;
 	struct ocfs2_dinode *inode;
@@ -531,7 +532,7 @@ static int block_iterate_func(ocfs2_filesys *fs,
 		    !(ctxt->flags & OCFS2_BLOCK_FLAG_APPEND))
 			break;
 
-		iret = (*ctxt->func)(fs, blkno, bcount,
+		iret = (*ctxt->func)(fs, blkno, bcount, rec->e_flags,
 				     ctxt->priv_data);
 		if (iret & OCFS2_BLOCK_ABORT)
 			break;
@@ -546,6 +547,7 @@ errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
 				    int (*func)(ocfs2_filesys *fs,
 						uint64_t blkno,
 						uint64_t bcount,
+						uint16_t ext_flags,
 						void *priv_data),
 				    void *priv_data)
 {
@@ -571,6 +573,7 @@ errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 			      int (*func)(ocfs2_filesys *fs,
 					  uint64_t blkno,
 					  uint64_t bcount,
+					  uint16_t ext_flags,
 					  void *priv_data),
 			      void *priv_data)
 {

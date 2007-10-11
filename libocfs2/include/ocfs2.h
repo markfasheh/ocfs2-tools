@@ -101,53 +101,6 @@
 #define OCFS2_FLAG_HEARTBEAT_DEV_OK	0x40
 #define OCFS2_FLAG_STRICT_COMPAT_CHECK	0x80
 
-/* Return flags for the extent iterator functions */
-#define OCFS2_EXTENT_CHANGED	0x01
-#define OCFS2_EXTENT_ABORT	0x02
-#define OCFS2_EXTENT_ERROR	0x04
-
-/*
- * Extent iterate flags
- *
- * OCFS2_EXTENT_FLAG_APPEND indicates that the iterator function should
- * be called on extents past the leaf next_free_rec.  This is used by
- * ocfs2_expand_dir() to add a new extent to a directory (via
- * OCFS2_BLOCK_FLAG_APPEND and the block iteration functions).
- *
- * OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE indicates that the iterator
- * function for tree_depth > 0 records (ocfs2_extent_blocks, iow)
- * should be called after all of the extents contained in the
- * extent_block are processed.  This is useful if you are going to be
- * deallocating extents.
- *
- * OCFS2_EXTENT_FLAG_DATA_ONLY indicates that the iterator function
- * should be called for data extents (depth == 0) only.
- */
-#define OCFS2_EXTENT_FLAG_APPEND		0x01
-#define OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE	0x02
-#define OCFS2_EXTENT_FLAG_DATA_ONLY		0x04
-
-
-/* Return flags for the block iterator functions */
-#define OCFS2_BLOCK_CHANGED	0x01
-#define OCFS2_BLOCK_ABORT	0x02
-#define OCFS2_BLOCK_ERROR	0x04
-
-/*
- * Block iterate flags
- *
- * In OCFS2, block iteration runs through the blocks contained in an
- * inode's data extents.  As such, "DATA_ONLY" and "DEPTH_TRAVERSE"
- * can't really apply.
- * 
- * OCFS2_BLOCK_FLAG_APPEND is as OCFS2_EXTENT_FLAG_APPEND, except on a
- * blocksize basis.  This may mean that the underlying extent already
- * contains the space for a new block, and i_size is updated
- * accordingly.
- */
-#define OCFS2_BLOCK_FLAG_APPEND		0x01
-
-
 /* Return flags for the directory iterator functions */
 #define OCFS2_DIRENT_CHANGED	0x01
 #define OCFS2_DIRENT_ABORT	0x02
@@ -321,47 +274,6 @@ errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
 					  char *eb_buf);
 errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				   char *eb_buf);
-errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
-			       uint64_t blkno,
-			       int flags,
-			       char *block_buf,
-			       int (*func)(ocfs2_filesys *fs,
-					   struct ocfs2_extent_rec *rec,
-					   int tree_depth,
-					   uint32_t ccount,
-					   uint64_t ref_blkno,
-					   int ref_recno,
-					   void *priv_data),
-			       void *priv_data);
-errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
-				     struct ocfs2_dinode *inode,
-				     int flags,
-				     char *block_buf,
-				     int (*func)(ocfs2_filesys *fs,
-					         struct ocfs2_extent_rec *rec,
-					         int tree_depth,
-					         uint32_t ccount,
-					         uint64_t ref_blkno,
-					         int ref_recno,
-					         void *priv_data),
-					         void *priv_data);
-errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
-			      uint64_t blkno,
-			      int flags,
-			      int (*func)(ocfs2_filesys *fs,
-					  uint64_t blkno,
-					  uint64_t bcount,
-					  void *priv_data),
-			      void *priv_data);
-errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
-				    struct ocfs2_dinode *inode,
-				    int flags,
-				    int (*func)(ocfs2_filesys *fs,
-						uint64_t blkno,
-						uint64_t bcount,
-						void *priv_data),
-				    void *priv_data);
-
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
@@ -806,4 +718,101 @@ static inline int ocfs2_writes_unwritten_extents(struct ocfs2_super_block *osb)
 
 /* lifted from the kernel. include/linux/kernel.h */
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+/*
+ * DEPRECATED: Extent/block iterate functions.
+ *
+ * Do not use these for reading/writing regular files - they don't properly
+ * handle holes or inline data.
+ */
+
+/* Return flags for the extent iterator functions */
+#define OCFS2_EXTENT_CHANGED	0x01
+#define OCFS2_EXTENT_ABORT	0x02
+#define OCFS2_EXTENT_ERROR	0x04
+
+/*
+ * Extent iterate flags
+ *
+ * OCFS2_EXTENT_FLAG_APPEND indicates that the iterator function should
+ * be called on extents past the leaf next_free_rec.  This is used by
+ * ocfs2_expand_dir() to add a new extent to a directory (via
+ * OCFS2_BLOCK_FLAG_APPEND and the block iteration functions).
+ *
+ * OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE indicates that the iterator
+ * function for tree_depth > 0 records (ocfs2_extent_blocks, iow)
+ * should be called after all of the extents contained in the
+ * extent_block are processed.  This is useful if you are going to be
+ * deallocating extents.
+ *
+ * OCFS2_EXTENT_FLAG_DATA_ONLY indicates that the iterator function
+ * should be called for data extents (depth == 0) only.
+ */
+#define OCFS2_EXTENT_FLAG_APPEND		0x01
+#define OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE	0x02
+#define OCFS2_EXTENT_FLAG_DATA_ONLY		0x04
+
+
+/* Return flags for the block iterator functions */
+#define OCFS2_BLOCK_CHANGED	0x01
+#define OCFS2_BLOCK_ABORT	0x02
+#define OCFS2_BLOCK_ERROR	0x04
+
+/*
+ * Block iterate flags
+ *
+ * In OCFS2, block iteration runs through the blocks contained in an
+ * inode's data extents.  As such, "DATA_ONLY" and "DEPTH_TRAVERSE"
+ * can't really apply.
+ *
+ * OCFS2_BLOCK_FLAG_APPEND is as OCFS2_EXTENT_FLAG_APPEND, except on a
+ * blocksize basis.  This may mean that the underlying extent already
+ * contains the space for a new block, and i_size is updated
+ * accordingly.
+ */
+#define OCFS2_BLOCK_FLAG_APPEND		0x01
+
+errcode_t ocfs2_extent_iterate(ocfs2_filesys *fs,
+			       uint64_t blkno,
+			       int flags,
+			       char *block_buf,
+			       int (*func)(ocfs2_filesys *fs,
+					   struct ocfs2_extent_rec *rec,
+					   int tree_depth,
+					   uint32_t ccount,
+					   uint64_t ref_blkno,
+					   int ref_recno,
+					   void *priv_data),
+			       void *priv_data);
+errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
+				     struct ocfs2_dinode *inode,
+				     int flags,
+				     char *block_buf,
+				     int (*func)(ocfs2_filesys *fs,
+					         struct ocfs2_extent_rec *rec,
+					         int tree_depth,
+					         uint32_t ccount,
+					         uint64_t ref_blkno,
+					         int ref_recno,
+					         void *priv_data),
+					         void *priv_data);
+errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
+			      uint64_t blkno,
+			      int flags,
+			      int (*func)(ocfs2_filesys *fs,
+					  uint64_t blkno,
+					  uint64_t bcount,
+					  uint16_t ext_flags,
+					  void *priv_data),
+			      void *priv_data);
+errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
+				    struct ocfs2_dinode *inode,
+				    int flags,
+				    int (*func)(ocfs2_filesys *fs,
+						uint64_t blkno,
+						uint64_t bcount,
+						uint16_t ext_flags,
+						void *priv_data),
+				    void *priv_data);
+
 #endif  /* _FILESYS_H */

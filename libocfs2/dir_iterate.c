@@ -145,6 +145,7 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 int ocfs2_process_dir_block(ocfs2_filesys *fs,
 			    uint64_t	blocknr,
 			    uint64_t	blockcnt,
+			    uint16_t	ext_flags,
 			    void	*priv_data)
 {
 	struct dir_context *ctx = (struct dir_context *) priv_data;

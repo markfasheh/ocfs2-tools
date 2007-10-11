@@ -45,12 +45,17 @@ struct read_whole_context {
 static int read_whole_func(ocfs2_filesys *fs,
 			   uint64_t blkno,
 			   uint64_t bcount,
+			   uint16_t ext_flags,
 			   void *priv_data)
 {
 	struct read_whole_context *ctx = priv_data;
 
-	ctx->errcode = io_read_block(fs->fs_io, blkno,
-				     1, ctx->ptr);
+	if (ext_flags & OCFS2_EXT_UNWRITTEN) {
+		memset(ctx->ptr, 0, fs->fs_blocksize);
+		ctx->errcode = 0;
+	} else
+		ctx->errcode = io_read_block(fs->fs_io, blkno,
+					     1, ctx->ptr);
 	if (ctx->errcode)
 		return OCFS2_BLOCK_ABORT;
 
