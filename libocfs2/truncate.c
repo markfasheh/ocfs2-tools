@@ -153,7 +153,7 @@ static errcode_t ocfs2_zero_tail_for_truncate(ocfs2_cached_inode *ci,
 	start_blk = new_size / fs->fs_blocksize;
 
 	ret = ocfs2_extent_map_get_blocks(ci, start_blk, 1,
-					  &p_blkno, &contig_blocks);
+					  &p_blkno, &contig_blocks, NULL);
 	if (ret)
 		goto out;
 

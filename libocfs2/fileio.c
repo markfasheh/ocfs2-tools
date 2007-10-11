@@ -155,7 +155,8 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 
 	while(wanted_blocks) {
 		ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
-						  &p_blkno, &contig_blocks);
+						  &p_blkno, &contig_blocks,
+						  NULL);
 		if (ret)
 			return ret;
 
@@ -260,7 +261,8 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 
 	while(wanted_blocks) {
 		ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
-						  &p_blkno, &contig_blocks);
+						  &p_blkno, &contig_blocks,
+						  NULL);
 		if (ret)
 			return ret;
 
@@ -340,7 +342,7 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			ocfs2_free_cached_inode(fs, ci);
 			ret = ocfs2_read_cached_inode(fs,ino, &ci);
 			ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
-						&p_blkno, NULL);
+						&p_blkno, NULL, NULL);
 			/* now we shouldn't find a hole. */
 			if (!p_blkno || p_blkno != p_alloc + p_offset)
 				ret = OCFS2_ET_INTERNAL_FAILURE;

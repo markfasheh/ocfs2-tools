@@ -239,7 +239,7 @@ static errcode_t ocfs2_format_journal(ocfs2_filesys *fs,
 		goto out;
 
 	/* re-use offset here for 1st journal block. */
-	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &offset, NULL);
+	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &offset, NULL, NULL);
 	if (ret)
 		goto out;
 

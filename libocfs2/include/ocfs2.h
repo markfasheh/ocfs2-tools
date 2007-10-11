@@ -300,7 +300,8 @@ void ocfs2_swap_extent_list_to_cpu(struct ocfs2_extent_list *el);
 errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
 				      uint64_t *p_blkno,
-				      uint64_t *ret_count);
+				      uint64_t *ret_count,
+				      uint16_t *extent_flags);
 int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		    uint32_t cpos, char **leaf_buf);
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb);

@@ -159,9 +159,11 @@ static int ocfs2_search_extent_list(struct ocfs2_extent_list *el,
 static errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
 				    uint32_t v_cluster,
 				    uint32_t *p_cluster,
-		 		    uint32_t *num_clusters)
+				    uint32_t *num_clusters,
+				    uint16_t *extent_flags)
 {
 	int i;
+	uint16_t flags = 0;
 	errcode_t ret =  0;
 	ocfs2_filesys *fs = cinode->ci_fs;
 	struct ocfs2_dinode *di;
@@ -222,7 +224,12 @@ static errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
 		if (num_clusters)
 			*num_clusters = ocfs2_rec_clusters(el->l_tree_depth,
 							   rec) - coff;
+
+		flags = rec->e_flags;
 	}
+
+	if (extent_flags)
+		*extent_flags = flags;
 
 out:
 	if (eb_buf)
@@ -232,7 +239,8 @@ out:
 
 errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
-				      uint64_t *p_blkno, uint64_t *ret_count)
+				      uint64_t *p_blkno, uint64_t *ret_count,
+				      uint16_t *extent_flags)
 {
 	errcode_t ret;
 	int bpc;
@@ -243,7 +251,8 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 	bpc = ocfs2_clusters_to_blocks(fs, 1);
 	cpos = ocfs2_blocks_to_clusters(fs, v_blkno);
 
-	ret = ocfs2_get_clusters(cinode, cpos, &p_cluster, &num_clusters);
+	ret = ocfs2_get_clusters(cinode, cpos, &p_cluster,
+				 &num_clusters, extent_flags);
 	if (ret)
 		goto out;
 

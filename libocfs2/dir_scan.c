@@ -57,7 +57,7 @@ static errcode_t get_more_dir_blocks(ocfs2_dir_scan *scan)
 
 	ret = ocfs2_extent_map_get_blocks(scan->inode,
 					  scan->blocks_read, 1,
-					  &blkno, &cblocks);
+					  &blkno, &cblocks, NULL);
 	if (ret)
 		return ret;
 

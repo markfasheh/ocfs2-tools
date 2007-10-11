@@ -88,7 +88,7 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 
 	/* get the next free block */
 	ret = ocfs2_extent_map_get_blocks(cinode, used_blks, 1,
-					  &new_blk, &contig);
+					  &new_blk, &contig, NULL);
 	if (ret) 
 		goto bail;
 

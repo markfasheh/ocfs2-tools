@@ -242,7 +242,7 @@ static errcode_t lookup_journal_block(ocfs2_filesys *fs,
 	int was_set;
 
 	ret = ocfs2_extent_map_get_blocks(ji->ji_cinode, blkoff, 1, blkno,
-					  &contig);
+					  &contig, NULL);
 	if (ret) {
 		com_err(whoami, ret, "while looking up logical block "
 			"%"PRIu64" in slot %d's journal", blkoff, ji->ji_slot);
@@ -566,7 +566,7 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 			continue;
 
 		ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno,
-						  &contig);
+						  &contig, NULL);
 		if (ret) {
 			com_err(whoami, ret, "while looking up the journal "
 				"super block in slot %d's journal", i);
@@ -737,7 +737,7 @@ static errcode_t check_journal_super(ocfs2_filesys *fs,
 	if (ret)
 		goto out;
 
-	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &blkno, &contig);
+	ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &blkno, &contig, NULL);
 	if (ret)
 		goto out;
 

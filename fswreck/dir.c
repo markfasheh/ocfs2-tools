@@ -146,7 +146,7 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		FSWRK_COM_FATAL(progname, ret);
 
 	/* get first blockno */
-	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno, &contig);
+	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno, &contig, NULL);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
@@ -356,7 +356,7 @@ void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno)
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
-	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &extblk, &contig);
+	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &extblk, &contig, NULL);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 

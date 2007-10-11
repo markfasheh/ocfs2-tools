@@ -85,7 +85,7 @@ static void add_symlink(ocfs2_filesys *fs, uint64_t blkno)
 
 	/* get first block of the file */
 	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1,
-					  &new_blk, &contig);
+					  &new_blk, &contig, NULL);
 	if (ret) 
 		FSWRK_COM_FATAL(progname, ret);
 
