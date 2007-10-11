@@ -316,7 +316,6 @@ struct ocfs2_insert_type {
 	enum ocfs2_append_type	ins_appending;
 	enum ocfs2_contig_type	ins_contig;
 	int			ins_contig_index;
-	int			ins_free_records;
 	int			ins_tree_depth;
 };
 
@@ -1491,6 +1490,7 @@ set_tail_append:
  */
 static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
 				    char **last_eb_buf,
+				    int *free_records,
 				    struct ocfs2_insert_type *insert)
 {
 	int ret;
@@ -1531,10 +1531,9 @@ static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
 	 * XXX: This test is simplistic, we can search for empty
 	 * extent records too.
 	 */
-	insert->ins_free_records = el->l_count - el->l_next_free_rec;
+	*free_records = el->l_count - el->l_next_free_rec;
 
 	if (!insert->ins_tree_depth) {
-		insert->ins_free_records = el->l_count - el->l_next_free_rec;
 		ocfs2_figure_contig_type(fs, insert, el, insert_rec);
 		ocfs2_figure_appending_type(insert, el, insert_rec);
 		return 0;
@@ -2160,6 +2159,7 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 	struct ocfs2_insert_type insert = {0, };
 	char *di_buf = NULL, *last_eb = NULL;
 	char *backup_buf = NULL;
+	int free_records = 0;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &di_buf);
 	if (ret)
@@ -2204,11 +2204,11 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 	ctxt.rec.e_blkno = c_blkno;
 	ctxt.rec.e_leaf_clusters = clusters;
 
-	ret = ocfs2_figure_insert_type(&ctxt,&last_eb, &insert);
+	ret = ocfs2_figure_insert_type(&ctxt, &last_eb, &free_records, &insert);
 	if (ret)
 		goto bail;
 
-	if (insert.ins_contig == CONTIG_NONE && insert.ins_free_records == 0) {
+	if (insert.ins_contig == CONTIG_NONE && free_records == 0) {
 		ret = ocfs2_grow_tree(fs, ctxt.di,
 				      &insert.ins_tree_depth, last_eb);
 		if (ret)
