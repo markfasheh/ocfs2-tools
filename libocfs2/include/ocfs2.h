@@ -304,6 +304,7 @@ errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint16_t *extent_flags);
 int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		    uint32_t cpos, char **leaf_buf);
+int ocfs2_search_extent_list(struct ocfs2_extent_list *el, uint32_t v_cluster);
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb);
 errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
 					int buflen, uint32_t jrnl_size);
@@ -527,7 +528,8 @@ errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 			      uint64_t parent_ino, char **block);
 
 errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
-			      uint64_t c_blkno, uint32_t clusters);
+			      uint64_t c_blkno, uint32_t clusters,
+			      uint16_t flag);
 
 errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
 errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode, int flags);
@@ -542,6 +544,13 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint32_t new_clusters);
 /* Extend the file to the new size. No clusters will be allocated. */
 errcode_t ocfs2_extend_file(ocfs2_filesys *fs, uint64_t ino, uint64_t new_size);
+
+int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			      uint32_t cpos, uint32_t len, uint64_t p_blkno);
+/* Reserve spaces at "offset" with a "len" in the files. */
+errcode_t ocfs2_allocate_unwritten_extents(ocfs2_filesys *fs, uint64_t ino,
+					   uint64_t offset, uint64_t len);
+
 errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size);
 errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
 			     uint32_t min,
@@ -754,6 +763,26 @@ static inline void ocfs2_set_rec_clusters(uint16_t tree_depth,
 		rec->e_int_clusters = clusters;
 	else
 		rec->e_leaf_clusters = clusters;
+}
+
+static inline int ocfs2_sparse_alloc(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
+		return 1;
+	return 0;
+}
+
+static inline int ocfs2_writes_unwritten_extents(struct ocfs2_super_block *osb)
+{
+	/*
+	 * Support for sparse files is a pre-requisite
+	 */
+	if (!ocfs2_sparse_alloc(osb))
+		return 0;
+
+	if (osb->s_feature_ro_compat & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
+		return 1;
+	return 0;
 }
 
 /*

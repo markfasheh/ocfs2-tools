@@ -323,7 +323,7 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 		if (insert) {
 	 		ret = ocfs2_insert_extent(fs, ci->ci_blkno,
 					ocfs2_blocks_to_clusters(fs,v_blkno),
-					p_alloc, n_clusters);
+					p_alloc, n_clusters, 0);
 			if (ret) {
 				/*
 				 * XXX: We don't wan't to overwrite the error
