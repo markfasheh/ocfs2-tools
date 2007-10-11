@@ -104,7 +104,7 @@ static void custom_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 		for(i = n_clusters; i; --i) {
 			tmpblk = blkno + ocfs2_clusters_to_blocks(fs, i - 1);
 		 	ret = ocfs2_insert_extent(fs, ino, offset++,
-						  tmpblk, 1);
+						  tmpblk, 1, 0);
 			if (ret) 
 				FSWRK_COM_FATAL(progname, ret);	
 		}
