@@ -238,7 +238,7 @@ static struct io_cache_block *io_cache_pop_lru(struct io_cache *ic)
 static errcode_t io_cache_read_one_block(io_channel *channel, int64_t blkno,
 					 char *data)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	struct io_cache *ic = channel->io_cache;
 	struct io_cache_block *icb;
 
