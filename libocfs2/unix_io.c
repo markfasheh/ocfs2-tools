@@ -217,11 +217,12 @@ static void io_cache_disconnect(struct io_cache *ic,
 {
 	/*
 	 * This icb should longer be looked up.
-	 * If rb_parent is NULL, it's already disconnected.
+	 * If icb->icb_blkno is UINT64_MAX, it's already disconnected.
 	 */
-	if (icb->icb_node.rb_parent) {
+	if (icb->icb_blkno != UINT64_MAX) {
 		rb_erase(&icb->icb_node, &ic->ic_lookup);
 		memset(&icb->icb_node, 0, sizeof(struct rb_node));
+		icb->icb_blkno = UINT64_MAX;
 	}
 }
 
@@ -375,6 +376,7 @@ errcode_t io_init_cache(io_channel *channel, size_t nr_blocks)
 	icb_list = ic->ic_metadata_buffer;
 	dbuf = ic->ic_data_buffer;
 	for (i = 0; i < nr_blocks; i++) {
+		icb_list[i].icb_blkno = UINT64_MAX;
 		icb_list[i].icb_buf = dbuf;
 		dbuf += channel->io_blksize;
 		list_add_tail(&icb_list[i].icb_list, &ic->ic_lru);
