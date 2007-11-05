@@ -1729,6 +1729,8 @@ close:
 		ocfs2_shutdown_dlm(fs);
 	block_signals(SIG_UNBLOCK);
 
+	free_clear_ctxt();
+
 	free_opts();
 
 	if (fs)

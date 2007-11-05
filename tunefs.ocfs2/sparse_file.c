@@ -46,6 +46,47 @@ struct list_ctxt {
 	struct rb_root multi_link_files;
 };
 
+struct hole_list {
+	uint32_t start;
+	uint32_t len;
+	struct hole_list *next;
+};
+
+struct unwritten_list {
+	uint32_t start;
+	uint32_t len;
+	uint64_t p_start;
+	struct unwritten_list *next;
+};
+
+/*
+ * A sparse file may have many holes and unwritten extents. So all the holes
+ * will be stored in hole_list and all unwritten clusters will be stored in
+ * unwritten_list. Since filling up a hole may need a new extent record and
+ * lead to some new extent block, the total hole number in the sparse file
+ * will also be recorded.
+ */
+struct sparse_file {
+	uint64_t blkno;
+	uint32_t holes_num;
+	struct hole_list *holes;
+	struct unwritten_list *unwritten;
+	struct sparse_file *next;
+};
+
+struct clear_hole_unwritten_ctxt {
+	errcode_t ret;
+	uint32_t more_clusters;
+	uint32_t more_ebs;
+	struct sparse_file *files;
+};
+
+/*
+ * clear_ctxt is initailized and calculated in clear_sparse_file_check and
+ * we will use it in clear_sparse_file_flag.
+ */
+static struct clear_hole_unwritten_ctxt clear_ctxt;
+
 static void inline empty_multi_link_files(struct list_ctxt *ctxt)
 {
 	struct multi_link_file *lf;
@@ -160,17 +201,24 @@ static void list_sparse_iterate(void *priv_data,
 }
 
 /*
- * Iterate a file and call "func" when we meet with a hole.
+ * Iterate a file.
+ * Call "func" when we meet with a hole.
+ * Call "unwritten_func" when we meet with unwritten clusters.
  */
 static errcode_t iterate_file(ocfs2_filesys *fs,
 			      struct ocfs2_dinode *di,
 			      void (*func)(void *priv_data,
 					   uint32_t hole_start,
 					   uint32_t hole_len),
+			      void (*unwritten_func)(void *priv_data,
+						     uint32_t start,
+						     uint32_t len,
+						     uint64_t p_start),
 			      void *priv_data)
 {
 	errcode_t ret;
 	uint32_t clusters, v_cluster = 0, p_cluster, num_clusters;
+	uint64_t p_blkno;
 	uint16_t extent_flags;
 	ocfs2_cached_inode *ci = NULL;
 
@@ -198,6 +246,12 @@ static errcode_t iterate_file(ocfs2_filesys *fs,
 
 			if (func)
 				func(priv_data, v_cluster, num_clusters);
+		}
+
+		if ((extent_flags & OCFS2_EXT_UNWRITTEN) && unwritten_func) {
+			p_blkno = ocfs2_clusters_to_blocks(fs, p_cluster);
+			unwritten_func(priv_data,
+				       v_cluster, num_clusters, p_blkno);
 		}
 
 		v_cluster += num_clusters;
@@ -239,7 +293,7 @@ static errcode_t list_sparse_file(ocfs2_filesys *fs,
 		}
 	}
 
-	ret = iterate_file(fs, di, ctxt->func, ctxt);
+	ret = iterate_file(fs, di, ctxt->func, NULL, ctxt);
 	if (ret)
 		goto bail;
 
@@ -500,4 +554,273 @@ errcode_t set_sparse_file_flag(ocfs2_filesys *fs, char *progname)
 
 bail:
 	return ret;
+}
+
+static void add_hole(void *priv_data, uint32_t hole_start, uint32_t hole_len)
+{
+	errcode_t ret;
+	struct hole_list *hole = NULL;
+	struct clear_hole_unwritten_ctxt *ctxt =
+			(struct clear_hole_unwritten_ctxt *)priv_data;
+
+	ret = ocfs2_malloc0(sizeof(struct hole_list), &hole);
+	if (ret) {
+		ctxt->ret = ret;
+		return;
+	}
+
+	hole->start = hole_start;
+	hole->len = hole_len;
+
+	hole->next = ctxt->files->holes;
+	ctxt->files->holes = hole;
+	ctxt->more_clusters += hole_len;
+	ctxt->files->holes_num++;
+}
+
+static void add_unwritten(void *priv_data, uint32_t start,
+			  uint32_t len, uint64_t p_start)
+{
+	errcode_t ret;
+	struct unwritten_list *unwritten = NULL;
+	struct clear_hole_unwritten_ctxt *ctxt =
+			(struct clear_hole_unwritten_ctxt *)priv_data;
+
+	ret = ocfs2_malloc0(sizeof(struct unwritten_list), &unwritten);
+	if (ret) {
+		ctxt->ret = ret;
+		return;
+	}
+
+	unwritten->start = start;
+	unwritten->len = len;
+	unwritten->p_start = p_start;
+
+	unwritten->next = ctxt->files->unwritten;
+	ctxt->files->unwritten = unwritten;
+}
+
+static errcode_t calc_hole_and_unwritten(ocfs2_filesys *fs,
+					 struct ocfs2_dinode *di)
+{
+	errcode_t ret = 0;
+	uint64_t blk_num;
+	uint32_t clusters;
+	struct sparse_file *file = NULL, *old_files = NULL;
+	uint32_t recs_per_eb = ocfs2_extent_recs_per_eb(fs->fs_blocksize);
+
+	assert(S_ISREG(di->i_mode));
+
+	ret = ocfs2_malloc0(sizeof(struct sparse_file), &file);
+	if (ret)
+		goto bail;
+
+	file->blkno = di->i_blkno;
+	old_files = clear_ctxt.files;
+	clear_ctxt.files = file;
+	ret = iterate_file(fs, di, add_hole, add_unwritten, &clear_ctxt);
+	if (ret || clear_ctxt.ret) {
+		clear_ctxt.files = old_files;
+		goto bail;
+	}
+
+	/* If there is no hole or unwritten extents in the file, free it. */
+	if (!file->unwritten && !file->holes) {
+		clear_ctxt.files = old_files;
+		goto bail;
+	}
+	/*
+	 * We have  "hole_num" holes, so more extent records are needed,
+	 * and more extent blocks may needed here.
+	 * In order to simplify the estimation process, we take it for
+	 * granted that one hole need one extent record, so that we can
+	 * calculate the extent block we need roughly.
+	 */
+	blk_num = (file->holes_num + recs_per_eb - 1) / recs_per_eb;
+	clusters = ocfs2_clusters_in_blocks(fs, blk_num);
+	clear_ctxt.more_ebs += clusters;
+
+	file->next = old_files;
+
+	return 0;
+bail:
+	if (file)
+		ocfs2_free(&file);
+	return ret;
+}
+
+errcode_t clear_sparse_file_check(ocfs2_filesys *fs, char *progname)
+{
+	errcode_t ret;
+	uint32_t free_clusters = 0;
+
+	memset(&clear_ctxt, 0, sizeof(clear_ctxt));
+	ret = iterate_all_regular(fs, progname, calc_hole_and_unwritten);
+	if (ret)
+		goto bail;
+
+	ret = get_total_free_clusters(fs, &free_clusters);
+	if (ret)
+		goto bail;
+
+	printf("We have %u clusters free and need %u clusters for sparse files "
+		"and %u clusters for more extent blocks\n",
+		free_clusters, clear_ctxt.more_clusters, clear_ctxt.more_ebs);
+
+	if (free_clusters < clear_ctxt.more_clusters + clear_ctxt.more_ebs) {
+		com_err(progname, 0, "Don't have enough free space.");
+		ret = OCFS2_ET_NO_SPACE;
+	}
+bail:
+	return ret;
+}
+
+static errcode_t empty_clusters(ocfs2_filesys *fs,
+				uint64_t start_blk,
+				uint32_t num_clusters)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	uint16_t bpc = fs->fs_clustersize / fs->fs_blocksize;
+
+	ret = ocfs2_malloc_blocks(fs->fs_io, bpc, &buf);
+	if (ret)
+		goto bail;
+
+	memset(buf, 0, fs->fs_clustersize);
+
+	while (num_clusters) {
+		ret = io_write_block(fs->fs_io, start_blk, bpc, buf);
+		if (ret)
+			goto bail;
+
+		num_clusters--;
+		start_blk += bpc;
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
+errcode_t clear_sparse_file_flag(ocfs2_filesys *fs, char *progname)
+{
+	errcode_t ret = 0;
+	uint32_t len, start, n_clusters;
+	uint64_t p_start;
+	char *buf = NULL;
+	struct ocfs2_dinode *di = NULL;
+	struct hole_list *hole = NULL;
+	struct unwritten_list *unwritten = NULL;
+	struct sparse_file *file = clear_ctxt.files;
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto bail;
+
+	/* Iterate all the holes and fill them. */
+	while (file) {
+		hole = file->holes;
+		while (hole) {
+			len = hole->len;
+			start = hole->start;
+			while (len) {
+				ret = ocfs2_new_clusters(fs, 1, len,
+							 &p_start, &n_clusters);
+				if (n_clusters == 0)
+					ret = OCFS2_ET_NO_SPACE;
+				if (ret)
+					goto bail;
+
+				ret = empty_clusters(fs, p_start, n_clusters);
+				if (ret)
+					goto bail;
+
+				ret = ocfs2_insert_extent(fs, file->blkno,
+							  start, p_start,
+							  n_clusters, 0);
+				if (ret)
+					goto bail;
+
+				len -= n_clusters;
+				start += n_clusters;
+			}
+
+			hole = hole->next;
+		}
+
+		file = file->next;
+	}
+
+	/*
+	 * Iterate all the unwritten extents, empty its content and
+	 * mark it written.
+	 */
+	file = clear_ctxt.files;
+	while (file) {
+		if (!file->unwritten)
+			goto next_file;
+
+		ret = ocfs2_read_inode(fs, file->blkno, buf);
+		if (ret)
+			goto bail;
+		di = (struct ocfs2_dinode *)buf;
+
+		unwritten = file->unwritten;
+		while (unwritten) {
+			start = unwritten->start;
+			len = unwritten->len;
+			p_start = unwritten->p_start;
+
+			ret = empty_clusters(fs, p_start, len);
+			if (ret)
+				goto bail;
+
+			ret = ocfs2_mark_extent_written(fs, di, start,
+							len, p_start);
+			if (ret)
+				goto bail;
+			unwritten = unwritten->next;
+		}
+next_file:
+		file = file->next;
+	}
+
+	if(ocfs2_writes_unwritten_extents(super))
+		OCFS2_CLEAR_RO_COMPAT_FEATURE(super,
+					 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN);
+
+	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
+				     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC);
+
+bail:
+	return ret;
+}
+
+void free_clear_ctxt(void)
+{
+	struct sparse_file *file = NULL;
+	struct hole_list *hole = NULL;
+	struct unwritten_list *unwritten = NULL;
+
+	while (clear_ctxt.files) {
+		while (clear_ctxt.files->holes) {
+			hole = clear_ctxt.files->holes;
+			clear_ctxt.files->holes = hole->next;
+			ocfs2_free(&hole);
+		}
+
+		while (clear_ctxt.files->unwritten) {
+			unwritten = clear_ctxt.files->unwritten;
+			clear_ctxt.files->unwritten = unwritten->next;
+			ocfs2_free(&unwritten);
+		}
+
+		file = clear_ctxt.files;
+		clear_ctxt.files = file->next;
+		ocfs2_free(&file);
+	}
 }

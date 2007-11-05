@@ -50,6 +50,15 @@ errcode_t feature_check(ocfs2_filesys *fs)
 	     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) &&
 	     !ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super)))
 		ret = 0;
+	else if (opts.clear_feature.incompat ==
+		 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) {
+		if (!ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super)))
+			goto bail;
+
+		ret = clear_sparse_file_check(fs, opts.progname);
+		if (ret)
+			goto bail;
+	}
 
 bail:
 	return ret;
@@ -61,6 +70,9 @@ errcode_t update_feature(ocfs2_filesys *fs)
 
 	if (opts.set_feature.incompat & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
 		ret = set_sparse_file_flag(fs, opts.progname);
+	else if (opts.clear_feature.incompat
+		 & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
+		ret = clear_sparse_file_flag(fs, opts.progname);
 
 	return ret;
 }
