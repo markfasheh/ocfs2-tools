@@ -147,7 +147,7 @@ static errcode_t ocfs2_zero_tail_for_truncate(ocfs2_cached_inode *ci,
 	uint64_t start_blk, p_blkno, contig_blocks, start_off;
 	int count, byte_counts, bpc = fs->fs_clustersize /fs->fs_blocksize;
 
-	if (new_size >= ci->ci_inode->i_size || new_size == 0)
+	if (new_size == 0)
 		return 0;
 
 	start_blk = new_size / fs->fs_blocksize;
@@ -189,8 +189,7 @@ out:
 errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 {
 	errcode_t ret;
-	uint32_t new_size_in_clusters;
-	uint64_t new_size_in_blocks;
+	uint32_t new_clusters;
 	ocfs2_cached_inode *ci = NULL;
 
 	ret = ocfs2_read_cached_inode(fs, ino, &ci);
@@ -200,35 +199,22 @@ errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 	if (ci->ci_inode->i_size == new_i_size)
 		goto out;
 
-	new_size_in_blocks = ocfs2_blocks_in_bytes(fs, new_i_size);
-	new_size_in_clusters = ocfs2_clusters_in_blocks(fs, new_size_in_blocks);
-
 	if (ci->ci_inode->i_size < new_i_size)
 		ret = ocfs2_extend_file(fs, ino, new_i_size);
 	else {
-		struct truncate_ctxt ctxt = {
-			.new_i_clusters = ci->ci_inode->i_clusters,
-			.new_size_in_clusters = new_size_in_clusters,
-		};
-
-		ret = ocfs2_extent_iterate_inode(fs, ci->ci_inode,
-						 OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE,
-						 NULL, truncate_iterate,
-						 &ctxt);
+		ret = ocfs2_zero_tail_and_truncate(fs, ci, new_i_size,
+						   &new_clusters);
 		if (ret)
 			goto out;
 
-		ci->ci_inode->i_clusters = ctxt.new_i_clusters;
+		ci->ci_inode->i_clusters = new_clusters;
+
 		/* now all the clusters and extent blocks are freed.
 		 * only when the file's content is empty, should the tree depth
 		 * change.
 		 */
-		if (ctxt.new_i_clusters == 0)
+		if (new_clusters == 0)
 			ci->ci_inode->id2.i_list.l_tree_depth = 0;
-
-		ret = ocfs2_zero_tail_for_truncate(ci, new_i_size);
-		if (ret)
-			goto out;
 
 		ci->ci_inode->i_size = new_i_size;
 		ret = ocfs2_write_cached_inode(fs, ci);
@@ -236,6 +222,42 @@ errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 out:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
+	return ret;
+}
+
+/*
+ * This fucntion will truncate the file's cluster which exceeds
+ * the cluster where new_size resides in and empty all the
+ * bytes in the same cluster which exceeds new_size.
+ */
+errcode_t ocfs2_zero_tail_and_truncate(ocfs2_filesys *fs,
+				       ocfs2_cached_inode *ci,
+				       uint64_t new_i_size,
+				       uint32_t *new_clusters)
+{
+	errcode_t ret;
+	uint64_t new_size_in_blocks;
+	struct truncate_ctxt ctxt;
+
+	new_size_in_blocks = ocfs2_blocks_in_bytes(fs, new_i_size);
+	ctxt.new_i_clusters = ci->ci_inode->i_clusters;
+	ctxt.new_size_in_clusters =
+			ocfs2_clusters_in_blocks(fs, new_size_in_blocks);
+
+	ret = ocfs2_extent_iterate_inode(fs, ci->ci_inode,
+					 OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE,
+					 NULL, truncate_iterate,
+					 &ctxt);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_zero_tail_for_truncate(ci, new_i_size);
+	if (ret)
+		goto out;
+
+	if (new_clusters)
+		*new_clusters = ctxt.new_i_clusters;
+out:
 	return ret;
 }
 
