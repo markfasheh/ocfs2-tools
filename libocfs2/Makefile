@@ -81,7 +81,8 @@ CFILES = 		\
 	unix_io.c	\
 	unlink.c	\
 	lockid.c	\
-	backup_super.c
+	backup_super.c	\
+	feature_string.c
 
 HFILES =				\
 	include/bitmap.h		\
@@ -96,7 +97,8 @@ HFILES =				\
 	include/ocfs1_fs_compat.h	\
 	include/ocfs2_lockid.h		\
 	include/ocfs2_fs.h		\
-	include/ocfs2.h
+	include/ocfs2.h			\
+	include/feature_string.h
 
 HFILES_GEN =		\
 	include/ocfs2_err.h

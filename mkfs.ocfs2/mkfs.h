@@ -56,7 +56,7 @@
 #include <libgen.h>
 
 #include "jbd.h"
-
+#include <feature_string.h>
 
 #ifndef MAX
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -191,14 +191,6 @@ struct _DirData {
 	int link_count;
 
 	SystemFileDiskRecord *record;
-};
-
-typedef struct _fs_options fs_options;
-
-struct _fs_options {
-	uint32_t compat;
-	uint32_t incompat;
-	uint32_t ro_compat;
 };
 
 typedef struct _State State;
