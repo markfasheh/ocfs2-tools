@@ -200,6 +200,14 @@ struct _ocfs2_devices {
 	uint8_t *node_nums;		/* list of mounted nodes */
 };
 
+typedef struct _fs_options fs_options;
+
+struct _fs_options {
+	uint32_t compat;
+	uint32_t incompat;
+	uint32_t ro_compat;
+};
+
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);
 errcode_t ocfs2_malloc0(unsigned long size, void *ptr);
 errcode_t ocfs2_free(void *ptr);

@@ -74,6 +74,7 @@
 enum {
 	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
 	LIST_SPARSE_FILES,
+	FEATURES_OPTION,
 };
 
 typedef struct _ocfs2_tune_opts {
@@ -91,6 +92,9 @@ typedef struct _ocfs2_tune_opts {
 	int prompt;
 	int backup_super;
 	int list_sparse;
+	fs_options set_feature;
+	fs_options clear_feature;
+	char *feature_string;
 	time_t tune_time;
 	int fd;
 } ocfs2_tune_opts;
@@ -101,4 +105,8 @@ errcode_t remove_slots(ocfs2_filesys *fs);
 errcode_t remove_slot_check(ocfs2_filesys *fs);
 
 errcode_t list_sparse(ocfs2_filesys *fs);
+errcode_t set_sparse_file_flag(ocfs2_filesys *fs, char *progname);
+
+errcode_t feature_check(ocfs2_filesys *fs);
+errcode_t update_feature(ocfs2_filesys *fs);
 #endif /* _TUNEFS_H */

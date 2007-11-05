@@ -400,3 +400,104 @@ bail:
 	empty_multi_link_files(&ctxt);
 	return ret;
 }
+
+static errcode_t iterate_all_regular(ocfs2_filesys *fs, char *progname,
+				     errcode_t (*func)(ocfs2_filesys *fs,
+						struct ocfs2_dinode *di))
+{
+	errcode_t ret;
+	uint64_t blkno;
+	char *buf;
+	struct ocfs2_dinode *di;
+	ocfs2_inode_scan *scan;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	di = (struct ocfs2_dinode *)buf;
+
+	ret = ocfs2_open_inode_scan(fs, &scan);
+	if (ret) {
+		com_err(progname, ret, "while opening inode scan");
+		goto out_free;
+	}
+
+	for(;;) {
+		ret = ocfs2_get_next_inode(scan, &blkno, buf);
+		if (ret) {
+			com_err(progname, ret,
+				"while getting next inode");
+			break;
+		}
+		if (blkno == 0)
+			break;
+
+		if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
+			    strlen(OCFS2_INODE_SIGNATURE)))
+			continue;
+
+		ocfs2_swap_inode_to_cpu(di);
+
+		if (di->i_fs_generation != fs->fs_super->i_fs_generation)
+			continue;
+
+		if (!(di->i_flags & OCFS2_VALID_FL))
+			continue;
+
+		if (di->i_flags & OCFS2_SYSTEM_FL)
+			continue;
+
+		if (S_ISREG(di->i_mode) && func) {
+			ret = func(fs, di);
+			if (ret)
+				break;
+		}
+	}
+
+	ocfs2_close_inode_scan(scan);
+out_free:
+	ocfs2_free(&buf);
+
+out:
+	return ret;
+}
+
+static errcode_t set_func(ocfs2_filesys *fs, struct ocfs2_dinode *di)
+{
+	errcode_t ret;
+	uint32_t new_clusters;
+	ocfs2_cached_inode *ci = NULL;
+
+	ret = ocfs2_read_cached_inode(fs, di->i_blkno, &ci);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_zero_tail_and_truncate(fs, ci, di->i_size, &new_clusters);
+
+	if (new_clusters != ci->ci_inode->i_clusters) {
+		ci->ci_inode->i_clusters = new_clusters;
+		ret = ocfs2_write_cached_inode(fs, ci);
+	}
+
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+out:
+	return ret;
+}
+
+errcode_t set_sparse_file_flag(ocfs2_filesys *fs, char *progname)
+{
+	errcode_t ret;
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+
+	ret = iterate_all_regular(fs, progname, set_func);
+
+	if (ret)
+		goto bail;
+
+	OCFS2_SET_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC);
+
+bail:
+	return ret;
+}

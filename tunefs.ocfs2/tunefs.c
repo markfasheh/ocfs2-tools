@@ -24,6 +24,7 @@
  */
 
 #include <tunefs.h>
+#include <feature_string.h>
 
 ocfs2_tune_opts opts;
 ocfs2_filesys *fs_gbl = NULL;
@@ -35,7 +36,7 @@ static void usage(const char *progname)
 	fprintf(stderr, "usage: %s [-J journal-options] [-L volume-label]\n"
 			"\t\t[-M mount-type] [-N number-of-node-slots] [-Q query-fmt]\n"
 			"\t\t[-qSUvV] [--backup-super] [--list-sparse]\n"
-			"\t\tdevice [blocks-count]\n",
+			"\t\t[--fs-features=[no]sparse,...]] device [blocks-count]\n",
 			progname);
 	exit(0);
 }
@@ -183,6 +184,7 @@ static void get_options(int argc, char **argv)
 	int show_version = 0;
 	int uuid = 0;
 	char *dummy;
+	errcode_t ret = 0;
 
 	static struct option long_options[] = {
 		{ "label", 1, 0, 'L' },
@@ -197,6 +199,7 @@ static void get_options(int argc, char **argv)
 		{ "mount", 1, 0, 'M' },
 		{ "backup-super", 0, 0, BACKUP_SUPER_OPTION },
 		{ "list-sparse", 0, 0, LIST_SPARSE_FILES },
+		{ "fs-features=", 1, 0, FEATURES_OPTION },
 		{ 0, 0, 0, 0}
 	};
 
@@ -299,6 +302,18 @@ static void get_options(int argc, char **argv)
 			opts.list_sparse = 1;
 			break;
 
+		case FEATURES_OPTION:
+			ret = parse_feature(optarg,
+					    &opts.set_feature,
+					    &opts.clear_feature);
+			if (ret) {
+				com_err(opts.progname, ret,
+					"when parsing --fs-features string");
+				exit(1);
+			}
+			opts.feature_string = strdup(optarg);
+			break;
+
 		default:
 			usage(opts.progname);
 			break;
@@ -311,7 +326,7 @@ static void get_options(int argc, char **argv)
 	if (opts.backup_super &&
 	    (opts.vol_label || opts.num_slots ||
 	     opts.mount || opts.jrnl_size || resize ||
-	     opts.list_sparse)) {
+	     opts.list_sparse || opts.feature_string)) {
 		com_err(opts.progname, 0, "Cannot backup superblock"
 			" along with other tasks");
 		exit(1);
@@ -332,8 +347,22 @@ static void get_options(int argc, char **argv)
 	 */
 	if (opts.list_sparse &&
 	    (opts.vol_label || opts.num_slots ||
-	     opts.mount || opts.jrnl_size || resize || opts.backup_super)) {
+	     opts.mount || opts.jrnl_size || resize || opts.backup_super ||
+	     opts.feature_string)) {
 		com_err(opts.progname, 0, "Cannot list sparse files"
+			" along with other tasks");
+		exit(1);
+	}
+
+	/*
+	 * We don't allow feature-modifation to be coexist with other tunefs
+	 * options to keep things simple.
+	 */
+	if (opts.feature_string &&
+	    (opts.vol_label || opts.num_slots ||
+	     opts.mount || opts.jrnl_size || resize || opts.backup_super ||
+	     opts.list_sparse)) {
+		com_err(opts.progname, 0, "Cannot modify fs features"
 			" along with other tasks");
 		exit(1);
 	}
@@ -1274,6 +1303,7 @@ int main(int argc, char **argv)
 	int upd_mount = 0;
 	int upd_incompat = 0;
 	int upd_backup_super = 0;
+	int upd_feature = 0;
 	char *tmpstr;
 	uint16_t max_slots;
 	uint64_t def_jrnl_size = 0;
@@ -1391,6 +1421,16 @@ int main(int argc, char **argv)
 		printf("List all the sparse files in the volume\n");
 	}
 
+	if (opts.feature_string) {
+		if (feature_check(fs)) {
+			com_err(opts.progname, 0,
+				"feature check failed. ");
+			goto unlock;
+		}
+		printf("Modify feature \"%s\" for the volume\n",
+			opts.feature_string);
+	}
+
 	/* If operation requires touching the global bitmap, ensure it is good */
 	/* This is to handle failed resize */
 	if (opts.num_blocks || opts.num_slots || opts.jrnl_size ||
@@ -1486,7 +1526,7 @@ int main(int argc, char **argv)
 
 	if (!opts.vol_label && !opts.vol_uuid && !opts.num_slots &&
 	    !opts.jrnl_size && !opts.num_blocks && !opts.mount &&
-	    !opts.backup_super && !opts.list_sparse) {
+	    !opts.backup_super && !opts.list_sparse && !opts.feature_string) {
 		com_err(opts.progname, 0, "Nothing to do. Exiting.");
 		goto unlock;
 	}
@@ -1603,6 +1643,17 @@ int main(int argc, char **argv)
 		}
 	}
 
+	/* change the feature in the super block.*/
+	if (opts.feature_string) {
+		ret = update_feature(fs);
+		if (ret) {
+			com_err(opts.progname, ret,
+				"while updating feature in super block");
+			goto unlock;
+		}
+		upd_feature = 1;
+	}
+
 	/* update the backup superblock. */
 	if (opts.backup_super ||
 	    (opts.num_blocks &&
@@ -1627,7 +1678,7 @@ int main(int argc, char **argv)
 
 	/* write superblock */
 	if (upd_label || upd_uuid || upd_slots || upd_blocks || upd_incompat ||
-	    upd_mount || upd_backup_super) {
+	    upd_mount || upd_backup_super || upd_feature) {
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {

@@ -28,14 +28,6 @@
 
 #include <ocfs2.h>
 
-typedef struct _fs_options fs_options;
-
-struct _fs_options {
-	uint32_t compat;
-	uint32_t incompat;
-	uint32_t ro_compat;
-};
-
 struct fs_feature_flags {
 	const char *ff_str;
 	/* this flag is the feature's own flag. */

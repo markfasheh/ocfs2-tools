@@ -31,7 +31,7 @@ DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\" -DO2DLM_FLAT_INCLUDES -
 
 MANS = tunefs.ocfs2.8
 
-CFILES = tunefs.c query.c remove_slot.c sparse_file.c
+CFILES = tunefs.c query.c remove_slot.c sparse_file.c features.c
 HFILES = tunefs.h
 
 OBJS = $(subst .c,.o,$(CFILES))
