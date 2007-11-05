@@ -1370,6 +1370,14 @@ int main(int argc, char **argv)
 		block_signals(SIG_UNBLOCK);
 	}
 
+	/*
+	 * We will use block cache in io. Now whether the cluster is locked or
+	 * the volume is mount local, in both situation we can safely use cache.
+	 * If io_init_cache failed, we will go on the tunefs work without
+	 * the io_cache, so there is no check here.
+	 */
+	io_init_cache(fs->fs_io, ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+
 	ret = journal_check(fs, &dirty, &def_jrnl_size);
 	if (ret || dirty)
 		goto unlock;
@@ -1664,6 +1672,7 @@ unlock:
 	block_signals(SIG_UNBLOCK);
 
 close:
+	io_destroy_cache(fs->fs_io);
 	block_signals(SIG_BLOCK);
 	if (fs && fs->fs_dlm_ctxt)
 		ocfs2_shutdown_dlm(fs);
