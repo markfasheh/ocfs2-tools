@@ -756,7 +756,8 @@ errcode_t remove_slot_check(ocfs2_filesys *fs)
 	 * options to keep things simple.
 	 */
 	if (opts.backup_super ||opts.vol_label ||
-	     opts.mount || opts.jrnl_size || opts.num_blocks) {
+	     opts.mount || opts.jrnl_size || opts.num_blocks ||
+	     opts.list_sparse || opts.feature_string) {
 		com_err(opts.progname, 0, "Cannot remove slot"
 			" along with other tasks");
 		exit(1);
