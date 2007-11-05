@@ -126,11 +126,11 @@ out:
 	return ret;
 }
 
-static errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
-				    uint32_t v_cluster,
-				    uint32_t *p_cluster,
-				    uint32_t *num_clusters,
-				    uint16_t *extent_flags)
+errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
+			     uint32_t v_cluster,
+			     uint32_t *p_cluster,
+			     uint32_t *num_clusters,
+			     uint16_t *extent_flags)
 {
 	int i;
 	uint16_t flags = 0;

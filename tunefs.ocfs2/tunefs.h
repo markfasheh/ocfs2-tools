@@ -22,6 +22,9 @@
  *
  */
 
+#ifndef _TUNEFS_H
+#define _TUNEFS_H
+
 #define _LARGEFILE64_SOURCE
 #define _GNU_SOURCE /* Because libc really doesn't want us using O_DIRECT? */
 
@@ -70,6 +73,7 @@
 
 enum {
 	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
+	LIST_SPARSE_FILES,
 };
 
 typedef struct _ocfs2_tune_opts {
@@ -86,6 +90,7 @@ typedef struct _ocfs2_tune_opts {
 	int quiet;
 	int prompt;
 	int backup_super;
+	int list_sparse;
 	time_t tune_time;
 	int fd;
 } ocfs2_tune_opts;
@@ -94,3 +99,6 @@ void print_query(char *queryfmt);
 
 errcode_t remove_slots(ocfs2_filesys *fs);
 errcode_t remove_slot_check(ocfs2_filesys *fs);
+
+errcode_t list_sparse(ocfs2_filesys *fs);
+#endif /* _TUNEFS_H */

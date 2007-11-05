@@ -34,7 +34,8 @@ static void usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-J journal-options] [-L volume-label]\n"
 			"\t\t[-M mount-type] [-N number-of-node-slots] [-Q query-fmt]\n"
-			"\t\t[-qSUvV] [--backup-super] device [blocks-count]\n",
+			"\t\t[-qSUvV] [--backup-super] [--list-sparse]\n"
+			"\t\tdevice [blocks-count]\n",
 			progname);
 	exit(0);
 }
@@ -195,6 +196,7 @@ static void get_options(int argc, char **argv)
 		{ "uuid-reset", 0, 0, 'U'},
 		{ "mount", 1, 0, 'M' },
 		{ "backup-super", 0, 0, BACKUP_SUPER_OPTION },
+		{ "list-sparse", 0, 0, LIST_SPARSE_FILES },
 		{ 0, 0, 0, 0}
 	};
 
@@ -293,6 +295,10 @@ static void get_options(int argc, char **argv)
 			opts.backup_super = 1;
 			break;
 
+		case LIST_SPARSE_FILES:
+			opts.list_sparse = 1;
+			break;
+
 		default:
 			usage(opts.progname);
 			break;
@@ -304,7 +310,8 @@ static void get_options(int argc, char **argv)
 	 */
 	if (opts.backup_super &&
 	    (opts.vol_label || opts.num_slots ||
-	     opts.mount || opts.jrnl_size || resize)) {
+	     opts.mount || opts.jrnl_size || resize ||
+	     opts.list_sparse)) {
 		com_err(opts.progname, 0, "Cannot backup superblock"
 			" along with other tasks");
 		exit(1);
@@ -317,6 +324,18 @@ static void get_options(int argc, char **argv)
 		com_err(opts.progname, 0, "Cannot resize volume while adding slots "
 			"or resizing the journals");
 		exit(0);
+	}
+
+	/*
+	 * We don't allow list-sparse to be coexist with other tunefs
+	 * options to keep things simple.
+	 */
+	if (opts.list_sparse &&
+	    (opts.vol_label || opts.num_slots ||
+	     opts.mount || opts.jrnl_size || resize || opts.backup_super)) {
+		com_err(opts.progname, 0, "Cannot list sparse files"
+			" along with other tasks");
+		exit(1);
 	}
 
 	if (show_version)
@@ -1355,6 +1374,15 @@ int main(int argc, char **argv)
 	if (ret || dirty)
 		goto unlock;
 
+	if (opts.list_sparse) {
+		if (!ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super))) {
+			com_err(opts.progname, 0,
+				"sparse_file flag check failed. ");
+			goto unlock;
+		}
+		printf("List all the sparse files in the volume\n");
+	}
+
 	/* If operation requires touching the global bitmap, ensure it is good */
 	/* This is to handle failed resize */
 	if (opts.num_blocks || opts.num_slots || opts.jrnl_size ||
@@ -1450,7 +1478,7 @@ int main(int argc, char **argv)
 
 	if (!opts.vol_label && !opts.vol_uuid && !opts.num_slots &&
 	    !opts.jrnl_size && !opts.num_blocks && !opts.mount &&
-	    !opts.backup_super) {
+	    !opts.backup_super && !opts.list_sparse) {
 		com_err(opts.progname, 0, "Nothing to do. Exiting.");
 		goto unlock;
 	}
@@ -1551,6 +1579,20 @@ int main(int argc, char **argv)
 			~OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
 		if (upd_blocks)
 			printf("Resized volume\n");
+	}
+
+	/*
+	 * list all the files in the volume, and since list_sparse
+	 * option can coexist with others, we jump to the end after
+	 * the work.
+	 */
+	if (opts.list_sparse) {
+		ret = list_sparse(fs);
+		if (ret) {
+			com_err(opts.progname, ret,
+				"while listing sparse files");
+			goto unlock;
+		}
 	}
 
 	/* update the backup superblock. */
