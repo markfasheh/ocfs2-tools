@@ -96,7 +96,6 @@ typedef struct _ocfs2_tune_opts {
 	fs_options clear_feature;
 	char *feature_string;
 	time_t tune_time;
-	int fd;
 } ocfs2_tune_opts;
 
 void print_query(char *queryfmt);

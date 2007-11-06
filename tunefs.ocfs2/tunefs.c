@@ -1723,7 +1723,8 @@ unlock:
 	block_signals(SIG_UNBLOCK);
 
 close:
-	io_destroy_cache(fs->fs_io);
+	if (fs && fs->fs_io)
+		io_destroy_cache(fs->fs_io);
 	block_signals(SIG_BLOCK);
 	if (fs && fs->fs_dlm_ctxt)
 		ocfs2_shutdown_dlm(fs);
