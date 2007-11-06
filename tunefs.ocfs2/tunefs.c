@@ -1243,12 +1243,12 @@ static errcode_t refresh_backup_super(ocfs2_filesys *fs)
 	return ret;
 }
 
-static errcode_t update_backup_super(ocfs2_filesys *fs, uint64_t newblocks)
+static errcode_t update_backup_super(ocfs2_filesys *fs, uint64_t startblk,
+				     uint64_t newblocks)
 {
 	errcode_t ret;
 	int num, i;
 	uint64_t *new_backup_super, blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
-	uint64_t startblk = fs->fs_blocks - newblocks;
 
 	num = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
 	if (!num)
@@ -1308,6 +1308,7 @@ int main(int argc, char **argv)
 	uint16_t max_slots;
 	uint64_t def_jrnl_size = 0;
 	uint64_t num_clusters;
+	uint64_t old_blocks = 0;
 	int dirty = 0;
 	char old_uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
 	char new_uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
@@ -1616,6 +1617,7 @@ int main(int argc, char **argv)
 
 	/* update volume size */
 	if (opts.num_blocks) {
+		old_blocks = fs->fs_blocks;
 		ret = update_volume_size(fs, &upd_blocks);
 		if (ret) {
 			com_err(opts.progname, ret,
@@ -1660,7 +1662,7 @@ int main(int argc, char **argv)
 	    OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
 				     OCFS2_FEATURE_COMPAT_BACKUP_SB))) {
 		block_signals(SIG_BLOCK);
-		ret = update_backup_super(fs, opts.num_blocks);
+		ret = update_backup_super(fs, old_blocks, opts.num_blocks);
 		block_signals(SIG_UNBLOCK);
 		if (ret) {
 			com_err(opts.progname, ret,
