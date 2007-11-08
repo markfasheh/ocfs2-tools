@@ -26,6 +26,8 @@
 #include <tunefs.h>
 #include <assert.h>
 
+extern ocfs2_tune_opts opts;
+
 struct multi_link_file {
 	struct rb_node br_node;
 	uint64_t blkno;
@@ -76,8 +78,10 @@ struct sparse_file {
 
 struct clear_hole_unwritten_ctxt {
 	errcode_t ret;
+	int unwritten_only;
 	uint32_t more_clusters;
 	uint32_t more_ebs;
+	uint32_t total_unwritten;
 	struct sparse_file *files;
 };
 
@@ -588,6 +592,9 @@ static void add_hole(void *priv_data, uint32_t hole_start, uint32_t hole_len)
 	struct clear_hole_unwritten_ctxt *ctxt =
 			(struct clear_hole_unwritten_ctxt *)priv_data;
 
+	if (clear_ctxt.unwritten_only)
+		return;
+
 	ret = ocfs2_malloc0(sizeof(struct hole_list), &hole);
 	if (ret) {
 		ctxt->ret = ret;
@@ -616,6 +623,8 @@ static void add_unwritten(void *priv_data, uint32_t start,
 		ctxt->ret = ret;
 		return;
 	}
+
+	clear_ctxt.total_unwritten += len;
 
 	unwritten->start = start;
 	unwritten->len = len;
@@ -674,12 +683,15 @@ bail:
 	return ret;
 }
 
-errcode_t clear_sparse_file_check(ocfs2_filesys *fs, char *progname)
+errcode_t clear_sparse_file_check(ocfs2_filesys *fs, char *progname,
+				  int unwritten_only)
 {
 	errcode_t ret;
 	uint32_t free_clusters = 0;
 
 	memset(&clear_ctxt, 0, sizeof(clear_ctxt));
+	clear_ctxt.unwritten_only = unwritten_only;
+
 	ret = iterate_all_regular(fs, progname, calc_hole_and_unwritten);
 	if (ret)
 		goto bail;
@@ -688,9 +700,11 @@ errcode_t clear_sparse_file_check(ocfs2_filesys *fs, char *progname)
 	if (ret)
 		goto bail;
 
-	printf("We have %u clusters free and need %u clusters for sparse files "
-		"and %u clusters for more extent blocks\n",
-		free_clusters, clear_ctxt.more_clusters, clear_ctxt.more_ebs);
+	printf("We have %u clusters free and need %u clusters for sparse "
+	       "files, %u clusters for more extent blocks and will need to "
+	       "clear %u clusters of unwritten extents.\n",
+	       free_clusters, clear_ctxt.more_clusters, clear_ctxt.more_ebs,
+	       clear_ctxt.total_unwritten);
 
 	if (free_clusters < clear_ctxt.more_clusters + clear_ctxt.more_ebs) {
 		com_err(progname, 0, "Don't have enough free space.");
@@ -746,6 +760,9 @@ errcode_t clear_sparse_file_flag(ocfs2_filesys *fs, char *progname)
 	if (ret)
 		goto bail;
 
+	if (clear_ctxt.unwritten_only)
+		goto fill_unwritten;
+
 	/* Iterate all the holes and fill them. */
 	while (file) {
 		hole = file->holes;
@@ -785,6 +802,7 @@ errcode_t clear_sparse_file_flag(ocfs2_filesys *fs, char *progname)
 	 * mark it written.
 	 */
 	file = clear_ctxt.files;
+fill_unwritten:
 	while (file) {
 		if (!file->unwritten)
 			goto next_file;
@@ -818,8 +836,9 @@ next_file:
 		OCFS2_CLEAR_RO_COMPAT_FEATURE(super,
 					 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN);
 
-	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
-				     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC);
+	if (!clear_ctxt.unwritten_only)
+		OCFS2_CLEAR_INCOMPAT_FEATURE(super,
+					OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC);
 
 bail:
 	return ret;
