@@ -545,6 +545,15 @@ errcode_t set_sparse_file_flag(ocfs2_filesys *fs, char *progname)
 	errcode_t ret;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 
+	/*
+	 * The flag to call set_sparse_file may get set as a result of
+	 * unwritten extents being turned on, despite the file system
+	 * already supporting sparse files. We can safely do nothing
+	 * here.
+	 */
+	if (ocfs2_sparse_alloc(super))
+		return 0;
+
 	ret = iterate_all_regular(fs, progname, set_func);
 
 	if (ret)
@@ -554,6 +563,22 @@ errcode_t set_sparse_file_flag(ocfs2_filesys *fs, char *progname)
 
 bail:
 	return ret;
+}
+
+void set_unwritten_extents_flag(ocfs2_filesys *fs)
+{
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+
+	/*
+	 * If we hit this, it's a bug - the code in feature_check()
+	 * should have prevented us from getting this far.
+	 *
+	 * XXX: Is it fatal? Should we just refuse the change and
+	 * print a warning to the console?
+	 */
+	assert(ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super)));
+
+	OCFS2_SET_RO_COMPAT_FEATURE(super, OCFS2_FEATURE_RO_COMPAT_UNWRITTEN);
 }
 
 static void add_hole(void *priv_data, uint32_t hole_start, uint32_t hole_len)

@@ -29,37 +29,75 @@
 
 extern ocfs2_tune_opts opts;
 
+#define TUNEFS_COMPAT_SET	0
+#define TUNEFS_COMPAT_CLEAR	0
+#define TUNEFS_RO_COMPAT_SET	OCFS2_FEATURE_RO_COMPAT_UNWRITTEN
+#define TUNEFS_RO_COMPAT_CLEAR	0
+#define TUNEFS_INCOMPAT_SET	OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC
+#define TUNEFS_INCOMPAT_CLEAR	OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC
+
 /*
  * Check whether we can add or remove a feature.
  *
- * Currently, we only handle "sparse files".
+ * Features which can be SET or CLEARed are represented in the TUNEFS
+ * bitfields above.
  * More feature check may be added if we want to
  * support more options in tunefs.ocfs2.
  */
 errcode_t feature_check(ocfs2_filesys *fs)
 {
 	errcode_t ret = 1;
+	int sparse_on = ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super));
 
-	if (opts.set_feature.ro_compat != 0 ||
-	    opts.set_feature.compat != 0 ||
-	    opts.clear_feature.ro_compat != 0 ||
-	    opts.clear_feature.compat != 0)
+	if (opts.set_feature.compat & ~TUNEFS_COMPAT_SET ||
+	    opts.set_feature.ro_compat & ~TUNEFS_RO_COMPAT_SET ||
+	    opts.set_feature.incompat & ~TUNEFS_INCOMPAT_SET)
 		goto bail;
 
-	if ((opts.set_feature.incompat ==
-	     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) &&
-	     !ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super)))
-		ret = 0;
-	else if (opts.clear_feature.incompat ==
-		 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) {
+	if (opts.clear_feature.compat & ~TUNEFS_COMPAT_CLEAR ||
+	    opts.clear_feature.ro_compat & ~TUNEFS_RO_COMPAT_CLEAR ||
+	    opts.clear_feature.incompat & ~TUNEFS_INCOMPAT_CLEAR)
+		goto bail;
+
+	if (opts.set_feature.incompat & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) {
+		/*
+		 * Allow sparse to pass on an already-sparse file
+		 * system if the user asked for unwritten extents.
+		 */
+		if (ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super)) && 
+		    !(opts.set_feature.ro_compat & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN))
+			goto bail;
+
+		sparse_on = 1;
+	} else if (opts.clear_feature.incompat & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) {
 		if (!ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super)))
 			goto bail;
 
+		sparse_on = 0;
 		ret = clear_sparse_file_check(fs, opts.progname);
 		if (ret)
 			goto bail;
 	}
 
+	if (opts.set_feature.ro_compat & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN) {
+		/*
+		 * Disallow setting of unwritten extents unless we
+		 * either have sparse file support, or will also be
+		 * turning it on.
+		 */
+		if (!sparse_on)
+			goto bail;
+
+		/*
+		 * We can't use the helper here because it checks for
+		 * the sparse flag.
+		 */
+		if (OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_RO_COMPAT_UNWRITTEN))
+		    goto bail;
+	}
+
+	ret = 0;
 bail:
 	return ret;
 }
@@ -73,6 +111,12 @@ errcode_t update_feature(ocfs2_filesys *fs)
 	else if (opts.clear_feature.incompat
 		 & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
 		ret = clear_sparse_file_flag(fs, opts.progname);
+	if (ret)
+		goto bail;
 
+	if (opts.set_feature.ro_compat & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
+		set_unwritten_extents_flag(fs);
+
+bail:
 	return ret;
 }

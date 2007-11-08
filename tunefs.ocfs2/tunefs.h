@@ -107,6 +107,7 @@ errcode_t list_sparse(ocfs2_filesys *fs);
 errcode_t set_sparse_file_flag(ocfs2_filesys *fs, char *progname);
 errcode_t clear_sparse_file_check(ocfs2_filesys *fs, char *progname);
 errcode_t clear_sparse_file_flag(ocfs2_filesys *fs, char *progname);
+void set_unwritten_extents_flag(ocfs2_filesys *fs);
 void free_clear_ctxt(void);
 
 errcode_t feature_check(ocfs2_filesys *fs);
