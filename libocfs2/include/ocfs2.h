@@ -570,6 +570,10 @@ errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
 
 errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf);
 
+/* get the virtual offset of the last allocated cluster. */
+errcode_t ocfs2_get_last_cluster_offset(ocfs2_filesys *fs,
+					struct ocfs2_dinode *di,
+					uint32_t *v_cluster);
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
  * returns the cluster that contains a block, not the number of clusters

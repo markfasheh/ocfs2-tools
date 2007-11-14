@@ -245,6 +245,48 @@ out:
 	return ret;
 }
 
+errcode_t ocfs2_get_last_cluster_offset(ocfs2_filesys *fs,
+					struct ocfs2_dinode *di,
+					uint32_t *v_cluster)
+{
+	errcode_t ret = 0;
+	char *buf = NULL;
+	struct ocfs2_extent_list *el = NULL;
+	struct ocfs2_extent_rec *er = NULL;
+
+	el = &di->id2.i_list;
+
+	*v_cluster = 0;
+	if (!el->l_next_free_rec)
+		return 0;
+
+	if (el->l_tree_depth) {
+		ret = ocfs2_malloc_block(fs->fs_io, &buf);
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_read_extent_block(fs, di->i_last_eb_blk, buf);
+		if (ret)
+			goto bail;
+
+		el = &((struct ocfs2_extent_block *)buf)->h_list;
+
+		if (!el->l_next_free_rec) {
+			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+			goto bail;
+		}
+	}
+
+	er = &el->l_recs[el->l_next_free_rec - 1];
+
+	*v_cluster = er->e_cpos + er->e_leaf_clusters - 1;
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>

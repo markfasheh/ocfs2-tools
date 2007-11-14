@@ -67,10 +67,14 @@ struct unwritten_list {
  * unwritten_list. Since filling up a hole may need a new extent record and
  * lead to some new extent block, the total hole number in the sparse file
  * will also be recorded.
+ *
+ * Some sparse file may also have some clusters which exceed the limit of
+ * i_size, and they should be truncated.
  */
 struct sparse_file {
 	uint64_t blkno;
 	uint32_t holes_num;
+	int truncate;
 	struct hole_list *holes;
 	struct unwritten_list *unwritten;
 	struct sparse_file *next;
@@ -208,6 +212,7 @@ static void list_sparse_iterate(void *priv_data,
  * Iterate a file.
  * Call "func" when we meet with a hole.
  * Call "unwritten_func" when we meet with unwritten clusters.
+ * Call "seen_exceed" when we see some clusters exceed i_size.
  */
 static errcode_t iterate_file(ocfs2_filesys *fs,
 			      struct ocfs2_dinode *di,
@@ -218,10 +223,12 @@ static errcode_t iterate_file(ocfs2_filesys *fs,
 						     uint32_t start,
 						     uint32_t len,
 						     uint64_t p_start),
+			      void (*seen_exceed)(void *priv_data),
 			      void *priv_data)
 {
 	errcode_t ret;
 	uint32_t clusters, v_cluster = 0, p_cluster, num_clusters;
+	uint32_t last_v_cluster = 0;
 	uint64_t p_blkno;
 	uint16_t extent_flags;
 	ocfs2_cached_inode *ci = NULL;
@@ -261,6 +268,18 @@ static errcode_t iterate_file(ocfs2_filesys *fs,
 		v_cluster += num_clusters;
 	}
 
+	/*
+	 * If the last allocated cluster's virtual offset is greater
+	 * than the clusters we calculated from i_size, this cluster
+	 * must exceed the limit of i_size.
+	 */
+	ret = ocfs2_get_last_cluster_offset(fs, di, &last_v_cluster);
+	if (ret)
+		goto bail;
+
+	if (last_v_cluster >= clusters && seen_exceed)
+		seen_exceed(priv_data);
+
 bail:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
@@ -297,7 +316,7 @@ static errcode_t list_sparse_file(ocfs2_filesys *fs,
 		}
 	}
 
-	ret = iterate_file(fs, di, ctxt->func, NULL, ctxt);
+	ret = iterate_file(fs, di, ctxt->func, NULL, NULL, ctxt);
 	if (ret)
 		goto bail;
 
@@ -521,7 +540,11 @@ out:
 	return ret;
 }
 
-static errcode_t set_func(ocfs2_filesys *fs, struct ocfs2_dinode *di)
+/*
+ * Truncate file according to i_size.
+ * All allocated clusters which exceeds i_size will be released.
+ */
+static errcode_t truncate_file(ocfs2_filesys *fs, struct ocfs2_dinode *di)
 {
 	errcode_t ret;
 	uint32_t new_clusters;
@@ -558,7 +581,7 @@ errcode_t set_sparse_file_flag(ocfs2_filesys *fs, char *progname)
 	if (ocfs2_sparse_alloc(super))
 		return 0;
 
-	ret = iterate_all_regular(fs, progname, set_func);
+	ret = iterate_all_regular(fs, progname, truncate_file);
 
 	if (ret)
 		goto bail;
@@ -634,6 +657,14 @@ static void add_unwritten(void *priv_data, uint32_t start,
 	ctxt->files->unwritten = unwritten;
 }
 
+static void add_truncate(void *priv_data)
+{
+	struct clear_hole_unwritten_ctxt *ctxt =
+			(struct clear_hole_unwritten_ctxt *)priv_data;
+
+	ctxt->files->truncate = 1;
+}
+
 static errcode_t calc_hole_and_unwritten(ocfs2_filesys *fs,
 					 struct ocfs2_dinode *di)
 {
@@ -652,14 +683,18 @@ static errcode_t calc_hole_and_unwritten(ocfs2_filesys *fs,
 	file->blkno = di->i_blkno;
 	old_files = clear_ctxt.files;
 	clear_ctxt.files = file;
-	ret = iterate_file(fs, di, add_hole, add_unwritten, &clear_ctxt);
+	ret = iterate_file(fs, di, add_hole, add_unwritten,
+			   add_truncate, &clear_ctxt);
 	if (ret || clear_ctxt.ret) {
 		clear_ctxt.files = old_files;
 		goto bail;
 	}
 
-	/* If there is no hole or unwritten extents in the file, free it. */
-	if (!file->unwritten && !file->holes) {
+	/*
+	 * If there is no hole or unwritten extents in the file and we don't
+	 * need to truncate it, just free it.
+	 */
+	if (!file->unwritten && !file->holes && !file->truncate) {
 		clear_ctxt.files = old_files;
 		goto bail;
 	}
@@ -829,6 +864,22 @@ fill_unwritten:
 			unwritten = unwritten->next;
 		}
 next_file:
+		file = file->next;
+	}
+
+	/* Iterate all the files and truncate them if needed. */
+	file = clear_ctxt.files;
+	while (file) {
+		if (file->truncate) {
+			ret = ocfs2_read_inode(fs, file->blkno, buf);
+			if (ret)
+				goto bail;
+
+			di = (struct ocfs2_dinode *)buf;
+			ret = truncate_file(fs, di);
+			if (ret)
+				goto bail;
+		}
 		file = file->next;
 	}
 
