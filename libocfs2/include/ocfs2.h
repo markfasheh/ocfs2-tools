@@ -670,6 +670,15 @@ static inline void ocfs2_calc_cluster_groups(uint64_t clusters,
 }
 
 /*
+ * This is only valid for leaf nodes, which are the only ones that can
+ * have empty extents anyway.
+ */
+static inline int ocfs2_is_empty_extent(struct ocfs2_extent_rec *rec)
+{
+	return !rec->e_leaf_clusters;
+}
+
+/*
  * Helper function to look at the # of clusters in an extent record.
  */
 static inline uint32_t ocfs2_rec_clusters(uint16_t tree_depth,

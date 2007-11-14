@@ -271,7 +271,9 @@ errcode_t ocfs2_get_last_cluster_offset(ocfs2_filesys *fs,
 
 		el = &((struct ocfs2_extent_block *)buf)->h_list;
 
-		if (!el->l_next_free_rec) {
+		if (!el->l_next_free_rec ||
+		    (el->l_next_free_rec == 1 &&
+		     ocfs2_is_empty_extent(&el->l_recs[0]))) {
 			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
 			goto bail;
 		}
