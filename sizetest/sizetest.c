@@ -188,7 +188,7 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, i_ctime_nsec);
 	SHOW_OFFSET(struct ocfs2_dinode, i_mtime_nsec);
 	SHOW_OFFSET(struct ocfs2_dinode, i_attr);
-	SHOW_OFFSET(struct ocfs2_dinode, i_reserved1);
+	SHOW_OFFSET(struct ocfs2_dinode, i_dyn_features);
 	SHOW_OFFSET(struct ocfs2_dinode, i_reserved2);
 
 	SHOW_OFFSET(struct ocfs2_dinode, id1.i_pad1);
