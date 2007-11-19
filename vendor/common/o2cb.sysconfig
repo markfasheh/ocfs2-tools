@@ -4,7 +4,7 @@
 # Please use that method to modify this file
 #
 
-# O2CB_ENABELED: 'true' means to load the driver on boot.
+# O2CB_ENABLED: 'true' means to load the driver on boot.
 O2CB_ENABLED=false
 
 # O2CB_BOOTCLUSTER: If not empty, the name of a cluster to start.
