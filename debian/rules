@@ -68,7 +68,7 @@ clean: unpatch
 	dh_testdir
 	dh_testroot
 	dh_clean
-	rm -rf debian/patches/log/ patches .pc
+	rm -rf debian/patches/log/ .pc
 	rm -f *-stamp debian/ocfs2-tools.o2cb.* debian/ocfs2-tools.ocfs2.*
 	rm -f vendor/common/ocfs2-tools.spec
 	rm -f ocfs2console/ocfs2interface/*so

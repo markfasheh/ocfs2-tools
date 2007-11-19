@@ -2,6 +2,8 @@ ocfs2-tools (1.3.9-1) UNRELEASED; urgency=low
   
   * Update default timeouts in template and translations files.
 
+  * debian/rules: fix clean target to not purge upstream patches/ directory.
+
  -- Fabio M. Di Nitto <fabbione@ubuntu.com>  Mon, 19 Nov 2007 06:53:59 +0100
 
 ocfs2-tools (1.2.4-1) unstable; urgency=low
