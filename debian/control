@@ -20,6 +20,19 @@ Description: tools for managing OCFS2 cluster filesystems
  This package installs the tools to manage the OCFS2 filesystem, including mkfs,
  tunefs, fsck, debugfs, and the utilities to control the O2CB clustering stack.
 
+Package: ocfs2-tools-static-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ocfs2-tools (= ${Source-Version})
+Section: devel
+Description: tools for managing OCFS2 cluster filesystems - development files
+ OCFS2 is a general purpose cluster filesystem. Unlike the initial release
+ of OCFS, which supported only Oracle database workloads, OCFS2 provides
+ full support as a general purpose filesystem.  OCFS2 is a complete rewrite
+ of the previous version, designed to work as a seamless addition to the
+ Linux kernel.
+ .
+ This package installs the development headers and static libraries.
+
 Package: ocfs2console
 Architecture: any
 Depends: ${shlibs:Depends}, ${python:Depends}, ocfs2-tools (= ${binary:Version}), python-gtk2
