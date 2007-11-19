@@ -11,6 +11,7 @@
 # Required-Stop:
 # Default-Start: 2 3 5
 # Default-Stop:
+# Short-Description: Load O2CB cluster services at system boot.
 # Description: Load O2CB cluster services at system boot.
 ### END INIT INFO
 

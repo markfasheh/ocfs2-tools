@@ -13,6 +13,7 @@
 # X-UnitedLinux-Should-Stop:
 # Default-Start:  2 3 5
 # Default-Stop:
+# Short-Description: Mount OCFS2 volumes at boot.
 # Description:  Mount OCFS2 volumes at boot.
 ### END INIT INFO
 
