@@ -16,8 +16,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: ocfs2-tools 1.2.4\n"
-"Report-Msgid-Bugs-To: ender@debian.org\n"
-"POT-Creation-Date: 2007-08-16 11:58+0200\n"
+"Report-Msgid-Bugs-To: Source: ocfs2-tools@packages.debian.org\n"
+"POT-Creation-Date: 2007-11-19 06:56+0100\n"
 "PO-Revision-Date: 2007-08-17 03:22+0100\n"
 "Last-Translator: David Martínez Moreno <ender@debian.org>\n"
 "Language-Team: Spanish <debian-l10n-spanish@lists.debian.org>\n"
@@ -64,8 +64,8 @@ msgstr "Es el resultado de la operación: (intervalo -1) x 2."
 #. Type: string
 #. Description
 #: ../ocfs2-tools.templates:3001
-msgid "Its default value is 7 (12 seconds)."
-msgstr "Su valor predeterminado es 7 (es decir, 12 segundos)."
+msgid "Its default value is 31 (60 seconds)."
+msgstr "Su valor predeterminado es 31 (es decir, 60 segundos)."
 
 #. Type: string
 #. Description
@@ -96,10 +96,10 @@ msgstr ""
 #. Description
 #: ../ocfs2-tools.templates:4001
 msgid ""
-"Its default value is 10000 (10 seconds) and the minimum recommended value "
-"is 5000 (5 seconds)."
+"Its default value is 30000 (30 seconds) and the minimum recommended value is "
+"5000 (5 seconds)."
 msgstr ""
-"Su valor predeterminado es 10000 (10 segundos) y el mínimo valor que se "
+"Su valor predeterminado es 30000 (30 segundos) y el mínimo valor que se "
 "recomienda es 5000 (5 segundos)."
 
 #. Type: string
@@ -123,10 +123,10 @@ msgstr ""
 #. Description
 #: ../ocfs2-tools.templates:5001
 msgid ""
-"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"Its default value is 2000 (2 seconds) and the minimum recommended value is "
 "1000 (1 second)."
 msgstr ""
-"Su valor predeterminado es 5000 (5 segundos) y el mínimo valor que se "
+"Su valor predeterminado es 2000 (2 segundos) y el mínimo valor que se "
 "recomienda es 1000 (1 segundo)."
 
 #. Type: string

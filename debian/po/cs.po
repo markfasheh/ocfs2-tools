@@ -6,8 +6,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: ocfs2-tools 1.2.4-1\n"
-"Report-Msgid-Bugs-To: ender@debian.org\n"
-"POT-Creation-Date: 2007-08-22 01:25+0200\n"
+"Report-Msgid-Bugs-To: Source: ocfs2-tools@packages.debian.org\n"
+"POT-Creation-Date: 2007-11-19 06:56+0100\n"
 "PO-Revision-Date: 2007-09-17 20:48+0200\n"
 "Last-Translator: Miroslav Kure <kurem@debian.cz>\n"
 "Language-Team: Czech <debian-l10n-czech@lists.debian.org>\n"
@@ -54,8 +54,8 @@ msgstr "Hodnota se počítá jako: (práh - 1) x 2."
 #. Type: string
 #. Description
 #: ../ocfs2-tools.templates:3001
-msgid "Its default value is 7 (12 seconds)."
-msgstr "Výchozí hodnota je 7 (12 sekund)."
+msgid "Its default value is 31 (60 seconds)."
+msgstr "Výchozí hodnota je 31 (60 sekund)."
 
 #. Type: string
 #. Description
@@ -86,10 +86,10 @@ msgstr ""
 #. Description
 #: ../ocfs2-tools.templates:4001
 msgid ""
-"Its default value is 10000 (10 seconds) and the minimum recommended value is "
+"Its default value is 30000 (30 seconds) and the minimum recommended value is "
 "5000 (5 seconds)."
 msgstr ""
-"Výchozí hodnota je 10000 (10 sekund), minimální doporučená hodnota pak 5000 "
+"Výchozí hodnota je 30000 (30 sekund), minimální doporučená hodnota pak 5000 "
 "(5 sekund)."
 
 #. Type: string
@@ -112,10 +112,10 @@ msgstr ""
 #. Description
 #: ../ocfs2-tools.templates:5001
 msgid ""
-"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"Its default value is 2000 (2 seconds) and the minimum recommended value is "
 "1000 (1 second)."
 msgstr ""
-"Výchozí hodnota je 5000 (5 sekund), minimální doporučená hodnota pak 1000 (1 "
+"Výchozí hodnota je 2000 (2 sekund), minimální doporučená hodnota pak 1000 (1 "
 "sekunda)."
 
 #. Type: string

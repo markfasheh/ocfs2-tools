@@ -14,8 +14,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: ocfs2-tools 1.2.1-1.2\n"
-"Report-Msgid-Bugs-To: ender@debian.org\n"
-"POT-Creation-Date: 2007-08-22 01:25+0200\n"
+"Report-Msgid-Bugs-To: Source: ocfs2-tools@packages.debian.org\n"
+"POT-Creation-Date: 2007-11-19 06:56+0100\n"
 "PO-Revision-Date: 2006-12-14 21:25-0500\n"
 "Last-Translator: Matthias Julius <mdeb@julius-net.net>\n"
 "Language-Team: German <debian-l10n-german@lists.debian.org>\n"
@@ -64,8 +64,8 @@ msgstr "Er ist berechnet als das Ergebnis von: (Grenzwert - 1) x 2."
 #. Type: string
 #. Description
 #: ../ocfs2-tools.templates:3001
-msgid "Its default value is 7 (12 seconds)."
-msgstr "Der voreingestellte Wert ist 7 (12 Sekunden)."
+msgid "Its default value is 31 (60 seconds)."
+msgstr "Der voreingestellte Wert ist 31 (60 Sekunden)."
 
 #. Type: string
 #. Description
@@ -96,7 +96,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Its default value is 7 (12 seconds)."
 msgid ""
-"Its default value is 10000 (10 seconds) and the minimum recommended value is "
+"Its default value is 30000 (30 seconds) and the minimum recommended value is "
 "5000 (5 seconds)."
 msgstr "Der voreingestellte Wert ist 7 (12 Sekunden)."
 
@@ -120,7 +120,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Its default value is 7 (12 seconds)."
 msgid ""
-"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"Its default value is 2000 (2 seconds) and the minimum recommended value is "
 "1000 (1 second)."
 msgstr "Der voreingestellte Wert ist 7 (12 Sekunden)."
 

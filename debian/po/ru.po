@@ -14,8 +14,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: 1.2.1-1.2\n"
-"Report-Msgid-Bugs-To: ender@debian.org\n"
-"POT-Creation-Date: 2007-08-16 11:58+0200\n"
+"Report-Msgid-Bugs-To: Source: ocfs2-tools@packages.debian.org\n"
+"POT-Creation-Date: 2007-11-19 06:56+0100\n"
 "PO-Revision-Date: 2007-08-18 17:54+0400\n"
 "Last-Translator: Yuri Kozlov <kozlov.y@gmail.com>\n"
 "Language-Team: Russian <debian-l10n-russian@lists.debian.org>\n"
@@ -66,8 +66,8 @@ msgstr "Оно вычисляется как: (порог - 1) x 2."
 #. Type: string
 #. Description
 #: ../ocfs2-tools.templates:3001
-msgid "Its default value is 7 (12 seconds)."
-msgstr "Значение по умолчанию равно 7 (12 секунд)."
+msgid "Its default value is 31 (60 seconds)."
+msgstr "Значение по умолчанию равно 31 (60 секунд)."
 
 #. Type: string
 #. Description
@@ -99,10 +99,10 @@ msgstr ""
 #. Description
 #: ../ocfs2-tools.templates:4001
 msgid ""
-"Its default value is 10000 (10 seconds) and the minimum recommended value "
-"is 5000 (5 seconds)."
+"Its default value is 30000 (30 seconds) and the minimum recommended value is "
+"5000 (5 seconds)."
 msgstr ""
-"Значение по умолчанию равно 10000 (10 секунд), а минимальное рекомендуемое "
+"Значение по умолчанию равно 30000 (30 секунд), а минимальное рекомендуемое "
 "значение равно 5000 (5 секунд)."
 
 #. Type: string
@@ -125,10 +125,10 @@ msgstr ""
 #. Description
 #: ../ocfs2-tools.templates:5001
 msgid ""
-"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"Its default value is 2000 (2 seconds) and the minimum recommended value is "
 "1000 (1 second)."
 msgstr ""
-"Значение по умолчанию равно 5000 (5 секунд), а минимальное рекомендуемое "
+"Значение по умолчанию равно 2000 (2 секунд), а минимальное рекомендуемое "
 "значение равно 1000 (1 секунда)."
 
 #. Type: string

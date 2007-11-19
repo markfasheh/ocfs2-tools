@@ -14,8 +14,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: ocfs2-tools\n"
-"Report-Msgid-Bugs-To: ender@debian.org\n"
-"POT-Creation-Date: 2007-08-16 11:58+0200\n"
+"Report-Msgid-Bugs-To: Source: ocfs2-tools@packages.debian.org\n"
+"POT-Creation-Date: 2007-11-19 06:56+0100\n"
 "PO-Revision-Date: 2007-05-18 18:33+0100\n"
 "Last-Translator: Bart Cornelis <cobaco@skolelinux.no>\n"
 "Language-Team: debian-l10n-dutch <debian-l10n-dutch@lists.debian.org>\n"
@@ -64,8 +64,8 @@ msgstr "Dit is het resultaat van: (drempel - 1) x 2."
 #. Type: string
 #. Description
 #: ../ocfs2-tools.templates:3001
-msgid "Its default value is 7 (12 seconds)."
-msgstr "De standaardwaarde is 7 (12 seconden)."
+msgid "Its default value is 31 (60 seconds)."
+msgstr "De standaardwaarde is 31 (60 seconden)."
 
 #. Type: string
 #. Description
@@ -93,10 +93,12 @@ msgstr ""
 #. Type: string
 #. Description
 #: ../ocfs2-tools.templates:4001
+#, fuzzy
+#| msgid "Its default value is 7 (12 seconds)."
 msgid ""
-"Its default value is 10000 (10 seconds) and the minimum recommended value "
-"is 5000 (5 seconds)."
-msgstr ""
+"Its default value is 30000 (30 seconds) and the minimum recommended value is "
+"5000 (5 seconds)."
+msgstr "De standaardwaarde is 7 (12 seconden)."
 
 #. Type: string
 #. Description
@@ -118,7 +120,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Its default value is 7 (12 seconds)."
 msgid ""
-"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"Its default value is 2000 (2 seconds) and the minimum recommended value is "
 "1000 (1 second)."
 msgstr "De standaardwaarde is 7 (12 seconden)."
 

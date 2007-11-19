@@ -14,8 +14,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: ocfs2-tools\n"
-"Report-Msgid-Bugs-To: ender@debian.org\n"
-"POT-Creation-Date: 2007-08-22 01:25+0200\n"
+"Report-Msgid-Bugs-To: Source: ocfs2-tools@packages.debian.org\n"
+"POT-Creation-Date: 2007-11-19 06:56+0100\n"
 "PO-Revision-Date: 2006-12-12 08:55+0100\n"
 "Last-Translator: Daniel Nylander <po@danielnylander.se>\n"
 "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
@@ -62,8 +62,8 @@ msgstr "Det beräknas som resultatet av: (tröskelvärde - 1) x 2."
 #. Type: string
 #. Description
 #: ../ocfs2-tools.templates:3001
-msgid "Its default value is 7 (12 seconds)."
-msgstr "Dess standardvärde är 7 (12 sekunder)."
+msgid "Its default value is 31 (60 seconds)."
+msgstr "Dess standardvärde är 31 (60 sekunder)."
 
 #. Type: string
 #. Description
@@ -94,7 +94,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Its default value is 7 (12 seconds)."
 msgid ""
-"Its default value is 10000 (10 seconds) and the minimum recommended value is "
+"Its default value is 30000 (30 seconds) and the minimum recommended value is "
 "5000 (5 seconds)."
 msgstr "Dess standardvärde är 7 (12 sekunder)."
 
@@ -118,7 +118,7 @@ msgstr ""
 #, fuzzy
 #| msgid "Its default value is 7 (12 seconds)."
 msgid ""
-"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"Its default value is 2000 (2 seconds) and the minimum recommended value is "
 "1000 (1 second)."
 msgstr "Dess standardvärde är 7 (12 sekunder)."
 
