@@ -3,7 +3,7 @@ Section: admin
 Priority: optional
 Maintainer: David Martínez Moreno <ender@debian.org>
 Standards-Version: 3.7.2.0
-Build-Depends: debhelper (>= 5), quilt, comerr-dev, python-dev, python-gtk2, libglib2.0-dev (>= 2.2.3), libreadline5-dev, libncurses5-dev, uuid-dev, libblkid-dev (>= 1.36), libdevmapper-dev, po-debconf, python-support (>= 0.4)
+Build-Depends: debhelper (>= 5), po-debconf, python-support (>= 0.4), quilt, pkg-config, comerr-dev, uuid-dev, libncurses5-dev, libreadline5-dev, libglib2.0-dev (>= 2.2.3), libblkid-dev (>= 1.36), libdevmapper-dev, libselinux1-dev, libsepol1-dev, python-dev, python-gtk2
 
 Package: ocfs2-tools
 Architecture: any
