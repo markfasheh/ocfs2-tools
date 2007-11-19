@@ -1,0 +1,146 @@
+#
+#    Translators, if you are not familiar with the PO format, gettext
+#    documentation is worth reading, especially sections dedicated to
+#    this format, e.g. by running:
+#         info -n '(gettext)PO Files'
+#         info -n '(gettext)Header Entry'
+#
+#    Some information specific to po-debconf are available at
+#            /usr/share/doc/po-debconf/README-trans
+#         or http://www.debian.org/intl/l10n/po-debconf/README-trans
+#
+#    Developers do not need to manually edit POT or PO files.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ocfs2-tools\n"
+"Report-Msgid-Bugs-To: ender@debian.org\n"
+"POT-Creation-Date: 2007-08-22 01:25+0200\n"
+"PO-Revision-Date: 2006-12-17 12:43-0200\n"
+"Last-Translator: André Luís Lopes <andrelop@debian.org>\n"
+"Language-Team: Debian-BR Project <debian-l10n-portuguese@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#: ../ocfs2-tools.templates:1001
+msgid "Would you like to start an OCFS2 cluster (O2CB) at boot time?"
+msgstr ""
+"Você gostaria de iniciar um cluster OCFS2 (O2CB) junto a inicialização ?"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:2001
+msgid "Name of the cluster to start at boot time:"
+msgstr "Nome do cluster a ser iniciado junto a inicialização:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "O2CB heartbeat threshold:"
+msgstr "Threshold do heartbeat O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid ""
+"The O2CB heartbeat threshold sets up the maximum time in seconds that a node "
+"awaits for an I/O operation. After it, the node \"fences\" itself, and you "
+"will probably see a crash."
+msgstr ""
+"O threshold do heartbeat O2CB define o tempo máximo em segundos que um nó "
+"aguarda por uma operação de I/O. Após esse tempo, o nó executa um \"fence\" "
+"em si própŕio e, neste caso, você provavelmente verá um travamento."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "It is calculated as the result of: (threshold - 1) x 2."
+msgstr "É calculado como o resultado de: (threshold -1) x 2."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "Its default value is 7 (12 seconds)."
+msgstr "Seu valor padrão é 7 (12 segundos)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid ""
+"Raise it if you have slow disks and/or crashes with kernel messages like:"
+msgstr ""
+"Aumente esse valor caso você possua discos lentos e/ou esteja tendo "
+"mensagens do kernel com as seguintes:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid "O2CB idle timeout:"
+msgstr ""
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid ""
+"The O2CB idle timeout (expressed in milliseconds) is the time before a "
+"network connection is considered dead."
+msgstr ""
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+#, fuzzy
+#| msgid "Its default value is 7 (12 seconds)."
+msgid ""
+"Its default value is 10000 (10 seconds) and the minimum recommended value is "
+"5000 (5 seconds)."
+msgstr "Seu valor padrão é 7 (12 segundos)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid "O2CB keepalive delay:"
+msgstr ""
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid ""
+"The O2CB keepalive delay (expressed in milliseconds) is the maximum time "
+"before a keepalive package is sent."
+msgstr ""
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+#, fuzzy
+#| msgid "Its default value is 7 (12 seconds)."
+msgid ""
+"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"1000 (1 second)."
+msgstr "Seu valor padrão é 7 (12 segundos)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid "O2CB reconnect delay:"
+msgstr ""
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid ""
+"The O2CB reconnect delay (expressed in milliseconds) is the minimum time "
+"between connection attempts."
+msgstr ""
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+#, fuzzy
+#| msgid "Its default value is 7 (12 seconds)."
+msgid "Its default and recommended minimum value is 2000 (2 seconds)."
+msgstr "Seu valor padrão é 7 (12 segundos)."

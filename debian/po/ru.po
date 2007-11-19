@@ -1,0 +1,155 @@
+# translation of ru.po to Russian
+#
+#    Translators, if you are not familiar with the PO format, gettext
+#    documentation is worth reading, especially sections dedicated to
+#    this format, e.g. by running:
+#         info -n '(gettext)PO Files'
+#         info -n '(gettext)Header Entry'
+#    Some information specific to po-debconf are available at
+#            /usr/share/doc/po-debconf/README-trans
+#         or http://www.debian.org/intl/l10n/po-debconf/README-trans#
+#    Developers do not need to manually edit POT or PO files.
+#
+# Yuri Kozlov <kozlov.y@gmail.com>, 2006, 2007.
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.2.1-1.2\n"
+"Report-Msgid-Bugs-To: ender@debian.org\n"
+"POT-Creation-Date: 2007-08-16 11:58+0200\n"
+"PO-Revision-Date: 2007-08-18 17:54+0400\n"
+"Last-Translator: Yuri Kozlov <kozlov.y@gmail.com>\n"
+"Language-Team: Russian <debian-l10n-russian@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.11.4\n"
+"Plural-Forms:  nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%"
+"10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#. Type: boolean
+#. Description
+#: ../ocfs2-tools.templates:1001
+msgid "Would you like to start an OCFS2 cluster (O2CB) at boot time?"
+msgstr "Запускать кластер OCFS2 (O2CB) во время загрузки компьютера?"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:2001
+msgid "Name of the cluster to start at boot time:"
+msgstr "Имя кластера, запускаемого во время загрузки компьютера:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "O2CB heartbeat threshold:"
+msgstr "Пороговое значение \"сердцебиения\" O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid ""
+"The O2CB heartbeat threshold sets up the maximum time in seconds that a node "
+"awaits for an I/O operation. After it, the node \"fences\" itself, and you "
+"will probably see a crash."
+msgstr ""
+"Пороговое значение \"сердцебиения\" (heartbeat threshold) O2CB задаёт "
+"максимальный промежуток в секундах, который узел должен ждать операцию ввода/"
+"вывода (I/O). Не дождавшись, узел \"защищает (fences)\" себя, и, вероятно, "
+"вы получите аварийное завершение программы."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "It is calculated as the result of: (threshold - 1) x 2."
+msgstr "Оно вычисляется как: (порог - 1) x 2."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "Its default value is 7 (12 seconds)."
+msgstr "Значение по умолчанию равно 7 (12 секунд)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid ""
+"Raise it if you have slow disks and/or crashes with kernel messages like:"
+msgstr ""
+"Увеличивайте его, если у вас медленные диски и/или происходит аварийное "
+"завершение работы с сообщением ядра типа:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid "O2CB idle timeout:"
+msgstr "Время простоя O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid ""
+"The O2CB idle timeout (expressed in milliseconds) is the time before a "
+"network connection is considered dead."
+msgstr ""
+"Время простоя (idle timeout) O2CB -- это временной промежуток, который "
+"должен пройти перед тем как сетевое подключение будет рассматриваться "
+"нерабочим (выражается в секундах)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid ""
+"Its default value is 10000 (10 seconds) and the minimum recommended value "
+"is 5000 (5 seconds)."
+msgstr ""
+"Значение по умолчанию равно 10000 (10 секунд), а минимальное рекомендуемое "
+"значение равно 5000 (5 секунд)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid "O2CB keepalive delay:"
+msgstr "Задержка O2CB keepalive:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid ""
+"The O2CB keepalive delay (expressed in milliseconds) is the maximum time "
+"before a keepalive package is sent."
+msgstr ""
+"Задержка O2CB keepalive (выражается в секундах) -- это максимальный "
+"промежуток времени перед отправкой пакета keepalive."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid ""
+"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"1000 (1 second)."
+msgstr ""
+"Значение по умолчанию равно 5000 (5 секунд), а минимальное рекомендуемое "
+"значение равно 1000 (1 секунда)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid "O2CB reconnect delay:"
+msgstr "Задержка переподключения O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid ""
+"The O2CB reconnect delay (expressed in milliseconds) is the minimum time "
+"between connection attempts."
+msgstr ""
+"Задержка переподключения O2CB (выражается в секундах) -- это минимальный "
+"промежуток времени между попытками подключения."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid "Its default and recommended minimum value is 2000 (2 seconds)."
+msgstr ""
+"Значение по умолчанию равно и рекомендуемое значение равно 2000 (2 секунды)."

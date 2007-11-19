@@ -1,0 +1,9 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "purge" ] && [ -e "/etc/default/o2cb" ]; then
+        rm -f /etc/default/o2cb
+fi
+
+#DEBHELPER#

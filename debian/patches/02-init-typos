@@ -1,0 +1,26 @@
+Index: vendor/common/o2cb.sysconfig
+===================================================================
+--- vendor/common/o2cb.sysconfig.orig	2006-05-30 01:29:30.164157257 +0200
++++ vendor/common/o2cb.sysconfig	2006-05-30 01:30:04.734507522 +0200
+@@ -4,7 +4,7 @@
+ # Please use that method to modify this file
+ #
+ 
+-# O2CB_ENABELED: 'true' means to load the driver on boot.
++# O2CB_ENABLED: 'true' means to load the driver on boot.
+ O2CB_ENABLED=false
+ 
+ # O2CB_BOOTCLUSTER: If not empty, the name of a cluster to start.
+Index: vendor/common/o2cb.init
+===================================================================
+--- vendor/common/o2cb.init.orig	2006-05-30 01:29:30.180158345 +0200
++++ vendor/common/o2cb.init	2006-05-30 01:30:04.734507522 +0200
+@@ -123,7 +123,7 @@
+ # Please use that method to modify this file
+ #
+ 
+-# O2CB_ENABELED: 'true' means to load the driver on boot.
++# O2CB_ENABLED: 'true' means to load the driver on boot.
+ O2CB_ENABLED=${O2CB_ENABLED:-false}
+ 
+ # O2CB_BOOTCLUSTER: If not empty, the name of a cluster to start.

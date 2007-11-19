@@ -1,0 +1,142 @@
+# Vietnamese translation for OCFS2 Tools.
+# Copyright © 2007 Free Software Foundation, Inc.
+# Clytie Siddall <clytie@riverland.net.au>, 2006-2007.
+# 
+msgid ""
+msgstr ""
+"Project-Id-Version: ocfs2-tools 1.2.4-1\n"
+"Report-Msgid-Bugs-To: ender@debian.org\n"
+"POT-Creation-Date: 2007-08-16 11:58+0200\n"
+"PO-Revision-Date: 2006-12-12 18:44+1030\n"
+"Last-Translator: Clytie Siddall <clytie@riverland.net.au>\n"
+"Language-Team: Vietnamese <vi-VN@googlegroups.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: LocFactoryEditor 1.7b1\n"
+
+#. Type: boolean
+#. Description
+#: ../ocfs2-tools.templates:1001
+msgid "Would you like to start an OCFS2 cluster (O2CB) at boot time?"
+msgstr "Lúc khởi động máy, bạn có muốn khởi chạy một chùm OCFS2 (O2CB) không?"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:2001
+msgid "Name of the cluster to start at boot time:"
+msgstr "Tên của chùm cần khởi chạy vào lúc khởi động:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "O2CB heartbeat threshold:"
+msgstr "Ngưỡng nhịp tim O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid ""
+"The O2CB heartbeat threshold sets up the maximum time in seconds that a node "
+"awaits for an I/O operation. After it, the node \"fences\" itself, and you "
+"will probably see a crash."
+msgstr ""
+"Ngưỡng nhịp tim (heartbeat threshold) kiểu O2CB thì đặt thời gian tối đa "
+"theo giây mỗi nút đợi một thao tác nhập vào/xuất ra (V/R). Sau đó, nút tự « "
+"rào lại », và bạn rất có thể sẽ thấy phần mềm sụp đổ."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "It is calculated as the result of: (threshold - 1) x 2."
+msgstr "Giá trị này được tính là kết quả của công thức: (ngưỡng - 1) × 2"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid "Its default value is 7 (12 seconds)."
+msgstr "Giá trị mặc định là 7 (12 giây)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:3001
+msgid ""
+"Raise it if you have slow disks and/or crashes with kernel messages like:"
+msgstr ""
+"Hãy tăng giá trị này nếu bạn có đĩa chạy chậm hay/và phần mềm sụp đổ với "
+"thông điệp hạt nhân như :"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid "O2CB idle timeout:"
+msgstr "Thời hạn nghỉ O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid ""
+"The O2CB idle timeout (expressed in milliseconds) is the time before a "
+"network connection is considered dead."
+msgstr ""
+"Thời hạn nghỉ O2CB (xác định theo mili-giây) là khoảng thời gian sau đó thấy "
+"kết nối mạng đã chết."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:4001
+msgid ""
+"Its default value is 10000 (10 seconds) and the minimum recommended value "
+"is 5000 (5 seconds)."
+msgstr ""
+"Giá trị mặc định là 10000 (10 giây), còn giá trị tối thiểu khuyến khích là "
+"5000 (5 giây)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid "O2CB keepalive delay:"
+msgstr "Khoảng đợi cứ hoạt động O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid ""
+"The O2CB keepalive delay (expressed in milliseconds) is the maximum time "
+"before a keepalive package is sent."
+msgstr ""
+"Khoảng đợi cứ hoạt động O2CB (xác định theo mili-giây) là khoảng thời gian "
+"tối đa sau đó gửi gói tin giữ cho kết nối hoạt động."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:5001
+msgid ""
+"Its default value is 5000 (5 seconds) and the minimum recommended value is "
+"1000 (1 second)."
+msgstr ""
+"Giá trị mặc định là 5000 (5 giây), còn giá trị tối thiểu khuyến khích là "
+"1000 (1 giây)."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid "O2CB reconnect delay:"
+msgstr "Khoảng đợi tái kết nối O2CB:"
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid ""
+"The O2CB reconnect delay (expressed in milliseconds) is the minimum time "
+"between connection attempts."
+msgstr ""
+"Khoảng đợi tái kết nối O2CB (xác định theo mili-giây) là khoảng thời gian "
+"tối thiểu giữa hai lần thử kết nối."
+
+#. Type: string
+#. Description
+#: ../ocfs2-tools.templates:6001
+msgid "Its default and recommended minimum value is 2000 (2 seconds)."
+msgstr "Giá trị mặc định và khuyến khích là 2000 (2 giây)."

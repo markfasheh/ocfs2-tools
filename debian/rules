@@ -1,104 +1,76 @@
 #!/usr/bin/make -f
-# Sample debian/rules that uses debhelper.
-# This file is public domain software, originally written by Joey Hess.
-#
-# This version is for a multibinary package. It also allows you to build any
-# of the binary packages independantly, via binary-<package> targets.
 
-# Uncomment this to turn on verbose mode. 
-#export DH_VERBOSE=1
+# Uncomment this to turn on verbose mode.
+# export DH_VERBOSE=1
 
-# This has to be exported to make some magic below work.
-export DH_OPTIONS
+include /usr/share/quilt/quilt.make
 
-build: build-stamp
+configure: patch configure-stamp
+configure-stamp:
+	dh_testdir
+	./configure --disable-debug \
+				--enable-dynamic-ctl \
+				--enable-dynamic-fsck \
+				--prefix=/usr \
+				--exec-prefix=/usr \
+				--mandir=/usr/share/man
+	touch $@
+
+build: configure build-stamp
 build-stamp:
 	dh_testdir
-
-	./configure --disable-debug --enable-dynamic-ctl --enable-dynamic-fsck --prefix=/usr --mandir=/usr/share/man
 	$(MAKE)
+	touch $@
 
-	touch build-stamp
-
-clean:
-	dh_testdir
-	dh_testroot
-	rm -f build-stamp
-
-	-$(MAKE) -i distclean
-
-	rm -f debian/ocfs2-tools.o2cb.init
-	rm -f debian/ocfs2-tools.o2cb.default
-	rm -f debian/ocfs2-tools.ocfs2.init
-	dh_clean
-
-install: DH_OPTIONS=
 install: build
 	dh_testdir
 	dh_testroot
 	dh_clean -k
-	dh_installdirs
+
+	$(MAKE) install DESTDIR=`pwd`/debian/tmp/
+
+# Install manual stuff
+
+	install -m 644 debian/mount.ocfs2.8 debian/tmp/usr/share/man/man8/mount.ocfs2.8
 
 	cp -f vendor/common/o2cb.init debian/ocfs2-tools.o2cb.init
 	cp -f vendor/common/o2cb.sysconfig debian/ocfs2-tools.o2cb.default
 	cp -f vendor/common/ocfs2.init debian/ocfs2-tools.ocfs2.init
 
-	$(MAKE) DESTDIR=`pwd`/debian/tmp install
+	dh_install --sourcedir=debian/tmp --list-missing
+	dh_installinit --name=o2cb  --no-restart-on-upgrade -- start 60 S . start 6 0 6 .
+	dh_installinit --name=ocfs2 --no-restart-on-upgrade -- start 65 S . start 2 0 6 .
+	dh_installdocs
+	dh_installexamples documentation/samples/cluster.conf
+	dh_installchangelogs
 
-	dh_install
-
-# This single target is used to build all the packages, all at once, or
-# one at a time. So keep in mind: any options passed to commands here will
-# affect _all_ packages. Anything you want to only affect one package
-# should be put in another target, such as the install target.
-binary-common:
+binary-arch: install
 	dh_testdir
 	dh_testroot
-
-	# debhelper V3 compat level
-	#dh_movefiles
-
-	dh_installchangelogs
-	dh_installdocs
-#	dh_installexamples
-#	dh_installmenu
-#	dh_installdebconf
-#	dh_installlogrotate
-#	dh_installemacsen
-#	dh_installpam
-#	dh_installmime
-	dh_installinit --name=o2cb -r
-	dh_installinit --name=ocfs2 -r
-	dh_installman
-#	dh_installcron
-#	dh_installinfo
-#	dh_undocumented
-	dh_strip
-	dh_link
+	dh_strip 
 	dh_compress
+	dh_installdebconf
 	dh_fixperms
-#	dh_makeshlibs 
-	dh_python
-	dh_installdeb
+	dh_makeshlibs
 	dh_shlibdeps
+	dh_pysupport
+	dh_installdeb
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb
 
-# Build architecture independant packages using the common target.
-binary-indep: build install
-	# timbo-doc isn't ready yet
-	#$(MAKE) -f debian/rules DH_OPTIONS=-i binary-common
+binary-indep:
+# do nothing
 
-# Build architecture dependant packages using the common target.
-binary-arch: build install
-	$(MAKE) -f debian/rules DH_OPTIONS=-a binary-common
+binary: binary-arch binary-indep
 
-# Any other binary targets build just one binary package at a time.
-binary-%: build install
-	make -f debian/rules binary-common DH_OPTIONS=-p$*
-
-# No indep right now
-#binary: binary-indep binary-arch
-binary: binary-arch
-.PHONY: build clean binary-indep binary-arch binary install
+clean: unpatch
+	dh_testdir
+	dh_testroot
+	dh_clean
+	rm -rf debian/patches/log/ patches .pc
+	rm -f *-stamp debian/ocfs2-tools.o2cb.* debian/ocfs2-tools.ocfs2.*
+	rm -f vendor/common/ocfs2-tools.spec
+	rm -f ocfs2console/ocfs2interface/*so
+	$(MAKE) distclean
+	debconf-updatepo

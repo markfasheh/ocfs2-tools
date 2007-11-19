@@ -1,1 +1,23 @@
+Instructions for OCFS2 filesystems in Debian
+============================================
 
+  The init script for Debian expects to have most of the kernel code
+it uses available in modular form.
+
+  In previous releases sctp module was necessary to work around a
+kernel starvation that led to crashes.  With 1.2.1 this seems to be
+no longer necessary.
+
+  Here follows the name and location of the modules:
+
+Module name             Location
+--------------------------------
+configfs                File systems
+                         -> Pseudo filesystems
+                          -> Userspace-driven configuration filesystem
+ocfs2_nodemanager       File systems
+                         -> OCFS2 file system support
+ocfs2_dlm               File systems
+                         -> OCFS2 file system support
+ocfs2_dlmfs             File systems
+                         -> OCFS2 file system support

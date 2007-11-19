@@ -1,0 +1,57 @@
+Template: ocfs2-tools/init
+Type: boolean
+Default: false
+_Description: Would you like to start an OCFS2 cluster (O2CB) at boot time?
+
+Template: ocfs2-tools/clustername
+Type: string
+Default: ocfs2
+_Description: Name of the cluster to start at boot time:
+
+Template: ocfs2-tools/heartbeat_threshold
+Type: string
+Default: 7
+#flag:translate!:6
+_Description: O2CB heartbeat threshold:
+ The O2CB heartbeat threshold sets up the maximum time in seconds that a
+ node awaits for an I/O operation. After it, the node "fences" itself,
+ and you will probably see a crash.
+ .
+ It is calculated as the result of: (threshold - 1) x 2.
+ .
+ Its default value is 7 (12 seconds).
+ .
+ Raise it if you have slow disks and/or crashes with kernel messages
+ like:
+ .
+ o2hb_write_timeout: 164 ERROR: heartbeat write timeout to device XXXX
+ after NNNN milliseconds
+
+Template: ocfs2-tools/idle_timeout
+Type: string
+Default: 10000
+_Description: O2CB idle timeout:
+ The O2CB idle timeout (expressed in milliseconds) is the time before
+ a network connection is considered dead.
+ .
+ Its default value is 10000 (10 seconds) and the minimum recommended value
+ is 5000 (5 seconds).
+
+Template: ocfs2-tools/keepalive_delay
+Type: string
+Default: 5000
+_Description: O2CB keepalive delay:
+ The O2CB keepalive delay (expressed in milliseconds) is the maximum time before
+ a keepalive package is sent.
+ .
+ Its default value is 5000 (5 seconds) and the minimum recommended value
+ is 1000 (1 second).
+
+Template: ocfs2-tools/reconnect_delay
+Type: string
+Default: 2000
+_Description: O2CB reconnect delay:
+ The O2CB reconnect delay (expressed in milliseconds) is the minimum time between
+ connection attempts.
+ .
+ Its default and recommended minimum value is 2000 (2 seconds).

@@ -1,2 +1,3 @@
-debian/tmp/usr/lib/python2.3
-debian/tmp/usr/sbin/ocfs2console
+usr/lib/python2.?/site-packages/ocfs2interface/*
+usr/sbin/ocfs2console
+usr/share/man/man8/ocfs2console.8

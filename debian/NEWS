@@ -1,0 +1,9 @@
+ocfs2-tools (1.2.1-1) unstable; urgency=low
+
+  * The init script needs modules now in order to function properly.  Upstream
+    strongly discourages the changes I did in 1.1.5 in order to work for the
+    monolithic kernel case.
+    The sctp module is no longer necessary.  Please read
+    /usr/share/doc/ocfs2-tools/README.Debian for the complete requirements.
+
+ -- David Martínez Moreno <ender@debian.org>  Sun, 28 May 2006 13:18:50 +0200

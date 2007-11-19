@@ -1,46 +1,191 @@
+ocfs2-tools (1.2.4-1) unstable; urgency=low
+
+  * The "Lazo rosa" release.
+  * New upstream release.  This version was released on Apr 6th, 2007.  Main
+    changes are:
+    - Allow network timeout configuration.
+    - Bug fixes.
+    - offsetof(3) issues have been fixed, so patches/102_stddef.h is no longer
+      relevant.
+  * Added debconf support for O2CB_IDLE_TIMEOUT_MS, O2CB_KEEPALIVE_DELAY_MS
+    and O2CB_RECONNECT_DELAY_MS in postinst, config and templates mainly from
+    Ubuntu.
+  * po/es.po: While at it, updated Spanish translation.
+  * po/vi.po: Updated Vietnamese translation, thanks to Clytie Siddall
+    (closes: #438451).
+  * po/ru.po: Updated Russian translation, thanks to Yuri Kozlov (closes:
+    #438633).
+  * po/fr.po: Updated French translation.  Thanks to Jean-Baka
+    Domelevo-Entfellner (closes: #440579).
+  * po/cs.po: Updated Czech translation.  Thanks to Miroslav Kure (closes:
+    #442903).
+  * Added /etc/init.d/ocfs2 in order to mount and unmount OCFS2 volumes, that I
+    simply missed on past releases.  This allows to unmount OCFS2 during a
+    reboot and thus avoid a panic (closes: #416550).
+  * debian/rules: Removed old code for quilt patching now that we include the
+    Makefile from that package.
+  * This version does not fail to build twice in a row (strange...).  Closes:
+    #442692.
+
+ -- David Martínez Moreno <ender@debian.org>  Tue, 18 Sep 2007 02:02:31 +0200
+
+ocfs2-tools (1.2.3-1) unstable; urgency=low
+
+  * New upstream release.  This version was released on Feb 2nd, 2007.  Main
+    changes are:
+    - Backup superblock support added.
+    - Local mount support added (with kernel 2.6.20+).
+    - Heartbeat thread's IO priority can now be set (with kernel 2.6.20+).
+    - Bugs fixed in fsck, debugfs and console .
+  * Removed parts of debian/NEWS no longer relevant.
+  * Renamed debian/README to debian/README.Debian in order to be included by
+    dh_installdocs.
+  * Added short description to o2cb init script in order to clean a lintian
+    warning.
+
+ -- David Martínez Moreno <ender@debian.org>  Thu, 16 Aug 2007 02:41:22 +0200
+
+ocfs2-tools (1.2.2-1) unstable; urgency=low
+
+  * New upstream release.  This version was released on Oct 20th, 2006.  Main
+    changes are:
+    - tunefs.ocfs2: Volumes can be resized offline.
+    - debugfs.ocfs2: Commands bmap, findpath, ncheck and decode added.
+    - Fixed bug in o2cb_ctl when adding nodes (closes: #405353).
+    - Fixed lots of bugs.
+  * Removed ocfs2console/blkid/blkid_types.h, that slipped in 1.2.1-1.2.
+  * Acknowledged NMUs (closes: #380879, #389916).
+  * Added Dutch translation (thanks, cobaco).  Closes: #436863.
+  * Merged 01-manpages-typos and some parts of 02-init-typos patches upstream.
+  * debian/rules: Changed dh_install to --list-missing in order to ignore
+    temporally the now installed headers.
+  * debian/control: Replaced Source-Version with binary:Version.
+
+ -- David Martínez Moreno <ender@debian.org>  Wed, 15 Aug 2007 02:46:28 +0200
+
+ocfs2-tools (1.2.1-1.4) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * add patches/102_stddef.h to fix FTBFS (missing #include <stddef.h> to know
+    about offsetof). closes: #428949.
+
+ -- Pierre Habouzit <madcoder@debian.org>  Wed, 18 Jul 2007 17:37:23 +0200
+
+ocfs2-tools (1.2.1-1.3) unstable; urgency=low
+
+  * Non-maintainer upload to fix longstanding l10n issues
+  * Fix the spelling of "milliseconds" in debconf templates
+  * Unmark a string for translation. Closes: #372520
+  * Debconf templates translations:
+    - Czech updated. Closes: #369582
+    - French updated. Closes: #374335
+    - Vietnamese added. Sent during the call for updates of the NMU campaign.
+    - Swedish added. Sent during the call for updates of the NMU campaign.
+    - German added. Sent during the call for updates of the NMU campaign.
+    - Russian added. Sent during the call for updates of the NMU campaign.
+    - Brazilian Portuguese added. Sent during the call for updates
+      of the NMU campaign.
+    - Fix the encoding of the Spanish translation..:-)
+
+ -- Christian Perrier <bubulle@debian.org>  Mon, 18 Dec 2006 19:49:10 +0100
+
+ocfs2-tools (1.2.1-1.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Move dh_installdeb to after dh_pysupport, to make sure
+    update-python-modules is indeed called in postinst. (Closes: #388529)
+
+ -- Steinar H. Gunderson <sesse@debian.org>  Thu, 28 Sep 2006 13:19:03 +0200
+
+ocfs2-tools (1.2.1-1.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Update package to the last python policy (Closes: #380879).
+
+ -- Pierre Habouzit <madcoder@debian.org>  Thu, 31 Aug 2006 13:45:20 +0200
+
 ocfs2-tools (1.2.1-1) unstable; urgency=low
 
-  * New release.
+  * New upstream release (closes: #362204, #364549).  This release also fixes
+    the double-free error that new glibc triggered, so closes: #358784 as
+    well.
+  * Added Czech debconf translation. Thanks, Miroslav Kure. Closes: #353372.
+  * Added French debconf translation. Thanks, Julien Rosal. Closes: #354274.
+  * Rewrote debconf templates, rendering above changes partly useless. Thanks
+    to Thomas Huriaux for the time and the patch. Closes: #352505.
+  * Updated Spanish translation.
+  * debian/control:
+    - Added libdevmapper-dev to Build-Depends, and bumped debhelper dependency
+      to >= 5.
+    - Bumped Standards-Version to 3.7.2.0.
+  * Added ocfs2_faq.txt to docs.
+  * debian/compat: Bumped debhelper compatibility to 5.
+  * Added README.Debian.
+  * Removed changes in init script, now it is near to the original one.  Many
+    thanks to Joel Becker from Oracle for taking the time to explain it
+    thoroughly.  The modular case works again, I have embraced the faith. :-)
+    Closes: #363121.
 
- -- Joel Becker <joel.becker@oracle.com>  Thu, 27 Apr 2006 17:40:25 -0700
+ -- David Martínez Moreno <ender@debian.org>  Tue, 30 May 2006 00:38:27 +0200
 
-ocfs2-tools (1.0.0-1) unstable; urgency=low
+ocfs2-tools (1.1.5-2) unstable; urgency=low
 
-  * New release.
+  * Removed by upstream request:
+    - usr/sbin/find_hardlinks
+    - usr/sbin/find_dup_extents
+    - usr/sbin/find_inode_paths
+    - usr/sbin/set_random_bits
+    - usr/sbin/decode_lockres
+    - usr/sbin/encode_lockres
+    - usr/sbin/mark_journal_dirty
+    These utilities are for OCFS2 development only, and may cause severe data
+    loss, apart from little use for normal OCFS2 user.
+  * debian/control: Added quilt to Build-Depends, and rewrite part of the
+    build system in order to support patch and unpatch targets.
+  * Created patches:
+    - debian/patches/01-manpages-typos
 
- -- Joel Becker <joel.becker@oracle.com>  Tue,  2 Aug 2006 14:40:25 -0700
+ -- David Martínez Moreno <ender@debian.org>  Fri, 10 Feb 2006 02:53:40 +0100
 
-ocfs2-tools (0.99.17-1) unstable; urgency=low
+ocfs2-tools (1.1.5-1) unstable; urgency=low
 
-  * New release.
+  * New upstream release (closes: #329699).
+  * debian/control:
+    - Bumped Standards-Version to 3.6.2.2.
+    - Added python-gtk2 to ocfs2console Depends.
+    - Added po-debconf to Build-Depends.
+  * debian/copyright: Updated date and FSF's address.
+  * fsck.ocfs2/fsck.ocfs2.8.in: Killed two birds in a row: fixed tytso's
+    surname and removed another lintian error.
+  * Added to ocfs2-tools.install:
+    - usr/sbin/find_hardlinks
+    - usr/sbin/find_dup_extents
+    - usr/sbin/find_inode_paths
+    - usr/sbin/set_random_bits
+    - usr/sbin/decode_lockres
+    - usr/sbin/encode_lockres
+    - usr/sbin/mark_journal_dirty
+  * debian/rules:
+    - Update dh_installinit call to not restart the cluster on updates and to
+      start ocfs2 very early in the boot process.
+    - Added --fail-missing to dh_install for tracking down new binaries in
+      future versions.
+    - Added code to remove stuff from the diff.gz.
+  * Added debconf infrastructure for avoiding running "/etc/init.d/o2cb
+    configure". The skeleton was stolen from an Ubuntu grave. While at it, added
+    Spanish translation of debconf templates.
 
- -- Joel Becker <joel.becker@oracle.com>  Thu, 21 Jul 2006 22:41:25 -0700
-
-ocfs2-tools (0.99.16-1) unstable; urgency=low
-
-  * New release.
-
- -- Joel Becker <joel.becker@oracle.com>  Fri,  8 Jul 2006 14:53:00 -0700
-
-ocfs2-tools (0.99.13-1) unstable; urgency=low
-
-  * New release.
-
- -- Joel Becker <joel.becker@oracle.com>  Thu, 23 Jun 2006 22:51:06 -0700
+ -- David Martínez Moreno <ender@debian.org>  Thu, 26 Jan 2006 02:10:48 +0100
 
 ocfs2-tools (0.99.12-1) unstable; urgency=low
 
-  * New release.
+  * First public release.
+  * Copied shamelessly a lot of the Ubuntu diff to the Debian package (thanks
+    to Fabionne).
+  * Changed /bin/sh to /bin/bash in the init script to avoid evident bashisms.
+  * Stripped down debian/ directory from the original tarball.
+  * Fixed some typos in the init.d script and in the default configuration.
+    Also added to the init script some Oracle string in order to ease
+    identification in the boot process.
 
- -- Joel Becker <joel.becker@oracle.com>  Fri, 17 Jun 2006 00:10:42 -0700
-
-ocfs2-tools (0.99.11-1) unstable; urgency=low
-
-  * Initial debian file.
-
- -- Joel Becker <joel.becker@oracle.com>  Mon, 13 Jun 2006 23:17:35 -0700
-
-
-Local variables:
-mode: debian-changelog
-End:
+ -- David Martínez Moreno <ender@debian.org>  Mon, 18 Jul 2005 19:01:39 +0200

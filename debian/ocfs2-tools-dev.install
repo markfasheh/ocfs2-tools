@@ -1,5 +1,0 @@
-debian/tmp/usr/include/o2cb
-debian/tmp/usr/include/o2dlm
-debian/tmp/usr/include/ocfs2
-debian/tmp/usr/lib/*.a
-debian/tmp/usr/lib/*.pc
