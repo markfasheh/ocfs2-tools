@@ -31,8 +31,6 @@ install: build
 
 # Install manual stuff
 
-	install -m 644 debian/mount.ocfs2.8 debian/tmp/usr/share/man/man8/mount.ocfs2.8
-
 	cp -f vendor/common/o2cb.init debian/ocfs2-tools.o2cb.init
 	cp -f vendor/common/o2cb.sysconfig debian/ocfs2-tools.o2cb.default
 	cp -f vendor/common/ocfs2.init debian/ocfs2-tools.ocfs2.init
