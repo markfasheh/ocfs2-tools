@@ -10,5 +10,6 @@ aclocal.m4
 ocfs2-tools-*.src.rpm
 ocfs2-tools-*.tar.gz
 build-stamp
+configure-stamp
 *.pc
 .*.sw?
