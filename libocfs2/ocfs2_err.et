@@ -55,10 +55,10 @@ ec	OCFS2_ET_CORRUPT_SUPERBLOCK,
 	"The OCFS2 superblock is corrupt"
 
 ec	OCFS2_ET_UNSUPP_FEATURE,
-	"Filesystem has unsupported feature(s)"
+	"Unsupported feature(s) found"
 
 ec	OCFS2_ET_RO_UNSUPP_FEATURE,
-	"Filesystem has unsupported read-only feature(s)"
+	"Unsupported read-only feature(s) found"
 
 ec	OCFS2_ET_BAD_INODE_MAGIC,
 	"Bad magic number in inode"
