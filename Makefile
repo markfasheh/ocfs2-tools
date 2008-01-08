@@ -40,18 +40,16 @@ DEBIAN_FILES =					\
 	debian/compat				\
 	debian/control				\
 	debian/copyright			\
+	debian/ocfs2-tools.config		\
 	debian/ocfs2-tools.docs			\
 	debian/ocfs2-tools.install		\
 	debian/ocfs2-tools.manpages		\
 	debian/ocfs2-tools.postinst		\
-	debian/ocfs2-tools.prerm		\
+	debian/ocfs2-tools.postrm		\
+	debian/ocfs2-tools.templates		\
 	debian/ocfs2console.install		\
 	debian/ocfs2console.manpages		\
-	debian/ocfs2console.postinst		\
-	debian/ocfs2console.prerm		\
-	debian/ocfs2-tools-dev.install		\
-	debian/ocfs2-tools-dev.postinst		\
-	debian/ocfs2-tools-dev.prerm		\
+	debian/ocfs2-tools-static-dev.install	\
 	debian/rules
 
 DIST_FILES = \
