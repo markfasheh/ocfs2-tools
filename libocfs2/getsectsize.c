@@ -37,7 +37,7 @@
 #define BLKSSZGET  _IO(0x12,104)/* get block device sector size */
 #endif
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 /*
  * Returns the number of blocks in a partition

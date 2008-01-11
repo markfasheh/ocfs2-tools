@@ -38,9 +38,7 @@
 #include <uuid/uuid.h>
 
 
-#define  OCFS2_FLAT_INCLUDES	1
-#include <ocfs2.h>
-
+#include "ocfs2/ocfs2.h"
 #include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 char *device = NULL;

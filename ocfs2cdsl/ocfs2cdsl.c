@@ -43,7 +43,7 @@
 
 #include <glib.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 
 #define CDSL_BASE       ".cluster"

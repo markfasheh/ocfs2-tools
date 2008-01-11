@@ -56,7 +56,7 @@
 
 #include <linux/types.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 #include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 enum {

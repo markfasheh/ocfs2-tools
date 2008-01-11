@@ -26,7 +26,7 @@
 #ifndef __FEATURE_STRING_H
 #define __FEATURE_STRING_H
 
-#include <ocfs2.h>
+#include <ocfs2/ocfs2.h>
 
 struct fs_feature_flags {
 	const char *ff_str;

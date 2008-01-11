@@ -34,7 +34,7 @@
 #include <unistd.h>
 #endif
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 static errcode_t open_namei(ocfs2_filesys *fs, uint64_t root, uint64_t base,
 			    const char *pathname, size_t pathlen, int follow,

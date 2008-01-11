@@ -33,8 +33,8 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "ocfs2.h"
-#include "bitops.h"
+#include "ocfs2/ocfs2.h"
+#include "ocfs2/bitops.h"
 
 struct fragment {
 	uint64_t f_group_blkno;

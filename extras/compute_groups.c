@@ -32,7 +32,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #define TWO_TERA	2199023255552LL
 

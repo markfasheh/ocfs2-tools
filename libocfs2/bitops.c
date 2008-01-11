@@ -30,7 +30,7 @@
 #include <strings.h>
 #include <sys/types.h>
 
-#include "bitops.h"
+#include "ocfs2/bitops.h"
 
 /*
  * For the benefit of those who are trying to port Linux to another

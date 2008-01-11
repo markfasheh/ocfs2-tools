@@ -33,7 +33,7 @@
 #include <string.h>
 #include <limits.h>
 
-#include <ocfs2.h>
+#include "ocfs2/ocfs2.h"
 
 #include "dirparents.h"
 #include "fsck.h"

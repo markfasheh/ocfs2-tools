@@ -28,7 +28,7 @@
   linux/lib/rbtree.c
 */
 
-#include "kernel-rbtree.h"
+#include "ocfs2/kernel-rbtree.h"
 
 static void __rb_rotate_left(struct rb_node *node, struct rb_root *root)
 {

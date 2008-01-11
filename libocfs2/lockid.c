@@ -22,7 +22,7 @@
  * Boston, MA 021110-1307, USA.
  */
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #include <string.h>
 #include <inttypes.h>

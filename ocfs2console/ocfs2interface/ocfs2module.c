@@ -30,7 +30,7 @@
 
 #include <uuid/uuid.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 
 #define Filesystem_Check(op)  PyObject_TypeCheck(op, &Filesystem_Type)

@@ -43,7 +43,9 @@
 #endif
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/kernel-rbtree.h"
+
+#include "ocfs2/ocfs2.h"
 
 
 /*

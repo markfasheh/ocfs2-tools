@@ -6,9 +6,9 @@ sbindir = $(root_sbindir)
 SBIN_PROGRAMS = debugfs.ocfs2
 
 DEFINES = -DG_DISABLE_DEPRECATED -DLINUX -DDEBUGOCFS -DDEBUG
-DEFINES += -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+DEFINES += -DVERSION=\"$(VERSION)\"
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include
+INCLUDES = -I$(TOPDIR)/include -Iinclude
 INCLUDES += $(GLIB_CFLAGS)
 
 ifdef OCFS2_DEBUG

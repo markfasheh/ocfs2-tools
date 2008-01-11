@@ -27,7 +27,9 @@
 
 #include <string.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
+
+#include "ocfs2/byteorder.h"
 
 void ocfs2_swap_group_desc(struct ocfs2_group_desc *gd)
 {

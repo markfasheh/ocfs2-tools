@@ -22,7 +22,7 @@
  *
  */
 
-#include <main.h>
+#include "main.h"
 
 
 char *progname = NULL;

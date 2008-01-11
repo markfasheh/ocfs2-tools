@@ -11,7 +11,7 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude
+INCLUDES = -I$(TOPDIR)/include
 
 LIBRARIES = libocfs2.a
 
@@ -22,7 +22,6 @@ LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
-CPPFLAGS += -DOCFS2_FLAT_INCLUDES
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
@@ -84,31 +83,19 @@ CFILES = 		\
 	backup_super.c	\
 	feature_string.c
 
-HFILES =				\
-	include/bitmap.h		\
-	include/bitops.h		\
-	include/byteorder.h		\
-	include/dir_iterate.h		\
-	include/dir_util.h		\
-	include/extent_map.h		\
-	include/kernel-rbtree.h		\
-	include/jbd.h			\
-	include/ocfs2.h			\
-	include/feature_string.h
+HFILES =		\
+	bitmap.h	\
+	dir_iterate.h	\
+	dir_util.h	\
+	dlm.h		\
+	extent_map.h
 
-HFILES_GEN =		\
-	include/ocfs2_err.h
-
-HEADERS_SUBDIR = ocfs2
-HEADERS = $(HFILES) $(HFILES_GEN)
+HFILES_GEN = ocfs2_err.h
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	ocfs2_err.o
 
 $(OBJS): $(HFILES_GEN)
-
-include/ocfs2_err.h: ocfs2_err.h
-	cp $< $@
 
 ocfs2_err.c ocfs2_err.h: ocfs2_err.et
 	compile_et ocfs2_err.et
@@ -120,14 +107,9 @@ libocfs2.a: $(OBJS)
 
 DIST_FILES = $(CFILES) $(HFILES) ocfs2_err.et
 
-DIST_RULES = dist-subdircreate
-
-dist-subdircreate:
-	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
-
 CLEAN_RULES = clean-err
 
 clean-err:
-	rm -f ocfs2_err.c ocfs2_err.h include/ocfs2_err.h
+	rm -f ocfs2_err.c ocfs2_err.h
 
 include $(TOPDIR)/Postamble.make

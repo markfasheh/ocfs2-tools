@@ -27,7 +27,7 @@
 #ifndef _EXTENT_MAP_H
 #define _EXTENT_MAP_H
 
-#include "kernel-rbtree.h"
+#include "ocfs2/kernel-rbtree.h"
 
 typedef struct _ocfs2_extent_map_entry ocfs2_extent_map_entry;
 

@@ -16,7 +16,6 @@ CFLAGS = $(OPTS) $(WARNINGS)
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mkfs.ocfs2
 
-LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
@@ -26,8 +25,8 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
 LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 
-INCLUDES = -I$(TOPDIR)/include $(LIBOCFS2_CFLAGS) -I.
-DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+INCLUDES = -I$(TOPDIR)/include -I.
+DEFINES = -DVERSION=\"$(VERSION)\"
 
 CFILES = mkfs.c check.c
 HFILES = mkfs.h

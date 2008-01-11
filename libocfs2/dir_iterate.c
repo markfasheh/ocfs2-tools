@@ -30,7 +30,7 @@
 
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #include "dir_iterate.h"
 #include "dir_util.h"

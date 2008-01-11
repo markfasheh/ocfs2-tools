@@ -38,7 +38,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #ifdef HAVE_MNTENT_H
 /*

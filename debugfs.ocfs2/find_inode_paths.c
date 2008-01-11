@@ -25,7 +25,7 @@
  *  Copyright (C) 1993, 1994, 1994, 1995, 1996, 1997 Theodore Ts'o.
  */
 
-#include <main.h>
+#include "main.h"
 
 struct walk_path {
 	char *argv0;

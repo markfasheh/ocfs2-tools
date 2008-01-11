@@ -38,7 +38,7 @@
 #include <stdio.h>
 
 #include "main.h"
-#include "byteorder.h"
+#include "ocfs2/byteorder.h"
 #include "ocfs2_internals.h"
 
 static char *level_str(int level)

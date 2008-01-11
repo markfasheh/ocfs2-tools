@@ -23,7 +23,9 @@
  * Authors: Sunil Mushran, Manish Singh
  */
 
-#include <main.h>
+#include "main.h"
+#include "ocfs2/byteorder.h"
+
 #define SYSTEM_FILE_NAME_MAX	40
 #define MAX_BLOCKS		50
 

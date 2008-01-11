@@ -27,7 +27,7 @@
  */
 #include <inttypes.h>
 #include <string.h>
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #include "util.h"
 

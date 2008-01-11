@@ -51,7 +51,7 @@
 
 #include <linux/types.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #define FSWRK_FATAL(fmt, arg...)	({ fprintf(stderr, "ERROR at %s, %d: " fmt ".  EXITING!!!\n", \
 						   __FILE__, __LINE__, ##arg);  \

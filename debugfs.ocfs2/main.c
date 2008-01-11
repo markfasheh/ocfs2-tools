@@ -23,7 +23,7 @@
  * Authors: Sunil Mushran, Manish Singh
  */
 
-#include <main.h>
+#include "main.h"
 #include <sys/types.h>
 #include <dirent.h>
 

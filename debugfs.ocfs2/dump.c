@@ -23,8 +23,10 @@
  * Authors: Sunil Mushran
  */
 
-#include <main.h>
 #include <stdint.h>
+
+#include "main.h"
+#include "ocfs2/byteorder.h"
 
 extern dbgfs_gbls gbls;
 

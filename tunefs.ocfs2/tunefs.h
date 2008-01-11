@@ -48,10 +48,8 @@
 #include <signal.h>
 #include <uuid/uuid.h>
 
-#include <ocfs2.h>
-#include <bitops.h>
-
-#include <jbd.h>
+#include "ocfs2/ocfs2.h"
+#include "ocfs2/bitops.h"
 
 #define SYSTEM_FILE_NAME_MAX   40
 

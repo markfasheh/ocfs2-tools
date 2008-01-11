@@ -32,7 +32,8 @@
 #include <getopt.h>
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/byteorder.h"
+#include "ocfs2/ocfs2.h"
 
 static int debug = 0;
 

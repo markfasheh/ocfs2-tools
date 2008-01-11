@@ -34,7 +34,7 @@
 #include <unistd.h>
 #endif
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 /*
  * Create new directory block

@@ -28,7 +28,7 @@
  *
  */
 
-#include <main.h>
+#include "main.h"
 
 static char *dummy = "/dummy00/dummy00";
 extern char *progname;

@@ -27,7 +27,7 @@
 
 #include <string.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 errcode_t ocfs2_read_cached_inode(ocfs2_filesys *fs, uint64_t blkno,
 				  ocfs2_cached_inode **ret_ci)

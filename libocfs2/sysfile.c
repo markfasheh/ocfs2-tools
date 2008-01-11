@@ -27,7 +27,7 @@
 
 #include <string.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 errcode_t ocfs2_lookup_system_inode(ocfs2_filesys *fs, int type,
 				    int slot_num, uint64_t *blkno)

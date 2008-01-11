@@ -43,20 +43,14 @@
 
 #include <uuid/uuid.h>
 
-#include "ocfs2.h"
-#include "bitops.h"
-
-/* jfs_compat.h defines these */
-#undef cpu_to_be32
-#undef be32_to_cpu
-
+#include "ocfs2/ocfs2.h"
+#include "ocfs2/bitops.h"
 #include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 #include <signal.h>
 #include <libgen.h>
 
-#include "jbd.h"
-#include <feature_string.h>
+#include "ocfs2/feature_string.h"
 
 #ifndef MAX
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))

@@ -28,7 +28,8 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/byteorder.h"
+#include "ocfs2/ocfs2.h"
 
 void ocfs2_swap_disk_heartbeat_block(struct o2hb_disk_heartbeat_block *hb)
 {

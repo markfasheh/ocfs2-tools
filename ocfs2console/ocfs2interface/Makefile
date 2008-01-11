@@ -15,7 +15,6 @@ CFLAGS = $(OPTS) $(WARNINGS) -fPIC
 
 PYMOD_CFLAGS = $(CFLAGS) -fno-strict-aliasing $(PYTHON_INCLUDES)
 
-LIBOCFS2_CFLAGS = -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
@@ -34,8 +33,6 @@ BLKID_CFLAGS = -I$(TOPDIR)/ocfs2console
 BLKID_LIBS = -L$(TOPDIR)/ocfs2console/blkid -lblkid-internal $(UUID_LIBS)
 endif
 
-OCFS2_CPPFLAGS = -DOCFS2_FLAT_INCLUDES $(LIBOCFS2_CFLAGS)
-
 GLIB_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 
 OPTIMIZE = -O2
@@ -46,7 +43,7 @@ PLIST_CBITS = ocfsplist.c
 PLIST_CFILES = $(PLIST_CBITS) plistmodule.c
 PLIST_HFILES = $(subst .c,.h,$(PLIST_CBITS))
 
-ocfsplist_CPPFLAGS = $(OCFS2_CPPFLAGS) $(GLIB_CPPFLAGS) $(BLKID_CFLAGS)
+ocfsplist_CPPFLAGS = $(GLIB_CPPFLAGS) $(BLKID_CFLAGS)
 plistmodule_CPPFLAGS = $(GLIB_CPPFLAGS)
 plistmodule_CFLAGS = $(PYMOD_CFLAGS)
 

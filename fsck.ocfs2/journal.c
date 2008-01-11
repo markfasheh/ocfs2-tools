@@ -41,10 +41,11 @@
 #include <string.h>
 #include <inttypes.h>
 
+#include "ocfs2/byteorder.h"
+#include "ocfs2/ocfs2.h"
+
 #include "fsck.h"
 #include "journal.h"
-#include "jbd.h"
-#include "ocfs2.h"
 #include "pass1.h"
 #include "problem.h"
 #include "util.h"

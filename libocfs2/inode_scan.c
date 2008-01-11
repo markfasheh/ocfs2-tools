@@ -33,7 +33,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #include "extent_map.h"
 

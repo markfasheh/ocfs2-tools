@@ -26,8 +26,6 @@
 #ifndef _JOURNAL_H_
 #define _JOURNAL_H_
 
-#include <jbd.h>
-
 errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out);
 int detect_block (char *buf);
 

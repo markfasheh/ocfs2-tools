@@ -48,7 +48,6 @@
 #include "mount_constants.h"
 #include "opts.h"
 
-#include <ocfs2.h>
-
-#include "bitops.h"
+#include "ocfs2/ocfs2.h"
+#include "ocfs2/bitops.h"
 

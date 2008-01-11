@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <signal.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #include "problem.h"
 #include "util.h"

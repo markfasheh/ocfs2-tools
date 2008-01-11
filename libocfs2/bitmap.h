@@ -27,7 +27,7 @@
 #ifndef _BITMAP_H
 #define _BITMAP_H
 
-#include "kernel-rbtree.h"
+#include "ocfs2/kernel-rbtree.h"
 
 
 struct ocfs2_bitmap_region {

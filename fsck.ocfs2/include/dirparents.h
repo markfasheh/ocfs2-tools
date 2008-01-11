@@ -24,6 +24,8 @@
 #ifndef __O2FSCK_DIRPARENTS_H__
 #define __O2FSCK_DIRPARENTS_H__
 
+#include "ocfs2/kernel-rbtree.h"
+
 typedef struct _o2fsck_dir_parent {
 	struct rb_node	dp_node;
 	uint64_t 	dp_ino; /* The dir inode in question. */

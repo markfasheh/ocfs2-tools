@@ -22,7 +22,7 @@
  *
  */
 
-#include <kernel-rbtree.h>
+#include <ocfs2/kernel-rbtree.h>
 #include <tunefs.h>
 #include <assert.h>
 

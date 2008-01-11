@@ -34,7 +34,7 @@
  */
 
 #include <errno.h>
-#include <main.h>
+#include "main.h"
 
 
 extern char *progname;

@@ -28,7 +28,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #include "fsck.h"
 #include "strings.h"

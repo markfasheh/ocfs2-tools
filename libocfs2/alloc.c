@@ -29,7 +29,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 static errcode_t ocfs2_chain_alloc_with_io(ocfs2_filesys *fs,
 					   ocfs2_cached_inode *cinode,

@@ -23,8 +23,8 @@
  * Authors: Sunil Mushran
  */
 
-#include <main.h>
-#include <bitops.h>
+#include "main.h"
+#include "ocfs2/bitops.h"
 
 extern dbgfs_gbls gbls;
 

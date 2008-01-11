@@ -5,7 +5,7 @@ include $(TOPDIR)/Preamble.make
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = o2cb_ctl
 
-INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include
+INCLUDES = -I$(TOPDIR)/include
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a

@@ -63,6 +63,6 @@ DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et
 CLEAN_RULES = clean-err
 
 clean-err:
-	rm -f o2cb_err.c o2cb_err.h include/o2cb_err.h
+	rm -f o2cb_err.c o2cb_err.h
 
 include $(TOPDIR)/Postamble.make

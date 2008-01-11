@@ -21,7 +21,8 @@
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
 #define _LARGEFILE64_SOURCE
 
-#include "ocfs2.h"
+#include "ocfs2/byteorder.h"
+#include "ocfs2/ocfs2.h"
 
 void ocfs2_swap_slot_map(int16_t *map, loff_t num_slots)
 {

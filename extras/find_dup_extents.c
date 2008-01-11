@@ -34,7 +34,7 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 static void print_usage(void)
 {

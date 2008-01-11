@@ -40,7 +40,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 
-#include <ocfs2.h>
+#include "ocfs2/ocfs2.h"
 
 #define DEV_PREFIX      "/dev/"
 #define PROC_IDE_FORMAT "/proc/ide/%s/media"

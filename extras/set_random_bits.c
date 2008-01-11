@@ -34,7 +34,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <stdint.h>
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 static uint64_t read_number(const char *num)
 {

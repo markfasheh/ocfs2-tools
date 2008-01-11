@@ -36,8 +36,8 @@
 # define ULLONG_MAX 18446744073709551615ULL
 #endif
 
-#include "ocfs2.h"
-
+#include "ocfs2/byteorder.h"
+#include "ocfs2/ocfs2.h"
 #include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 

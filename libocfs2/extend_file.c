@@ -33,7 +33,7 @@
 #include <inttypes.h>
 #include <errno.h>
 #include <assert.h>
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 /*
  * Structures which describe a path through a btree, and functions to

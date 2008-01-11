@@ -24,7 +24,8 @@
 #ifndef __O2FSCK_STRINGS_H__
 #define __O2FSCK_STRINGS_H__
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
+#include "ocfs2/kernel-rbtree.h"
 
 typedef struct _o2fsck_strings {
 	struct rb_root	s_root;

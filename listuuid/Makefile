@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include
+INCLUDES = -I$(TOPDIR)/include
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
@@ -21,8 +21,6 @@ endif
 
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
-
-DEFINES = -DOCFS2_FLAT_INCLUDES
 
 UNINST_PROGRAMS = listuuid
 

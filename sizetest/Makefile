@@ -15,8 +15,8 @@ CFLAGS = $(OPTS) $(WARNINGS)
 
 UNINST_PROGRAMS = sizetest.ocfs2
 
-INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include
-DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+INCLUDES = -I$(TOPDIR)/include
+DEFINES = -DVERSION=\"$(VERSION)\"
 
 CFILES = sizetest.c
 OBJS = $(subst .c,.o,$(CFILES))

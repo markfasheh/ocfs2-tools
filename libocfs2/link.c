@@ -30,7 +30,7 @@
 
 #include <string.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 
 struct link_struct  {

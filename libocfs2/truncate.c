@@ -30,7 +30,7 @@
 #include <unistd.h>
 #endif
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 struct truncate_ctxt {
 	uint64_t new_size_in_clusters;

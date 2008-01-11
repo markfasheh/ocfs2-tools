@@ -23,8 +23,6 @@
  */
 
 #include <inttypes.h>
-#include <bitops.h>
-#include <ocfs2.h>
 
 #include <assert.h>
 

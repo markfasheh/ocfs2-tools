@@ -35,7 +35,7 @@
 #include <inttypes.h>
 #include <time.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #include "dirparents.h"
 #include "icount.h"

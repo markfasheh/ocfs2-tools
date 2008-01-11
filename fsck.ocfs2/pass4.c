@@ -29,7 +29,7 @@
 #include <inttypes.h>
 #include <limits.h>
 
-#include <ocfs2.h>
+#include "ocfs2/ocfs2.h"
 
 #include "fsck.h"
 #include "icount.h"

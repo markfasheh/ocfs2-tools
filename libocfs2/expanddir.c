@@ -35,7 +35,7 @@
 #include <unistd.h>
 #endif
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 /*
  * ocfs2_expand_dir()

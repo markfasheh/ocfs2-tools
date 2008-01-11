@@ -31,8 +31,8 @@
 #include <string.h>
 #include <netinet/in.h>
 
-#include "ocfs2.h"
-#include "jbd.h"
+#include "ocfs2/byteorder.h"
+#include "ocfs2/ocfs2.h"
 
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb)
 {

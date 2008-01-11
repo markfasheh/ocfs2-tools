@@ -24,7 +24,8 @@
 #ifndef __O2FSCK_DIRBLOCKS_H__
 #define __O2FSCK_DIRBLOCKS_H__
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
+#include "ocfs2/kernel-rbtree.h"
 
 typedef struct _o2fsck_dirblocks {
 	struct rb_root	db_root;

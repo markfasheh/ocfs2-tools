@@ -31,7 +31,8 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "ocfs2.h"
+#include "ocfs2/byteorder.h"
+#include "ocfs2/ocfs2.h"
 
 
 errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir)

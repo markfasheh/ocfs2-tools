@@ -24,7 +24,7 @@
  */
 
 #include <tunefs.h>
-#include <feature_string.h>
+#include <ocfs2/feature_string.h>
 
 ocfs2_tune_opts opts;
 ocfs2_filesys *fs_gbl = NULL;

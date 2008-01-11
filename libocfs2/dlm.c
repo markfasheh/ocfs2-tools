@@ -26,7 +26,7 @@
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
 #define _LARGEFILE64_SOURCE
                                                                                                                                                          
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #define DEFAULT_DLMFS_PATH	"/dlm/"
 

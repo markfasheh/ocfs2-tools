@@ -67,7 +67,7 @@
 #define BLKGETSIZE DKIOCGETBLOCKCOUNT32
 #endif /* APPLE_DARWIN */
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 #if defined(__CYGWIN__) || defined (WIN32)
 #include "windows.h"

@@ -37,8 +37,7 @@
 #include <uuid/uuid.h>
 
 #include "ocfs2-kernel/kernel-list.h"
-
-#include <ocfs2.h>
+#include "ocfs2/ocfs2.h"
 
 static int quick_detect = 0;
 static char *device = NULL;

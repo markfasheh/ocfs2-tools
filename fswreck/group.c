@@ -33,7 +33,7 @@
  * Group list error:		GROUP_UNEXPECTED_DESC, GROUP_EXPECTED_DESC
  *
  */
-#include <main.h>
+#include "main.h"
 
 extern char *progname;
 

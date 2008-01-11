@@ -33,7 +33,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr)
 {

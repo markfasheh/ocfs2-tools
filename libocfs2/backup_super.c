@@ -24,7 +24,7 @@
  */
 
 #include <errno.h>
-#include "ocfs2.h"
+#include "ocfs2/ocfs2.h"
 
 /* In case we don't have fs_blocksize, we will return
  * byte offsets and let the caller calculate them by itself.

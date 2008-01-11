@@ -23,7 +23,7 @@
  *
  */
 
-#include <main.h>
+#include "main.h"
 
 extern dbgfs_gbls gbls;
 

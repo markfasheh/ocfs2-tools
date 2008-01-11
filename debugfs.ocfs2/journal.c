@@ -23,7 +23,7 @@
  * Authors: Sunil Mushran, Mark Fasheh
  */
 
-#include <main.h>
+#include "main.h"
 
 extern dbgfs_gbls gbls;
 

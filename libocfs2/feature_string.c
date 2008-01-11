@@ -22,7 +22,7 @@
  * Boston, MA 021110-1307, USA.
  *
  */
-#include <feature_string.h>
+#include "ocfs2/feature_string.h"
 
 struct feature_level_translation {
 	const char *fl_str;
