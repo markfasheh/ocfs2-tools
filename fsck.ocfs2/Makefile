@@ -6,7 +6,6 @@ sbindir = $(root_sbindir)
 SBIN_PROGRAMS = fsck.ocfs2
 
 INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include \
-	-I$(TOPDIR)/libo2dlm/include \
 	-I$(TOPDIR)/libo2cb/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
@@ -28,7 +27,7 @@ endif
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
-DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
+DEFINES = -DOCFS2_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
 
 CFILES =	fsck.c		\
 		dirblocks.c 	\

@@ -38,7 +38,7 @@
 #include <sys/statfs.h>
 #include <string.h>
 
-#include <o2dlm.h>
+#include "o2dlm/o2dlm.h"
 
 #define USER_DLMFS_MAGIC	0x76a9f425
 

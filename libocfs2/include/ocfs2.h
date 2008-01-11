@@ -51,16 +51,15 @@
 
 #include <ocfs2-kernel/kernel-list.h>
 #include <ocfs2-kernel/ocfs2_fs.h>
+#include <o2dlm/o2dlm.h>
 
 #if OCFS2_FLAT_INCLUDES
-#include "o2dlm.h"
 #include "o2cb.h"
 
 #include "kernel-rbtree.h"
 #include "ocfs2_err.h"
 #include "jbd.h"
 #else
-#include <o2dlm/o2dlm.h>
 #include <o2cb/o2cb.h>
 
 #include <ocfs2/kernel-rbtree.h>

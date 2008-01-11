@@ -11,7 +11,7 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libo2cb/include
 
 LIBRARIES = libocfs2.a
 
@@ -22,7 +22,7 @@ LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
-CPPFLAGS += -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
+CPPFLAGS += -DOCFS2_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))

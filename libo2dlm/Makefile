@@ -11,12 +11,11 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude
+INCLUDES = -I$(TOPDIR)/include
 
 LIBRARIES = libo2dlm.a
 
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
-CPPFLAGS += -DO2DLM_FLAT_INCLUDES
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
@@ -40,13 +39,7 @@ CFILES = o2dlm.c
 
 TESTING_CFILES = o2dlm_test.c
 
-HFILES = include/o2dlm.h
-
-HFILES_GEN =			\
-	include/o2dlm_err.h
-
-HEADERS_SUBDIR = o2dlm
-HEADERS = $(HFILES) $(HFILES_GEN)
+HFILES_GEN = o2dlm_err.h
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2dlm_err.o
@@ -54,9 +47,6 @@ OBJS = $(subst .c,.o,$(CFILES)) \
 $(OBJS): $(HFILES_GEN)
 
 TESTING_OBJS = $(subst .c,.o,$(TESTING_CFILES))
-
-include/o2dlm_err.h: o2dlm_err.h
-	cp $< $@
 
 o2dlm_err.c o2dlm_err.h: o2dlm_err.et
 	compile_et o2dlm_err.et
@@ -71,15 +61,10 @@ o2dlm_test: $(TESTING_OBJS) $(LIBRARIES) $(COM_ERR_LIBS)
 
 DIST_FILES = $(CFILES) $(HFILES) o2dlm_err.et $(TESTING_CFILES)
 
-DIST_RULES = dist-subdircreate
-
-dist-subdircreate:
-	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
-
 CLEAN_RULES = clean-err clean-test
 
 clean-err:
-	rm -f o2dlm_err.c o2dlm_err.h include/o2dlm_err.h
+	rm -f o2dlm_err.c o2dlm_err.h
 
 clean-test:
 	rm -f o2dlm_test

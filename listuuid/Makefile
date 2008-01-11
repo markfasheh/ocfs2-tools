@@ -4,7 +4,6 @@ include $(TOPDIR)/Preamble.make
 
 INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libocfs2cluster/include \
-		-I$(TOPDIR)/libo2dlm/include \
 		-I$(TOPDIR)/libo2cb/include
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
@@ -25,7 +24,7 @@ endif
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
-DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
+DEFINES = -DOCFS2_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
 
 UNINST_PROGRAMS = listuuid
 

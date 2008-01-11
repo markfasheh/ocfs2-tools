@@ -34,7 +34,7 @@
 
 #include <string.h>
 
-#include "o2dlm.h"
+#include "o2dlm/o2dlm.h"
 
 #define COMMAND_MAX_LEN 4096
 
