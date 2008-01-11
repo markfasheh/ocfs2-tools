@@ -25,9 +25,9 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = tunefs.ocfs2
 
-INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2cb/include -I.
+INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include -I.
 INCLUDES += $(GLIB_CFLAGS)
-DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\" -DO2CB_FLAT_INCLUDES
+DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 MANS = tunefs.ocfs2.8
 

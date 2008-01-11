@@ -35,7 +35,7 @@
 #include "jconfig.h"
 #include "o2cb_config.h"
 
-#include "o2cb.h"
+#include "o2cb/o2cb.h"
 
 
 struct _O2CBConfig {

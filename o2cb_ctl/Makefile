@@ -5,8 +5,8 @@ include $(TOPDIR)/Preamble.make
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = o2cb_ctl
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include \
-	    -I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include
+
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
@@ -26,7 +26,7 @@ endif
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
-DEFINES = -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+DEFINES = -DVERSION=\"$(VERSION)\"
 
 O2CB_CTL_CFILES = o2cb_ctl.c o2cb_config.c \
 	jconfig.c jiterator.c

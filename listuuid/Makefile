@@ -2,9 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include \
-	    -I$(TOPDIR)/libocfs2cluster/include \
-		-I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
@@ -24,7 +22,7 @@ endif
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
-DEFINES = -DOCFS2_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
+DEFINES = -DOCFS2_FLAT_INCLUDES
 
 UNINST_PROGRAMS = listuuid
 
@@ -33,10 +31,6 @@ CFILES =	listuuid.c
 OBJS = $(subst .c,.o,$(CFILES))
 
 DIST_FILES = $(CFILES) 
-DIST_RULES = dist-subdircreate
-
-dist-subdircreate:
-	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 listuuid: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(COM_ERR_LIBS) $(UUID_LIBS)

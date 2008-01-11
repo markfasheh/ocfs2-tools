@@ -43,21 +43,9 @@
 
 #include <ocfs2-kernel/sparse_endian_types.h>
 
-#if O2CB_FLAT_INCLUDES
-
-#include "o2cb_err.h"
-
-#include "ocfs2_nodemanager.h"
-#include "ocfs2_heartbeat.h"
-
-#else
-
 #include <o2cb/o2cb_err.h>
-
 #include <o2cb/ocfs2_nodemanager.h>
 #include <o2cb/ocfs2_heartbeat.h>
-
-#endif
 
 errcode_t o2cb_init(void);
 

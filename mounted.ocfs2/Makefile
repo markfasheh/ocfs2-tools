@@ -11,8 +11,7 @@ else
 OPTS = -O2
 endif
 
-CFLAGS = $(OPTS) $(WARNINGS) -DOCFS2_FLAT_INCLUDES \
-	-DO2CB_FLAT_INCLUDES
+CFLAGS = $(OPTS) $(WARNINGS) -DOCFS2_FLAT_INCLUDES
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
@@ -26,8 +25,7 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mounted.ocfs2
 
-INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include \
-	-I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include
 
 CFILES = mounted.c
 OBJS = $(subst .c,.o,$(CFILES))

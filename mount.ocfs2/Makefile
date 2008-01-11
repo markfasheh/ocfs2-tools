@@ -5,8 +5,7 @@ include $(TOPDIR)/Preamble.make
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mount.ocfs2
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include \
-	    -I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
@@ -23,8 +22,7 @@ endif
 CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
-DEFINES = -DOCFS2_FLAT_INCLUDES \
-		-DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+DEFINES = -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 CFILES = opts.c mount.ocfs2.c
 CFILES += fstab.c mntent.c realpath.c sundries.c xmalloc.c

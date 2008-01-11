@@ -38,7 +38,7 @@
 #include "jiterator.h"
 #include "o2cb_config.h"
 
-#include "o2cb.h"
+#include "o2cb/o2cb.h"
 
 #define PROGNAME "o2cb_ctl"
 #define O2CB_CONFIG_FILE "/etc/ocfs2/cluster.conf"

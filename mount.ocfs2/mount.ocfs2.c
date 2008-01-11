@@ -21,7 +21,6 @@
  */
 
 #include "mount.ocfs2.h"
-#include "o2cb.h"
 
 #define OCFS2_FS_NAME		"ocfs2"
 

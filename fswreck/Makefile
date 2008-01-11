@@ -5,9 +5,9 @@ include $(TOPDIR)/Preamble.make
 SBIN_PROGRAMS = fswreck
 
 DEFINES = -DG_DISABLE_DEPRECATED -DLINUX
-DEFINES += -DOCFS2_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
+DEFINES += -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include
 INCLUDES += $(GLIB_CFLAGS)
 
 ifdef OCFS2_DEBUG

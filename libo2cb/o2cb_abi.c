@@ -42,10 +42,9 @@
 
 #include <linux/types.h>
 
-#include "o2cb.h"
+#include "o2cb/o2cb.h"
 #include "o2cb_abi.h"
 #include "o2cb_crc32.h"
-#include "ocfs2_nodemanager.h"
 
 static char *configfs_path;
 

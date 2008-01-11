@@ -11,12 +11,11 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -I$(TOPDIR)/include -Iinclude
+INCLUDES = -I$(TOPDIR)/include -I.
 
 LIBRARIES = libo2cb.a
 
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
-CPPFLAGS += -DO2CB_FLAT_INCLUDES
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
@@ -40,26 +39,16 @@ CFILES = 		\
 	o2cb_abi.c	\
 	o2cb_crc32.c
 
-HFILES =				\
-	include/ocfs2_nodemanager.h	\
-	include/ocfs2_heartbeat.h	\
-	include/o2cb_abi.h		\
-	include/o2cb_crc32.h		\
-	include/o2cb.h
+HFILES =			\
+	o2cb_abi.h		\
+	o2cb_crc32.h
 
-HFILES_GEN =		\
-	include/o2cb_err.h
-
-HEADERS_SUBDIR = o2cb
-HEADERS = $(HFILES) $(HFILES_GEN)
+HFILES_GEN = o2cb_err.h
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2cb_err.o
 
 $(OBJS): $(HFILES_GEN)
-
-include/o2cb_err.h: o2cb_err.h
-	cp $< $@
 
 o2cb_err.c o2cb_err.h: o2cb_err.et
 	compile_et o2cb_err.et
@@ -70,11 +59,6 @@ libo2cb.a: $(OBJS)
 	$(RANLIB) $@
 
 DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et
-
-DIST_RULES = dist-subdircreate
-
-dist-subdircreate:
-	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 CLEAN_RULES = clean-err
 

@@ -26,8 +26,7 @@
 #include <Python.h>
 #include <structmember.h>
 
-#include "o2cb.h"
-#include "o2cb_abi.h"
+#include "o2cb/o2cb.h"
 
 /* FIXME: right now we don't wrap the init function */
 
@@ -214,6 +213,8 @@ cluster_add_node (Cluster  *self,
 }
 
 #if 0
+#include "o2cb_abi.h"
+
 static PyObject *
 cluster_create_heartbeat_region_disk (Cluster  *self,
 				      PyObject *args,
