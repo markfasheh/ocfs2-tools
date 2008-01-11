@@ -49,13 +49,9 @@
 #include <uuid/uuid.h>
 
 #include <ocfs2.h>
-#include <ocfs2_fs.h>
-#include <ocfs1_fs_compat.h>
 #include <bitops.h>
 
 #include <jbd.h>
-
-#include <kernel-list.h>
 
 #define SYSTEM_FILE_NAME_MAX   40
 

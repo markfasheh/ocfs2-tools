@@ -11,7 +11,7 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -Iinclude
+INCLUDES = -I$(TOPDIR)/include -Iinclude
 
 LIBRARIES = libo2cb.a
 
@@ -45,8 +45,7 @@ HFILES =				\
 	include/ocfs2_heartbeat.h	\
 	include/o2cb_abi.h		\
 	include/o2cb_crc32.h		\
-	include/o2cb.h			\
-	include/sparse_endian_types.h
+	include/o2cb.h
 
 HFILES_GEN =		\
 	include/o2cb_err.h

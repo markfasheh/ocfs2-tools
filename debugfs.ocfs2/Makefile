@@ -8,7 +8,7 @@ SBIN_PROGRAMS = debugfs.ocfs2
 DEFINES = -DG_DISABLE_DEPRECATED -DLINUX -DDEBUGOCFS -DDEBUG
 DEFINES += -DOCFS2_FLAT_INCLUDES -DVERSION=\"$(VERSION)\" -DO2DLM_FLAT_INCLUDES -DO2CB_FLAT_INCLUDES
 
-INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
 INCLUDES += $(GLIB_CFLAGS)
 
 ifdef OCFS2_DEBUG

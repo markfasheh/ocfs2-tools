@@ -26,7 +26,7 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mounted.ocfs2
 
-INCLUDES = -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include \
+INCLUDES = -I$(TOPDIR)/include -I$(TOPDIR)/libocfs2/include -I$(TOPDIR)/libo2dlm/include \
 	-I$(TOPDIR)/libo2cb/include
 
 CFILES = mounted.c

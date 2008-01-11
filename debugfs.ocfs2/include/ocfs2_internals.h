@@ -26,8 +26,8 @@
 #ifndef _OCFS2_INTERNALS_H_
 #define _OCFS2_INTERNALS_H_
 
-#include "sparse_endian_types.h"
-#include "ocfs2_lockid.h"
+#include "ocfs2-kernel/sparse_endian_types.h"
+#include "ocfs2-kernel/ocfs2_lockid.h"
 
 /*
  * Values taken from fs/ocfs2/dlm/dlmapi.h

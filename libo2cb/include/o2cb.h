@@ -41,9 +41,9 @@
 
 #include <et/com_err.h>
 
-#if O2CB_FLAT_INCLUDES
+#include <ocfs2-kernel/sparse_endian_types.h>
 
-#include "sparse_endian_types.h"
+#if O2CB_FLAT_INCLUDES
 
 #include "o2cb_err.h"
 
@@ -51,8 +51,6 @@
 #include "ocfs2_heartbeat.h"
 
 #else
-
-#include <o2cb/sparse_endian_types.h>
 
 #include <o2cb/o2cb_err.h>
 

@@ -49,9 +49,6 @@
 #include "opts.h"
 
 #include <ocfs2.h>
-#include <ocfs2_fs.h>
-#include <ocfs1_fs_compat.h>
-#include <kernel-list.h>
 
 #include "bitops.h"
 

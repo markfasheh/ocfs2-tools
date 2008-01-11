@@ -57,8 +57,7 @@
 #include <linux/types.h>
 
 #include "ocfs2.h"
-#include "ocfs2_fs.h"
-#include "ocfs1_fs_compat.h"
+#include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 enum {
 	CONFIG,
@@ -156,7 +155,7 @@ typedef struct _dbgfs_opts {
 
 /* remaining headers */
 #include <commands.h>
-#include <kernel-list.h>
+#include "ocfs2-kernel/kernel-list.h"
 #include <utils.h>
 #include <journal.h>
 #include <find_block_inode.h>

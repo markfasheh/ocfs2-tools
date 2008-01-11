@@ -36,9 +36,9 @@
 #include <sys/stat.h>
 #include <signal.h>
 
+
 #include "ocfs2.h"
-#include "ocfs2_fs.h"
-#include "ocfs1_fs_compat.h"
+#include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, uint8_t *node_nums)
 {

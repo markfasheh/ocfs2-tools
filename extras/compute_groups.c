@@ -33,7 +33,6 @@
 #include <stdlib.h>
 
 #include "ocfs2.h"
-#include "ocfs2_fs.h"
 
 #define TWO_TERA	2199023255552LL
 

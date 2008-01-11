@@ -38,7 +38,7 @@
 
 #include "ocfs2.h"
 
-#include "ocfs1_fs_compat.h"
+#include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 
 static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)

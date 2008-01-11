@@ -50,7 +50,7 @@
 #undef cpu_to_be32
 #undef be32_to_cpu
 
-#include "ocfs1_fs_compat.h"
+#include "ocfs2-kernel/ocfs1_fs_compat.h"
 
 #include <signal.h>
 #include <libgen.h>

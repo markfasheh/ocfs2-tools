@@ -36,13 +36,11 @@
 
 #include <et/com_err.h>
 
-#if O2DLM_FLAT_INCLUDES
-#include "kernel-list.h"
+#include <ocfs2-kernel/kernel-list.h>
 
+#if O2DLM_FLAT_INCLUDES
 #include "o2dlm_err.h"
 #else
-#include <o2dlm/kernel-list.h>
-
 #include <o2dlm/o2dlm_err.h>
 #endif
 

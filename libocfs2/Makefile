@@ -11,7 +11,7 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -Iinclude -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
 
 LIBRARIES = libocfs2.a
 
@@ -91,12 +91,8 @@ HFILES =				\
 	include/dir_iterate.h		\
 	include/dir_util.h		\
 	include/extent_map.h		\
-	include/jbd.h			\
-	include/kernel-list.h		\
 	include/kernel-rbtree.h		\
-	include/ocfs1_fs_compat.h	\
-	include/ocfs2_lockid.h		\
-	include/ocfs2_fs.h		\
+	include/jbd.h			\
 	include/ocfs2.h			\
 	include/feature_string.h
 

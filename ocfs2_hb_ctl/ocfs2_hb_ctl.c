@@ -41,9 +41,6 @@
 #include <signal.h>
 
 #include <ocfs2.h>
-#include <ocfs2_fs.h>
-
-#include "o2cb.h"
 
 #define DEV_PREFIX      "/dev/"
 #define PROC_IDE_FORMAT "/proc/ide/%s/media"

@@ -41,7 +41,6 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "byteorder.h"
 #include "fsck.h"
 #include "journal.h"
 #include "jbd.h"

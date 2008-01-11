@@ -25,11 +25,6 @@
 
 #include "mkfs.h"
 
-#include <ocfs2.h>
-#include <ocfs2_fs.h>
-#include <ocfs1_fs_compat.h>
-#include <kernel-list.h>
-
 int ocfs2_check_volume(State *s)
 {
 	ocfs2_filesys *fs = NULL;

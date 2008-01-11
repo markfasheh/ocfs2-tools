@@ -11,7 +11,7 @@ else
 OPTS += -O2
 endif
 
-INCLUDES = -Iinclude
+INCLUDES = -I$(TOPDIR)/include -Iinclude
 
 LIBRARIES = libo2dlm.a
 
@@ -40,9 +40,7 @@ CFILES = o2dlm.c
 
 TESTING_CFILES = o2dlm_test.c
 
-HFILES = 			\
-	include/kernel-list.h	\
-	include/o2dlm.h 
+HFILES = include/o2dlm.h
 
 HFILES_GEN =			\
 	include/o2dlm_err.h

@@ -13,7 +13,7 @@ CFLAGS = $(OPTS) $(WARNINGS)
 
 UNINST_PROGRAMS = find_hardlinks find_dup_extents find_inode_paths set_random_bits decode_lockres encode_lockres mark_journal_dirty find_allocation_fragments compute_groups
 
-INCLUDES = -I../libocfs2/include -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
+INCLUDES = -I$(TOPDIR)/include -I../libocfs2/include -I$(TOPDIR)/libo2dlm/include -I$(TOPDIR)/libo2cb/include
 
 OPTIMIZE = -O2
 

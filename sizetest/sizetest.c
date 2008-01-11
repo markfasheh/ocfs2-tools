@@ -25,7 +25,6 @@
 
 
 #include <ocfs2.h>
-#include <ocfs2_fs.h>
 
 
 #undef offsetof

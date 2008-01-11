@@ -144,6 +144,7 @@ fi
 %defattr(-,root,root)
 %{brokenrhlibdir}/*.a
 %{brokenrhlibdir}/pkgconfig/*.pc
+%{_includedir}/ocfs2-kernel
 %{_includedir}/o2cb
 %{_includedir}/o2dlm
 %{_includedir}/ocfs2

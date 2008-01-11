@@ -9,6 +9,8 @@ OPTS = -g
 endif
 OPTS = -g
 
+INCLUDES = -I$(TOPDIR)/include
+
 CFLAGS = $(OPTS) $(WARNINGS) -fPIC
 
 PYMOD_CFLAGS = $(CFLAGS) -fno-strict-aliasing $(PYTHON_INCLUDES)

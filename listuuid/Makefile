@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-INCLUDES = -Iinclude -I$(TOPDIR)/libocfs2/include \
+INCLUDES = -I$(TOPDIR)/include -Iinclude -I$(TOPDIR)/libocfs2/include \
 	    -I$(TOPDIR)/libocfs2cluster/include \
 		-I$(TOPDIR)/libo2dlm/include \
 		-I$(TOPDIR)/libo2cb/include

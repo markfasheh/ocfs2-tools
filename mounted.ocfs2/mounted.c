@@ -36,10 +36,9 @@
 
 #include <uuid/uuid.h>
 
+#include "ocfs2-kernel/kernel-list.h"
+
 #include <ocfs2.h>
-#include <ocfs2_fs.h>
-#include <ocfs1_fs_compat.h>
-#include <kernel-list.h>
 
 static int quick_detect = 0;
 static char *device = NULL;
