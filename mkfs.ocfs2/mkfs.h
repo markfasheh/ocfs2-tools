@@ -222,6 +222,8 @@ struct _State {
 	char *vol_label;
 	char *device_name;
 	unsigned char *uuid;
+	char *cluster_stack;
+	char *cluster_name;
 	uint32_t vol_generation;
 
 	int fd;
@@ -241,4 +243,5 @@ struct _State {
 	enum ocfs2_fs_types fs_type;
 };
 
+int ocfs2_fill_cluster_information(State *s);
 int ocfs2_check_volume(State *s);

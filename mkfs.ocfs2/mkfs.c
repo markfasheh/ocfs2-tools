@@ -118,6 +118,8 @@ enum {
 	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
 	FEATURE_LEVEL,
 	FEATURES_OPTION,
+	CLUSTER_STACK_OPTION,
+	CLUSTER_NAME_OPTION,
 };
 
 static uint64_t align_bytes_to_clusters_ceil(State *s,
@@ -509,6 +511,8 @@ get_state(int argc, char **argv)
 	unsigned int blocksize = 0;
 	unsigned int cluster_size = 0;
 	char *vol_label = NULL;
+	char *stack_name = NULL;
+	char *cluster_name = NULL;
 	unsigned int initial_slots = 0;
 	char *dummy;
 	State *s;
@@ -540,6 +544,8 @@ get_state(int argc, char **argv)
 		{ "no-backup-super", 0, 0, BACKUP_SUPER_OPTION },
 		{ "fs-feature-level=", 1, 0, FEATURE_LEVEL },
 		{ "fs-features=", 1, 0, FEATURES_OPTION },
+		{ "cluster-stack=", 1, 0, CLUSTER_STACK_OPTION },
+		{ "cluster-name=", 1, 0, CLUSTER_NAME_OPTION },
 		{ 0, 0, 0, 0}
 	};
 
@@ -694,6 +700,38 @@ get_state(int argc, char **argv)
 			}
 			break;
 
+		case CLUSTER_STACK_OPTION:
+			if (!optarg || !strlen(optarg)) {
+				com_err(progname, 0,
+					"Option --cluster-stack requires an argument");
+				exit(1);
+			}
+			if (strlen(optarg) != OCFS2_STACK_LABEL_LEN) {
+				com_err(progname, 0,
+					"Invalid argument to --cluster-stack");
+				exit(1);
+			}
+			if (stack_name)
+				free(stack_name);
+			stack_name = strdup(optarg);
+			break;
+
+		case CLUSTER_NAME_OPTION:
+			if (!optarg || !strlen(optarg)) {
+				com_err(progname, 0,
+					"Option --cluster-name requires an argument");
+				exit(1);
+			}
+			if (strlen(optarg) > OCFS2_CLUSTER_NAME_LEN) {
+				com_err(progname, 0,
+					"Cluster name is too long");
+				exit(1);
+			}
+			if (cluster_name)
+				free(cluster_name);
+			cluster_name = strdup(optarg);
+			break;
+
 		default:
 			usage(progname);
 			break;
@@ -780,6 +818,16 @@ get_state(int argc, char **argv)
 	 */
 	if (mount != -1)
 		s->mount = mount;
+
+	if ((stack_name || cluster_name) && (s->mount == MOUNT_LOCAL)) {
+		com_err(progname, 0,
+			"Local mount is incompatible with specifying a cluster stack");
+		exit(1);
+	}
+	if (stack_name)
+		s->cluster_stack = stack_name;
+	if (cluster_name)
+		s->cluster_name = cluster_name;
 
 	if (no_backup_super != -1)
 		s->no_backup_super = no_backup_super;
@@ -1807,6 +1855,15 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	if (s->mount == MOUNT_LOCAL)
 		s->feature_flags.incompat |=
 					 OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
+
+	if (s->cluster_stack) {
+		s->feature_flags.incompat |= OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+		memcpy(di->id2.i_super.s_cluster_info.ci_stack,
+		       s->cluster_stack, OCFS2_STACK_LABEL_LEN);
+		memcpy(di->id2.i_super.s_cluster_info.ci_cluster,
+		       s->cluster_name, OCFS2_CLUSTER_NAME_LEN);
+	}
+
 	/*
 	 * we clear the "backup_sb" here since it should be written by
 	 * format_backup_super, not by us. And we have already set the
