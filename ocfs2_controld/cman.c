@@ -96,6 +96,19 @@ char *nodeid2name(int nodeid)
 	return cn->cn_name;
 }
 
+int validate_cluster(const char *cluster)
+{
+	if (!clustername) {
+		log_error("Trying to validate before cman is alive");
+		return 0;
+	}
+
+	if (!cluster)
+		return 0;
+
+	return !strcmp(cluster, clustername);
+}
+
 /* keep track of the nodes */
 static void statechange(void)
 {
@@ -163,7 +176,7 @@ static void dead_cman(int ci)
 
 	log_error("cman connection died");
 	shutdown_daemon();
-	client_dead(ci);
+	connection_dead(ci);
 }
 
 static void process_cman(int ci)
@@ -235,7 +248,7 @@ int setup_cman(void)
 	/* Fill the node list */
 	statechange();
 
-	cman_ci = client_add(fd, process_cman, dead_cman);
+	cman_ci = connection_add(fd, process_cman, dead_cman);
 	if (cman_ci < 0) {
 		rv = cman_ci;
 		log_error("Unable to add cman client: %s",

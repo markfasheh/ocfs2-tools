@@ -28,8 +28,9 @@
 #define DUMP_SIZE			(1024 * 1024)
 
 
+struct cgroup;
+
 extern char *prog_name;
-extern struct list_head mounts;
 extern int daemon_debug_opt;
 extern char daemon_debug_buf[1024];
 extern char dump_buf[DUMP_SIZE];
@@ -63,16 +64,28 @@ do { \
 } while (0)
 
 
-int client_add(int fd, void (*work)(int ci), void (*dead)(int ci));
-void client_dead(int ci);
+int connection_add(int fd, void (*work)(int ci), void (*dead)(int ci));
+void connection_dead(int ci);
 void shutdown_daemon(void);
 
 int setup_cman(void);
 char *nodeid2name(int nodeid);
+int validate_cluster(const char *cluster);
 int kill_cman(int nodeid);
 void exit_cman(void);
 
 int setup_cpg(void);
 void exit_cpg(void);
 
+void init_mounts(void);
+int have_mounts(void);
+int start_mount(int ci, int fd, const char *uuid, const char *device,
+	     const char *mountpoint);
+int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
+		   const char *mountpoint);
+int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint);
+void dead_mounter(int ci, int fd);
+
+/* This is a hack to test umount until cpg leave happens */
+void hack_leave(char *uuid);
 #endif

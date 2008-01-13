@@ -217,7 +217,7 @@ static void dead_cpg(int ci)
 		daemon_group.cg_handle = 0;
 	}
 
-	client_dead(ci);
+	connection_dead(ci);
 }
 
 int setup_cpg(void)
@@ -231,8 +231,8 @@ int setup_cpg(void)
 	}
 
 	cpg_fd_get(daemon_group.cg_handle, &daemon_group.cg_fd);
-	daemon_group.cg_ci = client_add(daemon_group.cg_fd,
-					process_cpg, dead_cpg);
+	daemon_group.cg_ci = connection_add(daemon_group.cg_fd,
+					    process_cpg, dead_cpg);
 	if (daemon_group.cg_ci < 0) {
 		log_error("Unable to add cpg client: %s",
 			  strerror(-daemon_group.cg_ci));

@@ -87,7 +87,7 @@ static void handler(int signum)
 static void dead_sigpipe(int ci)
 {
 	log_error("Error on the signal pipe");
-	client_dead(ci);
+	connection_dead(ci);
 	shutdown_daemon();
 }
 
@@ -119,19 +119,15 @@ static void handle_signal(int ci)
 		case SIGTERM:
 		case SIGINT:
 		case SIGHUP:
-#if 0
-			if (list_empty(&mounts)) {
-#endif
-				log_error("Caught signal %d, exiting",
-					  caught_sig);
-				rc = 1;
-#if 0
-			} else {
+			if (have_mounts()) {
 				log_error("Caught signal %d, but mounts exist.  Ignoring.",
 					  caught_sig);
 				rc = 0;
+			} else {
+				log_error("Caught signal %d, exiting",
+					  caught_sig);
+				rc = 1;
 			}
-#endif
 			break;
 
 		case SIGSEGV:
@@ -195,7 +191,7 @@ static int setup_sigpipe(void)
 		goto out;
 	}
 
-	rc = client_add(signal_pipe[0], handle_signal, dead_sigpipe);
+	rc = connection_add(signal_pipe[0], handle_signal, dead_sigpipe);
 	if (rc < 0)
 		log_error("Unable to add signal pipe: %s", strerror(-rc));
 
@@ -241,7 +237,50 @@ int do_write(int fd, void *buf, size_t count)
 	return 0;
 }
 
-void client_dead(int ci)
+static int do_mount(int ci, int fd, const char *fstype, const char *uuid,
+		    const char *cluster, const char *device,
+		    const char *mountpoint)
+{
+	char *error_msg;
+
+	if (!fstype || strcmp(fstype, OCFS2_FS_NAME)) {
+		error_msg = "Invalid filesystem type";
+		goto fail;
+	}
+
+	if (!validate_cluster(cluster)) {
+		error_msg = "Invalid cluster name";
+		goto fail;
+	}
+
+	return start_mount(ci, fd, uuid, device, mountpoint);
+
+fail:
+	return send_message(fd, CM_STATUS, EINVAL, error_msg);
+}
+
+static int do_mount_result(int ci, int fd, const char *fstype,
+			   const char *uuid, const char *errcode,
+			   const char *mountpoint)
+{
+	if (!fstype || strcmp(fstype, OCFS2_FS_NAME))
+		return send_message(fd, CM_STATUS, EINVAL,
+				    "Invalid filesystem type");
+
+	return complete_mount(ci, fd, uuid, errcode, mountpoint);
+}
+
+static int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
+		      const char *mountpoint)
+{
+	if (!fstype || strcmp(fstype, OCFS2_FS_NAME))
+		return send_message(fd, CM_STATUS, EINVAL,
+				    "Invalid filesystem type");
+
+	return remove_mount(ci, fd, uuid, mountpoint);
+}
+
+void connection_dead(int ci)
 {
 	log_debug("client %d fd %d dead", ci, client[ci].fd);
 	close(client[ci].fd);
@@ -289,7 +328,7 @@ static int client_alloc(void)
 	return 0;
 }
 
-int client_add(int fd, void (*work)(int ci), void (*dead)(int ci))
+int connection_add(int fd, void (*work)(int ci), void (*dead)(int ci))
 {
 	int i;
 
@@ -304,7 +343,7 @@ int client_add(int fd, void (*work)(int ci), void (*dead)(int ci))
 			if (client[i].fd == -1) {
 				client[i].fd = fd;
 				client[i].work = work;
-				client[i].dead = dead ? dead : client_dead;
+				client[i].dead = dead ? dead : connection_dead;
 				pollfd[i].fd = fd;
 				pollfd[i].events = POLLIN;
 				if (i > client_maxi)
@@ -335,11 +374,14 @@ static int dump_debug(int ci)
 	return 0;
 }
 
+static void dead_client(int ci)
+{
+	dead_mounter(ci, client[ci].fd);
+	connection_dead(ci);
+}
+
 static void process_client(int ci)
 {
-#if 0
-	struct mountgroup *mg;
-#endif
 	client_message message;
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
@@ -349,7 +391,7 @@ static void process_client(int ci)
 	/* receive_message ensures we have the proper number of arguments */
 	rv = receive_message(fd, buf, &message, argv);
 	if (rv == -EPIPE) {
-		client_dead(ci);
+		dead_client(ci);
 		return;
 	}
 
@@ -364,34 +406,20 @@ static void process_client(int ci)
 
 	switch (message) {
 		case CM_MOUNT:
-#if 0
 		rv = do_mount(ci, fd, argv[0], argv[1], argv[2], argv[3],
-			      argv[4], &mg);
+			      argv[4]);
 		fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
-		if (!rv || rv == -EALREADY) {
-			client[ci].another_mount = rv;
-			client[ci].mg = mg;
-			mg->mount_client_fd = fd;
-		}
-#endif
 		break;
 
 		case CM_MRESULT:
-#if 0
-		rv = do_mount_result(client[ci].mg, ci,
-				     client[ci].another_mount,
-				     argv[0], argv[1], argv[2], argv[3]);
-#endif
+		rv = do_mount_result(ci, fd, argv[0], argv[1], argv[2],
+				     argv[3]);
 		break;
 
 		case CM_UNMOUNT:
-#if 0
 		rv = do_unmount(ci, fd, argv[0], argv[1], argv[2]);
-		if (!rv) {
-			client[ci].mg = mg;
-			mg->mount_client_fd = fd;
-		}
-#endif
+		if (!rv)
+			hack_leave(argv[1]);
 		break;
 
 		case CM_STATUS:
@@ -451,7 +479,7 @@ static void process_listener(int ci)
 		return;
 	}
 
-	i = client_add(fd, process_client, NULL);
+	i = connection_add(fd, process_client, NULL);
 	if (i < 0) {
 		log_error("Error adding client: %s", strerror(-i));
 		close(fd);
@@ -462,7 +490,7 @@ static void process_listener(int ci)
 static void dead_listener(int ci)
 {
 	log_error("Error on the listening socket");
-	client_dead(ci);
+	connection_dead(ci);
 	shutdown_daemon();
 }
 
@@ -477,7 +505,7 @@ static int setup_listener(void)
 		return fd;
 	}
 
-	i = client_add(fd, process_listener, dead_listener);
+	i = connection_add(fd, process_listener, dead_listener);
 	if (i < 0) {
 		log_error("Unable to add listening socket: %s",
 			  strerror(-i));
@@ -541,10 +569,8 @@ static int loop(void)
 	}
 
 stop:
-#if 0
-	if (!rv && !list_empty(&mounts))
+	if (!rv && have_mounts())
 		rv = 1;
-#endif
 
 #if 0
 	bail_on_mounts();
@@ -709,10 +735,8 @@ int main(int argc, char **argv)
 {
 	errcode_t err;
 	prog_name = argv[0];
-#if 0
-	INIT_LIST_HEAD(&mounts);
-#endif
-	/* INIT_LIST_HEAD(&withdrawn_mounts); */
+
+	init_mounts();
 
 	initialize_o2cb_error_table();
 	err = o2cb_init();
