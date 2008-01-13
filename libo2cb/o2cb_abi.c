@@ -46,7 +46,8 @@
 #define OCFS2_STACK_LABEL_LEN	4
 
 
-struct o2cb_group_ops {
+struct o2cb_stack_ops {
+	errcode_t (*list_clusters)(char ***clusters);
 	errcode_t (*begin_group_join)(const char *cluster_name,
 				      struct o2cb_region_desc *desc);
 	errcode_t (*complete_group_join)(const char *cluster_name,
@@ -58,9 +59,10 @@ struct o2cb_group_ops {
 
 struct o2cb_stack {
 	char s_name[OCFS2_STACK_LABEL_LEN + 1];
-	struct o2cb_group_ops *s_ops;
+	struct o2cb_stack_ops *s_ops;
 };
 
+static errcode_t classic_list_clusters(char ***clusters);
 static errcode_t classic_begin_group_join(const char *cluster_name,
 					  struct o2cb_region_desc *desc);
 static errcode_t classic_complete_group_join(const char *cluster_name,
@@ -68,7 +70,8 @@ static errcode_t classic_complete_group_join(const char *cluster_name,
 					     int result);
 static errcode_t classic_group_leave(const char *cluster_name,
 				     struct o2cb_region_desc *desc);
-static struct o2cb_group_ops classic_ops = {
+static struct o2cb_stack_ops classic_ops = {
+	.list_clusters		= classic_list_clusters,
 	.begin_group_join	= classic_begin_group_join,
 	.complete_group_join	= classic_complete_group_join,
 	.group_leave		= classic_group_leave,
@@ -78,6 +81,7 @@ static struct o2cb_stack classic_stack = {
 	.s_ops		= &classic_ops,
 };
 
+static errcode_t user_list_clusters(char ***clusters);
 static errcode_t user_begin_group_join(const char *cluster_name,
 				       struct o2cb_region_desc *desc);
 static errcode_t user_complete_group_join(const char *cluster_name,
@@ -85,7 +89,8 @@ static errcode_t user_complete_group_join(const char *cluster_name,
 					  int result);
 static errcode_t user_group_leave(const char *cluster_name,
 				  struct o2cb_region_desc *desc);
-static struct o2cb_group_ops user_ops = {
+static struct o2cb_stack_ops user_ops = {
+	.list_clusters		= user_list_clusters,
 	.begin_group_join	= user_begin_group_join,
 	.complete_group_join	= user_complete_group_join,
 	.group_leave		= user_group_leave,
@@ -1662,7 +1667,7 @@ static void o2cb_free_dir_list(char **objs)
 	free(objs);
 }
 
-errcode_t o2cb_list_clusters(char ***clusters)
+static errcode_t classic_list_clusters(char ***clusters)
 {
 	char path[PATH_MAX];
 	errcode_t ret;
@@ -1676,6 +1681,64 @@ errcode_t o2cb_list_clusters(char ***clusters)
 		return O2CB_ET_INTERNAL_FAILURE;
 
 	return o2cb_list_dir(path, clusters);
+}
+
+static errcode_t user_list_clusters(char ***clusters)
+{
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	int rc, fd = -1;
+	char buf[OCFS2_CONTROLD_MAXLINE];
+
+	rc = ocfs2_client_connect();
+	if (rc < 0) {
+		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
+			strerror(-rc)); */
+		switch (rc) {
+			case -EACCES:
+			case -EPERM:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			default:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+		}
+		goto out;
+	}
+	fd = rc;
+
+	rc = send_message(fd, CM_LISTCLUSTERS);
+	if (rc) {
+		/* fprintf(stderr,
+			"Unable to send LISTCLUSTERS message: %s\n",
+			strerror(-rc)); */
+		err = O2CB_ET_IO;
+		goto out;
+	}
+
+	rc = receive_list(fd, buf, clusters);
+	if (rc) {
+		/* fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc)); */
+		err = O2CB_ET_IO;
+		goto out;
+	}
+
+	err = 0;
+
+out:
+	if (fd != -1)
+		close(fd);
+
+	return err;
+}
+
+errcode_t o2cb_list_clusters(char ***clusters)
+{
+	if (!current_stack)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	return current_stack->s_ops->list_clusters(clusters);
 }
 
 void o2cb_free_cluster_list(char **clusters)

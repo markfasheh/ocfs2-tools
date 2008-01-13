@@ -29,6 +29,9 @@
 
 #include "ocfs2_controld.h"
 
+/* OCFS2_VOL_UUID_LEN is in bytes.  The hex string representation uses
+ * two characters per byte */
+#define OCFS2_UUID_STR_LEN	(OCFS2_VOL_UUID_LEN * 2)
 
 struct mountpoint {
 	struct list_head	mp_list;
@@ -40,7 +43,7 @@ struct mountgroup {
 	struct cgroup		*mg_group;
 	int			mg_leave_on_join;
 
-	char			mg_uuid[OCFS2_VOL_UUID_LEN + 1];
+	char			mg_uuid[OCFS2_UUID_STR_LEN + 1];
 	char			mg_device[PATH_MAX + 1];
 
 	struct list_head	mg_mountpoints;
@@ -120,7 +123,7 @@ static struct mountgroup *create_mg(const char *uuid, const char *device)
 {
 	struct mountgroup *mg = NULL;
 
-	if (strlen(uuid) > OCFS2_VOL_UUID_LEN) {
+	if (strlen(uuid) > OCFS2_UUID_STR_LEN) {
 		log_error("uuid too long!");
 		goto out;
 	}
@@ -468,7 +471,7 @@ int start_mount(int ci, int fd, const char *uuid, const char *device,
 	log_debug("start_mount: uuid \"%s\", device \"%s\", mountpoint \"%s\"",
 		  uuid, device, mountpoint);
 
-	if (strlen(uuid) > OCFS2_VOL_UUID_LEN) {
+	if (strlen(uuid) > OCFS2_UUID_STR_LEN) {
 		fill_error(mg, ENAMETOOLONG, "UUID too long: %s", uuid);
 		goto out;
 	}
@@ -578,7 +581,7 @@ int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
 		goto out;
 	}
 
-	if (strlen(uuid) > OCFS2_VOL_UUID_LEN) {
+	if (strlen(uuid) > OCFS2_UUID_STR_LEN) {
 		fill_error(mg, EINVAL,
 			   "UUID too long: %s", uuid);
 		goto out;
@@ -675,7 +678,7 @@ int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint)
 	log_debug("remove_mount: uuid \"%s\", mountpoint \"%s\"",
 		  uuid, mountpoint);
 
-	if (strlen(uuid) > OCFS2_VOL_UUID_LEN) {
+	if (strlen(uuid) > OCFS2_UUID_STR_LEN) {
 		fill_error(&mg_error, ENAMETOOLONG, "UUID too long: %s",
 			   uuid);
 		goto out;
