@@ -41,6 +41,9 @@ void get_incompat_flag(uint32_t flag, GString *str)
 	if (flag & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
 		g_string_append(str, "Sparse ");
 
+	if (flag & OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
+		g_string_append(str, "ExtendedSlotMap ");
+
 	if (flag & OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG) {
 		g_string_append(str, "AbortedTunefs ");
 	}
@@ -49,6 +52,7 @@ void get_incompat_flag(uint32_t flag, GString *str)
 		     OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG |
 		     OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT |
 		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
+		     OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP |
 		     OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG))
 		g_string_append(str, "Unknown ");
 
