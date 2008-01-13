@@ -14,6 +14,7 @@ LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
+LIBCPG_LIBS = $(CPG_LDFLAGS) -lcpg
 
 ifdef OCFS2_DEBUG
 OPTS += -ggdb
@@ -29,7 +30,7 @@ DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
 
 UNINST_HFILES = ocfs2_controld.h
 
-DAEMON_CFILES = main.c cman.c
+DAEMON_CFILES = main.c cman.c cpg.c
 TEST_CFILES = test_client.c
 
 DAEMON_OBJS = $(subst .c,.o,$(DAEMON_CFILES))
@@ -43,7 +44,7 @@ DIST_FILES =				\
 	$(addsuffix .in,$(MANS))
 
 ocfs2_controld.cman: $(DAEMON_OBJS) $(LIBO2CB_DEPS)
-	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) -lcman
+	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(LIBCPG_LIBS) -lcman
 
 test_client: $(TEST_OBJS) $(LIBO2CB_DEPS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)

@@ -22,6 +22,7 @@
  *  of the GNU General Public License v.2.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -63,11 +64,6 @@ static struct pollfd *pollfd = NULL;
 static int time_to_die = 0;
 
 static int sigpipe_write_fd;
-static int groupd_fd;
-
-extern struct list_head mounts;
-extern struct list_head withdrawn_mounts;
-int no_withdraw;
 
 char *prog_name;
 int daemon_debug_opt;
@@ -469,12 +465,9 @@ static int loop(void)
 	if (rv < 0)
 		goto out;
 
-#if 0
-	rv = groupd_fd = setup_groupd();
+	rv = setup_cpg();
 	if (rv < 0)
 		goto out;
-	client_add(groupd_fd);
-#endif
 
 	log_debug("setup done");
 
@@ -515,6 +508,9 @@ stop:
 #if 0
 	bail_on_mounts();
 #endif
+
+	exit_cpg();
+	exit_cman();
 
 out:
 	return rv;
@@ -591,7 +587,6 @@ static void print_usage(void)
 	printf("Options:\n");
 	printf("\n");
 	printf("  -D	       Enable debugging code and don't fork\n");
-	printf("  -w	       Disable withdraw\n");
 	printf("  -h	       Print this help, then exit\n");
 	printf("  -V	       Print program version information, then exit\n");
 }
@@ -605,10 +600,6 @@ static void decode_arguments(int argc, char **argv)
 		optchar = getopt(argc, argv, OPTION_STRING);
 
 		switch (optchar) {
-
-		case 'w':
-			no_withdraw = 1;
-			break;
 
 		case 'D':
 			daemon_debug_opt = 1;

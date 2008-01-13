@@ -25,15 +25,17 @@
 #ifndef __OCFS2_CONTROLD_H
 #define __OCFS2_CONTROLD_H
 
-
 #define DUMP_SIZE			(1024 * 1024)
 
+
 extern char *prog_name;
+extern struct list_head mounts;
 extern int daemon_debug_opt;
 extern char daemon_debug_buf[1024];
 extern char dump_buf[DUMP_SIZE];
 extern int dump_point;
 extern int dump_wrap;
+extern int our_nodeid;
 
 extern void daemon_dump_save(void);
 
@@ -67,5 +69,10 @@ void shutdown_daemon(void);
 
 int setup_cman(void);
 char *nodeid2name(int nodeid);
+int kill_cman(int nodeid);
+void exit_cman(void);
+
+int setup_cpg(void);
+void exit_cpg(void);
 
 #endif

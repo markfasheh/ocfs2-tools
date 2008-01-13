@@ -22,6 +22,7 @@
  *  of the GNU General Public License v.2.
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
@@ -40,12 +41,18 @@ int			cman_ci;
 char *			clustername;
 cman_cluster_t		cluster;
 static cman_handle_t	ch;
+static cman_handle_t	ch_admin;
 extern struct list_head mounts;
 static cman_node_t      old_nodes[O2NM_MAX_NODES];
 static int              old_node_count;
 static cman_node_t      cman_nodes[O2NM_MAX_NODES];
 static int              cman_node_count;
 
+
+int kill_cman(int nodeid)
+{
+	return cman_kill_node(ch_admin, nodeid);
+}
 
 static int is_member(cman_node_t *node_list, int count, int nodeid)
 {
@@ -147,7 +154,7 @@ static void cman_callback(cman_handle_t h, void *private, int reason, int arg)
 	}
 }
 
-static void exit_cman(int ci)
+static void dead_cman(int ci)
 {
 	if (ci != cman_ci) {
 		log_error("Unknown connection %d", ci);
@@ -183,7 +190,15 @@ int setup_cman(void)
 	ch = cman_init(NULL);
 	if (!ch) {
 		log_error("cman_init error %d", errno);
-		return -ENOTCONN;
+		rv = -ENOTCONN;
+		goto fail_finish;
+	}
+
+	ch_admin = cman_admin_init(NULL);
+	if (!ch) {
+		log_error("cman_admin_init error %d", errno);
+		rv = -ENOTCONN;
+		goto fail_finish;
 	}
 
 	rv = cman_start_notification(ch, cman_callback);
@@ -220,13 +235,27 @@ int setup_cman(void)
 	/* Fill the node list */
 	statechange();
 
-	cman_ci = client_add(fd, process_cman, exit_cman);
+	cman_ci = client_add(fd, process_cman, dead_cman);
 	return 0;
 
  fail_stop:
 	cman_stop_notification(ch);
  fail_finish:
-	cman_finish(ch);
+	if (ch_admin)
+		cman_finish(ch_admin);
+	if (ch)
+		cman_finish(ch);
+	ch = ch_admin = NULL;
 	return rv;
 }
 
+void exit_cman(void)
+{
+	if (ch_admin)
+		cman_finish(ch_admin);
+	if (ch) {
+		log_debug("closing cman connection");
+		cman_stop_notification(ch);
+		cman_finish(ch);
+	}
+}
