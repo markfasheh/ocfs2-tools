@@ -51,9 +51,6 @@ struct mountgroup {
 	int			mg_mount_fd;
 	int			mg_mount_notified;
 
-	/* Interaction with cpg.c */
-	struct cgroup		*mg_cg;
-
 	int			mg_error;
 	char			mg_error_msg[128];
 };
@@ -224,7 +221,11 @@ static void remove_mountpoint(struct mountgroup *mg,
 		if (mg->mg_group) {
 			log_debug("calling LEAVE for group %s",
 				  mg->mg_uuid);
-			/* XXX leave the group */
+			if (group_leave(mg->mg_group)) {
+				log_error("Unable to leave group %s",
+					  mg->mg_uuid);
+				/* XXX what to do?  finalize?  Shutdown? */
+			}
 		} else {
 			/*
 			 * Join is in progress, let's leave when we get
@@ -236,37 +237,6 @@ static void remove_mountpoint(struct mountgroup *mg,
 		}
 	} else
 		free(mp);
-}
-
-void hack_leave(char *uuid)
-{
-	struct mountgroup *mg;
-	struct mountpoint *mp;
-
-	mg = find_mg_by_uuid(uuid);
-	if (!mg) {
-		log_error("Unable to find mg for \"%s\"", uuid);
-		return;
-	}
-
-	if (!list_empty(&mg->mg_mountpoints))
-		return;
-
-	mp = mg->mg_mp_in_progress;
-	if (!mp) {
-		log_error("No mp in progress for \"%s\"", uuid);
-		return;
-	}
-
-	if (!mg->mg_leave_on_join) {
-		log_error("leave_on_join not set on \"%s\"", uuid);
-		return;
-	}
-
-	log_debug("leaving group %s", uuid);
-	free(mp);
-	list_del(&mg->mg_list);
-	free(mg);
 }
 
 static void add_mountpoint(struct mountgroup *mg, const char *device,
@@ -331,9 +301,9 @@ static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 {
 	struct mountpoint *mp;
 
-	if (mg->mg_cg) {
+	if (mg->mg_group) {
 		log_error("cgroup passed, but one already exists! (mg %s, existing %p, new %p)",
-			  mg->mg_uuid, mg->mg_cg, cg);
+			  mg->mg_uuid, mg->mg_group, cg);
 		return;
 	}
 
@@ -346,7 +316,11 @@ static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 
 	if (list_empty(&mp->mp_list)) {
 		if (mg->mg_leave_on_join) {
-			/* XXX Start leave */
+			if (group_leave(cg)) {
+				log_error("Unable to leave group %s",
+					  mg->mg_uuid);
+				/* XXX What to do? */
+			}
 		} else {
 			log_error("mountgroup %s is in the process of leaving, not joining",
 				  mg->mg_uuid);
@@ -360,34 +334,71 @@ static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 	}
 
 	/* Ok, we've successfully joined the group */
-	mg->mg_cg = cg;
+	mg->mg_group = cg;
 	notify_mount_client(mg);
+}
+
+static void mount_node_down(int nodeid, void *user_data)
+{
+	struct mountgroup *mg = user_data;
+
+	log_debug("Node %d has left mountgroup %s", nodeid, mg->mg_uuid);
+
+	/* XXX Write to sysfs */
+}
+
+static void force_node_down(int nodeid, void *user_data)
+{
+	struct mountgroup *mg = user_data;
+
+	log_error("Forcing node %d down in group %s", nodeid, mg->mg_uuid);
+	mount_node_down(nodeid, mg);
 }
 
 static void finish_leave(struct mountgroup *mg)
 {
+	struct list_head *p, *n;
+	struct mountpoint *mp;
+
 	if (list_empty(&mg->mg_mountpoints) &&
 	    mg->mg_mp_in_progress) {
 		/* We're done */
 		notify_mount_client(mg);
 
 		/* This is possible due to leave_on_join */
-		if (!mg->mg_cg)
-			log_debug("mg_cg was NULL");
+		if (!mg->mg_group)
+			log_debug("mg_group was NULL");
 
 		free(mg->mg_mp_in_progress);
-		list_del(&mg->mg_list);
-		free(mg);
-		return;
+		goto out;
 	}
 
 	/* This leave is unexpected */
 
 	log_error("Unexpected leave of group %s", mg->mg_uuid);
-	if (!mg->mg_cg)
-		log_error("No mg_cg for group %s", mg->mg_uuid);
+	if (mg->mg_group)
+		for_each_node(mg->mg_group, force_node_down, mg);
+	else
+		log_error("No mg_group for group %s", mg->mg_uuid);
 
-	/* XXX Do dire things */
+	list_for_each_safe(p, n, &mg->mg_mountpoints) {
+		mp = list_entry(p, struct mountpoint, mp_list);
+		list_del(&mp->mp_list);
+		/* The in-progress mp may or may not be on the list */
+		if (mp != mg->mg_mp_in_progress)
+			free(mp);
+	}
+	/* So free the in-progress mp last */
+	if (mg->mg_mp_in_progress)
+		free(mg->mg_mp_in_progress);
+
+	/* If we had a client attached, let it know we died */
+	if (mg->mg_mount_ci != -1)
+		connection_dead(mg->mg_mount_ci);
+
+out:
+	list_del(&mg->mg_list);
+	free(mg);
 }
 
 /*
@@ -397,20 +408,20 @@ static void finish_leave(struct mountgroup *mg)
  * 1) We've asked to join a group for a new filesystem.
  *    - mg_mp_in_progress != NULL
  *    - length(mg_mountpoints) == 1
- *    - mg_cg == NULL
+ *    - mg_group == NULL
  *
  *    cg will be our now-joined group.
  *
  * 2) We've asked to leave a group upon the last unmount of a filesystem.
  *   - mg_mp_in_progress != NULL
  *   - mg_mountpoints is empty
- *   - mg_cg is only NULL if we had to set leave_on_join.
+ *   - mg_group is only NULL if we had to set leave_on_join.
  *
  *   cg is NULL.  We should complete our leave.
  *
  * 3) We've dropped out of the group unexpectedly.
  *   - mg_mountpoints is not empty.
- *   - mg_cg != NULL
+ *   - mg_group != NULL
  *
  *   cg is NULL.  We should basically crash.  This usually is handled by
  *   closing our sysfs fd.
@@ -425,13 +436,24 @@ static void mount_set_group(struct cgroup *cg, void *user_data)
 		finish_leave(mg);
 }
 
-static void mount_node_down(int nodeid, void *user_data)
+/*
+ * THIS FUNCTION CAUSES PROBLEMS.
+ *
+ * bail_on_mounts() is called when we are forced to exit via a signal or
+ * cman dying on us.  As such, it tells ocfs2 that nodes are down but
+ * not communicate with cman or cpg.  This can cause ocfs2 to self-fence or
+ * cman to go nuts.  But hey, if you SIGKILL the daemon, you get what you
+ * pay for.
+ */
+void bail_on_mounts(void)
 {
-	struct mountgroup *mg = user_data;
+	struct list_head *p, *n;
+	struct mountgroup *mg;
 
-	log_debug("Node %d has left mountgroup %s", nodeid, mg->mg_uuid);
-
-	/* XXX Write to sysfs */
+	list_for_each_safe(p, n, &mounts) {
+		mg = list_entry(p, struct mountgroup, mg_list);
+		finish_leave(mg);
+	}
 }
 
 int start_mount(int ci, int fd, const char *uuid, const char *device,
@@ -481,7 +503,7 @@ int start_mount(int ci, int fd, const char *uuid, const char *device,
 			   mg->mg_uuid);
 
 		/*
-		 * Because we never started a join, mg->mg_cg is NULL.
+		 * Because we never started a join, mg->mg_group is NULL.
 		 * remove_mountpoint() will set up for leave_on_join, but
 		 * that actually never happens.  Thus, it is safe to
 		 * clear mp_in_progress.
@@ -661,7 +683,8 @@ int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint)
 
 	mg = find_mg_by_uuid(uuid);
 	if (!mg) {
-		fill_error(&mg_error, ENOENT, "Unknown filesystem %s",
+		fill_error(&mg_error, ENOENT,
+			   "Filesystem %s is unknown or not mounted anywhere",
 			   uuid);
 		goto out;
 	}

@@ -418,8 +418,6 @@ static void process_client(int ci)
 
 		case CM_UNMOUNT:
 		rv = do_unmount(ci, fd, argv[0], argv[1], argv[2]);
-		if (!rv)
-			hack_leave(argv[1]);
 		break;
 
 		case CM_STATUS:
@@ -447,28 +445,6 @@ static void process_client(int ci)
 
 	return;
 }
-
-#if 0
-/*
- * THIS FUNCTION CAUSES PROBLEMS.
- *
- * bail_on_mounts() is called when we are forced to exit via a signal or
- * cman dying on us.  As such, it removes regions from o2cb but does
- * not communicate with cman.  This can cause o2cb to self-fence or cman
- * to go nuts.  But hey, if you SIGKILL the daemon, you get what you pay
- * for.
- */
-static void bail_on_mounts(void)
-{
-	struct list_head *p, *t;
-	struct mountgroup *mg;
-
-	list_for_each_safe(p, t, &mounts) {
-		mg = list_entry(p, struct mountgroup, list);
-		clean_up_mountgroup(mg);
-	}
-}
-#endif
 
 static void process_listener(int ci)
 {
@@ -572,9 +548,7 @@ stop:
 	if (!rv && have_mounts())
 		rv = 1;
 
-#if 0
 	bail_on_mounts();
-#endif
 
 	exit_cpg();
 	exit_cman();

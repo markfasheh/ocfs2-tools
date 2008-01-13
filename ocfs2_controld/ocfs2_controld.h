@@ -78,6 +78,7 @@ int group_join(const char *name,
 	       void (*set_cgroup)(struct cgroup *cg, void *user_data),
 	       void (*node_down)(int nodeid, void *user_data),
 	       void *user_data);
+int group_leave(struct cgroup *cg);
 
 /* mount.c */
 void init_mounts(void);
@@ -88,7 +89,6 @@ int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
 		   const char *mountpoint);
 int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint);
 void dead_mounter(int ci, int fd);
+void bail_on_mounts(void);
 
-/* This is a hack to test umount until cpg leave happens */
-void hack_leave(char *uuid);
 #endif

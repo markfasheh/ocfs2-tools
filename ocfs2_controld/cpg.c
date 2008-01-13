@@ -221,11 +221,43 @@ static void handle_node_join(struct cpg_address *addr,
 					   cg->cg_cb_member_count,
 					   push_node_on_join,
 					   cg);
+			cg->cg_joined = 1;
 			cg->cg_set_cgroup(cg, cg->cg_user_data);
 		}
 	} else
 		push_node(cg, addr->nodeid);
 
+}
+
+static void pop_nodes_on_leave(struct cpg_address *addr, void *user_data)
+{
+	struct cgroup *cg = user_data;
+
+	pop_node(cg, addr->nodeid);
+}
+
+static void finalize_group(struct cgroup *cg)
+{
+	/* First, tell our mounter */
+	cg->cg_set_cgroup(NULL, cg->cg_user_data);
+
+	for_each_node_list(cg->cg_members, cg->cg_member_count,
+			   pop_nodes_on_leave, cg);
+	/* We're not in members anymore */
+	pop_node(cg, our_nodeid);
+
+	if (cg->cg_node_count)
+		log_error("node count is not zero on group %.*s!",
+			  cg->cg_name.length, cg->cg_name.value);
+	if (!list_empty(&cg->cg_nodes))
+		log_error("node list is not empty on group %.*s!",
+			  cg->cg_name.length, cg->cg_name.value);
+
+	cpg_finalize(cg->cg_handle);
+	connection_dead(cg->cg_ci);
+
+	list_del(&cg->cg_list);
+	free(cg);
 }
 
 static void handle_node_leave(struct cpg_address *addr,
@@ -238,7 +270,10 @@ static void handle_node_leave(struct cpg_address *addr,
 			log_debug("Node %d leaves group %.*s",
 				  addr->nodeid, cg->cg_name.length,
 				  cg->cg_name.value);
-			pop_node(cg, addr->nodeid);
+			if (addr->nodeid == our_nodeid)
+				finalize_group(cg);
+			else
+				pop_node(cg, addr->nodeid);
 			break;
 
 		case CPG_REASON_NODEDOWN:
@@ -520,15 +555,20 @@ static void process_cpg(int ci)
 
 static void dead_cpg(int ci)
 {
+	struct cgroup *cg;
+
 	if (ci == daemon_group.cg_ci) {
 		log_error("cpg connection died");
 		shutdown_daemon();
 
 		/* We can't talk to cpg anymore */
 		daemon_group.cg_handle = 0;
+		connection_dead(ci);
+	} else {
+		cg = client_to_group(ci);
+		if (cg)
+			finalize_group(cg);
 	}
-
-	connection_dead(ci);
 }
 
 static int start_join(struct cgroup *cg)
@@ -549,6 +589,44 @@ static int start_join(struct cgroup *cg)
 
 	return error;
 }
+
+static int start_leave(struct cgroup *cg)
+{
+	int i;
+	cpg_error_t error;
+
+	if (!cg->cg_handle)
+		return -EINVAL;
+
+	log_debug("leaving group %.*s", cg->cg_name.length,
+		  cg->cg_name.value);
+
+	for (i = 0; i < 10; i++) {
+		error = cpg_leave(cg->cg_handle,
+				  &cg->cg_name);
+		if (error == CPG_ERR_TRY_AGAIN) {
+			if (!i)
+				log_debug("cpg_leave retry");
+			sleep(1);
+			continue;
+		}
+
+		if (error == CPG_OK)
+			log_debug("cpg_leave succeeded");
+		else
+			log_error("cpg_leave error %d", error);
+
+		break;
+	}
+
+	if (error == CPG_OK)
+		return 0;
+	else if (error == CPG_ERR_TRY_AGAIN)
+		return -EAGAIN;
+	else
+		return -EIO;
+}
+
 
 static int init_group(struct cgroup *cg, const char *name)
 {
@@ -591,6 +669,17 @@ out_finalize:
 
 out:
 	return error;
+}
+
+int group_leave(struct cgroup *cg)
+{
+	if (!cg->cg_joined) {
+		log_error("Unable to leave unjoined group %.*s",
+			  cg->cg_name.length, cg->cg_name.value);
+		return -EINVAL;
+	}
+
+	return start_leave(cg);
 }
 
 int group_join(const char *name,
@@ -637,29 +726,10 @@ int setup_cpg(void)
 
 void exit_cpg(void)
 {
-	int i;
-	cpg_error_t error;
-
 	if (!daemon_group.cg_handle)
 		return;
 
-	for (i = 0; i < 10; i++) {
-		error = cpg_leave(daemon_group.cg_handle,
-				  &daemon_group.cg_name);
-		if (error == CPG_ERR_TRY_AGAIN) {
-			if (!i)
-				log_debug("cpg_leave retry");
-			sleep(1);
-			continue;
-		}
-
-		if (error == CPG_OK)
-			log_debug("cpg_leave succeeded");
-		else
-			log_error("cpg_leave error %d", error);
-
-		break;
-	}
+	start_leave(&daemon_group);
 
 	log_debug("closing cpg connection");
 	cpg_finalize(daemon_group.cg_handle);
