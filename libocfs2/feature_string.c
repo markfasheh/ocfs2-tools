@@ -73,6 +73,11 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
 		 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},
 	},
 	{
+		"extended-slotmap",
+		{0, OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP, 0},
+		{0, OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP, 0},
+	},
+	{
 		NULL,
 		{0, 0, 0},
 		{0, 0, 0}

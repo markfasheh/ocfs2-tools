@@ -552,14 +552,23 @@ errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs, ocfs2_cached_inode *ci);
 
 /* Low level */
 void ocfs2_swap_slot_map(struct ocfs2_slot_map *sm, int num_slots);
+void ocfs2_swap_slot_map_extended(struct ocfs2_slot_map_extended *se,
+				  int num_slots);
 errcode_t ocfs2_read_slot_map(ocfs2_filesys *fs,
 			      int num_slots,
 			      struct ocfs2_slot_map **map_ret);
+errcode_t ocfs2_read_slot_map_extended(ocfs2_filesys *fs,
+				       int num_slots,
+				       struct ocfs2_slot_map_extended **map_ret);
 errcode_t ocfs2_write_slot_map(ocfs2_filesys *fs,
 			       int num_slots,
 			       struct ocfs2_slot_map *sm);
+errcode_t ocfs2_write_slot_map_extended(ocfs2_filesys *fs,
+					int num_slots,
+					struct ocfs2_slot_map_extended *se);
 
 /* High level */
+errcode_t ocfs2_format_slot_map(ocfs2_filesys *fs);
 errcode_t ocfs2_load_slot_map(ocfs2_filesys *fs,
 			      struct ocfs2_slot_map_data **data_ret);
 errcode_t ocfs2_store_slot_map(ocfs2_filesys *fs,
@@ -757,6 +766,14 @@ static inline int ocfs2_writes_unwritten_extents(struct ocfs2_super_block *osb)
 		return 1;
 	return 0;
 }
+
+static inline int ocfs2_uses_extended_slot_map(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
+		return 1;
+	return 0;
+}
+
 
 /*
  * shamelessly lifted from the kernel
