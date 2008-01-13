@@ -52,6 +52,7 @@
 
 errcode_t o2cb_init(void);
 
+errcode_t o2cb_get_stack_name(const char **name);
 errcode_t o2cb_create_cluster(const char *cluster_name);
 errcode_t o2cb_remove_cluster(const char *cluster_name);
 
@@ -80,7 +81,7 @@ struct o2cb_region_desc {
 /* Expected use case for the region descriptor is to allocate it on
  * the stack and completely fill it before calling
  * begin_group_join().  Regular programs (not mount.ocfs2) should provide
- * a mountpoint that does not begin with a '/'.  Eg, fsck could use ":fsck"
+ * a mountpoint that does not begin with a '/'.  Eg, fsck could use "fsck"
  */
 errcode_t o2cb_begin_group_join(const char *cluster_name,
 				struct o2cb_region_desc *desc);

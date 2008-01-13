@@ -46,7 +46,99 @@
 #include "o2cb_abi.h"
 #include "o2cb_crc32.h"
 
+#define CLUSTER_STACK_FILE	"/sys/fs/ocfs2/cluster_stack"
+#define OCFS2_STACK_LABEL_LEN	4
+
+
+struct o2cb_group_ops {
+	errcode_t (*begin_group_join)(const char *cluster_name,
+				      struct o2cb_region_desc *desc);
+	errcode_t (*complete_group_join)(const char *cluster_name,
+					 struct o2cb_region_desc *desc,
+					 int error);
+	errcode_t (*group_leave)(const char *cluster_name,
+				 struct o2cb_region_desc *desc);
+};
+
+struct o2cb_stack {
+	char *s_name;
+	struct o2cb_group_ops *s_ops;
+};
+
+static errcode_t classic_begin_group_join(const char *cluster_name,
+					  struct o2cb_region_desc *desc);
+static errcode_t classic_complete_group_join(const char *cluster_name,
+					     struct o2cb_region_desc *desc,
+					     int error);
+static errcode_t classic_group_leave(const char *cluster_name,
+				     struct o2cb_region_desc *desc);
+static struct o2cb_group_ops classic_ops = {
+	.begin_group_join	= classic_begin_group_join,
+	.complete_group_join	= classic_complete_group_join,
+	.group_leave		= classic_group_leave,
+};
+static struct o2cb_stack classic_stack = {
+	.s_name 	= "o2cb",
+	.s_ops		= &classic_ops,
+};
+
+static struct o2cb_stack *current_stack;
+
 static char *configfs_path;
+
+
+static ssize_t read_stack_file(char *line, size_t count)
+{
+	ssize_t ret = 0;
+	FILE *f;
+
+	f = fopen(CLUSTER_STACK_FILE, "r");
+	if (f) {
+		if (fgets(line, count, f))
+			ret = strlen(line);
+		fclose(f);
+	} else
+		ret = -errno;
+
+	return ret;
+}
+
+static errcode_t determine_stack(void)
+{
+	ssize_t len;
+	char line[100];
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+
+	len = read_stack_file(line, sizeof(line));
+	if (len > 0) {
+		if (line[len - 1] == '\n') {
+			line[len - 1] = '\0';
+			len--;
+		}
+
+		if (len != OCFS2_STACK_LABEL_LEN)
+			err = O2CB_ET_INTERNAL_FAILURE;
+		else if (!strcmp(line, classic_stack.s_name)) {
+			current_stack = &classic_stack;
+			err = 0;
+		}
+	} else if (len == -ENOENT) {
+		current_stack = &classic_stack;
+		err = 0;
+	}
+
+	return err;
+}
+
+errcode_t o2cb_get_stack_name(const char **name)
+{
+	if (!current_stack)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	*name = current_stack->s_name;
+	return 0;
+}
+
 
 errcode_t o2cb_create_cluster(const char *cluster_name)
 {
@@ -492,6 +584,10 @@ errcode_t o2cb_init(void)
 	unsigned int module_version;
 	errcode_t err;
 	char revision_string[16];
+
+	err = determine_stack();
+	if (err)
+		return err;
 
 	err = try_file(O2CB_INTERFACE_REVISION_PATH, &fd);
 	if (err == O2CB_ET_SERVICE_UNAVAILABLE)
@@ -998,8 +1094,8 @@ out:
  * to drop the reference taken during startup, otherwise that
  * reference was dropped automatically at process shutdown so there's
  * no need to drop one here. */
-errcode_t o2cb_group_leave(const char *cluster_name,
-			   struct o2cb_region_desc *desc)
+static errcode_t classic_group_leave(const char *cluster_name,
+				     struct o2cb_region_desc *desc)
 {
 	errcode_t ret, up_ret;
 	int hb_refs;
@@ -1049,8 +1145,8 @@ done:
 	return ret;
 }
 
-errcode_t o2cb_begin_group_join(const char *cluster_name,
-				struct o2cb_region_desc *desc)
+static errcode_t classic_begin_group_join(const char *cluster_name,
+					  struct o2cb_region_desc *desc)
 {
 	errcode_t ret, up_ret;
 	int semid;
@@ -1078,9 +1174,9 @@ up:
 	return ret;
 }
 
-errcode_t o2cb_complete_group_join(const char *cluster_name,
-				   struct o2cb_region_desc *desc,
-				   int error)
+static errcode_t classic_complete_group_join(const char *cluster_name,
+					     struct o2cb_region_desc *desc,
+					     int error)
 {
 	errcode_t ret = 0;
 
@@ -1089,6 +1185,66 @@ errcode_t o2cb_complete_group_join(const char *cluster_name,
 
 	return ret;
 }
+
+errcode_t o2cb_begin_group_join(const char *cluster_name,
+				struct o2cb_region_desc *desc)
+{
+	errcode_t err;
+	char _fake_cluster_name[NAME_MAX];
+
+	if (!current_stack)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	if (!cluster_name) {
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
+		cluster_name = _fake_cluster_name;
+	}
+
+	return current_stack->s_ops->begin_group_join(cluster_name, desc);
+}
+
+errcode_t o2cb_complete_group_join(const char *cluster_name,
+				   struct o2cb_region_desc *desc,
+				   int error)
+{
+	errcode_t err;
+	char _fake_cluster_name[NAME_MAX];
+
+	if (!current_stack)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	if (!cluster_name) {
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
+		cluster_name = _fake_cluster_name;
+	}
+
+	return current_stack->s_ops->complete_group_join(cluster_name,
+							 desc, error);
+}
+
+errcode_t o2cb_group_leave(const char *cluster_name,
+			   struct o2cb_region_desc *desc)
+{
+	errcode_t err;
+	char _fake_cluster_name[NAME_MAX];
+
+	if (!current_stack)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	if (!cluster_name) {
+		err = _fake_default_cluster(_fake_cluster_name);
+		if (err)
+			return err;
+		cluster_name = _fake_cluster_name;
+	}
+
+	return current_stack->s_ops->group_leave(cluster_name, desc);
+}
+
 
 static inline int is_dots(const char *name)
 {

@@ -302,7 +302,7 @@ int main(int argc, char **argv)
 	if (clustered) {
 		ret = o2cb_init();
 		if (ret) {
-			com_err(progname, ret, "Cannot initialize cluster");
+			com_err(progname, ret, "while trying initialize cluster");
 			goto bail;
 		}
 
