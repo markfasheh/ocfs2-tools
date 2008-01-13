@@ -20,7 +20,15 @@ DEFINES = -DVERSION=\"$(VERSION)\"
 
 MANS = tunefs.ocfs2.8
 
-CFILES = tunefs.c query.c remove_slot.c sparse_file.c features.c resize.c
+CFILES =		\
+      tunefs.c		\
+	query.c		\
+	remove_slot.c	\
+	sparse_file.c	\
+	features.c	\
+	resize.c	\
+	format_slotmap.c
+
 HFILES = tunefs.h
 
 OBJS = $(subst .c,.o,$(CFILES))

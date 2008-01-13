@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * tune.c
  *
  * ocfs2 tune utility
@@ -854,18 +856,25 @@ static void update_mount_type(ocfs2_filesys *fs, int *changed)
 static errcode_t update_slots(ocfs2_filesys *fs, int *changed)
 {
 	errcode_t ret = 0;
+	int orig_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 
 	block_signals(SIG_BLOCK);
-	if (opts.num_slots > OCFS2_RAW_SB(fs->fs_super)->s_max_slots)
+	if (opts.num_slots > orig_slots)
 		ret = add_slots(fs);
 	else
 		ret = remove_slots(fs);
-	block_signals(SIG_UNBLOCK);
 	if (ret)
-		return ret;
+		goto unblock;
 
 	OCFS2_RAW_SB(fs->fs_super)->s_max_slots = opts.num_slots;
-	*changed = 1;
+	ret = ocfs2_format_slot_map(fs);
+	if (!ret)
+		*changed = 1;
+	else
+		OCFS2_RAW_SB(fs->fs_super)->s_max_slots = orig_slots;
+
+unblock:
+	block_signals(SIG_UNBLOCK);
 
 	return ret;
 }

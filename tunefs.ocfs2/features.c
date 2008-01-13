@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * features.c
  *
  * source file for adding or removing features for tunefs.
@@ -33,8 +35,10 @@ extern ocfs2_tune_opts opts;
 #define TUNEFS_COMPAT_CLEAR	0
 #define TUNEFS_RO_COMPAT_SET	OCFS2_FEATURE_RO_COMPAT_UNWRITTEN
 #define TUNEFS_RO_COMPAT_CLEAR	OCFS2_FEATURE_RO_COMPAT_UNWRITTEN
-#define TUNEFS_INCOMPAT_SET	OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC
-#define TUNEFS_INCOMPAT_CLEAR	OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC
+#define TUNEFS_INCOMPAT_SET	(OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC | \
+				 OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
+#define TUNEFS_INCOMPAT_CLEAR	(OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC | \
+				 OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
 
 /*
  * Check whether we can add or remove a feature.
@@ -140,6 +144,10 @@ errcode_t update_feature(ocfs2_filesys *fs)
 
 	if (opts.set_feature.ro_compat & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
 		set_unwritten_extents_flag(fs);
+
+	if ((opts.set_feature.incompat | opts.clear_feature.incompat) &
+	    OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
+		ret = reformat_slot_map(fs);
 
 bail:
 	return ret;
