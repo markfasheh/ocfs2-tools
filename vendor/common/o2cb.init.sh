@@ -653,7 +653,7 @@ status_filesystem()
 
 status_daemon()
 {
-    DAEMON="/sbin/ocfs2_controld_${O2CB_STACK}"
+    DAEMON="/sbin/ocfs2_controld.${O2CB_STACK}"
     echo -n "Checking for control daemon: "
     if [ -n "$(pidofproc "$DAEMON")" ]
     then
@@ -663,6 +663,60 @@ status_daemon()
         echo "not running"
         return 1
     fi
+}
+
+bringup_daemon()
+{
+    DAEMON="/sbin/ocfs2_controld.${O2CB_STACK}"
+    echo -n "Starting $(basename "$DAEMON"): "
+    start_daemon "$DAEMON"
+    [ $? != 0 ] && return 1
+
+    COUNT=0
+    while [ -z "$(pidofproc "$DAEMON")" ]
+    do
+        COUNT="$(expr "$COUNT" + 1)"
+        if [ "$COUNT" -gt "$BRINGUP_TIMEOUT" ]
+        then
+            return 1
+        fi
+        sleep 1
+    done
+
+    return 0
+}
+
+kill_daemon()
+{
+    SIGNAL="$1"
+    DAEMON="/sbin/ocfs2_controld.${O2CB_STACK}"
+
+    status_daemon >/dev/null 2>&1 || return 2
+
+    PID="$(pidofproc "$DAEMON")"
+
+    echo -n "Stopping $(basename "$DAEMON"): "
+    killproc "$DAEMON" $SIGNAL
+
+    TRIED=
+    while :
+    do
+        NEWPID="$(pidofproc "$DAEMON")"
+        if [ -z "$NEWPID" -o "$NEWPID" != "$PID" ]
+        then
+            echo "Stopped"
+            return
+        fi
+
+        [ -n "$TRIED" ] && break
+        TRIED=t
+
+        # Give it one chance to exit
+        sleep 1
+    done
+
+    echo "Failed"
+    return 1
 }
 
 #
@@ -895,9 +949,6 @@ load_stack_user()
         [ "$?" != 0 ] && if_fail 1 "Unable to load module \"$PLUGIN_MODULE\""
         if_fail 0
     fi
-
-    load_filesystem "ocfs2"
-    if_fail $? "Unable to load ocfs2 driver"
 }
 
 #
@@ -972,9 +1023,6 @@ unload_stack_user()
         echo "Unable to unload modules as the cluster is still online" >&2
         exit 1
     fi
-
-    unload_filesystem "ocfs2"
-    if_fail $?
 
     unload_stack_plugins
 }
@@ -1146,19 +1194,36 @@ online_o2cb()
     if_fail "$?" "$OUTPUT"
 }
 
+online_user()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "online_user(): Requires an argument" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+
+    load_filesystem "ocfs2"
+    if_fail $? "Unable to load ocfs2 driver"
+
+    bringup_daemon
+    if_fail $? "Unable to start control daemon"
+}
+
 online()
 {
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
     if [ -z "$CLUSTER" ]
     then
-        echo "O2CB cluster not known"
+        echo "Cluster not known"
         return
     fi
+    PLUGIN="$(select_stack_plugin)"
 
     check_online $CLUSTER
     if [ $? = 2 ]
     then
-        echo "O2CB cluster ${CLUSTER} already online"
+        echo "Cluster ${CLUSTER} already online"
         return
     fi
 
@@ -1173,15 +1238,15 @@ online()
         if_fail 1 "Stack \"$O2CB_STACK\" is not supported"
     fi
 
-    online_o2cb "$CLUSTER"
+    online_$PLUGIN "$CLUSTER"
 }
 
 #
-# check_online()
+# check_online_o2cb()
 #
 # 0 is not online, 1 is error, 2 is online
 #
-check_online()
+check_online_o2cb()
 {
     if [ "$#" -lt "1" -o -z "$1" ]
     then
@@ -1209,6 +1274,33 @@ check_online()
     return $RC
 }
 
+#
+# check_online_user()
+#
+# 0 is not online, 1 is error, 2 is online
+#
+check_online_user()
+{
+    if status_daemon >/dev/null 2>&1
+    then
+        return 2
+    else
+        return 1
+    fi
+}
+
+#
+# check_online()
+#
+# 0 is not online, 1 is error, 2 is online
+#
+check_online()
+{
+    PLUGIN="$(select_stack_plugin)"
+
+    check_online_$PLUGIN $1
+}
+
 offline_o2cb()
 {
     if [ "$#" -lt "2" -o -z "$1" -o -z "$2" ]
@@ -1218,6 +1310,11 @@ offline_o2cb()
     fi
     CLUSTER="$1"
     FORCE="$2"
+
+    if [ ! -e "$(configfs_path)/cluster/${CLUSTER}" ]
+    then
+        return
+    fi
 
     clean_heartbeat $CLUSTER
 
@@ -1230,7 +1327,7 @@ offline_o2cb()
         exit 1
     fi
 
-    if [ $FORCE -eq 1 ]
+    if [ "$FORCE" -eq 1 ]
     then
         clean_cluster $CLUSTER
         if_fail "$?" "Unable to force-offline cluster $CLUSTER" >&2
@@ -1240,6 +1337,20 @@ offline_o2cb()
     fi
 }
 
+offline_user()
+{
+    if [ "$#" -lt "2" -o -z "$1" -o -z "$2" ]
+    then
+        echo "offline_user(): Missing arguments" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+    FORCE="$2"
+
+    kill_daemon
+    [ $? = 1 -a "$FORCE" -eq 1 ] && kill_daemon -9
+}
+
 offline()
 {
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
@@ -1247,6 +1358,7 @@ offline()
     then
         return
     fi
+    PLUGIN="$(select_stack_plugin)"
 
     if [ $# -gt 1 ]
     then
@@ -1255,14 +1367,9 @@ offline()
         FORCE=0
     fi
 
-    if [ ! -e "$(configfs_path)/cluster/${CLUSTER}" ]
-    then
-        return
-    fi
+    offline_$PLUGIN "$CLUSTER" "$FORCE"
 
-    offline_o2cb "$CLUSTER" "$FORCE"
-
-    unload_module ocfs2
+    unload_filesystem "ocfs2"
     if_fail "$?"
 }
 
@@ -1306,18 +1413,17 @@ configure()
     fi
 }
 
-status()
+online_status_o2cb()
 {
-    load_status
-
-    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
-    if [ -z "$CLUSTER" ]
+    if [ "$#" -lt "1" -o -z "$1" ]
     then
-        return 1;
+        echo "online_status_o2cb(): Missing arguments" >&2
+        return 1
     fi
+    CLUSTER="$1"
 
     echo -n "Checking O2CB cluster $CLUSTER: "
-    check_online $CLUSTER
+    check_online_o2cb $CLUSTER
     if [ $? = 2 ]
     then
        echo "Online"
@@ -1338,7 +1444,37 @@ status()
         return 0;
     fi
 
-    return
+}
+
+online_status_user()
+{
+    status_daemon
+}
+
+online_status()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "online_status(): Missing arguments" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+    PLUGIN="$(select_stack_plugin)"
+
+    online_status_$PLUGIN "$CLUSTER"
+}
+
+status()
+{
+    load_status
+
+    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
+    if [ -z "$CLUSTER" ]
+    then
+        return 1;
+    fi
+
+    online_status "$CLUSTER"
 }
 
 
