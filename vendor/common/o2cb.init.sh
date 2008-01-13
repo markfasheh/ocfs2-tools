@@ -18,7 +18,19 @@
 # Force LC_ALL=C
 export LC_ALL=C
 
+# Let's try to use the LSB functions
+. /lib/lsb/init-functions
+if [ $? != 0 ]
+then
+    echo "Unable to load LSB init functions" >&2
+    exit 1
+fi
+
 CLUSTERCONF=/etc/ocfs2/cluster.conf
+
+OCFS2_SYS_DIR="/sys/fs/ocfs2"
+LOADED_PLUGINS_FILE="${OCFS2_SYS_DIR}/loaded_cluster_plugins"
+CLUSTER_STACK_FILE="${OCFS2_SYS_DIR}/cluster_stack"
 
 if [ -f /etc/sysconfig/o2cb ]
 then
@@ -35,6 +47,9 @@ then
 else
     CONFIGURATION=/etc/default/o2cb
 fi
+
+# How long to wait for things to start
+BRINGUP_TIMEOUT=5
 
 # The default values should always be in sync with the kernel
 DEF_HEARTBEAT_THRESHOLD=31
@@ -412,14 +427,18 @@ make_dir()
 #
 driver_filesystem()
 {
-    if [ "$#" != "1" -o -z "$1" ]
+    if [ -z "$1" ]
     then
         echo "driver_filesystem(): Missing an argument" >&2
         exit 1
     fi
     FSNAME="$1"
+    PSEUDO="$2"
 
-    FSOUT="`awk '$2 ~ /^'$FSNAME'$/{print $1;exit}' < /proc/filesystems 2>/dev/null`"
+    FSOUT="$(awk '(NF == 1 && $1 ~ /^'$FSNAME'$/) || $2 ~ /^'$FSNAME'$/{
+                      print $1;exit
+                  }' /proc/filesystems 2>/dev/null)"
+
     test -n "$FSOUT"
     return $?
 }
@@ -632,6 +651,20 @@ status_filesystem()
     return 0
 }
 
+status_daemon()
+{
+    DAEMON="/sbin/ocfs2_controld_${O2CB_STACK}"
+    echo -n "Checking for control daemon: "
+    if [ -n "$(pidofproc "$DAEMON")" ]
+    then
+        echo "$DAEMON"
+        return 0
+    else
+        echo "not running"
+        return 1
+    fi
+}
+
 #
 # check_heartbeat()
 #
@@ -753,6 +786,241 @@ clean_cluster()
     return 0
 }
 
+select_stack_plugin()
+{
+    case "$O2CB_STACK" in
+    o2cb)
+        echo o2cb
+        ;;
+    ????)
+        echo user
+        ;;
+    *)
+        echo -n "Checking if cluster stack \"$O2CB_STACK\" is supported: "
+        if_fail 1 "Invalid cluster stack name \"$O2CB_STACK\""
+        ;;
+    esac
+ }
+
+#
+# load_stack_o2cb()
+# Load the o2cb stack.
+#
+# 0 is success, 1 is error, 2 is already loaded
+#
+load_stack_o2cb()
+{
+    PLUGIN="o2cb"
+    PLUGIN_MODULE="ocfs2_stack_${PLUGIN}"
+
+    #
+    # Older drivers don't have stack plugins.  They only support the
+    # classic stack.  It is loaded in ocfs2_nodemanager, which is pulled
+    # in during the load of ocfs2_dlmfs.  Thus, if we are using the classic
+    # stack and cannot load the stack plugin, we silently let the later
+    # code try for older drivers.
+    #
+    # For a newer driver, if ocfs2_stackglue is loaded, we'll see
+    # CLUSTER_STACK_FILE.  Thus, we can determine what mode we're in.
+    #
+    [ ! -e "$CLUSTER_STACK_FILE" ] && \
+        modprobe -s ocfs2_stackglue
+
+    # If we're a newer driver, CLUSTER_STACK_FILE will now appear
+    if [ -e "$CLUSTER_STACK_FILE" ]
+    then
+        SP_OUT="$(awk '/^'$PLUGIN'$/{print; exit}' "$LOADED_PLUGINS_FILE" 2>/dev/null)"
+        if [ -z "$SP_OUT" ]
+        then
+            echo -n "Loading stack plugin \"$PLUGIN\": "
+            modprobe -s "$PLUGIN_MODULE"
+            [ "$?" != 0 ] && if_fail 1 "Unable to load module \"$PLUGIN_MODULE\""
+            if_fail 0
+        fi
+    fi
+
+    mount_filesystem "ocfs2_dlmfs" "/dlm"
+    if_fail $?
+
+    #
+    # This version of ocfs2-tools relies on umount.ocfs2, so we don't need
+    # to call ocfs2_hb_ctl from the kernel.  Given that older drivers may
+    # still want to, we have them just call /bin/true.
+    #
+    echo "/bin/true" >/proc/sys/fs/ocfs2/nm/hb_ctl_path
+    if [ $? != 0 ]
+    then
+        echo -n "Clearing kernel heartbeat control path: "
+        if_fail 1 "Unable to set hb_ctl_path"
+    fi
+
+    return 0
+}
+
+#
+# load_stack_user()
+# Load the userspace stack plugin.
+#
+# 0 is success, 1 is error, 2 is already loaded
+#
+load_stack_user()
+{
+    PLUGIN="user"
+    PLUGIN_MODULE="ocfs2_stack_${PLUGIN}"
+
+    #
+    # Older drivers don't have stack plugins.  They only support the
+    # classic stack.  It is loaded in ocfs2_nodemanager, which is pulled
+    # in during the load of ocfs2_dlmfs.  Thus, if we are using the classic
+    # stack and cannot load the stack plugin, we silently let the later
+    # code try for older drivers.
+    #
+    # For a newer driver, if ocfs2_stackglue is loaded, we'll see
+    # CLUSTER_STACK_FILE.  Thus, we can determine what mode we're in.
+    #
+    [ ! -e "$CLUSTER_STACK_FILE" ] && \
+        modprobe -s ocfs2_stackglue
+
+    if [ ! -e "$CLUSTER_STACK_FILE" ]
+    then
+        echo -n "Checking if stack \"$O2CB_STACK\" is supported: "
+        if_fail 1 "User stack plugin is not supported"
+    fi
+
+    SP_OUT="$(awk '/^'$PLUGIN'$/{print; exit}' "$LOADED_PLUGINS_FILE" 2>/dev/null)"
+    if [ -z "$SP_OUT" ]
+    then
+        echo -n "Loading stack plugin \"$PLUGIN\": "
+        modprobe -s "$PLUGIN_MODULE"
+        [ "$?" != 0 ] && if_fail 1 "Unable to load module \"$PLUGIN_MODULE\""
+        if_fail 0
+    fi
+
+    load_filesystem "ocfs2"
+    if_fail $? "Unable to load ocfs2 driver"
+}
+
+#
+# unload_stack_plugins()
+# Since we can have both plugins unloaded, we just do the same work
+# for all stack types
+#
+unload_stack_plugins()
+{
+    # Whether not loaded or old drivers, if we can't find the stack glue,
+    # we have nothing to do.
+    [ ! -e "$LOADED_PLUGINS_FILE" ] && return 2
+
+    while read plugin
+    do
+        unload_module "ocfs2_stack_${plugin}"
+        if_fail $? "Unable to unload ocfs2_stack_${plugin}"
+    done <"$LOADED_PLUGINS_FILE"
+
+    unload_module "ocfs2_stackglue"
+    if_fail $? "Unable to unload ocfs2_stackglue"
+}
+
+#
+#
+# unload_stack_o2cb()
+# Unload the o2cb stack plugin
+#
+# 0 is success, 1 is error, 2 is not loaded.
+#
+unload_stack_o2cb()
+{
+    PLUGIN="o2cb"
+    PLUGIN_MODULE="ocfs2_stack_${PLUGIN}"
+
+    if [ -d "$(configfs_path)/cluster/" ]
+    then
+        ls -1 $(configfs_path)/cluster/ | while read CLUSTER
+        do
+            if [ ! -L "$(configfs_path)/cluster/${CLUSTER}" -a \
+                 -d "$(configfs_path)/cluster/${CLUSTER}" ]
+            then
+                echo "Unable to unload modules as O2CB cluster ${CLUSTER} is still online" >&2
+                exit 1
+            fi
+        done
+        if [ $? = 1 ]
+        then
+            exit 1
+        fi
+    fi
+
+    unmount_filesystem "ocfs2_dlmfs" "/dlm"
+    if_fail $?
+
+    unload_stack_plugins
+}
+
+#
+# unload_stack_user()
+# Unload the user stack plugin
+#
+# 0 is success, 1 is error, 2 is not loaded.
+#
+unload_stack_user()
+{
+    PLUGIN="$(select_stack_plugin)"
+    PLUGIN_MODULE="ocfs2_stack_${PLUGIN}"
+
+    if status_daemon >/dev/null 2>&1
+    then
+        echo "Unable to unload modules as the cluster is still online" >&2
+        exit 1
+    fi
+
+    unload_filesystem "ocfs2"
+    if_fail $?
+
+    unload_stack_plugins
+}
+
+status_stack_plugin()
+{
+    PLUGIN="$(select_stack_plugin)"
+
+    if [ ! -e "$LOADED_PLUGINS_FILE" ]
+    then
+        # The old stack may be fine here.
+        [ "$PLUGIN" = "o2cb" ] && return
+
+        echo "Stack glue driver: Not loaded"
+        return
+    fi
+    echo "Stack glue driver: Loaded"
+
+    echo -n "Stack plugin \"$PLUGIN\": "
+    if grep "$PLUGIN" "$LOADED_PLUGINS_FILE" >/dev/null 2>&1
+    then
+        echo "Loaded"
+    else
+        echo "Not loaded"
+    fi
+}
+
+status_stack_o2cb()
+{
+    status_stack_plugin
+    status_filesystem "ocfs2_dlmfs" "/dlm"
+}
+
+status_stack_user()
+{
+    status_stack_plugin
+
+    echo -n "Driver for \"ocfs2\": "
+    if driver_filesystem "ocfs2"
+    then
+        echo "Loaded"
+    else
+        echo "Not loaded"
+    fi
+ }
+
 #
 # unload_module()
 # Unload a module
@@ -823,6 +1091,8 @@ check_load_module()
 
 load()
 {
+    PLUGIN="$(select_stack_plugin)"
+
     # XXX: SPECIAL CASE!  We must load configfs for configfs_path() to work
     load_filesystem "configfs"
     if_fail $?
@@ -830,28 +1100,16 @@ load()
     mount_filesystem "configfs" "$(configfs_path)"
     if_fail $?
 
-    mount_filesystem "ocfs2_dlmfs" "/dlm"
-    if_fail $?
-
-    #
-    # This version of ocfs2-tools relies on umount.ocfs2, so we don't need
-    # to call ocfs2_hb_ctl from the kernel.  Given that older drivers may
-    # still want to, we have them just call /bin/true.
-    #
-    echo "/bin/true" >/proc/sys/fs/ocfs2/nm/hb_ctl_path
-    if [ $? != 0 ]
-    then
-        echo -n "Clearing kernel heartbeat control path: "
-        if_fail 1 "Unable to set hb_ctl_path"
-    fi
+    load_stack_$PLUGIN
 
     return 0
 }
 
 load_status()
 {
+    PLUGIN="$(select_stack_plugin)"
     status_filesystem "configfs" "$(configfs_path)"
-    status_filesystem "ocfs2_dlmfs" "/dlm"
+    status_stack_$PLUGIN
 
     return 0
 }
@@ -890,7 +1148,6 @@ online_o2cb()
 
 online()
 {
-    CLUSTER_STACK_FILE="/sys/fs/ocfs2/cluster_stack"
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
     if [ -z "$CLUSTER" ]
     then
@@ -1022,25 +1279,9 @@ start()
 
 unload()
 {
-    if [ -d "$(configfs_path)/cluster/" ]
-    then
-        ls -1 $(configfs_path)/cluster/ | while read CLUSTER
-        do
-            if [ ! -L "$(configfs_path)/cluster/${CLUSTER}" -a \
-                 -d "$(configfs_path)/cluster/${CLUSTER}" ]
-            then
-                echo "Unable to unload modules as O2CB cluster ${CLUSTER} is still online" >&2
-                exit 1
-            fi
-        done
-        if [ $? = 1 ]
-        then
-            exit 1
-        fi
-    fi
+    PLUGIN="$(select_stack_plugin)"
 
-    unmount_filesystem "ocfs2_dlmfs" "/dlm"
-    if_fail $?
+    unload_stack_$PLUGIN
 
     # Only unmount configfs if there are no other users
     if [ -z "$(ls -1 "$(configfs_path)")" ]
