@@ -1,3 +1,4 @@
 .*.sw?
 *.d
 test_client
+ocfs2_controld.cman
