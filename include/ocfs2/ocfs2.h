@@ -183,6 +183,16 @@ struct _ocfs2_cached_inode {
 	ocfs2_bitmap *ci_chains;
 };
 
+struct ocfs2_slot_data {
+	int		sd_valid;
+	unsigned int	sd_node_num;
+};
+
+struct ocfs2_slot_map_data {
+	int			md_num_slots;
+	struct ocfs2_slot_data	*md_slots;
+};
+
 struct _ocfs2_devices {
 	struct list_head list;
 	char dev_name[100];
@@ -195,8 +205,7 @@ struct _ocfs2_devices {
 	uint32_t min_num;		/* minor number of the device */
 	errcode_t errcode;		/* error encountered reading device */
 	void *private;
-	uint16_t max_slots;
-	uint8_t *node_nums;		/* list of mounted nodes */
+	struct ocfs2_slot_map_data *map; /* Mounted nodes, must be freed */
 };
 
 typedef struct _fs_options fs_options;
@@ -541,7 +550,20 @@ errcode_t ocfs2_meta_lock(ocfs2_filesys *fs, ocfs2_cached_inode *inode,
 
 errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs, ocfs2_cached_inode *ci);
 
-void ocfs2_swap_slot_map(int16_t *map, loff_t num_slots);
+/* Low level */
+void ocfs2_swap_slot_map(struct ocfs2_slot_map *sm, int num_slots);
+errcode_t ocfs2_read_slot_map(ocfs2_filesys *fs,
+			      int num_slots,
+			      struct ocfs2_slot_map **map_ret);
+errcode_t ocfs2_write_slot_map(ocfs2_filesys *fs,
+			       int num_slots,
+			       struct ocfs2_slot_map *sm);
+
+/* High level */
+errcode_t ocfs2_load_slot_map(ocfs2_filesys *fs,
+			      struct ocfs2_slot_map_data **data_ret);
+errcode_t ocfs2_store_slot_map(ocfs2_filesys *fs,
+			       struct ocfs2_slot_map_data *md);
 
 enum ocfs2_lock_type ocfs2_get_lock_type(char c);
 

@@ -1235,27 +1235,25 @@ static void do_slotmap (char **args)
 {
 	FILE *out;
 	errcode_t ret;
-	char *buf = NULL;
-	uint32_t len;
+	int num_slots = OCFS2_RAW_SB(gbls.fs->fs_super)->s_max_slots;
+	struct ocfs2_slot_map *sm = NULL;
 
 	if (check_device_open())
 		return ;
 
-	len = gbls.fs->fs_blocksize;
-	/* read in the first block of the slot_map file */
-	ret = read_whole_file(gbls.fs, gbls.slotmap_blkno, &buf, &len);
+	ret = ocfs2_read_slot_map(gbls.fs, num_slots, &sm);
 	if (ret) {
 		com_err(args[0], ret, "while reading slotmap system file");
 		goto bail;
 	}
 
 	out = open_pager(gbls.interactive);
-	dump_slots (out, buf, len);
+	dump_slots (out, sm, num_slots);
 	close_pager (out);
 
 bail:
-	if (buf)
-		ocfs2_free(&buf);
+	if (sm)
+		ocfs2_free(&sm);
 
 	return ;
 }

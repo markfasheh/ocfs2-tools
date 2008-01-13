@@ -2045,24 +2045,23 @@ write_directory_data(State *s, DirData *dir)
 static void
 write_slot_map_data(State *s, SystemFileDiskRecord *slot_map_rec)
 {
-	int i, num;
-	int16_t *slot_map;
+	int i;
+	struct ocfs2_slot_map *sm;
+	char *map_buf;
 
-	/* we only use the 1st block of this file, the rest is zero'd
-	 * out. */
-	num = s->blocksize / sizeof(int16_t);
+	map_buf = do_malloc(s, slot_map_rec->extent_len);
+	memset(map_buf, 0, slot_map_rec->extent_len);
 
-	slot_map = do_malloc(s, slot_map_rec->extent_len);
-	memset(slot_map, 0, slot_map_rec->extent_len);
+	sm = (struct ocfs2_slot_map *)map_buf;
 
-	for(i = 0; i < num; i++)
-		slot_map[i] = -1;
+	for(i = 0; i < s->initial_slots; i++)
+		sm->sm_slots[i] = OCFS2_INVALID_SLOT;
 
-	ocfs2_swap_slot_map(slot_map, num);
-	do_pwrite(s, slot_map, slot_map_rec->extent_len,
+	ocfs2_swap_slot_map(sm, s->initial_slots);
+	do_pwrite(s, map_buf, slot_map_rec->extent_len,
 		  slot_map_rec->extent_off);
 
-	free(slot_map);
+	free(map_buf);
 }
 
 static void

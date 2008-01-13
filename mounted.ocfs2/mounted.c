@@ -50,18 +50,24 @@ static char *usage_string =
 
 static void ocfs2_print_nodes(ocfs2_devices *dev, char **names)
 {
-	int i;
-	uint8_t n;
-	uint8_t *nums = dev->node_nums;
+	int i, start = 1;
+	unsigned int node_num;
+        struct ocfs2_slot_map_data *map = dev->map;
 
-	for (i = 0; i < dev->max_slots && nums[i] != O2NM_MAX_NODES; ++i) {
-		if (i)
-			printf(", ");
-		n = nums[i];
-		if (names && names[n] && *(names[n]))
-			printf("%s", names[n]);
+	for (i = 0; i < map->md_num_slots; i++) {
+		if (!map->md_slots[i].sd_valid)
+			continue;
+
+		if (start)
+			start = 0;
 		else
-			printf("%d", n);
+			printf(", ");
+
+		node_num = map->md_slots[i].sd_node_num;
+		if (names && names[node_num] && *(names[node_num]))
+			printf("%s", names[node_num]);
+		else
+			printf("%d", node_num);
 	}
 }
 
@@ -107,15 +113,12 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 			fflush(stdout);
 			com_err("Unknown", dev->errcode, " ");
 		} else {
-			if (dev->hb_dev) {
-				printf("Heartbeat device\n");
-				continue;
-			}
-			if (dev->node_nums[0] == O2NM_MAX_NODES) {
-				printf("Not mounted\n");
-				continue;
-			}
-			ocfs2_print_nodes(dev, nodes);
+			if (dev->hb_dev)
+				printf("Heartbeat device");
+			else if (dev->mount_flags & OCFS2_MF_MOUNTED_CLUSTER)
+				ocfs2_print_nodes(dev, nodes);
+			else
+				printf("Not mounted");
 			printf("\n");
 		}
 	}
@@ -265,8 +268,8 @@ static errcode_t ocfs2_detect(char *device, int quick_detect)
 bail:
 	list_for_each_safe(pos1, pos2, &(dev_list)) {
 		dev = list_entry(pos1, ocfs2_devices, list);
-		if (dev->node_nums)
-			ocfs2_free(&dev->node_nums);
+		if (dev->map)
+			ocfs2_free(&dev->map);
 		list_del(&(dev->list));
 		ocfs2_free(&dev);
 	}

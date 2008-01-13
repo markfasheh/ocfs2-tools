@@ -607,20 +607,17 @@ void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end)
  * dump_slots()
  *
  */
-void dump_slots (FILE *out, char *buf, uint32_t len)
+void dump_slots (FILE *out, struct ocfs2_slot_map *sm, int num_slots)
 {
-	int16_t *slots = (int16_t *)buf;
-	uint32_t i;
-	uint32_t num_slots = (len / sizeof(uint16_t));
+	int i;
 	
 	fprintf (out, "\t%5s   %5s\n", "Slot#", "Node#");
 	
 	for (i = 0; i < num_slots; ++i) {
-		uint16_t slot = le16_to_cpu(slots[i]);
-		if (slot == (uint16_t)OCFS2_INVALID_SLOT)
+		if (sm->sm_slots[i] == (uint16_t)OCFS2_INVALID_SLOT)
 			continue;
 
-		fprintf (out, "\t%5d   %5u\n", i, slot);
+		fprintf (out, "\t%5d   %5u\n", i, sm->sm_slots[i]);
 	}
 
 	return ;

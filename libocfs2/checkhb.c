@@ -41,38 +41,6 @@
 #include "ocfs2/ocfs2.h"
 #include "ocfs2-kernel/ocfs1_fs_compat.h"
 
-static errcode_t ocfs2_read_slotmap (ocfs2_filesys *fs, uint8_t *node_nums)
-{
-	errcode_t ret = 0;
-	char *slotbuf = NULL;
-	int slotbuf_len;
-	char *slotmap = ocfs2_system_inodes[SLOT_MAP_SYSTEM_INODE].si_name;
-	uint32_t slotmap_len;
-	uint64_t slotmap_blkno;
-	int16_t *slots;
-	int i, j;
-	uint32_t num_nodes = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
-
-	slotmap_len = strlen(slotmap);
-
-	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, slotmap, slotmap_len,
-			   NULL, &slotmap_blkno);
-	if (ret)
-		return ret;
-
-	ret =  ocfs2_read_whole_file(fs, slotmap_blkno, &slotbuf, &slotbuf_len);
-	if (!ret) {
-		slots = (int16_t *)slotbuf;
-		for (i = 0, j = 0; i < num_nodes; ++i)
-			if (le16_to_cpu(slots[i]) != (uint16_t)OCFS2_INVALID_SLOT)
-				node_nums[j++] = le16_to_cpu(slots[i]);
-	}
-
-	if (slotbuf)
-		ocfs2_free(&slotbuf);
-
-	return ret;
-}
 
 /*
  * ocfs2_check_heartbeats() check if the list of ocfs2 devices are
@@ -94,7 +62,7 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 	struct list_head *pos;
 	ocfs2_devices *dev = NULL;
 	char *device= NULL;
-	int open_flags;
+	int open_flags, i;
 
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
@@ -123,31 +91,26 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 		}
 
 		/* get label/uuid for ocfs2 */
-		dev->max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 		memcpy(dev->label, OCFS2_RAW_SB(fs->fs_super)->s_label,
 		       sizeof(dev->label));
 		memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
 		       sizeof(dev->uuid));
 
-		ret = ocfs2_malloc((sizeof(uint8_t) * dev->max_slots),
-				   &dev->node_nums);
-		if (ret)
-			goto bail;
-
-		memset(dev->node_nums, OCFS2_MAX_SLOTS,
-		       (sizeof(uint8_t) * dev->max_slots));
-
 		if (dev->hb_dev)
 			goto close;
 
 		/* read slotmap to get nodes on which the volume is mounted */
-		ret = ocfs2_read_slotmap(fs, dev->node_nums);
+		ret = ocfs2_load_slot_map(fs, &dev->map);
 		if (ret) {
 			dev->errcode = ret;
 			ret = 0;
 		} else {
-			if (dev->node_nums[0] != OCFS2_MAX_SLOTS)
-				dev->mount_flags |= OCFS2_MF_MOUNTED_CLUSTER;
+			for (i = 0; i < dev->map->md_num_slots; i++) {
+				if (dev->map->md_slots[i].sd_valid) {
+					dev->mount_flags |= OCFS2_MF_MOUNTED_CLUSTER;
+					break;
+				}
+			}
 		}
 close:
 		ocfs2_close(fs);
