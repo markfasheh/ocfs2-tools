@@ -31,9 +31,8 @@ endif
 
 CFILES = 		\
 	o2cb_abi.c	\
-	o2cb_crc32.c
-
-PROTO_CFILES = client_proto.c
+	o2cb_crc32.c	\
+	client_proto.c
 
 HFILES =			\
 	o2cb_abi.h		\
@@ -46,7 +45,6 @@ OBJS = $(subst .c,.o,$(CFILES)) \
 
 ifneq ($(BUILD_CMAN_SUPPORT),)
 DEFINES += -DHAVE_CMAN
-OBJS += $(subst .c,.o,$(PROTO_CFILES))
 endif
 
 $(OBJS): $(HFILES_GEN)
@@ -59,7 +57,7 @@ libo2cb.a: $(OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(PROTO_CFILES) $(HFILES) o2cb_err.et
+DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et
 
 CLEAN_RULES = clean-err
 
