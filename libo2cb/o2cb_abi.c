@@ -1124,6 +1124,8 @@ static errcode_t o2cb_list_dir(char *path, char ***objs)
 {
 	errcode_t ret;
 	int count;
+	char statpath[PATH_MAX];
+	struct stat stat_buf;
 	DIR *dir;
 	struct dirent *dirent;
 	struct dlist {
@@ -1160,6 +1162,17 @@ static errcode_t o2cb_list_dir(char *path, char ***objs)
 	list = NULL;
 	while ((dirent = readdir(dir)) != NULL) {
 		if (is_dots(dirent->d_name))
+			continue;
+
+		snprintf(statpath, sizeof(statpath), "%s/%s", path,
+			 dirent->d_name);
+
+		/* Silently ignore, we can't access it anyway */
+		if (lstat(statpath, &stat_buf))
+			continue;
+
+		/* Non-directories are attributes */
+		if (!S_ISDIR(stat_buf.st_mode))
 			continue;
 
 		tmp = malloc(sizeof(struct dlist));

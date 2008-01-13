@@ -865,8 +865,12 @@ unload()
     then
         ls -1 $(configfs_path)/cluster/ | while read CLUSTER
         do
-            echo "Unable to unload modules as O2CB cluster ${CLUSTER} is still online" >&2
-            exit 1
+            if [ ! -L "$(configfs_path)/cluster/${CLUSTER}" -a \
+                 -d "$(configfs_path)/cluster/${CLUSTER}" ]
+            then
+                echo "Unable to unload modules as O2CB cluster ${CLUSTER} is still online" >&2
+                exit 1
+            fi
         done
         if [ $? = 1 ]
         then
