@@ -87,7 +87,7 @@ errcode_t o2cb_begin_group_join(const char *cluster_name,
 				struct o2cb_region_desc *desc);
 errcode_t o2cb_complete_group_join(const char *cluster_name,
 				   struct o2cb_region_desc *desc,
-				   int error);
+				   int result);
 errcode_t o2cb_group_leave(const char *cluster_name,
 			   struct o2cb_region_desc *desc);
 
