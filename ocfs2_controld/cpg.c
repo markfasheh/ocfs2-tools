@@ -233,6 +233,13 @@ int setup_cpg(void)
 	cpg_fd_get(daemon_group.cg_handle, &daemon_group.cg_fd);
 	daemon_group.cg_ci = client_add(daemon_group.cg_fd,
 					process_cpg, dead_cpg);
+	if (daemon_group.cg_ci < 0) {
+		log_error("Unable to add cpg client: %s",
+			  strerror(-daemon_group.cg_ci));
+		cpg_finalize(daemon_group.cg_handle);
+		daemon_group.cg_handle = 0;
+		return daemon_group.cg_ci;
+	}
 
 	strcpy(daemon_group.cg_name.value, "ocfs2_controld");
 	daemon_group.cg_name.length = strlen(daemon_group.cg_name.value);

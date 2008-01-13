@@ -236,6 +236,13 @@ int setup_cman(void)
 	statechange();
 
 	cman_ci = client_add(fd, process_cman, dead_cman);
+	if (cman_ci < 0) {
+		rv = cman_ci;
+		log_error("Unable to add cman client: %s",
+			  strerror(-cman_ci));
+		goto fail_stop;
+	}
+
 	return 0;
 
  fail_stop:

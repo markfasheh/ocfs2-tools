@@ -42,9 +42,9 @@
 
 #include "ocfs2_controld.h"
 
-#define OPTION_STRING			"DhVw"
-#define LOCKFILE_NAME			"/var/run/ocfs2_controld.pid"
-#define MAX_CLIENTS			8
+#define OPTION_STRING		"DhVw"
+#define LOCKFILE_NAME		"/var/run/ocfs2_controld.pid"
+#define NALLOC			8
 
 struct client {
 	int fd;
@@ -190,10 +190,14 @@ static int setup_sigpipe(void)
 	act.sa_handler = SIG_IGN;
 	rc += sigaction(SIGPIPE, &act, NULL);  /* Get EPIPE instead */
 
-	if (rc)
+	if (rc) {
 		log_error("Unable to set up signal handlers");
-	else
-		client_add(signal_pipe[0], handle_signal, dead_sigpipe);
+		goto out;
+	}
+
+	rc = client_add(signal_pipe[0], handle_signal, dead_sigpipe);
+	if (rc < 0)
+		log_error("Unable to add signal pipe: %s", strerror(-rc));
 
 out:
 	return rc;
@@ -250,12 +254,52 @@ void client_dead(int ci)
 }
 
 
+static int client_alloc(void)
+{
+	int i;
+	struct client *new_client;
+	struct pollfd *new_pollfd;
+
+	if (!client) {
+		new_client = malloc(NALLOC * sizeof(struct client));
+		new_pollfd = malloc(NALLOC * sizeof(struct pollfd));
+	} else {
+		new_client = realloc(client, (client_size + NALLOC) *
+					 sizeof(struct client));
+		new_pollfd = realloc(pollfd, (client_size + NALLOC) *
+					 sizeof(struct pollfd));
+	}
+	if (!new_client || !new_pollfd) {
+		log_error("Can't allocate client memory.");
+		return -ENOMEM;
+	}
+	client = new_client;
+	pollfd = new_pollfd;
+
+	for (i = client_size; i < (client_size + NALLOC); i++) {
+		client[i].work = NULL;
+		client[i].dead = NULL;
+		client[i].fd = -1;
+		pollfd[i].fd = -1;
+		pollfd[i].revents = 0;
+	}
+
+	client_size += NALLOC;
+
+	return 0;
+}
+
 int client_add(int fd, void (*work)(int ci), void (*dead)(int ci))
 {
 	int i;
 
+	if (!client) {
+		i = client_alloc();
+		if (i)
+			return i;
+	}
+
 	while (1) {
-		/* This fails the first time with client_size of zero */
 		for (i = 0; i < client_size; i++) {
 			if (client[i].fd == -1) {
 				client[i].fd = fd;
@@ -269,26 +313,12 @@ int client_add(int fd, void (*work)(int ci), void (*dead)(int ci))
 			}
 		}
 
-		/* We didn't find an empty slot, so allocate more. */
-		client_size += MAX_CLIENTS;
-
-		if (!client) {
-			client = malloc(client_size * sizeof(struct client));
-			pollfd = malloc(client_size * sizeof(struct pollfd));
-		} else {
-			client = realloc(client, client_size *
-						 sizeof(struct client));
-			pollfd = realloc(pollfd, client_size *
-						 sizeof(struct pollfd));
-		}
-		if (!client || !pollfd)
-			log_error("Can't allocate client memory.");
-
-		for (i = client_size - MAX_CLIENTS; i < client_size; i++) {
-			client[i].fd = -1;
-			pollfd[i].fd = -1;
-		}
+		i = client_alloc();
+		if (i)
+			return i;
 	}
+
+	return -ELOOP;
 }
 
 static int dump_debug(int ci)
@@ -422,7 +452,11 @@ static void process_listener(int ci)
 	}
 
 	i = client_add(fd, process_client, NULL);
-	log_debug("new client connection %d", i);
+	if (i < 0) {
+		log_error("Error adding client: %s", strerror(-i));
+		close(fd);
+	} else
+		log_debug("new client connection %d", i);
 }
 
 static void dead_listener(int ci)
@@ -440,10 +474,17 @@ static int setup_listener(void)
 	if (fd < 0) {
 		log_error("Unable to start listening socket: %s",
 			  strerror(-fd));
-		return 1;
+		return fd;
 	}
 
 	i = client_add(fd, process_listener, dead_listener);
+	if (i < 0) {
+		log_error("Unable to add listening socket: %s",
+			  strerror(-i));
+		close(fd);
+		return i;
+	}
+
 	log_debug("new listening connection %d", i);
 
 	return 0;
