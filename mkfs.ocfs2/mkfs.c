@@ -63,7 +63,6 @@ static void format_file(State *s, SystemFileDiskRecord *rec);
 static void write_metadata(State *s, SystemFileDiskRecord *rec, void *src);
 static void write_bitmap_data(State *s, AllocBitmap *bitmap);
 static void write_directory_data(State *s, DirData *dir);
-static void write_slot_map_data(State *s, SystemFileDiskRecord *slot_map_rec);
 static void write_group_data(State *s, AllocGroup *group);
 static void format_leading_space(State *s);
 //static void replacement_journal_create(State *s, uint64_t journal_off);
@@ -84,6 +83,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint16_t bpc);
 static void create_lost_found_dir(State *s);
 static void format_journals(State *s);
+static void format_slotmap(State *s);
 static int format_backup_super(State *s);
 
 extern char *optarg;
@@ -375,14 +375,6 @@ main(int argc, char **argv)
 		}
 	}
 
-	if (!hb_dev_skip(s, SLOT_MAP_SYSTEM_INODE)) {
-		tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
-		alloc_from_bitmap(s, 1, s->global_bm,
-				  &tmprec->extent_off,
-				  &tmprec->extent_len);
-		tmprec->file_size = s->cluster_size;
-	}
-
 	fsync(s->fd);
 	if (!s->quiet)
 		printf("done\n");
@@ -413,11 +405,6 @@ main(int argc, char **argv)
 	write_bitmap_data(s, s->global_bm);
 
 	write_group_data(s, s->system_group);
-
-	if (!hb_dev_skip(s, SLOT_MAP_SYSTEM_INODE)) {
-		tmprec = &(record[SLOT_MAP_SYSTEM_INODE][0]);
-		write_slot_map_data(s, tmprec);
-	}
 
 	write_directory_data(s, root_dir);
 	write_directory_data(s, system_dir);
@@ -465,6 +452,14 @@ main(int argc, char **argv)
 			printf("Formatting Journals: ");
 
 		format_journals(s);
+
+		if (!s->quiet)
+			printf("done\n");
+
+		if (!s->quiet)
+			printf("Formatting slot map: ");
+
+		format_slotmap(s);
 
 		if (!s->quiet)
 			printf("done\n");
@@ -2043,28 +2038,6 @@ write_directory_data(State *s, DirData *dir)
 }
 
 static void
-write_slot_map_data(State *s, SystemFileDiskRecord *slot_map_rec)
-{
-	int i;
-	struct ocfs2_slot_map *sm;
-	char *map_buf;
-
-	map_buf = do_malloc(s, slot_map_rec->extent_len);
-	memset(map_buf, 0, slot_map_rec->extent_len);
-
-	sm = (struct ocfs2_slot_map *)map_buf;
-
-	for(i = 0; i < s->initial_slots; i++)
-		sm->sm_slots[i] = OCFS2_INVALID_SLOT;
-
-	ocfs2_swap_slot_map(sm, s->initial_slots);
-	do_pwrite(s, map_buf, slot_map_rec->extent_len,
-		  slot_map_rec->extent_off);
-
-	free(map_buf);
-}
-
-static void
 format_leading_space(State *s)
 {
 	int num_blocks = 2, size;
@@ -2323,6 +2296,31 @@ static void format_journals(State *s)
 				(int)strlen(jrnl_file), jrnl_file);
 			goto error;
 		}
+	}
+
+	ocfs2_close(fs);
+	return;
+
+error:
+	clear_both_ends(s);
+	exit(1);
+}
+
+static void format_slotmap(State *s)
+{
+	errcode_t ret;
+	ocfs2_filesys *fs;
+
+	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		com_err(s->progname, ret, "while opening new file system");
+		goto error;
+	}
+
+	ret = ocfs2_format_slot_map(fs);
+	if (ret) {
+	    com_err(s->progname, ret, "while formatting the slot map");
+	    goto error;
 	}
 
 	ocfs2_close(fs);
