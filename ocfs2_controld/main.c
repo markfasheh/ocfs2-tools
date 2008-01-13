@@ -411,12 +411,12 @@ static int loop(void)
 		goto out;
 	client_add(sigpipe_fd);
 
-#if 0
 	rv = cman_fd = setup_cman();
 	if (rv < 0)
 		goto out;
 	client_add(cman_fd);
 
+#if 0
 	rv = groupd_fd = setup_groupd();
 	if (rv < 0)
 		goto out;
@@ -450,14 +450,14 @@ static int loop(void)
 				if (pollfd[i].fd == groupd_fd)
 					process_groupd();
 				else if (pollfd[i].fd == cman_fd) {
+#endif
+				if (pollfd[i].fd == cman_fd) {
 					rv = process_cman();
 					if (rv) {
 						log_error("cman connection died");
 						goto stop;
 					}
 				} else if (pollfd[i].fd == sigpipe_fd) {
-#endif
-				if (pollfd[i].fd == sigpipe_fd) {
 					rv = handle_signal();
 					if (rv)
 						goto stop;
@@ -466,23 +466,25 @@ static int loop(void)
 			}
 
 			if (pollfd[i].revents & POLLHUP) {
-#if 0
 				if (pollfd[i].fd == cman_fd) {
 					log_error("cman connection died");
 					goto stop;
+#if 0
 				} else if (pollfd[i].fd == groupd_fd) {
 					log_error("groupd connection died");
 					goto stop;
-				}
 #endif
+				}
 				client_dead(i);
 			}
 		}
 	}
 
 stop:
+#if 0
 	if (!rv && !list_empty(&mounts))
 		rv = 1;
+#endif
 
 #if 0
 	bail_on_mounts();

@@ -61,4 +61,9 @@ do { \
 } while (0)
 
 
+int setup_cman(void);
+int process_cman(void);
+char *nodeid2name(int nodeid);
+void exit_cman(void);
+
 #endif

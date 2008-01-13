@@ -27,7 +27,9 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
 	  -DO2CB_FLAT_INCLUDES -DHAVE_CMAN -DVERSION=\"$(VERSION)\"
 
-DAEMON_CFILES = main.c
+UNINST_HFILES = ocfs2_controld.h
+
+DAEMON_CFILES = main.c member_cman.c
 TEST_CFILES = test_client.c
 
 DAEMON_OBJS = $(subst .c,.o,$(DAEMON_CFILES))
@@ -37,10 +39,11 @@ MANS =
 DIST_FILES =				\
 	$(DAEMON_CFILES)		\
 	$(TEST_CFILES)			\
+	$(UNINST_HFILES)		\
 	$(addsuffix .in,$(MANS))
 
 ocfs2_controld.cman: $(DAEMON_OBJS) $(LIBO2CB_DEPS)
-	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) -lcman
 
 test_client: $(TEST_OBJS) $(LIBO2CB_DEPS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
