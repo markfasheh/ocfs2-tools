@@ -718,6 +718,7 @@ int main(int argc, char **argv)
 {
 	errcode_t err;
 	prog_name = argv[0];
+	const char *stack = NULL;
 
 	init_mounts();
 
@@ -725,6 +726,17 @@ int main(int argc, char **argv)
 	err = o2cb_init();
 	if (err) {
 		com_err(prog_name, err, "while trying to initialize o2cb");
+		return 1;
+	}
+
+	err = o2cb_get_stack_name(&stack);
+	if (err) {
+		com_err(prog_name, err, "while determining the current cluster stack");
+		return 1;
+	}
+	if (strcmp(stack, "cman")) {
+		fprintf(stderr, "%s: This daemon supports the \"cman\" stack, but the \"%s\" stack is in use\n",
+			prog_name, stack);
 		return 1;
 	}
 
