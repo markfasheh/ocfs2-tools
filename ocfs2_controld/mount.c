@@ -785,6 +785,52 @@ void dead_mounter(int ci, int fd)
 	 */
 }
 
+int send_mountgroups(int ci, int fd)
+{
+	unsigned int count = 0;
+	int rc = 0, rctmp;
+	char error_msg[100];  /* Arbitrary size smaller than a message */
+	struct list_head *p;
+	struct mountgroup *mg;
+
+	list_for_each(p, &mounts) {
+		count++;
+	}
+
+	rc = send_message(fd, CM_ITEMCOUNT, count);
+	if (rc) {
+		snprintf(error_msg, sizeof(error_msg),
+			 "Unable to send ITEMCOUNT: %s",
+			 strerror(-rc));
+		goto out_status;
+	}
+
+	list_for_each(p, &mounts) {
+		mg = list_entry(p, struct mountgroup, mg_list);
+		rc = send_message(fd, CM_ITEM, mg->mg_uuid);
+		if (rc) {
+			snprintf(error_msg, sizeof(error_msg),
+				 "Unable to send ITEM: %s",
+				 strerror(-rc));
+			goto out_status;
+		}
+	}
+
+	strcpy(error_msg, "OK");
+
+out_status:
+	log_debug("Sending status %d \"%s\"", -rc, error_msg);
+	rctmp = send_message(fd, CM_STATUS, -rc, error_msg);
+	if (rctmp) {
+		log_error("Error sending STATUS message: %s",
+			  strerror(-rc));
+		if (!rc)
+			rc = rctmp;
+	}
+
+	return rc;
+}
+
 void init_mounts(void)
 {
 	INIT_LIST_HEAD(&mounts);

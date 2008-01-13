@@ -37,9 +37,9 @@
 #include "ocfs2_controld.h"
 
 int			our_nodeid;
-int			cman_ci;
-char *			clustername;
-cman_cluster_t		cluster;
+static int		cman_ci;
+static char *		clustername;
+static cman_cluster_t	cluster;
 static cman_handle_t	ch;
 static cman_handle_t	ch_admin;
 extern struct list_head mounts;
@@ -117,6 +117,23 @@ int validate_cluster(const char *cluster)
 
 	return !strcmp(cluster, clustername);
 }
+
+int get_clustername(const char **cluster)
+{
+	if (!clustername) {
+		log_error("Trying to validate before cman is alive");
+		return -EIO;
+	}
+
+	if (!cluster) {
+		log_error("NULL passed!");
+		return -EINVAL;
+	}
+
+	*cluster = clustername;
+	return 0;
+}
+
 
 /* keep track of the nodes */
 static void statechange(void)

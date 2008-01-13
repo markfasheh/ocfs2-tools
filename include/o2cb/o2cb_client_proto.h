@@ -25,8 +25,6 @@
 #ifndef __O2CB_CLIENT_PROTO_H
 #define __O2CB_CLIENT_PROTO_H
 
-#ifdef HAVE_CMAN
-
 /* Basic communication properties */
 #define OCFS2_CONTROLD_MAXLINE		256
 #define OCFS2_CONTROLD_MAXARGS		16
@@ -39,6 +37,11 @@ typedef enum {
 	CM_MRESULT,
 	CM_UNMOUNT,
 	CM_STATUS,
+	CM_LISTFS,
+	CM_LISTMOUNTS,
+	CM_LISTCLUSTERS,
+	CM_ITEMCOUNT,
+	CM_ITEM,
 } client_message;
 
 int client_listen(const char *path);
@@ -60,7 +63,8 @@ int receive_message(int fd, char *buf, client_message *message,
 		    char **argv);
 int receive_message_full(int fd, char *buf, client_message *message,
 			 char **argv, char **rest);
-
-#endif  /* HAVE_CMAN */
+void free_received_list(char **list);
+int receive_list(int fd, char *buf, char ***ret_list);
+int parse_status(char **args, int *error, char **error_msg);
 
 #endif  /* __O2CB_CLIENT_PROTO_H */

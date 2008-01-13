@@ -64,6 +64,7 @@ void shutdown_daemon(void);
 int setup_cman(void);
 char *nodeid2name(int nodeid);
 int validate_cluster(const char *cluster);
+int get_clustername(const char **cluster);
 int kill_cman(int nodeid);
 void exit_cman(void);
 
@@ -90,5 +91,6 @@ int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
 int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint);
 void dead_mounter(int ci, int fd);
 void bail_on_mounts(void);
+int send_mountgroups(int ci, int fd);
 
 #endif

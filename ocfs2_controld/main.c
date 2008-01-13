@@ -374,6 +374,72 @@ static int dump_debug(int ci)
 	return 0;
 }
 
+static int send_filesystems(int ci, int fd, const char *fstype,
+			    const char *cluster)
+{
+	char *error_msg;
+
+	if (!fstype || strcmp(fstype, OCFS2_FS_NAME)) {
+		error_msg = "Invalid filesystem type";
+		goto fail;
+	}
+
+	if (!validate_cluster(cluster)) {
+		error_msg = "Invalid cluster name";
+		goto fail;
+	}
+
+	return send_mountgroups(ci, fd);
+
+fail:
+	return send_message(fd, CM_STATUS, EINVAL, error_msg);
+}
+
+static int send_clustername(int ci, int fd)
+{
+	int rc = 0, rctmp;
+	char error_msg[100];  /* Arbitrary size smaller than a message */
+	const char *cluster;
+
+	rc = get_clustername(&cluster);
+	if (rc) {
+		snprintf(error_msg, sizeof(error_msg),
+			 "Unable to query cluster name: %s",
+			 strerror(-rc));
+		goto out_status;
+	}
+
+	/* Cman only supports one cluster */
+	rc = send_message(fd, CM_ITEMCOUNT, 1);
+	if (rc) {
+		snprintf(error_msg, sizeof(error_msg),
+			 "Unable to send ITEMCOUNT: %s",
+			 strerror(-rc));
+		goto out_status;
+	}
+
+	rc = send_message(fd, CM_ITEM, cluster);
+	if (rc) {
+		snprintf(error_msg, sizeof(error_msg),
+			 "Unable to send ITEM: %s",
+			 strerror(-rc));
+		goto out_status;
+	}
+
+	strcpy(error_msg, "OK");
+
+out_status:
+	rctmp = send_message(fd, CM_STATUS, -rc, error_msg);
+	if (rctmp) {
+		log_error("Error sending STATUS message: %s",
+			  strerror(-rc));
+		if (!rc)
+			rc = rctmp;
+	}
+
+	return rc;
+}
+
 static void dead_client(int ci)
 {
 	dead_mounter(ci, client[ci].fd);
@@ -418,6 +484,14 @@ static void process_client(int ci)
 
 		case CM_UNMOUNT:
 		rv = do_unmount(ci, fd, argv[0], argv[1], argv[2]);
+		break;
+
+		case CM_LISTCLUSTERS:
+		rv = send_clustername(ci, fd);
+		break;
+
+		case CM_LISTFS:
+		rv = send_filesystems(ci, fd, argv[0], argv[1]);
 		break;
 
 		case CM_STATUS:

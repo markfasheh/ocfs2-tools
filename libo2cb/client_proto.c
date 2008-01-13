@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <errno.h>
@@ -39,6 +40,11 @@ DEFINE_MESSAGE(MOUNT, 5, "%s %s %s %s %s")
 DEFINE_MESSAGE(MRESULT, 4, "%s %s %d %s")
 DEFINE_MESSAGE(UNMOUNT, 3, "%s %s %s")
 DEFINE_MESSAGE(STATUS, 2, "%d %s")
+DEFINE_MESSAGE(LISTFS, 2, "%s %s")
+DEFINE_MESSAGE(LISTMOUNTS, 2, "%s %s")
+DEFINE_MESSAGE(LISTCLUSTERS, 0, "")
+DEFINE_MESSAGE(ITEMCOUNT, 1, "%u")
+DEFINE_MESSAGE(ITEM, 1, "%s")
 END_MESSAGES(message_list)
 
 const char *message_to_string(client_message message)
@@ -93,6 +99,7 @@ static int full_write(int fd, void *buf, size_t count)
 int send_message(int fd, client_message message, ...)
 {
 	int rc;
+	size_t len;
 	va_list args;
 	char mbuf[OCFS2_CONTROLD_MAXLINE];
 
@@ -101,6 +108,14 @@ int send_message(int fd, client_message message, ...)
 	rc = vsnprintf(mbuf, OCFS2_CONTROLD_MAXLINE,
 		       message_list[message].cm_format, args);
 	va_end(args);
+
+	/* Remove the trailing space from zero-argument messages */
+	if (!message_list[message].cm_argcount) {
+		len = strlen(mbuf);
+		if (mbuf[len - 1] == ' ')
+			mbuf[len - 1] = '\0';
+	}
+
 	if (rc >= OCFS2_CONTROLD_MAXLINE)
 		rc = -E2BIG;
 	else
@@ -169,7 +184,7 @@ int receive_message_full(int fd, char *buf, client_message *message,
 	for (i = 0; i < message_list_len; i++) {
 		len = strlen(message_list[i].cm_command);
 		if (!strncmp(buf, message_list[i].cm_command, len) &&
-		    (buf[len] == ' '))
+		    ((buf[len] == ' ') || (buf[len] == '\0')))
 			break;
 	}
 	if (i >= message_list_len) {
@@ -198,6 +213,176 @@ out:
 int receive_message(int fd, char *buf, client_message *message, char **argv)
 {
 	return receive_message_full(fd, buf, message, argv, NULL);
+}
+
+static int parse_itemcount(char **args, unsigned int *count)
+{
+	int rc = 0;
+	unsigned long n;
+	char *ptr = NULL;
+
+	n = strtoul(args[0], &ptr, 10);
+	if (ptr && *ptr != '\0') {
+		fprintf(stderr, "Invalid error code string: %s", args[0]);
+		rc = -EINVAL;
+	} else if ((n == LONG_MAX) || (n > UINT_MAX)) {
+		fprintf(stderr, "Item count %lu out of range", n);
+		rc = -ERANGE;
+	} else {
+		*count = n;
+	}
+
+	return rc;
+}
+
+int parse_status(char **args, int *error, char **error_msg)
+{
+	int rc = 0;
+	long err;
+	char *ptr = NULL;
+
+	err = strtol(args[0], &ptr, 10);
+	if (ptr && *ptr != '\0') {
+		fprintf(stderr, "Invalid error code string: %s", args[0]);
+		rc = -EINVAL;
+	} else if ((err == LONG_MIN) || (err == LONG_MAX) ||
+		   (err < INT_MIN) || (err > INT_MAX)) {
+		fprintf(stderr, "Error code %ld out of range", err);
+		rc = -ERANGE;
+	} else {
+		*error_msg = args[1];
+		*error = err;
+	}
+
+	return rc;
+}
+
+
+/*
+ * A list is sent as
+ *
+ * ITEMCOUNT <count>
+ * ITEM <item>
+ *   x <count>
+ * STATUS 0 OK
+ *
+ * If there are errors in the middle, we'll get a STATUS error.
+ */
+int receive_list(int fd, char *buf, char ***ret_list)
+{
+	int rc, done = 0;
+	int error;
+	unsigned int count = 0, seen = 0;
+	char *error_msg;
+	client_message message;
+	char **list = NULL;
+	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
+
+	/*
+	 * States are simple.  If list==NULL, we haven't gotten ITEMCOUNT
+	 * yet.  If list!=NULL and seen<count, we haven't gotten all of
+	 * our items yet.  Once list!=NULL and seen==count, we're ready for
+	 * our STATUS.
+	 */
+	while (!done) {
+		rc = receive_message(fd, buf, &message, argv);
+		if (rc < 0)
+			break;
+
+		switch (message) {
+			case CM_STATUS:
+				rc = parse_status(argv, &error, &error_msg);
+				if (rc) {
+					fprintf(stderr, "Bad status message: %s\n",
+						strerror(-rc));
+				} else if (error) {
+					rc = -error;
+					fprintf(stderr,
+						"Error %d from daemon: %s\n",
+						error, error_msg);
+				} else if (!list || (seen < count)) {
+					rc = -EINVAL;
+					fprintf(stderr,
+						"Unexpected STATUS 0 from daemon\n");
+				} else
+					done = 1;  /* Got it */
+				break;
+
+			case CM_ITEMCOUNT:
+				if (list) {
+					rc = -EINVAL;
+					fprintf(stderr,
+						"Unexpected itemcount\n");
+					break;
+				}
+
+				rc = parse_itemcount(argv, &count);
+				if (rc) {
+					fprintf(stderr, "Bad itemcount message: %s\n",
+						strerror(-rc));
+					break;
+				}
+
+				list = malloc(sizeof(char *) * (count + 1));
+				if (!list)
+					rc = -ENOMEM;
+				else
+					memset(list, 0,
+					       sizeof(char *) * (count + 1));
+				break;
+
+			case CM_ITEM:
+				if (!argv[0]) {
+					rc = -EINVAL;
+					fprintf(stderr,
+						"Bad item message\n");
+				} else if (!argv[0][0]) {
+					rc = -EINVAL;
+					fprintf(stderr,
+						"Empty item message\n");
+				} else if (seen >= count) {
+					rc = -E2BIG;
+					fprintf(stderr,
+						"Too many items!\n");
+				} else {
+					list[seen] = strdup(argv[0]);
+					if (!list[seen])
+						rc = -ENOMEM;
+					else
+						seen++;
+				}
+				break;
+
+		default:
+				rc = -EINVAL;
+				fprintf(stderr,
+					"Unexpected message %s from daemon\n",
+					message_to_string(message));
+				break;
+		}
+
+		if (rc)
+			done = 1;
+	}
+
+	if (!rc) {
+		if (ret_list)
+			*ret_list = list;
+	} else if (list) {
+		for (seen = 0; list[seen]; seen++)
+			free(list[seen]);
+		free(list);
+	}
+	return rc;
+}
+
+void free_received_list(char **list)
+{
+	int i;
+
+	for (i = 0; list[i]; i++)
+		free(list[i]);
+	free(list);
 }
 
 int client_listen(const char *path)

@@ -21,29 +21,6 @@
 #include "o2cb/o2cb_client_proto.h"
 
 
-
-static int parse_status(char **args, int *error, char **error_msg)
-{
-	int rc = 0;
-	long err;
-	char *ptr = NULL;
-
-	err = strtol(args[0], &ptr, 10);
-	if (ptr && *ptr != '\0') {
-		fprintf(stderr, "Invalid error code string: %s", args[0]);
-		rc = -EINVAL;
-	} else if ((err == LONG_MIN) || (err == LONG_MAX) ||
-		   (err < INT_MIN) || (err > INT_MAX)) {
-		fprintf(stderr, "Error code %ld out of range", err);
-		rc = -ERANGE;
-	} else {
-		*error_msg = args[1];
-		*error = err;
-	}
-
-	return rc;
-}
-
 static errcode_t fill_uuid(const char *device, char *uuid)
 {
 	errcode_t err;
@@ -255,9 +232,67 @@ out:
 	return rc;
 }
 
+static int call_listclusters(int fd)
+{
+	int rc, i;
+	char **list;
+	char buf[OCFS2_CONTROLD_MAXLINE];
+
+	rc = send_message(fd, CM_LISTCLUSTERS);
+	if (rc) {
+		fprintf(stderr, "Unable to send LISTCLUSTERS message: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	rc = receive_list(fd, buf, &list);
+	if (rc < 0) {
+		fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	for (i = 0; list[i]; i++)
+		fprintf(stderr, "%s\n", list[i]);
+	free_received_list(list);
+
+out:
+	return rc;
+}
+
+static int call_listfs(int fd, const char *cluster)
+{
+	int rc, i;
+	char **list;
+	char buf[OCFS2_CONTROLD_MAXLINE];
+
+	rc = send_message(fd, CM_LISTFS, OCFS2_FS_NAME, cluster);
+	if (rc) {
+		fprintf(stderr, "Unable to send LISTFS message: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	rc = receive_list(fd, buf, &list);
+	if (rc < 0) {
+		fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc));
+		goto out;
+	}
+
+	for (i = 0; list[i]; i++)
+		fprintf(stderr, "%s\n", list[i]);
+	free_received_list(list);
+
+out:
+	return rc;
+}
+
 enum {
 	OP_MOUNT,
 	OP_UMOUNT,
+	OP_LISTCLUSTERS,
+	OP_LISTFS,
 };
 static int parse_options(int argc, char **argv, int *op, char ***args)
 {
@@ -279,6 +314,22 @@ static int parse_options(int argc, char **argv, int *op, char ***args)
 	} else if (!strcmp(argv[1], "umount")) {
 		if (argc == 4) {
 			*op = OP_UMOUNT;
+			*args = argv + 2;
+		} else {
+			fprintf(stderr, "Invalid number of arguments\n");
+			rc = -EINVAL;
+		}
+	} else if (!strcmp(argv[1], "listclusters")) {
+		if (argc == 2) {
+			*op = OP_LISTCLUSTERS;
+			*args = argv + 2;
+		} else {
+			fprintf(stderr, "Invalid number of arguments\n");
+			rc = -EINVAL;
+		}
+	} else if (!strcmp(argv[1], "listfs")) {
+		if (argc == 3) {
+			*op = OP_LISTFS;
 			*args = argv + 2;
 		} else {
 			fprintf(stderr, "Invalid number of arguments\n");
@@ -317,6 +368,14 @@ int main(int argc, char **argv)
 
 		case OP_UMOUNT:
 			rc = call_unmount(fd, args[0], args[1]);
+			break;
+
+		case OP_LISTCLUSTERS:
+			rc = call_listclusters(fd);
+			break;
+
+		case OP_LISTFS:
+			rc = call_listfs(fd, args[0]);
 			break;
 
 		default:
