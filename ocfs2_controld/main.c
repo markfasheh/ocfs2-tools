@@ -571,9 +571,18 @@ static int setup_listener(void)
 static void cpg_joined(void)
 {
 	int rv;
+	errcode_t err;
 
-	log_debug("CPG is live, starting to listen for mounters");
+	log_debug("CPG is live, opening control device");
+	err = o2cb_control_open(our_nodeid);
+	if (err) {
+		log_error("Error opening control device: %s",
+			  error_message(err));
+		shutdown_daemon();
+		return;
+	}
 
+	log_debug("Starting to listen for mounters");
 	rv = setup_listener();
 	if (rv < 0) {
 		shutdown_daemon();
@@ -633,6 +642,7 @@ stop:
 
 	bail_on_mounts();
 
+	o2cb_control_close();
 	exit_cpg();
 	exit_cman();
 

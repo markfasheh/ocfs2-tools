@@ -44,6 +44,7 @@
 
 #define CLUSTER_STACK_FILE	"/sys/fs/ocfs2/cluster_stack"
 #define OCFS2_STACK_LABEL_LEN	4
+#define CONTROL_DEVICE		"/dev/misc/ocfs2_control"
 
 
 struct o2cb_stack_ops {
@@ -100,7 +101,8 @@ static struct o2cb_stack user_stack = {
 };
 
 static struct o2cb_stack *current_stack;
-static int controld_fd = -1;
+static int control_daemon_fd = -1;
+static int control_device_fd = -1;
 
 static char *configfs_path;
 
@@ -1241,7 +1243,7 @@ static errcode_t user_begin_group_join(struct o2cb_cluster_desc *cluster,
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
 
-	if (controld_fd != -1) {
+	if (control_daemon_fd != -1) {
 		/* fprintf(stderr, "Join already in progress!\n"); */
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
@@ -1263,9 +1265,9 @@ static errcode_t user_begin_group_join(struct o2cb_cluster_desc *cluster,
 		}
 		goto out;
 	}
-	controld_fd = rc;
+	control_daemon_fd = rc;
 
-	rc = send_message(controld_fd, CM_MOUNT, OCFS2_FS_NAME,
+	rc = send_message(control_daemon_fd, CM_MOUNT, OCFS2_FS_NAME,
 			  region->r_name, cluster->c_cluster,
 			  region->r_device_name, region->r_service);
 	if (rc) {
@@ -1275,7 +1277,7 @@ static errcode_t user_begin_group_join(struct o2cb_cluster_desc *cluster,
 		goto out;
 	}
 
-	rc = receive_message(controld_fd, buf, &message, argv);
+	rc = receive_message(control_daemon_fd, buf, &message, argv);
 	if (rc < 0) {
 		/* fprintf(stderr, "Error reading from daemon: %s\n",
 			strerror(-rc)); */
@@ -1312,9 +1314,9 @@ static errcode_t user_begin_group_join(struct o2cb_cluster_desc *cluster,
 	err = 0;
 
 out:
-	if (err && (controld_fd != -1)) {
-		close(controld_fd);
-		controld_fd = -1;
+	if (err && (control_daemon_fd != -1)) {
+		close(control_daemon_fd);
+		control_daemon_fd = -1;
 	}
 
 	return err;
@@ -1332,13 +1334,13 @@ static errcode_t user_complete_group_join(struct o2cb_cluster_desc *cluster,
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
 
-	if (controld_fd == -1) {
+	if (control_daemon_fd == -1) {
 		/* fprintf(stderr, "Join not started!\n"); */
 		err = O2CB_ET_SERVICE_UNAVAILABLE;
 		goto out;
 	}
 
-	rc = send_message(controld_fd, CM_MRESULT, OCFS2_FS_NAME,
+	rc = send_message(control_daemon_fd, CM_MRESULT, OCFS2_FS_NAME,
 			  region->r_name, result, region->r_service);
 	if (rc) {
 		/* fprintf(stderr, "Unable to send MRESULT message: %s\n",
@@ -1347,7 +1349,7 @@ static errcode_t user_complete_group_join(struct o2cb_cluster_desc *cluster,
 		goto out;
 	}
 
-	rc = receive_message(controld_fd, buf, &message, argv);
+	rc = receive_message(control_daemon_fd, buf, &message, argv);
 	if (rc < 0) {
 		/* fprintf(stderr, "Error reading from daemon: %s\n",
 			strerror(-rc)); */
@@ -1383,9 +1385,9 @@ static errcode_t user_complete_group_join(struct o2cb_cluster_desc *cluster,
 	err = 0;
 
 out:
-	if (controld_fd != -1) {
-		close(controld_fd);
-		controld_fd = -1;
+	if (control_daemon_fd != -1) {
+		close(control_daemon_fd);
+		control_daemon_fd = -1;
 	}
 
 	return err;
@@ -1402,7 +1404,7 @@ static errcode_t user_group_leave(struct o2cb_cluster_desc *cluster,
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
 
-	if (controld_fd != -1) {
+	if (control_daemon_fd != -1) {
 		/* fprintf(stderr, "Join in progress!\n"); */
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
@@ -1424,9 +1426,9 @@ static errcode_t user_group_leave(struct o2cb_cluster_desc *cluster,
 		}
 		goto out;
 	}
-	controld_fd = rc;
+	control_daemon_fd = rc;
 
-	rc = send_message(controld_fd, CM_UNMOUNT, OCFS2_FS_NAME,
+	rc = send_message(control_daemon_fd, CM_UNMOUNT, OCFS2_FS_NAME,
 			  region->r_name, region->r_service);
 	if (rc) {
 		/* fprintf(stderr, "Unable to send UNMOUNT message: %s\n",
@@ -1435,7 +1437,7 @@ static errcode_t user_group_leave(struct o2cb_cluster_desc *cluster,
 		goto out;
 	}
 
-	rc = receive_message(controld_fd, buf, &message, argv);
+	rc = receive_message(control_daemon_fd, buf, &message, argv);
 	if (rc < 0) {
 		/* fprintf(stderr, "Error reading from daemon: %s\n",
 			strerror(-rc)); */
@@ -1472,9 +1474,9 @@ static errcode_t user_group_leave(struct o2cb_cluster_desc *cluster,
 	err = 0;
 
 out:
-	if (controld_fd != -1) {
-		close(controld_fd);
-		controld_fd = -1;
+	if (control_daemon_fd != -1) {
+		close(control_daemon_fd);
+		control_daemon_fd = -1;
 	}
 
 	return err;
@@ -1856,6 +1858,129 @@ errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
 		return O2CB_ET_INVALID_NODE_NUM;
 
 	return 0;
+}
+
+/*
+ * The handshake is pretty simple.  We need to read all supported control
+ * device protocols from the kernel.  Once we've read them, we can write
+ * the protocol we want to use.  After that, we're good to go.
+ *
+ * Right now, we will just allow the T01 protocol and not write any
+ * code to handle multiples.  We'll add that later if and when it is
+ * necessary.
+ *
+ * The versions read from the kernel are all 4 characers including the
+ * newline.
+ */
+#define OCFS2_CONTROL_PROTO			"T01\n"
+#define OCFS2_CONTROL_PROTO_LEN			4
+#define OCFS2_CONTROL_MESSAGE_SETNODE_OP	"SETN"
+#define OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN	14
+#define OCFS2_CONTROL_MESSAGE_NODENUM_LEN	8
+static errcode_t o2cb_control_handshake(unsigned int this_node)
+{
+	errcode_t err = 0;
+	int found = 0;
+	size_t ret;
+	char buf[OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN + 1];
+
+	if (control_device_fd == -1) {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	buf[OCFS2_CONTROL_PROTO_LEN] = '\0';
+	while (1)
+	{
+		ret = read(control_device_fd, buf, OCFS2_CONTROL_PROTO_LEN);
+		if (ret == OCFS2_CONTROL_PROTO_LEN) {
+			if (!found && !strcmp(buf,
+					      OCFS2_CONTROL_PROTO))
+				found = 1;
+			continue;
+		}
+
+		if (ret != 0)
+			err = O2CB_ET_IO;
+		else if (!found)
+			err = O2CB_ET_SERVICE_UNAVAILABLE;  /* no match */
+		break;
+	}
+
+	if (err)
+		goto out;
+
+	ret = write(control_device_fd, OCFS2_CONTROL_PROTO,
+		    OCFS2_CONTROL_PROTO_LEN);
+	if (ret != OCFS2_CONTROL_PROTO_LEN) {
+		err = O2CB_ET_IO;
+		goto out;
+	}
+
+	snprintf(buf, OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN + 1,
+		 "SETN %08X\n", this_node);
+	ret = write(control_device_fd, buf,
+		    OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN);
+	if (ret != OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN)
+		err = O2CB_ET_IO;
+
+out:
+	return err;
+}
+
+errcode_t o2cb_control_open(unsigned int this_node)
+{
+	errcode_t err = 0;
+	int rc;
+
+	if (!current_stack) {
+		err = O2CB_ET_SERVICE_UNAVAILABLE;
+		goto out;
+	}
+
+	if (control_device_fd != -1)
+		goto out;
+
+	rc = open(CONTROL_DEVICE, O_RDWR);
+	if (rc < 0) {
+		switch (errno) {
+			default:
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+
+			case ENOTDIR:
+			case ENOENT:
+			case EISDIR:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			case EACCES:
+			case EPERM:
+			case EROFS:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+		}
+		goto out;
+	}
+
+	control_device_fd = rc;
+
+	err = o2cb_control_handshake(this_node);
+	if (err) {
+		close(control_device_fd);
+		control_device_fd = -1;
+	}
+
+out:
+	return err;
+}
+
+void o2cb_control_close(void)
+{
+	if (control_device_fd != -1) {
+		close(control_device_fd);
+		control_device_fd = -1;
+	}
 }
 
 errcode_t o2cb_get_hb_ctl_path(char *buf, int count)
