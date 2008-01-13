@@ -6,7 +6,7 @@ HFILES_GEN = o2cb_err.h
 
 all: $(HFILES_GEN)
 
-HFILES = o2cb.h ocfs2_nodemanager.h ocfs2_heartbeat.h
+HFILES = o2cb.h ocfs2_nodemanager.h ocfs2_heartbeat.h o2cb_client_proto.h
 
 HEADERS_SUBDIR = o2cb
 HEADERS = $(HFILES) $(HFILES_GEN)
