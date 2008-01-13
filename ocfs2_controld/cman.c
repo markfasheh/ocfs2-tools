@@ -36,6 +36,7 @@
 #include "ocfs2_controld.h"
 
 int			our_nodeid;
+int			cman_ci;
 char *			clustername;
 cman_cluster_t		cluster;
 static cman_handle_t	ch;
@@ -146,22 +147,32 @@ static void cman_callback(cman_handle_t h, void *private, int reason, int arg)
 	}
 }
 
-void exit_cman(void)
+static void exit_cman(int ci)
 {
-	log_error("cluster is down, exiting");
-	exit(1);
+	if (ci != cman_ci) {
+		log_error("Unknown connection %d", ci);
+		return;
+	}
+
+	log_error("cman connection died");
+	shutdown_daemon();
+	client_dead(ci);
 }
 
-int process_cman(void)
+static void process_cman(int ci)
 {
 	int rv;
 
+	if (ci != cman_ci) {
+		log_error("Unknown connection %d", ci);
+		return;
+	}
+
 	rv = cman_dispatch(ch, CMAN_DISPATCH_ALL);
-
-	if (rv == -1 && errno == EHOSTDOWN)
-		return 1;
-
-	return 0;
+	if (rv == -1 && errno == EHOSTDOWN) {
+		log_error("cman connection died");
+		shutdown_daemon();
+	}
 }
 
 int setup_cman(void)
@@ -209,7 +220,8 @@ int setup_cman(void)
 	/* Fill the node list */
 	statechange();
 
-	return fd;
+	cman_ci = client_add(fd, process_cman, exit_cman);
+	return 0;
 
  fail_stop:
 	cman_stop_notification(ch);

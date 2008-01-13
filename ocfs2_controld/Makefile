@@ -29,7 +29,7 @@ DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
 
 UNINST_HFILES = ocfs2_controld.h
 
-DAEMON_CFILES = main.c member_cman.c
+DAEMON_CFILES = main.c cman.c
 TEST_CFILES = test_client.c
 
 DAEMON_OBJS = $(subst .c,.o,$(DAEMON_CFILES))

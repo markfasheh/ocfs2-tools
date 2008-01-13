@@ -61,9 +61,11 @@ do { \
 } while (0)
 
 
+int client_add(int fd, void (*work)(int ci), void (*dead)(int ci));
+void client_dead(int ci);
+void shutdown_daemon(void);
+
 int setup_cman(void);
-int process_cman(void);
 char *nodeid2name(int nodeid);
-void exit_cman(void);
 
 #endif

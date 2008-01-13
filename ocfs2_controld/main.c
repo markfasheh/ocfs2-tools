@@ -48,18 +48,20 @@
 struct client {
 	int fd;
 	char type[32];
+	void (*work)(int ci);
+	void (*dead)(int ci);
+#if 0
 	struct mountgroup *mg;
 	int another_mount;
+#endif
 };
 
 static int client_maxi;
 static int client_size = 0;
 static struct client *client = NULL;
 static struct pollfd *pollfd = NULL;
+static int time_to_die = 0;
 
-static int cman_fd;
-static int listen_fd;
-static int sigpipe_fd;
 static int sigpipe_write_fd;
 static int groupd_fd;
 
@@ -74,6 +76,11 @@ char dump_buf[DUMP_SIZE];
 int dump_point;
 int dump_wrap;
 
+void shutdown_daemon(void)
+{
+	time_to_die = 1;
+}
+
 static void handler(int signum)
 {
 	log_debug("Caught signal %d", signum);
@@ -81,12 +88,19 @@ static void handler(int signum)
 		log_error("Problem writing signal: %s", strerror(-errno));
 }
 
-static int handle_signal(void)
+static void dead_sigpipe(int ci)
+{
+	log_error("Error on the signal pipe");
+	client_dead(ci);
+	shutdown_daemon();
+}
+
+static void handle_signal(int ci)
 {
 	int rc, caught_sig, abortp = 0;
 	static int segv_already = 0;
 
-	rc = read(sigpipe_fd, (char *)&caught_sig, sizeof(caught_sig));
+	rc = read(client[ci].fd, (char *)&caught_sig, sizeof(caught_sig));
 	if (rc < 0) {
 		rc = -errno;
 		log_error("Error reading from signal pipe: %s",
@@ -144,7 +158,8 @@ static int handle_signal(void)
 		abort();
 
 out:
-	return rc;
+	if (rc)
+		shutdown_daemon();
 }
 
 static int setup_sigpipe(void)
@@ -161,7 +176,6 @@ static int setup_sigpipe(void)
 		goto out;
 	}
 
-	sigpipe_fd = signal_pipe[0];
 	sigpipe_write_fd = signal_pipe[1];
 
 	act.sa_sigaction = NULL;
@@ -182,6 +196,8 @@ static int setup_sigpipe(void)
 
 	if (rc)
 		log_error("Unable to set up signal handlers");
+	else
+		client_add(signal_pipe[0], handle_signal, dead_sigpipe);
 
 out:
 	return rc;
@@ -225,8 +241,20 @@ int do_write(int fd, void *buf, size_t count)
 	return 0;
 }
 
+void client_dead(int ci)
+{
+	log_debug("client %d fd %d dead", ci, client[ci].fd);
+	close(client[ci].fd);
+	client[ci].work = NULL;
+	client[ci].fd = -1;
+	pollfd[ci].fd = -1;
+#if 0
+	client[ci].mg = NULL;
+#endif
+}
 
-static int client_add(int fd)
+
+int client_add(int fd, void (*work)(int ci), void (*dead)(int ci))
 {
 	int i;
 
@@ -235,6 +263,8 @@ static int client_add(int fd)
 		for (i = 0; i < client_size; i++) {
 			if (client[i].fd == -1) {
 				client[i].fd = fd;
+				client[i].work = work;
+				client[i].dead = dead ? dead : client_dead;
 				pollfd[i].fd = fd;
 				pollfd[i].events = POLLIN;
 				if (i > client_maxi)
@@ -265,15 +295,6 @@ static int client_add(int fd)
 	}
 }
 
-static void client_dead(int ci)
-{
-	log_debug("client %d fd %d dead", ci, client[ci].fd);
-	close(client[ci].fd);
-	client[ci].fd = -1;
-	pollfd[ci].fd = -1;
-	client[ci].mg = NULL;
-}
-
 static int dump_debug(int ci)
 {
 	int len = DUMP_SIZE;
@@ -288,7 +309,7 @@ static int dump_debug(int ci)
 	return 0;
 }
 
-static int process_client(int ci)
+static void process_client(int ci)
 {
 #if 0
 	struct mountgroup *mg;
@@ -298,16 +319,18 @@ static int process_client(int ci)
 	char buf[OCFS2_CONTROLD_MAXLINE];
 	int rv, fd = client[ci].fd;
 
+	log_debug("client msg");
 	/* receive_message ensures we have the proper number of arguments */
 	rv = receive_message(fd, buf, &message, argv);
 	if (rv == -EPIPE) {
 		client_dead(ci);
-		return 0;
+		return;
 	}
+
 	if (rv < 0) {
 		/* XXX: Should print better errors matching our returns */
 		log_debug("client %d fd %d read error %d", ci, fd, -rv);
-		return rv;
+		return;
 	}
 
 	log_debug("client message %d from %d: %s", message, ci,
@@ -368,7 +391,7 @@ static int process_client(int ci)
 	}
 #endif
 
-	return rv;
+	return;
 }
 
 #if 0
@@ -393,28 +416,58 @@ static void bail_on_mounts(void)
 }
 #endif
 
+static void process_listener(int ci)
+{
+	int fd, i;
+	fd = accept(client[ci].fd, NULL, NULL);
+	if (fd < 0) {
+		log_debug("accept error %d %d", fd, errno);
+		return;
+	}
+
+	i = client_add(fd, process_client, NULL);
+	log_debug("new client connection %d", i);
+}
+
+static void dead_listener(int ci)
+{
+	log_error("Error on the listening socket");
+	client_dead(ci);
+	shutdown_daemon();
+}
+
+static int setup_listener(void)
+{
+	int fd, i;
+
+	fd = ocfs2_client_listen();
+	if (fd < 0) {
+		log_error("Unable to start listening socket: %s",
+			  strerror(-fd));
+		return 1;
+	}
+
+	i = client_add(fd, process_listener, dead_listener);
+	log_debug("new listening connection %d", i);
+
+	return 0;
+}
 
 static int loop(void)
 {
-	int rv, i, f, poll_timeout = -1;
+	int rv, i, poll_timeout = -1;
 
-	rv = listen_fd = ocfs2_client_listen();
-	if (rv < 0) {
-		log_error("Unable to start listening socket: %s",
-			  strerror(-rv));
+	rv = setup_listener();
+	if (rv < 0)
 		goto out;
-	}
-	client_add(listen_fd);
 
 	rv = setup_sigpipe();
 	if (rv < 0)
 		goto out;
-	client_add(sigpipe_fd);
 
-	rv = cman_fd = setup_cman();
+	rv = setup_cman();
 	if (rv < 0)
 		goto out;
-	client_add(cman_fd);
 
 #if 0
 	rv = groupd_fd = setup_groupd();
@@ -431,51 +484,24 @@ static int loop(void)
 			log_error("poll error %d errno %d", rv, errno);
 		rv = 0;
 
-		/* client[0] is listening for new connections */
-
-		if (pollfd[0].revents & POLLIN) {
-			f = accept(client[0].fd, NULL, NULL);
-			if (f < 0)
-				log_debug("accept error %d %d", f, errno);
-			else
-				client_add(f);
-		}
-
-		for (i = 1; i <= client_maxi; i++) {
+		for (i = 0; i <= client_maxi; i++) {
 			if (client[i].fd < 0)
 				continue;
 
+			/*
+			 * We handle POLLIN before POLLHUP so clients can
+			 * finish what they were doing
+			 */
 			if (pollfd[i].revents & POLLIN) {
-#if 0
-				if (pollfd[i].fd == groupd_fd)
-					process_groupd();
-				else if (pollfd[i].fd == cman_fd) {
-#endif
-				if (pollfd[i].fd == cman_fd) {
-					rv = process_cman();
-					if (rv) {
-						log_error("cman connection died");
-						goto stop;
-					}
-				} else if (pollfd[i].fd == sigpipe_fd) {
-					rv = handle_signal();
-					if (rv)
-						goto stop;
-				} else
-					process_client(i);
+				client[i].work(i);
+				if (time_to_die)
+					goto stop;
 			}
 
 			if (pollfd[i].revents & POLLHUP) {
-				if (pollfd[i].fd == cman_fd) {
-					log_error("cman connection died");
+				client[i].dead(i);
+				if (time_to_die)
 					goto stop;
-#if 0
-				} else if (pollfd[i].fd == groupd_fd) {
-					log_error("groupd connection died");
-					goto stop;
-#endif
-				}
-				client_dead(i);
 			}
 		}
 	}
