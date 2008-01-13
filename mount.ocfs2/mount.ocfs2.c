@@ -24,6 +24,8 @@
 
 #include "mount.ocfs2.h"
 
+#define OCFS2_CLUSTER_STACK_ARG		"cluster_stack="
+
 int verbose = 0;
 int mount_quiet = 0;
 char *progname = NULL;
@@ -259,6 +261,7 @@ int main(int argc, char **argv)
 	char *extra = NULL;
 	int dev_ro = 0;
 	char *hbstr = NULL;
+	char stackstr[strlen(OCFS2_CLUSTER_STACK_ARG) + OCFS2_STACK_LABEL_LEN + 1] = "";
 	ocfs2_filesys *fs = NULL;
 	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
@@ -313,6 +316,9 @@ int main(int argc, char **argv)
 				"while trying to determine cluster information");
 			goto bail;
 		}
+		if (cluster.c_stack)
+			snprintf(stackstr, sizeof(stackstr), "%s%s",
+				 OCFS2_CLUSTER_STACK_ARG, cluster.c_stack);
 
 		ret = ocfs2_fill_heartbeat_desc(fs, &desc);
 		if (ret) {
@@ -354,6 +360,8 @@ int main(int argc, char **argv)
 
 	if (dev_ro || !clustered)
 		hbstr = OCFS2_HB_NONE;
+	else if (strlen(stackstr))
+		hbstr = stackstr;
 	else
 		hbstr = OCFS2_HB_LOCAL;
 
