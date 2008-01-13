@@ -314,6 +314,24 @@ EOF
 
     while :
     do
+        echo -n "Cluster stack backing O2CB [$O2CB_STACK]: "
+        read LINE
+        case "$LINE" in
+        "")
+            break
+            ;;
+        ????)
+            O2CB_STACK="$LINE"
+            break
+            ;;
+        *)
+            echo "Invalid answer: $LINE" >&2
+            ;;
+        esac
+    done
+
+    while :
+    do
         echo -n "Cluster to start on boot (Enter \"none\" to clear) [$O2CB_BOOTCLUSTER]: "
         read LINE
         case "$LINE" in
@@ -872,6 +890,7 @@ online_o2cb()
 
 online()
 {
+    CLUSTER_STACK_FILE="/sys/fs/ocfs2/cluster_stack"
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
     if [ -z "$CLUSTER" ]
     then
@@ -884,6 +903,17 @@ online()
     then
         echo "O2CB cluster ${CLUSTER} already online"
         return
+    fi
+
+    if [ -f "$CLUSTER_STACK_FILE" ]
+    then
+        echo -n "Setting cluster stack \"$O2CB_STACK\": "
+        echo "$O2CB_STACK" >"$CLUSTER_STACK_FILE" 2>/dev/null
+        if_fail $? "Unable to store cluster stack \"$O2CB_STACK\""
+    elif [ "$O2CB_STACK" != "o2cb" ]
+    then
+        echo -n "Setting cluster stack \"$O2CB_STACK\": "
+        if_fail 1 "Stack \"$O2CB_STACK\" is not supported"
     fi
 
     online_o2cb "$CLUSTER"
