@@ -68,7 +68,7 @@ int kill_cman(int nodeid);
 void exit_cman(void);
 
 /* cpg.c */
-int setup_cpg(void);
+int setup_cpg(void (*daemon_joined)(void));
 void exit_cpg(void);
 void for_each_node(struct cgroup *cg,
 		   void (*func)(int nodeid,

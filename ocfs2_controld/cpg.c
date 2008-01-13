@@ -76,6 +76,8 @@ struct cgroup {
 	int			cg_cb_left_count;
 };
 
+/* Note, we never store cnode structures on daemon_group.  Thus,
+ * ->node_down() (which is NULL) is never called */
 struct cgroup daemon_group;
 struct list_head group_list;
 static int message_flow_control_on;
@@ -397,9 +399,11 @@ static void daemon_change(struct cgroup *cg)
 		}
 	}
 
-	if (found)
+	if (found) {
+		if (!cg->cg_joined)
+			cg->cg_set_cgroup(cg, cg->cg_user_data);
 		cg->cg_joined = 1;
-	else
+	} else
 		log_error("this node is not in the ocfs2_controld confchg: %u %u",
 			  our_nodeid, (uint32_t)getpid());
 
@@ -714,11 +718,25 @@ out:
 	return rc;
 }
 
-int setup_cpg(void)
+static void daemon_set_cgroup(struct cgroup *cg, void *user_data)
+{
+	void (*daemon_joined)(void) = user_data;
+
+	if (cg != &daemon_group) {
+		log_error("Somehow, daemon_set_cgroup is called on a different group!");
+		return;
+	}
+
+	daemon_joined();
+}
+
+int setup_cpg(void (*daemon_joined)(void))
 {
 	cpg_error_t error;
 
 	INIT_LIST_HEAD(&group_list);
+	daemon_group.cg_set_cgroup = daemon_set_cgroup;
+	daemon_group.cg_user_data = daemon_joined;
 	error = init_group(&daemon_group, "ocfs2_controld");
 
 	return error;

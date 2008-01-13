@@ -494,13 +494,22 @@ static int setup_listener(void)
 	return 0;
 }
 
+static void cpg_joined(void)
+{
+	int rv;
+
+	log_debug("CPG is live, starting to listen for mounters");
+
+	rv = setup_listener();
+	if (rv < 0) {
+		shutdown_daemon();
+		return;
+	}
+}
+
 static int loop(void)
 {
 	int rv, i, poll_timeout = -1;
-
-	rv = setup_listener();
-	if (rv < 0)
-		goto out;
 
 	rv = setup_sigpipe();
 	if (rv < 0)
@@ -510,7 +519,7 @@ static int loop(void)
 	if (rv < 0)
 		goto out;
 
-	rv = setup_cpg();
+	rv = setup_cpg(cpg_joined);
 	if (rv < 0)
 		goto out;
 
