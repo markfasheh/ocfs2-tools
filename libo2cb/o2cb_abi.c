@@ -1876,6 +1876,8 @@ errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
 #define OCFS2_CONTROL_PROTO_LEN			4
 #define OCFS2_CONTROL_MESSAGE_SETNODE_OP	"SETN"
 #define OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN	14
+#define OCFS2_CONTROL_MESSAGE_DOWN_OP		"DOWN"
+#define OCFS2_CONTROL_MESSAGE_DOWN_TOTAL_LEN	47
 #define OCFS2_CONTROL_MESSAGE_NODENUM_LEN	8
 static errcode_t o2cb_control_handshake(unsigned int this_node)
 {
@@ -1981,6 +1983,25 @@ void o2cb_control_close(void)
 		close(control_device_fd);
 		control_device_fd = -1;
 	}
+}
+
+errcode_t o2cb_control_node_down(const char *uuid, unsigned int nodeid)
+{
+	errcode_t err = 0;
+	size_t ret;
+	char buf[OCFS2_CONTROL_MESSAGE_DOWN_TOTAL_LEN + 1];
+
+	if (control_device_fd == -1)
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	snprintf(buf, OCFS2_CONTROL_MESSAGE_DOWN_TOTAL_LEN + 1,
+		 "DOWN %.32s %08X\n", uuid, nodeid);
+	ret = write(control_device_fd, buf,
+		    OCFS2_CONTROL_MESSAGE_DOWN_TOTAL_LEN);
+	if (ret != OCFS2_CONTROL_MESSAGE_DOWN_TOTAL_LEN)
+		err = O2CB_ET_IO;
+
+	return err;
 }
 
 errcode_t o2cb_get_hb_ctl_path(char *buf, int count)

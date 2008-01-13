@@ -25,6 +25,7 @@
 #include "ocfs2-kernel/kernel-list.h"
 #include "ocfs2-kernel/sparse_endian_types.h"
 #include "ocfs2-kernel/ocfs2_fs.h"
+#include "o2cb/o2cb.h"
 #include "o2cb/o2cb_client_proto.h"
 
 #include "ocfs2_controld.h"
@@ -344,10 +345,14 @@ static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 static void mount_node_down(int nodeid, void *user_data)
 {
 	struct mountgroup *mg = user_data;
+	errcode_t err;
 
 	log_debug("Node %d has left mountgroup %s", nodeid, mg->mg_uuid);
 
-	/* XXX Write to sysfs */
+	err = o2cb_control_node_down(mg->mg_uuid, nodeid);
+	if (err)
+		log_debug("%s while trying to send DOWN message",
+			  error_message(err));
 }
 
 static void force_node_down(int nodeid, void *user_data)
