@@ -303,7 +303,7 @@ static void handle_node_leave(struct cpg_address *addr,
 
 static void group_change(struct cgroup *cg)
 {
-	log_debug("group %.*s confchg: members %d, left %d, joined %d",
+	log_debug("group \"%.*s\" confchg: members %d, left %d, joined %d",
 		  cg->cg_name.length, cg->cg_name.value,
 		  cg->cg_cb_member_count, cg->cg_cb_left_count,
 		  cg->cg_cb_joined_count);
@@ -388,7 +388,8 @@ static void daemon_change(struct cgroup *cg)
 {
 	int i, found = 0;
 
-	log_debug("ocfs2_controld confchg: members %d, left %d, joined %d",
+	log_debug("ocfs2_controld (group \"%.*s\") confchg: members %d, left %d, joined %d",
+		  cg->cg_name.length, cg->cg_name.value,
 		  cg->cg_cb_member_count, cg->cg_cb_left_count,
 		  cg->cg_cb_joined_count);
 
@@ -579,6 +580,8 @@ static int start_join(struct cgroup *cg)
 {
 	cpg_error_t error;
 
+	log_debug("Starting join for group \"%.*s\"",
+		  cg->cg_name.length, cg->cg_name.value);
 	do {
 		error = cpg_join(cg->cg_handle, &cg->cg_name);
 		if (error == CPG_OK) {
@@ -602,8 +605,8 @@ static int start_leave(struct cgroup *cg)
 	if (!cg->cg_handle)
 		return -EINVAL;
 
-	log_debug("leaving group %.*s", cg->cg_name.length,
-		  cg->cg_name.value);
+	log_debug("leaving group \"%.*s\"",
+		  cg->cg_name.length, cg->cg_name.value);
 
 	for (i = 0; i < 10; i++) {
 		error = cpg_leave(cg->cg_handle,
@@ -636,13 +639,14 @@ static int init_group(struct cgroup *cg, const char *name)
 {
 	cpg_error_t error;
 
-	cg->cg_name.length = strlen(name);
-	if (cg->cg_name.length > CPG_MAX_NAME_LENGTH) {
+	cg->cg_name.length = snprintf(cg->cg_name.value,
+				      CPG_MAX_NAME_LENGTH,
+				      "ocfs2:%s", name);
+	if (cg->cg_name.length >= CPG_MAX_NAME_LENGTH) {
 		log_error("Group name \"%s\" is too long", name);
 		error = -ENAMETOOLONG;
 		goto out;
 	}
-	strncpy(cg->cg_name.value, name, CPG_MAX_NAME_LENGTH);
 
 	error = cpg_initialize(&cg->cg_handle, &callbacks);
 	if (error != CPG_OK) {
@@ -737,7 +741,7 @@ int setup_cpg(void (*daemon_joined)(void))
 	INIT_LIST_HEAD(&group_list);
 	daemon_group.cg_set_cgroup = daemon_set_cgroup;
 	daemon_group.cg_user_data = daemon_joined;
-	error = init_group(&daemon_group, "ocfs2_controld");
+	error = init_group(&daemon_group, "controld");
 
 	return error;
 }
