@@ -38,6 +38,7 @@ struct cgroup {
 	struct list_head	cg_list;	/* List of all CPG groups */
 
 	cpg_handle_t		cg_handle;
+	int			cg_joined;
 	int			cg_fd;
 	int			cg_ci;
 
@@ -56,48 +57,199 @@ struct cgroup {
 };
 
 struct cgroup daemon_group;
-static int daemon_joined;
 struct list_head group_list;
 static int message_flow_control_on;
 
-static void group_change(struct cgroup *cgroup)
+static void for_each_node_list(struct cpg_address list[], int count,
+			       void (*func)(struct cpg_address *addr,
+					    void *user_data),
+			       void *user_data)
 {
+	int i;
+
+	for (i = 0; i < count; i++)
+		func(&list[i], user_data);
 }
 
-static void daemon_change(struct cgroup *cgroup)
+struct fen_proxy {
+	void (*fp_func)(int nodeid,
+			void *user_data);
+	void *fp_data;
+};
+
+static void for_each_node_proxy(struct cpg_address *addr,
+				void *user_data)
+{
+	struct fen_proxy *fen = user_data;
+
+	fen->fp_func(addr->nodeid, fen->fp_data);
+}
+
+void for_each_node(struct cgroup *cg,
+		   void (*func)(int nodeid,
+				void *user_data),
+		   void *user_data)
+{
+	struct fen_proxy fen = {
+		.fp_func	= func,
+		.fp_data	= user_data,
+	};
+
+	for_each_node_list(cg->cg_members, cg->cg_member_count,
+			   for_each_node_proxy, &fen);
+}
+
+
+static void handle_node_leave(struct cpg_address *addr,
+			      void *user_data)
+{
+	switch (addr->reason) {
+		case CPG_REASON_LEAVE:
+			/* XXX Handle leave */
+			break;
+
+		case CPG_REASON_NODEDOWN:
+		case CPG_REASON_PROCDOWN:
+			/*
+			 * These are ignored here.  They will be handled
+			 * at the daemon group level in daemon_change().
+			 */
+			break;
+
+		case CPG_REASON_NODEUP:
+		case CPG_REASON_JOIN:
+			log_error("Unexpected reason %d while looking at group leave event for node %d",
+				  addr->reason,
+				  addr->nodeid);
+			break;
+
+		default:
+			log_error("Invalid reason %d while looking at group leave event for node %d",
+				  addr->reason,
+				  addr->nodeid);
+			break;
+	}
+}
+
+static void group_change(struct cgroup *cg)
+{
+	log_debug("group %s confchg: members %d, left %d, joined %d",
+		  cg->cg_name.value, cg->cg_cb_member_count,
+		  cg->cg_cb_left_count, cg->cg_cb_joined_count);
+
+#if 0
+	for_each_node_list(cg->cg_cb_joined, cg->cg_cb_joined_count,
+			   handle_node_join, NULL);
+#endif
+
+	for_each_node_list(cg->cg_cb_left, cg->cg_cb_left_count,
+			   handle_node_leave, NULL);
+}
+
+static void handle_daemon_left(struct cpg_address *addr,
+			       void *user_data)
+{
+	log_debug("node daemon left %d", addr->nodeid);
+
+	switch (addr->reason) {
+		case CPG_REASON_LEAVE:
+			break;
+
+		case CPG_REASON_PROCDOWN:
+			/*
+			 * ocfs2_controld failed but the node is
+			 * still up.  If the node was part of any
+			 * mounts, we need to kick it out of cman
+			 * to force fencing.
+			 */
+			/* XXX actually check for mounts */
+			if (1) {
+				log_error("kill node %d - ocfs2_controld PROCDOWN",
+					  addr->nodeid);
+				kill_cman(addr->nodeid);
+			}
+
+			/* FALL THROUGH */
+
+		case CPG_REASON_NODEDOWN:
+			/* A nice clean failure */
+			/* XXX process node leaving ocfs2_controld
+			 * group.  This is not the same as
+			 * processing a node leaving its mount
+			 * groups.  We handle that below. */
+			break;
+
+		case CPG_REASON_NODEUP:
+		case CPG_REASON_JOIN:
+			log_error("Unexpected reason %d while looking at node leave event for node %d",
+				  addr->reason,
+				  addr->nodeid);
+			break;
+
+		default:
+			log_error("Invalid reason %d while looking at node leave event for node %d",
+				  addr->reason,
+				  addr->nodeid);
+			break;
+	}
+}
+
+static void handle_node_down(struct cpg_address *addr,
+			     void *user_data)
+{
+	if ((addr->reason != CPG_REASON_NODEDOWN) &&
+	    (addr->reason != CPG_REASON_PROCDOWN))
+		return;
+
+	log_debug("node down %d", addr->nodeid);
+
+	/* XXX For each mount group, process node down */
+}
+
+static void daemon_change(struct cgroup *cg)
 {
 	int i, found = 0;
 
 	log_debug("ocfs2_controld confchg: members %d, left %d, joined %d",
-		  cgroup->cg_cb_member_count,
-		  cgroup->cg_cb_left_count,
-		  cgroup->cg_cb_joined_count);
+		  cg->cg_cb_member_count, cg->cg_cb_left_count,
+		  cg->cg_cb_joined_count);
 
-	memcpy(&cgroup->cg_members, &cgroup->cg_cb_members,
-	       sizeof(&cgroup->cg_cb_members));
-	cgroup->cg_member_count = cgroup->cg_cb_member_count;
-
-	for (i = 0; i < cgroup->cg_cb_member_count; i++) {
-		if ((cgroup->cg_cb_members[i].nodeid == our_nodeid) &&
-		    (cgroup->cg_cb_members[i].pid == (uint32_t)getpid())) {
+	for (i = 0; i < cg->cg_cb_member_count; i++) {
+		if ((cg->cg_cb_members[i].nodeid == our_nodeid) &&
+		    (cg->cg_cb_members[i].pid == (uint32_t)getpid())) {
 		    found = 1;
 		}
 	}
 
 	if (found)
-		daemon_joined = 1;
+		cg->cg_joined = 1;
 	else
 		log_error("this node is not in the ocfs2_controld confchg: %u %u",
 			  our_nodeid, (uint32_t)getpid());
 
+	/* Here we do any internal work for the daemon group changing */
+	for_each_node_list(cg->cg_cb_left, cg->cg_cb_left_count,
+			   handle_daemon_left, NULL);
+
+	/*
+	 * This is the pass to notify mountgroups.  It is important we do
+	 * it here rather than in group_change(); we ensure the same order
+	 * on all nodes.
+	 */
+	for_each_node_list(cg->cg_cb_left, cg->cg_cb_left_count,
+			   handle_node_down, NULL);
 }
 
-static void process_configuration_change(struct cgroup *cgroup)
+static void process_configuration_change(struct cgroup *cg)
 {
-	if (cgroup == &daemon_group)
-		daemon_change(cgroup);
+	memcpy(&cg->cg_members, &cg->cg_cb_members,
+	       sizeof(&cg->cg_cb_members));
+	cg->cg_member_count = cg->cg_cb_member_count;
+
+	if (cg == &daemon_group)
+		daemon_change(cg);
 	else
-		group_change(cgroup);
+		group_change(cg);
 }
 
 static struct cgroup *client_to_group(int ci)
@@ -135,12 +287,12 @@ static void confchg_cb(cpg_handle_t handle, struct cpg_name *group_name,
 		       int joined_list_entries)
 {
 	int i;
-	struct cgroup *cgroup;
+	struct cgroup *cg;
 
 	log_debug("confchg called");
 
-	cgroup = handle_to_group(handle);
-	if (!cgroup)
+	cg = handle_to_group(handle);
+	if (!cg)
 		return;
 
 	if (left_list_entries > CPG_MEMBERS_MAX) {
@@ -154,18 +306,18 @@ static void confchg_cb(cpg_handle_t handle, struct cpg_name *group_name,
 		member_list_entries = CPG_MEMBERS_MAX;
 	}
 
-	cgroup->cg_cb_left_count = left_list_entries;
-	cgroup->cg_cb_joined_count = joined_list_entries;
-	cgroup->cg_cb_member_count = member_list_entries;
+	cg->cg_cb_left_count = left_list_entries;
+	cg->cg_cb_joined_count = joined_list_entries;
+	cg->cg_cb_member_count = member_list_entries;
 
 	for (i = 0; i < left_list_entries; i++)
-		cgroup->cg_cb_left[i] = left_list[i];
+		cg->cg_cb_left[i] = left_list[i];
 	for (i = 0; i < joined_list_entries; i++)
-		cgroup->cg_cb_joined[i] = joined_list[i];
+		cg->cg_cb_joined[i] = joined_list[i];
 	for (i = 0; i < member_list_entries; i++)
-		cgroup->cg_cb_members[i] = member_list[i];
+		cg->cg_cb_members[i] = member_list[i];
 
-	cgroup->cg_got_confchg = 1;
+	cg->cg_got_confchg = 1;
 }
 
 static cpg_callbacks_t callbacks = {
@@ -177,20 +329,20 @@ static void process_cpg(int ci)
 {
 	cpg_error_t error;
 	cpg_flow_control_state_t flow_control_state;
-	struct cgroup *cgroup;
+	struct cgroup *cg;
 
-	cgroup = client_to_group(ci);
-	if (!cgroup)
+	cg = client_to_group(ci);
+	if (!cg)
 		return;
 
-	cgroup->cg_got_confchg = 0;
-	error = cpg_dispatch(cgroup->cg_handle, CPG_DISPATCH_ONE);
+	cg->cg_got_confchg = 0;
+	error = cpg_dispatch(cg->cg_handle, CPG_DISPATCH_ONE);
 	if (error != CPG_OK) {
 		log_error("cpg_dispatch error %d", error);
 		return;
 	}
 
-	error = cpg_flow_control_state_get(cgroup->cg_handle,
+	error = cpg_flow_control_state_get(cg->cg_handle,
 					   &flow_control_state);
 	if (error != CPG_OK)
 		log_error("cpg_flow_control_state_get %d", error);
@@ -203,8 +355,8 @@ static void process_cpg(int ci)
 		message_flow_control_on = 0;
 	}
 
-	if (cgroup->cg_got_confchg)
-		process_configuration_change(cgroup);
+	if (cg->cg_got_confchg)
+		process_configuration_change(cg);
 }
 
 static void dead_cpg(int ci)
@@ -220,45 +372,73 @@ static void dead_cpg(int ci)
 	connection_dead(ci);
 }
 
-int setup_cpg(void)
+static int start_join(struct cgroup *cg)
 {
 	cpg_error_t error;
 
-	error = cpg_initialize(&daemon_group.cg_handle, &callbacks);
-	if (error != CPG_OK) {
-		log_error("cpg_initialize error %d", error);
-		return error;
-	}
-
-	cpg_fd_get(daemon_group.cg_handle, &daemon_group.cg_fd);
-	daemon_group.cg_ci = connection_add(daemon_group.cg_fd,
-					    process_cpg, dead_cpg);
-	if (daemon_group.cg_ci < 0) {
-		log_error("Unable to add cpg client: %s",
-			  strerror(-daemon_group.cg_ci));
-		cpg_finalize(daemon_group.cg_handle);
-		daemon_group.cg_handle = 0;
-		return daemon_group.cg_ci;
-	}
-
-	strcpy(daemon_group.cg_name.value, "ocfs2_controld");
-	daemon_group.cg_name.length = strlen(daemon_group.cg_name.value);
-
 	do {
-		error = cpg_join(daemon_group.cg_handle,
-				 &daemon_group.cg_name);
+		error = cpg_join(cg->cg_handle, &cg->cg_name);
 		if (error == CPG_OK) {
 			log_debug("cpg_join succeeded");
 			error = 0;
 		} else if (error == CPG_ERR_TRY_AGAIN) {
 			log_debug("cpg_join retry");
 			sleep(1);
-		} else {
+		} else
 			log_error("cpg_join error %d", error);
-			cpg_finalize(daemon_group.cg_handle);
-			daemon_group.cg_handle = 0;
-		}
 	} while (error == CPG_ERR_TRY_AGAIN);
+
+	return error;
+}
+
+static int init_group(struct cgroup *cg, const char *name)
+{
+	cpg_error_t error;
+
+	cg->cg_name.length = strlen(name);
+	if (cg->cg_name.length > CPG_MAX_NAME_LENGTH) {
+		log_error("Group name \"%s\" is too long", name);
+		error = -ENAMETOOLONG;
+		goto out;
+	}
+	strncpy(cg->cg_name.value, name, CPG_MAX_NAME_LENGTH);
+
+	error = cpg_initialize(&cg->cg_handle, &callbacks);
+	if (error != CPG_OK) {
+		log_error("cpg_initialize error %d", error);
+		goto out;
+	}
+
+	cpg_fd_get(cg->cg_handle, &cg->cg_fd);
+	cg->cg_ci = connection_add(cg->cg_fd, process_cpg, dead_cpg);
+	if (cg->cg_ci < 0) {
+		error = cg->cg_ci;
+		log_error("Unable to add cpg client: %s", strerror(-error));
+		goto out_finalize;
+	}
+
+	error = start_join(cg);
+	if (error)
+		goto out_close;
+
+	return 0;
+
+out_close:
+	connection_dead(cg->cg_fd);
+
+out_finalize:
+	cpg_finalize(cg->cg_handle);
+	cg->cg_handle = 0;
+
+out:
+	return error;
+}
+
+int setup_cpg(void)
+{
+	cpg_error_t error;
+
+	error = init_group(&daemon_group, "ocfs2_controld");
 
 	return error;
 }

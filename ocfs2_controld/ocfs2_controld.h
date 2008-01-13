@@ -48,15 +48,6 @@ do { \
 	daemon_dump_save(); \
 } while (0)
 
-#define log_group(g, fmt, args...) \
-do { \
-	snprintf(daemon_debug_buf, 1023, "%ld %s@%d %s " fmt "\n", \
-		 time(NULL), __FUNCTION__, __LINE__, \
-		 (g)->uuid, ##args); \
-	if (daemon_debug_opt) fprintf(stderr, "%s", daemon_debug_buf); \
-	daemon_dump_save(); \
-} while (0)
-
 #define log_error(fmt, args...) \
 do { \
 	log_debug(fmt, ##args); \
@@ -64,19 +55,27 @@ do { \
 } while (0)
 
 
+/* main.c */
 int connection_add(int fd, void (*work)(int ci), void (*dead)(int ci));
 void connection_dead(int ci);
 void shutdown_daemon(void);
 
+/* cman.c */
 int setup_cman(void);
 char *nodeid2name(int nodeid);
 int validate_cluster(const char *cluster);
 int kill_cman(int nodeid);
 void exit_cman(void);
 
+/* cpg.c */
 int setup_cpg(void);
 void exit_cpg(void);
+void for_each_node(struct cgroup *cg,
+		   void (*func)(int nodeid,
+				void *user_data),
+		   void *user_data);
 
+/* mount.c */
 void init_mounts(void);
 int have_mounts(void);
 int start_mount(int ci, int fd, const char *uuid, const char *device,
