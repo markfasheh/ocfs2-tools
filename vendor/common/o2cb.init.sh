@@ -48,8 +48,12 @@ MIN_IDLE_TIMEOUT_MS=5000
 MIN_KEEPALIVE_DELAY_MS=1000
 MIN_RECONNECT_DELAY_MS=2000
 
-# Source configuration, 
+VERSION=@@VERSION@@
+
+# Source configuration
 [ -f "${CONFIGURATION}" ] && . "${CONFIGURATION}"
+# Need this default
+[ -z "$O2CB_STACK" ] && O2CB_STACK=o2cb
 
 configfs_path()
 {
@@ -61,35 +65,6 @@ configfs_path()
         echo /config
     fi
 }
-
-# 
-# This is a tricky bit of eval work.  There are many steps involved in
-# O2CB startup/shutdown, so we collect them here.  Each line is a line
-# of shell code that needs to be run.  The code is run via eval as
-# follows:
-#
-# start/load:
-#    Eval of the exact lines, in order.  So, the first call is
-#    "eval load_module configfs".
-#
-# status:
-#    Eval of the lines with "check_" prepended, in order.  So the first
-#    call is "eval check_load_module configfs".
-#
-# stop/unload:
-#    Eval of the lines with "un" prepened, in reverse order.  So the
-#    *last* call is "eval unload_module configfs".
-# 
-# To provide an action, create a set of shell functions or commands
-# "foo", "check_foo", and "unfoo".  Then add "foo arguments" to the
-# appropriate place.  Be careful, eval requires quoting to be right.
-#
-LOAD_ACTIONS=("load_module configfs"
-		"mount_fs configfs "'$(configfs_path)'
-		"load_module ocfs2_nodemanager"
-		"load_module ocfs2_dlm"
-		"load_module ocfs2_dlmfs"
-		"mount_fs ocfs2_dlmfs /dlm")
 
 
 #
@@ -138,6 +113,9 @@ write_sysconfig()
 
 # O2CB_ENABLED: 'true' means to load the driver on boot.
 O2CB_ENABLED=${O2CB_ENABLED:-false}
+
+# O2CB_STACK: The name of the cluster stack backing O2CB.
+O2CB_STACK=${O2CB_STACK}
 
 # O2CB_BOOTCLUSTER: If not empty, the name of a cluster to start.
 O2CB_BOOTCLUSTER=${O2CB_BOOTCLUSTER}
@@ -217,7 +195,7 @@ set_timeouts()
     if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
         if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
             echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE"
-        elif [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD" ]; then 
+        elif [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD" ]; then
             echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE_OLD"
         fi
     fi
@@ -409,34 +387,230 @@ make_dir()
 
 
 #
-# load_module()
-# Load a module
+# driver_filesystem()
+# Check to see if a filesystem driver is loaded.
 #
-# 0 is success, 1 is error, 2 is already loaded
-# 
-load_module()
+# 0 is loaded, 1 is not.
+#
+driver_filesystem()
 {
-    if [ "$#" -lt "1" -o -z "$1" ]
+    if [ "$#" != "1" -o -z "$1" ]
     then
-        echo "load_module(): Requires an argument" >&2
+        echo "driver_filesystem(): Missing an argument" >&2
+        exit 1
+    fi
+    FSNAME="$1"
+
+    FSOUT="`awk '$2 ~ /^'$FSNAME'$/{print $1;exit}' < /proc/filesystems 2>/dev/null`"
+    test -n "$FSOUT"
+    return $?
+}
+
+
+#
+# load_filesystem()
+# Load a filesystem driver.
+#
+# 0 is success, 1 is error, 2 is already loaded.
+#
+load_filesystem()
+{
+    if [ "$#" != "1" -o -z "$1" ]
+    then
+        echo "load_filesystem(): Missing an argument" >&2
         return 1
     fi
-    MODNAME="$1"
+    FSNAME="$1"
 
-    MODOUT="`awk '$1 ~ /^'$MODNAME'$/{print $1;exit}' < /proc/modules 2>/dev/null`"
-    if [ -n "$MODOUT" ]
+    driver_filesystem "$FSNAME" && return 2
+
+    echo -n "Loading filesystem \"$FSNAME\": "
+    modprobe -s "$FSNAME"
+    if [ "$?" != 0 ]
     then
+        echo "Unable to load filesystem \"$FSNAME\"" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+#
+# unload_filesystem()
+# Unload a filesystem driver.  Be careful to notice if the driver is
+# built-in and do nothing.
+#
+# 0 is success, 1 is error, 2 is already loaded.
+#
+unload_filesystem()
+{
+    if [ "$#" != "1" -o -z "$1" ]
+    then
+        echo "unload_filesystem(): Missing an argument" >&2
+        return 1
+    fi
+    FSNAME="$1"
+
+    driver_filesystem "$FSNAME" || return 2
+
+    MODOUT="`awk '$1 ~ /^'$FSNAME'$/{print $1,$3;exit}' < /proc/modules 2>/dev/null`"
+    if [ -z "$MODOUT" ]
+    then
+        # The driver is built in, we can't unload it.
         return 2
     fi
 
-    echo -n "Loading module \"$MODNAME\": "
-    modprobe -s "$MODNAME"
+    case "$MODOUT" in
+    $FSNAME\ 0)
+        ;;
+    $FSNAME\ *)
+        # The driver is busy, leave it alone
+        return 2
+        ;;
+    *)
+        echo -n "Invalid module parsing! "
+        return 1
+        ;;
+    esac
+
+    echo -n "Unloading module \"$FSNAME\": "
+    modprobe -rs "$FSNAME"
     if [ "$?" != 0 ]
     then
-        echo "Unable to load module \"$MODNAME\"" >&2
+        echo "Unable to unload module \"$FSNAME\"" >&2
         return 1
     fi
 
+    return 0
+}
+
+#
+# check_filesystem()
+# Check to see if a filesystem of type $1 is mounted at $2.
+#
+# 0 is mounted, 1 is not.
+#
+check_filesystem()
+{
+    if [ "$#" != "2" -o -z "$1" -o -z "$2" ]
+    then
+        echo "check_filesystem(): Missing arguments" >&2
+        exit 1
+    fi
+    FSNAME="$1"
+    MOUNTPOINT="$2"
+
+    FULL_MOUNTSEARCH="`echo "$MOUNTPOINT" | sed -e 's/\//\\\\\//g'`"
+    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/ && $3 ~ /^'$FSNAME'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
+    test -n "$MOUNTOUT"
+    return $?
+}
+
+#
+# mount_filesystem()
+# Mounts a pseudo-filesystem of type $1 on mountpoint $2.  It will
+# load the drivers for $1 and create $2 if needed.
+#
+# 0 is success, 1 is error, 2 is already mounted.
+#
+mount_filesystem()
+{
+    if [ "$#" != "2" -o -z "$1" -o -z "$2" ]
+    then
+        echo "mount_filesystem(): Missing arguments" >&2
+        return 1
+    fi
+    FSNAME="$1"
+    MOUNTPOINT="$2"
+
+    check_filesystem "$FSNAME" "$MOUNTPOINT" && return 2
+
+    load_filesystem "$FSNAME"
+    if_fail $?
+
+    # XXX some policy?
+    if [ ! -e "$MOUNTPOINT" ]; then
+        make_dir $MOUNTPOINT
+        if_fail "$?"
+    fi
+
+    echo -n "Mounting ${FSNAME} filesystem at ${MOUNTPOINT}: "
+    mount -t ${FSNAME} ${FSNAME} ${MOUNTPOINT}
+    if [ $? != 0 ]
+    then
+        echo "Unable to mount ${FSNAME} filesystem" >&2
+        return 1
+    fi
+
+    return 0
+}
+
+#
+# unmount_filesystem()
+# Unmount a pseudo-filesystem of type $1 from mountpoint $2.  It will
+# remove the driver for $1 if it can.
+#
+# 0 is success, 1 is error, 2 is not mounted
+#
+unmount_filesystem()
+{
+    if [ "$#" != "2" -o -z "$1" -o -z "$2" ]
+    then
+        echo "unmount_filesystem(): Missing arguments" >&2
+        return 1
+    fi
+    FSNAME="$1"
+    MOUNTPOINT="$2"
+
+    if check_filesystem "$FSNAME" "$MOUNTPOINT"
+    then
+        echo -n "Unmounting ${FSNAME} filesystem: "
+        umount $MOUNTPOINT
+        RC=$?
+        if [ $RC != 0 ]
+        then
+            echo "Unable to unmount ${FSNAME} filesystem" >&2
+            return 1
+        fi
+        if_fail $RC  # For the success string
+    fi
+
+    unload_filesystem "$FSNAME"
+    return $?
+}
+
+#
+# status_filesystem()
+# Report the status of a filesystem, whether it is mounted or not
+#
+# 0 is not mounted, 1 is error, 2 is already mounted
+#
+status_filesystem()
+{
+    if [ "$#" != "2" -o -z "$1" -o -z "$2" ]
+    then
+        echo "status_filesystem(): Missing arguments" >&2
+        return 1
+    fi
+    FSNAME="$1"
+    MOUNTPOINT="$2"
+
+    echo -n "Driver for \"$FSNAME\": "
+    if driver_filesystem "$FSNAME"
+    then
+        echo "Loaded"
+    else
+        echo "Not loaded"
+        return 0
+    fi
+
+    echo -n "Filesystem \"$FSNAME\": "
+    if check_filesystem "$FSNAME" "$MOUNTPOINT"
+    then
+        echo "Mounted"
+        return 2
+    fi
+    echo "Not mounted"
     return 0
 }
 
@@ -476,7 +650,7 @@ check_heartbeat()
 #
 # clean_heartbeat()
 # Removes the inactive heartbeat regions
-# 
+#
 clean_heartbeat()
 {
     if [ "$#" -lt "1" -o -z "$1" ]
@@ -566,7 +740,7 @@ clean_cluster()
 # Unload a module
 #
 # 0 is success, 1 is error, 2 is not loaded
-# 
+#
 unload_module()
 {
     if [ "$#" -lt "1" -o -z "$1" ]
@@ -629,124 +803,37 @@ check_load_module()
     return 2
 }
 
-
-#
-# mount_fs()
-# Mount a filesystem.
-#
-# 0 is success, 1 is error, 2 is already mounted
-#
-mount_fs()
-{
-    TYPE="$1"
-    FULL_MOUNT="$2"
-    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
-    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
-
-    if [ -n "$MOUNTOUT" ]
-    then
-        return 2
-    fi
-
-    # XXX some policy?
-    if [ ! -e "$FULL_MOUNT" ]; then
-        make_dir $FULL_MOUNT
-        if_fail "$?"
-    fi
-
-    echo -n "Mounting ${TYPE} filesystem at $FULL_MOUNT: "
-    mount -t ${TYPE} ${TYPE} $FULL_MOUNT
-    if [ $? != 0 ]
-    then
-        echo "Unable to mount ${TYPE} filesystem" >&2
-        return 1
-    fi
-
-    return 0
-}
-
-#
-# check_mount_fs()
-#
-# 0 is not mounted, 1 is error, 2 is already mounted
-#
-check_mount_fs()
-{
-    TYPE="$1"
-    FULL_MOUNT="$2"
-    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
-    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
-
-    echo -n "Filesystem \"$TYPE\": "
-    if [ -n "$MOUNTOUT" ]
-    then
-        echo "Mounted"
-        return 2
-    fi
-    echo "Not mounted"
-    return 0
-}
-
-#
-# unmount_fs()
-# Unmount a filesystem
-#
-# 0 is success, 1 is error, 2 is not mounted
-#
-unmount_fs()
-{
-    TYPE="$1"
-    FULL_MOUNT="$2"
-    FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
-    MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
-
-    if [ -z "$MOUNTOUT" ]
-    then
-        return 2
-    fi
-
-    echo -n "Unmounting ${TYPE} filesystem: "
-    umount $FULL_MOUNT
-    if [ $? != 0 ]
-    then
-        echo "Unable to unmount ${TYPE} filesystem" >&2
-        return 1
-    fi
-
-    return 0
-}
-
 load()
 {
-    for i in $(seq 0 $((${#LOAD_ACTIONS[*]} - 1)) ); do
-        eval ${LOAD_ACTIONS[i]}
-        if_fail "$?"
-    done
+    # XXX: SPECIAL CASE!  We must load configfs for configfs_path() to work
+    load_filesystem "configfs"
+    if_fail $?
+
+    mount_filesystem "configfs" "$(configfs_path)"
+    if_fail $?
+
+    mount_filesystem "ocfs2_dlmfs" "/dlm"
+    if_fail $?
+
+    return 0
 }
 
 load_status()
 {
-    for i in $(seq 0 $((${#LOAD_ACTIONS[*]} - 1)) ); do
-        eval "check_${LOAD_ACTIONS[i]}"
-    done
-    return "$?"
+    status_filesystem "configfs" "$(configfs_path)"
+    status_filesystem "ocfs2_dlmfs" "/dlm"
+
+    return 0
 }
 
-online()
+online_o2cb()
 {
-    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
-    if [ -z "$CLUSTER" ]
+    if [ "$#" -lt "1" -o -z "$1" ]
     then
-        echo "O2CB cluster not known"
-        return
+        echo "online_o2cb(): Requires an argument" >&2
+        return 1
     fi
-
-    check_online $CLUSTER
-    if [ $? = 2 ]
-    then
-        echo "O2CB cluster ${CLUSTER} already online"
-        return
-    fi
+    CLUSTER="$1"
 
     if ! [ -f ${CLUSTERCONF} ]
     then
@@ -769,6 +856,25 @@ online()
     echo -n "Stopping O2CB cluster ${CLUSTER}: "
     OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=no 2>&1`"
     if_fail "$?" "$OUTPUT"
+}
+
+online()
+{
+    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
+    if [ -z "$CLUSTER" ]
+    then
+        echo "O2CB cluster not known"
+        return
+    fi
+
+    check_online $CLUSTER
+    if [ $? = 2 ]
+    then
+        echo "O2CB cluster ${CLUSTER} already online"
+        return
+    fi
+
+    online_o2cb "$CLUSTER"
 }
 
 #
@@ -804,25 +910,15 @@ check_online()
     return $RC
 }
 
-offline()
+offline_o2cb()
 {
-    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
-    if [ -z "$CLUSTER" ]
+    if [ "$#" -lt "2" -o -z "$1" -o -z "$2" ]
     then
-        return
+        echo "offline_o2cb(): Missing arguments" >&2
+        return 1
     fi
-
-    if [ $# -gt 1 ]
-    then
-        FORCE=$2
-    else
-        FORCE=0
-    fi
-
-    if [ ! -e "$(configfs_path)/cluster/${CLUSTER}" ]
-    then
-        return
-    fi
+    CLUSTER="$1"
+    FORCE="$2"
 
     clean_heartbeat $CLUSTER
 
@@ -843,6 +939,29 @@ offline()
         OUTPUT="`o2cb_ctl -H -n "${CLUSTER}" -t cluster -a online=no 2>&1`"
         if_fail "$?" "$OUTPUT - Try to force-offline the O2CB cluster"
     fi
+}
+
+offline()
+{
+    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
+    if [ -z "$CLUSTER" ]
+    then
+        return
+    fi
+
+    if [ $# -gt 1 ]
+    then
+        FORCE=$2
+    else
+        FORCE=0
+    fi
+
+    if [ ! -e "$(configfs_path)/cluster/${CLUSTER}" ]
+    then
+        return
+    fi
+
+    offline_o2cb "$CLUSTER" "$FORCE"
 
     unload_module ocfs2
     if_fail "$?"
@@ -878,10 +997,15 @@ unload()
         fi
     fi
 
-    for i in $(seq $((${#LOAD_ACTIONS[*]} - 1)) -1 0); do
-        eval "un${LOAD_ACTIONS[i]}"
-        if_fail "$?"
-    done
+    unmount_filesystem "ocfs2_dlmfs" "/dlm"
+    if_fail $?
+
+    # Only unmount configfs if there are no other users
+    if [ -z "$(ls -1 "$(configfs_path)")" ]
+    then
+        unmount_filesystem "configfs" "/sys/kernel/config"
+        if_fail $?
+    fi
 }
 
 stop()
@@ -902,10 +1026,6 @@ configure()
 status()
 {
     load_status
-    if [ $? != 2 ]
-    then
-        return 0;
-    fi
 
     CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
     if [ -z "$CLUSTER" ]
@@ -936,48 +1056,6 @@ status()
     fi
 
     return
-
-    echo -n "Checking if O2CB is loaded: "
-    RC=0
-    for MODSPEC in $MODULE_LIST
-    do
-        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
-        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
-        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
-
-        if grep "^${MODULE_NAME} " /proc/modules >/dev/null 2>&1
-        then
-            echo -n "${MODULE_NAME} "
-        else
-            RC=1
-            break
-        fi
-    done
-    if_fail "$RC"
-
-    echo -n "Checking O2CB mount points: "
-    for MODSPEC in $MODULE_LIST
-    do
-        MODULE_NAME="`echo $MODSPEC | cut -d: -f1`"
-        FSTYPE="`echo $MODSPEC | cut -d: -f2`"
-        MOUNT_POINT="`echo $MODSPEC | cut -d: -f3`"
-
-        if [ -z "$FSTYPE" -o -z "$MOUNT_POINT" ]
-        then
-            continue
-        fi
-
-        FULL_MOUNT="${O2CB_MANAGER}/${MOUNT_POINT}"
-        FULL_MOUNTSEARCH="`echo "$FULL_MOUNT" | sed -e 's/\//\\\\\//g'`"
-        if grep "^${FSTYPE} ${FULL_MOUNTSEARCH} ${FSTYPE}" /proc/mounts >/dev/null 2>&1
-        then
-            echo -n "${MOUNT_POINT} "
-        else
-            RC=1
-            break
-        fi
-    done
-    if_fail "$RC"
 }
 
 
