@@ -51,6 +51,9 @@ struct mountgroup {
 	int			mg_mount_fd;
 	int			mg_mount_notified;
 
+	/* Interaction with cpg.c */
+	struct cgroup		*mg_cg;
+
 	int			mg_error;
 	char			mg_error_msg[128];
 };
@@ -324,6 +327,113 @@ static void add_mountpoint(struct mountgroup *mg, const char *device,
 	list_add(&mp->mp_list, &mg->mg_mountpoints);
 }
 
+static void finish_join(struct mountgroup *mg, struct cgroup *cg)
+{
+	struct mountpoint *mp;
+
+	if (mg->mg_cg) {
+		log_error("cgroup passed, but one already exists! (mg %s, existing %p, new %p)",
+			  mg->mg_uuid, mg->mg_cg, cg);
+		return;
+	}
+
+	mp = mg->mg_mp_in_progress;
+	if (!mp) {
+		log_error("No mountpoint in progress for mountgroup %s",
+			  mg->mg_uuid);
+		return;
+	}
+
+	if (list_empty(&mp->mp_list)) {
+		if (mg->mg_leave_on_join) {
+			/* XXX Start leave */
+		} else {
+			log_error("mountgroup %s is in the process of leaving, not joining",
+				  mg->mg_uuid);
+		}
+		return;
+	}
+
+	if (list_empty(&mg->mg_mountpoints)) {
+		log_error("No mountpoints on mountgroup %s", mg->mg_uuid);
+		return;
+	}
+
+	/* Ok, we've successfully joined the group */
+	mg->mg_cg = cg;
+	notify_mount_client(mg);
+}
+
+static void finish_leave(struct mountgroup *mg)
+{
+	if (list_empty(&mg->mg_mountpoints) &&
+	    mg->mg_mp_in_progress) {
+		/* We're done */
+		notify_mount_client(mg);
+
+		/* This is possible due to leave_on_join */
+		if (!mg->mg_cg)
+			log_debug("mg_cg was NULL");
+
+		free(mg->mg_mp_in_progress);
+		list_del(&mg->mg_list);
+		free(mg);
+		return;
+	}
+
+	/* This leave is unexpected */
+
+	log_error("Unexpected leave of group %s", mg->mg_uuid);
+	if (!mg->mg_cg)
+		log_error("No mg_cg for group %s", mg->mg_uuid);
+
+	/* XXX Do dire things */
+}
+
+/*
+ * This is called when we join or leave a group.  There are three possible
+ * states.
+ *
+ * 1) We've asked to join a group for a new filesystem.
+ *    - mg_mp_in_progress != NULL
+ *    - length(mg_mountpoints) == 1
+ *    - mg_cg == NULL
+ *
+ *    cg will be our now-joined group.
+ *
+ * 2) We've asked to leave a group upon the last unmount of a filesystem.
+ *   - mg_mp_in_progress != NULL
+ *   - mg_mountpoints is empty
+ *   - mg_cg is only NULL if we had to set leave_on_join.
+ *
+ *   cg is NULL.  We should complete our leave.
+ *
+ * 3) We've dropped out of the group unexpectedly.
+ *   - mg_mountpoints is not empty.
+ *   - mg_cg != NULL
+ *
+ *   cg is NULL.  We should basically crash.  This usually is handled by
+ *   closing our sysfs fd.
+ */
+static void mount_set_group(struct cgroup *cg, void *user_data)
+{
+	struct mountgroup *mg = user_data;
+
+	if (cg)
+		finish_join(mg, cg);
+	else
+		finish_leave(mg);
+}
+
+static void mount_node_down(int nodeid, void *user_data)
+{
+	struct mountgroup *mg = user_data;
+
+	log_debug("Node %d has left mountgroup %s", nodeid, mg->mg_uuid);
+
+	/* XXX Write to sysfs */
+}
+
 int start_mount(int ci, int fd, const char *uuid, const char *device,
 		const char *mountpoint)
 {
@@ -360,15 +470,29 @@ int start_mount(int ci, int fd, const char *uuid, const char *device,
 	if (mg->mg_error)
 		goto out;
 
-	/* XXX This is where we do the asynchronous join
-	 *
-	 * Here we fire off a group join.  The cpg infrastructure will
+	/*
+	 * Fire off a group join.  The cpg infrastructure will
 	 * let us know when the group is joined, at which point we
 	 * notify_mount_client().  If there's a failure, we notify as well.
-	 *
-	 * XXX: For now, let's pretend :-)
 	 */
-	notify_mount_client(mg);
+	rc = group_join(mg->mg_uuid, mount_set_group, mount_node_down, mg);
+	if (rc) {
+		fill_error(mg, -rc, "Unable to start join to group %s",
+			   mg->mg_uuid);
+
+		/*
+		 * Because we never started a join, mg->mg_cg is NULL.
+		 * remove_mountpoint() will set up for leave_on_join, but
+		 * that actually never happens.  Thus, it is safe to
+		 * clear mp_in_progress.
+		 */
+		remove_mountpoint(mg, mountpoint);
+		if (mg->mg_mp_in_progress) {
+			free(mg->mg_mp_in_progress);
+			mg->mg_mp_in_progress = NULL;
+		} else
+			log_error("First mount of %s failed a join, yet mp_in_progress was NULL", mg->mg_uuid);
+	}
 
 out:
 	/*

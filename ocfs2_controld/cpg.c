@@ -34,6 +34,11 @@
 
 #include "ocfs2_controld.h"
 
+struct cnode {
+	struct list_head	cn_list;
+	int			cn_nodeid;
+};
+
 struct cgroup {
 	struct list_head	cg_list;	/* List of all CPG groups */
 
@@ -42,9 +47,24 @@ struct cgroup {
 	int			cg_fd;
 	int			cg_ci;
 
+	/* CPG's idea of the group */
 	struct cpg_name		cg_name;
 	struct cpg_address	cg_members[CPG_MEMBERS_MAX];
 	int			cg_member_count;
+
+	/*
+	 * Our idea of the group.
+	 * This lags cg_members until join/leave processing is complete.
+	 */
+	struct list_head	cg_nodes;
+	int			cg_node_count;
+
+	/* Hooks for mounters */
+	void			(*cg_set_cgroup)(struct cgroup *cg,
+						 void *user_data);
+	void			(*cg_node_down)(int nodeid,
+						void *user_data);
+	void			*cg_user_data;
 
 	/* Callback state */
 	int			cg_got_confchg;
@@ -99,13 +119,126 @@ void for_each_node(struct cgroup *cg,
 			   for_each_node_proxy, &fen);
 }
 
+static struct cnode *find_node(struct cgroup *cg, int nodeid)
+{
+	struct list_head *p;
+	struct cnode *cn = NULL;
+
+	list_for_each(p, &cg->cg_nodes) {
+		cn = list_entry(p, struct cnode, cn_list);
+		if (cn->cn_nodeid == nodeid)
+			break;
+
+		cn = NULL;
+	}
+
+	return cn;
+}
+
+static void push_node(struct cgroup *cg, int nodeid)
+{
+	struct cnode *cn;
+
+	if (find_node(cg, nodeid)) {
+		log_error("Node %d is already part of group %.*s", nodeid,
+			  cg->cg_name.length, cg->cg_name.value);
+		/*
+		 * If we got lost in our group members, we can't interact
+		 * safely.
+		 */
+		shutdown_daemon();
+		return;
+	}
+
+	cn = malloc(sizeof(struct cnode));
+	if (!cn) {
+		log_error("Unable to allocate node structure, exiting");
+		/*
+		 * If we can't keep track of the group, we can't
+		 * interact safely.
+		 */
+		shutdown_daemon();
+		return;
+	}
+
+	cn->cn_nodeid = nodeid;
+	list_add(&cn->cn_list, &cg->cg_nodes);
+	cg->cg_node_count++;
+}
+
+static void pop_node(struct cgroup *cg, int nodeid)
+{
+	struct cnode *cn = find_node(cg, nodeid);
+
+	if (cn) {
+		list_del(&cn->cn_list);
+		cg->cg_node_count--;
+	} else {
+		log_error("Unable to find node %d in group %.*s", nodeid,
+			  cg->cg_name.length, cg->cg_name.value);
+	}
+
+	if (cg->cg_node_count < 0) {
+		log_error("cg_node_count went negative for group %.*s",
+			  cg->cg_name.length, cg->cg_name.value);
+		cg->cg_node_count = 0;
+	}
+}
+
+static void push_node_on_join(struct cpg_address *addr,
+			      void *user_data)
+{
+	struct cgroup *cg = user_data;
+
+	log_debug("Filling node %d to group %.*s", addr->nodeid,
+		  cg->cg_name.length, cg->cg_name.value);
+
+	push_node(cg, addr->nodeid);
+}
+
+static void handle_node_join(struct cpg_address *addr,
+			     void *user_data)
+{
+	struct cgroup *cg = user_data;
+
+	log_debug("Node %d joins group %.*s",
+		  addr->nodeid, cg->cg_name.length, cg->cg_name.value);
+
+	/*
+	 * If I read group/daemon/cpg.c correctly, you cannot have more than
+	 * one entry in the join_list when you yourself join.  Thus, it is
+	 * safe to add all members of cg_cb_members.  There will not be
+	 * a duplicate in cg_cb_joined.
+	 */
+	if (addr->nodeid == our_nodeid) {
+		if (cg->cg_joined) {
+			log_error("This node has joined group %.*s more than once",
+				  cg->cg_name.length, cg->cg_name.value);
+		} else {
+			log_debug("This node joins group %.*s",
+				  cg->cg_name.length, cg->cg_name.value);
+			for_each_node_list(cg->cg_cb_members,
+					   cg->cg_cb_member_count,
+					   push_node_on_join,
+					   cg);
+			cg->cg_set_cgroup(cg, cg->cg_user_data);
+		}
+	} else
+		push_node(cg, addr->nodeid);
+
+}
 
 static void handle_node_leave(struct cpg_address *addr,
 			      void *user_data)
 {
+	struct cgroup *cg = user_data;
+
 	switch (addr->reason) {
 		case CPG_REASON_LEAVE:
-			/* XXX Handle leave */
+			log_debug("Node %d leaves group %.*s",
+				  addr->nodeid, cg->cg_name.length,
+				  cg->cg_name.value);
+			pop_node(cg, addr->nodeid);
 			break;
 
 		case CPG_REASON_NODEDOWN:
@@ -133,17 +266,16 @@ static void handle_node_leave(struct cpg_address *addr,
 
 static void group_change(struct cgroup *cg)
 {
-	log_debug("group %s confchg: members %d, left %d, joined %d",
-		  cg->cg_name.value, cg->cg_cb_member_count,
-		  cg->cg_cb_left_count, cg->cg_cb_joined_count);
+	log_debug("group %.*s confchg: members %d, left %d, joined %d",
+		  cg->cg_name.length, cg->cg_name.value,
+		  cg->cg_cb_member_count, cg->cg_cb_left_count,
+		  cg->cg_cb_joined_count);
 
-#if 0
 	for_each_node_list(cg->cg_cb_joined, cg->cg_cb_joined_count,
-			   handle_node_join, NULL);
-#endif
+			   handle_node_join, cg);
 
 	for_each_node_list(cg->cg_cb_left, cg->cg_cb_left_count,
-			   handle_node_leave, NULL);
+			   handle_node_leave, cg);
 }
 
 static void handle_daemon_left(struct cpg_address *addr,
@@ -197,13 +329,22 @@ static void handle_daemon_left(struct cpg_address *addr,
 static void handle_node_down(struct cpg_address *addr,
 			     void *user_data)
 {
+	struct list_head *p;
+	struct cgroup *cg;
+
 	if ((addr->reason != CPG_REASON_NODEDOWN) &&
 	    (addr->reason != CPG_REASON_PROCDOWN))
 		return;
 
 	log_debug("node down %d", addr->nodeid);
 
-	/* XXX For each mount group, process node down */
+	list_for_each(p, &group_list) {
+		cg = list_entry(p, struct cgroup, cg_list);
+		if (find_node(cg, addr->nodeid)) {
+			cg->cg_node_down(addr->nodeid, cg->cg_user_data);
+			pop_node(cg, addr->nodeid);
+		}
+	}
 }
 
 static void daemon_change(struct cgroup *cg)
@@ -254,8 +395,17 @@ static void process_configuration_change(struct cgroup *cg)
 
 static struct cgroup *client_to_group(int ci)
 {
+	struct list_head *p;
+	struct cgroup *cg;
+
 	if (ci == daemon_group.cg_ci)
 		return &daemon_group;
+
+	list_for_each(p, &group_list) {
+		cg = list_entry(p, struct cgroup, cg_list);
+		if (cg->cg_ci == ci)
+			return cg;
+	}
 
 	log_error("unknown client %d", ci);
 	return NULL;
@@ -263,8 +413,17 @@ static struct cgroup *client_to_group(int ci)
 
 static struct cgroup *handle_to_group(cpg_handle_t handle)
 {
+	struct list_head *p;
+	struct cgroup *cg;
+
 	if (handle == daemon_group.cg_handle)
 		return &daemon_group;
+
+	list_for_each(p, &group_list) {
+		cg = list_entry(p, struct cgroup, cg_list);
+		if (cg->cg_handle == handle)
+			return cg;
+	}
 
 	log_error("unknown handle %llu", (unsigned long long)handle);
 
@@ -434,10 +593,43 @@ out:
 	return error;
 }
 
+int group_join(const char *name,
+	       void (*set_cgroup)(struct cgroup *cg, void *user_data),
+	       void (*node_down)(int nodeid, void *user_data),
+	       void *user_data)
+{
+	int rc;
+	struct cgroup *cg;
+
+	cg = malloc(sizeof(struct cgroup));
+	if (!cg) {
+		log_error("Unable to allocate cgroup structure");
+		rc = -ENOMEM;
+		goto out;
+	}
+
+	memset(cg, 0, sizeof(struct cgroup));
+	INIT_LIST_HEAD(&cg->cg_nodes);
+
+	cg->cg_set_cgroup = set_cgroup;
+	cg->cg_node_down = node_down;
+	cg->cg_user_data = user_data;
+
+	rc = init_group(cg, name);
+	if (rc)
+		free(cg);
+	else
+		list_add(&cg->cg_list, &group_list);
+
+out:
+	return rc;
+}
+
 int setup_cpg(void)
 {
 	cpg_error_t error;
 
+	INIT_LIST_HEAD(&group_list);
 	error = init_group(&daemon_group, "ocfs2_controld");
 
 	return error;

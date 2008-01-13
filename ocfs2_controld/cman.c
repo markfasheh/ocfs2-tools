@@ -51,7 +51,16 @@ static int              cman_node_count;
 
 int kill_cman(int nodeid)
 {
-	return cman_kill_node(ch_admin, nodeid);
+	int error;
+
+	log_debug("killing node %d", nodeid);
+
+	error = cman_kill_node(ch_admin, nodeid);
+	if (error)
+		log_debug("Unable to kill node %d, %d %d", nodeid, error,
+			  errno);
+
+	return error;
 }
 
 static int is_member(cman_node_t *node_list, int count, int nodeid)
@@ -149,16 +158,12 @@ static void cman_callback(cman_handle_t h, void *private, int reason, int arg)
 {
 	switch (reason) {
 		case CMAN_REASON_TRY_SHUTDOWN:
-#if 0
-			if (list_empty(&mounts))
-#endif
+			if (!have_mounts())
 				cman_replyto_shutdown(ch, 1);
-#if 0
 			else {
 				log_debug("no to cman shutdown");
 				cman_replyto_shutdown(ch, 0);
 			}
-#endif
 			break;
 
 		case CMAN_REASON_STATECHANGE:
@@ -208,7 +213,7 @@ int setup_cman(void)
 	}
 
 	ch_admin = cman_admin_init(NULL);
-	if (!ch) {
+	if (!ch_admin) {
 		log_error("cman_admin_init error %d", errno);
 		rv = -ENOTCONN;
 		goto fail_finish;

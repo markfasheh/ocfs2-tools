@@ -74,6 +74,10 @@ void for_each_node(struct cgroup *cg,
 		   void (*func)(int nodeid,
 				void *user_data),
 		   void *user_data);
+int group_join(const char *name,
+	       void (*set_cgroup)(struct cgroup *cg, void *user_data),
+	       void (*node_down)(int nodeid, void *user_data),
+	       void *user_data);
 
 /* mount.c */
 void init_mounts(void);
