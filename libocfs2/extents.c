@@ -421,7 +421,7 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 
 		for (i = 1; i < el->l_tree_depth; i++) {
 			ctxt.eb_bufs[i] = ctxt.eb_bufs[0] +
-				fs->fs_blocksize;
+				i * fs->fs_blocksize;
 		}
 	}
 	else
@@ -450,7 +450,7 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 	}
 
 out_abort:
-	if (iret & OCFS2_EXTENT_CHANGED)
+	if (!ret && (iret & OCFS2_EXTENT_CHANGED))
 		ret = ocfs2_write_inode(fs, inode->i_blkno, (char *)inode);
 
 out_eb_bufs:
