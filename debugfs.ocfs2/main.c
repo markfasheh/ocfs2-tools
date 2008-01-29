@@ -321,14 +321,15 @@ static int set_logmode_proc(struct log_entry *entry)
 	return 0;
 }
 
-#define LOG_CTL_SYSFS_DIR "/sys/o2cb/logmask"
-#define LOG_CTL_SYSFS_FORMAT LOG_CTL_SYSFS_DIR "/%s"
-static int set_logmode_sysfs(struct log_entry *entry)
+#define LOG_CTL_SYSFS_DIR_OLD "/sys/o2cb/logmask"
+#define LOG_CTL_SYSFS_DIR "/sys/fs/o2cb/logmask"
+#define LOG_CTL_SYSFS_FORMAT "%s/%s"
+static int set_logmode_sysfs(const char *path, struct log_entry *entry)
 {
 	FILE *f;
 	char *logpath;
 
-	logpath = g_strdup_printf(LOG_CTL_SYSFS_FORMAT, entry->mask);
+	logpath = g_strdup_printf(LOG_CTL_SYSFS_FORMAT, path, entry->mask);
 	f = fopen(logpath, "w");
 	g_free(logpath);
 	if (!f) {
@@ -343,12 +344,12 @@ static int set_logmode_sysfs(struct log_entry *entry)
 	return 0;
 }
 
-static int get_logmode_sysfs(const char *name)
+static int get_logmode_sysfs(const char *path, const char *name)
 {
 	char *logpath;
 	char *current_mask;
 
-	logpath = g_strdup_printf(LOG_CTL_SYSFS_FORMAT, name);
+	logpath = g_strdup_printf(LOG_CTL_SYSFS_FORMAT, path, name);
 	if (g_file_get_contents(logpath, &current_mask,
 				NULL, NULL)) {
 		fprintf(stdout, "%s %s", name, current_mask);
@@ -378,7 +379,7 @@ static void run_logmode_proc(void)
 	}
 }
 
-static void run_logmode_sysfs(void)
+static void run_logmode_sysfs(const char *path)
 {
 	GList *tmp;
 	DIR *dir;
@@ -387,15 +388,15 @@ static void run_logmode_sysfs(void)
 	if (loglist) {
 		tmp = loglist;
 		while (tmp) {
-			if (set_logmode_sysfs(tmp->data))
+			if (set_logmode_sysfs(path, tmp->data))
 				break;
 			tmp = tmp->next;
 		}
 	} else {
-		dir = opendir(LOG_CTL_SYSFS_DIR);
+		dir = opendir(path);
 		if (dir) {
 			while ((d = readdir(dir)) != NULL)
-				get_logmode_sysfs(d->d_name);
+				get_logmode_sysfs(path, d->d_name);
 			closedir(dir);
 		}
 	}
@@ -407,7 +408,10 @@ static void run_logmode(void)
 
 	if (!stat(LOG_CTL_SYSFS_DIR, &stat_buf) &&
 	    S_ISDIR(stat_buf.st_mode))
-		run_logmode_sysfs();
+		run_logmode_sysfs(LOG_CTL_SYSFS_DIR);
+        else if (!stat(LOG_CTL_SYSFS_DIR_OLD, &stat_buf) &&
+	    S_ISDIR(stat_buf.st_mode))
+		run_logmode_sysfs(LOG_CTL_SYSFS_DIR_OLD);
 	else if (!stat(LOG_CTL_PROC, &stat_buf) &&
 		 S_ISREG(stat_buf.st_mode))
 		run_logmode_proc();
