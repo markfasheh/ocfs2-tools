@@ -483,8 +483,9 @@ static errcode_t init_configfs(void)
 	return O2CB_ET_SERVICE_UNAVAILABLE;
 }
 
-#define O2CB_INTERFACE_REVISION_PATH_OLD	"/proc/fs/ocfs2_nodemanager/interface_revision"
-#define O2CB_INTERFACE_REVISION_PATH		"/sys/o2cb/interface_revision"
+#define O2CB_INTERFACE_REVISION_PATH_OLD_PROC	"/proc/fs/ocfs2_nodemanager/interface_revision"
+#define O2CB_INTERFACE_REVISION_PATH_OLD_SYS	"/sys/o2cb/interface_revision"
+#define O2CB_INTERFACE_REVISION_PATH		"/sys/fs/o2cb/interface_revision"
 errcode_t o2cb_init(void)
 {
 	int ret, fd;
@@ -494,7 +495,9 @@ errcode_t o2cb_init(void)
 
 	err = try_file(O2CB_INTERFACE_REVISION_PATH, &fd);
 	if (err == O2CB_ET_SERVICE_UNAVAILABLE)
-		err = try_file(O2CB_INTERFACE_REVISION_PATH_OLD, &fd);
+		err = try_file(O2CB_INTERFACE_REVISION_PATH_OLD_SYS, &fd);
+	if (err == O2CB_ET_SERVICE_UNAVAILABLE)
+		err = try_file(O2CB_INTERFACE_REVISION_PATH_OLD_PROC, &fd);
 	if (err)
 		return err;
 
