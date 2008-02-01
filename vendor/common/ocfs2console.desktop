@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Ocfs2 Cluster Config
+GenericName=Ocfs2Console
+Comment=Configure and setup Ocfs2 clusters in a graphical environment
+StartupNotify=true
+Icon=ocfs2console
+Exec=/usr/sbin/ocfs2console
+Type=Application
+Terminal=false
+Encoding=UTF-8
+Categories=System;Settings;
