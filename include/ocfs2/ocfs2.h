@@ -48,6 +48,7 @@
 #include <et/com_err.h>
 
 #include <ocfs2-kernel/kernel-list.h>
+#include <ocfs2-kernel/sparse_endian_types.h>
 #include <ocfs2-kernel/ocfs2_fs.h>
 #include <o2dlm/o2dlm.h>
 #include <o2cb/o2cb.h>
