@@ -92,6 +92,8 @@ typedef struct _ocfs2_tune_opts {
 	time_t tune_time;
 } ocfs2_tune_opts;
 
+void block_signals(int how);
+
 void print_query(char *queryfmt);
 
 errcode_t remove_slots(ocfs2_filesys *fs);
@@ -107,4 +109,8 @@ void free_clear_ctxt(void);
 
 errcode_t feature_check(ocfs2_filesys *fs);
 errcode_t update_feature(ocfs2_filesys *fs);
+
+void get_vol_size(ocfs2_filesys *fs);
+errcode_t update_volume_size(ocfs2_filesys *fs, int *changed);
+int validate_vol_size(ocfs2_filesys *fs);
 #endif /* _TUNEFS_H */
