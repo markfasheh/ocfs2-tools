@@ -111,6 +111,10 @@ errcode_t feature_check(ocfs2_filesys *fs);
 errcode_t update_feature(ocfs2_filesys *fs);
 
 void get_vol_size(ocfs2_filesys *fs);
-errcode_t update_volume_size(ocfs2_filesys *fs, int *changed);
+errcode_t update_volume_size(ocfs2_filesys *fs, int *changed, int online);
 int validate_vol_size(ocfs2_filesys *fs);
+
+errcode_t online_resize_check(ocfs2_filesys *fs);
+errcode_t online_resize_lock(ocfs2_filesys *fs);
+errcode_t online_resize_unlock(ocfs2_filesys *fs);
 #endif /* _TUNEFS_H */

@@ -30,6 +30,7 @@ ocfs2_tune_opts opts;
 ocfs2_filesys *fs_gbl = NULL;
 static int cluster_locked = 0;
 static int resize = 0;
+static int online_resize = 0;
 static uint64_t def_jrnl_size = 0;
 static char old_uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
 static char new_uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
@@ -1006,6 +1007,17 @@ static errcode_t volume_check(ocfs2_filesys *fs)
 	int dirty = 0;
 	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 
+	/*
+	 * online_resize can't coexist with other tasks, and it does't
+	 * need other checks, so we just do the check and return.
+	 */
+	if (online_resize) {
+		ret = online_resize_check(fs);
+		if (ret)
+			com_err(opts.progname, 0, "online resize check failed.");
+		goto bail;
+	}
+
 	ret = journal_check(fs, &dirty, &def_jrnl_size);
 	if (ret || dirty)
 		goto bail;
@@ -1235,13 +1247,19 @@ int main(int argc, char **argv)
 
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_lock_down_cluster(fs);
-		if (ret) {
-			block_signals(SIG_UNBLOCK);
+		block_signals(SIG_UNBLOCK);
+		if (!ret)
+			cluster_locked = 1;
+		else if (ret == O2DLM_ET_TRYLOCK_FAILED && resize) {
+			/*
+			 * We just set the flag here and more check and
+			 * lock will be done later.
+			 */
+			online_resize = 1;
+		} else {
 			com_err(opts.progname, ret, "while locking down the cluster");
 			goto close;
 		}
-		cluster_locked = 1;
-		block_signals(SIG_UNBLOCK);
 	}
 
 	/*
@@ -1272,6 +1290,27 @@ int main(int argc, char **argv)
 			printf("Aborting operation.\n");
 			goto unlock;
 		}
+	}
+
+	/*
+	 * We handle online resize seperately here, since it is
+	 * not like tunefs operations.
+	 */
+	if (online_resize) {
+		ret = online_resize_lock(fs);
+		if (ret)
+			goto close;
+
+		ret = update_volume_size(fs, &upd_blocks, 1);
+		if (ret) {
+			com_err(opts.progname, ret,
+				"while updating volume size");
+			goto online_resize_unlock;
+		}
+		if (upd_blocks)
+			printf("Resized volume\n");
+
+		goto online_resize_unlock;
 	}
 
 	/* Set resize incompat flag on superblock */
@@ -1352,7 +1391,7 @@ int main(int argc, char **argv)
 	/* update volume size */
 	if (opts.num_blocks) {
 		old_blocks = fs->fs_blocks;
-		ret = update_volume_size(fs, &upd_blocks);
+		ret = update_volume_size(fs, &upd_blocks, 0);
 		if (ret) {
 			com_err(opts.progname, ret,
 				"while updating volume size");
@@ -1450,7 +1489,9 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-
+online_resize_unlock:
+	if (online_resize)
+		online_resize_unlock(fs);
 unlock:
 	block_signals(SIG_BLOCK);
 	if (cluster_locked && fs->fs_dlm_ctxt)

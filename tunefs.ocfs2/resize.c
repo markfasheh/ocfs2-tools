@@ -22,9 +22,74 @@
  *
  */
 
+#include <limits.h>		/* for PATH_MAX */
+#ifndef PATH_MAX
+#define PATH_MAX 8192
+#endif
+
+#include <sys/ioctl.h>
+#include <errno.h>
 #include <tunefs.h>
 
 extern ocfs2_tune_opts opts;
+
+/*
+ * This lock name is specific and only used in online resize;
+ */
+static char lock_name[OCFS2_LOCK_ID_MAX_LEN] = "tunefs-online-resize-lock";
+static char mnt_dir[PATH_MAX];
+static int fd = -1;
+
+errcode_t online_resize_lock(ocfs2_filesys *fs)
+{
+	return o2dlm_lock(fs->fs_dlm_ctxt, lock_name,
+			  O2DLM_LEVEL_EXMODE, O2DLM_TRYLOCK);
+}
+
+errcode_t online_resize_unlock(ocfs2_filesys *fs)
+{
+	return o2dlm_unlock(fs->fs_dlm_ctxt, lock_name);
+}
+
+static errcode_t find_mount_point(char *device)
+{
+	int mount_flags = 0;
+	errcode_t ret;
+
+	memset(mnt_dir, 0, sizeof(mnt_dir));
+
+	ret = ocfs2_check_mount_point(device, &mount_flags,
+				      mnt_dir, sizeof(mnt_dir));
+	if (ret)
+		goto out;
+
+	if (!(mount_flags & OCFS2_MF_MOUNTED) ||
+	    (mount_flags & OCFS2_MF_READONLY) ||
+	    (mount_flags & OCFS2_MF_SWAP)) {
+		ret = OCFS2_ET_BAD_DEVICE_NAME;
+		goto out;
+	}
+
+	ret = 0;
+out:
+	return ret;
+}
+
+errcode_t online_resize_check(ocfs2_filesys *fs)
+{
+	/*
+	 * we don't allow online resize to be coexist with other tunefs
+	 * options to keep things simple.
+	 */
+	if (opts.backup_super || opts.vol_label || opts.num_slots ||
+	     opts.mount || opts.jrnl_size) {
+		com_err(opts.progname, 0, "Cannot do online-resize"
+			" along with other tasks");
+		exit(1);
+	}
+
+	return find_mount_point(opts.device);
+}
 
 void get_vol_size(ocfs2_filesys *fs)
 {
@@ -85,6 +150,117 @@ int validate_vol_size(ocfs2_filesys *fs)
 	return 0;
 }
 
+static inline errcode_t online_last_group_extend(uint32_t *new_clusters)
+{
+	return ioctl(fd, OCFS2_IOC_GROUP_EXTEND, new_clusters);
+}
+
+static inline errcode_t online_add_new_group(struct ocfs2_new_group_input *input)
+{
+	return ioctl(fd, OCFS2_IOC_GROUP_ADD, input);
+}
+
+static inline errcode_t reserve_cluster(ocfs2_filesys *fs,
+					uint16_t cl_cpg,
+					uint32_t cluster,
+					struct ocfs2_group_desc *gd)
+{
+	errcode_t ret = 0;
+	char *bitmap = gd->bg_bitmap;
+
+	ret = ocfs2_set_bit(cluster % cl_cpg, bitmap);
+	if (ret != 0) {
+		com_err(opts.progname, 0, "while allocating backup superblock"
+			"in cluster %u during volume resize", cluster);
+		goto out;
+	}
+
+	gd->bg_free_bits_count--;
+out:
+	return ret;
+}
+
+/* Reserve the backup superblocks which exist in the new added groups. */
+static errcode_t reserve_backup_in_group(ocfs2_filesys *fs,
+					 struct ocfs2_dinode *di,
+					 struct ocfs2_group_desc *gd,
+					 uint16_t *backups)
+{
+	errcode_t ret = 0;
+	int numsb, i;
+	uint64_t blkno, gd_blkno = gd->bg_blkno;
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+	uint16_t cl_cpg = di->id2.i_chain.cl_cpg;
+	uint32_t cluster;
+
+	*backups = 0;
+
+	if (!OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+				      OCFS2_FEATURE_COMPAT_BACKUP_SB))
+		goto out;
+
+	numsb = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	if (numsb <= 0)
+		goto out;
+
+	for (i = 0; i < numsb; i++) {
+		cluster = ocfs2_blocks_to_clusters(fs, blocks[i]);
+		blkno = ocfs2_which_cluster_group(fs, cl_cpg, cluster);
+		if (blkno < gd_blkno)
+			continue;
+		else if (blkno > gd_blkno)
+			break;
+
+		ret = reserve_cluster(fs, cl_cpg, cluster, gd);
+		if (ret)
+			goto out;
+		(*backups)++;
+	}
+
+out:
+	return ret;
+}
+
+static errcode_t online_resize_group_add(ocfs2_filesys *fs,
+					 struct ocfs2_dinode *di,
+					 uint64_t gd_blkno,
+					 char *gd_buf,
+					 uint16_t chain,
+					 uint32_t new_clusters)
+{
+	errcode_t ret;
+	uint16_t backups = 0, cl_bpc = di->id2.i_chain.cl_bpc;
+	struct ocfs2_group_desc *gd = (struct ocfs2_group_desc *)gd_buf;
+	struct ocfs2_new_group_input input;
+
+	ret = reserve_backup_in_group(fs, di, gd, &backups);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_write_group_desc(fs, gd_blkno, gd_buf);
+	if (ret)
+		goto out;
+
+	/*
+	 * Initialize the input data and call online resize procedure.
+	 * free clusters is calculated accordingly and checked in the kernel.
+	 */
+	memset(&input, 0, sizeof(input));
+
+	input.group = gd_blkno;
+	input.clusters = new_clusters;
+	input.chain = chain;
+	input.frees = gd->bg_bits/cl_bpc - 1 - backups;
+
+	ret = online_add_new_group(&input);
+	if (ret)
+		com_err(opts.progname, ret, "whiling add a new group % "PRIu64
+			"at chain[%u] which has %u clusters.",
+			gd_blkno, chain, new_clusters);
+out:
+	return ret;
+}
+
 /*
  * Initalize the group descriptors in the new added cluster range.
  *
@@ -101,7 +277,8 @@ static errcode_t init_new_gd(ocfs2_filesys *fs,
 			     uint32_t num_new_clusters,
 			     uint16_t chain,
 			     uint32_t *total_bits,
-			     uint32_t *used_bits)
+			     uint32_t *used_bits,
+			     int online)
 {
 	errcode_t ret = 0;
 	uint32_t cluster_chunk;
@@ -174,13 +351,26 @@ static errcode_t init_new_gd(ocfs2_filesys *fs,
 			goto bail;
 		}
 
-		/* write a new group descriptor */
-		ret = ocfs2_write_group_desc(fs, gd_blkno, gd_buf);
-		if (ret) {
-			com_err(opts.progname, ret, "while writing group "
-				"descriptor at block %"PRIu64" during "
-				"volume resize", gd_blkno);
-			goto bail;
+		if (online) {
+			ret = online_resize_group_add(fs, di, gd_blkno, gd_buf,
+						      chain, cluster_chunk);
+			if (ret) {
+				com_err(opts.progname, ret,
+					"while add a new group at "
+					"block %"PRIu64" during "
+					"volume online resize", gd_blkno);
+				goto bail;
+			}
+		} else {
+			/* write a new group descriptor */
+			ret = ocfs2_write_group_desc(fs, gd_blkno, gd_buf);
+			if (ret) {
+				com_err(opts.progname, ret,
+					"while writing group descriptor at "
+					"block %"PRIu64" during "
+					"volume resize", gd_blkno);
+				goto bail;
+			}
 		}
 	}
 
@@ -224,7 +414,7 @@ bail:
 	return ret;
 }
 
-errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
+errcode_t update_volume_size(ocfs2_filesys *fs, int *changed, int online)
 {
 	errcode_t ret = 0;
 	struct ocfs2_dinode *di;
@@ -242,7 +432,16 @@ errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 	uint32_t used_bits;
 	uint32_t total_bits;
 	uint32_t num_bits;
-	int flush_lgd = 0;
+	int flush_lgd = 0, i = 0, new_clusters;
+
+	if (online) {
+		fd = open(mnt_dir, O_RDONLY);
+		if (fd < 0) {
+			com_err(opts.progname, errno,
+				"while opening mounted dir %s.\n", mnt_dir);
+			return errno;
+		}
+	}
 
 	ret = ocfs2_malloc_block(fs->fs_io, &in_buf);
 	if (ret) {
@@ -277,9 +476,6 @@ errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 	di = (struct ocfs2_dinode *)in_buf;
 	cl = &(di->id2.i_chain);
 
-	total_bits = di->id1.bitmap1.i_total;
-	used_bits = di->id1.bitmap1.i_used;
-
 	first_new_cluster = di->i_clusters;
 	save_new_clusters = num_new_clusters =
 		ocfs2_blocks_to_clusters(fs, opts.num_blocks) - di->i_clusters;
@@ -304,7 +500,12 @@ errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 
 	chain = gd->bg_chain;
 
-	/* If possible round off the last group to cpg */
+	/*
+	 * If possible round off the last group to cpg.
+	 *
+	 * For online resize, it is proceeded as offline resize,
+	 * but the update of the group will be done by kernel.
+	 */
 	cluster_chunk = MIN(num_new_clusters,
 			    (cl->cl_cpg - (gd->bg_bits/cl->cl_bpc)));
 	if (cluster_chunk) {
@@ -328,27 +529,45 @@ errcode_t update_volume_size(ocfs2_filesys *fs, int *changed)
 		/* This cluster group block is written after the new */
 		/* cluster groups are written to disk */
 		flush_lgd = 1;
+
+		if (online) {
+			new_clusters = cluster_chunk;
+			ret = online_last_group_extend(&new_clusters);
+			if (ret < 0) {
+				com_err(opts.progname, errno, "while adding %u "
+					"more clusters in the last group",
+					cluster_chunk);
+				goto bail;
+			}
+		}
 	}
 
-	/* Init the new groups and write to disk */
-	/* Add these groups one by one starting from the first chain after */
-	/* the one containing the last group */
-	ret = init_new_gd(fs, di, first_new_cluster,
-			  num_new_clusters, chain, &total_bits, &used_bits);
-	if (ret)
-		goto bail;
+	/*
+	 * Init the new groups and write to disk
+	 * Add these groups one by one starting from the first chain after
+	 * the one containing the last group.
+	 */
+	if (num_new_clusters) {
+		ret = init_new_gd(fs, di, first_new_cluster,
+				  num_new_clusters, chain,
+				  &total_bits, &used_bits, online);
+		if (ret)
+			goto bail;
+	}
 
-	di->id1.bitmap1.i_total = total_bits;
-	di->id1.bitmap1.i_used = used_bits;
+	if (!online) {
+		di->id1.bitmap1.i_total = total_bits;
+		di->id1.bitmap1.i_used = used_bits;
 
-	di->i_clusters += save_new_clusters;
-	di->i_size = (uint64_t) di->i_clusters * fs->fs_clustersize;
+		di->i_clusters += save_new_clusters;
+		di->i_size = (uint64_t) di->i_clusters * fs->fs_clustersize;
 
-	fs->fs_super->i_clusters = di->i_clusters;
+		fs->fs_super->i_clusters = di->i_clusters;
 
-	ret = update_global_bitmap(fs, di, gd, flush_lgd);
-	if (ret)
-		goto bail;
+		ret = update_global_bitmap(fs, di, gd, flush_lgd);
+		if (ret)
+			goto bail;
+	}
 
 	*changed = 1;
 
