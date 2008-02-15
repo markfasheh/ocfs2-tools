@@ -1910,7 +1910,8 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	if (rec->cluster_bitmap) {
 		di->id2.i_chain.cl_count = 
 			ocfs2_chain_recs_per_inode(s->blocksize);
-		di->id2.i_chain.cl_cpg = s->global_cpg;
+		di->id2.i_chain.cl_cpg =
+				 ocfs2_group_bitmap_size(s->blocksize) * 8;
 		di->id2.i_chain.cl_bpc = 1;
 		if (s->nr_cluster_groups > 
 		    ocfs2_chain_recs_per_inode(s->blocksize)) {

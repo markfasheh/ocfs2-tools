@@ -393,7 +393,7 @@ static void mark_group_used(o2fsck_state *ost, struct chain_state *cs,
 }
 
 /*
- * Due to a glitch in mkfs, cl->cl_cpg for the GLOBAL BITMAP could be
+ * Due to a glitch in old mkfs, cl->cl_cpg for the GLOBAL BITMAP could be
  * less than the max possible for volumes having just one cluster
  * group. Fix.
  */
