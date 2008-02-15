@@ -1075,18 +1075,29 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	if (ret)
 		goto out;
 
+	/*
+	 * during resize, we may update the global bitmap but fails to
+	 * to update i_clusters in superblock, so ask the user which one
+	 * to use before checking.
+	 */
+	if (fs->fs_super->i_clusters != di->i_clusters) {
+		if (prompt(ost, PY, PR_SUPERBLOCK_CLUSTERS,
+			   "Superblock has clusters set to %u instead of %u "
+			   "recorded in global_bitmap, it may be caused by an "
+			   "unsuccessful resize. Trust global_bitmap?",
+			   fs->fs_super->i_clusters, di->i_clusters)) {
+			ost->ost_num_clusters = di->i_clusters;
+			fs->fs_clusters = di->i_clusters;
+			fs->fs_blocks = ocfs2_clusters_to_blocks(fs,
+							 fs->fs_clusters);
+		}
+	}
+
 	ret = verify_bitmap_descs(ost, di, blocks + ost->ost_fs->fs_blocksize,
 				  blocks + (ost->ost_fs->fs_blocksize * 2));
 
 	if (ret)
 		goto out;
-
-	if (fs->fs_super->i_clusters != di->i_clusters) {
-		if (prompt(ost, PY, PR_SUPERBLOCK_CLUSTERS,
-			   "Superblock has clusters set to %u instead of %u. Fix?",
-			   fs->fs_super->i_clusters, di->i_clusters))
-			ost->ost_num_clusters = di->i_clusters;
-	}
 
 	printf("Pass 0b: Checking inode allocation chains\n");
 
