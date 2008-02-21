@@ -43,7 +43,11 @@ CPP = @CPP@
 AR = @AR@
 RANLIB = @RANLIB@
 
+WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
+	   -Wmissing-declarations
+
 CFLAGS = @CFLAGS@
+CFLAGS += $(WARNINGS)
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@ 
 
