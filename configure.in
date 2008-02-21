@@ -37,8 +37,36 @@ case "$host" in
     ;;
 esac
 
+#
+# If CFLAGS is non-empty, leave the debugging and optimization symobls
+# to the caller.  Otherwise, set them according to --enable-debug.
+#
+OCFS2_DEBUG=
+AC_MSG_CHECKING(for debugging)
+if test "x$CFLAGS" = "x"; then
+  AC_ARG_ENABLE(debug, [  --enable-debug=[yes/no]         Turn on debugging [default=no]],,enable_debug=no)
+  if test "x$enable_debug" = "xyes"; then
+    OCFS2_DEBUG=yes
+    CFLAGS="-g"
+  else
+    CFLAGS="-O2"
+  fi
+  AC_MSG_RESULT($enable_debug)
+else
+  AC_MSG_RESULT([skipped, CFLAGS is set])
+fi
+AC_SUBST(OCFS2_DEBUG)
+
 AC_PROG_CC
 AC_PROG_CPP
+
+#
+# If OCFS2_DEBUG was set, we know CFLAGS must be "-g".  If we're using
+# GNU C, get extra debugging symbols.
+#
+if test "x$GCC" = "xyes" -a "x$OCFS2_DEBUG" = "xyes"; then
+  CFLAGS="-ggdb"
+fi
 
 AC_PROG_INSTALL
 AC_PROG_LN_S
@@ -65,15 +93,6 @@ AC_SUBST(root_prefix)
 AC_SUBST(root_bindir)
 AC_SUBST(root_sbindir)
 AC_SUBST(root_sysconfdir)
-
-AC_MSG_CHECKING(for debugging)
-AC_ARG_ENABLE(debug, [  --enable-debug=[yes/no]         Turn on debugging [default=no]],,enable_debug=no)
-OCFS2_DEBUG=
-if test "x$enable_debug" = "xyes"; then
-  OCFS2_DEBUG=yes
-fi
-AC_SUBST(OCFS2_DEBUG)
-AC_MSG_RESULT($enable_debug)
 
 COM_ERR_LIBS=
 PKG_CHECK_MODULES(COM_ERR, com_err,, [
