@@ -28,7 +28,6 @@ DIST_RULES =
 INCLUDES =
 DEFINES = 
 
-CFLAGS += $($(subst /,_,$(basename $@))_CFLAGS)
 CFLAGS += -pipe
 # protect with configure?
 CDEPFLAGS = -MD -MP -MF $(@D)/.$(basename $(@F)).d
