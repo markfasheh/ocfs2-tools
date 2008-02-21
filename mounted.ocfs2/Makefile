@@ -2,17 +2,6 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
-           -Wmissing-declarations
-
-ifdef OCFS2_DEBUG
-OPTS = -O -ggdb
-else
-OPTS = -O2
-endif
-
-CFLAGS = $(OPTS) $(WARNINGS)
-
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 

@@ -2,15 +2,6 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
-	-Wmissing-declarations
-
-ifdef OCFS2_DEBUG
-OPTS += -ggdb
-else
-OPTS += -O2
-endif
-
 INCLUDES = -I$(TOPDIR)/include
 
 LIBRARIES = libocfs2.a
@@ -21,7 +12,7 @@ LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
-CFLAGS = $(OPTS) $(WARNINGS) -fPIC
+CFLAGS += -fPIC
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))

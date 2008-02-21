@@ -2,18 +2,11 @@ TOPDIR = ../..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall
-
-ifdef OCFS2_DEBUG
-OPTS = -g
-endif
-OPTS = -g
-
 INCLUDES = -I$(TOPDIR)/include
 
-CFLAGS = $(OPTS) $(WARNINGS) -fPIC
+CFLAGS += -fPIC
 
-PYMOD_CFLAGS = $(CFLAGS) -fno-strict-aliasing $(PYTHON_INCLUDES)
+PYMOD_CFLAGS = -fno-strict-aliasing $(PYTHON_INCLUDES)
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
@@ -34,10 +27,6 @@ BLKID_LIBS = -L$(TOPDIR)/ocfs2console/blkid -lblkid-internal $(UUID_LIBS)
 endif
 
 GLIB_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
-
-OPTIMIZE = -O2
-
-CFLAGS += $(OPTIMIZE)
 
 PLIST_CBITS = ocfsplist.c
 PLIST_CFILES = $(PLIST_CBITS) plistmodule.c

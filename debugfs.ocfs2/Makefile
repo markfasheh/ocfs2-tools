@@ -11,12 +11,6 @@ DEFINES += -DVERSION=\"$(VERSION)\"
 INCLUDES = -I$(TOPDIR)/include -Iinclude
 INCLUDES += $(GLIB_CFLAGS)
 
-ifdef OCFS2_DEBUG
-CFLAGS = -Wall -O -ggdb
-else
-CFLAGS = -Wall -O2
-endif
-
 CFILES = main.c commands.c dump.c utils.c journal.c find_block_inode.c find_inode_paths.c dump_fs_locks.c
 
 HFILES =			\

@@ -2,12 +2,6 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall
-
-ifdef OCFS2_DEBUG
-OPTS = -g
-endif
-
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a 
 
@@ -17,8 +11,6 @@ LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
-CFLAGS = $(OPTS) $(WARNINGS) 
-
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = ocfs2cdsl
 
@@ -26,10 +18,6 @@ DEFINES = -DVERSION=\"$(VERSION)\"
 DEFINES += -DG_DISABLE_DEPRECATED
 
 INCLUDES = -I$(TOPDIR)/include $(GLIB_CFLAGS)
-
-OPTIMIZE = -O2
-
-CFLAGS += $(OPTIMIZE)
 
 CFILES = ocfs2cdsl.c
 OBJS = $(subst .c,.o,$(CFILES))

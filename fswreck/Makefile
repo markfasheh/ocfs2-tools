@@ -10,12 +10,6 @@ DEFINES += -DVERSION=\"$(VERSION)\"
 INCLUDES = -I$(TOPDIR)/include -Iinclude
 INCLUDES += $(GLIB_CFLAGS)
 
-ifdef OCFS2_DEBUG
-CFLAGS = -Wall -O -ggdb
-else
-CFLAGS = -Wall -O2
-endif
-
 UNINST_PROGRAM = fswreck
 
 CFILES = main.c corrupt.c chain.c extent.c group.c inode.c local_alloc.c truncate_log.c special.c symlink.c dir.c

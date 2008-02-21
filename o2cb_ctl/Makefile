@@ -13,18 +13,9 @@ LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 LIBO2CB_LIBS  = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
-ifdef OCFS2_DEBUG
-OPTS += -ggdb
-else
-OPTS += -O2
-endif
-
 ifndef OCFS2_DYNAMIC_CTL
 LDFLAGS += -static
 endif
-
-CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
-           -Wmissing-declarations
 
 DEFINES = -DVERSION=\"$(VERSION)\"
 

@@ -2,17 +2,6 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
-           -Wmissing-declarations
-
-ifdef OCFS2_DEBUG
-OPTS = -ggdb -O0
-else
-OPTS = -O2
-endif
-
-CFLAGS = $(OPTS) $(WARNINGS) 
-
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mkfs.ocfs2
 

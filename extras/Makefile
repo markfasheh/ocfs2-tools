@@ -2,22 +2,9 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
-           -Wmissing-declarations
-
-ifdef OCFS2_DEBUG
-OPTS = -g
-endif
-
-CFLAGS = $(OPTS) $(WARNINGS) 
-
 UNINST_PROGRAMS = find_hardlinks find_dup_extents find_inode_paths set_random_bits decode_lockres encode_lockres mark_journal_dirty find_allocation_fragments compute_groups
 
 INCLUDES = -I$(TOPDIR)/include
-
-OPTIMIZE = -O2
-
-CFLAGS += $(OPTIMIZE)
 
 FIND_HARDLINKS_CFILES = find_hardlinks.c
 FIND_DUP_EXTENTS_CFILES = find_dup_extents.c
