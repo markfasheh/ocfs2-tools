@@ -43,6 +43,7 @@
 #include "o2cb_crc32.h"
 
 #define CLUSTER_STACK_FILE	"/sys/fs/ocfs2/cluster_stack"
+#define LOCKING_PROTOCOL_FILE	"/sys/fs/ocfs2/max_locking_protocol"
 #define OCFS2_STACK_LABEL_LEN	4
 #define CONTROL_DEVICE		"/dev/misc/ocfs2_control"
 
@@ -107,12 +108,13 @@ static int control_device_fd = -1;
 static char *configfs_path;
 
 
-static ssize_t read_stack_file(char *line, size_t count)
+static ssize_t read_single_line_file(const char *file, char *line,
+				     size_t count)
 {
 	ssize_t ret = 0;
 	FILE *f;
 
-	f = fopen(CLUSTER_STACK_FILE, "r");
+	f = fopen(file, "r");
 	if (f) {
 		if (fgets(line, count, f))
 			ret = strlen(line);
@@ -121,6 +123,11 @@ static ssize_t read_stack_file(char *line, size_t count)
 		ret = -errno;
 
 	return ret;
+}
+
+static ssize_t read_stack_file(char *line, size_t count)
+{
+	return read_single_line_file(CLUSTER_STACK_FILE, line, count);
 }
 
 static errcode_t determine_stack(void)
@@ -162,6 +169,63 @@ errcode_t o2cb_get_stack_name(const char **name)
 
 	*name = current_stack->s_name;
 	return 0;
+}
+
+static ssize_t read_locking_proto_file(char *line, size_t count)
+{
+	return read_single_line_file(LOCKING_PROTOCOL_FILE, line, count);
+}
+
+errcode_t o2cb_get_max_locking_protocol(struct ocfs2_protocol_version *proto)
+{
+	ssize_t len;
+	char line[100];
+	errcode_t err;
+	unsigned int major, minor;
+
+	len = read_locking_proto_file(line, sizeof(line));
+	if (len <= 0) {
+		switch (-len) {
+			case EACCES:
+			case EPERM:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			case ENOMEM:
+				err = O2CB_ET_NO_MEMORY;
+				break;
+
+			case 0:
+			case ENOENT:
+			case ENOTDIR:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+
+			default:
+				err = O2CB_ET_INTERNAL_FAILURE;
+				break;
+		}
+		goto out;
+	}
+
+	if (line[len - 1] == '\n') {
+		line[len - 1] = '\0';
+		len--;
+	}
+
+	err = O2CB_ET_SERVICE_UNAVAILABLE;
+	if (sscanf(line, "%u.%u", &major, &minor) != 2)
+		goto out;
+	/* Major and minor can't be more than a u8 */
+	if ((major > (uint8_t)-1) || (minor > (uint8_t)-1))
+		goto out;
+
+	proto->pv_major = major;
+	proto->pv_minor = minor;
+	err = 0;
+
+out:
+	return err;
 }
 
 
@@ -1876,6 +1940,8 @@ errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
 #define OCFS2_CONTROL_PROTO_LEN			4
 #define OCFS2_CONTROL_MESSAGE_SETNODE_OP	"SETN"
 #define OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN	14
+#define OCFS2_CONTROL_MESSAGE_SETVERSION_OP	"SETV"
+#define OCFS2_CONTROL_MESSAGE_SETVERSION_TOTAL_LEN	11
 #define OCFS2_CONTROL_MESSAGE_DOWN_OP		"DOWN"
 #define OCFS2_CONTROL_MESSAGE_DOWN_TOTAL_LEN	47
 #define OCFS2_CONTROL_MESSAGE_NODENUM_LEN	8
@@ -1884,12 +1950,17 @@ static errcode_t o2cb_control_handshake(unsigned int this_node)
 	errcode_t err = 0;
 	int found = 0;
 	size_t ret;
+	struct ocfs2_protocol_version proto;
 	char buf[OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN + 1];
 
 	if (control_device_fd == -1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
 	}
+
+	err = o2cb_get_max_locking_protocol(&proto);
+	if (err)
+		goto out;
 
 	buf[OCFS2_CONTROL_PROTO_LEN] = '\0';
 	while (1)
@@ -1920,10 +1991,18 @@ static errcode_t o2cb_control_handshake(unsigned int this_node)
 	}
 
 	snprintf(buf, OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN + 1,
-		 "SETN %08X\n", this_node);
+		 OCFS2_CONTROL_MESSAGE_SETNODE_OP " %08X\n", this_node);
 	ret = write(control_device_fd, buf,
 		    OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN);
 	if (ret != OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN)
+		err = O2CB_ET_IO;
+
+	snprintf(buf, OCFS2_CONTROL_MESSAGE_SETVERSION_TOTAL_LEN + 1,
+		 OCFS2_CONTROL_MESSAGE_SETVERSION_OP " %02X %02X\n",
+		 proto.pv_major, proto.pv_minor);
+	ret = write(control_device_fd, buf,
+		    OCFS2_CONTROL_MESSAGE_SETVERSION_TOTAL_LEN);
+	if (ret != OCFS2_CONTROL_MESSAGE_SETVERSION_TOTAL_LEN)
 		err = O2CB_ET_IO;
 
 out:

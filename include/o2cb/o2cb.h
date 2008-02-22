@@ -113,6 +113,11 @@ errcode_t o2cb_get_node_num(const char *cluster_name,
 			    const char *node_name,
 			    uint16_t *node_num);
 
+struct ocfs2_protocol_version {
+	uint8_t	pv_major;
+	uint8_t pv_minor;
+};
+errcode_t o2cb_get_max_locking_protocol(struct ocfs2_protocol_version *proto);
 errcode_t o2cb_control_open(unsigned int this_node);
 void o2cb_control_close(void);
 errcode_t o2cb_control_node_down(const char *uuid, unsigned int nodeid);
