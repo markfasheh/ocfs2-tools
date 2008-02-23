@@ -118,7 +118,8 @@ struct ocfs2_protocol_version {
 	uint8_t pv_minor;
 };
 errcode_t o2cb_get_max_locking_protocol(struct ocfs2_protocol_version *proto);
-errcode_t o2cb_control_open(unsigned int this_node);
+errcode_t o2cb_control_open(unsigned int this_node,
+			    struct ocfs2_protocol_version *proto);
 void o2cb_control_close(void);
 errcode_t o2cb_control_node_down(const char *uuid, unsigned int nodeid);
 

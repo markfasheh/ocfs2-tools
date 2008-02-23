@@ -1945,22 +1945,18 @@ errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
 #define OCFS2_CONTROL_MESSAGE_DOWN_OP		"DOWN"
 #define OCFS2_CONTROL_MESSAGE_DOWN_TOTAL_LEN	47
 #define OCFS2_CONTROL_MESSAGE_NODENUM_LEN	8
-static errcode_t o2cb_control_handshake(unsigned int this_node)
+static errcode_t o2cb_control_handshake(unsigned int this_node,
+					struct ocfs2_protocol_version *proto)
 {
 	errcode_t err = 0;
 	int found = 0;
 	size_t ret;
-	struct ocfs2_protocol_version proto;
 	char buf[OCFS2_CONTROL_MESSAGE_SETNODE_TOTAL_LEN + 1];
 
 	if (control_device_fd == -1) {
 		err = O2CB_ET_INTERNAL_FAILURE;
 		goto out;
 	}
-
-	err = o2cb_get_max_locking_protocol(&proto);
-	if (err)
-		goto out;
 
 	buf[OCFS2_CONTROL_PROTO_LEN] = '\0';
 	while (1)
@@ -1999,7 +1995,7 @@ static errcode_t o2cb_control_handshake(unsigned int this_node)
 
 	snprintf(buf, OCFS2_CONTROL_MESSAGE_SETVERSION_TOTAL_LEN + 1,
 		 OCFS2_CONTROL_MESSAGE_SETVERSION_OP " %02X %02X\n",
-		 proto.pv_major, proto.pv_minor);
+		 proto->pv_major, proto->pv_minor);
 	ret = write(control_device_fd, buf,
 		    OCFS2_CONTROL_MESSAGE_SETVERSION_TOTAL_LEN);
 	if (ret != OCFS2_CONTROL_MESSAGE_SETVERSION_TOTAL_LEN)
@@ -2009,7 +2005,8 @@ out:
 	return err;
 }
 
-errcode_t o2cb_control_open(unsigned int this_node)
+errcode_t o2cb_control_open(unsigned int this_node,
+			    struct ocfs2_protocol_version *proto)
 {
 	errcode_t err = 0;
 	int rc;
@@ -2046,7 +2043,7 @@ errcode_t o2cb_control_open(unsigned int this_node)
 
 	control_device_fd = rc;
 
-	err = o2cb_control_handshake(this_node);
+	err = o2cb_control_handshake(this_node, proto);
 	if (err) {
 		close(control_device_fd);
 		control_device_fd = -1;

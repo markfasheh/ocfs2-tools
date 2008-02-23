@@ -572,9 +572,19 @@ static void cpg_joined(void)
 {
 	int rv;
 	errcode_t err;
+	struct ocfs2_protocol_version proto;
 
 	log_debug("CPG is live, opening control device");
-	err = o2cb_control_open(our_nodeid);
+
+	err = o2cb_get_max_locking_protocol(&proto);
+	if (err) {
+		log_error("Error querying maximum locking protocol: %s",
+			  error_message(err));
+		shutdown_daemon();
+		return;
+	}
+
+	err = o2cb_control_open(our_nodeid, &proto);
 	if (err) {
 		log_error("Error opening control device: %s",
 			  error_message(err));
