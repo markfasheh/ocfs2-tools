@@ -52,6 +52,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <inttypes.h>
+#include <signal.h>
 
 #include "ocfs2/ocfs2.h"
 
@@ -69,6 +70,43 @@
 int verbose = 0;
 
 static char *whoami = "fsck.ocfs2";
+static o2fsck_state _ost;
+static int cluster_locked = 0;
+
+static void handle_signal(int sig)
+{
+	switch (sig) {
+	case SIGTERM:
+	case SIGINT:
+		printf("\nProcess Interrupted.\n");
+
+		if (cluster_locked && _ost.ost_fs->fs_dlm_ctxt) {
+			ocfs2_release_cluster(_ost.ost_fs);
+			cluster_locked = 0;
+		}
+
+		if (_ost.ost_fs->fs_dlm_ctxt)
+			ocfs2_shutdown_dlm(_ost.ost_fs);
+
+		if (_ost.ost_fs)
+			ocfs2_close(_ost.ost_fs);
+
+		exit(1);
+	}
+
+	return ;
+}
+
+/* Call this with SIG_BLOCK to block and SIG_UNBLOCK to unblock */
+static void block_signals(int how)
+{
+     sigset_t sigs;
+
+     sigfillset(&sigs);
+     sigdelset(&sigs, SIGTRAP);
+     sigdelset(&sigs, SIGSEGV);
+     sigprocmask(how, &sigs, NULL);
+}
 
 static void print_usage(void)
 {
@@ -500,7 +538,7 @@ int main(int argc, char **argv)
 {
 	char *filename;
 	int64_t blkno, blksize;
-	o2fsck_state _ost, *ost = &_ost;
+	o2fsck_state *ost = &_ost;
 	int c, open_flags = OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
 	int sb_num = 0;
 	int fsck_mask = FSCK_OK;
@@ -614,6 +652,16 @@ int main(int argc, char **argv)
 
 	filename = argv[optind];
 
+	if (signal(SIGTERM, handle_signal) == SIG_ERR) {
+		com_err(whoami, 0, "Could not set SIGTERM");
+		exit(1);
+	}
+
+	if (signal(SIGINT, handle_signal) == SIG_ERR) {
+		com_err(whoami, 0, "Could not set SIGINT");
+		exit(1);
+	}
+
 	/* recover superblock should be called at first. */
 	if (sb_num) {
 		ret = recover_backup_super(ost, filename, sb_num);
@@ -639,17 +687,22 @@ int main(int argc, char **argv)
 			goto close;
 		}
 
+		block_signals(SIG_BLOCK);
 		ret = ocfs2_initialize_dlm(ost->ost_fs);
 		if (ret) {
+			block_signals(SIG_UNBLOCK);
 			com_err(whoami, ret, "while initializing the DLM");
 			goto close;
 		}
 
 		ret = ocfs2_lock_down_cluster(ost->ost_fs);
 		if (ret) {
+			block_signals(SIG_UNBLOCK);
 			com_err(whoami, ret, "while locking down the cluster");
 			goto close;
 		}
+		cluster_locked = 1;
+		block_signals(SIG_UNBLOCK);
 	}
 
 	printf("Checking OCFS2 filesystem in %s:\n", filename);
@@ -758,12 +811,17 @@ done:
 	}
 
 unlock:
+	block_signals(SIG_BLOCK);
 	if (ost->ost_fs->fs_dlm_ctxt)
 		ocfs2_release_cluster(ost->ost_fs);
+	cluster_locked = 0;
+	block_signals(SIG_UNBLOCK);
 
 close:
+	block_signals(SIG_BLOCK);
 	if (ost->ost_fs->fs_dlm_ctxt)
 		ocfs2_shutdown_dlm(ost->ost_fs);
+	block_signals(SIG_UNBLOCK);
 
 	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {
