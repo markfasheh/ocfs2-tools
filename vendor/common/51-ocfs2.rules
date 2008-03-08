@@ -1,0 +1,2 @@
+KERNEL=="ocfs2_control", NAME="misc/%k", MODE="0660"
+
