@@ -36,6 +36,7 @@
 #define SERIOUS_RETRY_TRIES	5
 
 
+
 struct ckpt_handle {
 	SaNameT			ch_name;
 	SaCkptCheckpointHandleT	ch_handle;
@@ -65,13 +66,16 @@ static SaCkptCallbacksT callbacks = {
  * characters) plus something extra.  We don't use uuids in section names
  * yet, but just in case.
  */
+#define CKPT_MAX_SECTION_SIZE	128
+#define CKPT_MAX_SECTIONS	32
+#define CKPT_MAX_SECTION_ID	40
 static SaCkptCheckpointCreationAttributesT ckpt_attributes = {
 	.creationFlags		= SA_CKPT_WR_ALL_REPLICAS,
 	.checkpointSize		= 4096,
 	.retentionDuration	= 0LL,
-	.maxSections		= 32,
-	.maxSectionSize		= 128,
-	.maxSectionIdSize	= 40,
+	.maxSections		= CKPT_MAX_SECTIONS,
+	.maxSectionSize		= CKPT_MAX_SECTION_SIZE,
+	.maxSectionIdSize	= CKPT_MAX_SECTION_ID,
 };
 
 static void ais_err_to_errno(SaAisErrorT error, int *rc, char **reason)
@@ -231,6 +235,247 @@ static void call_ckpt_close(struct ckpt_handle *handle)
 				  handle->ch_name.length,
 				  handle->ch_name.value);
 	}
+}
+
+/*
+ * All of our sections live for the life of the checkpoint.  We don't need
+ * to delete them.
+ */
+static int call_section_create(struct ckpt_handle *handle, const char *name,
+			       const char *data, size_t data_len)
+{
+	int rc, retrycount;
+	char *reason;
+	SaAisErrorT error;
+	SaCkptSectionIdT id = {
+		.idLen = strlen(name),
+		.id = (SaUint8T *)name,
+	};
+	SaCkptSectionCreationAttributesT attrs = {
+		.sectionId = &id,
+		.expirationTime = SA_TIME_END,
+	};
+
+	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+		log_debug("Creating section \"%s\" on checkpoint "
+			  "\"%.*s\" (try %d)",
+			  name, handle->ch_name.length,
+			  handle->ch_name.value, retrycount + 1);
+		error = saCkptSectionCreate(handle->ch_handle, &attrs,
+					    data, data_len);
+		ais_err_to_errno(error, &rc, &reason);
+		if (!rc) {
+			log_debug("Created section \"%s\" on checkpoint "
+				  "\"%.*s\"",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value);
+			break;
+		}
+		if (rc != -EAGAIN) {
+			log_error("Unable to create section \"%s\" on "
+				  "checkpoint \"%.*s\": %s",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value, reason);
+			break;
+		}
+
+		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
+			sleep(1);
+		else
+			log_error("Unable to create section \"%s\" on "
+				  "checkpoint \"%.*s\": too many tries",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value);
+	}
+
+	return rc;
+}
+
+static int call_section_write(struct ckpt_handle *handle, const char *name,
+			      const char *data, size_t data_len)
+{
+	int rc, retrycount;
+	char *reason;
+	SaAisErrorT error;
+	SaCkptSectionIdT id = {
+		.idLen = strlen(name),
+		.id = (SaUint8T *)name,
+	};
+
+	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+		log_debug("Writing to section \"%s\" on checkpoint "
+			  "\"%.*s\" (try %d)",
+			  name, handle->ch_name.length,
+			  handle->ch_name.value, retrycount + 1);
+		error = saCkptSectionOverwrite(handle->ch_handle, &id,
+					       data, data_len);
+		ais_err_to_errno(error, &rc, &reason);
+		if (!rc) {
+			log_debug("Stored section \"%s\" on checkpoint "
+				  "\"%.*s\"",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value);
+			break;
+		}
+
+		/* If it doesn't exist, create it. */
+		if (rc == -ENOENT) {
+			rc = call_section_create(handle, name, data, data_len);
+			break;
+		}
+
+		if (rc != -EAGAIN) {
+			log_error("Unable to write section \"%s\" on "
+				  "checkpoint \"%.*s\": %s",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value, reason);
+			break;
+		}
+
+		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
+			sleep(1);
+		else
+			log_error("Unable to write section \"%s\" on "
+				  "checkpoint \"%.*s\": too many tries",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value);
+	}
+
+	return rc;
+}
+
+static int call_section_read(struct ckpt_handle *handle, const char *name,
+			     char **data, size_t *data_len)
+{
+	int rc, retrycount;
+	char *reason, *p;
+	char readbuf[CKPT_MAX_SECTION_SIZE];
+	SaAisErrorT error;
+	SaCkptIOVectorElementT readvec[] = {
+		{
+			.sectionId = {
+				.idLen = strlen(name),
+				.id = (SaUint8T *)name,
+			},
+			.dataBuffer = readbuf,
+			.dataSize = CKPT_MAX_SECTION_SIZE,
+		}
+	};
+
+
+	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+		log_debug("Reading from section \"%s\" on checkpoint "
+			  "\"%.*s\" (try %d)",
+			  name, handle->ch_name.length,
+			  handle->ch_name.value, retrycount + 1);
+		error = saCkptCheckpointRead(handle->ch_handle, readvec, 1,
+					     NULL);
+		ais_err_to_errno(error, &rc, &reason);
+		if (!rc) {
+			log_debug("Read section \"%s\" from checkpoint "
+				  "\"%.*s\"",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value);
+			break;
+		}
+
+		/* -ENOENT is a clean error for the caller to handle */
+		if (rc == -ENOENT) {
+			log_debug("Checkpoint \"%.*s\" does not have a "
+				  "section named \"%s\"",
+				  handle->ch_name.length,
+				  handle->ch_name.value, name);
+			break;
+		}
+
+		if (rc != -EAGAIN) {
+			log_error("Unable to read section \"%s\" from "
+				  "checkpoint \"%.*s\": %s",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value, reason);
+			break;
+		}
+
+		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
+			sleep(1);
+		else
+			log_error("Unable to read section \"%s\" from "
+				  "checkpoint \"%.*s\": too many tries",
+				  name, handle->ch_name.length,
+				  handle->ch_name.value);
+	}
+
+	if (rc)
+		goto out;
+
+	p = malloc(sizeof(char) * readvec[0].readSize);
+	if (p) {
+		memcpy(p, readbuf, readvec[0].readSize);
+		*data = p;
+		*data_len = readvec[0].readSize;
+	} else {
+		log_error("Unable to allocate memory while reading section "
+			  "\"%s\" from checkpoint \"%.*s\"",
+			  name, handle->ch_name.length,
+			  handle->ch_name.value);
+		rc = -ENOMEM;
+		goto out;
+	}
+
+out:
+	return rc;
+}
+
+int ckpt_section_store(struct ckpt_handle *handle, const char *section,
+		       const char *data, size_t data_len)
+{
+	if (strlen(section) > CKPT_MAX_SECTION_ID) {
+		log_error("Error: section id \"%s\" is too long "
+			  "(max is %d)",
+			  section, CKPT_MAX_SECTION_ID);
+		return -EINVAL;
+	}
+	if (data_len > CKPT_MAX_SECTION_SIZE) {
+		log_error("Error: attempt to store %d bytes in a section "
+			  "(max is %d)",
+			  data_len, CKPT_MAX_SECTION_SIZE);
+		return -EINVAL;
+	}
+
+	return call_section_write(handle, section, data, data_len);
+}
+
+int ckpt_global_store(const char *section, const char *data, size_t data_len)
+{
+	if (!global_handle) {
+		log_error("Error: The global checkpoint is not initialized");
+		return -EINVAL;
+	}
+
+	return ckpt_section_store(global_handle, section, data, data_len);
+}
+
+int ckpt_section_get(struct ckpt_handle *handle, const char *section,
+		     char **data, size_t *data_len)
+{
+	if (strlen(section) > CKPT_MAX_SECTION_ID) {
+		log_error("Error: section id \"%s\" is too long "
+			  "(max is %d)",
+			  section, CKPT_MAX_SECTION_ID);
+		return -EINVAL;
+	}
+
+	return call_section_read(handle, section, data, data_len);
+}
+
+int ckpt_global_get(const char *section, char **data, size_t *data_len)
+{
+	if (!global_handle) {
+		log_error("Error: The global checkpoint is not initialized");
+		return -EINVAL;
+	}
+
+	return call_section_read(global_handle, section, data, data_len);
 }
 
 /*
@@ -402,6 +647,8 @@ int our_nodeid = 2;
 int main(int argc, char *argv[])
 {
 	int rc;
+	char *buf;
+	size_t buflen;
 	struct ckpt_handle *h;
 
 	rc = setup_ckpt();
@@ -411,12 +658,37 @@ int main(int argc, char *argv[])
 	rc = ckpt_open_global(1);
 	if (rc)
 		goto out_exit;
+	rc = ckpt_global_store("version", "1.0", strlen("1.0"));
+	if (!rc) {
+		rc = ckpt_global_get("foo", &buf, &buflen);
+		if (rc != -ENOENT) {
+			log_error("read should not have found anything");
+			rc = -EIO;
+		} else
+			rc = 0;
+	}
 	ckpt_close_global();
+	if (rc)
+		goto out_exit;
 
 	rc = ckpt_open_this_node(&h);
 	if (rc)
 		goto out_exit;
+	rc = ckpt_section_store(h, "foo", "bar", strlen("bar"));
+	if (!rc) {
+		rc = ckpt_section_get(h, "foo", &buf, &buflen);
+		if (!rc) {
+			if ((buflen != strlen("bar")) ||
+			    memcmp(buf, "bar", strlen("bar"))) {
+				log_error("read returned bad value");
+				rc = -EIO;
+			}
+			free(buf);
+		}
+	}
 	ckpt_close(h);
+	if (rc)
+		goto out_exit;
 
 	rc = ckpt_open_node(4, &h);
 	if (rc)
