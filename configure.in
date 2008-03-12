@@ -147,6 +147,33 @@ GLIB_REQUIRED_VERSION=2.2.3
 AM_PATH_GLIB_2_0($GLIB_REQUIRED_VERSION, have_glib=yes,
  AC_MSG_ERROR([GLib $GLIB_REQUIRED_VERSION or better is required]))
 
+umount_newp()
+{
+    NEEDVER="2.12j"
+    FOUNDVER="`/bin/umount -V | awk '
+        /util-linux/{sub(/\)$/, "", $3); print $3}
+        /mount-/{sub(/^.*mount-/, ""); print}'`"
+
+    test "x$FOUNDVER" = "x" && return 1
+    test "x$FOUNDVER" = "x$NEEDVER" && return 0
+
+    # If we don't have exactly NEEDVER, we better sort to something better.
+    RESVER="`(echo "$NEEDVER"; echo "$FOUNDVER") | sort -n | tail -1`"
+    if test "x$RESVER" = "x$NEEDVER"; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+AC_MSG_CHECKING([for a new enough umount])
+if umount_newp; then
+    AC_MSG_RESULT([found])
+else
+    AC_MSG_RESULT([not found])
+    AC_MSG_ERROR([umount is not new enough to support umount.ocfs2])
+fi
+
 AC_MSG_CHECKING(whether to build fsck dynamically)
 AC_ARG_ENABLE([dynamic-fsck], [  --enable-dynamic-fsck=[yes/no]    Build fsck dynamically [default=no]],,enable_dynamic_fsck=no)
 OCFS2_DYNAMIC_FSCK=

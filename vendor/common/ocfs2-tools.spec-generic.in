@@ -28,8 +28,8 @@ Distribution: Oracle
 Vendor: Oracle
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: bash, coreutils, net-tools, modutils, e2fsprogs, @@CHKCONFIG_DEP@@, glib2 >= 2.2.3
-BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, @@PYGTK_NAME@@ >= 1.99.16, python-devel >= @@PYVERSION@@
+Requires: bash, coreutils, net-tools, modutils, e2fsprogs, @@CHKCONFIG_DEP@@, glib2 >= 2.2.3, util-linux >= 2.12j
+BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, @@PYGTK_NAME@@ >= 1.99.16, python-devel >= @@PYVERSION@@, util-linux >= 2.12j
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 
@@ -117,6 +117,7 @@ fi
 /sbin/debugfs.ocfs2
 /sbin/o2cb_ctl
 /sbin/mount.ocfs2
+/sbin/umount.ocfs2
 /sbin/ocfs2cdsl
 /sbin/o2image
 /sbin/ocfs2_hb_ctl

@@ -47,6 +47,9 @@
 #include <o2cb/ocfs2_nodemanager.h>
 #include <o2cb/ocfs2_heartbeat.h>
 
+
+#define OCFS2_FS_NAME		"ocfs2"
+
 errcode_t o2cb_init(void);
 
 errcode_t o2cb_create_cluster(const char *cluster_name);
