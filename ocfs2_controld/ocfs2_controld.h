@@ -29,6 +29,7 @@
 
 
 struct cgroup;
+struct ckpt_handle;
 
 extern char *prog_name;
 extern int daemon_debug_opt;
@@ -60,6 +61,21 @@ int connection_add(int fd, void (*work)(int ci), void (*dead)(int ci));
 void connection_dead(int ci);
 void shutdown_daemon(void);
 
+/* ckpt.c */
+int setup_ckpt(void);
+void exit_ckpt(void);
+int ckpt_open_global(int write);
+void ckpt_close_global(void);
+int ckpt_open_node(int nodeid, struct ckpt_handle **handle);
+int ckpt_open_this_node(struct ckpt_handle **handle);
+void ckpt_close(struct ckpt_handle *handle);
+int ckpt_global_store(const char *section, const char *data, size_t data_len);
+int ckpt_global_get(const char *section, char **data, size_t *data_len);
+int ckpt_section_store(struct ckpt_handle *handle, const char *section,
+		       const char *data, size_t data_len);
+int ckpt_section_get(struct ckpt_handle *handle, const char *section,
+		     char **data, size_t *data_len);
+
 /* cman.c */
 int setup_cman(void);
 char *nodeid2name(int nodeid);
@@ -69,7 +85,7 @@ int kill_cman(int nodeid);
 void exit_cman(void);
 
 /* cpg.c */
-int setup_cpg(void (*daemon_joined)(void));
+int setup_cpg(void (*daemon_joined)(int first));
 void exit_cpg(void);
 void for_each_node(struct cgroup *cg,
 		   void (*func)(int nodeid,

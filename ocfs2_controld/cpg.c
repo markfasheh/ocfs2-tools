@@ -724,17 +724,17 @@ out:
 
 static void daemon_set_cgroup(struct cgroup *cg, void *user_data)
 {
-	void (*daemon_joined)(void) = user_data;
+	void (*daemon_joined)(int first) = user_data;
 
 	if (cg != &daemon_group) {
 		log_error("Somehow, daemon_set_cgroup is called on a different group!");
 		return;
 	}
 
-	daemon_joined();
+	daemon_joined(daemon_group.cg_member_count == 1);
 }
 
-int setup_cpg(void (*daemon_joined)(void))
+int setup_cpg(void (*daemon_joined)(int first))
 {
 	cpg_error_t error;
 

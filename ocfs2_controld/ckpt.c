@@ -525,7 +525,7 @@ static void ckpt_free(struct ckpt_handle *handle)
 	free(handle);
 }
 
-static int ckpt_open_global(int write)
+int ckpt_open_global(int write)
 {
 	if (global_handle)
 		return 0;
@@ -533,7 +533,7 @@ static int ckpt_open_global(int write)
 	return ckpt_new("controld", write, &global_handle);
 }
 
-static void ckpt_close_global(void)
+void ckpt_close_global(void)
 {
 	if (global_handle) {
 		ckpt_free(global_handle);
@@ -624,6 +624,7 @@ void exit_ckpt(void)
 	}
 }
 
+#ifdef DEBUG_EXE
 int dump_point, dump_wrap, daemon_debug_opt = 1;
 char daemon_debug_buf[1024];
 char dump_buf[DUMP_SIZE];
@@ -701,3 +702,4 @@ out_exit:
 out:
 	return rc;
 }
+#endif  /* DEBUG_EXE */

@@ -46,6 +46,13 @@
 #define LOCKFILE_NAME		"/var/run/ocfs2_controld.pid"
 #define NALLOC			8
 
+#define CONTROLD_PROTOCOL_MAJOR		1
+#define CONTROLD_PROTOCOL_MINOR		0
+#define DAEMON_MAX_PROTOCOL_SECTION	"daemon_max_protocol"
+#define DAEMON_PROTOCOL_SECTION		"daemon_protocol"
+#define FS_MAX_PROTOCOL_SECTION		"ocfs2_max_protocol"
+#define FS_PROTOCOL_SECTION		"ocfs2_protocol"
+
 struct client {
 	int fd;
 	char type[32];
@@ -71,6 +78,45 @@ char daemon_debug_buf[1024];
 char dump_buf[DUMP_SIZE];
 int dump_point;
 int dump_wrap;
+
+/*
+ * Protocol negotiation.
+ *
+ * This is the maximum protocol supported by the daemon for inter-daemon
+ * communication.  The negotiated value daemon_running_proto is what the
+ * daemon uses at runtime.
+ *
+ * All daemons must support the initial protocol, which works as follows:
+ * Prior to starting CPG, daemons store two values in the local node
+ * checkpoint.  The maximum daemon protocol is stored in the
+ * "daemon_max_protocol" section, and the ocfs2 maximum protocol is stored
+ * in the "ocfs2_max_protocol" section.  The protocols are stored in the
+ * format:
+ *
+ *     <2-char-hex-major><space><2-char-hex-minor><null>
+ *
+ * These sections MUST be created before CPG is started.  Other sections
+ * MUST NOT be created at this time.
+ *
+ * Once CPG is started, the daemon reads the "daemon_protocol" and
+ * "ocfs2_protocol" sections from the daemon's global checkpoint.  The
+ * values are stored as the running versions.  All interaction takes place
+ * based on the running versions.  At this point, the daemon may add
+ * other sections to the local node checkpoint that are part of the
+ * running protocol.
+ *
+ * If the daemon is the first node to join the group, it sets the
+ * "daemon_protocol" and "ocfs2_protocol" sections of the global checkpoint
+ * to the maximum values this daemon supports.
+ */
+static struct ocfs2_protocol_version daemon_max_proto = {
+	.pv_major	= CONTROLD_PROTOCOL_MAJOR,
+	.pv_minor	= CONTROLD_PROTOCOL_MINOR,
+};
+static struct ocfs2_protocol_version fs_max_proto;
+struct ocfs2_protocol_version daemon_running_proto;
+struct ocfs2_protocol_version fs_running_proto;
+struct ckpt_handle *node_handle;
 
 void shutdown_daemon(void)
 {
@@ -568,23 +614,267 @@ static int setup_listener(void)
 	return 0;
 }
 
-static void cpg_joined(void)
+static int proto_version_to_checkpoint(struct ocfs2_protocol_version *proto,
+				       char **checkpoint_data)
+{
+	size_t len;
+	char *buf;
+
+	len = snprintf(NULL, 0, "%02x %02x", proto->pv_major,
+		       proto->pv_minor);
+	buf = malloc(sizeof(char) * (len + 1));
+	if (!buf) {
+		log_error("Unable to allocate memory for checkpoint data");
+		return -ENOMEM;
+	}
+
+	snprintf(buf, len + 1, "%02x %02x", proto->pv_major,
+		 proto->pv_minor);
+	*checkpoint_data = buf;
+
+	return 0;
+}
+
+static int checkpoint_to_proto_version(char *data, size_t data_len,
+				       struct ocfs2_protocol_version *proto)
+{
+	long major, minor;
+	char *ptr;
+	struct proto_version_str {
+		char major[2];
+		char space;
+		char minor[2];
+		char null;
+	} str;
+
+	if (data_len != sizeof(struct proto_version_str)) {
+		log_error("Protocol version string \"%.*s\" has incorrect "
+			  "length",
+			  data_len, data);
+		return -EINVAL;
+	}
+	memcpy((char *)&str, data, data_len);
+
+	if ((str.space != ' ') || (str.null != '\0')) {
+		log_error("Protocol version string \"%.*s\" has invalid "
+			  "separators",
+			  data_len, data);
+		return -EINVAL;
+	}
+	str.space = '\0';
+
+	major = strtol(str.major, &ptr, 16);
+	if (!ptr || *ptr) {
+		log_error("Protocol request has bad version 0x%s 0x%s",
+			  str.major, str.minor);
+		return -EINVAL;
+	}
+	minor = strtol(str.minor, &ptr, 16);
+	if (!ptr || *ptr) {
+		log_error("Protocol version string has bad version 0x%s 0x%s",
+			  str.major, str.minor);
+		return -EINVAL;
+	}
+
+	/* The major and minor must be between 0 and 255, inclusive. */
+	if ((major == LONG_MIN) || (major == LONG_MAX) ||
+	    (minor == LONG_MIN) || (minor == LONG_MAX) ||
+	    (major > (uint8_t)-1) || (major < 0) ||
+	    (minor > (uint8_t)-1) || (minor < 0)) {
+		log_error("Protocol version string has bad version 0x%s 0x%s",
+			  str.major, str.minor);
+		return -ERANGE;
+	}
+
+	proto->pv_major = major;
+	proto->pv_minor = minor;
+
+	return 0;
+}
+
+static int install_node_checkpoint(void)
+{
+	int rc;
+	char *buf;
+	errcode_t err;
+
+	err = o2cb_get_max_locking_protocol(&fs_max_proto);
+	if (err) {
+		log_error("Error querying maximum filesystem locking "
+			  "protocol: %s",
+			  error_message(err));
+		rc = -EIO;
+		goto out;
+	}
+
+	rc = ckpt_open_this_node(&node_handle);
+	if (rc)
+		goto out;
+
+	rc = proto_version_to_checkpoint(&daemon_max_proto, &buf);
+	if (rc)
+		goto out;
+
+	rc = ckpt_section_store(node_handle, DAEMON_MAX_PROTOCOL_SECTION,
+				buf, strlen(buf) + 1);
+	free(buf);
+	if (rc)
+		goto out;
+
+	rc = proto_version_to_checkpoint(&fs_max_proto, &buf);
+	if (rc)
+		goto out;
+
+	rc = ckpt_section_store(node_handle, FS_MAX_PROTOCOL_SECTION,
+				buf, strlen(buf) + 1);
+	free(buf);
+
+out:
+	return rc;
+}
+
+static void drop_node_checkpoint(void)
+{
+	if (node_handle)
+		ckpt_close(node_handle);
+}
+
+/*
+ * If we're the only daemon running, install our maximum protocols
+ * as the running values.
+ */
+static int install_global_checkpoint(void)
+{
+	int rc;
+	char *buf;
+
+	daemon_running_proto = daemon_max_proto;
+	fs_running_proto = fs_max_proto;
+
+	rc = ckpt_open_global(1);
+	if (rc)
+		goto out;
+
+	rc = proto_version_to_checkpoint(&daemon_running_proto, &buf);
+	if (rc)
+		goto out;
+
+	rc = ckpt_global_store(DAEMON_PROTOCOL_SECTION, buf,
+			       strlen(buf) + 1);
+	free(buf);
+	if (rc)
+		goto out;
+
+	rc = proto_version_to_checkpoint(&fs_running_proto, &buf);
+	if (rc)
+		goto out;
+
+	rc = ckpt_global_store(FS_PROTOCOL_SECTION, buf, strlen(buf) + 1);
+	free(buf);
+
+out:
+	return rc;
+}
+
+/*
+ * Compare the cluster's locking protocol version against our maximum.
+ *
+ * If the major numbers are different, they are incompatible.
+ * If the cluster's minor is greater than our maximum minor, they are
+ * incompatible.
+ */
+static int protocol_compatible(struct ocfs2_protocol_version *cluster,
+			       struct ocfs2_protocol_version *our_max)
+{
+	if (cluster->pv_major != our_max->pv_major)
+		return 0;
+
+	if (cluster->pv_minor > our_max->pv_minor)
+		return 0;
+
+	return 1;
+}
+
+static int read_global_checkpoint(void)
+{
+	int rc;
+	char *buf;
+	size_t len;
+
+	rc = ckpt_open_global(0);
+	if (rc)
+		goto out;
+
+	rc = ckpt_global_get(DAEMON_PROTOCOL_SECTION, &buf, &len);
+	if (rc)
+		goto out;
+
+	rc = checkpoint_to_proto_version(buf, len, &daemon_running_proto);
+	free(buf);
+	if (rc)
+		goto out;
+	if (!protocol_compatible(&daemon_running_proto,
+				 &daemon_max_proto)) {
+		log_error("Our maximum daemon protocol (%d.%d) is not "
+			  "compatible with the cluster's protocol (%d.%d)",
+			  daemon_max_proto.pv_major,
+			  daemon_max_proto.pv_minor,
+			  daemon_running_proto.pv_major,
+			  daemon_running_proto.pv_minor);
+		rc = -EPROTONOSUPPORT;
+		goto out;
+	}
+
+	rc = ckpt_global_get(FS_PROTOCOL_SECTION, &buf, &len);
+	if (rc)
+		goto out;
+
+	rc = checkpoint_to_proto_version(buf, len, &fs_running_proto);
+	free(buf);
+	if (rc)
+		goto out;
+
+	if (!protocol_compatible(&fs_running_proto,
+				 &fs_max_proto)) {
+		log_error("Our maximum fs protocol (%d.%d) is not "
+			  "compatible with the cluster's protocol (%d.%d)",
+			  fs_max_proto.pv_major,
+			  fs_max_proto.pv_minor,
+			  fs_running_proto.pv_major,
+			  fs_running_proto.pv_minor);
+		rc = -EPROTONOSUPPORT;
+	}
+
+out:
+	return rc;
+}
+
+static void cpg_joined(int first)
 {
 	int rv;
 	errcode_t err;
-	struct ocfs2_protocol_version proto;
 
-	log_debug("CPG is live, opening control device");
+	log_debug("CPG is live, we are %s first daemon",
+		  first ? "the" : "not the");
 
-	err = o2cb_get_max_locking_protocol(&proto);
-	if (err) {
-		log_error("Error querying maximum locking protocol: %s",
-			  error_message(err));
+	if (first)
+		rv = install_global_checkpoint();
+	else
+		rv = read_global_checkpoint();
+
+	if (rv) {
 		shutdown_daemon();
 		return;
 	}
 
-	err = o2cb_control_open(our_nodeid, &proto);
+	log_debug("Daemon protocol is %d.%d",
+		  daemon_running_proto.pv_major,
+		  daemon_running_proto.pv_minor);
+	log_debug("fs protocol is %d.%d",
+		  fs_running_proto.pv_major, fs_running_proto.pv_minor);
+
+	log_debug("Opening control device");
+	err = o2cb_control_open(our_nodeid, &fs_running_proto);
 	if (err) {
 		log_error("Error opening control device: %s",
 			  error_message(err));
@@ -609,6 +899,14 @@ static int loop(void)
 		goto out;
 
 	rv = setup_cman();
+	if (rv < 0)
+		goto out;
+
+	rv = setup_ckpt();
+	if (rv < 0)
+		goto out;
+
+	rv = install_node_checkpoint();
 	if (rv < 0)
 		goto out;
 
@@ -654,6 +952,8 @@ stop:
 
 	o2cb_control_close();
 	exit_cpg();
+	drop_node_checkpoint();
+	exit_ckpt();
 	exit_cman();
 
 out:
