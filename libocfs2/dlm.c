@@ -101,31 +101,47 @@ bail:
 	return ret;
 }
 
-errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs)
+errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 {
 	struct o2dlm_ctxt *dlm_ctxt = NULL;
 	errcode_t ret = 0;
+	struct o2cb_region_desc desc;
 
-	ret = ocfs2_start_heartbeat(fs);
+	ret = ocfs2_fill_heartbeat_desc(fs, &desc);
+	if (ret)
+		goto bail;
+
+	desc.r_service = (char *)service;
+	desc.r_persist = 0;
+	ret = o2cb_begin_group_join(NULL, &desc);
 	if (ret)
 		goto bail;
 
 	ret = o2dlm_initialize(DEFAULT_DLMFS_PATH, fs->uuid_str, &dlm_ctxt);
 	if (ret) {
 		/* What to do with an error code? */
-		ocfs2_stop_heartbeat(fs);
+
+		/* Ignore the result of complete_group_join, as we want
+		 * to propagate our o2dlm_initialize() error */
+		o2cb_complete_group_join(NULL, &desc, ret);
 		goto bail;
 	}
 
-	fs->fs_dlm_ctxt = dlm_ctxt;
+	ret = o2cb_complete_group_join(NULL, &desc, 0);
+
+	if (!ret)
+		fs->fs_dlm_ctxt = dlm_ctxt;
+	else
+		o2dlm_destroy(dlm_ctxt);
 
 bail:
 	return ret;
 }
 
-errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs)
+errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs, const char *service)
 {
 	errcode_t ret;
+	struct o2cb_region_desc desc;
 
 	ret = o2dlm_destroy(fs->fs_dlm_ctxt);
 	if (ret)
@@ -133,7 +149,13 @@ errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs)
 
 	fs->fs_dlm_ctxt = NULL;
 
-	ret = ocfs2_stop_heartbeat(fs);
+	ret = ocfs2_fill_heartbeat_desc(fs, &desc);
+	if (ret)
+		goto bail;
+
+	desc.r_service = (char *)service;
+	desc.r_persist = 0;
+	ret = o2cb_group_leave(NULL, &desc);
 
 bail:
 	return ret;

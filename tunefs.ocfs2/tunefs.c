@@ -28,6 +28,8 @@
 #include <tunefs.h>
 #include <ocfs2/feature_string.h>
 
+#define WHOAMI "tunefs.ocfs2"
+
 ocfs2_tune_opts opts;
 ocfs2_filesys *fs_gbl = NULL;
 static int cluster_locked = 0;
@@ -63,7 +65,7 @@ static void handle_signal(int sig)
 			ocfs2_release_cluster(fs_gbl);
 
 		if (fs_gbl && fs_gbl->fs_dlm_ctxt)
-			ocfs2_shutdown_dlm(fs_gbl);
+			ocfs2_shutdown_dlm(fs_gbl, WHOAMI);
 
 		exit(1);
 	}
@@ -1248,7 +1250,7 @@ int main(int argc, char **argv)
 			exit(1);
 		}
 
-		ret = ocfs2_initialize_dlm(fs);
+		ret = ocfs2_initialize_dlm(fs, WHOAMI);
 		if (ret) {
 			com_err(opts.progname, ret, "while initializing the dlm");
 			goto close;
@@ -1513,7 +1515,7 @@ close:
 		io_destroy_cache(fs->fs_io);
 	block_signals(SIG_BLOCK);
 	if (fs && fs->fs_dlm_ctxt)
-		ocfs2_shutdown_dlm(fs);
+		ocfs2_shutdown_dlm(fs, WHOAMI);
 	block_signals(SIG_UNBLOCK);
 
 	free_clear_ctxt();

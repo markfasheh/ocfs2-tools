@@ -60,6 +60,14 @@ struct hb_ctl_options {
 	char *dev_str;
 	char *uuid_str;
 	int  io_prio;
+	char *service;  /* The service accessing the region.  Ths is
+			   usually the mountpoint, but could be a program
+			   name like 'fsck.ocfs2'. Note that the service
+			   is now a required argument to this program.
+			   This will work even with old kernels, because
+			   o2cb.init fills the hb_ctl path with /bin/true.
+			   Nothing in ocfs2-tools will call this
+			   incorrectly. */
 };
 
 
@@ -283,8 +291,18 @@ static errcode_t start_heartbeat(struct hb_ctl_options *hbo)
 	if (!hbo->dev_str)
 		err = lookup_dev(hbo);
 	if (!err) {
-		err = o2cb_start_heartbeat_region_perm(NULL,
-						       region_desc);
+		region_desc->r_persist = 1;  /* hb_ctl is for reals */
+		region_desc->r_service = hbo->service;
+		err = o2cb_begin_group_join(NULL, region_desc);
+		if (!err) {
+			/*
+			 * This is a manual start, there is no service
+			 * or mountpoint being started by hb_ctl, so
+			 * we assume success
+			 */
+			err = o2cb_complete_group_join(NULL, region_desc,
+						       0);
+		}
 	}
 
 	return err;
@@ -326,9 +344,15 @@ static errcode_t adjust_priority(struct hb_ctl_options *hbo)
 
 static errcode_t stop_heartbeat(struct hb_ctl_options *hbo)
 {
-	errcode_t err;
+	errcode_t err = 0;
 
-	err = o2cb_stop_heartbeat_region_perm(NULL, hbo->uuid_str);
+	if (!hbo->dev_str)
+		err = lookup_dev(hbo);
+	if (!err) {
+		region_desc->r_persist = 1;  /* hb_ctl is for reals */
+		region_desc->r_service = hbo->service;
+		err = o2cb_group_leave(NULL, region_desc);
+	}
 
 	return err;
 }
@@ -400,6 +424,9 @@ static int read_options(int argc, char **argv, struct hb_ctl_options *hbo)
 		}
 	}
 
+	if (!ret && (optind < argc))
+		hbo->service = strdup(argv[optind]);
+
 	return ret;
 }
 
@@ -411,14 +438,16 @@ static int process_options(struct hb_ctl_options *hbo)
 	case HB_ACTION_START:
 		/* For start must specify exactly one of uuid or device. */
 		if ((hbo->uuid_str && hbo->dev_str) ||
-		    (!hbo->uuid_str && !hbo->dev_str))
+		    (!hbo->uuid_str && !hbo->dev_str) ||
+		    !hbo->service)
 			ret = -EINVAL;
 		break;
 
 	case HB_ACTION_STOP:
 		/* For stop must specify exactly one of uuid or device. */
 		if ((hbo->uuid_str && hbo->dev_str) ||
-		    (!hbo->uuid_str && !hbo->dev_str))
+		    (!hbo->uuid_str && !hbo->dev_str) ||
+		    !hbo->service)
 			ret = -EINVAL;
 		break;
 
@@ -453,10 +482,10 @@ static void print_usage(int err)
 {
 	FILE *output = err ? stderr : stdout;
 
-	fprintf(output, "Usage: %s -S -d <device>\n", progname);
-	fprintf(output, "       %s -S -u <uuid>\n", progname);
-	fprintf(output, "       %s -K -d <device>\n", progname);
-	fprintf(output, "       %s -K -u <uuid>\n", progname);
+	fprintf(output, "Usage: %s -S -d <device> <service>\n", progname);
+	fprintf(output, "       %s -S -u <uuid> <service>\n", progname);
+	fprintf(output, "       %s -K -d <device> <service>\n", progname);
+	fprintf(output, "       %s -K -u <uuid> <service>\n", progname);
 	fprintf(output, "       %s -I -d <device>\n", progname);
 	fprintf(output, "       %s -I -u <uuid>\n", progname);
 	fprintf(output, "       %s -P -d <device> [-n <io_priority>]\n", progname);
@@ -468,7 +497,9 @@ int main(int argc, char **argv)
 {
 	errcode_t err = 0;
 	int ret = 0;
-	struct hb_ctl_options hbo = { HB_ACTION_UNKNOWN, NULL, NULL, 0 };
+	struct hb_ctl_options hbo = {
+		.action = HB_ACTION_UNKNOWN,
+	};
 	char hbuuid[33];
 
 	setbuf(stdout, NULL);

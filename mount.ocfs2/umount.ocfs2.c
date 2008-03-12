@@ -143,6 +143,7 @@ int main(int argc, char **argv)
 	errcode_t ret = 0;
 	struct mount_options mo;
 	ocfs2_filesys *fs = NULL;
+	struct o2cb_region_desc desc;
 	int clustered = 1;
 
 	initialize_ocfs_error_table();
@@ -178,7 +179,7 @@ int main(int argc, char **argv)
 	clustered = (0 == ocfs2_mount_local(fs));
 
 	if (verbose)
-		printf("device=%s\n", mo.dev);
+		printf("dir=%s device=%s\n", mo.dir, mo.dev);
 
 	if (clustered) {
 		ret = o2cb_init();
@@ -186,6 +187,15 @@ int main(int argc, char **argv)
 			com_err(progname, ret, "Cannot initialize cluster");
 			goto bail;
 		}
+
+		ret = ocfs2_fill_heartbeat_desc(fs, &desc);
+		if (ret) {
+			com_err(progname, ret,
+				"while loading heartbeat information");
+			goto bail;
+		}
+		desc.r_persist = 1;
+		desc.r_service = mo.dir;
 	}
 
 	block_signals (SIG_BLOCK);
@@ -214,8 +224,15 @@ int main(int argc, char **argv)
 	if (rc)
 		goto unblock;
 
-	if (clustered)
-		ocfs2_stop_heartbeat(fs);
+	if (clustered) {
+		ret = o2cb_group_leave(NULL, &desc);
+		if (ret) {
+			com_err(progname, ret,
+				"while stopping heartbeat (WARNING)");
+			/* Don't propagate the error, just warn */
+			ret = 0;
+		}
+	}
 
 	if (!nomtab)
 		update_mtab(mo.dir, NULL);

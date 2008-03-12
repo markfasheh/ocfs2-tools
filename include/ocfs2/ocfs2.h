@@ -530,17 +530,13 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 				    struct o2cb_region_desc *desc);
 
-errcode_t ocfs2_start_heartbeat(ocfs2_filesys *fs);
-
-errcode_t ocfs2_stop_heartbeat(ocfs2_filesys *fs);
-
 errcode_t ocfs2_lock_down_cluster(ocfs2_filesys *fs);
 
 errcode_t ocfs2_release_cluster(ocfs2_filesys *fs);
 
-errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs);
+errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service);
 
-errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs);
+errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs, const char *service);
 
 errcode_t ocfs2_super_lock(ocfs2_filesys *fs);
 

@@ -68,24 +68,27 @@ errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes);
 void o2cb_free_nodes_list(char **nodes);
 
 struct o2cb_region_desc {
-	char		*r_name;
-	char		*r_device_name;
+	char		*r_name;	/* The uuid of the region */
+	char		*r_device_name; /* The device the region is on */
+	char		*r_service;	/* A program or mountpoint */
 	int		r_block_bytes;
 	uint64_t	r_start_block;
 	uint64_t	r_blocks;
+	int		r_persist;	/* Persist past process exit */
 };
 
 /* Expected use case for the region descriptor is to allocate it on
  * the stack and completely fill it before calling
- * start_heartbeat_region. */
-errcode_t o2cb_start_heartbeat_region(const char *cluster_name,
-				      struct o2cb_region_desc *desc);
-errcode_t o2cb_stop_heartbeat_region(const char *cluster_name,
-				     const char *region_name);
-errcode_t o2cb_start_heartbeat_region_perm(const char *cluster_name,
-					   struct o2cb_region_desc *desc);
-errcode_t o2cb_stop_heartbeat_region_perm(const char *cluster_name,
-					  const char *region_name);
+ * begin_group_join().  Regular programs (not mount.ocfs2) should provide
+ * a mountpoint that does not begin with a '/'.  Eg, fsck could use ":fsck"
+ */
+errcode_t o2cb_begin_group_join(const char *cluster_name,
+				struct o2cb_region_desc *desc);
+errcode_t o2cb_complete_group_join(const char *cluster_name,
+				   struct o2cb_region_desc *desc,
+				   int error);
+errcode_t o2cb_group_leave(const char *cluster_name,
+			   struct o2cb_region_desc *desc);
 
 errcode_t o2cb_get_hb_thread_pid (const char *cluster_name, 
 				  const char *region_name, 

@@ -25,6 +25,8 @@
 
 #include "mkfs.h"
 
+#define WHOAMI "mkfs.ocfs2"
+
 int ocfs2_check_volume(State *s)
 {
 	ocfs2_filesys *fs = NULL;
@@ -80,7 +82,7 @@ int ocfs2_check_volume(State *s)
 			return -1;
 		}
 
-		ret = ocfs2_initialize_dlm(fs);
+		ret = ocfs2_initialize_dlm(fs, WHOAMI);
 		if (ret) {
 			ocfs2_close(fs);
 			com_err(s->progname, ret, "while initializing the dlm");
@@ -94,7 +96,7 @@ int ocfs2_check_volume(State *s)
 
 		ret = ocfs2_lock_down_cluster(fs);
 		if (ret) {
-			ocfs2_shutdown_dlm(fs);
+			ocfs2_shutdown_dlm(fs, WHOAMI);
 			ocfs2_close(fs);
 			com_err(s->progname, ret, "while locking the cluster");
 			fprintf(stderr,
@@ -104,7 +106,7 @@ int ocfs2_check_volume(State *s)
 		}
 
 		ocfs2_release_cluster(fs);
-		ocfs2_shutdown_dlm(fs);
+		ocfs2_shutdown_dlm(fs, WHOAMI);
 	} else {
 		fprintf(stderr,
 			"WARNING: Cluster check disabled.\n");

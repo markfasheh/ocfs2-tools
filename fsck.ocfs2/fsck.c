@@ -86,7 +86,7 @@ static void handle_signal(int sig)
 		}
 
 		if (_ost.ost_fs->fs_dlm_ctxt)
-			ocfs2_shutdown_dlm(_ost.ost_fs);
+			ocfs2_shutdown_dlm(_ost.ost_fs, whoami);
 
 		if (_ost.ost_fs)
 			ocfs2_close(_ost.ost_fs);
@@ -688,7 +688,7 @@ int main(int argc, char **argv)
 		}
 
 		block_signals(SIG_BLOCK);
-		ret = ocfs2_initialize_dlm(ost->ost_fs);
+		ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
 		if (ret) {
 			block_signals(SIG_UNBLOCK);
 			com_err(whoami, ret, "while initializing the DLM");
@@ -820,7 +820,7 @@ unlock:
 close:
 	block_signals(SIG_BLOCK);
 	if (ost->ost_fs->fs_dlm_ctxt)
-		ocfs2_shutdown_dlm(ost->ost_fs);
+		ocfs2_shutdown_dlm(ost->ost_fs, whoami);
 	block_signals(SIG_UNBLOCK);
 
 	ret = ocfs2_close(ost->ost_fs);
