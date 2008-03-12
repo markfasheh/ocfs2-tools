@@ -68,6 +68,13 @@ void o2cb_free_cluster_list(char **clusters);
 errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes);
 void o2cb_free_nodes_list(char **nodes);
 
+struct o2cb_cluster_desc {
+	char *c_stack;		/* The cluster stack, NULL for classic */
+	char *c_cluster;	/* The name of the cluster, NULL for the
+				   default cluster, which is only valid in
+				   the classic stack.  */
+};
+
 struct o2cb_region_desc {
 	char		*r_name;	/* The uuid of the region */
 	char		*r_device_name; /* The device the region is on */
@@ -83,13 +90,13 @@ struct o2cb_region_desc {
  * begin_group_join().  Regular programs (not mount.ocfs2) should provide
  * a mountpoint that does not begin with a '/'.  Eg, fsck could use "fsck"
  */
-errcode_t o2cb_begin_group_join(const char *cluster_name,
-				struct o2cb_region_desc *desc);
-errcode_t o2cb_complete_group_join(const char *cluster_name,
-				   struct o2cb_region_desc *desc,
+errcode_t o2cb_begin_group_join(struct o2cb_cluster_desc *cluster,
+				struct o2cb_region_desc *region);
+errcode_t o2cb_complete_group_join(struct o2cb_cluster_desc *cluster,
+				   struct o2cb_region_desc *region,
 				   int result);
-errcode_t o2cb_group_leave(const char *cluster_name,
-			   struct o2cb_region_desc *desc);
+errcode_t o2cb_group_leave(struct o2cb_cluster_desc *cluster,
+			   struct o2cb_region_desc *region);
 
 errcode_t o2cb_get_hb_thread_pid (const char *cluster_name, 
 				  const char *region_name, 

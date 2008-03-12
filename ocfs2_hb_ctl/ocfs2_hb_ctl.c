@@ -287,21 +287,24 @@ static errcode_t lookup_dev(struct hb_ctl_options *hbo)
 static errcode_t start_heartbeat(struct hb_ctl_options *hbo)
 {
 	errcode_t err = 0;
+	struct o2cb_cluster_desc cluster = {
+		.c_stack = NULL,  /* classic stack only */
+	};
 
 	if (!hbo->dev_str)
 		err = lookup_dev(hbo);
 	if (!err) {
 		region_desc->r_persist = 1;  /* hb_ctl is for reals */
 		region_desc->r_service = hbo->service;
-		err = o2cb_begin_group_join(NULL, region_desc);
+		err = o2cb_begin_group_join(&cluster, region_desc);
 		if (!err) {
 			/*
 			 * This is a manual start, there is no service
 			 * or mountpoint being started by hb_ctl, so
 			 * we assume success
 			 */
-			err = o2cb_complete_group_join(NULL, region_desc,
-						       0);
+			err = o2cb_complete_group_join(&cluster,
+						       region_desc, 0);
 		}
 	}
 
@@ -345,6 +348,9 @@ static errcode_t adjust_priority(struct hb_ctl_options *hbo)
 static errcode_t stop_heartbeat(struct hb_ctl_options *hbo)
 {
 	errcode_t err = 0;
+	struct o2cb_cluster_desc cluster = {
+		.c_stack = NULL,  /* classic stack only */
+	};
 
 	if (!hbo->dev_str)
 		err = lookup_dev(hbo);

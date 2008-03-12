@@ -143,6 +143,7 @@ int main(int argc, char **argv)
 	errcode_t ret = 0;
 	struct mount_options mo;
 	ocfs2_filesys *fs = NULL;
+	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
 	int clustered = 1;
 
@@ -188,6 +189,13 @@ int main(int argc, char **argv)
 			goto bail;
 		}
 
+		ret = ocfs2_fill_cluster_desc(fs, &cluster);
+		if (ret) {
+			com_err(progname, ret,
+				"while loading cluster information");
+			goto bail;
+		}
+
 		ret = ocfs2_fill_heartbeat_desc(fs, &desc);
 		if (ret) {
 			com_err(progname, ret,
@@ -225,10 +233,10 @@ int main(int argc, char **argv)
 		goto unblock;
 
 	if (clustered) {
-		ret = o2cb_group_leave(NULL, &desc);
+		ret = o2cb_group_leave(&cluster, &desc);
 		if (ret) {
 			com_err(progname, ret,
-				"while stopping heartbeat (WARNING)");
+				"while leaving the group (WARNING)");
 			/* Don't propagate the error, just warn */
 			ret = 0;
 		}

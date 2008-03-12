@@ -88,7 +88,8 @@
 #define OCFS2_FEATURE_COMPAT_SUPP	OCFS2_FEATURE_COMPAT_BACKUP_SB
 #define OCFS2_FEATURE_INCOMPAT_SUPP	(OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT \
 					 | OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC \
-					 | OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
+					 | OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP \
+					 | OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK)
 #define OCFS2_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_UNWRITTEN
 
 /*
@@ -128,6 +129,17 @@
 /* Support for the extended slot map */
 #define OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP 0x100
 
+
+/*
+ * Support for alternate, userspace cluster stacks.  If set, the superblock
+ * field s_cluster_info contains a tag for the alternate stack in use as
+ * well as the name of the cluster being joined.
+ * mount.ocfs2 must pass in a matching stack name.
+ *
+ * If not set, the classic stack will be used.  This is compatbile with
+ * all older versions.
+ */
+#define OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK	0x0080
 
 /*
  * backup superblock flag is used to indicate that this volume
@@ -270,6 +282,10 @@ struct ocfs2_new_group_input {
 
 #define OCFS2_VOL_UUID_LEN		16
 #define OCFS2_MAX_VOL_LABEL_LEN		64
+
+/* The alternate, userspace stack fields */
+#define OCFS2_STACK_LABEL_LEN		4
+#define OCFS2_CLUSTER_NAME_LEN		16
 
 /* Journal limits (in bytes) */
 #define OCFS2_MIN_JOURNAL_SIZE		(4 * 1024 * 1024)
@@ -470,6 +486,13 @@ struct ocfs2_extent_block
 /* Actual on-disk size is one block */
 };
 
+struct ocfs2_cluster_info {
+/*00*/	__u8   ci_stack[OCFS2_STACK_LABEL_LEN];
+	__le32 ci_reserved;
+/*08*/	__u8   ci_cluster[OCFS2_CLUSTER_NAME_LEN];
+/*18*/
+};
+
 /*
  * On disk slot map for OCFS2.  This defines the contents of the "slot_map"
  * system file.  A slot is valid if it contains a node number >= 0.  The
@@ -536,7 +559,20 @@ struct ocfs2_super_block {
 					 * group header */
 /*50*/	__u8  s_label[OCFS2_MAX_VOL_LABEL_LEN];	/* Label for mounting, etc. */
 /*90*/	__u8  s_uuid[OCFS2_VOL_UUID_LEN];	/* 128-bit uuid */
-/*A0*/
+/*A0*/  struct ocfs2_cluster_info s_cluster_info; /* Selected userspace
+						     stack.  Only valid
+						     with INCOMPAT flag. */
+/*B8*/  __le64 s_reserved2[17];		/* Fill out superblock */
+/*140*/
+
+	/*
+	 * NOTE: As stated above, all offsets are relative to
+	 * ocfs2_dinode.id2, which is at 0xC0 in the inode.
+	 * 0xC0 + 0x140 = 0x200 or 512 bytes.  A superblock must fit within
+	 * our smallest blocksize, which is 512 bytes.  To ensure this,
+	 * we reserve the space in s_reserved2.  Anything past s_reserved2
+	 * will not be available on the smallest blocksize.
+	 */
 };
 
 /*

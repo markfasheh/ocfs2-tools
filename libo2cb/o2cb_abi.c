@@ -48,13 +48,13 @@
 
 struct o2cb_stack_ops {
 	errcode_t (*list_clusters)(char ***clusters);
-	errcode_t (*begin_group_join)(const char *cluster_name,
-				      struct o2cb_region_desc *desc);
-	errcode_t (*complete_group_join)(const char *cluster_name,
-					 struct o2cb_region_desc *desc,
+	errcode_t (*begin_group_join)(struct o2cb_cluster_desc *cluster,
+				      struct o2cb_region_desc *region);
+	errcode_t (*complete_group_join)(struct o2cb_cluster_desc *cluster,
+					 struct o2cb_region_desc *region,
 					 int result);
-	errcode_t (*group_leave)(const char *cluster_name,
-				 struct o2cb_region_desc *desc);
+	errcode_t (*group_leave)(struct o2cb_cluster_desc *cluster,
+				 struct o2cb_region_desc *region);
 };
 
 struct o2cb_stack {
@@ -63,13 +63,13 @@ struct o2cb_stack {
 };
 
 static errcode_t classic_list_clusters(char ***clusters);
-static errcode_t classic_begin_group_join(const char *cluster_name,
-					  struct o2cb_region_desc *desc);
-static errcode_t classic_complete_group_join(const char *cluster_name,
-					     struct o2cb_region_desc *desc,
+static errcode_t classic_begin_group_join(struct o2cb_cluster_desc *cluster,
+					  struct o2cb_region_desc *region);
+static errcode_t classic_complete_group_join(struct o2cb_cluster_desc *cluster,
+					     struct o2cb_region_desc *region,
 					     int result);
-static errcode_t classic_group_leave(const char *cluster_name,
-				     struct o2cb_region_desc *desc);
+static errcode_t classic_group_leave(struct o2cb_cluster_desc *cluster,
+				     struct o2cb_region_desc *region);
 static struct o2cb_stack_ops classic_ops = {
 	.list_clusters		= classic_list_clusters,
 	.begin_group_join	= classic_begin_group_join,
@@ -82,13 +82,13 @@ static struct o2cb_stack classic_stack = {
 };
 
 static errcode_t user_list_clusters(char ***clusters);
-static errcode_t user_begin_group_join(const char *cluster_name,
-				       struct o2cb_region_desc *desc);
-static errcode_t user_complete_group_join(const char *cluster_name,
-					  struct o2cb_region_desc *desc,
+static errcode_t user_begin_group_join(struct o2cb_cluster_desc *cluster,
+				       struct o2cb_region_desc *region);
+static errcode_t user_complete_group_join(struct o2cb_cluster_desc *cluster,
+					  struct o2cb_region_desc *region,
 					  int result);
-static errcode_t user_group_leave(const char *cluster_name,
-				  struct o2cb_region_desc *desc);
+static errcode_t user_group_leave(struct o2cb_cluster_desc *cluster,
+				  struct o2cb_region_desc *region);
 static struct o2cb_stack_ops user_ops = {
 	.list_clusters		= user_list_clusters,
 	.begin_group_join	= user_begin_group_join,
@@ -1117,14 +1117,14 @@ out:
  * to drop the reference taken during startup, otherwise that
  * reference was dropped automatically at process shutdown so there's
  * no need to drop one here. */
-static errcode_t classic_group_leave(const char *cluster_name,
-				     struct o2cb_region_desc *desc)
+static errcode_t classic_group_leave(struct o2cb_cluster_desc *cluster,
+				     struct o2cb_region_desc *region)
 {
 	errcode_t ret, up_ret;
 	int hb_refs;
 	int semid;
 
-	ret = o2cb_mutex_down_lookup(desc->r_name, &semid);
+	ret = o2cb_mutex_down_lookup(region->r_name, &semid);
 	if (ret)
 		return ret;
 
@@ -1136,7 +1136,7 @@ static errcode_t classic_group_leave(const char *cluster_name,
 	 * references on the region. We avoid a negative error count
 	 * here and clean up the region as normal. */
 	if (hb_refs) {
-		ret = __o2cb_drop_ref(semid, !desc->r_persist);
+		ret = __o2cb_drop_ref(semid, !region->r_persist);
 		if (ret)
 			goto up;
 
@@ -1148,8 +1148,8 @@ static errcode_t classic_group_leave(const char *cluster_name,
 	if (!hb_refs) {
 		/* XXX: If this fails, shouldn't we still destroy the
 		 * semaphore set? */
-		ret = o2cb_remove_heartbeat_region(cluster_name,
-						   desc->r_name);
+		ret = o2cb_remove_heartbeat_region(cluster->c_cluster,
+						   region->r_name);
 		if (ret)
 			goto up;
 
@@ -1168,26 +1168,26 @@ done:
 	return ret;
 }
 
-static errcode_t classic_begin_group_join(const char *cluster_name,
-					  struct o2cb_region_desc *desc)
+static errcode_t classic_begin_group_join(struct o2cb_cluster_desc *cluster,
+					  struct o2cb_region_desc *region)
 {
 	errcode_t ret, up_ret;
 	int semid;
 
-	ret = o2cb_mutex_down_lookup(desc->r_name, &semid);
+	ret = o2cb_mutex_down_lookup(region->r_name, &semid);
 	if (ret)
 		return ret;
 
-	ret = o2cb_create_heartbeat_region(cluster_name,
-					   desc->r_name,
-					   desc->r_device_name,
-					   desc->r_block_bytes,
-					   desc->r_start_block,
-					   desc->r_blocks);
+	ret = o2cb_create_heartbeat_region(cluster->c_cluster,
+					   region->r_name,
+					   region->r_device_name,
+					   region->r_block_bytes,
+					   region->r_start_block,
+					   region->r_blocks);
 	if (ret && ret != O2CB_ET_REGION_EXISTS)
 		goto up;
 
-	ret = __o2cb_get_ref(semid, !desc->r_persist);
+	ret = __o2cb_get_ref(semid, !region->r_persist);
 	/* XXX: Maybe stop heartbeat on error here? */
 up:
 	up_ret = o2cb_mutex_up(semid);
@@ -1197,14 +1197,14 @@ up:
 	return ret;
 }
 
-static errcode_t classic_complete_group_join(const char *cluster_name,
-					     struct o2cb_region_desc *desc,
+static errcode_t classic_complete_group_join(struct o2cb_cluster_desc *cluster,
+					     struct o2cb_region_desc *region,
 					     int result)
 {
 	errcode_t ret = 0;
 
 	if (result)
-		ret = classic_group_leave(cluster_name, desc);
+		ret = classic_group_leave(cluster, region);
 
 	return ret;
 }
@@ -1230,8 +1230,8 @@ static errcode_t user_parse_status(char **args, int *error, char **error_msg)
 	return err;
 }
 
-static errcode_t user_begin_group_join(const char *cluster_name,
-				       struct o2cb_region_desc *desc)
+static errcode_t user_begin_group_join(struct o2cb_cluster_desc *cluster,
+				       struct o2cb_region_desc *region)
 {
 	errcode_t err;
 	int rc;
@@ -1266,8 +1266,8 @@ static errcode_t user_begin_group_join(const char *cluster_name,
 	controld_fd = rc;
 
 	rc = send_message(controld_fd, CM_MOUNT, OCFS2_FS_NAME,
-			  desc->r_name, cluster_name, desc->r_device_name,
-			  desc->r_service);
+			  region->r_name, cluster->c_cluster,
+			  region->r_device_name, region->r_service);
 	if (rc) {
 		/* fprintf(stderr, "Unable to send MOUNT message: %s\n",
 			strerror(-rc)); */
@@ -1320,8 +1320,8 @@ out:
 	return err;
 }
 
-static errcode_t user_complete_group_join(const char *cluster_name,
-					  struct o2cb_region_desc *desc,
+static errcode_t user_complete_group_join(struct o2cb_cluster_desc *cluster,
+					  struct o2cb_region_desc *region,
 					  int result)
 {
 	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
@@ -1339,7 +1339,7 @@ static errcode_t user_complete_group_join(const char *cluster_name,
 	}
 
 	rc = send_message(controld_fd, CM_MRESULT, OCFS2_FS_NAME,
-			  desc->r_name, result, desc->r_service);
+			  region->r_name, result, region->r_service);
 	if (rc) {
 		/* fprintf(stderr, "Unable to send MRESULT message: %s\n",
 			strerror(-rc)); */
@@ -1391,8 +1391,8 @@ out:
 	return err;
 }
 
-static errcode_t user_group_leave(const char *cluster_name,
-				  struct o2cb_region_desc *desc)
+static errcode_t user_group_leave(struct o2cb_cluster_desc *cluster,
+				  struct o2cb_region_desc *region)
 {
 	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
 	int rc;
@@ -1427,7 +1427,7 @@ static errcode_t user_group_leave(const char *cluster_name,
 	controld_fd = rc;
 
 	rc = send_message(controld_fd, CM_UNMOUNT, OCFS2_FS_NAME,
-			  desc->r_name, desc->r_service);
+			  region->r_name, region->r_service);
 	if (rc) {
 		/* fprintf(stderr, "Unable to send UNMOUNT message: %s\n",
 			strerror(-rc)); */
@@ -1480,63 +1480,105 @@ out:
 	return err;
 }
 
-errcode_t o2cb_begin_group_join(const char *cluster_name,
-				struct o2cb_region_desc *desc)
+static errcode_t o2cb_validate_cluster_desc(struct o2cb_cluster_desc *desc)
 {
 	errcode_t err;
+	const char *name;
+
+	if (!desc)
+		return O2CB_ET_INVALID_STACK_NAME;
+
+	if (desc->c_stack && !desc->c_cluster)
+		return O2CB_ET_INVALID_STACK_NAME;
+
+	err = o2cb_get_stack_name(&name);
+	if (err)
+		return err;
+
+	if (desc->c_stack) {
+		if (strcmp(desc->c_stack, name))
+			return O2CB_ET_INVALID_STACK_NAME;
+	} else if (strcmp(name, classic_stack.s_name))
+		return O2CB_ET_INVALID_STACK_NAME;
+
+	return 0;
+}
+
+errcode_t o2cb_begin_group_join(struct o2cb_cluster_desc *cluster,
+				struct o2cb_region_desc *region)
+{
+	errcode_t err;
+	struct o2cb_cluster_desc desc;
 	char _fake_cluster_name[NAME_MAX];
 
 	if (!current_stack)
 		return O2CB_ET_SERVICE_UNAVAILABLE;
 
-	if (!cluster_name) {
+	err = o2cb_validate_cluster_desc(cluster);
+	if (err)
+		return err;
+
+	desc = *cluster;
+	if (!desc.c_cluster) {
 		err = _fake_default_cluster(_fake_cluster_name);
 		if (err)
 			return err;
-		cluster_name = _fake_cluster_name;
+		desc.c_cluster = _fake_cluster_name;
 	}
 
-	return current_stack->s_ops->begin_group_join(cluster_name, desc);
+	return current_stack->s_ops->begin_group_join(&desc, region);
 }
 
-errcode_t o2cb_complete_group_join(const char *cluster_name,
-				   struct o2cb_region_desc *desc,
+errcode_t o2cb_complete_group_join(struct o2cb_cluster_desc *cluster,
+				   struct o2cb_region_desc *region,
 				   int result)
 {
 	errcode_t err;
+	struct o2cb_cluster_desc desc;
 	char _fake_cluster_name[NAME_MAX];
 
 	if (!current_stack)
 		return O2CB_ET_SERVICE_UNAVAILABLE;
 
-	if (!cluster_name) {
+	err = o2cb_validate_cluster_desc(cluster);
+	if (err)
+		return err;
+
+	desc = *cluster;
+	if (!desc.c_cluster) {
 		err = _fake_default_cluster(_fake_cluster_name);
 		if (err)
 			return err;
-		cluster_name = _fake_cluster_name;
+		desc.c_cluster = _fake_cluster_name;
 	}
 
-	return current_stack->s_ops->complete_group_join(cluster_name,
-							 desc, result);
+	return current_stack->s_ops->complete_group_join(&desc, region,
+							 result);
 }
 
-errcode_t o2cb_group_leave(const char *cluster_name,
-			   struct o2cb_region_desc *desc)
+errcode_t o2cb_group_leave(struct o2cb_cluster_desc *cluster,
+			   struct o2cb_region_desc *region)
 {
 	errcode_t err;
+	struct o2cb_cluster_desc desc;
 	char _fake_cluster_name[NAME_MAX];
 
 	if (!current_stack)
 		return O2CB_ET_SERVICE_UNAVAILABLE;
 
-	if (!cluster_name) {
+	err = o2cb_validate_cluster_desc(cluster);
+	if (err)
+		return err;
+
+	desc = *cluster;
+	if (!desc.c_cluster) {
 		err = _fake_default_cluster(_fake_cluster_name);
 		if (err)
 			return err;
-		cluster_name = _fake_cluster_name;
+		desc.c_cluster = _fake_cluster_name;
 	}
 
-	return current_stack->s_ops->group_leave(cluster_name, desc);
+	return current_stack->s_ops->group_leave(&desc, region);
 }
 
 

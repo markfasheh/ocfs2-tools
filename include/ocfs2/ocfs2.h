@@ -527,6 +527,8 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			   uint64_t offset, uint32_t *wrote);
 
+errcode_t ocfs2_fill_cluster_desc(ocfs2_filesys *fs,
+				  struct o2cb_cluster_desc *desc);
 errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 				    struct o2cb_region_desc *desc);
 
@@ -747,6 +749,13 @@ static inline void ocfs2_set_rec_clusters(uint16_t tree_depth,
 static inline int ocfs2_sparse_alloc(struct ocfs2_super_block *osb)
 {
 	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
+		return 1;
+	return 0;
+}
+
+static inline int ocfs2_userspace_stack(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK)
 		return 1;
 	return 0;
 }

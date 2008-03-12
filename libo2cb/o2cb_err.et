@@ -78,4 +78,7 @@ ec	O2CB_ET_NO_SEM,
 ec	O2CB_ET_BAD_VERSION,
 	"Revision of OCFS2-Tools is out of date."
 
+ec      O2CB_ET_INVALID_STACK_NAME,
+        "Cluster stack specified does not match the one currently running"
+
 	end

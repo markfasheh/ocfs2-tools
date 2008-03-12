@@ -260,6 +260,7 @@ int main(int argc, char **argv)
 	int dev_ro = 0;
 	char *hbstr = NULL;
 	ocfs2_filesys *fs = NULL;
+	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
 	int clustered = 1;
 	int hb_started = 0;
@@ -306,6 +307,13 @@ int main(int argc, char **argv)
 			goto bail;
 		}
 
+		ret = ocfs2_fill_cluster_desc(fs, &cluster);
+		if (ret) {
+			com_err(progname, ret,
+				"while trying to determine cluster information");
+			goto bail;
+		}
+
 		ret = ocfs2_fill_heartbeat_desc(fs, &desc);
 		if (ret) {
 			com_err(progname, ret,
@@ -334,11 +342,11 @@ int main(int argc, char **argv)
 	block_signals (SIG_BLOCK);
 
 	if (!(mo.flags & MS_REMOUNT) && !dev_ro && clustered) {
-		ret = o2cb_begin_group_join(NULL, &desc);
+		ret = o2cb_begin_group_join(&cluster, &desc);
 		if (ret) {
 			block_signals (SIG_UNBLOCK);
 			com_err(progname, ret,
-				"while trying to start heartbeat");
+				"while trying to join the group");
 			goto bail;
 		}
 		hb_started = 1;
@@ -363,7 +371,7 @@ int main(int argc, char **argv)
 			/* We ignore the return code because the mount
 			 * failure is the important error.
 			 * complete_group_join() will handle cleaning up */
-			o2cb_complete_group_join(NULL, &desc, errno);
+			o2cb_complete_group_join(&cluster, &desc, errno);
 		}
 		block_signals (SIG_UNBLOCK);
 		com_err(progname, ret, "while mounting %s on %s. "
@@ -372,10 +380,10 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 	if (hb_started) {
-		ret = o2cb_complete_group_join(NULL, &desc, 0);
+		ret = o2cb_complete_group_join(&cluster, &desc, 0);
 		if (ret) {
 			com_err(progname, ret,
-				"while completing heartbeat startup (WARNING)");
+				"while completing group join (WARNING)");
 			/*
 			 * XXX: GFS2 allows the mount to continue, so we
 			 * will do the same.  I don't know how clean that

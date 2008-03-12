@@ -101,11 +101,47 @@ bail:
 	return ret;
 }
 
+errcode_t ocfs2_fill_cluster_desc(ocfs2_filesys *fs,
+				  struct o2cb_cluster_desc *desc)
+{
+	errcode_t ret = 0;
+
+	if (!ocfs2_userspace_stack(OCFS2_RAW_SB(fs->fs_super))) {
+		desc->c_stack = NULL;
+		desc->c_cluster = NULL;
+		return 0;
+	}
+
+	ret = ocfs2_malloc0(OCFS2_STACK_LABEL_LEN + 1, &desc->c_stack);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_malloc0(OCFS2_CLUSTER_NAME_LEN + 1, &desc->c_cluster);
+	if (ret) {
+		ocfs2_free(&desc->c_stack);
+		return ret;
+	}
+
+	memcpy(desc->c_stack,
+	       OCFS2_RAW_SB(fs->fs_super)->s_cluster_info.ci_stack,
+	       OCFS2_STACK_LABEL_LEN);
+	memcpy(desc->c_cluster,
+	       OCFS2_RAW_SB(fs->fs_super)->s_cluster_info.ci_cluster,
+	       OCFS2_CLUSTER_NAME_LEN);
+
+	return 0;
+}
+
 errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 {
 	struct o2dlm_ctxt *dlm_ctxt = NULL;
 	errcode_t ret = 0;
+	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
+
+	ret = ocfs2_fill_cluster_desc(fs, &cluster);
+	if (ret)
+		goto bail;
 
 	ret = ocfs2_fill_heartbeat_desc(fs, &desc);
 	if (ret)
@@ -113,7 +149,7 @@ errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 
 	desc.r_service = (char *)service;
 	desc.r_persist = 0;
-	ret = o2cb_begin_group_join(NULL, &desc);
+	ret = o2cb_begin_group_join(&cluster, &desc);
 	if (ret)
 		goto bail;
 
@@ -123,11 +159,11 @@ errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 
 		/* Ignore the result of complete_group_join, as we want
 		 * to propagate our o2dlm_initialize() error */
-		o2cb_complete_group_join(NULL, &desc, ret);
+		o2cb_complete_group_join(&cluster, &desc, ret);
 		goto bail;
 	}
 
-	ret = o2cb_complete_group_join(NULL, &desc, 0);
+	ret = o2cb_complete_group_join(&cluster, &desc, 0);
 
 	if (!ret)
 		fs->fs_dlm_ctxt = dlm_ctxt;
@@ -141,6 +177,7 @@ bail:
 errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs, const char *service)
 {
 	errcode_t ret;
+	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
 
 	ret = o2dlm_destroy(fs->fs_dlm_ctxt);
@@ -149,13 +186,17 @@ errcode_t ocfs2_shutdown_dlm(ocfs2_filesys *fs, const char *service)
 
 	fs->fs_dlm_ctxt = NULL;
 
+	ret = ocfs2_fill_cluster_desc(fs, &cluster);
+	if (ret)
+		goto bail;
+
 	ret = ocfs2_fill_heartbeat_desc(fs, &desc);
 	if (ret)
 		goto bail;
 
 	desc.r_service = (char *)service;
 	desc.r_persist = 0;
-	ret = o2cb_group_leave(NULL, &desc);
+	ret = o2cb_group_leave(&cluster, &desc);
 
 bail:
 	return ret;
