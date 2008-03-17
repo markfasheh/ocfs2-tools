@@ -91,6 +91,14 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	for (i = 0; i < 16; i++)
 		fprintf(out, "%02X", sb->s_uuid[i]);
 	fprintf(out, "\n");
+	if (ocfs2_userspace_stack(sb))
+		fprintf(out,
+			"\tCluster stack: %s\n"
+			"\tCluster name: %s\n",
+			sb->s_cluster_info.ci_stack,
+			sb->s_cluster_info.ci_cluster);
+	else
+		fprintf(out, "\tCluster stack: classic o2cb\n");
 
 	g_string_free(compat, 1);
 	g_string_free(incompat, 1);

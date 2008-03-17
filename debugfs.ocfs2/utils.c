@@ -27,33 +27,35 @@
 
 extern dbgfs_gbls gbls;
 
+/*
+ * Tests features in a flag field and adds to a printable string.  Expects
+ * the flag field named 'flag' and the string named 'str'.  Primarily for
+ * readability.
+ */
+#define test_feature(_flag, _flagstr) do {		\
+	typeof(flag) _f = (_flag);			\
+	if (flag & _f) {				\
+		g_string_append(str, (_flagstr));	\
+		g_string_append_c(str, ' ');		\
+		flag &= ~_f;				\
+	}						\
+} while (0)
+
 void get_incompat_flag(uint32_t flag, GString *str)
 {
-	if (flag & OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV)
-		g_string_append(str, "Heartbeat ");
 
-	if (flag & OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG)
-		g_string_append(str, "AbortedResize ");
+	test_feature(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV, "Heartbeat");
+	test_feature(OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG, "AbortedResize");
+	test_feature(OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, "Local");
+	test_feature(OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, "Sparse");
+	test_feature(OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP,
+		     "ExtendedSlotMap");
+	test_feature(OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK,
+		     "UserspaceClusterStack");
+	test_feature(OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG, "AbortedTunefs");
 
-	if (flag & OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT)
-		g_string_append(str, "Local ");
-
-	if (flag & OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC)
-		g_string_append(str, "Sparse ");
-
-	if (flag & OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
-		g_string_append(str, "ExtendedSlotMap ");
-
-	if (flag & OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG) {
-		g_string_append(str, "AbortedTunefs ");
-	}
-
-	if (flag & ~(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV |
-		     OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG |
-		     OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT |
-		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
-		     OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP |
-		     OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG))
+        /* test_feature() clears out known flags */
+	if (flag)
 		g_string_append(str, "Unknown ");
 
 	if (!str->len)
@@ -80,10 +82,10 @@ void get_tunefs_flag(uint32_t incompat_flag, uint16_t flag, GString *str)
 
 void get_compat_flag(uint32_t flag, GString *str)
 {
-	if (flag & OCFS2_FEATURE_COMPAT_BACKUP_SB)
-		g_string_append(str, "BackupSuper ");
+	test_feature(OCFS2_FEATURE_COMPAT_BACKUP_SB, "BackupSuper");
 
-	if (flag & ~(OCFS2_FEATURE_COMPAT_BACKUP_SB))
+        /* test_feature() clears out known flags */
+        if (flag)
 		g_string_append(str, "Unknown ");
 
 	if (!str->len)
@@ -94,10 +96,10 @@ void get_compat_flag(uint32_t flag, GString *str)
 
 void get_rocompat_flag(uint32_t flag, GString *str)
 {
-	if (flag & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
-		g_string_append(str, "Unwritten ");
+	test_feature(OCFS2_FEATURE_RO_COMPAT_UNWRITTEN, "Unwritten");
 
-	if (flag & ~OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
+        /* test_feature() clears out known flags */
+        if (flag)
 		 g_string_append(str, "Unknown ");
 
 	if (!str->len)
