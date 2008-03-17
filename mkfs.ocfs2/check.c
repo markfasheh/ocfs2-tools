@@ -203,10 +203,14 @@ int ocfs2_fill_cluster_information(State *s)
 		free(s->cluster_name);
 		s->cluster_name = NULL;
 	}
-	if (s->cluster_stack)
-		fprintf(stdout, "Cluster stack: %s\nCluster name: %s\n",
+	if (s->cluster_stack) {
+		fprintf(stdout,
+			"Cluster stack: %s\n"
+			"Cluster name: %s\n"
+			"NOTE: Selecting extended slot map for userspace "
+			"cluster stack\n",
 			s->cluster_stack, s->cluster_name);
-	else
+	} else
 		fprintf(stdout, "Cluster stack: classic o2cb\n");
 
 	rc = 0;

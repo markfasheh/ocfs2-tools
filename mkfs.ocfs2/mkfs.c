@@ -1857,7 +1857,9 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 					 OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
 
 	if (s->cluster_stack) {
-		s->feature_flags.incompat |= OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+		s->feature_flags.incompat |=
+			(OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP|
+			 OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK);
 		memcpy(di->id2.i_super.s_cluster_info.ci_stack,
 		       s->cluster_stack, OCFS2_STACK_LABEL_LEN);
 		memcpy(di->id2.i_super.s_cluster_info.ci_cluster,
