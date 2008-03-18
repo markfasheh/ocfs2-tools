@@ -36,7 +36,6 @@
 
 #include <et/com_err.h>
 
-#include <ocfs2-kernel/kernel-list.h>
 #include <o2dlm/o2dlm_err.h>
 
 #define O2DLM_LOCK_ID_MAX_LEN       32
@@ -49,6 +48,9 @@
 #define O2DLM_TRYLOCK      0x01
 #define O2DLM_VALID_FLAGS  (O2DLM_TRYLOCK)
 
+/* Forward declarations */
+struct o2dlm_ctxt;
+
 /* valid lock levels */
 enum o2dlm_lock_level
 {
@@ -56,26 +58,6 @@ enum o2dlm_lock_level
 	O2DLM_LEVEL_EXMODE
 };
 
-struct o2dlm_lock_res
-{
-	struct list_head      l_bucket; /* to hang us off the locks list */
-	char                  l_id[O2DLM_LOCK_ID_MAX_LEN]; /* 32 byte,
-							    * null
-							    * terminated
-							    * string */
-	int                   l_flags; /* limited set of flags */
-	enum o2dlm_lock_level l_level; /* either PR or EX */
-	int                   l_fd;    /* the fd returned by the open call */
-};
-
-struct o2dlm_ctxt
-{
-	struct list_head *ct_hash;
-	unsigned int     ct_hash_size;
-	char             ct_domain_path[O2DLM_MAX_FULL_DOMAIN_PATH]; /* domain
-								      * dir */
-	char             ct_ctxt_lock_name[O2DLM_LOCK_ID_MAX_LEN];
-};
 
 /* Expects to be given a path to the root of a valid ocfs2_dlmfs file
  * system and a domain identifier of length <= 255 characters including

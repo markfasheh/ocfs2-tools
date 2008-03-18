@@ -39,9 +39,33 @@
 #include <string.h>
 
 #include "o2dlm/o2dlm.h"
+#include "ocfs2-kernel/kernel-list.h"
 
 #define USER_DLMFS_MAGIC	0x76a9f425
 
+
+struct o2dlm_lock_res
+{
+	struct list_head      l_bucket; /* to hang us off the locks list */
+	char                  l_id[O2DLM_LOCK_ID_MAX_LEN]; /* 32 byte,
+							    * null
+							    * terminated
+							    * string */
+	int                   l_flags; /* limited set of flags */
+	enum o2dlm_lock_level l_level; /* either PR or EX */
+	int                   l_fd;    /* the fd returned by the open call */
+};
+
+struct o2dlm_ctxt
+{
+	struct list_head *ct_hash;
+	unsigned int     ct_hash_size;
+	char             ct_domain_path[O2DLM_MAX_FULL_DOMAIN_PATH]; /* domain
+								      * dir */
+	char             ct_ctxt_lock_name[O2DLM_LOCK_ID_MAX_LEN];
+};
+
+#
 static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
 				     const char *lockid,
 				     int lockflags,

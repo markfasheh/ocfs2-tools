@@ -35,7 +35,7 @@ HFILES_GEN = o2dlm_err.h
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2dlm_err.o
 
-$(OBJS): $(HFILES_GEN)
+$(OBJS): $(HFILES) $(HFILES_GEN)
 
 TESTING_OBJS = $(subst .c,.o,$(TESTING_CFILES))
 
