@@ -208,65 +208,6 @@ static errcode_t o2dlm_delete_domain_dir(struct o2dlm_ctxt *ctxt)
 	return 0;
 }
 
-errcode_t o2dlm_initialize(const char *dlmfs_path,
-			   const char *domain_name,
-			   struct o2dlm_ctxt **dlm_ctxt)
-{
-	errcode_t ret, dir_created = 0;
-	struct o2dlm_ctxt *ctxt;
-
-	if (!dlmfs_path || !domain_name || !dlm_ctxt)
-		return O2DLM_ET_INVALID_ARGS;
-
-	if (strlen(domain_name) >= O2DLM_DOMAIN_MAX_LEN)
-		return O2DLM_ET_NAME_TOO_LONG;
-
-	if ((strlen(dlmfs_path) + strlen(domain_name)) >
-	    O2DLM_MAX_FULL_DOMAIN_PATH)
-		return O2DLM_ET_NAME_TOO_LONG;
-
-	ret = o2dlm_check_user_dlmfs(dlmfs_path);
-	if (ret)
-		return ret;
-
-	ret = o2dlm_alloc_ctxt(dlmfs_path, domain_name, &ctxt);
-	if (ret)
-		return ret;
-
-	ret = o2dlm_check_domain_dir(ctxt);
-	if (ret) {
-		if (ret != O2DLM_ET_NO_DOMAIN_DIR) {
-			o2dlm_free_ctxt(ctxt);
-			return ret;
-		}
-
-		/* the domain does not yet exist - create it ourselves. */
-		ret = o2dlm_create_domain(ctxt);
-		if (ret) {
-			o2dlm_free_ctxt(ctxt);
-			return ret;
-		}
-		dir_created = 1;
-	}
-
-	/* What we want to do here is create a lock which we'll hold
-	 * open for the duration of this context. This way if another
-	 * process won't be able to shut down this domain underneath
-	 * us. */
-	ret = o2dlm_lock_nochecks(ctxt, ctxt->ct_ctxt_lock_name, 0,
-				  O2DLM_LEVEL_PRMODE);
-	if (ret) {
-		if (dir_created)
-			o2dlm_delete_domain_dir(ctxt); /* best effort
-							* cleanup. */
-		o2dlm_free_ctxt(ctxt);
-		return ret;
-	}
-
-	*dlm_ctxt = ctxt;
-	return 0;
-}
-
 static errcode_t o2dlm_full_path(char *path,
 				 struct o2dlm_ctxt *ctxt,
 				 const char *filename)
@@ -389,21 +330,19 @@ static struct o2dlm_lock_res *o2dlm_new_lock_res(const char *id,
 
 #define O2DLM_OPEN_MODE         0664
 
-/* Use this internally to avoid the check for a reserved name */
-static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
-				     const char *lockid,
-				     int lockflags,
-				     enum o2dlm_lock_level level)
+
+/*
+ * Classic o2dlm
+ */
+
+static errcode_t o2dlm_lock_nochecks_classic(struct o2dlm_ctxt *ctxt,
+					     const char *lockid,
+					     int lockflags,
+					     enum o2dlm_lock_level level)
 {
 	int ret, flags, fd;
 	char *path;
 	struct o2dlm_lock_res *lockres;
-
-	if (strlen(lockid) >= O2DLM_LOCK_ID_MAX_LEN)
-		return O2DLM_ET_INVALID_LOCK_NAME;
-
-	if (level != O2DLM_LEVEL_PRMODE && level != O2DLM_LEVEL_EXMODE)
-		return O2DLM_ET_INVALID_LOCK_LEVEL;
 
 	lockres = o2dlm_find_lock_res(ctxt, lockid);
 	if (lockres)
@@ -448,21 +387,6 @@ static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
 	return 0;
 }
 
-errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
-		     const char *lockid,
-		     int lockflags,
-		     enum o2dlm_lock_level level)
-{
-	if (!ctxt || !lockid)
-		return O2DLM_ET_INVALID_ARGS;
-
-	/* names starting with '.' are reserved. */
-	if (lockid[0] == '.')
-		return O2DLM_ET_INVALID_LOCK_NAME;
-
-	return o2dlm_lock_nochecks(ctxt, lockid, lockflags, level);
-}
-
 static errcode_t o2dlm_unlock_lock_res(struct o2dlm_ctxt *ctxt,
 				       struct o2dlm_lock_res *lockres)
 {
@@ -496,14 +420,10 @@ static errcode_t o2dlm_unlock_lock_res(struct o2dlm_ctxt *ctxt,
 	return 0;
 }
 
-errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
-		       char *lockid)
+static errcode_t o2dlm_unlock_classic(struct o2dlm_ctxt *ctxt, char *lockid)
 {
 	int ret;
-	struct o2dlm_lock_res *lockres = NULL;
-
-	if (!ctxt || !lockid)
-		return O2DLM_ET_INVALID_ARGS;
+	struct o2dlm_lock_res *lockres;
 
 	lockres = o2dlm_find_lock_res(ctxt, lockid);
 	if (!lockres)
@@ -520,17 +440,14 @@ errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
 	return 0;
 }
 
-errcode_t o2dlm_read_lvb(struct o2dlm_ctxt *ctxt,
-			 char *lockid,
-			 char *lvb,
-			 unsigned int len,
-			 unsigned int *bytes_read)
+static errcode_t o2dlm_read_lvb_classic(struct o2dlm_ctxt *ctxt,
+					char *lockid,
+					char *lvb,
+					unsigned int len,
+					unsigned int *bytes_read)
 {
 	int fd, ret;
 	struct o2dlm_lock_res *lockres;
-
-	if (!ctxt || !lockid || !lvb)
-		return O2DLM_ET_INVALID_ARGS;
 
 	lockres = o2dlm_find_lock_res(ctxt, lockid);
 	if (!lockres)
@@ -552,11 +469,11 @@ errcode_t o2dlm_read_lvb(struct o2dlm_ctxt *ctxt,
 	return 0;
 }
 
-errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
-			  char *lockid,
-			  const char *lvb,
-			  unsigned int len,
-			  unsigned int *bytes_written)
+static errcode_t o2dlm_write_lvb_classic(struct o2dlm_ctxt *ctxt,
+					 char *lockid,
+					 const char *lvb,
+					 unsigned int len,
+					 unsigned int *bytes_written)
 {
 	int fd, ret;
 	struct o2dlm_lock_res *lockres;
@@ -633,15 +550,12 @@ close_and_free:
 	return ret;
 }
 
-errcode_t o2dlm_destroy(struct o2dlm_ctxt *ctxt)
+static errcode_t o2dlm_destroy_classic(struct o2dlm_ctxt *ctxt)
 {
 	int ret, i;
 	int error = 0;
 	struct o2dlm_lock_res *lockres;
         struct list_head *p, *n, *bucket;
-
-	if (!ctxt)
-		return O2DLM_ET_INVALID_ARGS;
 
 	for(i = 0; i < ctxt->ct_hash_size; i++) {
 		bucket = &ctxt->ct_hash[i];
@@ -674,4 +588,139 @@ errcode_t o2dlm_destroy(struct o2dlm_ctxt *ctxt)
 free_and_exit:
 	o2dlm_free_ctxt(ctxt);
 	return error;
+}
+
+/*
+ * Public API
+ */
+
+/* Use this internally to avoid the check for a reserved name */
+static errcode_t o2dlm_lock_nochecks(struct o2dlm_ctxt *ctxt,
+				     const char *lockid,
+				     int lockflags,
+				     enum o2dlm_lock_level level)
+{
+	if (strlen(lockid) >= O2DLM_LOCK_ID_MAX_LEN)
+		return O2DLM_ET_INVALID_LOCK_NAME;
+
+	if (level != O2DLM_LEVEL_PRMODE && level != O2DLM_LEVEL_EXMODE)
+		return O2DLM_ET_INVALID_LOCK_LEVEL;
+
+	return o2dlm_lock_nochecks_classic(ctxt, lockid, lockflags, level);
+}
+
+errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
+		     const char *lockid,
+		     int lockflags,
+		     enum o2dlm_lock_level level)
+{
+	if (!ctxt || !lockid)
+		return O2DLM_ET_INVALID_ARGS;
+
+	/* names starting with '.' are reserved. */
+	if (lockid[0] == '.')
+		return O2DLM_ET_INVALID_LOCK_NAME;
+
+	return o2dlm_lock_nochecks(ctxt, lockid, lockflags, level);
+}
+
+errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
+		       char *lockid)
+{
+	if (!ctxt || !lockid)
+		return O2DLM_ET_INVALID_ARGS;
+
+	return o2dlm_unlock_classic(ctxt, lockid);
+}
+
+errcode_t o2dlm_read_lvb(struct o2dlm_ctxt *ctxt,
+			 char *lockid,
+			 char *lvb,
+			 unsigned int len,
+			 unsigned int *bytes_read)
+{
+	if (!ctxt || !lockid || !lvb)
+		return O2DLM_ET_INVALID_ARGS;
+
+	return o2dlm_read_lvb_classic(ctxt, lockid, lvb, len, bytes_read);
+}
+
+errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
+			  char *lockid,
+			  const char *lvb,
+			  unsigned int len,
+			  unsigned int *bytes_written)
+{
+	if (!ctxt || !lockid || !lvb)
+		return O2DLM_ET_INVALID_ARGS;
+
+	return o2dlm_write_lvb_classic(ctxt, lockid, lvb, len,
+				       bytes_written);
+}
+
+errcode_t o2dlm_initialize(const char *dlmfs_path,
+			   const char *domain_name,
+			   struct o2dlm_ctxt **dlm_ctxt)
+{
+	errcode_t ret, dir_created = 0;
+	struct o2dlm_ctxt *ctxt;
+
+	if (!dlmfs_path || !domain_name || !dlm_ctxt)
+		return O2DLM_ET_INVALID_ARGS;
+
+	if (strlen(domain_name) >= O2DLM_DOMAIN_MAX_LEN)
+		return O2DLM_ET_NAME_TOO_LONG;
+
+	if ((strlen(dlmfs_path) + strlen(domain_name)) >
+	    O2DLM_MAX_FULL_DOMAIN_PATH)
+		return O2DLM_ET_NAME_TOO_LONG;
+
+	ret = o2dlm_check_user_dlmfs(dlmfs_path);
+	if (ret)
+		return ret;
+
+	ret = o2dlm_alloc_ctxt(dlmfs_path, domain_name, &ctxt);
+	if (ret)
+		return ret;
+
+	ret = o2dlm_check_domain_dir(ctxt);
+	if (ret) {
+		if (ret != O2DLM_ET_NO_DOMAIN_DIR) {
+			o2dlm_free_ctxt(ctxt);
+			return ret;
+		}
+
+		/* the domain does not yet exist - create it ourselves. */
+		ret = o2dlm_create_domain(ctxt);
+		if (ret) {
+			o2dlm_free_ctxt(ctxt);
+			return ret;
+		}
+		dir_created = 1;
+	}
+
+	/* What we want to do here is create a lock which we'll hold
+	 * open for the duration of this context. This way if another
+	 * process won't be able to shut down this domain underneath
+	 * us. */
+	ret = o2dlm_lock_nochecks(ctxt, ctxt->ct_ctxt_lock_name, 0,
+				  O2DLM_LEVEL_PRMODE);
+	if (ret) {
+		if (dir_created)
+			o2dlm_delete_domain_dir(ctxt); /* best effort
+							* cleanup. */
+		o2dlm_free_ctxt(ctxt);
+		return ret;
+	}
+
+	*dlm_ctxt = ctxt;
+	return 0;
+}
+
+errcode_t o2dlm_destroy(struct o2dlm_ctxt *ctxt)
+{
+	if (!ctxt)
+		return O2DLM_ET_INVALID_ARGS;
+
+	return o2dlm_destroy_classic(ctxt);
 }
