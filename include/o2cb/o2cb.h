@@ -112,6 +112,8 @@ errcode_t o2cb_num_region_refs(const char *region_name,
 errcode_t o2cb_get_node_num(const char *cluster_name,
 			    const char *node_name,
 			    uint16_t *node_num);
+void o2cb_free_cluster_desc(struct o2cb_cluster_desc *cluster);
+errcode_t o2cb_running_cluster_desc(struct o2cb_cluster_desc *cluster);
 
 struct ocfs2_protocol_version {
 	uint8_t	pv_major;

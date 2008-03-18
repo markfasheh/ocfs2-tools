@@ -1647,6 +1647,46 @@ errcode_t o2cb_group_leave(struct o2cb_cluster_desc *cluster,
 	return current_stack->s_ops->group_leave(&desc, region);
 }
 
+void o2cb_free_cluster_desc(struct o2cb_cluster_desc *cluster)
+{
+	if (cluster->c_stack)
+		free(cluster->c_stack);
+	if (cluster->c_cluster)
+		free(cluster->c_cluster);
+}
+
+errcode_t o2cb_running_cluster_desc(struct o2cb_cluster_desc *cluster)
+{
+	errcode_t err;
+	const char *stack;
+	char **clusters = NULL;
+
+	err = o2cb_get_stack_name(&stack);
+	if (err)
+		return err;
+
+	cluster->c_stack = strdup(stack);
+	if (!cluster->c_stack)
+		return O2CB_ET_NO_MEMORY;
+
+	err = o2cb_list_clusters(&clusters);
+	if (err) {
+		free(cluster->c_stack);
+		return err;
+	}
+
+	/* The first cluster is the default cluster */
+	if (clusters[0]) {
+		cluster->c_cluster = strdup(clusters[0]);
+		if (!cluster->c_cluster) {
+			free(cluster->c_stack);
+			err = O2CB_ET_NO_MEMORY;
+		}
+	}
+	o2cb_free_cluster_list(clusters);
+
+	return 0;
+}
 
 static inline int is_dots(const char *name)
 {

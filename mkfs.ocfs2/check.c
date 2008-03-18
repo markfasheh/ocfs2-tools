@@ -31,28 +31,22 @@
 static void cluster_fill(char **stack_name, char **cluster_name)
 {
 	errcode_t err;
-	char **clusters = NULL;
-	const char *name = NULL;
+	struct o2cb_cluster_desc cluster;
 
 	err = o2cb_init();
 	if (err)
 		return;
 
-	err = o2cb_get_stack_name(&name);
+	err = o2cb_running_cluster_desc(&cluster);
 	if (err)
 		return;
 
-	*stack_name = strdup(name);
-
-	err = o2cb_list_clusters(&clusters);
-	if (err)
-		return;
-
-	/* The first cluster is the default cluster */
-	if (clusters[0])
-		*cluster_name = strdup(clusters[0]);
-
-	o2cb_free_cluster_list(clusters);
+	/*
+	 * These were allocated by o2cb_running_cluster_desc(),
+	 * the caller will free them.
+	 */
+	*stack_name = cluster.c_stack;
+	*cluster_name = cluster.c_cluster;
 }
 
 /* For ocfs2_fill_cluster_information().  Errors are to be ignored */
