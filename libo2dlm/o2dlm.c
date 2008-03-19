@@ -36,6 +36,7 @@
 #include <inttypes.h>
 #include <sys/statfs.h>
 #include <string.h>
+#include <dlfcn.h>
 
 #include <errno.h>
 #include <libdlm.h>
@@ -68,6 +69,7 @@ struct o2dlm_ctxt
 	char             ct_domain_path[O2DLM_MAX_FULL_DOMAIN_PATH]; /* domain
 								      * dir */
 	char             ct_ctxt_lock_name[O2DLM_LOCK_ID_MAX_LEN];
+	void		*ct_lib_handle;
 	dlm_lshandle_t   ct_handle;
 };
 
@@ -673,6 +675,64 @@ static errcode_t o2dlm_initialize_classic(const char *dlmfs_path,
  * fsdlm operations
  */
 
+/* Dynamic symbols */
+static dlm_lshandle_t (*fsdlm_create_lockspace)(const char *name,
+						mode_t mode);
+static dlm_lshandle_t (*fsdlm_open_lockspace)(const char *name);
+static int (*fsdlm_release_lockspace)(const char *name,
+				      dlm_lshandle_t ls,
+				      int force);
+static int (*fsdlm_ls_lock_wait)(dlm_lshandle_t ls,
+				 uint32_t mode,
+				 struct dlm_lksb *lksb,
+				 uint32_t flags,
+				 const void *name,
+				 unsigned int namelen,
+				 uint32_t parent,
+				 void *bastarg,
+				 void (*bastaddr)(void *bastarg),
+				 void *range);
+static int (*fsdlm_ls_unlock_wait)(dlm_lshandle_t ls,
+				   uint32_t lkid,
+				   uint32_t flags,
+				   struct dlm_lksb *lksb);
+
+static errcode_t load_fsdlm(struct o2dlm_ctxt *ctxt)
+{
+	errcode_t ret = O2DLM_ET_SERVICE_UNAVAILABLE;
+
+	if (ctxt->ct_lib_handle) {
+		ret = 0;
+		goto out;
+	}
+
+	ctxt->ct_lib_handle = dlopen("libdlm_lt.so",
+				     RTLD_NOW | RTLD_LOCAL);
+	if (!ctxt->ct_lib_handle)
+		goto out;
+
+#define load_sym(_sym) do {				\
+	fs ## _sym = dlsym(ctxt->ct_lib_handle, #_sym);	\
+	if (! fs ## _sym)				\
+		goto out;				\
+} while (0)
+
+	load_sym(dlm_create_lockspace);
+	load_sym(dlm_open_lockspace);
+	load_sym(dlm_release_lockspace);
+	load_sym(dlm_ls_lock_wait);
+	load_sym(dlm_ls_unlock_wait);
+
+	ret = 0;
+
+out:
+	if (ret && ctxt->ct_lib_handle) {
+		dlclose(ctxt->ct_lib_handle);
+		ctxt->ct_lib_handle = NULL;
+	}
+	return ret;
+}
+
 static void to_fsdlm_lock(enum o2dlm_lock_level level, int lockflags,
 			  uint32_t *fsdlm_mode, uint32_t *fsdlm_flags)
 {
@@ -703,6 +763,9 @@ static errcode_t o2dlm_lock_fsdlm(struct o2dlm_ctxt *ctxt,
 	struct o2dlm_lock_res *lockres;
 	uint32_t mode, flags;
 
+	if (!fsdlm_ls_lock_wait)
+		return O2DLM_ET_SERVICE_UNAVAILABLE;
+
 	lockres = o2dlm_find_lock_res(ctxt, lockid);
 	if (lockres)
 		return O2DLM_ET_RECURSIVE_LOCK;
@@ -714,9 +777,9 @@ static errcode_t o2dlm_lock_fsdlm(struct o2dlm_ctxt *ctxt,
 
 	to_fsdlm_lock(level, lockflags, &mode, &flags);
 	flags |= LKF_VALBLK;  /* Always use LVBs */
-	rc = dlm_ls_lock_wait(ctxt->ct_handle, mode, &lockres->l_lksb,
-			      flags, lockid, strlen(lockid),
-			      0, NULL, NULL, NULL);
+	rc = fsdlm_ls_lock_wait(ctxt->ct_handle, mode, &lockres->l_lksb,
+				flags, lockid, strlen(lockid),
+				0, NULL, NULL, NULL);
 	if (rc)
 		rc = errno;
 	else
@@ -759,8 +822,11 @@ static errcode_t o2dlm_unlock_lock_res_fsdlm(struct o2dlm_ctxt *ctxt,
 	int rc;
 	errcode_t ret = 0;
 
-	rc = dlm_ls_unlock_wait(ctxt->ct_handle, lockres->l_lksb.sb_lkid,
-				LKF_VALBLK, &lockres->l_lksb);
+	if (!fsdlm_ls_unlock_wait)
+		return O2DLM_ET_SERVICE_UNAVAILABLE;
+
+	rc = fsdlm_ls_unlock_wait(ctxt->ct_handle, lockres->l_lksb.sb_lkid,
+				  LKF_VALBLK, &lockres->l_lksb);
 	if (rc)
 		rc = errno;
 	else
@@ -848,9 +914,15 @@ static errcode_t o2dlm_initialize_fsdlm(const char *domain_name,
 	if (ret)
 		return ret;
 
-	ctxt->ct_handle = dlm_create_lockspace(ctxt->ct_domain_path, 0600);
+	ret = load_fsdlm(ctxt);
+	if (ret) {
+		o2dlm_free_ctxt(ctxt);
+		return ret;
+	}
+
+	ctxt->ct_handle = fsdlm_create_lockspace(ctxt->ct_domain_path, 0600);
 	if (!ctxt->ct_handle && (errno == EEXIST))
-		ctxt->ct_handle = dlm_open_lockspace(ctxt->ct_domain_path);
+		ctxt->ct_handle = fsdlm_open_lockspace(ctxt->ct_domain_path);
 
 	if (!ctxt->ct_handle) {
 		switch (errno) {
@@ -868,6 +940,7 @@ static errcode_t o2dlm_initialize_fsdlm(const char *domain_name,
 				ret = O2DLM_ET_INTERNAL_FAILURE;
 				break;
 		}
+		o2dlm_free_ctxt(ctxt);
 		return ret;
 	}
 
@@ -879,8 +952,8 @@ static errcode_t o2dlm_initialize_fsdlm(const char *domain_name,
 				  O2DLM_LEVEL_PRMODE);
 	if (ret) {
 		/* Ignore the error, we want ret to be propagated */
-		dlm_release_lockspace(ctxt->ct_domain_path,
-				      ctxt->ct_handle, 0);
+		fsdlm_release_lockspace(ctxt->ct_domain_path,
+					ctxt->ct_handle, 0);
 		o2dlm_free_ctxt(ctxt);
 		return ret;
 	}
@@ -895,6 +968,9 @@ static errcode_t o2dlm_destroy_fsdlm(struct o2dlm_ctxt *ctxt)
 	errcode_t ret, error = 0;
 	struct o2dlm_lock_res *lockres;
         struct list_head *p, *n, *bucket;
+
+	if (!fsdlm_release_lockspace)
+		return O2DLM_ET_SERVICE_UNAVAILABLE;
 
 	for(i = 0; i < ctxt->ct_hash_size; i++) {
 		bucket = &ctxt->ct_hash[i];
@@ -914,7 +990,8 @@ static errcode_t o2dlm_destroy_fsdlm(struct o2dlm_ctxt *ctxt)
 	if (error)
 		goto free_and_exit;
 
-	rc = dlm_release_lockspace(ctxt->ct_domain_path, ctxt->ct_handle, 0);
+	rc = fsdlm_release_lockspace(ctxt->ct_domain_path, ctxt->ct_handle,
+				     0);
 	if (!rc)
 		goto free_and_exit;
 

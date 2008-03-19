@@ -24,7 +24,7 @@ OBJS = $(subst .c,.o,$(CFILES))
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
-LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
+LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm -ldl
 LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
