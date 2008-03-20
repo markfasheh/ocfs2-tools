@@ -1,4 +1,4 @@
-.TH "debugfs.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
@@ -227,4 +227,4 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2007 Oracle. All rights reserved.
+Copyright \(co 2004, 2008 Oracle. All rights reserved.

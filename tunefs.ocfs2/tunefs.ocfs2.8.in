@@ -1,4 +1,4 @@
-.TH "tunefs.ocfs2" "8" "September 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
@@ -11,6 +11,21 @@ action on the specified device if it is mounted on any node in the cluster.
 This tool requires the \fIO2CB\fR cluster to be online.
 
 .SH "OPTIONS"
+.TP
+\fB\-\-fs\-features=\fR\fR\fI[no]sparse...\fR
+Turn specific file system features on or off. \fItunefs.ocfs2\fR will attempt to enable or disable the feature list provided. To enable a feature, include it in the list. To disable a feature, prepend \fBno\fR to the name.
+The following features are supported:
+.RS 1.2i
+.TP
+\fBsparse\fR
+Enable support for sparse files. With this, \fIOCFS2\fR can avoid allocating (and zeroing) data to fill holes. Available with the file system bundled with Linux kernels 2.6.22 and later.
+.RE
+.RS 1.2i
+.TP
+\fBunwritten\fR
+Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. \fIOCFS2\fR will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on. Available with the file system bundled with Linux kernels 2.6.23 and later.
+.RE
+
 .TP
 \fB\-J, \-\-journal\-options\fR \fIoptions\fR
 Modify the journal using options specified on the command\-line.
@@ -35,7 +50,7 @@ only with \fIOCFS2\fR bundled with Linux kernels 2.6.20 or later.
 
 .TP
 \fB\-N, \-\-node\-slots\fR \fInumber\-of\-node\-slots\fR
-Use this to increase the number of slots inorder to increase the
+Use this to increase the number of slots in order to increase the
 number of nodes that can concurrently mount this volume. The maximum
 value is 255.
 
@@ -101,6 +116,10 @@ version of \fImkfs.ocfs2\fR (1.2.2 or older) that did not provide this
 facility.
 
 .TP
+\fB\-\-list-sparse\fR
+Lists the files having holes. This option is useful when disabling the \fIsparse\fR feature.
+
+.TP
 \fIblocks-count\fR
 During resize, \fBtunefs.ocfs2\fR automatically determines the size of the given
 device and grows the file system such that it uses all of the available space on
@@ -127,4 +146,4 @@ UUID=80d1adf4-3fde-40dd-9b56-d370462ace17
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2007 Oracle. All rights reserved.
+Copyright \(co 2004, 2008 Oracle. All rights reserved.

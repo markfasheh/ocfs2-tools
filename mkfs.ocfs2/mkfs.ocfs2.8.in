@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -15,18 +15,19 @@ cluster service to be up.
 .TP
 \fB\-b, \-\-block\-size\fR \fIblock\-size\fR
 Valid block size values are 512, 1K, 2K and 4K bytes per block. If
-omitted, a value will be hueristically determined based on the
+omitted, a value will be heuristically determined based on the
 expected usage of the file system (see the \fB\-T\fR option). A block
 size of 512 bytes is never recommended. Choose 1K, 2K or 4K.
 
 .TP
 \fB\-C, \-\-cluster\-size\fR \fIcluster\-size\fR
 Valid cluster size values are 4K, 8K, 16K, 32K, 64K, 128K, 256K, 512K
-and 1M. If omitted, a value will be hueristically determined based on
+and 1M. If omitted, a value will be heuristically determined based on
 the expected usage of the file system (see the \fB\-T\fR option). For
-volumes expected to store large files, like database files, a
-\fIcluster\-size\fR of 128K or more is recommended. For others,
-4K\-16K.
+volumes expected to store large files, like database files, while a
+cluster size of 128K or more is recommended, one can opt for a smaller
+size as long as that value is not smaller than the database block size.
+For others, use 4K.
 
 .TP
 \fB\-F, \-\-force\fR
@@ -90,7 +91,7 @@ The following flags are supported:
 .RS 1.2i
 .TP
 \fBlocal\fR
-Create the file system as a local mount, so that it can be mounted without a cluster stack. See the \fB-M\fR option for more information.
+Create the file system as a local mount, so that it can be mounted without a cluster stack. Available with the file system bundled with Linux kernels 2.6.20 and later.
 .RE
 .RS 1.2i
 .TP
@@ -100,12 +101,12 @@ Create backup super blocks for this volume.
 .RS 1.2i
 .TP
 \fBsparse\fR
-Enable support for sparse files. With this, Ocfs2 can avoid allocating (and zeroing) data to fill holes. Turn this feature on if you can, otherwise extends and some writes might be less performant.
+Enable support for sparse files. With this, \fIOCFS2\fR can avoid allocating (and zeroing) data to fill holes. Turn this feature on if you can, otherwise extends and some writes might be less performant. Available with the file system bundled with Linux kernels 2.6.22 and later.
 .RE
 .RS 1.2i
 .TP
 \fBunwritten\fR
-Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. Ocfs2 will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on.
+Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. \fIOCFS2\fR will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on. Available with the file system bundled with Linux kernels 2.6.23 and later.
 .RE
 
 .TP
@@ -114,17 +115,17 @@ Choose from a set of pre-determined file-system features. This option is designe
 .RS 1.2i
 .TP
 \fBmax-compat\fR
-Chooses fewer features but ensures that the file system can be mounted from older versions of the Ocfs2 module.
+Chooses fewer features but ensures that the file system can be mounted from older versions of the \fIOCFS2\fR module.
 .RE
 .RS 1.2i
 .TP
 \fBdefault\fR
-The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of Ocfs2.
+The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR.
 .RE
 .RS 1.2i
 .TP
 \fBmax-features\fR
-Choose the maximum amount of features available. This will typically provide the best performance from Ocfs2 at the expense of creating a file system that is only compatible with very recent versions of the Ocfs2 kernel module.
+Choose the maximum amount of features available. This will typically provide the best performance from \fIOCFS2\fR at the expense of creating a file system that is only compatible with very recent versions of the \fIOCFS2\fR kernel module.
 .RE
 
 .TP
@@ -164,4 +165,4 @@ consume the given number of file system blocks (see \fB-b\fR) on the device.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2007 Oracle. All rights reserved.
+Copyright \(co 2004, 2008 Oracle. All rights reserved.

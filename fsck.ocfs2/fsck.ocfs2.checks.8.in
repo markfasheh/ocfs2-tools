@@ -1,4 +1,4 @@
-.TH "fsck.ocfs2.checks" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "fsck.ocfs2.checks" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 fsck.ocfs2.checks \- Consistency checks that 
 .BR fsck.ocfs2(8)
@@ -6,7 +6,7 @@ performs and its means for fixing inconsistencies.
 .SH "DESCRIPTION"
 .PP 
 .BR fsck.ocfs2(8)
-is used to check an OCFS2 file system.  It performs many consistenty checks
+is used to check an OCFS2 file system.  It performs many consistency checks
 and will offer to fix faults that it finds.  This man page lists the problems
 it may find and describes their fixes.  The problems are indexed by the error
 number that 
@@ -83,7 +83,7 @@ The number of entries in an extent list is bounded by either the size of the
 inode or the size of the block which contains it.  An extent list was found
 which claims to have more entries than would fit in its container.
 
-Answering yes updates the count field in the exent list to match the
+Answering yes updates the count field in the extent list to match the
 container. Answering no to this question may stop further fixes from being
 done because the count value can not be trusted.
 
@@ -101,7 +101,7 @@ referenced by an extent.  The referenced block is either very early in the
 volume, and thus reserved, or beyond the end of the volume.
 
 Answering yes removes this extent record from the tree.  This may remove data
-from the file which owns the tree but any such data was inaccesible.
+from the file which owns the tree but any such data was inaccessible.
 
 .SS "CHAIN_CPG"
 The bitmap inode indicates a different clusters per group than the group
@@ -297,7 +297,7 @@ Each node has a local allocator contained in a block that is used to allocate
 clusters in batches.  A node's local allocator claims to reflect more bytes
 than are possible for the volume's block size.
 
-Answering yes decreses the local allocator's size to reflect the volume's
+Answering yes decreases the local allocator's size to reflect the volume's
 block size.
 
 .SS "LALLOC_NZ_USED"
@@ -339,7 +339,7 @@ be lost.
 The given local allocator claims to have more bits in use than it has total
 bits in its bitmap.
 
-Answerying yes decreases the number of bits used so that it equals the total
+Answering yes decreases the number of bits used so that it equals the total
 number of available bits.
 
 .SS "LALLOC_CLEAR"
@@ -419,7 +419,7 @@ Answering yes clears this inode.  The operator will be asked to recreate
 the root directory at a point in the near future.
 
 .SS "INODE_NZ_DTIME"
-Inodes contain a field describing the time at which they were delted.  This
+Inodes contain a field describing the time at which they were deleted.  This
 can not be set for an inode that is still in use.  An inode was found
 which is in use but which contains a non-zero dtime.
 
@@ -453,14 +453,14 @@ Links can not be sparse.  There must be exactly as many blocks allocated
 as are needed to cover its size.  A link was found which doesn't have enough
 blocks allocated to cover its size.
 
-Answering yes clears the link's inode and so deletes the link.
+Answering yes clears the link's inode thus deleting the link.
 
 .SS "DIR_ZERO"
 Directories must at least contain a block that has the "." and ".." entries.
 A directory was found which doesn't contain any blocks.
 
-Answering yes to this question clears the directorie's inode and so
-deletes the directory.
+Answering yes to this question clears the directory's inode thus
+deleting the directory.
 
 .SS "INODE_SIZE"
 Certain inodes record the size of the data they reference in an i_size field.
@@ -540,12 +540,12 @@ A directory entry was found with a zero length name.
 Answering yes clears the directory entry so its space can be reused.
 
 .SS "DIRENT_NAME_CHARS"
-Directory entries can not contain either the NULL character (ascii 0) or 
-the forward slash (ascii 47).  A directory entry was found which contains
+Directory entries can not contain either the NULL character (ASCII 0) or 
+the forward slash (ASCII 47).  A directory entry was found which contains
 either.
 
 Answering yes will change each instance of these forbidden characters into
-a period (ascii 46).
+a period (ASCII 46).
 
 .SS "DIRENT_INODE_RANGE"
 Each directory entry contains a inode field which the entry's name corresponds
@@ -666,7 +666,7 @@ remaining \fIfsck.ocfs2\fR processing.
 
 .SS "ORPHAN_DIR_MISSING"
 While files are being deleted they are placed in an internal directory, named
-orphan directory. If an orphan directory does't exist, an OCFS2 volume can't
+orphan directory. If an orphan directory does not exist, an OCFS2 volume cannot
 be mounted successfully. Fsck has found the orphan directory is missing and
 would like to create it for future use.
 
@@ -674,7 +674,7 @@ Answering yes creates the orphan directory in the system directory.
 
 .SS "JOURNAL_FILE_INVALID"
 OCFS2 uses JDB for journalling and some journal files exist in the
-system directory. Fsck has found some journal file is whther empty or has
+system directory. Fsck has found some journal file is whether empty or has
 bad journal superblock and would like to fix it for future use.
 
 Answering yes reformats the journal file in the system directory.
@@ -686,4 +686,4 @@ Answering yes reformats the journal file in the system directory.
 Oracle Corporation.
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2007 Oracle. All rights reserved.
+Copyright \(co 2004, 2008 Oracle. All rights reserved.

@@ -1,4 +1,4 @@
-.TH "mount.ocfs2" "8" "February 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mount.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "SYNOPSIS"
@@ -20,14 +20,54 @@ specify this mount option to delay the system from mounting the volume until
 after the network has been enabled.
 
 .TP
+\fBatime\_quantum=nrsec\fR
+The file system will not update atime unless this number of seconds has passed
+since the last update. Set to zero to always update atime. It defaults to 60 secs.
+
+.TP
+\fBcommit=nrsec\fR
+Sync all data and metadata every nrsec seconds. The default value is 5 seconds.
+Zero means default.
+
+.TP
+\fBdata=ordered / data=writeback\fR
+Specifies the handling of file data during metadata journalling.
+.RS 1.2i
+.TP
+\fBordered\fR
+This is the default mode. All data is forced directly out to the main file
+system prior to its metadata being committed to the journal.
+.RE
+.RS 1.2i
+.TP
+\fBwriteback\fR
+Data  ordering is not preserved - data may be written into the main file system
+after its metadata has been committed to the journal. This is rumored to be
+the highest-throughput option. While it guarantees internal file system
+integrity, it can allow old data to appear in files after a crash and journal
+recovery.
+.RE
+
+.TP
 \fBdatavolume\fR
 Use this mount option to mount volumes storing the Oracle data files,
 control files, redo logs, archive logs, voting disk, cluster registry, etc.
-(This mount option is only available with \fIOCFS2 1.2\fR.)
+(This mount option is only available with \fIOCFS2 1.2\fR and \fIOCFS2 1.4\fR.)
 
 .TP
-\fBnointr\fR
-It ignores signals during read-write.
+\fBerrors=remount-ro / errors=panic\fR
+Define the behavior when an error is encountered. (Either remount the file
+system read-only, or panic and halt the system.) By default, the file system
+is remounted read only.
+
+.TP
+\fBlocalflocks\fR
+This disables cluster-aware flock(2).
+
+.TP
+\fBintr / nointr\fR
+The default is intr that allows signals to interrupt cluster operations.
+nointr disables signals during cluster operations.
 
 .TP
 \fBro\fR
@@ -49,4 +89,4 @@ Mount the file system read-write.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2007 Oracle. All rights reserved.
+Copyright \(co 2004, 2008 Oracle. All rights reserved.
