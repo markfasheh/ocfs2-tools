@@ -85,7 +85,8 @@ errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
  * 'len' is the amount to read into 'lvb'
  *
  * We can only read LVB_MAX bytes out of the lock, even if you
- * specificy a len larger than that.
+ * specificy a len larger than that.  For classic o2dlm, LVB_MAX is
+ * 64 bytes.  For fsdlm, it is 32 bytes.
  * 
  * If you want to know how much was read, then pass 'bytes_read'
  */

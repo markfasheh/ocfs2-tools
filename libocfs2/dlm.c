@@ -138,6 +138,7 @@ errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 	errcode_t ret = 0;
 	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
+	char *stack_path;
 
 	ret = ocfs2_fill_cluster_desc(fs, &cluster);
 	if (ret)
@@ -153,7 +154,15 @@ errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 	if (ret)
 		goto bail;
 
-	ret = o2dlm_initialize(DEFAULT_DLMFS_PATH, fs->uuid_str, &dlm_ctxt);
+	/*
+	 * NULL c_stack means o2cb, means use DLMFS, means
+	 * pass DLMFS_PATH.  If we're using a userspace stack, pass NULL.
+	 */
+	if (cluster.c_stack)
+		stack_path = NULL;
+	else
+		stack_path = DEFAULT_DLMFS_PATH;
+	ret = o2dlm_initialize(stack_path, fs->uuid_str, &dlm_ctxt);
 	if (ret) {
 		/* What to do with an error code? */
 

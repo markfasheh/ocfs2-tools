@@ -346,6 +346,9 @@ int main(int argc, char **argv)
 	if (argc < 2) {
 		dlmfs_path = DEFAULT_DLMFS_PATH;
 		printf("No fs path provided, using %s\n", dlmfs_path);
+	} else if (!strcmp(argv[1], "-u")) {
+		dlmfs_path = NULL;
+		printf("Using fsdlm\n");
 	} else {
 		dlmfs_path = argv[1];
 		printf("Using fs at %s\n", dlmfs_path);
