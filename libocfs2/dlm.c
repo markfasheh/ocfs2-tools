@@ -105,8 +105,9 @@ errcode_t ocfs2_fill_cluster_desc(ocfs2_filesys *fs,
 				  struct o2cb_cluster_desc *desc)
 {
 	errcode_t ret = 0;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 
-	if (!ocfs2_userspace_stack(OCFS2_RAW_SB(fs->fs_super))) {
+	if (!ocfs2_userspace_stack(sb)) {
 		desc->c_stack = NULL;
 		desc->c_cluster = NULL;
 		return 0;
@@ -122,14 +123,49 @@ errcode_t ocfs2_fill_cluster_desc(ocfs2_filesys *fs,
 		return ret;
 	}
 
-	memcpy(desc->c_stack,
-	       OCFS2_RAW_SB(fs->fs_super)->s_cluster_info.ci_stack,
+	memcpy(desc->c_stack, sb->s_cluster_info.ci_stack,
 	       OCFS2_STACK_LABEL_LEN);
-	memcpy(desc->c_cluster,
-	       OCFS2_RAW_SB(fs->fs_super)->s_cluster_info.ci_cluster,
+	memcpy(desc->c_cluster, sb->s_cluster_info.ci_cluster,
 	       OCFS2_CLUSTER_NAME_LEN);
 
 	return 0;
+}
+
+errcode_t ocfs2_set_cluster_desc(ocfs2_filesys *fs,
+				 struct o2cb_cluster_desc *desc)
+{
+	errcode_t ret;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+
+	if (desc->c_stack) {
+		if (!desc->c_stack[0] || !desc->c_cluster ||
+		    !desc->c_cluster[0]) {
+			ret = OCFS2_ET_INVALID_ARGUMENT;
+			goto out;
+		}
+
+		if (!ocfs2_uses_extended_slot_map(sb)) {
+			sb->s_feature_incompat |=
+				OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP;
+			ret = ocfs2_format_slot_map(fs);
+			if (ret)
+				goto out;
+		}
+		sb->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+		memcpy(sb->s_cluster_info.ci_stack, desc->c_stack,
+		       OCFS2_STACK_LABEL_LEN);
+		memcpy(sb->s_cluster_info.ci_cluster, desc->c_cluster,
+		       OCFS2_CLUSTER_NAME_LEN);
+	} else {
+		sb->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+	}
+
+	ret = ocfs2_write_super(fs);
+
+out:
+	return ret;
 }
 
 errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)

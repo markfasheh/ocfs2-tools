@@ -534,6 +534,65 @@ bail:
 	return ret;
 }
 
+static errcode_t recover_cluster_info(o2fsck_state *ost)
+{
+	errcode_t ret;
+	struct o2cb_cluster_desc disk = {NULL, NULL}, running = {NULL, NULL};
+
+	ret = o2cb_running_cluster_desc(&running);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_fill_cluster_desc(ost->ost_fs, &disk);
+	if (ret)
+		goto bail;
+
+	/*
+	 * If the disk matches the running cluster, there is nothing we
+	 * can fix.
+	 */
+	if ((!running.c_stack && !disk.c_stack) ||
+	    (running.c_stack && running.c_cluster &&
+	     disk.c_stack && disk.c_cluster &&
+	     !strcmp(running.c_stack, disk.c_stack) &&
+	     !strcmp(running.c_cluster, disk.c_cluster)))
+		goto bail;
+
+	/* recover the backup information to superblock. */
+	if (prompt(ost, PN, PR_RECOVER_CLUSTER_INFO,
+		   "The running cluster is using the %s stack%s%s, but "
+		   "the filesystem is configured for the %s stack%s%s.  "
+		   "Thus, %s cannot determine whether the filesystem is in "
+		   "use.  %s can reconfigure the filesystem to use the "
+		   "currently running cluster configuration.  DANGER: "
+		   "YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS "
+		   "USING THIS FILESYSTEM BEFORE MODIFYING ITS CLUSTER "
+		   "CONFIGURATION.  Recover cluster configuration "
+		   "information the running cluster?",
+		   running.c_stack ? running.c_stack : "classic o2cb",
+		   running.c_stack ? " with the cluster name " : "",
+		   running.c_stack ? running.c_cluster : "",
+		   disk.c_stack ? disk.c_stack : "classic o2cb",
+		   disk.c_stack ? " with the cluster name " : "",
+		   disk.c_stack ? disk.c_cluster : "", whoami, whoami)) {
+		ret = ocfs2_set_cluster_desc(ost->ost_fs, &running);
+		if (ret)
+			goto bail;
+	}
+
+	/* no matter whether the user recover the superblock or not above,
+	 * we should return 0 in case the superblock can be opened
+	 * without the recovery.
+	 */
+	ret = 0;
+
+bail:
+	o2cb_free_cluster_desc(&running);
+	o2cb_free_cluster_desc(&disk);
+
+	return ret;
+}
+
 int main(int argc, char **argv)
 {
 	char *filename;
@@ -689,6 +748,17 @@ int main(int argc, char **argv)
 
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
+		if (ret == O2CB_ET_INVALID_STACK_NAME) {
+			block_signals(SIG_UNBLOCK);
+			ret = recover_cluster_info(ost);
+			if (ret) {
+				com_err(whoami, ret,
+					"while recovering cluster information");
+				goto close;
+			}
+			block_signals(SIG_BLOCK);
+			ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
+		}
 		if (ret) {
 			block_signals(SIG_UNBLOCK);
 			com_err(whoami, ret, "while initializing the DLM");
