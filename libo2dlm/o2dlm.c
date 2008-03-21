@@ -57,8 +57,10 @@ struct o2dlm_lock_res
 	int                   l_flags; /* limited set of flags */
 	enum o2dlm_lock_level l_level; /* either PR or EX */
 	int                   l_fd;    /* the fd returned by the open call */
+#ifdef HAVE_FSDLM
 	struct dlm_lksb       l_lksb;  /* lksb for fsdlm locking */
 	char                  l_lvb[DLM_LVB_LEN]; /* LVB for fsdlm */
+#endif
 };
 
 struct o2dlm_ctxt
@@ -69,8 +71,10 @@ struct o2dlm_ctxt
 	char             ct_domain_path[O2DLM_MAX_FULL_DOMAIN_PATH]; /* domain
 								      * dir */
 	char             ct_ctxt_lock_name[O2DLM_LOCK_ID_MAX_LEN];
+#ifdef HAVE_FSDLM
 	void		*ct_lib_handle;
 	dlm_lshandle_t   ct_handle;
+#endif
 };
 
 
@@ -365,8 +369,10 @@ static struct o2dlm_lock_res *o2dlm_new_lock_res(const char *id,
 		lockres->l_flags = flags;
 		lockres->l_level = level;
 		lockres->l_fd    = -1;
+#ifdef HAVE_FSDLM
 		lockres->l_lksb.sb_lvbptr = lockres->l_lvb;
 		memset(lockres->l_lksb.sb_lvbptr, 0, DLM_LVB_LEN);
+#endif
 	}
 	return lockres;
 }
@@ -675,6 +681,7 @@ static errcode_t o2dlm_initialize_classic(const char *dlmfs_path,
  * fsdlm operations
  */
 
+#ifdef HAVE_FSDLM
 /* Dynamic symbols */
 static dlm_lshandle_t (*fsdlm_create_lockspace)(const char *name,
 						mode_t mode);
@@ -1018,7 +1025,49 @@ free_and_exit:
 	o2dlm_free_ctxt(ctxt);
 	return error;
 }
+#else  /* HAVE_FSDLM */
+static errcode_t o2dlm_lock_fsdlm(struct o2dlm_ctxt *ctxt,
+				  const char *lockid, int lockflags,
+				  enum o2dlm_lock_level level)
+{
+	return O2DLM_ET_SERVICE_UNAVAILABLE;
+}
 
+static errcode_t o2dlm_unlock_lock_res_fsdlm(struct o2dlm_ctxt *ctxt,
+					     struct o2dlm_lock_res *lockres)
+{
+	return O2DLM_ET_SERVICE_UNAVAILABLE;
+}
+
+static errcode_t o2dlm_read_lvb_fsdlm(struct o2dlm_ctxt *ctxt,
+				      char *lockid,
+				      char *lvb,
+				      unsigned int len,
+				      unsigned int *bytes_read)
+{
+	return O2DLM_ET_SERVICE_UNAVAILABLE;
+}
+
+static errcode_t o2dlm_write_lvb_fsdlm(struct o2dlm_ctxt *ctxt,
+				       char *lockid,
+				       const char *lvb,
+				       unsigned int len,
+				       unsigned int *bytes_written)
+{
+	return O2DLM_ET_SERVICE_UNAVAILABLE;
+}
+
+static errcode_t o2dlm_initialize_fsdlm(const char *domain_name,
+					struct o2dlm_ctxt **dlm_ctxt)
+{
+	return O2DLM_ET_SERVICE_UNAVAILABLE;
+}
+
+static errcode_t o2dlm_destroy_fsdlm(struct o2dlm_ctxt *ctxt)
+{
+	return O2DLM_ET_SERVICE_UNAVAILABLE;
+}
+#endif  /* HAVE_FSDLM */
 
 /*
  * Public API

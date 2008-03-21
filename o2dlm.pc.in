@@ -7,5 +7,5 @@ Name: o2dlm
 Description: Library for accessing the ocfs2 DLM
 Version: @VERSION@
 Requires: com_err
-Libs: -L${libdir} -lo2dlm -ldl
+Libs: -L${libdir} -lo2dlm @DL_LIBS@
 Cflags: -I${includedir}

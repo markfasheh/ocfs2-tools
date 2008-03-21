@@ -279,14 +279,33 @@ if test "x$CPG_LDFLAGS" != "x"; then
     AC_MSG_RESULT(yes)
 else
     AC_MSG_RESULT(no)
+    AC_MSG_WARN([libcpg not found, cman support will not be built])
     cpg_found=
 fi
 AC_SUBST(CPG_LDFLAGS)
 
+fsdlm_found=
+AC_CHECK_LIB(dlm_lt, dlm_create_lockspace,
+  [AC_CHECK_HEADER(libdlm.h, fsdlm_found=yes,
+    [AC_MSG_WARN([libdlm.h not found, fsdlm support will not be built])])],
+  [AC_MSG_WARN([libdlm_lt not found, fsdlm support will not be built])])
+
+BUILD_FSDLM_SUPPORT=
+DL_LIBS=
+if test "x$fsdlm_found" = "xyes"; then
+  BUILD_FSDLM_SUPPORT=yes
+  DL_LIBS=-ldl
+fi
+AC_SUBST(BUILD_FSDLM_SUPPORT)
+AC_SUBST(DL_LIBS)
+
+BUILD_CMAN_SUPPORT=
 if test "x$cman_found" = "xyes" -a "x$cpg_found" = "xyes"; then
-  BUILD_CMAN_SUPPORT=yes
-else
-  BUILD_CMAN_SUPPORT=
+  if test "x$fsdlm_found" = "xyes"; then
+    BUILD_CMAN_SUPPORT=yes
+  else
+    AC_MSG_WARN([fsdlm not available, cman support will not be built])
+  fi
 fi
 AC_SUBST(BUILD_CMAN_SUPPORT)
 

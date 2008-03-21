@@ -8,6 +8,10 @@ LIBRARIES = libo2dlm.a
 
 CFLAGS += -fPIC
 
+ifneq ($(BUILD_FSDLM_SUPPORT),)
+DEFINES += -DHAVE_FSDLM
+endif
+
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
 DEBUG_EXE_PROGRAMS = $(addprefix debug_,$(subst .c,,$(DEBUG_EXE_FILES)))
@@ -48,7 +52,7 @@ libo2dlm.a: $(OBJS)
 	$(RANLIB) $@
 
 o2dlm_test: $(TESTING_OBJS) $(LIBRARIES) $(COM_ERR_LIBS)
-	$(LINK)
+	$(LINK) $(DL_LIBS)
 
 DIST_FILES = $(CFILES) $(HFILES) o2dlm_err.et $(TESTING_CFILES)
 

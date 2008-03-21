@@ -6,7 +6,7 @@ INCLUDES = -I$(TOPDIR)/include
 
 LIBRARIES = libocfs2.a
 
-LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm -ldl
+LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)
 LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb

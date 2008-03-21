@@ -2,3 +2,4 @@ cscope.*
 libo2dlm.a
 o2dlm_err.*
 *.d
+o2dlm_test
