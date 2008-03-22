@@ -71,6 +71,7 @@ enum {
 	BACKUP_SUPER_OPTION = CHAR_MAX + 1,
 	LIST_SPARSE_FILES,
 	FEATURES_OPTION,
+	UPDATE_CLUSTER_OPTION,
 };
 
 typedef struct _ocfs2_tune_opts {
@@ -87,6 +88,7 @@ typedef struct _ocfs2_tune_opts {
 	int quiet;
 	int prompt;
 	int backup_super;
+	int update_cluster;
 	int list_sparse;
 	fs_options set_feature;
 	fs_options clear_feature;

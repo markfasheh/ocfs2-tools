@@ -43,6 +43,7 @@ static void usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-J journal-options] [-L volume-label]\n"
 			"\t\t[-M mount-type] [-N number-of-node-slots] [-Q query-fmt]\n"
+			"\t\t[--update-cluster-stack]\n"
 			"\t\t[-qSUvV] [--backup-super] [--list-sparse]\n"
 			"\t\t[--fs-features=[no]sparse,...]] device [blocks-count]\n",
 			progname);
@@ -206,6 +207,7 @@ static void get_options(int argc, char **argv)
 		{ "uuid-reset", 0, 0, 'U'},
 		{ "mount", 1, 0, 'M' },
 		{ "backup-super", 0, 0, BACKUP_SUPER_OPTION },
+		{ "update-cluster-stack", 0, 0, UPDATE_CLUSTER_OPTION },
 		{ "list-sparse", 0, 0, LIST_SPARSE_FILES },
 		{ "fs-features=", 1, 0, FEATURES_OPTION },
 		{ 0, 0, 0, 0}
@@ -306,6 +308,10 @@ static void get_options(int argc, char **argv)
 			opts.backup_super = 1;
 			break;
 
+		case UPDATE_CLUSTER_OPTION:
+			opts.update_cluster = 1;
+			break;
+
 		case LIST_SPARSE_FILES:
 			opts.list_sparse = 1;
 			break;
@@ -334,7 +340,8 @@ static void get_options(int argc, char **argv)
 	if (opts.backup_super &&
 	    (opts.vol_label || opts.num_slots ||
 	     opts.mount || opts.jrnl_size || resize ||
-	     opts.list_sparse || opts.feature_string)) {
+	     opts.list_sparse || opts.feature_string ||
+	     opts.update_cluster)) {
 		com_err(opts.progname, 0, "Cannot backup superblock"
 			" along with other tasks");
 		exit(1);
@@ -356,7 +363,7 @@ static void get_options(int argc, char **argv)
 	if (opts.list_sparse &&
 	    (opts.vol_label || opts.num_slots ||
 	     opts.mount || opts.jrnl_size || resize || opts.backup_super ||
-	     opts.feature_string)) {
+	     opts.feature_string || opts.update_cluster)) {
 		com_err(opts.progname, 0, "Cannot list sparse files"
 			" along with other tasks");
 		exit(1);
@@ -369,8 +376,21 @@ static void get_options(int argc, char **argv)
 	if (opts.feature_string &&
 	    (opts.vol_label || opts.num_slots ||
 	     opts.mount || opts.jrnl_size || resize || opts.backup_super ||
-	     opts.list_sparse)) {
+	     opts.list_sparse || opts.update_cluster)) {
 		com_err(opts.progname, 0, "Cannot modify fs features"
+			" along with other tasks");
+		exit(1);
+	}
+
+	/*
+	 * We don't allow cluster information to be modified with other
+	 * tunefs options to keep things simple.
+	 */
+	if (opts.update_cluster &&
+	    (opts.vol_label || opts.num_slots || opts.feature_string ||
+	     opts.mount || opts.jrnl_size || resize || opts.backup_super ||
+	     opts.list_sparse)) {
+		com_err(opts.progname, 0, "Cannot modify cluster stack"
 			" along with other tasks");
 		exit(1);
 	}
@@ -839,20 +859,51 @@ static void update_volume_uuid(ocfs2_filesys *fs, int *changed)
 	return ;
 }
 
-static void update_mount_type(ocfs2_filesys *fs, int *changed)
+static errcode_t update_mount_type(ocfs2_filesys *fs, int *changed)
 {
-	if (opts.mount == MOUNT_LOCAL)
-		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+	errcode_t ret = 0;
+	struct o2cb_cluster_desc desc;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+
+	if (opts.mount == MOUNT_LOCAL) {
+		sb->s_feature_incompat |=
 			OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
-	else if (opts.mount == MOUNT_CLUSTER)
-		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+		sb->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+	} else if (opts.mount == MOUNT_CLUSTER) {
+		ret = o2cb_init();
+		if (ret)
+			goto out;
+		ret = o2cb_running_cluster_desc(&desc);
+		if (ret)
+			goto out;
+		sb->s_feature_incompat &=
 			~OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
-	else
-		return;
+		ret = ocfs2_set_cluster_desc(fs, &desc);
+		o2cb_free_cluster_desc(&desc);
+		if (ret)
+			goto out;
+	} else
+		goto out;
 
 	*changed = 1;
 
-	return;
+out:
+	return ret;
+}
+
+static errcode_t update_cluster(ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	struct o2cb_cluster_desc desc;
+
+	ret = o2cb_running_cluster_desc(&desc);
+	if (!ret) {
+		ret = ocfs2_set_cluster_desc(fs, &desc);
+		o2cb_free_cluster_desc(&desc);
+	}
+
+	return ret;
 }
 
 static errcode_t update_slots(ocfs2_filesys *fs, int *changed)
@@ -1251,6 +1302,22 @@ int main(int argc, char **argv)
 		}
 
 		ret = ocfs2_initialize_dlm(fs, WHOAMI);
+		if (opts.update_cluster) {
+			/* We have the right cluster, do nothing */
+			if (!ret)
+				goto close;
+			if (ret == O2CB_ET_INVALID_STACK_NAME) {
+				/* We expected this - why else ask for
+				 * a cluster information update? */
+				printf("Updating on-disk cluster information "
+				       "to match the running cluster.\n"
+				       "DANGER: YOU MUST BE ABSOLUTELY "
+				       "SURE THAT NO OTHER NODE IS USING "
+				       "THIS FILESYSTEM BEFORE MODIFYING "
+				       "ITS CLUSTER CONFIGURATION.\n");
+				goto skip_cluster_start;
+			}
+		}
 		if (ret) {
 			com_err(opts.progname, ret, "while initializing the dlm");
 			goto close;
@@ -1273,6 +1340,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+skip_cluster_start:
 	/*
 	 * We will use block cache in io. Now whether the cluster is locked or
 	 * the volume is mount local, in both situation we can safely use cache.
@@ -1289,7 +1357,8 @@ int main(int argc, char **argv)
 
 	if (!opts.vol_label && !opts.vol_uuid && !opts.num_slots &&
 	    !opts.jrnl_size && !opts.num_blocks && !opts.mount &&
-	    !opts.backup_super && !opts.list_sparse && !opts.feature_string) {
+	    !opts.backup_super && !opts.list_sparse && !opts.feature_string &&
+	    !opts.update_cluster) {
 		com_err(opts.progname, 0, "Nothing to do. Exiting.");
 		goto unlock;
 	}
@@ -1382,7 +1451,12 @@ int main(int argc, char **argv)
 
 	/* change mount type */
 	if (opts.mount) {
-		update_mount_type(fs, &upd_mount);
+		ret = update_mount_type(fs, &upd_mount);
+		if (ret) {
+			com_err(opts.progname, ret,
+				"while changing mount type");
+			goto unlock;
+		}
 		if (upd_mount)
 			printf("Changed mount type\n");
 	}
@@ -1438,6 +1512,16 @@ int main(int argc, char **argv)
 			goto unlock;
 		}
 		upd_feature = 1;
+	}
+
+	/* Update the cluster configuration */
+	if (opts.update_cluster) {
+		ret = update_cluster(fs);
+		if (ret) {
+			com_err(opts.progname, ret,
+				"while updating cluster information");
+			goto unlock;
+		}
 	}
 
 	/* update the backup superblock. */
