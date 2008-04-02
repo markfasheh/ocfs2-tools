@@ -136,13 +136,13 @@ int validate_vol_size(ocfs2_filesys *fs)
 	num_blocks = ocfs2_clusters_to_blocks(fs, 1);
 	if (num_blocks > (opts.num_blocks - fs->fs_blocks)) {
 		com_err(opts.progname, 0, "Cannot grow volume size less than "
-		       "%d blocks", num_blocks);
+		       "%"PRIu64" blocks", num_blocks);
 		return -1;
 	}
 
 	if (opts.num_blocks > UINT32_MAX) {
 		com_err(opts.progname, 0, "As JBD can only store block numbers "
-			"in 32 bits, %s cannot be grown to more than %"PRIu64" "
+			"in 32 bits, %s cannot be grown to more than %u "
 			"blocks.", opts.device, UINT32_MAX);
 		return -1;
 	}
@@ -150,7 +150,7 @@ int validate_vol_size(ocfs2_filesys *fs)
 	return 0;
 }
 
-static inline errcode_t online_last_group_extend(uint32_t *new_clusters)
+static inline errcode_t online_last_group_extend(int *new_clusters)
 {
 	return ioctl(fd, OCFS2_IOC_GROUP_EXTEND, new_clusters);
 }
@@ -166,7 +166,7 @@ static inline errcode_t reserve_cluster(ocfs2_filesys *fs,
 					struct ocfs2_group_desc *gd)
 {
 	errcode_t ret = 0;
-	char *bitmap = gd->bg_bitmap;
+	unsigned char *bitmap = gd->bg_bitmap;
 
 	ret = ocfs2_set_bit(cluster % cl_cpg, bitmap);
 	if (ret != 0) {
@@ -254,9 +254,10 @@ static errcode_t online_resize_group_add(ocfs2_filesys *fs,
 
 	ret = online_add_new_group(&input);
 	if (ret)
-		com_err(opts.progname, ret, "whiling add a new group % "PRIu64
-			"at chain[%u] which has %u clusters.",
-			gd_blkno, chain, new_clusters);
+		com_err(opts.progname, ret,
+			"while linking a new group %"PRIu64" with "
+			"%u clusters to chain %u",
+			gd_blkno, new_clusters, chain);
 out:
 	return ret;
 }
@@ -429,10 +430,10 @@ errcode_t update_volume_size(ocfs2_filesys *fs, int *changed, int online)
 	uint32_t num_new_clusters, save_new_clusters;
 	uint32_t first_new_cluster;
 	uint16_t chain;
-	uint32_t used_bits;
-	uint32_t total_bits;
+	uint32_t used_bits = 0;
+	uint32_t total_bits = 0;
 	uint32_t num_bits;
-	int flush_lgd = 0, i = 0, new_clusters;
+	int flush_lgd = 0, new_clusters;
 
 	if (online) {
 		fd = open(mnt_dir, O_RDONLY);
