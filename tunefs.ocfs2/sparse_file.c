@@ -36,7 +36,7 @@ struct multi_link_file {
 
 struct list_ctxt {
 	ocfs2_filesys *fs;
-	uint64_t total_clusters;
+	uint32_t total_clusters;
 	char file_name[OCFS2_MAX_FILENAME_LEN];
 	int file_name_len;
 	uint64_t ino;
