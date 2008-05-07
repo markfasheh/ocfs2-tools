@@ -30,6 +30,10 @@ Display the lockname obtained by encoding the lock type, inode number and the in
 Executes the debugfs commands in \fIcmdfile\fR.
 
 .TP
+\fB\-i, \-\-image\fR
+Specifies device is an o2image file created by \fIo2image\fR tool.
+
+.TP
 \fB\-l\fR [\fItracebit\fR ... [\fBallow\fR|\fBoff\fR|\fBdeny\fR]] ...
 Control \fBOCFS2\fR filesystem tracing by enabling and disabling trace bits.
 Do \fIdebugfs.ocfs2 -l\fR to get the list of all trace bits.
@@ -222,6 +226,7 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
 .BR ocfs2cdsl(8)
+.BR o2image(8)
 
 .SH "AUTHOR"
 Oracle Corporation

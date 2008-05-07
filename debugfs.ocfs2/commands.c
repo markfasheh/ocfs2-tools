@@ -24,6 +24,7 @@
  */
 
 #include "main.h"
+#include "ocfs2/image.h"
 #include "ocfs2/byteorder.h"
 
 #define SYSTEM_FILE_NAME_MAX	40
@@ -299,7 +300,8 @@ static int process_inodestr_args(char **args, int count, uint64_t *blkno)
 /* open the device, read the block from the device and get the
  * blocksize from the offset of the ocfs2_super_block.
  */
-static errcode_t get_blocksize(char* dev, uint64_t offset, uint64_t *blocksize)
+static errcode_t get_blocksize(char* dev, uint64_t offset, uint64_t *blocksize,
+			       int super_no)
 {
 	errcode_t ret;
 	uint64_t blkno;
@@ -307,6 +309,7 @@ static errcode_t get_blocksize(char* dev, uint64_t offset, uint64_t *blocksize)
 	char *buf = NULL;
 	io_channel* channel = NULL;
 	struct ocfs2_dinode *di = NULL;
+	struct ocfs2_image_hdr *hdr;
 
 	ret = io_open(dev, OCFS2_FLAG_RO, &channel);
 	if (ret)
@@ -323,6 +326,19 @@ static errcode_t get_blocksize(char* dev, uint64_t offset, uint64_t *blocksize)
 	ret = ocfs2_malloc_block(channel, &buf);
 	if (ret)
 		goto bail;
+
+	if (gbls.imagefile) {
+		ret = io_read_block(channel, 0, 1, buf);
+		if (ret)
+			goto bail;
+		hdr = (struct ocfs2_image_hdr *)buf;
+		ocfs2_image_swap_header(hdr);
+		if (super_no > hdr->hdr_superblkcnt) {
+			ret = OCFS2_ET_IO;
+			goto bail;
+		}
+		offset = hdr->hdr_superblocks[super_no-1] * hdr->hdr_fsblksz;
+	}
 
 	blkno = offset / OCFS2_MIN_BLOCKSIZE;
 	ret = io_read_block(channel, blkno, 1, buf);
@@ -347,36 +363,44 @@ static int process_open_args(char **args,
 			     uint64_t *superblock, uint64_t *blocksize)
 {
 	errcode_t ret = 0;
-	uint32_t s;
-	char *ptr;
+	uint32_t s = 0;
+	char *ptr, *dev;
 	uint64_t byte_off[OCFS2_MAX_BACKUP_SUPERBLOCKS];
 	uint64_t blksize = 0;
-	int num, ind = 2;
+	int num, argc, c;
 
-	if (!args[ind])
+	for (argc = 0; (args[argc]); ++argc);
+	dev = strdup(args[1]);
+	optind = 0;
+	while ((c = getopt(argc, args, "is:")) != EOF) {
+		switch (c) {
+			case 'i':
+				gbls.imagefile = 1;
+				break;
+			case 's':
+				s = strtoul(optarg, &ptr, 0);
+				break;
+			default:
+				return 1;
+				break;
+		}
+	}
+
+	if (!s)
 		return 0;
-
-	if (args[ind] && !strcmp(args[ind], "-s"))
-		ind++;
-	else
-		return -1;
-
-	if(!args[ind])
-		return -1;
 
 	num = ocfs2_get_backup_super_offset(NULL,
 					    byte_off, ARRAY_SIZE(byte_off));
 	if (!num)
 		return -1;
 
-	s = strtoul(args[ind], &ptr, 0);
 	if (s < 1 || s > num) {
 		fprintf (stderr, "Backup super block is outside of valid range"
 			 "(between 1 and %d)\n", num);
 		return -1;
 	}
 
-	ret = get_blocksize(args[1], byte_off[s-1], &blksize);
+	ret = get_blocksize(dev, byte_off[s-1], &blksize, s);
 	if (ret) {
 		com_err(args[0],ret, "Can't get the blocksize from the device"
 			" by the num %u\n", s);
@@ -602,15 +626,20 @@ static void do_open (char **args)
 		do_close (NULL);
 
 	if (dev == NULL || process_open_args(args, &superblock, &block_size)) {
-		fprintf (stderr, "usage: %s <device> [-s num]\n", args[0]);
+		fprintf (stderr, "usage: %s <device> [-i] [-s num]\n", args[0]);
+		gbls.imagefile = 0;
 		return ;
 	}
 
 	flags = gbls.allow_write ? OCFS2_FLAG_RW : OCFS2_FLAG_RO;
         flags |= OCFS2_FLAG_HEARTBEAT_DEV_OK;
+	if (gbls.imagefile)
+		flags |= OCFS2_FLAG_IMAGE_FILE;
+
 	ret = ocfs2_open(dev, flags, superblock, block_size, &gbls.fs);
 	if (ret) {
 		gbls.fs = NULL;
+		gbls.imagefile = 0;
 		com_err(args[0], ret, "while opening context for device %s",
 			dev);
 		return ;
@@ -681,6 +710,7 @@ static void do_close (char **args)
 	if (ret)
 		com_err(args[0], ret, "while closing context");
 	gbls.fs = NULL;
+	gbls.imagefile = 0;
 
 	if (gbls.blockbuf)
 		ocfs2_free(&gbls.blockbuf);
@@ -809,7 +839,7 @@ static void do_help (char **args)
 	printf ("logdump <slot#>\t\t\t\tPrints journal file for the node slot\n");
 	printf ("ls [-l] <filespec>\t\t\tList directory\n");
 	printf ("ncheck <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
-	printf ("open <device> [-s backup#]\t\t\t\tOpen a device\n");
+	printf ("open <device> [-i] [-s backup#]\t\tOpen a device\n");
 	printf ("quit, q\t\t\t\t\tExit the program\n");
 	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted filesystem\n");
 	printf ("slotmap\t\t\t\t\tShow slot map\n");

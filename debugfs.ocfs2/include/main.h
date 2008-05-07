@@ -68,6 +68,7 @@ enum {
 typedef struct _dbgfs_glbs {
 	char *progname;
 	int allow_write;
+	int imagefile;
 	int interactive;
 	char *device;
 	ocfs2_filesys *fs;
@@ -86,6 +87,7 @@ typedef struct _dbgfs_glbs {
 
 typedef struct _dbgfs_opts {
 	int allow_write;
+	int imagefile;
 	int no_prompt;
 	uint32_t sb_num;
 	char *cmd_file;

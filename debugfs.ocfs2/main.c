@@ -47,10 +47,11 @@ static void usage (char *progname)
 	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
 	g_print ("usage: %s -d, --decode <lockres>\n", progname);
 	g_print ("usage: %s -e, --encode <lock type> <block num> <generation>\n", progname);
-	g_print ("usage: %s [-f cmdfile] [-R request] [-s backup#] [-V] [-w] [-n] [-?] [device]\n", progname);
+	g_print ("usage: %s [-f cmdfile] [-R request] [-i] [-s backup#] [-V] [-w] [-n] [-?] [device]\n", progname);
 	g_print ("\t-f, --file <cmdfile>\t\tExecute commands in cmdfile\n");
 	g_print ("\t-R, --request <command>\t\tExecute a single command\n");
 	g_print ("\t-s, --superblock <backup#>\tOpen the device using a backup superblock\n");
+	g_print ("\t-i, --image\t\t\tOpen an o2image file\n");
 	g_print ("\t-w, --write\t\t\tOpen in read-write mode instead of the default of read-only\n");
 	g_print ("\t-V, --version\t\t\tShow version\n");
 	g_print ("\t-n, --noprompt\t\t\tHide prompt\n");
@@ -189,6 +190,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		{ "decode", 0, 0, 'd' },
 		{ "encode", 0, 0, 'e' },
 		{ "superblock", 0, 0, 's' },
+		{ "image", 0, 0, 'i' },
 		{ 0, 0, 0, 0}
 	};
 
@@ -196,7 +198,8 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 		if (decodemode || encodemode || logmode)
 			break;
 
-		c = getopt_long(argc, argv, "lf:R:deV?wns:", long_options, NULL);
+		c = getopt_long(argc, argv, "lf:R:deV?wns:i",
+				long_options, NULL);
 		if (c == -1)
 			break;
 
@@ -223,6 +226,10 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 
 		case 'e':
 			encodemode++;
+			break;
+
+		case 'i':
+			opts->imagefile = 1;
 			break;
 
 		case 'l':
@@ -462,6 +469,7 @@ int main (int argc, char **argv)
 	}
 
 	gbls.allow_write = opts.allow_write;
+	gbls.imagefile = opts.imagefile;
 	if (!opts.cmd_file)
 		gbls.interactive++;
 
