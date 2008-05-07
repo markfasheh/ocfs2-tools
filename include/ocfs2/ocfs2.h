@@ -97,6 +97,7 @@
 						   for revision info */
 #define OCFS2_FLAG_HEARTBEAT_DEV_OK	0x40
 #define OCFS2_FLAG_STRICT_COMPAT_CHECK	0x80
+#define OCFS2_FLAG_IMAGE_FILE	      0x0100
 
 /* Return flags for the directory iterator functions */
 #define OCFS2_DIRENT_CHANGED	0x01
@@ -169,6 +170,7 @@ struct _ocfs2_filesys {
 	ocfs2_cached_inode *fs_system_eb_alloc;
 
 	struct o2dlm_ctxt *fs_dlm_ctxt;
+	struct ocfs2_image_state *ost;
 
 	/* Reserved for the use of the calling application. */
 	void *fs_private;
@@ -220,6 +222,9 @@ errcode_t io_close(io_channel *channel);
 int io_get_error(io_channel *channel);
 errcode_t io_set_blksize(io_channel *channel, int blksize);
 int io_get_blksize(io_channel *channel);
+int io_get_fd(io_channel *channel);
+
+/* use ocfs2_read_blocks if your application might handle o2image file */
 errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 			char *data);
 errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
@@ -230,6 +235,13 @@ void io_destroy_cache(io_channel *channel);
 
 errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb);
 errcode_t ocfs2_write_super(ocfs2_filesys *fs);
+
+/*
+ * ocfs2_read_blocks is a wraper around io_read_block. If device is an image-
+ * file it translates disk offset to image offset
+ */
+errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno, int count,
+			    char *data);
 int ocfs2_mount_local(ocfs2_filesys *fs);
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int blksize,

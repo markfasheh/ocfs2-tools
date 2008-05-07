@@ -118,7 +118,7 @@ errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs,
 	if (ret)
 		return ret;
 
-	ret = io_read_block(fs->fs_io, blkno, 1, blk);
+	ret = ocfs2_read_blocks(fs, blkno, 1, blk);
 	if (ret)
 		goto out;
 

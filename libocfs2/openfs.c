@@ -30,6 +30,7 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <errno.h>
 
 /* I hate glibc and gcc */
 #ifndef ULLONG_MAX
@@ -39,7 +40,34 @@
 #include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
 #include "ocfs2-kernel/ocfs1_fs_compat.h"
+#include "ocfs2/image.h"
 
+/*
+ * if the file is an o2image file, this routine maps the actual blockno to
+ * relative block number in image file and then calls the underlying IO
+ * function. At this point this function returns EIO if image file has any
+ * holes
+ */
+inline errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
+		int count, char *data)
+{
+	int i;
+
+	if (fs->fs_flags & OCFS2_FLAG_IMAGE_FILE) {
+		/*
+		 * o2image copies all meta blocks. If a caller asks for
+		 * N contiguous metadata blocks, all N should be in the
+		 * image file. However we check for any holes and
+		 * return -EIO if any.
+		 */
+		for (i = 0; i < count; i++)
+			if (!ocfs2_image_test_bit(fs, blkno+i))
+				return -EIO;
+		/* translate the block number */
+		blkno = ocfs2_image_get_blockno(fs, blkno);
+	}
+	return io_read_block(fs->fs_io, blkno, count, data);
+}
 
 static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)
 {
@@ -51,7 +79,7 @@ static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)
 	if (ret)
 		return ret;
 
-	ret = io_read_block(fs->fs_io, 0, 1, blk);
+	ret = ocfs2_read_blocks(fs, 0, 1, blk);
 	if (ret)
 		goto out;
 	hdr = (struct ocfs1_vol_disk_hdr *)blk;
@@ -81,7 +109,7 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	if (ret)
 		return ret;
 
-	ret = io_read_block(fs->fs_io, superblock, 1, blk);
+	ret = ocfs2_read_blocks(fs, superblock, 1, blk);
 	if (ret)
 		goto out_blk;
 	di = (struct ocfs2_dinode *)blk;
@@ -204,6 +232,21 @@ errcode_t ocfs2_open(const char *name, int flags,
 	if (ret)
 		goto out;
 	strcpy(fs->fs_devname, name);
+
+	/*
+	 * If OCFS2_FLAG_IMAGE_FILE is specified, it needs to be handled
+	 * differently
+	 */
+	if (flags & OCFS2_FLAG_IMAGE_FILE) {
+		ret = ocfs2_image_load_bitmap(fs);
+		if (ret)
+			goto out;
+		if (!superblock)
+			superblock = fs->ost->ost_superblocks[0];
+		if (!block_size)
+			block_size = fs->ost->ost_fsblksz;
+	}
+
 
 	/*
 	 * If OCFS2_FLAG_NO_REV_CHECK is specified, fsck (or someone

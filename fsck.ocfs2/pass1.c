@@ -584,7 +584,7 @@ static errcode_t process_link_block(struct verifying_blocks *vb,
 		goto out;
 	}
 
-	ret = io_read_block(vb->vb_ost->ost_fs->fs_io, blkno, 1, buf);
+	ret = ocfs2_read_blocks(vb->vb_ost->ost_fs, blkno, 1, buf);
 	if (ret)
 		goto out;
 

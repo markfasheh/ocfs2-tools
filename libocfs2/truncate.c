@@ -167,7 +167,7 @@ static errcode_t ocfs2_zero_tail_for_truncate(ocfs2_cached_inode *ci,
 	if (ret)
 		goto out;
 
-	ret = io_read_block(fs->fs_io, p_blkno, count, buf);
+	ret = ocfs2_read_blocks(fs, p_blkno, count, buf);
 	if (ret)
 		goto out;
 

@@ -93,7 +93,7 @@ static errcode_t follow_link(ocfs2_filesys *fs, uint64_t root, uint64_t dir,
 	if (ret)
 		goto bail;
 
-	ret = io_read_block(fs->fs_io, blkno, 1, buffer);
+	ret = ocfs2_read_blocks(fs, blkno, 1, buffer);
 	if (ret)
 		goto bail;
 

@@ -277,7 +277,7 @@ static errcode_t read_journal_block(ocfs2_filesys *fs,
 	if (err)
 		return err;
 
-	err = io_read_block(fs->fs_io, blkno, 1, buf);
+	err = ocfs2_read_blocks(fs, blkno, 1, buf);
 	if (err)
 		com_err(whoami, err, "while reading block %"PRIu64" of slot "
 			"%d's journal", blkno, ji->ji_slot);

@@ -89,7 +89,7 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
 {
 	errcode_t	retval;
 
- 	retval = io_read_block(fs->fs_io, block, 1, buf);
+	retval = ocfs2_read_blocks(fs, block, 1, buf);
 	if (retval)
 		return retval;
 

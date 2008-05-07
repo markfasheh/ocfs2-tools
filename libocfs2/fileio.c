@@ -54,8 +54,8 @@ static int read_whole_func(ocfs2_filesys *fs,
 		memset(ctx->ptr, 0, fs->fs_blocksize);
 		ctx->errcode = 0;
 	} else
-		ctx->errcode = io_read_block(fs->fs_io, blkno,
-					     1, ctx->ptr);
+		ctx->errcode = ocfs2_read_blocks(fs, blkno, 1, ctx->ptr);
+
 	if (ctx->errcode)
 		return OCFS2_BLOCK_ABORT;
 
@@ -176,8 +176,8 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			 */
 			memset(ptr, 0, contig_blocks * fs->fs_blocksize);
 		} else {
-			ret = io_read_block(fs->fs_io, p_blkno,
-					    contig_blocks, ptr);
+			ret = ocfs2_read_blocks(fs, p_blkno, contig_blocks,
+						ptr);
 			if (ret)
 				return ret;
 		}

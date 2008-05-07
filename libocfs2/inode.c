@@ -225,7 +225,7 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 	if (ret)
 		return ret;
 
-	ret = io_read_block(fs->fs_io, blkno, 1, blk);
+	ret = ocfs2_read_blocks(fs, blkno, 1, blk);
 	if (ret)
 		goto out;
 

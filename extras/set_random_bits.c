@@ -76,7 +76,7 @@ static int walk_blocks_func(ocfs2_filesys *fs,
 	int i;
 	uint32_t *up;
 
-	ret = io_read_block(fs->fs_io, blkno, 1, wb->buf);
+	ret = ocfs2_read_blocks(fs, blkno, 1, wb->buf);
 	if (ret) {
 		com_err("walk_blocks_func", ret,
 			"while reading block %"PRIu64, blkno);

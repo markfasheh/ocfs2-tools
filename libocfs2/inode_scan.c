@@ -175,10 +175,8 @@ static errcode_t fill_group_buffer(ocfs2_inode_scan *scan)
 	if (num_blocks > scan->buffer_blocks)
 		num_blocks = scan->buffer_blocks;
 
-       ret = io_read_block(scan->fs->fs_io,
-			   scan->cur_blkno,
-			   num_blocks,
-			   scan->group_buffer);
+	ret = ocfs2_read_blocks(scan->fs, scan->cur_blkno, num_blocks,
+				scan->group_buffer);
 	if (ret)
 		return ret;
 

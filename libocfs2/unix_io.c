@@ -558,6 +558,11 @@ int io_get_blksize(io_channel *channel)
 	return channel->io_blksize;
 }
 
+int io_get_fd(io_channel *channel)
+{
+	return channel->io_fd;
+}
+
 errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 			char *data)
 {
