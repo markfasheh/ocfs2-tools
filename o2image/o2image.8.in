@@ -1,0 +1,59 @@
+.TH "o2image" "8" "December 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+o2image \- Save/Restore critical ocfs2 filesystem data to a file.
+.SH "SYNOPSIS"
+\fBo2image\fR [\fB\-r\fR] [\fB\-I\fR] [\fIdevice\fR] [\fIimage-file\fR]
+.SH "DESCRIPTION"
+.PP
+\fBo2image\fR is an OCFS2 tool that can save critical OCFS2 filesystem data
+located on a device to a specified image-file. The image-file may be examined
+using debugfs.ocfs2 to analyze filesystem layout affecting performance. Image-
+file may also be used to analyze and/or restore data in catastrophic corrupted
+filesystems.
+(NOTE: Data may only be restored if it is intact and metadata hasn't
+changed since it's backup)
+
+Image-file format can be either packed(default) or raw.
+
+Packed format contains o2image header, filesystem data, and bitmap.
+
+Raw format is a sparse file which stores metadata at the same offsets
+as on the device. Since the raw image file is created as sparse it does not
+use space for files data (NOTE: It is critical to store image file on a
+different filesystem which support sparsefile otherwise the image file uses
+the same amount of space as the device). An image file stores metadata
+blocks sequentially and consumes little less space.
+
+The -I option will cause o2image to install the metadata from image-file on
+to the device. This can be used to restore the filesystem metadata back
+to the device in emergency situations.
+
+.SH "OPTIONS"
+.TP
+\fB\-r\fR
+Backups the \fIOCFS2\fR volumes metadata to an image-file in a raw format.
+
+.TP
+\fB\-I\fR
+Restores \fIOCFS2\fR volumes metadata from image-file to the device.
+
+.SH "EXAMPLES"
+.br
+\	\fBo2image \-r /dev/sda1 sda1.raw\fR
+.br
+Copies metadata blocks from /dev/sda1 device to sda1.raw file
+.br
+\	\fBo2image -rI /dev/sda1 sda1.raw\fR
+.br
+Installs metadata structures from sda.image file onto the device.
+.br
+
+.SH "SEE ALSO"
+.BR debugfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2007, 2008 Oracle. All rights reserved.
