@@ -679,6 +679,18 @@ bad journal superblock and would like to fix it for future use.
 
 Answering yes reformats the journal file in the system directory.
 
+.SS "RECOVER_CLUSTER_INFO"
+The currently active cluster stack is different than the one the filesystem
+is configured for.  Thus, fsck.ocfs2 cannot determine whether the
+filesystem is mounted on an another node or not. The recommended solution
+is to exit and run fsck.ocfs2 on this device from a node that has the
+appropriate active cluster stack. However, you can proceed with the fsck if
+you are sure that the volume is not in use on any node.
+
+Answering yes reconfigures the filesystem to use the current cluster stack.
+DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS USING THIS FILESYSTEM
+BEFORE CONTINUING.  OTHERWISE, YOU CAN CORRUPT THE FILESYSTEM AND LOSE DATA.
+
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)
 
