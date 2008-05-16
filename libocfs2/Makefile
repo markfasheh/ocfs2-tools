@@ -72,7 +72,8 @@ CFILES = 		\
 	unlink.c	\
 	lockid.c	\
 	backup_super.c	\
-	feature_string.c
+	feature_string.c\
+	image.c
 
 HFILES =		\
 	bitmap.h	\

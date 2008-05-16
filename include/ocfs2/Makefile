@@ -6,7 +6,8 @@ HFILES_GEN = ocfs2_err.h
 
 all: $(HFILES_GEN)
 
-HFILES = ocfs2.h jbd.h bitops.h byteorder.h kernel-rbtree.h feature_string.h
+HFILES = ocfs2.h jbd.h bitops.h byteorder.h kernel-rbtree.h feature_string.h \
+	 image.h
 
 HEADERS_SUBDIR = ocfs2
 HEADERS = $(HFILES) $(HFILES_GEN)
