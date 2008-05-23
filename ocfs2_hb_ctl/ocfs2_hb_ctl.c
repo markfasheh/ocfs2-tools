@@ -357,7 +357,7 @@ static errcode_t stop_heartbeat(struct hb_ctl_options *hbo)
 	if (!err) {
 		region_desc->r_persist = 1;  /* hb_ctl is for reals */
 		region_desc->r_service = hbo->service;
-		err = o2cb_group_leave(NULL, region_desc);
+		err = o2cb_group_leave(&cluster, region_desc);
 	}
 
 	return err;
