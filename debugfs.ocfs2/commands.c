@@ -831,7 +831,7 @@ static void do_help (char **args)
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
 	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
-	printf ("fs_locks [-l]\t\t\t\tShow live fs locking state\n");
+	printf ("fs_locks [-l] [-B]\t\t\tShow live fs locking state\n");
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("hb\t\t\t\t\tShows the used heartbeat blocks\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
@@ -1499,15 +1499,21 @@ static void do_fs_locks(char **args)
 {
 	FILE *out;
 	int dump_lvbs = 0;
+	int only_busy = 0;
+	int i = 0;
 
 	if (check_device_open())
 		return;
 
-	if (args[1] && !strcmp("-l", args[1]))
-		dump_lvbs = 1;
+	while (args[++i]) {
+		if (!strcmp("-l", args[i]))
+			dump_lvbs = 1;
+		else if (!strcmp("-B", args[i]))
+			only_busy = 1;
+	}
 
 	out = open_pager(gbls.interactive);
-	dump_fs_locks(gbls.fs->uuid_str, out, dump_lvbs);
+	dump_fs_locks(gbls.fs->uuid_str, out, dump_lvbs, only_busy);
 	close_pager(out);
 }
 

@@ -5,7 +5,7 @@
  *
  * Interface with the kernel and dump current fs locking state
  *
- * Copyright (C) 2005 Oracle.  All rights reserved.
+ * Copyright (C) 2005, 2008 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -21,9 +21,8 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- *  This code is a port of e2fsprogs/lib/ext2fs/dir_iterate.c
- *  Copyright (C) 1993, 1994, 1994, 1995, 1996, 1997 Theodore Ts'o.
  */
+
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
 #define _LARGEFILE64_SOURCE
 
@@ -226,7 +225,8 @@ static void dump_meta_lvb(const char *raw_lvb, FILE *out)
 }
 
 /* 0 = eof, > 0 = success, < 0 = error */
-static int dump_version_one(FILE *file, FILE *out, int lvbs)
+static int dump_version_one(FILE *file, FILE *out, int lvbs, int only_busy,
+			    int *skipped)
 {
 	char id[OCFS2_LOCK_ID_MAX_LEN + 1];	
 	char lvb[DLM_LVB_LEN];
@@ -234,6 +234,8 @@ static int dump_version_one(FILE *file, FILE *out, int lvbs)
 	unsigned long flags;
 	unsigned int action, unlock_action, ro, ex, dummy;
 	const char *format;
+
+	*skipped = 1;
 
 	ret = fscanf(file, "%s\t"
 		     "%d\t"
@@ -276,6 +278,13 @@ static int dump_version_one(FILE *file, FILE *out, int lvbs)
 		lvb[i] = (char) dummy;
 	}
 
+	if (only_busy) {
+		if (!(flags & OCFS2_LOCK_BUSY)) {
+			ret = 1;
+			goto out;
+		}
+	}
+
 	fprintf(out, "Lockres: %s  Mode: %s\nFlags:", id, level_str(level));
 	print_flags(flags, out);
 	fprintf(out, "\nRO Holders: %u  EX Holders: %u\n", ro, ex);
@@ -290,6 +299,8 @@ static int dump_version_one(FILE *file, FILE *out, int lvbs)
 			dump_meta_lvb(lvb, out);
 	}
 	fprintf(out, "\n");
+
+	*skipped = 0;
 
 	ret = 1;
 out:
@@ -311,10 +322,11 @@ static int end_line(FILE *f)
 
 #define CURRENT_PROTO 1
 /* returns 0 on error or end of file */
-static int dump_one_lockres(FILE *file, FILE *out, int lvbs)
+static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy)
 {
 	unsigned int version;
 	int ret;
+	int skipped = 0;
 
 	ret = fscanf(file, "%x\t", &version);
 	if (ret != 1)
@@ -326,7 +338,7 @@ static int dump_one_lockres(FILE *file, FILE *out, int lvbs)
 		return 0;
 	}
 
-	ret = dump_version_one(file, out, lvbs);
+	ret = dump_version_one(file, out, lvbs, only_busy, &skipped);
 	if (ret <= 0)
 		return 0;
 
@@ -398,7 +410,7 @@ out:
 #define DEBUGFS_PATH		SYSFS_BASE "debug"
 #define DEBUGFS_ALTERNATE_PATH	"/debug"
 
-void dump_fs_locks(char *uuid_str, FILE *out, int dump_lvbs)
+void dump_fs_locks(char *uuid_str, FILE *out, int dump_lvbs, int only_busy)
 {
 	errcode_t ret;
 	int err;
@@ -425,7 +437,7 @@ void dump_fs_locks(char *uuid_str, FILE *out, int dump_lvbs)
 		return;
 	}
 
-	while (dump_one_lockres(file, out, dump_lvbs))
+	while (dump_one_lockres(file, out, dump_lvbs, only_busy))
 		;
 
 	fclose(file);

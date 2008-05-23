@@ -3,7 +3,7 @@
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
- * Copyright (C) 2005 Oracle.  All rights reserved.
+ * Copyright (C) 2005, 2008 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -25,6 +25,6 @@
 #ifndef _DUMP_FS_LOCKS_H_
 #define _DUMP_FS_LOCKS_H_
 
-void dump_fs_locks(char *uuid, FILE *out, int dump_lvbs);
+void dump_fs_locks(char *uuid, FILE *out, int dump_lvbs, int only_busy);
 
 #endif		/* _DUMP_FS_LOCKS_H_ */
