@@ -3,7 +3,7 @@
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #ifndef __UTILS_H__
@@ -56,5 +55,9 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 		      const char *dumproot, int verbose);
 void crunch_strsplit(char **args);
 void find_max_contig_free_bits(struct ocfs2_group_desc *gd, int *max_contig_free_bits);
+
+errcode_t get_debugfs_path(char *debugfs_path, int len);
+errcode_t open_debugfs_file(const char *debugfs_path, const char *dirname,
+			    const char *uuid, const char *filename, FILE **fd);
 
 #endif		/* __UTILS_H__ */

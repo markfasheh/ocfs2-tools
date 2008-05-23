@@ -3,7 +3,7 @@
  *
  * utility functions
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #include "main.h"
@@ -849,4 +848,71 @@ void find_max_contig_free_bits(struct ocfs2_group_desc *gd, int *max_contig_free
 		if (*max_contig_free_bits < free_bits)
 			*max_contig_free_bits = free_bits;
 	}
+}
+
+#define SYSFS_BASE		"/sys/kernel/"
+#define DEBUGFS_PATH		SYSFS_BASE "debug"
+#define DEBUGFS_ALTERNATE_PATH	"/debug"
+#define DEBUGFS_MAGIC		0x64626720
+errcode_t get_debugfs_path(char *debugfs_path, int len)
+{
+	errcode_t ret;
+	int err;
+	struct stat64 stat_buf;
+	struct statfs64 statfs_buf;
+	char *path = DEBUGFS_PATH;
+
+	err = stat64(SYSFS_BASE, &stat_buf);
+	if (err)
+		path = DEBUGFS_ALTERNATE_PATH;
+
+	ret = stat64(path, &stat_buf);
+	if (ret || !S_ISDIR(stat_buf.st_mode))
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	ret = statfs64(path, &statfs_buf);
+	if (ret || (statfs_buf.f_type != DEBUGFS_MAGIC))
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	strncpy(debugfs_path, path, len);
+
+	return 0;
+}
+
+errcode_t open_debugfs_file(const char *debugfs_path, const char *dirname,
+			    const char *uuid, const char *filename, FILE **fd)
+{
+	errcode_t ret = 0;
+	char path[PATH_MAX];
+
+	ret = snprintf(path, PATH_MAX - 1, "%s/%s/%s/%s",
+		       debugfs_path, dirname, uuid, filename);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	*fd = fopen(path, "r");
+	if (!*fd) {
+		switch (errno) {
+		default:
+			ret = O2CB_ET_INTERNAL_FAILURE;
+			break;
+
+		case ENOTDIR:
+		case ENOENT:
+		case EISDIR:
+			ret = O2CB_ET_SERVICE_UNAVAILABLE;
+			break;
+
+		case EACCES:
+		case EPERM:
+		case EROFS:
+			ret = O2CB_ET_PERMISSION_DENIED;
+			break;
+		}
+		goto out;
+	}
+
+	ret = 0;
+out:
+	return ret;
 }

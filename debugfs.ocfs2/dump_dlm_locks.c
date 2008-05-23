@@ -417,91 +417,25 @@ static int get_next_dlm_lockname(FILE *file, char *name, int len)
 	return 0;
 }
 
-#define DEBUGFS_MAGIC   0x64626720
-static errcode_t try_debugfs_path(const char *path)
-{
-	errcode_t ret;
-	struct stat64 stat_buf;
-	struct statfs64 statfs_buf;
-
-	ret = stat64(path, &stat_buf);
-	if (ret || !S_ISDIR(stat_buf.st_mode))
-		return O2CB_ET_SERVICE_UNAVAILABLE;
-	ret = statfs64(path, &statfs_buf);
-	if (ret || (statfs_buf.f_type != DEBUGFS_MAGIC))
-		return O2CB_ET_SERVICE_UNAVAILABLE;
-
-	return 0;
-}
-
-#define DLM_LOCKING_STATE_FORMAT_PATH "%s/o2dlm/%s/locking_state"
-static errcode_t open_dlm_locking_state(const char *debugfs_path,
-					const char *uuid_str,
-					FILE **state_file)
-{
-	errcode_t ret = 0;
-	char path[PATH_MAX];
-
-	ret = snprintf(path, PATH_MAX - 1, DLM_LOCKING_STATE_FORMAT_PATH,
-		       debugfs_path, uuid_str);
-	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
-		return O2CB_ET_INTERNAL_FAILURE;
-
-	*state_file = fopen(path, "r");
-	if (!*state_file) {
-		switch (errno) {
-			default:
-				ret = O2CB_ET_INTERNAL_FAILURE;
-				break;
-
-			case ENOTDIR:
-			case ENOENT:
-			case EISDIR:
-				ret = O2CB_ET_SERVICE_UNAVAILABLE;
-				break;
-
-			case EACCES:
-			case EPERM:
-			case EROFS:
-				ret = O2CB_ET_PERMISSION_DENIED;
-				break;
-		}
-		goto out;
-	}
-
-	ret = 0;
-out:
-	return ret;
-}
-
-#define SYSFS_BASE		"/sys/kernel/"
-#define DEBUGFS_PATH		SYSFS_BASE "debug"
-#define DEBUGFS_ALTERNATE_PATH	"/debug"
-
 void dump_dlm_locks(char *uuid, FILE *out, int dump_lvbs,
 		    struct list_head *locklist)
 {
 	errcode_t ret;
-	int err;
-	const char *debugfs_path = DEBUGFS_PATH;
-	struct stat64 stat_buf;
+	char debugfs_path[PATH_MAX];
 	FILE *file;
 	char name[OCFS2_LOCK_ID_MAX_LEN];
 	struct lockres res;
 	int show_all_locks = 0;
 
-	err = stat64(SYSFS_BASE, &stat_buf);
-	if (err)
-		debugfs_path = DEBUGFS_ALTERNATE_PATH;
-
-	ret = try_debugfs_path(debugfs_path);
+	ret = get_debugfs_path(debugfs_path, sizeof(debugfs_path));
 	if (ret) {
 		fprintf(stderr, "Could not locate debugfs file system. "
 			"Perhaps it is not mounted?\n");
 		return;
 	}
 
-	ret = open_dlm_locking_state(debugfs_path, uuid, &file);
+	ret = open_debugfs_file(debugfs_path, "o2dlm", uuid, "locking_state",
+				&file);
 	if (ret) {
 		fprintf(stderr, "Could not open debug state for \"%s\".\n"
 			"Perhaps that OCFS2 file system is not mounted?\n",
