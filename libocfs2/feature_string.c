@@ -224,8 +224,10 @@ errcode_t parse_feature(const char *opts,
 				break;
 			}
 		}
-		if (!ocfs2_supported_features[i].ff_str)
+		if (!ocfs2_supported_features[i].ff_str) {
+			free(options);
 			return OCFS2_ET_UNSUPP_FEATURE;
+		}
 	}
 
 	free(options);
