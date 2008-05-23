@@ -3,7 +3,7 @@
  *
  * Function prototypes, macros, etc. for related 'C' files
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran
  */
 
 #ifndef __MAIN_H__
@@ -34,6 +33,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <pwd.h>
@@ -163,6 +163,7 @@ typedef struct _dbgfs_opts {
 #include <find_block_inode.h>
 #include <find_inode_paths.h>
 #include <dump_fs_locks.h>
+#include <dump_dlm_locks.h>
 #include <dump.h>
 
 #endif		/* __MAIN_H__ */

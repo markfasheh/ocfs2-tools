@@ -3,7 +3,7 @@
  *
  * handles debugfs commands
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -20,7 +20,6 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
  *
- * Authors: Sunil Mushran, Manish Singh
  */
 
 #include "main.h"
@@ -70,6 +69,7 @@ static void do_locate (char **args);
 static void do_fs_locks (char **args);
 static void do_bmap (char **args);
 static void do_icheck (char **args);
+static void do_dlm_locks (char **args);
 
 dbgfs_gbls gbls;
 
@@ -80,6 +80,7 @@ static Command commands[] = {
 	{ "chroot",	do_chroot },
 	{ "close",	do_close },
 	{ "curdev",	do_curdev },
+	{ "dlm_locks",	do_dlm_locks },
 	{ "dump",	do_dump },
 	{ "extent",	do_extent },
 	{ "fs_locks",	do_fs_locks },
@@ -825,6 +826,7 @@ static void do_help (char **args)
 	printf ("close\t\t\t\t\tClose a device\n");
 	printf ("curdev\t\t\t\t\tShow current device\n");
 	printf ("decode <lockname#> ...\t\t\tDecode block#(s) from the lockname(s)\n");
+	printf ("dlm_locks [-l] lockname\t\t\tShow live dlm locking state\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
@@ -1439,6 +1441,54 @@ static void do_locate(char **args)
 		findall = 0;
 
 	find_inode_paths(gbls.fs, args, findall, count, blkno, stdout);
+}
+
+/*
+ * do_dlm_locks()
+ *
+ */
+static void do_dlm_locks(char **args)
+{
+	FILE *out;
+	int dump_lvbs = 0;
+	int i;
+	struct locknames *lock;
+	struct list_head locklist;
+	struct list_head *iter, *iter2;
+
+	if (check_device_open())
+		return;
+
+	INIT_LIST_HEAD(&locklist);
+
+	i = 1;
+	if (args[i] && strlen(args[i])) {
+		if (!strcmp("-l", args[i])) {
+			dump_lvbs = 1;
+			i++;
+		}
+
+		for ( ; args[i] && strlen(args[i]); ++i) {
+			lock = calloc(1, sizeof(struct locknames));
+			if (!lock)
+				break;
+			INIT_LIST_HEAD(&lock->list);
+			strncpy(lock->name, args[i], sizeof(lock->name));
+			list_add_tail(&lock->list, &locklist);
+		}
+	}
+
+	out = open_pager(gbls.interactive);
+	dump_dlm_locks(gbls.fs->uuid_str, out, dump_lvbs, &locklist);
+	close_pager(out);
+
+	if (!list_empty(&locklist)) {
+		list_for_each_safe(iter, iter2, &locklist) {
+			lock = list_entry(iter, struct locknames, list);
+			list_del(iter);
+			free(lock);
+		}
+	}
 }
 
 /*
