@@ -284,11 +284,18 @@ else
 fi
 AC_SUBST(CPG_LDFLAGS)
 
+LIBDLM_FOUND=
+AC_CHECK_HEADER(libdlm.h, LIBDLM_FOUND=yes,
+  [AC_MSG_WARN([libdlm.h not found, fsdlm support will not be built])])
+AC_SUBST(LIBDLM_FOUND)
+
 fsdlm_found=
-AC_CHECK_LIB(dlm_lt, dlm_create_lockspace,
-  [AC_CHECK_HEADER(libdlm.h, fsdlm_found=yes,
-    [AC_MSG_WARN([libdlm.h not found, fsdlm support will not be built])])],
-  [AC_MSG_WARN([libdlm_lt not found, fsdlm support will not be built])])
+if test "x$LIBDLM_FOUND" = "xyes"; then
+  AC_CHECK_LIB(dlm_lt, dlm_create_lockspace, fsdlm_found=yes)
+  if test "xfsdlm_found" = "xyes"; then
+    AC_MSG_WARN([libdlm_lt not found, fsdlm support will not be built])
+  fi
+fi
 
 BUILD_FSDLM_SUPPORT=
 DL_LIBS=

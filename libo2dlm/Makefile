@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-INCLUDES = -I$(TOPDIR)/include
+INCLUDES = -I. -I$(TOPDIR)/include
 
 LIBRARIES = libo2dlm.a
 
@@ -31,10 +31,23 @@ debug_%: debug_%.o libo2dlm.a
 endif
 
 CFILES = o2dlm.c
+HFILES = libdlm-compat.h
 
 TESTING_CFILES = o2dlm_test.c
 
 HFILES_GEN = o2dlm_err.h
+
+ifeq ($(LIBDLM_FOUND),)
+HFILES_GEN += libdlm.h
+CLEAN_RULES += clean-libdlm
+
+libdlm.h: libdlm-compat.h
+	ln -s $< $@
+
+clean-libdlm:
+	rm -f libdlm.h
+
+endif
 
 OBJS = $(subst .c,.o,$(CFILES)) \
 	o2dlm_err.o
@@ -56,7 +69,7 @@ o2dlm_test: $(TESTING_OBJS) $(LIBRARIES) $(COM_ERR_LIBS)
 
 DIST_FILES = $(CFILES) $(HFILES) o2dlm_err.et $(TESTING_CFILES)
 
-CLEAN_RULES = clean-err clean-test
+CLEAN_RULES += clean-err clean-test
 
 clean-err:
 	rm -f o2dlm_err.c o2dlm_err.h
