@@ -39,7 +39,7 @@ static struct feature_level_translation ocfs2_feature_levels_table[] = {
 static fs_options feature_level_defaults[] = {
 	{OCFS2_FEATURE_COMPAT_BACKUP_SB,
 	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC,
-	 0},  /* FEATURE_LEVEL_DEFAULT */
+	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* FEATURE_LEVEL_DEFAULT */
 
 	{OCFS2_FEATURE_COMPAT_BACKUP_SB,
 	 0,
