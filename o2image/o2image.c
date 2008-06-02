@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <errno.h>
 #include <fcntl.h>
