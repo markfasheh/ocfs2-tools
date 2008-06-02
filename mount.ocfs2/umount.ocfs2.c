@@ -146,6 +146,7 @@ int main(int argc, char **argv)
 	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
 	int clustered = 1;
+	const char *stack = "";
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -186,6 +187,13 @@ int main(int argc, char **argv)
 		ret = o2cb_init();
 		if (ret) {
 			com_err(progname, ret, "Cannot initialize cluster");
+			goto bail;
+		}
+
+		ret = o2cb_get_stack_name(&stack);
+		if (ret) {
+			com_err(progname, ret, "while querying cluster stack");
+			ret = -EINVAL;
 			goto bail;
 		}
 
@@ -232,7 +240,8 @@ int main(int argc, char **argv)
 	if (rc)
 		goto unblock;
 
-	if (clustered) {
+	/* For now, only call group_leave for non-o2cb stacks */
+	if (clustered && strcmp(stack, "o2cb")) {
 		ret = o2cb_group_leave(&cluster, &desc);
 		if (ret) {
 			com_err(progname, ret,

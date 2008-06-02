@@ -45,6 +45,7 @@
 #define DEV_PREFIX      "/dev/"
 #define PROC_IDE_FORMAT "/proc/ide/%s/media"
 #define IONICE_PATH	"/usr/bin/ionice"
+#define MOUNT_SERVICE	"mount.ocfs2"
 
 enum hb_ctl_action {
 	HB_ACTION_UNKNOWN,
@@ -452,9 +453,17 @@ static int process_options(struct hb_ctl_options *hbo)
 	case HB_ACTION_STOP:
 		/* For stop must specify exactly one of uuid or device. */
 		if ((hbo->uuid_str && hbo->dev_str) ||
-		    (!hbo->uuid_str && !hbo->dev_str) ||
-		    !hbo->service)
-			ret = -EINVAL;
+		    (!hbo->uuid_str && !hbo->dev_str))
+		       ret = -EINVAL;
+		else if (!hbo->service) {
+			/* This is a special case - the kernel calls us
+			 * with uuid_str and ! service.  In that case only
+			 * we fill in the service */
+			if (hbo->uuid_str)
+				hbo->service = strdup(MOUNT_SERVICE);
+			else
+				ret = -EINVAL;
+		}
 		break;
 
 	case HB_ACTION_REFINFO:
@@ -507,6 +516,7 @@ int main(int argc, char **argv)
 		.action = HB_ACTION_UNKNOWN,
 	};
 	char hbuuid[33];
+	const char *stack = "";
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -536,6 +546,19 @@ int main(int argc, char **argv)
 	if (err) {
 		com_err(progname, err, "Cannot initialize cluster\n");
 		ret = -EINVAL;
+		goto bail;
+	}
+
+	err = o2cb_get_stack_name(&stack);
+	if (err) {
+		com_err(progname, err, "while querying cluster stack");
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	/* For now, skip non-o2cb stacks */
+	if (strcmp(stack, "o2cb")) {
+		ret = 0;
 		goto bail;
 	}
 

@@ -896,18 +896,6 @@ load_stack_o2cb()
     mount_filesystem "ocfs2_dlmfs" "/dlm"
     if_fail $?
 
-    #
-    # This version of ocfs2-tools relies on umount.ocfs2, so we don't need
-    # to call ocfs2_hb_ctl from the kernel.  Given that older drivers may
-    # still want to, we have them just call /bin/true.
-    #
-    echo "/bin/true" >/proc/sys/fs/ocfs2/nm/hb_ctl_path
-    if [ $? != 0 ]
-    then
-        echo -n "Clearing kernel heartbeat control path: "
-        if_fail 1 "Unable to set hb_ctl_path"
-    fi
-
     return 0
 }
 
