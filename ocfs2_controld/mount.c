@@ -50,7 +50,7 @@ struct mountgroup {
 	struct list_head	mg_services;
 	struct service	*mg_ms_in_progress;
 
-	/* Communication with mount/umount.ocfs2 */
+	/* Communication with mount.ocfs2 */
 	int			mg_mount_ci;
 	int			mg_mount_fd;
 	int			mg_mount_notified;

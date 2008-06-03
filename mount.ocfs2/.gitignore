@@ -1,6 +1,5 @@
 .*.sw?
 mount.ocfs2
-umount.ocfs2
 mount.ocfs2.8
 *.d
 cscope.*

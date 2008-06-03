@@ -542,8 +542,6 @@ int main(int argc, char **argv)
 		.action = HB_ACTION_UNKNOWN,
 	};
 	char hbuuid[33];
-	const char *stack = "";
-
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -573,19 +571,6 @@ int main(int argc, char **argv)
 	if (err) {
 		com_err(progname, err, "Cannot initialize cluster\n");
 		ret = -EINVAL;
-		goto bail;
-	}
-
-	err = o2cb_get_stack_name(&stack);
-	if (err) {
-		com_err(progname, err, "while querying cluster stack");
-		ret = -EINVAL;
-		goto bail;
-	}
-
-	/* For now, skip non-o2cb stacks */
-	if (strcmp(stack, "o2cb")) {
-		ret = 0;
 		goto bail;
 	}
 
