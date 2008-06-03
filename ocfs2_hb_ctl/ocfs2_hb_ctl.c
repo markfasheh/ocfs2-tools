@@ -74,6 +74,7 @@ struct hb_ctl_options {
 
 static char *progname = "ocfs2_hb_ctl";
 static struct o2cb_region_desc *region_desc = NULL;
+static struct o2cb_cluster_desc *cluster_desc = NULL;
 
 static void block_signals(int how)
 {
@@ -96,6 +97,15 @@ static void free_desc(void)
 		ocfs2_free(&region_desc);
 		region_desc = NULL;
 	}
+	if (cluster_desc) {
+		if (cluster_desc->c_stack)
+			ocfs2_free(&cluster_desc->c_stack);
+		if (cluster_desc->c_cluster)
+			ocfs2_free(&cluster_desc->c_cluster);
+
+		ocfs2_free(&cluster_desc);
+		cluster_desc = NULL;
+	}
 }
 			   
 static errcode_t get_desc(const char *dev)
@@ -108,6 +118,10 @@ static errcode_t get_desc(const char *dev)
 
 	err = ocfs2_malloc0(sizeof(struct o2cb_region_desc),
 			    &region_desc);
+	if (err)
+		goto out;
+	err = ocfs2_malloc0(sizeof(struct o2cb_cluster_desc),
+			    &cluster_desc);
 	if (err)
 		goto out;
 
@@ -126,6 +140,25 @@ static errcode_t get_desc(const char *dev)
 	} else {
 		region_desc->r_name = NULL;
 		region_desc->r_device_name = NULL;
+	}
+
+	err = ocfs2_fill_cluster_desc(fs, cluster_desc);
+	if (!err) {
+		if (cluster_desc->c_stack) {
+			cluster_desc->c_stack =
+				strdup(cluster_desc->c_stack);
+			if (!cluster_desc->c_stack)
+				err = OCFS2_ET_NO_MEMORY;
+		}
+		if (cluster_desc->c_cluster) {
+			cluster_desc->c_cluster =
+				strdup(cluster_desc->c_cluster);
+			if (!cluster_desc->c_cluster)
+				err = OCFS2_ET_NO_MEMORY;
+		}
+	} else {
+		cluster_desc->c_stack = NULL;
+		cluster_desc->c_cluster = NULL;
 	}
 
 	ocfs2_close(fs);
@@ -288,23 +321,20 @@ static errcode_t lookup_dev(struct hb_ctl_options *hbo)
 static errcode_t start_heartbeat(struct hb_ctl_options *hbo)
 {
 	errcode_t err = 0;
-	struct o2cb_cluster_desc cluster = {
-		.c_stack = NULL,  /* classic stack only */
-	};
 
 	if (!hbo->dev_str)
 		err = lookup_dev(hbo);
 	if (!err) {
 		region_desc->r_persist = 1;  /* hb_ctl is for reals */
 		region_desc->r_service = hbo->service;
-		err = o2cb_begin_group_join(&cluster, region_desc);
+		err = o2cb_begin_group_join(cluster_desc, region_desc);
 		if (!err) {
 			/*
 			 * This is a manual start, there is no service
 			 * or mountpoint being started by hb_ctl, so
 			 * we assume success
 			 */
-			err = o2cb_complete_group_join(&cluster,
+			err = o2cb_complete_group_join(cluster_desc,
 						       region_desc, 0);
 		}
 	}
@@ -349,16 +379,13 @@ static errcode_t adjust_priority(struct hb_ctl_options *hbo)
 static errcode_t stop_heartbeat(struct hb_ctl_options *hbo)
 {
 	errcode_t err = 0;
-	struct o2cb_cluster_desc cluster = {
-		.c_stack = NULL,  /* classic stack only */
-	};
 
 	if (!hbo->dev_str)
 		err = lookup_dev(hbo);
 	if (!err) {
 		region_desc->r_persist = 1;  /* hb_ctl is for reals */
 		region_desc->r_service = hbo->service;
-		err = o2cb_group_leave(&cluster, region_desc);
+		err = o2cb_group_leave(cluster_desc, region_desc);
 	}
 
 	return err;
@@ -517,6 +544,7 @@ int main(int argc, char **argv)
 	};
 	char hbuuid[33];
 	const char *stack = "";
+
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
