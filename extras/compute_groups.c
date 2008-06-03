@@ -67,8 +67,8 @@ int main (int argc, char **argv)
 		for (cs = 12; cs < 21; cs++) {
 			for (bytoff = 0, clsoff = 0; bytoff < max_size; ) {
 				stringyfy((1 << cs), 'c', clsstr);
-				printf("%-15llu  %-7s  %-7s\n", bytoff, clsstr,
-				       blkstr);
+				printf("%-15"PRIu64" %-7s  %-7s\n",
+				       bytoff, clsstr, blkstr);
 				clsoff += cpg;
 				bytoff = clsoff * (1 << cs);
 			}

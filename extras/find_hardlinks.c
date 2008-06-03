@@ -94,8 +94,8 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 		ret = ocfs2_bitmap_test(wp->dup_map, dentry->inode,
 					&oldval);
 		if (oldval) {
-			fprintf(stdout, "Dup! %20"PRIu64" %s\n", dentry->inode, 
-					path);
+			fprintf(stdout, "Dup! %20"PRIu64" %s\n",
+				(uint64_t)dentry->inode, path);
 		}
 		goto out;
 	}
@@ -105,7 +105,7 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 	if (ret) {
 		com_err(wp->argv0, ret,
 			"while setting bitmap bit %"PRIu64"\n",
-			dentry->inode);
+			(uint64_t)dentry->inode);
 		reti = OCFS2_DIRENT_ABORT;
 		goto out;
 	}
@@ -117,14 +117,15 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 		if (ret) {
 			com_err(wp->argv0, ret,
 				"while setting dup bit %"PRIu64"\n",
-				dentry->inode);
+				(uint64_t)dentry->inode);
 			reti = OCFS2_DIRENT_ABORT;
 			goto out;
 		}
 	}
 
 	if (!wp->quiet)
-		fprintf(stdout, "%20"PRIu64" %s\n", dentry->inode, path);
+		fprintf(stdout, "%20"PRIu64" %s\n",
+			(uint64_t)dentry->inode, path);
 
 	if (dentry->file_type == OCFS2_FT_DIR) {
 		old_path = wp->path;

@@ -91,12 +91,12 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 	oldval = 0;
 
 	if (!wp->quiet)
-		fprintf(stdout, "[trace] %13"PRIu64" %s\n", dentry->inode, 
-				path);
+		fprintf(stdout, "[trace] %13"PRIu64" %s\n",
+			(uint64_t)dentry->inode, path);
 
 	if (dentry->inode == wp->inode)
-		fprintf(stdout, "[found] %13"PRIu64" %s\n", dentry->inode, 
-				path);
+		fprintf(stdout, "[found] %13"PRIu64" %s\n",
+			(uint64_t)dentry->inode, path);
 
 	if (dentry->file_type == OCFS2_FT_DIR) {
 		old_path = wp->path;

@@ -89,7 +89,8 @@ static int print_group(struct ocfs2_group_desc *gd)
 
 		free = end - start;
 
-		printf("%-6u   %-6u   %"PRIu64"\n", free, start, gd->bg_blkno);
+		printf("%-6u   %-6u   %"PRIu64"\n", free, start,
+		       (uint64_t)gd->bg_blkno);
 
 		if (free < FREE_BIT_STATS)
 			free_bit_stats[free]++;
