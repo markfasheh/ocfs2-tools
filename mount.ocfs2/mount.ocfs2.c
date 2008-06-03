@@ -327,7 +327,7 @@ int main(int argc, char **argv)
 			goto bail;
 		}
 		desc.r_persist = 1;
-		desc.r_service = mo.dir;
+		desc.r_service = OCFS2_FS_NAME;
 
 		ret = o2cb_get_hb_ctl_path(hb_ctl_path, sizeof(hb_ctl_path));
 		if (ret) {

@@ -45,7 +45,6 @@
 #define DEV_PREFIX      "/dev/"
 #define PROC_IDE_FORMAT "/proc/ide/%s/media"
 #define IONICE_PATH	"/usr/bin/ionice"
-#define MOUNT_SERVICE	"mount.ocfs2"
 
 enum hb_ctl_action {
 	HB_ACTION_UNKNOWN,
@@ -487,7 +486,7 @@ static int process_options(struct hb_ctl_options *hbo)
 			 * with uuid_str and ! service.  In that case only
 			 * we fill in the service */
 			if (hbo->uuid_str)
-				hbo->service = strdup(MOUNT_SERVICE);
+				hbo->service = strdup(OCFS2_FS_NAME);
 			else
 				ret = -EINVAL;
 		}

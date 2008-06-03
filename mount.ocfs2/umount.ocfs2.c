@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 			goto bail;
 		}
 		desc.r_persist = 1;
-		desc.r_service = mo.dir;
+		desc.r_service = OCFS2_FS_NAME;
 	}
 
 	block_signals (SIG_BLOCK);
