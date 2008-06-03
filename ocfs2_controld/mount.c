@@ -34,9 +34,9 @@
  * two characters per byte */
 #define OCFS2_UUID_STR_LEN	(OCFS2_VOL_UUID_LEN * 2)
 
-struct mountpoint {
-	struct list_head	mp_list;
-	char			mp_mountpoint[PATH_MAX + 1];
+struct service {
+	struct list_head	ms_list;
+	char			ms_service[PATH_MAX + 1];
 };
 
 struct mountgroup {
@@ -47,8 +47,8 @@ struct mountgroup {
 	char			mg_uuid[OCFS2_UUID_STR_LEN + 1];
 	char			mg_device[PATH_MAX + 1];
 
-	struct list_head	mg_mountpoints;
-	struct mountpoint	*mg_mp_in_progress;
+	struct list_head	mg_services;
+	struct service	*mg_ms_in_progress;
 
 	/* Communication with mount/umount.ocfs2 */
 	int			mg_mount_ci;
@@ -134,7 +134,7 @@ static struct mountgroup *create_mg(const char *uuid, const char *device)
 		goto out;
 
 	memset(mg, 0, sizeof(struct mountgroup));
-	INIT_LIST_HEAD(&mg->mg_mountpoints);
+	INIT_LIST_HEAD(&mg->mg_services);
 	mg->mg_mount_ci = -1;
 	mg->mg_mount_fd = -1;
 	strncpy(mg->mg_uuid, uuid, sizeof(mg->mg_uuid));
@@ -180,46 +180,45 @@ static void notify_mount_client(struct mountgroup *mg)
 	 */
 }
 
-static struct mountpoint *find_mountpoint(struct mountgroup *mg,
-					  const char *mountpoint)
+static struct service *find_service(struct mountgroup *mg,
+					  const char *service)
 {
 	struct list_head *p;
-	struct mountpoint *mp;
+	struct service *ms;
 
-	list_for_each(p, &mg->mg_mountpoints) {
-		mp = list_entry(p, struct mountpoint, mp_list);
-		if ((strlen(mp->mp_mountpoint) == strlen(mountpoint)) &&
-		    !strcmp(mp->mp_mountpoint, mountpoint))
-			return mp;
+	list_for_each(p, &mg->mg_services) {
+		ms = list_entry(p, struct service, ms_list);
+		if ((strlen(ms->ms_service) == strlen(service)) &&
+		    !strcmp(ms->ms_service, service))
+			return ms;
 	}
 
 	return NULL;
 }
 
-static void remove_mountpoint(struct mountgroup *mg,
-			      const char *mountpoint)
+static void remove_service(struct mountgroup *mg,
+			      const char *service)
 {
-	struct mountpoint *mp;
+	struct service *ms;
 
-	mp = find_mountpoint(mg, mountpoint);
-
-	if (!mp) {
-		log_error("mountpoint \"%s\" not found for mountgroup \"%s\"",
-			  mountpoint, mg->mg_uuid);
+	ms = find_service(mg, service);
+	if (!ms) {
+		log_error("service \"%s\" not found for mountgroup \"%s\"",
+			  service, mg->mg_uuid);
 		return;
 	}
 
-	list_del(&mp->mp_list);
+	list_del(&ms->ms_list);
 
 	/*
 	 * We must clear the list here so that dead_mounter()
 	 * knows we're in the middle of a LEAVE.
 	 */
-	INIT_LIST_HEAD(&mp->mp_list);
+	INIT_LIST_HEAD(&ms->ms_list);
 
-	if (list_empty(&mg->mg_mountpoints)) {
+	if (list_empty(&mg->mg_services)) {
 		/* Set in-progress for leave */
-		mg->mg_mp_in_progress = mp;
+		mg->mg_ms_in_progress = ms;
 
 		log_debug("time to leave group %s", mg->mg_uuid);
 		if (mg->mg_group) {
@@ -240,16 +239,16 @@ static void remove_mountpoint(struct mountgroup *mg,
 			mg->mg_leave_on_join = 1;
 		}
 	} else
-		free(mp);
+		free(ms);
 }
 
-static void add_mountpoint(struct mountgroup *mg, const char *device,
-			   const char *mountpoint, int ci, int fd)
+static void add_service(struct mountgroup *mg, const char *device,
+			   const char *service, int ci, int fd)
 {
-	struct mountpoint *mp;
+	struct service *ms;
 
-	log_debug("Adding mountpoint %s to device %s uuid %s",
-		  mountpoint, device, mg->mg_uuid);
+	log_debug("Adding service %s to device %s uuid %s",
+		  service, device, mg->mg_uuid);
 
 	if (strcmp(mg->mg_device, device)) {
 		fill_error(mg, EINVAL,
@@ -258,36 +257,36 @@ static void add_mountpoint(struct mountgroup *mg, const char *device,
 		return;
 	}
 
-	if (find_mountpoint(mg, mountpoint)) {
+	if (find_service(mg, service)) {
 		fill_error(mg, EBUSY,
 			   "Filesystem %s is already mounted on %s",
-			   mg->mg_uuid, mountpoint);
+			   mg->mg_uuid, service);
 		return;
 	}
 
-	if (mg->mg_mp_in_progress) {
+	if (mg->mg_ms_in_progress) {
 		fill_error(mg, EBUSY, "Another mount is in progress");
 		return;
 	}
 
 	if ((mg->mg_mount_ci != -1) ||
 	    (mg->mg_mount_fd != -1)) {
-		log_error("adding a mountpoint, but ci/fd are set: %d %d",
+		log_error("adding a service, but ci/fd are set: %d %d",
 			  mg->mg_mount_ci, mg->mg_mount_fd);
 	}
 
-	mp = malloc(sizeof(struct mountpoint));
-	if (!mp) {
+	ms = malloc(sizeof(struct service));
+	if (!ms) {
 		fill_error(mg, ENOMEM,
-			   "Unable to allocate mountpoint structure");
+			   "Unable to allocate service structure");
 		return;
 	}
 
-	memset(mp, 0, sizeof(struct mountpoint));
-	strncpy(mp->mp_mountpoint, mountpoint, sizeof(mp->mp_mountpoint));
+	memset(ms, 0, sizeof(struct service));
+	strncpy(ms->ms_service, service, sizeof(ms->ms_service));
 	mg->mg_mount_ci = ci;
 	mg->mg_mount_fd = fd;
-	mg->mg_mp_in_progress = mp;
+	mg->mg_ms_in_progress = ms;
 
 	/*
 	 * This special error is returned to mount.ocfs2 when the filesystem
@@ -295,15 +294,15 @@ static void add_mountpoint(struct mountgroup *mg, const char *device,
 	 * no additional work is required from ocfs2_controld.  When
 	 * mount.ocfs2 sees this error, it will just clal mount(2).
 	 */
-	if (!list_empty(&mg->mg_mountpoints))
+	if (!list_empty(&mg->mg_services))
 		fill_error(mg, EALREADY, "Already mounted, go ahead");
 
-	list_add(&mp->mp_list, &mg->mg_mountpoints);
+	list_add(&ms->ms_list, &mg->mg_services);
 }
 
 static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 {
-	struct mountpoint *mp;
+	struct service *ms;
 
 	if (mg->mg_group) {
 		log_error("cgroup passed, but one already exists! (mg %s, existing %p, new %p)",
@@ -311,14 +310,14 @@ static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 		return;
 	}
 
-	mp = mg->mg_mp_in_progress;
-	if (!mp) {
-		log_error("No mountpoint in progress for mountgroup %s",
+	ms = mg->mg_ms_in_progress;
+	if (!ms) {
+		log_error("No service in progress for mountgroup %s",
 			  mg->mg_uuid);
 		return;
 	}
 
-	if (list_empty(&mp->mp_list)) {
+	if (list_empty(&ms->ms_list)) {
 		if (mg->mg_leave_on_join) {
 			if (group_leave(cg)) {
 				log_error("Unable to leave group %s",
@@ -332,8 +331,8 @@ static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 		return;
 	}
 
-	if (list_empty(&mg->mg_mountpoints)) {
-		log_error("No mountpoints on mountgroup %s", mg->mg_uuid);
+	if (list_empty(&mg->mg_services)) {
+		log_error("No services on mountgroup %s", mg->mg_uuid);
 		return;
 	}
 
@@ -366,10 +365,10 @@ static void force_node_down(int nodeid, void *user_data)
 static void finish_leave(struct mountgroup *mg)
 {
 	struct list_head *p, *n;
-	struct mountpoint *mp;
+	struct service *ms;
 
-	if (list_empty(&mg->mg_mountpoints) &&
-	    mg->mg_mp_in_progress) {
+	if (list_empty(&mg->mg_services) &&
+	    mg->mg_ms_in_progress) {
 		/* We're done */
 		notify_mount_client(mg);
 
@@ -377,7 +376,7 @@ static void finish_leave(struct mountgroup *mg)
 		if (!mg->mg_group)
 			log_debug("mg_group was NULL");
 
-		free(mg->mg_mp_in_progress);
+		free(mg->mg_ms_in_progress);
 		goto out;
 	}
 
@@ -389,16 +388,16 @@ static void finish_leave(struct mountgroup *mg)
 	else
 		log_error("No mg_group for group %s", mg->mg_uuid);
 
-	list_for_each_safe(p, n, &mg->mg_mountpoints) {
-		mp = list_entry(p, struct mountpoint, mp_list);
-		list_del(&mp->mp_list);
-		/* The in-progress mp may or may not be on the list */
-		if (mp != mg->mg_mp_in_progress)
-			free(mp);
+	list_for_each_safe(p, n, &mg->mg_services) {
+		ms = list_entry(p, struct service, ms_list);
+		list_del(&ms->ms_list);
+		/* The in-progress ms may or may not be on the list */
+		if (ms != mg->mg_ms_in_progress)
+			free(ms);
 	}
-	/* So free the in-progress mp last */
-	if (mg->mg_mp_in_progress)
-		free(mg->mg_mp_in_progress);
+	/* So free the in-progress ms last */
+	if (mg->mg_ms_in_progress)
+		free(mg->mg_ms_in_progress);
 
 	/* If we had a client attached, let it know we died */
 	if (mg->mg_mount_ci != -1)
@@ -414,21 +413,21 @@ out:
  * states.
  *
  * 1) We've asked to join a group for a new filesystem.
- *    - mg_mp_in_progress != NULL
- *    - length(mg_mountpoints) == 1
+ *    - mg_ms_in_progress != NULL
+ *    - length(mg_services) == 1
  *    - mg_group == NULL
  *
  *    cg will be our now-joined group.
  *
  * 2) We've asked to leave a group upon the last unmount of a filesystem.
- *   - mg_mp_in_progress != NULL
- *   - mg_mountpoints is empty
+ *   - mg_ms_in_progress != NULL
+ *   - mg_services is empty
  *   - mg_group is only NULL if we had to set leave_on_join.
  *
  *   cg is NULL.  We should complete our leave.
  *
  * 3) We've dropped out of the group unexpectedly.
- *   - mg_mountpoints is not empty.
+ *   - mg_services is not empty.
  *   - mg_group != NULL
  *
  *   cg is NULL.  We should basically crash.  This usually is handled by
@@ -465,7 +464,7 @@ void bail_on_mounts(void)
 }
 
 int start_mount(int ci, int fd, const char *uuid, const char *device,
-		const char *mountpoint)
+		const char *service)
 {
 	int rc = 0;
 	struct mountgroup mg_error = { /* Until we have a real mg */
@@ -473,8 +472,8 @@ int start_mount(int ci, int fd, const char *uuid, const char *device,
 	};
 	struct mountgroup *mg = &mg_error;
 
-	log_debug("start_mount: uuid \"%s\", device \"%s\", mountpoint \"%s\"",
-		  uuid, device, mountpoint);
+	log_debug("start_mount: uuid \"%s\", device \"%s\", service \"%s\"",
+		  uuid, device, service);
 
 	if (strlen(uuid) > OCFS2_UUID_STR_LEN) {
 		fill_error(mg, ENAMETOOLONG, "UUID too long: %s", uuid);
@@ -483,7 +482,7 @@ int start_mount(int ci, int fd, const char *uuid, const char *device,
 
 	mg = find_mg_by_uuid(uuid);
 	if (mg) {
-		add_mountpoint(mg, device, mountpoint, ci, fd);
+		add_service(mg, device, service, ci, fd);
 		goto out;
 	}
 
@@ -496,7 +495,7 @@ int start_mount(int ci, int fd, const char *uuid, const char *device,
 		goto out;
 	}
 
-	add_mountpoint(mg, device, mountpoint, ci, fd);
+	add_service(mg, device, service, ci, fd);
 	if (mg->mg_error)
 		goto out;
 
@@ -512,16 +511,16 @@ int start_mount(int ci, int fd, const char *uuid, const char *device,
 
 		/*
 		 * Because we never started a join, mg->mg_group is NULL.
-		 * remove_mountpoint() will set up for leave_on_join, but
+		 * remove_service() will set up for leave_on_join, but
 		 * that actually never happens.  Thus, it is safe to
-		 * clear mp_in_progress.
+		 * clear ms_in_progress.
 		 */
-		remove_mountpoint(mg, mountpoint);
-		if (mg->mg_mp_in_progress) {
-			free(mg->mg_mp_in_progress);
-			mg->mg_mp_in_progress = NULL;
+		remove_service(mg, service);
+		if (mg->mg_ms_in_progress) {
+			free(mg->mg_ms_in_progress);
+			mg->mg_ms_in_progress = NULL;
 		} else
-			log_error("First mount of %s failed a join, yet mp_in_progress was NULL", mg->mg_uuid);
+			log_error("First mount of %s failed a join, yet ms_in_progress was NULL", mg->mg_uuid);
 	}
 
 out:
@@ -543,7 +542,7 @@ out:
 			log_error("mount: %s", mg->mg_error_msg);
 
 			if ((mg != &mg_error) &&
-			    list_empty(&mg->mg_mountpoints)) {
+			    list_empty(&mg->mg_services)) {
 				log_debug("mount: freeing failed mountgroup");
 				list_del(&mg->mg_list);
 				free(mg);
@@ -557,7 +556,7 @@ out:
 }
 
 int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
-		   const char *mountpoint)
+		   const char *service)
 {
 	int rc = 0;
 	int reply = 1;
@@ -565,12 +564,12 @@ int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
 		.mg_error	= 0,
 	};
 	struct mountgroup *mg;
-	struct mountpoint *mp;
+	struct service *ms;
 	long err;
 	char *ptr = NULL;
 
-	log_debug("complete_mount: uuid \"%s\", errcode \"%s\", mountpoint \"%s\"",
-		  uuid, errcode, mountpoint);
+	log_debug("complete_mount: uuid \"%s\", errcode \"%s\", service \"%s\"",
+		  uuid, errcode, service);
 
 	mg = find_mg_by_client(ci);
 	if (!mg) {
@@ -599,24 +598,24 @@ int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
 		goto out;
 	}
 
-	if (!mg->mg_mp_in_progress) {
+	if (!mg->mg_ms_in_progress) {
 		fill_error(mg, ENOENT,
 			   "No mount in progress for filesystem %s",
 			   mg->mg_uuid);
 		goto out;
 	}
 
-	mp = find_mountpoint(mg, mountpoint);
-	if (!mp) {
+	ms = find_service(mg, service);
+	if (!ms) {
 		fill_error(mg, ENOENT,
-			   "Unknown mountpoint %s for filesystem %s",
-			   mountpoint, mg->mg_uuid);
+			   "Unknown service %s for filesystem %s",
+			   service, mg->mg_uuid);
 		goto out;
 	}
 
-	if (mp != mg->mg_mp_in_progress) {
-		fill_error(mg, EINVAL, "Mountpoint %s is not in progress",
-			   mountpoint);
+	if (ms != mg->mg_ms_in_progress) {
+		fill_error(mg, EINVAL, "Service %s is not in progress",
+			   service);
 		goto out;
 	}
 
@@ -635,31 +634,31 @@ int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
 
 	/*
 	 * Clear the in-progress pointer and store off the reply fd.  If
-	 * there was an error, remove_mountpoint may reset the in-progress
+	 * there was an error, remove_service may reset the in-progress
 	 * pointer.
 	 */
-	mg->mg_mp_in_progress = NULL;
+	mg->mg_ms_in_progress = NULL;
 
 	if (!err) {
 		mg->mg_mount_fd = -1;
 		mg->mg_mount_ci = -1;
 	} else {
 		/*
-		 * remove_mountpoint() will kick off a leave if this was
-		 * the last mountpoint.  As part of the leave, it will add
-		 * reset mp_in_progress.
+		 * remove_service() will kick off a leave if this was
+		 * the last service.  As part of the leave, it will add
+		 * reset ms_in_progress.
 		 */
-		remove_mountpoint(mg, mountpoint);
+		remove_service(mg, service);
 
 		/*
 		 * We don't pass err onto mg->mg_error because it came
 		 * from mount.ocfs2.  We actually respond with 0, as we
 		 * successfully processed the MRESULT.  Unless
-		 * remove_mountpoint() set mg_error.
+		 * remove_service() set mg_error.
 		 */
 	}
 
-	if (mg->mg_mp_in_progress)
+	if (mg->mg_ms_in_progress)
 		reply = 0;
 
 out:
@@ -670,7 +669,7 @@ out:
 	return rc;
 }
 
-int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint)
+int remove_mount(int ci, int fd, const char *uuid, const char *service)
 {
 	int rc = 0;
 	int reply = 1;
@@ -678,10 +677,10 @@ int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint)
 		.mg_error	= 0,
 	};
 	struct mountgroup *mg = NULL;
-	struct mountpoint *mp;
+	struct service *ms;
 
-	log_debug("remove_mount: uuid \"%s\", mountpoint \"%s\"",
-		  uuid, mountpoint);
+	log_debug("remove_mount: uuid \"%s\", service \"%s\"",
+		  uuid, service);
 
 	if (strlen(uuid) > OCFS2_UUID_STR_LEN) {
 		fill_error(&mg_error, ENAMETOOLONG, "UUID too long: %s",
@@ -698,18 +697,18 @@ int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint)
 	}
 
 	/* find_mg() should fail if the uuid isn't mounted *somewhere* */
-	if (list_empty(&mg->mg_mountpoints))
-		log_error("Mountpoint list is empty!");
+	if (list_empty(&mg->mg_services))
+		log_error("Service list is empty!");
 
-	mp = find_mountpoint(mg, mountpoint);
-	if (!mp) {
+	ms = find_service(mg, service);
+	if (!ms) {
 		fill_error(&mg_error, ENOENT,
-			   "Filesystem %s is not mounted on %s", uuid,
-			   mountpoint);
+			   "Service %s is not mounted on %s", uuid,
+			   service);
 		goto out;
 	}
 
-	if (mg->mg_mp_in_progress) {
+	if (mg->mg_ms_in_progress) {
 		fill_error(&mg_error, EBUSY,
 			   "Another mount is in progress");
 		goto out;;
@@ -717,15 +716,15 @@ int remove_mount(int ci, int fd, const char *uuid, const char *mountpoint)
 
 	if ((mg->mg_mount_ci != -1) ||
 	    (mg->mg_mount_fd != -1)) {
-		log_error("removing a mountpoint, but ci/fd are set: %d %d",
+		log_error("removing a service, but ci/fd are set: %d %d",
 			  mg->mg_mount_ci, mg->mg_mount_fd);
 	}
 
-	remove_mountpoint(mg, mountpoint);
-	if (mg->mg_mp_in_progress) {
+	remove_service(mg, service);
+	if (mg->mg_ms_in_progress) {
 		/*
-		 * remove_mountpoint() kicked off a LEAVE.  It needs the
-		 * umount.ocfs2 client connection information.  It will
+		 * remove_service() kicked off a LEAVE.  It needs the
+		 * client connection information.  It will
 		 * handle replying via notify_mount_client().
 		 */
 		mg->mg_mount_ci = ci;
@@ -749,37 +748,37 @@ out:
 void dead_mounter(int ci, int fd)
 {
 	struct mountgroup *mg;
-	struct mountpoint *mp;
+	struct service *ms;
 
 	/* If there's no matching mountgroup, nothing to do. */
 	mg = find_mg_by_client(ci);
 	if (!mg)
 		return;
 
-	mp = mg->mg_mp_in_progress;
+	ms = mg->mg_ms_in_progress;
 
 	/* If we have nothing in progress, nothing to do. */
-	if (!mp)
+	if (!ms)
 		return;
 
 	mg->mg_mount_ci = -1;
 	mg->mg_mount_fd = -1;
 
 	/*
-	 * If mp_list is empty, the daemon is in the process
+	 * If ms_list is empty, the daemon is in the process
 	 * of leaving the group.  We need that to complete whether we
 	 * have a client or not.
 	 */
-	if (list_empty(&mp->mp_list))
+	if (list_empty(&ms->ms_list))
 		return;
 
 	/*
 	 * We haven't notified the client yet.  Thus, the client can't have
-	 * called mount(2).  Let's just abort this mountpoint.  If this was
-	 * the last mountpoint, we'll plan to leave the group.
+	 * called mount(2).  Let's just abort this service.  If this was
+	 * the last service, we'll plan to leave the group.
 	 */
 	if (!mg->mg_mount_notified)
-		remove_mountpoint(mg, mp->mp_mountpoint);
+		remove_service(mg, ms->ms_service);
 
 	/*
 	 * XXX

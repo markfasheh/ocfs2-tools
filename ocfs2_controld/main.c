@@ -285,7 +285,7 @@ int do_write(int fd, void *buf, size_t count)
 
 static int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 		    const char *cluster, const char *device,
-		    const char *mountpoint)
+		    const char *service)
 {
 	char *error_msg;
 
@@ -299,7 +299,7 @@ static int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 		goto fail;
 	}
 
-	return start_mount(ci, fd, uuid, device, mountpoint);
+	return start_mount(ci, fd, uuid, device, service);
 
 fail:
 	return send_message(fd, CM_STATUS, EINVAL, error_msg);
@@ -307,23 +307,23 @@ fail:
 
 static int do_mount_result(int ci, int fd, const char *fstype,
 			   const char *uuid, const char *errcode,
-			   const char *mountpoint)
+			   const char *service)
 {
 	if (!fstype || strcmp(fstype, OCFS2_FS_NAME))
 		return send_message(fd, CM_STATUS, EINVAL,
 				    "Invalid filesystem type");
 
-	return complete_mount(ci, fd, uuid, errcode, mountpoint);
+	return complete_mount(ci, fd, uuid, errcode, service);
 }
 
 static int do_unmount(int ci, int fd, const char *fstype, const char *uuid,
-		      const char *mountpoint)
+		      const char *service)
 {
 	if (!fstype || strcmp(fstype, OCFS2_FS_NAME))
 		return send_message(fd, CM_STATUS, EINVAL,
 				    "Invalid filesystem type");
 
-	return remove_mount(ci, fd, uuid, mountpoint);
+	return remove_mount(ci, fd, uuid, service);
 }
 
 void connection_dead(int ci)
