@@ -397,7 +397,7 @@ static errcode_t update_global_bitmap(ocfs2_filesys *fs,
 		if (ret) {
 			com_err(opts.progname, ret, "while flushing group "
 				"descriptor at block %"PRIu64" during "
-				"volume resize", lgd->bg_blkno);
+				"volume resize", (uint64_t)lgd->bg_blkno);
 			goto bail;
 		}
 	}
@@ -407,7 +407,7 @@ static errcode_t update_global_bitmap(ocfs2_filesys *fs,
 	if (ret) {
 		com_err(opts.progname, ret, "while writing global bitmap "
 			"inode at block %"PRIu64" during volume resize",
-			di->i_blkno);
+			(uint64_t)di->i_blkno);
 	}
 
 bail:

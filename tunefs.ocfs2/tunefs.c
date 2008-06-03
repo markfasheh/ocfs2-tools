@@ -648,7 +648,7 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 			ret = OCFS2_ET_CORRUPT_CHAIN;
 			com_err(opts.progname, ret, " - group descriptor at "
 				"%"PRIu64" does not belong to allocator %"PRIu64"",
-				blkno, di->i_blkno);
+				blkno, (uint64_t)di->i_blkno);
 			goto bail;
 		}
 
@@ -657,7 +657,7 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 			com_err(opts.progname, ret, " - group descriptor at "
 				"%"PRIu64" does not agree to the chain it "
 				"belongs to in allocator %"PRIu64"",
-				blkno, di->i_blkno);
+				blkno, (uint64_t)di->i_blkno);
 			goto bail;
 		}
 
@@ -666,7 +666,7 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 			ret = OCFS2_ET_CORRUPT_CHAIN;
 			com_err(opts.progname, ret, " - group descriptor at "
 				"%"PRIu64" does not have a consistent free "
-				"bit count", blkno);
+				"bit count", (uint64_t)blkno);
 			goto bail;
 		}
 
@@ -674,7 +674,7 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 			ret = OCFS2_ET_CORRUPT_CHAIN;
 			com_err(opts.progname, ret, " - group descriptor at "
 				"%"PRIu64" does not have a valid total bit "
-				"count", blkno);
+				"count", (uint64_t)blkno);
 			goto bail;
 		}
 
@@ -695,7 +695,7 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 		ret = OCFS2_ET_CORRUPT_CHAIN;
 		com_err(opts.progname, ret, " - total bits for chain %u in "
 			"allocator %"PRIu64" does not match its chained group "
-			"descriptors", chain, di->i_blkno);
+			"descriptors", chain, (uint64_t)di->i_blkno);
 		goto bail;
 
 	}
@@ -704,7 +704,7 @@ static errcode_t validate_chain_group(ocfs2_filesys *fs, struct ocfs2_dinode *di
 		ret = OCFS2_ET_CORRUPT_CHAIN;
 		com_err(opts.progname, ret, " - free bits for chain %u in "
 			"allocator %"PRIu64" does not match its chained group "
-			"descriptors", chain, di->i_blkno);
+			"descriptors", chain, (uint64_t)di->i_blkno);
 		goto bail;
 	}
 

@@ -329,7 +329,7 @@ static errcode_t list_sparse_file(ocfs2_filesys *fs,
 
 print:
 	if (ctxt->file_hole_len > 0)
-		printf("%"PRIu64"\t%u\t\t%s\n", di->i_blkno,
+		printf("%"PRIu64"\t%u\t\t%s\n", (uint64_t)di->i_blkno,
 			ctxt->file_hole_len, ctxt->file_name);
 
 bail:
