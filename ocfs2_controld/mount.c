@@ -257,16 +257,36 @@ static void add_service(struct mountgroup *mg, const char *device,
 		return;
 	}
 
-	if (find_service(mg, service)) {
-		fill_error(mg, EBUSY,
-			   "Filesystem %s is already mounted on %s",
-			   mg->mg_uuid, service);
-		return;
-	}
-
 	if (mg->mg_ms_in_progress) {
 		fill_error(mg, EBUSY, "Another mount is in progress");
 		return;
+	}
+
+	ms = find_service(mg, service);
+	if (ms) {
+		/*
+		 * Real mounts use the OCFS2_FS_NAME service.  There can
+		 * be more than one at a time.  All other services may
+		 * only have one instance.
+		 */
+		if (strcmp(service, OCFS2_FS_NAME)) {
+			fill_error(mg, EBUSY,
+				   "Filesystem %s is already mounted on %s",
+				   mg->mg_uuid, service);
+			return;
+		}
+	} else {
+		ms = malloc(sizeof(struct service));
+		if (!ms) {
+			fill_error(mg, ENOMEM,
+				   "Unable to allocate service structure");
+			return;
+		}
+		memset(ms, 0, sizeof(struct service));
+		strncpy(ms->ms_service, service, sizeof(ms->ms_service));
+
+		/* Make sure a new service has the empty list */
+		INIT_LIST_HEAD(&ms->ms_list);
 	}
 
 	if ((mg->mg_mount_ci != -1) ||
@@ -274,16 +294,6 @@ static void add_service(struct mountgroup *mg, const char *device,
 		log_error("adding a service, but ci/fd are set: %d %d",
 			  mg->mg_mount_ci, mg->mg_mount_fd);
 	}
-
-	ms = malloc(sizeof(struct service));
-	if (!ms) {
-		fill_error(mg, ENOMEM,
-			   "Unable to allocate service structure");
-		return;
-	}
-
-	memset(ms, 0, sizeof(struct service));
-	strncpy(ms->ms_service, service, sizeof(ms->ms_service));
 	mg->mg_mount_ci = ci;
 	mg->mg_mount_fd = fd;
 	mg->mg_ms_in_progress = ms;
@@ -297,7 +307,9 @@ static void add_service(struct mountgroup *mg, const char *device,
 	if (!list_empty(&mg->mg_services))
 		fill_error(mg, EALREADY, "Already mounted, go ahead");
 
-	list_add(&ms->ms_list, &mg->mg_services);
+	/* new service */
+	if (list_empty(&ms->ms_list))
+		list_add(&ms->ms_list, &mg->mg_services);
 }
 
 static void finish_join(struct mountgroup *mg, struct cgroup *cg)
