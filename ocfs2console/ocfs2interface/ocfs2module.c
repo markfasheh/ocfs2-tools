@@ -176,7 +176,7 @@ dinode_repr (DInode *self)
 {
   char blkno[32];
 
-  snprintf (blkno, sizeof (blkno), "%"PRIu64, self->dinode.i_blkno);
+  snprintf (blkno, sizeof (blkno), "%"PRIu64, (uint64_t)self->dinode.i_blkno);
   return PyString_FromFormat ("<ocfs2.DInode %s on %s>", blkno,
 			      PyString_AS_STRING (self->fs_obj->device));
 }
