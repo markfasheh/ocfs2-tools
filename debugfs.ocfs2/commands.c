@@ -1235,13 +1235,14 @@ static void do_slotmap (char **args)
 {
 	FILE *out;
 	errcode_t ret;
-	int num_slots = OCFS2_RAW_SB(gbls.fs->fs_super)->s_max_slots;
+	int num_slots;
 	struct ocfs2_slot_map_extended *se = NULL;
 	struct ocfs2_slot_map *sm = NULL;
 
 	if (check_device_open())
 		return ;
 
+	num_slots = OCFS2_RAW_SB(gbls.fs->fs_super)->s_max_slots;
 	if (ocfs2_uses_extended_slot_map(OCFS2_RAW_SB(gbls.fs->fs_super)))
 		ret = ocfs2_read_slot_map_extended(gbls.fs, num_slots, &se);
 	else
