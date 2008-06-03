@@ -494,7 +494,7 @@ static errcode_t find_block_offset(ocfs2_filesys *fs,
 		ret = ocfs2_read_extent_block(fs, rec->e_blkno, buf);
 		if (ret) {
 			com_err(gbls.cmd, ret, "while reading extent %"PRIu64,
-				rec->e_blkno);
+				(uint64_t)rec->e_blkno);
 			goto bail;
 		}
 

@@ -77,7 +77,7 @@ static errcode_t lookup_regular(ocfs2_filesys *fs, uint64_t inode,
 			ret = ocfs2_read_extent_block(fs, rec->e_blkno, buf);
 			if (ret) {
 				com_err(gbls.cmd, ret, "while reading extent "
-					"block %"PRIu64, rec->e_blkno);
+					"block %"PRIu64, (uint64_t)rec->e_blkno);
 				goto bail;
 			}
 

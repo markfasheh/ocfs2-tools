@@ -77,11 +77,11 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 		rocompat->str);
 
 	fprintf(out, "\tRoot Blknum: %"PRIu64"   System Dir Blknum: %"PRIu64"\n",
-		sb->s_root_blkno,
-		sb->s_system_dir_blkno);
+		(uint64_t)sb->s_root_blkno,
+		(uint64_t)sb->s_system_dir_blkno);
 
 	fprintf(out, "\tFirst Cluster Group Blknum: %"PRIu64"\n",
-		sb->s_first_cluster_group);
+		(uint64_t)sb->s_first_cluster_group);
 
 	fprintf(out, "\tBlock Size Bits: %u   Cluster Size Bits: %u\n",
 	       sb->s_blocksize_bits, sb->s_clustersize_bits);
@@ -166,7 +166,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	uint16_t mode;
 	GString *flags = NULL;
 	char tmp_str[30];
-	time_t xtime;
+	time_t tm;
 
 	if (S_ISREG(in->i_mode))
 		str = "Regular";
@@ -214,7 +214,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 		g_string_append (flags, "Dealloc ");
 
 	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u (0x%x)\n",
-	        in->i_blkno, mode, in->i_generation, in->i_generation);
+		(uint64_t)in->i_blkno, mode, in->i_generation, in->i_generation);
 
 	fprintf(out, "\tFS Generation: %u (0x%x)\n", in->i_fs_generation,
 		in->i_fs_generation);
@@ -227,18 +227,18 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	fprintf(out, "\tUser: %d (%s)   Group: %d (%s)   Size: %"PRIu64"\n",
 	       in->i_uid, (pw ? pw->pw_name : "unknown"),
 	       in->i_gid, (gr ? gr->gr_name : "unknown"),
-	       in->i_size);
+	       (uint64_t)in->i_size);
 
 	fprintf(out, "\tLinks: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
-	xtime = (time_t)in->i_ctime;
-	fprintf(out, "\tctime: 0x%"PRIx64" -- %s", in->i_ctime, ctime(&xtime));
-	xtime = (time_t)in->i_atime;
-	fprintf(out, "\tatime: 0x%"PRIx64" -- %s", in->i_atime, ctime(&xtime));
-	xtime = (time_t)in->i_mtime;
-	fprintf(out, "\tmtime: 0x%"PRIx64" -- %s", in->i_mtime, ctime(&xtime));
-	xtime = (time_t)in->i_dtime;
-	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", in->i_dtime, ctime(&xtime));
+	tm = (time_t)in->i_ctime;
+	fprintf(out, "\tctime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
+	tm = (time_t)in->i_atime;
+	fprintf(out, "\tatime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
+	tm = (time_t)in->i_mtime;
+	fprintf(out, "\tmtime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
+	tm = (time_t)in->i_dtime;
+	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
 
 	fprintf(out, "\tctime_nsec: 0x%08"PRIx32" -- %u\n",
 		in->i_ctime_nsec, in->i_ctime_nsec);
@@ -247,7 +247,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	fprintf(out, "\tmtime_nsec: 0x%08"PRIx32" -- %u\n",
 		in->i_mtime_nsec, in->i_mtime_nsec);
 
-	fprintf(out, "\tLast Extblk: %"PRIu64"\n", in->i_last_eb_blk);
+	fprintf(out, "\tLast Extblk: %"PRIu64"\n", (uint64_t)in->i_last_eb_blk);
 	if (in->i_suballoc_slot == (uint16_t)OCFS2_INVALID_SLOT)
 		strcpy(tmp_str, "Global");
 	else
@@ -298,7 +298,7 @@ void dump_chain_list (FILE *out, struct ocfs2_chain_list *cl)
 		rec = &(cl->cl_recs[i]);
 		fprintf(out, "\t%-2d   %-10u   %-10u   %-10u   %"PRIu64"\n",
 			i, rec->c_total, (rec->c_total - rec->c_free),
-			rec->c_free, rec->c_blkno);
+			rec->c_free, (uint64_t)rec->c_blkno);
 	}
 
 bail:
@@ -330,12 +330,13 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 
 		if (ext->l_tree_depth)
 			fprintf(out, "\t%-2d %-11u   %-12u   %"PRIu64"\n",
-				i, rec->e_cpos, clusters, rec->e_blkno);
+				i, rec->e_cpos, clusters,
+				(uint64_t)rec->e_blkno);
 		else
 			fprintf(out,
 				"\t%-2d %-11u   %-12u   %-13"PRIu64"   0x%x\n",
-				i, rec->e_cpos, clusters, rec->e_blkno,
-				rec->e_flags);
+				i, rec->e_cpos, clusters,
+				(uint64_t)rec->e_blkno,	rec->e_flags);
 	}
 
 bail:
@@ -352,7 +353,7 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
 		 blk->h_suballoc_bit, blk->h_suballoc_slot);
 
 	fprintf (out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
-		 blk->h_blkno, blk->h_next_leaf_blk);
+		 (uint64_t)blk->h_blkno, (uint64_t)blk->h_next_leaf_blk);
 
 	return ;
 }
@@ -370,7 +371,7 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
 		fprintf (out, "\tGroup Chain: %u   Parent Inode: %"PRIu64"  "
 			 "Generation: %u\n",
 			 grp->bg_chain,
-			 grp->bg_parent_dinode,
+			 (uint64_t)grp->bg_parent_dinode,
 			 grp->bg_generation);
 		fprintf(out, "\t##   %-15s   %-6s   %-6s   %-6s   %-6s   %-6s\n",
 			"Block#", "Total", "Used", "Free", "Contig", "Size");
@@ -379,7 +380,7 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
 	find_max_contig_free_bits(grp, &max_contig_free_bits);
 
 	fprintf(out, "\t%-2d   %-15"PRIu64"   %-6u   %-6u   %-6u   %-6u   %-6u\n",
-		index, grp->bg_blkno, grp->bg_bits,
+		index, (uint64_t)grp->bg_blkno, grp->bg_bits,
 		(grp->bg_bits - grp->bg_free_bits_count),
 		grp->bg_free_bits_count, max_contig_free_bits, grp->bg_size);
 
@@ -402,7 +403,8 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 	rec->name[rec->name_len] = '\0';
 
 	if (!ls->long_opt) {
-		fprintf(ls->out, "\t%-15"PRIu64" %-4u %-4u %-2u %s\n", rec->inode,
+		fprintf(ls->out, "\t%-15"PRIu64" %-4u %-4u %-2u %s\n",
+			(uint64_t)rec->inode,
 			rec->rec_len, rec->name_len, rec->file_type, rec->name);
 	} else {
 		memset(ls->buf, 0, ls->fs->fs_blocksize);
@@ -413,8 +415,9 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 		inode_time_to_str(di->i_mtime, timestr, sizeof(timestr));
 
 		fprintf(ls->out, "\t%-15"PRIu64" %10s %3u %5u %5u %15"PRIu64" %s %s\n",
-		       	rec->inode, perms, di->i_links_count, di->i_uid, di->i_gid,
-			di->i_size, timestr, rec->name);
+			(uint64_t)rec->inode, perms, di->i_links_count,
+			di->i_uid, di->i_gid,
+			(uint64_t)di->i_size, timestr, rec->name);
 	}
 
 	rec->name[rec->name_len] = tmp;
@@ -655,8 +658,8 @@ void dump_hb (FILE *out, char *buf, uint32_t len)
 		if (hb->hb_seq)
 			fprintf (out, "\t%4u: %4u %016"PRIx64" %016"PRIx64" "
 				 "%08"PRIx32"\n", i,
-				 hb->hb_node, hb->hb_seq, hb->hb_generation,
-				 hb->hb_cksum);
+				 hb->hb_node, (uint64_t)hb->hb_seq,
+				 (uint64_t)hb->hb_generation, hb->hb_cksum);
 	}
 
 	return ;
