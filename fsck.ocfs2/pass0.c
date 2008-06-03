@@ -167,9 +167,9 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 	int max_free_bits = 0;
 
 	verbosef("checking desc at %"PRIu64"; blkno %"PRIu64" size %u bits %u "
-		 "free_bits %u chain %u generation %u\n", blkno, bg->bg_blkno,
-		 bg->bg_size, bg->bg_bits, bg->bg_free_bits_count, 
-		 bg->bg_chain, bg->bg_generation);
+		 "free_bits %u chain %u generation %u\n", blkno,
+		 (uint64_t)bg->bg_blkno, bg->bg_size, bg->bg_bits,
+		 bg->bg_free_bits_count, bg->bg_chain, bg->bg_generation);
 
 	if (bg->bg_generation != ost->ost_fs_generation &&
 	    prompt(ost, PY, PR_GROUP_GEN,
@@ -202,7 +202,8 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 		   "referenced by inode %"PRIu64" but thinks its parent inode "
 		   "is %"PRIu64" and we can also see it in that inode."
 		    " So it may be duplicated.  Remove it from this inode?",
-		    blkno, di->i_blkno, bg->bg_parent_dinode)) {
+		    blkno, (uint64_t)di->i_blkno,
+		    (uint64_t)bg->bg_parent_dinode)) {
 			*clear_ref = 1;
 			goto out;
 		}
@@ -211,7 +212,7 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 		   "Group descriptor at block %"PRIu64" is "
 		   "referenced by inode %"PRIu64" but thinks its parent inode "
 		   "is %"PRIu64".  Fix the descriptor's parent inode?", blkno,
-		   di->i_blkno, bg->bg_parent_dinode)) {
+		   (uint64_t)di->i_blkno, (uint64_t)bg->bg_parent_dinode)) {
 			bg->bg_parent_dinode = di->i_blkno;
 			changed = 1;
 		}
@@ -222,7 +223,7 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 	    prompt(ost, PY, PR_GROUP_BLKNO,
 		   "Group descriptor read from block %"PRIu64" "
 		   "claims to be located at block %"PRIu64".  Update its "
-		   "recorded block location?", blkno, di->i_blkno)) {
+		   "recorded block location?", blkno, (uint64_t)di->i_blkno)) {
 		bg->bg_blkno = blkno;
 		changed = 1;
 	}
@@ -259,7 +260,8 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 			com_err(whoami, ret, "while writing a group "
 				"descriptor to block %"PRIu64" somewhere in "
 				"chain %d in group allocator inode %"PRIu64, 
-				bg->bg_blkno, cs->cs_chain_no, di->i_blkno);
+				(uint64_t)bg->bg_blkno, cs->cs_chain_no,
+				(uint64_t)di->i_blkno);
 			ost->ost_saw_error = 1;
 		}
 	}
@@ -332,7 +334,7 @@ static void unlink_group_desc(o2fsck_state *ost,
 					"descriptor to block %"PRIu64" "
 					"somewhere in chain %d in group "
 					"allocator inode %"PRIu64, 
-					next_desc, i, di->i_blkno);
+					next_desc, i, (uint64_t)di->i_blkno);
 				ost->ost_saw_error = 1;
 				goto out;
 			}
@@ -367,7 +369,7 @@ static void unlink_group_desc(o2fsck_state *ost,
 	if (ret) {
 		/* XXX ugh, undo the bitmap math? */
 		com_err(whoami, ret, "while writing inode alloc inode "
-			    "%"PRIu64, di->i_blkno);
+			    "%"PRIu64, (uint64_t)di->i_blkno);
 		ost->ost_saw_error = 1;
 		goto out;
 	}
@@ -434,13 +436,14 @@ static errcode_t maybe_fix_clusters_per_group(o2fsck_state *ost,
 
 	if (prompt(ost, PY, PR_CHAIN_CPG,
 		   "Global bitmap at block %"PRIu64" has clusters per group "
-		   "set to %u instead of %u. Fix?", di->i_blkno, cl->cl_cpg,
-		   new_cl_cpg)) {
+		   "set to %u instead of %u. Fix?", (uint64_t)di->i_blkno,
+		   cl->cl_cpg, new_cl_cpg)) {
 		cl->cl_cpg = new_cl_cpg;
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
 			com_err(whoami, ret, "while writing inode alloc inode "
-				"%"PRIu64" to fix cl_cpg", di->i_blkno);
+				"%"PRIu64" to fix cl_cpg",
+				(uint64_t)di->i_blkno);
 			ost->ost_saw_error = 1;
 			ret = 0;
 		}
@@ -470,7 +473,7 @@ static errcode_t check_chain(o2fsck_state *ost,
 	int depth = 0, clear_ref = 0;
 
 	verbosef("free %u total %u blkno %"PRIu64"\n", chain->c_free,
-		 chain->c_total, chain->c_blkno);
+		 chain->c_total, (uint64_t)chain->c_blkno);
 
 	while(1) {
 		/* fetch the next reference */
@@ -512,8 +515,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 				   "%"PRIu64" contains a reference at depth "
 				   "%d to block %"PRIu64" which is out "
 				   "of range. Truncate this chain?",
-				   cs->cs_chain_no, di->i_blkno, depth,
-				   blkno))  {
+				   cs->cs_chain_no, (uint64_t)di->i_blkno,
+				   depth, blkno))  {
 
 				clear_ref = 1;
 				break;
@@ -529,8 +532,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 				   "%"PRIu64" contains a reference at depth "
 				   "%d to block %"PRIu64" which doesn't have "
 				   "a valid checksum.  Truncate this chain?",
-				   cs->cs_chain_no, di->i_blkno, depth,
-				   blkno))  {
+				   cs->cs_chain_no, (uint64_t)di->i_blkno,
+				   depth, blkno))  {
 
 				clear_ref = 1;
 				break;
@@ -545,7 +548,7 @@ static errcode_t check_chain(o2fsck_state *ost,
 				"descriptor from block %"PRIu64" as pointed "
 				"to by chain %d in allocator at inode "
 				"%"PRIu64" at depth %d", blkno, 
-				cs->cs_chain_no, di->i_blkno, depth);
+				cs->cs_chain_no, (uint64_t)di->i_blkno, depth);
 			goto out;
 		}
 
@@ -596,8 +599,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 					"descriptor at depth %d in chain %d "
 					"in group allocator inode %"PRIu64" "
 					"to block %"PRIu64, depth,
-					cs->cs_chain_no, di->i_blkno,
-					bg1->bg_blkno);
+					cs->cs_chain_no, (uint64_t)di->i_blkno,
+					(uint64_t)bg1->bg_blkno);
 				ost->ost_saw_error = 1;
 			}
 		}
@@ -610,7 +613,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 			   "has %u bits marked free out of %d total bits "
 			   "but the block groups in the chain have %u "
 			   "free out of %u total.  Fix this by updating "
-			   "the chain record?", cs->cs_chain_no, di->i_blkno,
+			   "the chain record?", cs->cs_chain_no,
+			   (uint64_t)di->i_blkno,
 			   chain->c_free, chain->c_total, cs->cs_free_bits,
 			   cs->cs_total_bits)) {
 			chain->c_total = cs->cs_total_bits;
@@ -643,21 +647,23 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		   strlen(OCFS2_INODE_SIGNATURE))) {
 		printf("Allocator inode %"PRIu64" doesn't have an inode "
-		       "signature.  fsck won't repair this.\n", di->i_blkno);
+		       "signature.  fsck won't repair this.\n",
+		       (uint64_t)di->i_blkno);
 		ret = OCFS2_ET_BAD_INODE_MAGIC;
 		goto out;
 	}
 
 	if (!(di->i_flags & OCFS2_VALID_FL)) {
 		printf("Allocator inode %"PRIu64" is not active.  fsck won't "
-		       "repair this.\n", di->i_blkno);
+		       "repair this.\n", (uint64_t)di->i_blkno);
 		ret = OCFS2_ET_INODE_NOT_VALID;
 		goto out;
 	}
 
 	if (!(di->i_flags & OCFS2_CHAIN_FL)) {
 		printf("Allocator inode %"PRIu64" doesn't have the CHAIN_FL "
-			"flag set.  fsck won't repair this.\n", di->i_blkno);
+		       "flag set.  fsck won't repair this.\n",
+		       (uint64_t)di->i_blkno);
 		/* not _entirely_ accurate, but pretty close. */
 		ret = OCFS2_ET_INODE_NOT_VALID;
 		goto out;
@@ -682,7 +688,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			   "Chain %d in allocator inode %"PRIu64" "
 			   "contains an initial block reference to %"PRIu64" "
 			   "which is out of range.  Clear this reference?",
-			   i, di->i_blkno, cr->c_blkno)) {
+			   i, (uint64_t)di->i_blkno, (uint64_t)cr->c_blkno)) {
 
 			cr->c_blkno = 0;
 			changed = 1;
@@ -694,7 +700,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	    prompt(ost, PY, PR_CHAIN_COUNT,
 		   "Allocator inode %"PRIu64" claims to have %u "
 		   "chains, but the maximum is %u. Fix the inode's count?",
-		   di->i_blkno, cl->cl_count, max_count)) {
+		   (uint64_t)di->i_blkno, cl->cl_count, max_count)) {
 		cl->cl_count = max_count;
 		changed = 1;
 	}
@@ -707,7 +713,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			   "Allocator inode %"PRIu64" claims %u "
 			   "as the next free chain record, but fsck believes "
 			   "the largest valid value is %u.  Clamp the next "
-			   "record value?", di->i_blkno, cl->cl_next_free_rec,
+			   "record value?", (uint64_t)di->i_blkno,
+			   cl->cl_next_free_rec,
 			   max_count)) {
 			cl->cl_next_free_rec = cl->cl_count;
 			changed = 1;
@@ -743,7 +750,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			   "Chain %d in allocator inode %"PRIu64" "
 			   "is empty.  Remove it from the chain record "
 			   "array in the inode and shift further chains "
-			   "into its place?", cs.cs_chain_no, di->i_blkno)) {
+			   "into its place?", cs.cs_chain_no,
+			   (uint64_t)di->i_blkno)) {
 
 			if (!trust_next_free) {
 				printf("Can't remove the chain becuase "
@@ -781,7 +789,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			   "Allocator inode %"PRIu64" has %u bits "
 			   "marked used out of %d total bits but the chains "
 			   "have %u used out of %u total.  Fix this by "
-			   "updating the inode counts?", di->i_blkno,
+			   "updating the inode counts?", (uint64_t)di->i_blkno,
 			   di->id1.bitmap1.i_used, di->id1.bitmap1.i_total,
 			   total - free, total)) {
 			   di->id1.bitmap1.i_used = total - free;
@@ -798,7 +806,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 		   "Allocator inode %"PRIu64" has %"PRIu32" clusters "
 		   "represented in its allocator chains but has an "
 		   "i_clusters value of %"PRIu32". Fix this by updating "
-		   "i_clusters?", di->i_blkno, total, di->i_clusters)) {
+		   "i_clusters?", (uint64_t)di->i_blkno,
+		   total, di->i_clusters)) {
 		di->i_clusters = total;
 		changed = 1;
 	}
@@ -809,8 +818,9 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 		   "Allocator inode %"PRIu64" has %"PRIu32" clusters "
 		   "represented in its allocator chain which accounts for "
 		   "%"PRIu64" total bytes, but its i_size is %"PRIu64". "
-		   "Fix this by updating i_size?", di->i_blkno,
-		   di->id1.bitmap1.i_total, chain_bytes, di->i_size)) {
+		   "Fix this by updating i_size?", (uint64_t)di->i_blkno,
+		   di->id1.bitmap1.i_total, chain_bytes,
+		   (uint64_t)di->i_size)) {
 		di->i_size = chain_bytes;
 		changed = 1;
 	}
@@ -819,7 +829,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
 			com_err(whoami, ret, "while writing inode alloc inode "
-				    "%"PRIu64, di->i_blkno);
+				    "%"PRIu64, (uint64_t)di->i_blkno);
 			ost->ost_saw_error = 1;
 			ret = 0;
 		}
@@ -882,7 +892,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 	ret = verify_chain_alloc(ost, di, buf1, buf2, allowed, forbidden);
 	if (ret) {
 		com_err(whoami, ret, "while looking up chain allocator inode "
-			"%"PRIu64, di->i_blkno);
+			"%"PRIu64, (uint64_t)di->i_blkno);
 		goto out;
 	}
 
@@ -1007,7 +1017,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
 			com_err(whoami, ret, "while writing inode alloc inode "
-				    "%"PRIu64, di->i_blkno);
+				    "%"PRIu64, (uint64_t)di->i_blkno);
 			ost->ost_saw_error = 1;
 			goto out;
 		}
@@ -1069,7 +1079,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	}
 
 	verbosef("found inode alloc %"PRIu64" at block %"PRIu64"\n",
-		 di->i_blkno, blkno);
+		 (uint64_t)di->i_blkno, blkno);
 
 	ret = maybe_fix_clusters_per_group(ost, di);
 	if (ret)
@@ -1122,7 +1132,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		}
 
 		verbosef("found inode alloc %"PRIu64" at block %"PRIu64"\n",
-			 di->i_blkno, blkno);
+			 (uint64_t)di->i_blkno, blkno);
 
 		ret = verify_chain_alloc(ost, di,
 					 blocks + ost->ost_fs->fs_blocksize,
@@ -1175,7 +1185,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		}
 
 		verbosef("found extent alloc %"PRIu64" at block %"PRIu64"\n",
-			 di->i_blkno, blkno);
+			 (uint64_t)di->i_blkno, blkno);
 
 		ret = verify_chain_alloc(ost, di,
 					 blocks + ost->ost_fs->fs_blocksize,

@@ -191,7 +191,8 @@ static errcode_t verify_local_alloc(o2fsck_state *ost,
 			   "Local alloc inode %"PRIu64" claims to "
 			   "have %u bytes of bitmap data but %u bytes is the "
 			   "maximum allowed.  Set the inode's count to the "
-			   "maximum?", di->i_blkno, la->la_size, max)) {
+			   "maximum?", (uint64_t)di->i_blkno,
+			   la->la_size, max)) {
 
 			la->la_size = max;
 			changed = 1;
@@ -205,7 +206,7 @@ static errcode_t verify_local_alloc(o2fsck_state *ost,
 			if (prompt(ost, PY, PR_LALLOC_NZ_USED,
 				   "Local alloc inode %"PRIu64" "
 			    "isn't in use bit its i_used isn't 0.  Set it to "
-			    "0?", di->i_blkno)) {
+			    "0?", (uint64_t)di->i_blkno)) {
 
 				di->id1.bitmap1.i_used = 0;
 				changed = 1;
@@ -216,7 +217,7 @@ static errcode_t verify_local_alloc(o2fsck_state *ost,
 			if (prompt(ost, PY, PR_LALLOC_NZ_BM,
 				   "Local alloc inode %"PRIu64" "
 			    "isn't in use bit its i_bm_off isn't 0.  Set it "
-			    "to 0?", di->i_blkno)) {
+			    "to 0?", (uint64_t)di->i_blkno)) {
 
 				la->la_bm_off = 0;
 				changed = 1;
@@ -232,7 +233,7 @@ static errcode_t verify_local_alloc(o2fsck_state *ost,
 			   "Local alloc inode %"PRIu64" claims to "
 			   "contain a bitmap that starts at cluster %u but "
 			   "the volume contains %u clusters.  Mark the local "
-			   "alloc bitmap as unused?", di->i_blkno,
+			   "alloc bitmap as unused?", (uint64_t)di->i_blkno,
 			   la->la_bm_off, ost->ost_fs->fs_clusters)) {
 			clear = 1;
 		}
@@ -244,7 +245,8 @@ static errcode_t verify_local_alloc(o2fsck_state *ost,
 			   "Local alloc inode %"PRIu64" claims to "
 			   "have a bitmap with %u bits but the inode can only "
 			   "fit %u bits.  Clamp the bitmap size to this "
-			   "maxmum?", di->i_blkno, di->id1.bitmap1.i_total,
+			   "maxmum?", (uint64_t)di->i_blkno,
+			   di->id1.bitmap1.i_total,
 			   la->la_size * 8)) {
 
 			di->id1.bitmap1.i_total = la->la_size * 8;
@@ -260,7 +262,7 @@ static errcode_t verify_local_alloc(o2fsck_state *ost,
 			   "have a bitmap that covers clusters numbered %u "
 			   "through %u but %u is the last valid cluster. "
 			   "Mark the local bitmap as unused?",
-			   di->i_blkno,
+			   (uint64_t)di->i_blkno,
 			   la->la_bm_off,
 			   la->la_bm_off + di->id1.bitmap1.i_total - 1, 
 			   ost->ost_fs->fs_clusters - 1)) {
@@ -277,7 +279,7 @@ static errcode_t verify_local_alloc(o2fsck_state *ost,
 		if (prompt(ost, PY, PR_LALLOC_USED_OVERRUN,
 			   "Local alloc inode %"PRIu64" claims to "
 			   "contain a bitmap with %u bits and %u used.  Set "
-			   "i_used down to %u?", di->i_blkno,
+			   "i_used down to %u?", (uint64_t)di->i_blkno,
 			   di->id1.bitmap1.i_total, di->id1.bitmap1.i_used, 
 			   di->id1.bitmap1.i_total)) {
 
@@ -291,7 +293,7 @@ out:
 	    prompt(ost, PY, PR_LALLOC_CLEAR,
 		   "Local alloc inode %"PRIu64" contained errors. "
 		   "Mark it as unused instead of trying to correct its "
-		   "bitmap?", di->i_blkno)) {
+		   "bitmap?", (uint64_t)di->i_blkno)) {
 		clear = 1;
 	}
 
@@ -308,7 +310,7 @@ out:
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
 			com_err(whoami, ret, "while writing local alloc inode "
-				    "%"PRIu64, di->i_blkno);
+				    "%"PRIu64, (uint64_t)di->i_blkno);
 			ost->ost_write_error = 1;
 			ret = 0;
 		}
@@ -336,7 +338,7 @@ static errcode_t verify_truncate_log(o2fsck_state *ost,
 	    prompt(ost, PY, PR_DEALLOC_COUNT,
 		   "Truncate log inode %"PRIu64" claims space for %u records but only %u "
 		   "records are possible.  Set the inode's count to the maximum?",
-		   di->i_blkno, tl->tl_count, max)) {
+		   (uint64_t)di->i_blkno, tl->tl_count, max)) {
 
 		tl->tl_count = max;
 		changed = 1;
@@ -346,8 +348,8 @@ static errcode_t verify_truncate_log(o2fsck_state *ost,
 	    prompt(ost, PY, PR_DEALLOC_USED,
 		   "Truncate log inode %"PRIu64" claims to be using %u records but the "
 		   "inode can only hold %u records.  Change the number used to reflect "
-		   "the maximum possible in the inode?", di->i_blkno, tl->tl_used,
-		   tl->tl_count)) {
+		   "the maximum possible in the inode?", (uint64_t)di->i_blkno,
+		   tl->tl_used, tl->tl_count)) {
 
 		tl->tl_used = tl->tl_count;
 		changed = 1;
@@ -368,8 +370,8 @@ static errcode_t verify_truncate_log(o2fsck_state *ost,
 			   "Truncate record at offset %u in truncate log "
 			   "inode %"PRIu64" starts at cluster %u but there "
 			   "are %u clusters in the volume. Remove this record "
-			   "from the log?", i, di->i_blkno, tr->t_start,
-			   ost->ost_fs->fs_clusters)) {
+			   "from the log?", i, (uint64_t)di->i_blkno,
+			   tr->t_start, ost->ost_fs->fs_clusters)) {
 				zero = 1;
 		}
 
@@ -380,7 +382,8 @@ static errcode_t verify_truncate_log(o2fsck_state *ost,
 			   "%u clusters.  It can't have this many clusters "
 			   "as that overflows the number of possible clusters "
 			   "in a volume.  Remove this record from the log?",
-			   i, di->i_blkno, tr->t_start, tr->t_clusters)) {
+			   i, (uint64_t)di->i_blkno,
+			   tr->t_start, tr->t_clusters)) {
 				zero = 1;
 		}
 
@@ -391,7 +394,8 @@ static errcode_t verify_truncate_log(o2fsck_state *ost,
 			   "%u clusters.  It can't have this many clusters "
 			   "as this volume only has %u clusters. Remove this "
 			   "record from the log?",
-			   i, di->i_blkno, tr->t_start, tr->t_clusters,
+			   i, (uint64_t)di->i_blkno,
+			   tr->t_start, tr->t_clusters,
 			   ost->ost_fs->fs_clusters)) {
 				zero = 1;
 		}
@@ -407,7 +411,7 @@ static errcode_t verify_truncate_log(o2fsck_state *ost,
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
 			com_err(whoami, ret, "while writing truncate log inode "
-				    "%"PRIu64, di->i_blkno);
+				    "%"PRIu64, (uint64_t)di->i_blkno);
 			ost->ost_write_error = 1;
 			ret = 0;
 		}
@@ -466,7 +470,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
 	    prompt(ost, PY, PR_INODE_BLKNO,
 		   "Inode read from block %"PRIu64" has i_blkno set "
 		   "to %"PRIu64".  Set the inode's i_blkno value to reflect "
-		   "its location on disk?", blkno, di->i_blkno)) {
+		   "its location on disk?", blkno, (uint64_t)di->i_blkno)) {
 
 		di->i_blkno = blkno;
 		o2fsck_write_inode(ost, blkno, di);
@@ -487,7 +491,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
 	if (di->i_dtime &&
 	    prompt(ost, PY, PR_INODE_NZ_DTIME,
 		   "Inode %"PRIu64" is in use but has a non-zero dtime. Reset "
-		   "the dtime to 0?",  di->i_blkno)) {
+		   "the dtime to 0?",  (uint64_t)di->i_blkno)) {
 
 		di->i_dtime = 0ULL;
 		o2fsck_write_inode(ost, blkno, di);
@@ -610,13 +614,15 @@ static void check_link_data(struct verifying_blocks *vb)
 	char *null;
 
 	verbosef("found a link: num %"PRIu64" last %"PRIu64" len "
-		"%"PRIu64" null %d\n", vb->vb_num_blocks, 
-		vb->vb_last_block, vb->vb_link_len, vb->vb_saw_link_null);
+		"%"PRIu64" null %d\n", (uint64_t)vb->vb_num_blocks,
+		(uint64_t)vb->vb_last_block, (uint64_t)vb->vb_link_len,
+		vb->vb_saw_link_null);
 
 	if (di->i_clusters == 0 && vb->vb_num_blocks > 0 &&
 	    prompt(ost, PY, PR_LINK_FAST_DATA,
 		   "Symlink inode %"PRIu64" claims to be a fast symlink "
-		   "but has file data.  Clear the inode?", di->i_blkno)) {
+		   "but has file data.  Clear the inode?",
+		   (uint64_t)di->i_blkno)) {
 		vb->vb_clear = 1;
 		return;
 	}
@@ -646,7 +652,7 @@ static void check_link_data(struct verifying_blocks *vb)
 		if (prompt(ost, PY, PR_LINK_NULLTERM,
 			   "The target of symlink inode %"PRIu64" "
 			   "isn't null terminated.  Clear the inode?",
-			   di->i_blkno)) {
+			   (uint64_t)di->i_blkno)) {
 			vb->vb_clear = 1;
 			return;
 		}
@@ -659,7 +665,8 @@ static void check_link_data(struct verifying_blocks *vb)
 			   "is %"PRIu64" bytes long on disk, but i_size is "
 			   "%"PRIu64" bytes long.  Update i_size to reflect "
 			   "the length on disk?",
-			   di->i_blkno, vb->vb_link_len, di->i_size)) {
+			   (uint64_t)di->i_blkno, vb->vb_link_len,
+			   (uint64_t)di->i_size)) {
 			di->i_size = vb->vb_link_len;
 			o2fsck_write_inode(ost, di->i_blkno, di);
 			return;
@@ -673,7 +680,8 @@ static void check_link_data(struct verifying_blocks *vb)
 			   "The target of symlink inode %"PRIu64" "
 			   "fits in %"PRIu64" blocks but the inode has "
 			   "%"PRIu64" allocated.  Clear the inode?", 
-			   di->i_blkno, expected, vb->vb_num_blocks)) {
+			   (uint64_t)di->i_blkno, expected,
+			   vb->vb_num_blocks)) {
 			vb->vb_clear = 1;
 			return;
 		}
@@ -695,11 +703,13 @@ static int verify_block(ocfs2_filesys *fs,
 
 	if (S_ISDIR(di->i_mode)) {
 		verbosef("adding dir block %"PRIu64"\n", blkno);
-		ret = o2fsck_add_dir_block(&ost->ost_dirblocks, di->i_blkno,
+		ret = o2fsck_add_dir_block(&ost->ost_dirblocks,
+					   (uint64_t)di->i_blkno,
 					   blkno, bcount);
 		if (ret) {
 			com_err(whoami, ret, "while trying to track block in "
-				"directory inode %"PRIu64, di->i_blkno);
+				"directory inode %"PRIu64,
+				(uint64_t)di->i_blkno);
 		}
 	} else if (S_ISLNK(di->i_mode))
 		ret = process_link_block(vb, blkno);
@@ -767,7 +777,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 
 	if (ret) {
 		com_err(whoami, ret, "while iterating over the blocks for "
-			"inode %"PRIu64, di->i_blkno);	
+			"inode %"PRIu64, (uint64_t)di->i_blkno);
 		goto out;
 	}
 
@@ -777,7 +787,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	if (S_ISDIR(di->i_mode) && vb.vb_num_blocks == 0 &&
 	    prompt(ost, PY, PR_DIR_ZERO,
 		   "Inode %"PRIu64" is a zero length directory, clear it?",
-		   di->i_blkno)) {
+		   (uint64_t)di->i_blkno)) {
 
 		vb.vb_clear = 1;
 	}
@@ -836,7 +846,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 				   " has a size of %"PRIu64" but has %"PRIu64
 				   " blocks of actual data. "
 				   "Correct the file size?",
-				    di->i_blkno, di->i_size,
+				    (uint64_t)di->i_blkno, (uint64_t)di->i_size,
 				    vb.vb_last_block + 1)) {
 				di->i_size = expected;
 				o2fsck_write_inode(ost, blkno, di);
@@ -851,7 +861,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 			   "Inode %"PRIu64" has %"PRIu32" clusters but its "
 			   "blocks fit in %"PRIu64" clusters. "
 			   "Correct the number of clusters?",
-			   di->i_blkno, di->i_clusters, expected)) {
+			   (uint64_t)di->i_blkno, di->i_clusters, expected)) {
 			di->i_clusters = expected;
 			o2fsck_write_inode(ost, blkno, di);
 		}
@@ -864,7 +874,8 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64" has a size of "
 			   "%"PRIu64" but has %"PRIu64" bytes of actual data. "
 			   "Correct the file size?",
-			    di->i_blkno, di->i_size, expected)) {
+			   (uint64_t)di->i_blkno,
+			   (uint64_t)di->i_size, expected)) {
 			di->i_size = expected;
 			o2fsck_write_inode(ost, blkno, di);
 		}
@@ -878,7 +889,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 			   "Inode %"PRIu64" has %"PRIu32" clusters but its "
 			   "blocks fit in %"PRIu64" clusters.  Correct the "
 			   "number of clusters?",
-			   di->i_blkno, di->i_clusters, expected)) {
+			   (uint64_t)di->i_blkno, di->i_clusters, expected)) {
 			di->i_clusters = expected;
 			o2fsck_write_inode(ost, blkno, di);
 		}

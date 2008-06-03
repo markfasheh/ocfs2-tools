@@ -85,7 +85,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 	if (ret) {
 		com_err(whoami, ret, "reading extent block at %"PRIu64" in "
 			"inode %"PRIu64" for verification", blkno, 
-			di->i_blkno);
+			(uint64_t)di->i_blkno);
 		if (ret == OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC)
 			*is_valid = 0;
 		goto out;
@@ -97,8 +97,8 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 	    prompt(ost, PY, PR_EB_BLKNO,
 		   "An extent block at %"PRIu64" in inode %"PRIu64" "
 		   "claims to be located at block %"PRIu64".  Update the "
-		   "extent block's location?", blkno, di->i_blkno,
-		   eb->h_blkno)) {
+		   "extent block's location?", blkno, (uint64_t)di->i_blkno,
+		   (uint64_t)eb->h_blkno)) {
 		eb->h_blkno = blkno;
 		changed = 1;
 	}
@@ -108,8 +108,10 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 			   "An extent block at %"PRIu64" in inode "
 			   "%"PRIu64" has a generation of %x which doesn't "
 			   "match the volume's generation of %x.  Consider "
-			   "this extent block invalid?", blkno, di->i_blkno,
-			   eb->h_fs_generation, ost->ost_fs_generation)) {
+			   "this extent block invalid?", blkno,
+			   (uint64_t)di->i_blkno,
+			   eb->h_fs_generation,
+			   ost->ost_fs_generation)) {
 
 			*is_valid = 0;
 			goto out;
@@ -135,7 +137,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 		if (ret) {
 			com_err(whoami, ret, "while writing an updated extent "
 				"block at %"PRIu64" for inode %"PRIu64,
-				blkno, di->i_blkno);
+				blkno, (uint64_t)di->i_blkno);
 			goto out;
 		}
 	}
@@ -159,7 +161,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 
 	clusters = ocfs2_rec_clusters(el->l_tree_depth, er);
 	verbosef("cpos %u clusters %u blkno %"PRIu64"\n", er->e_cpos,
-		 clusters, er->e_blkno);
+		 clusters, (uint64_t)er->e_blkno);
 
 	if (ocfs2_block_out_of_range(ost->ost_fs, er->e_blkno))
 		goto out;
@@ -177,8 +179,8 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 			   "The extent record for cluster offset "
 			   "%"PRIu32" in inode %"PRIu64" refers to an invalid "
 			   "extent block at %"PRIu64".  Clear the reference "
-			   "to this invalid block?", er->e_cpos, di->i_blkno,
-			   er->e_blkno)) {
+			   "to this invalid block?", er->e_cpos,
+			   (uint64_t)di->i_blkno, (uint64_t)er->e_blkno)) {
 
 			er->e_blkno = 0;
 			*changed = 1;
@@ -196,7 +198,8 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		   "in inode %"PRIu64" refers to block %"PRIu64" which isn't "
 		   "aligned with the start of a cluster.  Point the extent "
 		   "record at block %"PRIu64" which starts this cluster?",
-		   er->e_cpos, di->i_blkno, er->e_blkno, first_block)) {
+		   er->e_cpos, (uint64_t)di->i_blkno,
+		   (uint64_t)er->e_blkno, first_block)) {
 
 		er->e_blkno = first_block;
 		*changed = 1;
@@ -212,8 +215,9 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		   "The extent record for cluster offset %"PRIu32" "
 		   "in inode %"PRIu64" refers to an extent that goes beyond "
 		   "the end of the volume.  Truncate the extent by %"PRIu32" "
-		   "clusters to fit it in the volume?", er->e_cpos, 
-		   di->i_blkno, last_cluster - ost->ost_fs->fs_clusters)) {
+		   "clusters to fit it in the volume?", er->e_cpos,
+		   (uint64_t)di->i_blkno,
+		   last_cluster - ost->ost_fs->fs_clusters)) {
 
 		clusters -= last_cluster - ost->ost_fs->fs_clusters;
 		ocfs2_set_rec_clusters(el->l_tree_depth, er, clusters);
@@ -249,7 +253,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 	    prompt(ost, PY, PR_EXTENT_LIST_DEPTH,
 		   "Extent list in inode %"PRIu64" is recorded as "
 		   "being at depth %u but we expect it to be at depth %u. "
-		   "update the list?", di->i_blkno, el->l_tree_depth,
+		   "update the list?", (uint64_t)di->i_blkno, el->l_tree_depth,
 		   ei->ei_expected_depth)) {
 
 		el->l_tree_depth = ei->ei_expected_depth;
@@ -260,7 +264,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 	    prompt(ost, PY, PR_EXTENT_LIST_COUNT,
 		   "Extent list in inode %"PRIu64" claims to have %u "
 		   "records, but the maximum is %u. Fix the list's count?",
-		   di->i_blkno, el->l_count, max_recs)) {
+		   (uint64_t)di->i_blkno, el->l_count, max_recs)) {
 
 		el->l_count = max_recs;
 		*changed = 1;
@@ -274,8 +278,8 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		  	   "Extent list in inode %"PRIu64" claims %u "
 			   "as the next free chain record, but fsck believes "
 			   "the largest valid value is %u.  Clamp the next "
-			   "record value?", di->i_blkno, el->l_next_free_rec,
-			   max_recs)) {
+			   "record value?", (uint64_t)di->i_blkno,
+			   el->l_next_free_rec, max_recs)) {
 
 			el->l_next_free_rec = el->l_count;
 			*changed = 1;
@@ -311,7 +315,7 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 			   "Extent record %u in inode %"PRIu64" "
 			   "refers to a block that is out of range.  Remove "
 			   "this record from the extent list?", i,
-			   di->i_blkno)) {
+			   (uint64_t)di->i_blkno)) {
 
 			if (!trust_next_free) {
 				printf("Can't remove the record becuase "

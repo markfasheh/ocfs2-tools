@@ -40,14 +40,14 @@ void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno,
 	if (blkno != di->i_blkno) {
 		com_err(whoami, OCFS2_ET_INTERNAL_FAILURE, "when asked to "
 			"write an inode with an i_blkno of %"PRIu64" to block "
-			"%"PRIu64, di->i_blkno, blkno);
+			"%"PRIu64, (uint64_t)di->i_blkno, blkno);
 		return;
 	}
 
 	ret = ocfs2_write_inode(ost->ost_fs, blkno, (char *)di);
 	if (ret) {
-		com_err(whoami, ret, "while writing inode %"PRIu64, 
-		        di->i_blkno);
+		com_err(whoami, ret, "while writing inode %"PRIu64,
+			(uint64_t)di->i_blkno);
 		ost->ost_saw_error = 1;
 	}
 }

@@ -57,7 +57,7 @@ static void check_link_counts(o2fsck_state *ost,
 	    prompt(ost, PY, PR_INODE_NOT_CONNECTED,
 		   "Inode %"PRIu64" isn't referenced by any "
 		   "directory entries.  Move it to lost+found?", 
-		   di->i_blkno)) {
+		   (uint64_t)di->i_blkno)) {
 		o2fsck_reconnect_file(ost, blkno);
 		refs = o2fsck_icount_get(ost->ost_icount_refs, blkno);
 	}
@@ -77,13 +77,14 @@ static void check_link_counts(o2fsck_state *ost,
 	if (in_inode != di->i_links_count)
 		com_err(whoami, OCFS2_ET_INTERNAL_FAILURE, "fsck's thinks "
 			"inode %"PRIu64" has a link count of %"PRIu16" but on "
-			"disk it is %"PRIu16, di->i_blkno, in_inode, 
+			"disk it is %"PRIu16, (uint64_t)di->i_blkno, in_inode,
 			di->i_links_count);
 
 	if (prompt(ost, PY, PR_INODE_COUNT,
 		   "Inode %"PRIu64" has a link count of %"PRIu16" on "
 		   "disk but directory entry references come to %"PRIu16". "
-		   "Update the count on disk to match?", di->i_blkno, in_inode, 
+		   "Update the count on disk to match?",
+		   (uint64_t)di->i_blkno, in_inode,
 		   refs)) {
 		di->i_links_count = refs;
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
@@ -114,14 +115,15 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 
 	if (!prompt(ost, PY, PR_INODE_ORPHANED,
 		   "Inode %"PRIu64" was found in the orphan directory. "
-		   "Delete its contents and unlink it?", dirent->inode)) {
+		   "Delete its contents and unlink it?",
+		   (uint64_t)dirent->inode)) {
 		goto out;
 	}
 
 	ret = ocfs2_truncate(ost->ost_fs, dirent->inode, 0);
 	if (ret) {
 		com_err(whoami, ret, "while truncating orphan inode %"PRIu64,
-			dirent->inode);
+			(uint64_t)dirent->inode);
 		ret_flags |= OCFS2_DIRENT_ABORT;
 		goto out;
 	}
@@ -129,7 +131,7 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 	ret = ocfs2_delete_inode(ost->ost_fs, dirent->inode);
 	if (ret) {
 		com_err(whoami, ret, "while deleting orphan inode %"PRIu64
-			"after truncating it", dirent->inode);
+			"after truncating it", (uint64_t)dirent->inode);
 		ret_flags |= OCFS2_DIRENT_ABORT;
 		goto out;
 	}

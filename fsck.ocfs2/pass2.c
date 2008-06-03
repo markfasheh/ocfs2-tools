@@ -155,7 +155,7 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
             prompt(ost, PY, PR_DIRENT_DOT_INODE,
 		   "The '.' entry in directory inode %"PRIu64" "
 		   "points to inode %"PRIu64" instead of itself.  Fix "
-		   "the '.' entry?", dbe->e_ino, dirent->inode)) {
+		   "the '.' entry?", dbe->e_ino, (uint64_t)dirent->inode)) {
 		dirent->inode = dbe->e_ino;
 		*flags |= OCFS2_DIRENT_CHANGED;
 	}
@@ -324,7 +324,7 @@ static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	    prompt(ost, PY, PR_DIRENT_INODE_RANGE,
 		   "Directory entry '%.*s' refers to inode "
 		   "number %"PRIu64" which is out of range, clear the entry?",
-		   dirent->name_len, dirent->name, dirent->inode)) {
+		   dirent->name_len, dirent->name, (uint64_t)dirent->inode)) {
 
 		dirent->inode = 0;
 		*flags |= OCFS2_DIRENT_CHANGED;
@@ -335,7 +335,7 @@ static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 	    prompt(ost, PY, PR_DIRENT_INODE_FREE,
 		   "Directory entry '%.*s' refers to inode number "
 		   "%"PRIu64" which isn't allocated, clear the entry?", 
-		   dirent->name_len, dirent->name, dirent->inode)) {
+		   dirent->name_len, dirent->name, (uint64_t)dirent->inode)) {
 		dirent->inode = 0;
 		*flags |= OCFS2_DIRENT_CHANGED;
 	}
@@ -410,7 +410,7 @@ check:
 		"entry's type to match the inode's?",
 		dirent->name_len, dirent->name, 
 		file_type_string(dirent->file_type), dirent->file_type,
-		dirent->inode,
+		(uint64_t)dirent->inode,
 		file_type_string(expected_type), expected_type)) {
 
 		dirent->file_type = expected_type;
@@ -446,7 +446,7 @@ static errcode_t fix_dirent_linkage(o2fsck_state *ost,
 	ret = ocfs2_bitmap_test(ost->ost_dir_inodes, dirent->inode, &is_dir);
 	if (ret)
 		com_err(whoami, ret, "while checking for inode %"PRIu64" in "
-			"the dir bitmap", dirent->inode);
+			"the dir bitmap", (uint64_t)dirent->inode);
 	if (!is_dir)
 		goto out;
 
@@ -454,7 +454,7 @@ static errcode_t fix_dirent_linkage(o2fsck_state *ost,
 	if (dp == NULL) {
 		ret = OCFS2_ET_INTERNAL_FAILURE;
 		com_err(whoami, ret, "no dir parents recorded for inode "
-			"%"PRIu64, dirent->inode);
+			"%"PRIu64, (uint64_t)dirent->inode);
 		goto out;
 	}
 
@@ -470,7 +470,7 @@ static errcode_t fix_dirent_linkage(o2fsck_state *ost,
 		"claim to be the parent of subdir '%.*s' (inode %"PRIu64"). "
 		"Clear this directory entry and leave the previous parent of "
 		"the subdir's inode intact?", dbe->e_ino, 
-		dirent->name_len, dirent->name, dirent->inode)) {
+		dirent->name_len, dirent->name, (uint64_t)dirent->inode)) {
 
 		dirent->inode = 0;
 		*flags |= OCFS2_DIRENT_CHANGED;
@@ -594,7 +594,7 @@ static int corrupt_dirent_lengths(struct ocfs2_dir_entry *dirent, int left)
 		return 0;
 
 	verbosef("corrupt dirent: %"PRIu64" rec_len %u name_len %u\n",
-		dirent->inode, dirent->rec_len, dirent->name_len);
+		 (uint64_t)dirent->inode, dirent->rec_len, dirent->name_len);
 
 	return 1;
 }
@@ -630,7 +630,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		}
 
 		verbosef("dir inode %"PRIu64" i_size %"PRIu64"\n",
-			 dbe->e_ino, di->i_size);
+			 dbe->e_ino, (uint64_t)di->i_size);
 
 	}
 
@@ -727,7 +727,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 			goto next;
 
 		verbosef("dirent %.*s refs ino %"PRIu64"\n", dirent->name_len,
-				dirent->name, dirent->inode);
+				dirent->name, (uint64_t)dirent->inode);
 		o2fsck_icount_delta(dd->ost->ost_icount_refs, dirent->inode, 1);
 next:
 		offset += dirent->rec_len;
