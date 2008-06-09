@@ -32,15 +32,15 @@
 #define ssizeof(TYPE, MEMBER) ((unsigned int) sizeof(((TYPE *)0)->MEMBER))
 
 #define START_TYPE(TYPE) do { \
-    printf("[off]\t%- 20s\t[size]\n", #TYPE); \
+    printf("[off]\t%-20s\t[size]\n", #TYPE); \
 } while (0)
 
 #define SHOW_OFFSET(TYPE, MEMBER) do { \
-    printf("0x%03X\t%- 20s\t+0x%02X\n", offsetof(TYPE, MEMBER), #MEMBER, ssizeof(TYPE, MEMBER)); \
+    printf("0x%03X\t%-20s\t+0x%02X\n", offsetof(TYPE, MEMBER), #MEMBER, ssizeof(TYPE, MEMBER)); \
 } while (0)
 
 #define END_TYPE(TYPE) do {\
-    printf("\t%- 20s\t0x%03X\n", "Total", sizeof(*((TYPE *)0))); \
+    printf("\t%-20s\t0x%03X\n", "Total", sizeof(*((TYPE *)0))); \
 } while (0)
 
 static void print_ocfs2_extent_rec(void)
@@ -242,7 +242,7 @@ static void print_ocfs2_group_desc(void)
         printf("\n");
 }
 
-int main()
+int main(int argc, char **argv)
 {
 	print_ocfs2_extent_rec();
 	print_ocfs2_chain_rec();
