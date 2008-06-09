@@ -42,6 +42,7 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	GString *incompat = NULL;
 	GString *rocompat = NULL;
 	GString *tunefs_flag = NULL;
+	time_t lastcheck;
 
 	compat = g_string_new(NULL);
 	incompat = g_string_new(NULL);
@@ -54,7 +55,8 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 
 	fprintf(out, "\tState: %u   Errors: %u\n", sb->s_state, sb->s_errors);
 
-	str = ctime((time_t*)&sb->s_lastcheck);
+	lastcheck = (time_t)sb->s_lastcheck;
+	str = ctime(&lastcheck);
 	fprintf(out, "\tCheck Interval: %u   Last Check: %s", sb->s_checkinterval, str);
 
 	fprintf(out, "\tCreator OS: %u\n", sb->s_creator_os);
@@ -164,6 +166,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	uint16_t mode;
 	GString *flags = NULL;
 	char tmp_str[30];
+	time_t xtime;
 
 	if (S_ISREG(in->i_mode))
 		str = "Regular";
@@ -228,14 +231,14 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 
 	fprintf(out, "\tLinks: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
-	str = ctime((time_t*)&in->i_ctime);
-	fprintf(out, "\tctime: 0x%"PRIx64" -- %s", in->i_ctime, str);
-	str = ctime((time_t*)&in->i_atime);
-	fprintf(out, "\tatime: 0x%"PRIx64" -- %s", in->i_atime, str);
-	str = ctime((time_t*)&in->i_mtime);
-	fprintf(out, "\tmtime: 0x%"PRIx64" -- %s", in->i_mtime, str);
-	str = ctime((time_t*)&in->i_dtime);
-	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", in->i_dtime, str);
+	xtime = (time_t)in->i_ctime;
+	fprintf(out, "\tctime: 0x%"PRIx64" -- %s", in->i_ctime, ctime(&xtime));
+	xtime = (time_t)in->i_atime;
+	fprintf(out, "\tatime: 0x%"PRIx64" -- %s", in->i_atime, ctime(&xtime));
+	xtime = (time_t)in->i_mtime;
+	fprintf(out, "\tmtime: 0x%"PRIx64" -- %s", in->i_mtime, ctime(&xtime));
+	xtime = (time_t)in->i_dtime;
+	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", in->i_dtime, ctime(&xtime));
 
 	fprintf(out, "\tctime_nsec: 0x%08"PRIx32" -- %u\n",
 		in->i_ctime_nsec, in->i_ctime_nsec);
