@@ -10,12 +10,12 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
  * License, version 2,  as published by the Free Software Foundation.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
@@ -25,7 +25,7 @@
 
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
 #define _LARGEFILE64_SOURCE
-                                                                                                                                                         
+
 #include "ocfs2/ocfs2.h"
 
 #define DEFAULT_DLMFS_PATH	"/dlm/"
@@ -270,10 +270,10 @@ errcode_t ocfs2_super_unlock(ocfs2_filesys *fs)
 			     0, lock_name);
 
 	ret = o2dlm_unlock(fs->fs_dlm_ctxt, lock_name);
-	
+
 	return ret;
 }
-	
+
 errcode_t ocfs2_meta_lock(ocfs2_filesys *fs,
 			  ocfs2_cached_inode *ci,
 			  enum o2dlm_lock_level level,
@@ -311,6 +311,8 @@ errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs,
 #include <stdlib.h>
 #include <libgen.h>
 
+#define DEBUG_SERVICE "debug"
+
 static void print_usage(void)
 {
 	fprintf(stderr, "Usage: dlm <filename>\n");
@@ -345,7 +347,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	ret = ocfs2_initialize_dlm(fs);
+	ret = ocfs2_initialize_dlm(fs, DEBUG_SERVICE);
 	if (ret) {
 		com_err(progname, ret, "while initializing dlm");
 		goto out;
@@ -371,7 +373,7 @@ int main(int argc, char *argv[])
 
 out:
 	if (fs->fs_dlm_ctxt) {
-		ret = ocfs2_shutdown_dlm(fs);
+		ret = ocfs2_shutdown_dlm(fs, DEBUG_SERVICE);
 		if (ret)
 			com_err(progname, ret, "while shutting down dlm");
 	}

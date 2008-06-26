@@ -11,12 +11,12 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
  * License, version 2,  as published by the Free Software Foundation.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
@@ -646,7 +646,7 @@ static int walk_extents_func(ocfs2_filesys *fs,
 		fprintf(stdout, " ");
 	fprintf(stdout, "(%08"PRIu32", %08"PRIu32", %08"PRIu64") |"
 			" + %08"PRIu32" = %08"PRIu32" / %08"PRIu32"\n",
-		rec->e_cpos, ocfs2_rec_clustes(tree_depth, rec),
+		rec->e_cpos, ocfs2_rec_clusters(tree_depth, rec),
 		rec->e_blkno, ccount,
 		ccount + ocfs2_rec_clusters(tree_depth, rec),
 		wi->di->i_clusters);
@@ -670,6 +670,7 @@ struct walk_block {
 static int walk_blocks_func(ocfs2_filesys *fs,
 			    uint64_t blkno,
 			    uint64_t bcount,
+			    uint16_t ext_flags,
 			    void *priv_data)
 {
 	struct walk_block *wb = priv_data;
@@ -777,7 +778,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	filename = argv[optind];
-	
+
 	if (!(walk_blocks + walk_extents)) {
 		fprintf(stderr,
 			"No operation specified\n");

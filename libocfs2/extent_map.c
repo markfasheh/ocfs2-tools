@@ -10,12 +10,12 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
  * License, version 2,  as published by the Free Software Foundation.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
@@ -335,32 +335,6 @@ static int read_b_numbers(const char *num, uint64_t *blkno, int *count)
 	return 0;
 }
 
-static int read_c_numbers(const char *num, uint32_t *cpos, int *count)
-{
-	uint64_t val;
-	char *ptr;
-
-	val = strtoull(num, &ptr, 0);
-	if (!ptr)
-		return 1;
-	if (*ptr != ':')
-		return 1;
-	if (val > UINT32_MAX)
-		return 1;
-	*cpos = (uint32_t)val;
-
-	ptr++;
-
-	val = strtoull(ptr, &ptr, 0);
-	if (!ptr || *ptr)
-		return 1;
-	if (val > INT_MAX)
-		return 1;
-	*count = (int)val;
-
-	return 0;
-}
-
 static void print_usage(void)
 {
 	fprintf(stderr,
@@ -373,14 +347,13 @@ extern char *optarg;
 int main(int argc, char *argv[])
 {
 	errcode_t ret;
-	uint64_t blkno, blkoff;
-	uint32_t cpos, coff;
-	int count, contig;
+	uint64_t blkno, contig, blkoff = 0;
+	uint16_t ext_flags;
+	int count = 0;
 	int c, op = 0;
 	char *filename;
 	ocfs2_filesys *fs;
 	ocfs2_cached_inode *cinode;
-	struct ocfs2_extent_rec *rec;
 
 	blkno = OCFS2_SUPER_BLOCK_BLKNO;
 
@@ -420,7 +393,7 @@ int main(int argc, char *argv[])
 				break;
 		}
 	}
-	
+
 	if (!op) {
 		fprintf(stderr, "Missing operation\n");
 		print_usage();
@@ -433,7 +406,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	filename = argv[optind];
-	
+
 	ret = ocfs2_open(filename, OCFS2_FLAG_RO, 0, 0, &fs);
 	if (ret) {
 		com_err(argv[0], ret,
@@ -455,13 +428,14 @@ int main(int argc, char *argv[])
 					  blkoff,
 					  count,
 					  &blkno,
-					  &contig);
+					  &contig,
+					  &ext_flags);
 	if (ret) {
 		com_err(argv[0], ret,
 			"looking up block range %"PRIu64":%d", blkoff, count);
 		goto out_free;
 	}
-	fprintf(stdout, "Lookup of block range %"PRIu64":%d returned %"PRIu64":%d\n",
+	fprintf(stdout, "Lookup of block range %"PRIu64":%d returned %"PRIu64":%"PRIu64"\n",
 		blkoff, count, blkno, contig);
 
 out_free:

@@ -268,7 +268,7 @@ static errcode_t ocfs2_sync_path_to_disk(ocfs2_filesys *fs,
 					 struct ocfs2_path *right_path,
 					 int subtree_index)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	struct ocfs2_path *path = NULL;
 
 	assert(left_path || right_path);
