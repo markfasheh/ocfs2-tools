@@ -1,0 +1,40 @@
+#
+# libtunefs_err.et
+#
+# Error codes for the OCFS2 tunefs internal library.
+#
+# Copyright (C) 2008 Oracle.  All rights reserved.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public
+# License, version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+	error_table tune
+
+ec      TUNEFS_ET_SIGNALS_FAILED,
+	"Unable to setup signal handling"
+
+ec	TUNEFS_ET_HEARTBEAT_DEV,
+	"Heartbeat devices cannot be tuned, they can only be re-formatted with mkfs.ocfs2"
+
+ec	TUNEFS_ET_RESIZE_IN_PROGRESS,
+	"This device was in the process of resizing. Run \"fsck.ocfs2 -f <device>\" to clean up the aborted operation, then try again"
+
+ec	TUNEFS_ET_TUNEFS_IN_PROGRESS,
+	"This device was in the process of another tunefs.ocfs2 operation.  Run \"fsck.ocfs2 -f <device>\" to clean up the aborted operation, then try " "again"
+
+ec	TUNEFS_ET_INVALID_STACK_NAME,
+	"Cluster stack specified does not match the one currently running"
+
+ec	TUNEFS_ET_PERFORM_ONLINE,
+	"Operation needs to be performed online"
+
+ec	TUNEFS_ET_INTERNAL_FAILURE,
+	"Internal logic failure"
+
+	end

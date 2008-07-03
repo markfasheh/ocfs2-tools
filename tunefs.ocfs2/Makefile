@@ -11,6 +11,8 @@ LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
+UNINST_LIBRARIES = libtunefs.a
+
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = tunefs.ocfs2
 
@@ -19,8 +21,33 @@ DEFINES = -DVERSION=\"$(VERSION)\"
 
 MANS = tunefs.ocfs2.8
 
-CFILES =		\
-      tunefs.c		\
+ifneq ($(OCFS2_DEBUG_EXE),)
+DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
+DEBUG_EXE_PROGRAMS = $(addprefix debug_,$(subst .c,,$(DEBUG_EXE_FILES)))
+
+.SECONDARY:
+
+UNINST_PROGRAMS += $(DEBUG_EXE_PROGRAMS)
+
+debug_%.o : %.c
+	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
+		$(INCLUDES) $(DEFINES) \
+		-DDEBUG_EXE -o $@ -c $<
+
+debug_%: debug_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libtunefs.a
+	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
+		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+endif
+
+LIBTUNEFS_CFILES = libtunefs.c
+HFILES_GEN = libtunefs_err.h
+
+libtunefs_err.c libtunefs_err.h: libtunefs_err.et
+	compile_et libtunefs_err.et
+
+
+TUNEFS_CFILES =		\
+	tunefs.c	\
 	query.c		\
 	remove_slot.c	\
 	sparse_file.c	\
@@ -28,13 +55,27 @@ CFILES =		\
 	resize.c	\
 	format_slotmap.c
 
-HFILES = tunefs.h
+CFILES = $(TUNFES_CFILES) $(LIBTUNEFS_CFILES)
+HFILES = tunefs.h libtunefs.h
 
-OBJS = $(subst .c,.o,$(CFILES))
+TUNEFS_OBJS = $(subst .c,.o,$(TUNEFS_CFILES))
+LIBTUNEFS_OBJS = $(subst .c,.o,$(LIBTUNEFS_CFILES)) libtunefs_err.o
 
-DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in
+$(LIBTUNEFS_OBJS): $(HFILES_GEN)
 
-tunefs.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in libtunefs_err.et
+
+libtunefs.a: $(LIBTUNEFS_OBJS)
+	rm -f $@
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
+tunefs.ocfs2: $(TUNEFS_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+
+CLEAN_RULES = clean-err
+
+clean-err:
+	rm -f libtunefs_err.c libtunefs_err.h
 
 include $(TOPDIR)/Postamble.make

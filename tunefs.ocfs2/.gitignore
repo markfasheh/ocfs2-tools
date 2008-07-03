@@ -4,3 +4,5 @@ tunefs.ocfs2
 stamp-md5
 *.d
 tunefs.ocfs2.8
+libtunefs_err.[ch]
+debug_*
