@@ -1665,6 +1665,12 @@ errcode_t o2cb_running_cluster_desc(struct o2cb_cluster_desc *cluster)
 	if (err)
 		return err;
 
+	if (!strcmp(stack, classic_stack.s_name)) {
+		cluster->c_stack = NULL;
+		cluster->c_cluster = NULL;
+		return 0;
+	}
+
 	cluster->c_stack = strdup(stack);
 	if (!cluster->c_stack)
 		return O2CB_ET_NO_MEMORY;

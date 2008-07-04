@@ -41,12 +41,15 @@ static void cluster_fill(char **stack_name, char **cluster_name)
 	if (err)
 		return;
 
-	/*
-	 * These were allocated by o2cb_running_cluster_desc(),
-	 * the caller will free them.
-	 */
-	*stack_name = cluster.c_stack;
-	*cluster_name = cluster.c_cluster;
+	if (cluster.c_stack) {
+		/*
+		 * These were allocated by o2cb_running_cluster_desc(),
+		 * the caller will free them.
+		 */
+		*stack_name = cluster.c_stack;
+		*cluster_name = cluster.c_cluster;
+	} else
+		*stack_name = strdup("o2cb");
 }
 
 /* For ocfs2_fill_cluster_information().  Errors are to be ignored */
