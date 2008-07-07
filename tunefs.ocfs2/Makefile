@@ -13,8 +13,11 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 UNINST_LIBRARIES = libtunefs.a
 
+OCFS2NE_METHODS =			\
+	ocfs2ne_update_cluster_stack
+
 sbindir = $(root_sbindir)
-SBIN_PROGRAMS = tunefs.ocfs2
+SBIN_PROGRAMS = tunefs.ocfs2 $(OCFS2NE_METHODS)
 
 INCLUDES = -I$(TOPDIR)/include -I.
 DEFINES = -DVERSION=\"$(VERSION)\"
@@ -55,13 +58,17 @@ TUNEFS_CFILES =		\
 	resize.c	\
 	format_slotmap.c
 
-CFILES = $(TUNFES_CFILES) $(LIBTUNEFS_CFILES)
+OCFS2NE_CFILES = $(patsubst %,%.c,$(OCFS2NE_METHODS))
+
+CFILES = $(TUNFES_CFILES) $(LIBTUNEFS_CFILES) $(OCFS2NE_CFILES)
 HFILES = tunefs.h libtunefs.h
 
 TUNEFS_OBJS = $(subst .c,.o,$(TUNEFS_CFILES))
 LIBTUNEFS_OBJS = $(subst .c,.o,$(LIBTUNEFS_CFILES)) libtunefs_err.o
+OCFS2NE_OBJS = $(subst .c,.o,$(OCFS2NE_CFILES))
 
 $(LIBTUNEFS_OBJS): $(HFILES_GEN)
+$(OCFS2NE_OBJS): $(HFILES_GEN)
 
 DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in libtunefs_err.et
 
@@ -72,6 +79,10 @@ libtunefs.a: $(LIBTUNEFS_OBJS)
 
 tunefs.ocfs2: $(TUNEFS_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+
+ocfs2ne_%: ocfs2ne_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libtunefs.a
+	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
+		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
 CLEAN_RULES = clean-err
 

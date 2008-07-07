@@ -6,3 +6,4 @@ stamp-md5
 tunefs.ocfs2.8
 libtunefs_err.[ch]
 debug_*
+ocfs2ne_update_cluster_stack
