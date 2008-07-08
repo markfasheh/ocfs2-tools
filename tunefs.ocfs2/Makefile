@@ -14,6 +14,7 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 UNINST_LIBRARIES = libtunefs.a
 
 OCFS2NE_METHODS =			\
+	ocfs2ne_reset_uuid		\
 	ocfs2ne_set_label		\
 	ocfs2ne_set_mount_type		\
 	ocfs2ne_update_cluster_stack
