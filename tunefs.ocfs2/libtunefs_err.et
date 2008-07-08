@@ -52,4 +52,19 @@ ec	TUNEFS_ET_NO_MEMORY,
 ec	TUNEFS_ET_JOURNAL_DIRTY,
 	"At least one journal has uncommitted changes.  Run fsck.ocfs2 to replay all dirty journals"
 
+ec	TUNEFS_ET_TOO_MANY_SLOTS_OLD,
+	"Filesystem cannot support more than 255 slots"
+
+ec	TUNEFS_ET_TOO_MANY_SLOTS_EXTENDED,
+	"Filesystem cannot support more than 32767 slots"
+
+ec      TUNEFS_ET_ORPHAN_DIR_NOT_EMPTY,
+	"Orphan dir is not empty"
+
+ec      TUNEFS_ET_TRUNCATE_LOG_NOT_EMPTY,
+	"Truncate log is not empty"
+
+ec      TUNEFS_ET_LOCAL_ALLOC_NOT_EMPTY,
+	"Local allocation file is not empty"
+
 	end
