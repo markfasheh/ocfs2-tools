@@ -36,6 +36,8 @@ void tunefs_block_signals(void);
 void tunefs_unblock_signals(void);
 errcode_t tunefs_open(const char *device, int flags);
 errcode_t tunefs_close(void);
+errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag);
+errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag);
 
 void tunefs_verbose(void);
 void tunefs_quiet(void);

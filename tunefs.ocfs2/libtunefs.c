@@ -484,6 +484,38 @@ int errorf(const char *fmt, ...)
 	return rc;
 }
 
+errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag)
+{
+	/* RESIZE is a special case due for historical reasons */
+	if (flag == OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+	} else {
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
+		OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag |= flag;
+	}
+
+	return ocfs2_write_primary_super(fs);
+}
+
+errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag)
+{
+	/* RESIZE is a special case due for historical reasons */
+	if (flag == OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+	} else {
+		OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag &= ~flag;
+		if (OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag == 0)
+			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+				~OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
+	}
+
+	return ocfs2_write_primary_super(fs);
+}
+
+
 #ifdef DEBUG_EXE
 
 #define DEBUG_PROGNAME "debug_libtunefs"
