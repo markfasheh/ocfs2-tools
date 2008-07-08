@@ -30,6 +30,7 @@
 #define TUNEFS_FLAG_NOCLUSTER	0x04	/* Operation does not need the
 					   cluster stack */
 
+extern ocfs2_filesys *fs;
 
 errcode_t tunefs_init(void);
 void tunefs_block_signals(void);
@@ -38,6 +39,8 @@ errcode_t tunefs_open(const char *device, int flags);
 errcode_t tunefs_close(void);
 errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag);
 errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag);
+
+errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size);
 
 void tunefs_verbose(void);
 void tunefs_quiet(void);

@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #include "ocfs2/ocfs2.h"
 
@@ -34,7 +35,7 @@
 #define TUNEFS_OCFS2_LOCK_ENV_LOCKED	"locked"
 #define TUNEFS_OCFS2_LOCK_ENV_ONLINE	"online"
 
-static ocfs2_filesys *fs;
+ocfs2_filesys *fs;
 static int cluster_locked;
 static int verbosity = 1;
 static uint32_t journal_clusters = 0;
@@ -515,6 +516,86 @@ errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag)
 	return ocfs2_write_primary_super(fs);
 }
 
+errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
+{
+	errcode_t ret = 0;
+	char jrnl_file[OCFS2_MAX_FILENAME_LEN];
+	uint64_t blkno;
+	int i;
+	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	uint32_t num_clusters;
+	char *buf = NULL;
+	struct ocfs2_dinode *di;
+
+	num_clusters =
+		ocfs2_clusters_in_blocks(fs,
+					 ocfs2_blocks_in_bytes(fs,
+							       new_size));
+
+	/* If no size was passed in, use the size we found at open() */
+	if (!num_clusters)
+		num_clusters = journal_clusters;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		verbosef(3,
+			 "%s while allocating a block during journal "
+			 "resize",
+			 error_message(ret));
+		return ret;
+	}
+
+	for (i = 0; i < max_slots; ++i) {
+		snprintf (jrnl_file, sizeof(jrnl_file),
+			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
+
+		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
+				   strlen(jrnl_file), NULL, &blkno);
+		if (ret) {
+			verbosef(3,
+				 "%s while looking up \"%s\" during "
+				 "journal resize",
+				 error_message(ret),
+				 jrnl_file);
+			goto bail;
+		}
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret) {
+			verbosef(3,
+				 "%s while reading inode at block "
+				 "%"PRIu64" during journal resize",
+				 error_message(ret),
+				 blkno);
+			goto bail;
+		}
+
+		di = (struct ocfs2_dinode *)buf;
+		if (num_clusters == di->i_clusters)
+			continue;
+
+		verbosef(3, "Updating journal \"%s\"\n", jrnl_file);
+		ret = ocfs2_make_journal(fs, blkno, num_clusters);
+		if (ret) {
+			verbosef(3,
+				 "%s while creating %s at block "
+				 "%"PRIu64" of %u clusters during journal "
+				 "resize",
+				 error_message(ret), jrnl_file, blkno,
+				 num_clusters);
+			goto bail;
+		}
+		verbosef(3, "Update of journal \"%s\" complete\n",
+			 jrnl_file);
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
 
 #ifdef DEBUG_EXE
 
@@ -629,6 +710,7 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
 
 #endif /* DEBUG_EXE */
 
