@@ -134,6 +134,7 @@ errcode_t tunefs_open(const char *device, int flags,
 errcode_t tunefs_close(ocfs2_filesys *fs);
 errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag);
 errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag);
+errcode_t tunefs_get_number(char *arg, uint64_t *res);
 
 errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size);
 errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg);

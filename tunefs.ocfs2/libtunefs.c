@@ -1165,6 +1165,58 @@ errcode_t tunefs_close(ocfs2_filesys *fs)
 	return err;
 }
 
+errcode_t tunefs_get_number(char *arg, uint64_t *res)
+{
+	char *ptr = NULL;
+	uint64_t num;
+
+	num = strtoull(arg, &ptr, 0);
+
+	if ((ptr == arg) || (num == UINT64_MAX))
+		return TUNEFS_ET_INVALID_NUMBER;
+
+	switch (*ptr) {
+	case '\0':
+		break;
+
+	case 'p':
+	case 'P':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 't':
+	case 'T':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'g':
+	case 'G':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'm':
+	case 'M':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'k':
+	case 'K':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'b':
+	case 'B':
+		break;
+
+	default:
+		return TUNEFS_ET_INVALID_NUMBER;
+	}
+
+	*res = num;
+
+	return 0;
+}
+
 errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag)
 {
 	/* RESIZE is a special case due for historical reasons */

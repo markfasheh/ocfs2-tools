@@ -52,6 +52,9 @@ ec	TUNEFS_ET_NO_MEMORY,
 ec	TUNEFS_ET_JOURNAL_DIRTY,
 	"At least one journal has uncommitted changes.  Run fsck.ocfs2 to replay all dirty journals"
 
+ec	TUNEFS_ET_INVALID_NUMBER,
+	"Invalid number"
+
 ec	TUNEFS_ET_TOO_MANY_SLOTS_OLD,
 	"Filesystem cannot support more than 255 slots"
 
