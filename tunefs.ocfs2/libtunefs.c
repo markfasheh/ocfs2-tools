@@ -37,6 +37,7 @@
 static ocfs2_filesys *fs;
 static int cluster_locked;
 static int verbosity = 1;
+static uint32_t journal_clusters = 0;
 
 static void handle_signal(int caught_sig)
 {
@@ -269,14 +270,74 @@ out_err:
 	return err;
 }
 
+static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	uint64_t blkno;
+	struct ocfs2_dinode *di;
+	int i, dirty = 0;
+	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		verbosef(3,
+			"%s while allocating a block during journal "
+			"check\n",
+			error_message(ret));
+		goto bail;
+	}
+
+	for (i = 0; i < max_slots; ++i) {
+		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
+						&blkno);
+		if (ret) {
+			verbosef(3,
+				 "%s while looking up journal inode for "
+				 "slot %u during journal check\n",
+				 error_message(ret), i);
+			goto bail;
+		}
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret) {
+			verbosef(3,
+				 "%s while reading inode %"PRIu64" during "
+				 " journal check",
+				 error_message(ret), blkno);
+			goto bail;
+		}
+
+		di = (struct ocfs2_dinode *)buf;
+
+		if (di->i_clusters > journal_clusters)
+			journal_clusters = di->i_clusters;
+
+		dirty = di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL;
+		if (dirty) {
+			ret = TUNEFS_ET_JOURNAL_DIRTY;
+			verbosef(3,
+				 "Node slot %d's journal is dirty. Run "
+				 "fsck.ocfs2 to replay all dirty journals.",
+				 i);
+			break;
+		}
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
 
 errcode_t tunefs_open(const char *device, int flags)
 {
 	int rw = flags & TUNEFS_FLAG_RW;
-	errcode_t err;
+	errcode_t err, tmp;
 	int open_flags;
 
-	verbosef(3, "Opening device \"%s\"... ", device);
+	verbosef(3, "Opening device \"%s\"\n", device);
 
 	open_flags = OCFS2_FLAG_HEARTBEAT_DEV_OK;
 	if (rw)
@@ -323,6 +384,14 @@ errcode_t tunefs_open(const char *device, int flags)
 	 */
 	io_init_cache(fs->fs_io, ocfs2_extent_recs_per_eb(fs->fs_blocksize));
 
+	/* Offline operations need clean journals */
+	if (err != TUNEFS_ET_PERFORM_ONLINE) {
+		tmp = tunefs_journal_check(fs);
+		if (tmp) {
+			err = tmp;
+			tunefs_unlock_cluster();
+		}
+	}
 
 out:
 	if (err &&
@@ -332,9 +401,9 @@ out:
 			ocfs2_close(fs);
 			fs = NULL;
 		}
-		verbosef(3, "failed\n");
+		verbosef(3, "Open of device \"%s\" failed\n", device);
 	} else
-		verbosef(3, "done\n");
+		verbosef(3, "Device \"%s\" opened\n", device);
 
 	return err;
 }

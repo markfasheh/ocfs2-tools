@@ -37,4 +37,7 @@ ec	TUNEFS_ET_PERFORM_ONLINE,
 ec	TUNEFS_ET_INTERNAL_FAILURE,
 	"Internal logic failure"
 
+ec	TUNEFS_ET_JOURNAL_DIRTY,
+	"At least one journal has uncommitted changes.  Run fsck.ocfs2 to replay all dirty journals"
+
 	end
