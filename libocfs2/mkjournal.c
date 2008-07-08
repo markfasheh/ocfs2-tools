@@ -260,6 +260,12 @@ errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
 	ocfs2_cached_inode *ci = NULL;
 	struct ocfs2_dinode *di;
 
+	if ((clusters << OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits) <
+	    OCFS2_MIN_JOURNAL_SIZE) {
+		ret = OCFS2_ET_JOURNAL_TOO_SMALL;
+		goto out;
+	}
+
 	ret = ocfs2_read_cached_inode(fs, blkno, &ci);
 	if (ret)
 		goto out;
