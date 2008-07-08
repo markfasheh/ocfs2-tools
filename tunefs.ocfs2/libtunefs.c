@@ -18,6 +18,7 @@
  */
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -35,6 +36,7 @@
 
 static ocfs2_filesys *fs;
 static int cluster_locked;
+static int verbosity = 1;
 
 static void handle_signal(int caught_sig)
 {
@@ -274,6 +276,8 @@ errcode_t tunefs_open(const char *device, int flags)
 	errcode_t err;
 	int open_flags;
 
+	verbosef(3, "Opening device \"%s\"... ", device);
+
 	open_flags = OCFS2_FLAG_HEARTBEAT_DEV_OK;
 	if (rw)
 		open_flags |= OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
@@ -321,12 +325,16 @@ errcode_t tunefs_open(const char *device, int flags)
 
 
 out:
-	if (fs && err &&
+	if (err &&
 	    (err != TUNEFS_ET_INVALID_STACK_NAME) &&
 	    (err != TUNEFS_ET_PERFORM_ONLINE)) {
-		ocfs2_close(fs);
-		fs = NULL;
-	}
+		if (fs) {
+			ocfs2_close(fs);
+			fs = NULL;
+		}
+		verbosef(3, "failed\n");
+	} else
+		verbosef(3, "done\n");
 
 	return err;
 }
@@ -349,6 +357,62 @@ errcode_t tunefs_close(void)
 	}
 
 	return err;
+}
+
+/* If all verbosity is turned off, make sure com_err() prints nothing. */
+static void quiet_com_err(const char *prog, long errcode, const char *fmt,
+			  va_list args)
+{
+	return;
+}
+
+void tunefs_verbose(void)
+{
+	verbosity++;
+	if (verbosity == 1)
+		reset_com_err_hook();
+}
+
+void tunefs_quiet(void)
+{
+	if (verbosity == 1)
+		set_com_err_hook(quiet_com_err);
+	verbosity--;
+}
+
+static int vfverbosef(FILE *f, int level, const char *fmt, va_list args)
+{
+	int rc = 0;
+
+	if (level <= verbosity) {
+		rc = vfprintf(f, fmt, args);
+	}
+
+	return rc;
+}
+
+int verbosef(int level, const char *fmt, ...)
+{
+	int rc;
+	va_list args;
+
+	va_start(args, fmt);
+	rc = vfverbosef(stdout, level, fmt, args);
+	va_end(args);
+
+	return rc;
+}
+
+int errorf(const char *fmt, ...)
+{
+	int rc;
+	va_list args;
+
+	va_start(args, fmt);
+	rc = vfverbosef(stderr, 1, fmt, args);
+	va_end(args);
+
+	return rc;
 }
 
 #ifdef DEBUG_EXE

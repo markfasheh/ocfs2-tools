@@ -37,4 +37,9 @@ void tunefs_unblock_signals(void);
 errcode_t tunefs_open(const char *device, int flags);
 errcode_t tunefs_close(void);
 
+void tunefs_verbose(void);
+void tunefs_quiet(void);
+int verbosef(int level, const char *fmt, ...);
+int errorf(const char *fmt, ...);
+
 #endif  /* _LIBTUNEFS_H */
