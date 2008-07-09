@@ -30,9 +30,28 @@
 #define TUNEFS_FLAG_NOCLUSTER	0x04	/* Operation does not need the
 					   cluster stack */
 
+/* Verbosity levels for verbosef/errorf/tcom_err */
+#define VL_FLAG_STDOUT	0x100	/* or'd with a level, output to stdout */
+enum tunefs_verbosity_level {
+	VL_CRIT	 	= 0,	/* Don't use this!  I still haven't
+				   thought of anything so critical that
+				   -q should be ignored */
+	VL_ERR		= 1,	/* Error messages */
+
+/* Regular output is the same level as errors */
+#define VL_OUT		(VL_ERR | VL_FLAG_STDOUT)
+
+	VL_APP		= 2,	/* Verbose application status */
+	VL_LIB		= 3, 	/* libtunefs status */
+	VL_DEBUG	= 4, 	/* Debugging output */
+};
+
+
 extern ocfs2_filesys *fs;
 
-errcode_t tunefs_init(void);
+/* Handles generic option processing (-h, -v, etc), then munges argc and
+ * argv to pass back to the calling application */
+errcode_t tunefs_init(int *argc, char ***argv, const char *usage);
 void tunefs_block_signals(void);
 void tunefs_unblock_signals(void);
 errcode_t tunefs_open(const char *device, int flags);
@@ -42,9 +61,11 @@ errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag);
 
 errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size);
 
+void tunefs_usage(void);
 void tunefs_verbose(void);
 void tunefs_quiet(void);
-int verbosef(int level, const char *fmt, ...);
-int errorf(const char *fmt, ...);
+void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...);
+void errorf(const char *fmt, ...);
+void tcom_err(errcode_t code, const char *fmt, ...);
 
 #endif  /* _LIBTUNEFS_H */

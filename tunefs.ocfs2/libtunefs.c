@@ -17,13 +17,19 @@
  * General Public License for more details.
  */
 
+#define _LARGEFILE64_SOURCE
+#define _GNU_SOURCE /* for getopt_long and O_DIRECT */
+
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <signal.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <limits.h>
+#include <getopt.h>
 
 #include "ocfs2/ocfs2.h"
 
@@ -36,9 +42,82 @@
 #define TUNEFS_OCFS2_LOCK_ENV_ONLINE	"online"
 
 ocfs2_filesys *fs;
+static char progname[PATH_MAX];
+static const char *usage_string;
 static int cluster_locked;
 static int verbosity = 1;
 static uint32_t journal_clusters = 0;
+
+
+/* If all verbosity is turned off, make sure com_err() prints nothing. */
+static void quiet_com_err(const char *prog, long errcode, const char *fmt,
+			  va_list args)
+{
+	return;
+}
+
+void tunefs_verbose(void)
+{
+	verbosity++;
+	if (verbosity == 1)
+		reset_com_err_hook();
+}
+
+void tunefs_quiet(void)
+{
+	if (verbosity == 1)
+		set_com_err_hook(quiet_com_err);
+	verbosity--;
+}
+
+static void vfverbosef(FILE *f, int level, const char *fmt, va_list args)
+{
+	if (level <= verbosity)
+		vfprintf(f, fmt, args);
+}
+
+static void fverbosef(FILE *f, int level, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vfverbosef(f, level, fmt, args);
+	va_end(args);
+}
+
+void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...)
+{
+	va_list args;
+	FILE *f = stderr;
+
+	if (level & VL_FLAG_STDOUT) {
+		f = stdout;
+		level &= ~VL_FLAG_STDOUT;
+	}
+
+	va_start(args, fmt);
+	vfverbosef(f, level, fmt, args);
+	va_end(args);
+}
+
+void errorf(const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	fverbosef(stderr, VL_ERR, "%s: ", progname);
+	vfverbosef(stderr, VL_ERR, fmt, args);
+	va_end(args);
+}
+
+void tcom_err(errcode_t code, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	com_err_va(progname, code, fmt, args);
+	va_end(args);
+}
 
 static void handle_signal(int caught_sig)
 {
@@ -132,17 +211,180 @@ void tunefs_unblock_signals(void)
 }
 
 
-errcode_t tunefs_init(void)
+static void setup_argv0(const char *argv0)
+{
+	char *pname;
+	char pathtmp[PATH_MAX];
+
+	/* This shouldn't care which basename(3) we get */
+	snprintf(pathtmp, PATH_MAX, "%s", argv0);
+	pname = basename(pathtmp);
+	snprintf(progname, PATH_MAX, "%s", pname);
+}
+
+static errcode_t copy_argv(char **argv, char ***new_argv)
+{
+	int i;
+	char **t_argv;
+
+	for (i = 0; argv[i]; i++)
+		;  /* Count argv */
+
+	/* This is intentionally leaked */
+	t_argv = malloc(sizeof(char *) * (i + 1));
+	if (!t_argv)
+		return TUNEFS_ET_NO_MEMORY;
+
+	for (i = 0; argv[i]; i++)
+		t_argv[i] = (char *)argv[i];
+	t_argv[i] = NULL;
+
+	*new_argv = t_argv;
+	return 0;
+}
+
+/* All the +1 are to leave argv[0] in place */
+static void shuffle_argv(int *argc, int optind, char **argv)
+{
+	int src, dst;
+	int new_argc = *argc - optind + 1;
+
+	for (src = optind, dst = 1; src < *argc; src++, dst++)
+		argv[dst] = argv[src];
+	if (dst != new_argc)
+		verbosef(VL_DEBUG,
+			 "dst is not new_argc %d %d\n", dst, new_argc);
+
+	argv[dst] = NULL;
+	*argc = new_argc;
+}
+
+static void tunefs_usage_internal(int error)
+{
+	FILE *f = stderr;
+
+	if (!error)
+		f = stdout;
+
+	fverbosef(f, VL_ERR, "%s", usage_string ? usage_string : "(null)");
+	fverbosef(f, VL_ERR,
+		  "[opts] can be any mix of:\n"
+		  "\t-v|--verbose (more than one increases verbosity)\n"
+		  "\t-q|--quiet (more than one decreases verbosity)\n"
+		  "\t-h|--help\n"
+		  "\t-V|--version\n");
+}
+
+void tunefs_usage(void)
+{
+	tunefs_usage_internal(1);
+}
+
+extern int optind, opterr, optopt;
+extern char *optarg;
+static errcode_t tunefs_parse_core_options(int *argc, char ***argv)
+{
+	errcode_t err;
+	int c;
+	char **new_argv;
+	int print_usage = 0, print_version = 0;
+	char error[PATH_MAX];
+	static struct option long_options[] = {
+		{ "help", 0, NULL, 'h' },
+		{ "version", 0, NULL, 'V' },
+		{ "verbose", 0, NULL, 'v' },
+		{ "quiet", 0, NULL, 'q' },
+		{ 0, 0, 0, 0}
+	};
+
+	setup_argv0(*argv[0]);
+	err = copy_argv(*argv, &new_argv);
+	if (err)
+		return err;
+
+	opterr = 0;
+	error[0] = '\0';
+	while ((c = getopt_long(*argc, new_argv,
+				":hVvq", long_options, NULL)) != EOF) {
+		switch (c) {
+			case 'h':
+				print_usage = 1;
+				break;
+
+			case 'V':
+				print_version = 1;
+				break;
+
+			case 'v':
+				tunefs_verbose();
+				break;
+
+			case 'q':
+				tunefs_quiet();
+				break;
+
+			case '?':
+				snprintf(error, PATH_MAX,
+					 "Invalid option: \'-%c\'",
+					 optopt);
+				print_usage = 1;
+				break;
+
+			case ':':
+				snprintf(error, PATH_MAX,
+					 "Option \'-%c\' requires an argument",
+					 optopt);
+				print_usage = 1;
+				break;
+
+			default:
+				snprintf(error, PATH_MAX,
+					 "Shouldn't get here %c %c",
+					 optopt, c);
+				break;
+		}
+
+		if (*error)
+			break;
+	}
+
+	if (*error)
+		errorf("%s\n", error);
+
+	if (print_version)
+		verbosef(VL_ERR, "%s %s\n", progname, VERSION);
+
+	if (print_usage)
+		tunefs_usage_internal(*error != '\0');
+
+	if (print_usage || print_version)
+		exit(0);
+
+	if (*error)
+		exit(1);
+
+	shuffle_argv(argc, optind, new_argv);
+	*argv = new_argv;
+
+	return 0;
+}
+
+errcode_t tunefs_init(int *argc, char ***argv, const char *usage)
 {
 	initialize_tune_error_table();
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
 
+	usage_string = usage;
+
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
-	return setup_signals() ? TUNEFS_ET_SIGNALS_FAILED : 0;
+	if (setup_signals())
+		return TUNEFS_ET_SIGNALS_FAILED;
+
+	return tunefs_parse_core_options(argc, argv);
 }
 
 static errcode_t tunefs_set_lock_env(const char *status)
@@ -160,16 +402,24 @@ static errcode_t tunefs_set_lock_env(const char *status)
 
 static errcode_t tunefs_get_lock_env(void)
 {
+	errcode_t err = TUNEFS_ET_INVALID_STACK_NAME;
+	int parent_locked = 0;
 	char *lockenv = getenv(TUNEFS_OCFS2_LOCK_ENV);
 
-	if (!lockenv)
-		return TUNEFS_ET_INVALID_STACK_NAME;
-	if (!strcmp(lockenv, TUNEFS_OCFS2_LOCK_ENV_ONLINE))
-		return TUNEFS_ET_PERFORM_ONLINE;
-	if (!strcmp(lockenv, TUNEFS_OCFS2_LOCK_ENV_LOCKED))
-		return 0;
+	if (lockenv) {
+		parent_locked = 1;
+		if (!strcmp(lockenv, TUNEFS_OCFS2_LOCK_ENV_ONLINE))
+			err = TUNEFS_ET_PERFORM_ONLINE;
+		else if (!strcmp(lockenv, TUNEFS_OCFS2_LOCK_ENV_LOCKED))
+			err = 0;
+		else
+			parent_locked = 0;
+	}
 
-	return TUNEFS_ET_INVALID_STACK_NAME;
+	if (parent_locked)
+		snprintf(progname, PATH_MAX, "%s",  PROGNAME);
+
+	return err;
 }
 
 static errcode_t tunefs_unlock_cluster(void)
@@ -282,7 +532,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
-		verbosef(3,
+		verbosef(VL_LIB,
 			"%s while allocating a block during journal "
 			"check\n",
 			error_message(ret));
@@ -293,7 +543,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
 						&blkno);
 		if (ret) {
-			verbosef(3,
+			verbosef(VL_LIB,
 				 "%s while looking up journal inode for "
 				 "slot %u during journal check\n",
 				 error_message(ret), i);
@@ -302,7 +552,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 
 		ret = ocfs2_read_inode(fs, blkno, buf);
 		if (ret) {
-			verbosef(3,
+			verbosef(VL_LIB,
 				 "%s while reading inode %"PRIu64" during "
 				 " journal check",
 				 error_message(ret), blkno);
@@ -317,7 +567,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 		dirty = di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL;
 		if (dirty) {
 			ret = TUNEFS_ET_JOURNAL_DIRTY;
-			verbosef(3,
+			verbosef(VL_LIB,
 				 "Node slot %d's journal is dirty. Run "
 				 "fsck.ocfs2 to replay all dirty journals.",
 				 i);
@@ -338,7 +588,7 @@ errcode_t tunefs_open(const char *device, int flags)
 	errcode_t err, tmp;
 	int open_flags;
 
-	verbosef(3, "Opening device \"%s\"\n", device);
+	verbosef(VL_LIB, "Opening device \"%s\"\n", device);
 
 	open_flags = OCFS2_FLAG_HEARTBEAT_DEV_OK;
 	if (rw)
@@ -402,9 +652,9 @@ out:
 			ocfs2_close(fs);
 			fs = NULL;
 		}
-		verbosef(3, "Open of device \"%s\" failed\n", device);
+		verbosef(VL_LIB, "Open of device \"%s\" failed\n", device);
 	} else
-		verbosef(3, "Device \"%s\" opened\n", device);
+		verbosef(VL_LIB, "Device \"%s\" opened\n", device);
 
 	return err;
 }
@@ -427,62 +677,6 @@ errcode_t tunefs_close(void)
 	}
 
 	return err;
-}
-
-/* If all verbosity is turned off, make sure com_err() prints nothing. */
-static void quiet_com_err(const char *prog, long errcode, const char *fmt,
-			  va_list args)
-{
-	return;
-}
-
-void tunefs_verbose(void)
-{
-	verbosity++;
-	if (verbosity == 1)
-		reset_com_err_hook();
-}
-
-void tunefs_quiet(void)
-{
-	if (verbosity == 1)
-		set_com_err_hook(quiet_com_err);
-	verbosity--;
-}
-
-static int vfverbosef(FILE *f, int level, const char *fmt, va_list args)
-{
-	int rc = 0;
-
-	if (level <= verbosity) {
-		rc = vfprintf(f, fmt, args);
-	}
-
-	return rc;
-}
-
-int verbosef(int level, const char *fmt, ...)
-{
-	int rc;
-	va_list args;
-
-	va_start(args, fmt);
-	rc = vfverbosef(stdout, level, fmt, args);
-	va_end(args);
-
-	return rc;
-}
-
-int errorf(const char *fmt, ...)
-{
-	int rc;
-	va_list args;
-
-	va_start(args, fmt);
-	rc = vfverbosef(stderr, 1, fmt, args);
-	va_end(args);
-
-	return rc;
 }
 
 errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag)
@@ -538,7 +732,7 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
-		verbosef(3,
+		verbosef(VL_LIB,
 			 "%s while allocating a block during journal "
 			 "resize",
 			 error_message(ret));
@@ -552,7 +746,7 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
 				   strlen(jrnl_file), NULL, &blkno);
 		if (ret) {
-			verbosef(3,
+			verbosef(VL_LIB,
 				 "%s while looking up \"%s\" during "
 				 "journal resize",
 				 error_message(ret),
@@ -562,7 +756,7 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 
 		ret = ocfs2_read_inode(fs, blkno, buf);
 		if (ret) {
-			verbosef(3,
+			verbosef(VL_LIB,
 				 "%s while reading inode at block "
 				 "%"PRIu64" during journal resize",
 				 error_message(ret),
@@ -574,10 +768,10 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		if (num_clusters == di->i_clusters)
 			continue;
 
-		verbosef(3, "Updating journal \"%s\"\n", jrnl_file);
+		verbosef(VL_LIB, "Updating journal \"%s\"\n", jrnl_file);
 		ret = ocfs2_make_journal(fs, blkno, num_clusters);
 		if (ret) {
-			verbosef(3,
+			verbosef(VL_LIB,
 				 "%s while creating %s at block "
 				 "%"PRIu64" of %u clusters during journal "
 				 "resize",
@@ -585,7 +779,7 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 				 num_clusters);
 			goto bail;
 		}
-		verbosef(3, "Update of journal \"%s\" complete\n",
+		verbosef(VL_LIB, "Update of journal \"%s\" complete\n",
 			 jrnl_file);
 	}
 
@@ -602,23 +796,15 @@ bail:
 #define DEBUG_PROGNAME "debug_libtunefs"
 int parent = 0;
 
-static void print_usage(void)
-{
-	fprintf(stderr,
-		"Usage: %s [-p] <device>\n", DEBUG_PROGNAME);
-}
-
 
 static void closeup(const char *device)
 {
 	errcode_t err;
 
-	fprintf(stdout, "success\n");
+	verbosef(VL_OUT, "success\n");
 	err = tunefs_close();
 	if (err)  {
-		com_err(DEBUG_PROGNAME, err,
-			"- Unable to close device \"%s\".",
-			device);
+		tcom_err(err, "- Unable to close device \"%s\".", device);
 	}
 }
 
@@ -627,16 +813,22 @@ int main(int argc, char *argv[])
 	errcode_t err;
 	const char *device;
 
+	err = tunefs_init(&argc, &argv,
+			  "Usage: debug_libtunefs [-p] <device>\n");
+	if (err) {
+		tcom_err(err, "while initializing tunefs");
+		return 1;
+	}
+
 	if (argc > 3) {
-		fprintf(stderr, "Too many arguments\n");
-		print_usage();
+		errorf("Too many arguments\n");
+		tunefs_usage();
 		return 1;
 	}
 	if (argc == 3) {
 		if (strcmp(argv[1], "-p")) {
-			fprintf(stderr, "Invalid argument: \'%s\'\n",
-				argv[1]);
-			print_usage();
+			errorf("Invalid argument: \'%s\'\n", argv[1]);
+			tunefs_usage();
 			return 1;
 		}
 		parent = 1;
@@ -645,67 +837,59 @@ int main(int argc, char *argv[])
 		   strcmp(argv[1], "-p")) {
 		device = argv[1];
 	} else {
-		fprintf(stderr, "Device must be specified\n");
-		print_usage();
+		errorf("Device must be specified\n");
+		tunefs_usage();
 		return 1;
 	}
 
-	err = tunefs_init();
-	if (err) {
-		com_err(DEBUG_PROGNAME, err, "while initializing tunefs");
-		return 1;
-	}
-
-	fprintf(stdout, "Opening device \"%s\" read-only... ", device);
+	verbosef(VL_OUT, "Opening device \"%s\" read-only... ", device);
 	err = tunefs_open(device, TUNEFS_FLAG_RO);
 	if (err) {
-		fprintf(stdout, "failed\n");
-		com_err(DEBUG_PROGNAME, err,
-			"- Unable to open device \"%s\" read-only.",
-			device);
+		verbosef(VL_OUT, "failed\n");
+		tcom_err(err, "- Unable to open device \"%s\" read-only.",
+			 device);
 	} else
 		closeup(device);
 
-	fprintf(stdout, "Opening device \"%s\" read-write... ", device);
+	verbosef(VL_OUT, "Opening device \"%s\" read-write... ", device);
 	err = tunefs_open(device, TUNEFS_FLAG_RW);
 	if (err) {
-		fprintf(stdout, "failed\n");
-		com_err(DEBUG_PROGNAME, err,
-			"- Unable to open device \"%s\" read-write.",
-			device);
+		verbosef(VL_OUT, "failed\n");
+		tcom_err(err, "- Unable to open device \"%s\" read-write.",
+			 device);
 	} else
 		closeup(device);
 
-	fprintf(stdout, "Opening device \"%s\" for an online operation... ",
-		device);
+	verbosef(VL_OUT,
+		 "Opening device \"%s\" for an online operation... ",
+		 device);
 	err = tunefs_open(device, TUNEFS_FLAG_RW | TUNEFS_FLAG_ONLINE);
 	if (err == TUNEFS_ET_PERFORM_ONLINE) {
 		closeup(device);
-		fprintf(stdout, "Operation would have been online\n");
+		verbosef(VL_OUT, "Operation would have been online\n");
 	} else if (!err) {
 		closeup(device);
-		fprintf(stdout, "Operation would have been offline\n");
+		verbosef(VL_OUT, "Operation would have been offline\n");
 	} else {
-		fprintf(stdout, "failed\n");
-		com_err(DEBUG_PROGNAME, err,
-			"- Unable to open device \"%s\" read-write.",
-			device);
+		verbosef(VL_OUT, "failed\n");
+		tcom_err(err, "- Unable to open device \"%s\" read-write.",
+			 device);
 	}
 
-	fprintf(stdout, "Opening device \"%s\" for a stackless operation... ",
-		device);
+	verbosef(VL_OUT,
+		 "Opening device \"%s\" for a stackless operation... ",
+		 device);
 	err = tunefs_open(device, TUNEFS_FLAG_RW | TUNEFS_FLAG_NOCLUSTER);
 	if (err == TUNEFS_ET_INVALID_STACK_NAME) {
 		closeup(device);
-		fprintf(stdout, "Expected cluster stack mismatch found\n");
+		verbosef(VL_OUT, "Expected cluster stack mismatch found\n");
 	} else if (!err) {
 		closeup(device);
-		fprintf(stdout, "Cluster stacks already match\n");
+		verbosef(VL_OUT, "Cluster stacks already match\n");
 	} else {
-		fprintf(stdout, "failed\n");
-		com_err(DEBUG_PROGNAME, err,
-			"- Unable to open device \"%s\" read-write.",
-			device);
+		verbosef(VL_OUT, "failed\n");
+		tcom_err(err, "- Unable to open device \"%s\" read-write.",
+			 device);
 	}
 
 	return 0;
