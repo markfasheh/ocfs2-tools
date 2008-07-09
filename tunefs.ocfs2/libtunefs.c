@@ -42,7 +42,7 @@
 #define TUNEFS_OCFS2_LOCK_ENV_ONLINE	"online"
 
 ocfs2_filesys *fs;
-static char progname[PATH_MAX];
+static char progname[PATH_MAX] = "(Unknown)";
 static const char *usage_string;
 static int cluster_locked;
 static int verbosity = 1;
@@ -132,25 +132,22 @@ static void handle_signal(int caught_sig)
 		case SIGTERM:
 		case SIGINT:
 		case SIGHUP:
-			fprintf(stderr, "Caught signal %d, exiting",
-				caught_sig);
+			errorf("Caught signal %d, exiting\n", caught_sig);
 			exitp = 1;
 			break;
 
 		case SIGSEGV:
-			fprintf(stderr, "Segmentation fault, exiting");
+			errorf("Segmentation fault, exiting\n");
 			exitp = 1;
 			if (segv_already) {
-				fprintf(stderr,
-					"Segmentation fault loop detected");
+				errorf("Segmentation fault loop detected\n");
 				abortp = 1;
 			} else
 				segv_already = 1;
 			break;
 
 		default:
-			fprintf(stderr, "Caught signal %d, ignoring",
-				caught_sig);
+			errorf("Caught signal %d, ignoring\n", caught_sig);
 			break;
 	}
 
