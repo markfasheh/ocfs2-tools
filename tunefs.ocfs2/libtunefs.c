@@ -668,11 +668,16 @@ errcode_t tunefs_close(void)
 	 * are errors, but we preserve the first error we get.
 	 */
 	if (fs) {
+		verbosef(VL_LIB, "Closing device \"%s\"\n", fs->fs_devname);
 		err = tunefs_unlock_cluster();
 		tmp = ocfs2_close(fs);
 		if (!err)
 			err = tmp;
 
+		if (!err)
+			verbosef(VL_LIB, "Device closed\n");
+		else
+			verbosef(VL_LIB, "Close of device failed\n");
 		fs = NULL;
 	}
 
