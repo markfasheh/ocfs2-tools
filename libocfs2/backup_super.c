@@ -29,8 +29,8 @@
 /* In case we don't have fs_blocksize, we will return
  * byte offsets and let the caller calculate them by itself.
  */
-int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,
-				  uint64_t *offsets, size_t len)
+int ocfs2_get_backup_super_offsets(ocfs2_filesys *fs,
+				   uint64_t *offsets, size_t len)
 {
 	size_t i;
 	uint64_t blkno;
@@ -73,8 +73,8 @@ bail:
 	return ret;
 }
 
-errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
-				 uint64_t *blocks, size_t len)
+errcode_t ocfs2_set_backup_super_list(ocfs2_filesys *fs,
+				      uint64_t *blocks, size_t len)
 {
 	size_t i;
 	errcode_t ret = 0;
@@ -127,7 +127,7 @@ errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
 			goto bail;
 	}
 
-	ret = ocfs2_refresh_backup_super(fs, blocks, len);
+	ret = ocfs2_refresh_backup_super_list(fs, blocks, len);
 	if (ret)
 		goto bail;
 
@@ -148,8 +148,8 @@ bail:
 	return ret;
 }
 
-errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
-				     uint64_t *blocks, size_t len)
+errcode_t ocfs2_refresh_backup_super_list(ocfs2_filesys *fs,
+					  uint64_t *blocks, size_t len)
 {
 	errcode_t ret = 0;
 	size_t i;
@@ -164,6 +164,20 @@ bail:
 	return ret;
 }
 
+errcode_t ocfs2_refresh_backup_supers(ocfs2_filesys *fs)
+{
+	int num;
+	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
+
+	if (!OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+				      OCFS2_FEATURE_COMPAT_BACKUP_SB))
+		return 0;  /* Do nothing */
+
+	num = ocfs2_get_backup_super_offsets(fs, blocks,
+					     ARRAY_SIZE(blocks));
+	return num ? ocfs2_refresh_backup_super_list(fs, blocks, num) : 0;
+}
+
 errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf)
 {
 	int numsb;
@@ -173,9 +187,30 @@ errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf)
 				      OCFS2_FEATURE_COMPAT_BACKUP_SB))
 		return OCFS2_ET_NO_BACKUP_SUPER;
 
-	numsb = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	numsb = ocfs2_get_backup_super_offsets(fs, blocks,
+					       ARRAY_SIZE(blocks));
 	if (backup < 1 || backup > numsb)
 		return OCFS2_ET_NO_BACKUP_SUPER;
 
 	return ocfs2_read_super(fs, blocks[backup], sbbuf);
 }
+
+
+/* These were terrible names, don't use them */
+int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,
+				  uint64_t *offsets, size_t len)
+{
+	return ocfs2_get_backup_super_offsets(fs, offsets, len);
+}
+errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
+				     uint64_t *blocks, size_t len)
+{
+	return ocfs2_refresh_backup_super_list(fs, blocks, len);
+}
+errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
+				 uint64_t *blocks, size_t len)
+{
+	return ocfs2_set_backup_super_list(fs, blocks, len);
+}
+
+

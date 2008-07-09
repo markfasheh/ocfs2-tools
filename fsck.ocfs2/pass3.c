@@ -95,7 +95,7 @@ static void check_root(o2fsck_state *ost)
 	ost->ost_fs->fs_root_blkno = blkno;
 	sb->s_root_blkno = blkno;
 
-	ret = ocfs2_write_super(ost->ost_fs);
+	ret = ocfs2_write_primary_super(ost->ost_fs);
 	if (ret) {
 		com_err(whoami, ret, "while writing the super block with a "
 			"new root directory inode");

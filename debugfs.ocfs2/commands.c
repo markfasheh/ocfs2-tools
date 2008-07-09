@@ -390,8 +390,8 @@ static int process_open_args(char **args,
 	if (!s)
 		return 0;
 
-	num = ocfs2_get_backup_super_offset(NULL,
-					    byte_off, ARRAY_SIZE(byte_off));
+	num = ocfs2_get_backup_super_offsets(NULL, byte_off,
+					     ARRAY_SIZE(byte_off));
 	if (!num)
 		return -1;
 

@@ -2404,9 +2404,9 @@ static int format_backup_super(State *s)
 		goto error;
 	}
 
-	len = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	len = ocfs2_get_backup_super_offsets(fs, blocks, ARRAY_SIZE(blocks));
 
-	ret = ocfs2_set_backup_super(fs, blocks, len);
+	ret = ocfs2_set_backup_super_list(fs, blocks, len);
 	if (ret) {
 		com_err(s->progname, ret, "while backing up superblock.");
 		goto error;
@@ -2415,7 +2415,8 @@ static int format_backup_super(State *s)
 	OCFS2_SET_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
 				 OCFS2_FEATURE_COMPAT_BACKUP_SB);
 
-	ret = ocfs2_write_super(fs);
+	/* ocfs2_set_backup_super_list() wrote the backups */
+	ret = ocfs2_write_primary_super(fs);
 	if (ret) {
 		com_err(s->progname, ret, "while updating superblock.");
 		goto error;

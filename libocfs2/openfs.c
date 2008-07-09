@@ -136,7 +136,7 @@ out_blk:
 	return ret;
 }
 
-errcode_t ocfs2_write_super(ocfs2_filesys *fs)
+errcode_t ocfs2_write_primary_super(ocfs2_filesys *fs)
 {
 	errcode_t ret;
 	char *blk;
@@ -160,6 +160,17 @@ errcode_t ocfs2_write_super(ocfs2_filesys *fs)
 	return 0;
 
 out_blk:
+	return ret;
+}
+
+errcode_t ocfs2_write_super(ocfs2_filesys *fs)
+{
+	errcode_t ret;
+
+	ret = ocfs2_write_primary_super(fs);
+	if (!ret)
+		ret = ocfs2_refresh_backup_supers(fs);
+
 	return ret;
 }
 

@@ -271,8 +271,8 @@ static errcode_t o2image_initialize(ocfs2_filesys *ofs, int raw_flag,
 
 	/* traverse and mark super blocks for backup */
 	if (super->s_feature_compat & OCFS2_FEATURE_COMPAT_BACKUP_SB) {
-		len = ocfs2_get_backup_super_offset(ofs, blocks,
-						    ARRAY_SIZE(blocks));
+		len = ocfs2_get_backup_super_offsets(ofs, blocks,
+						     ARRAY_SIZE(blocks));
 		for (i = 0; i < len; i++)
 			ocfs2_image_mark_bitmap(ofs, blocks[i]);
 	}
@@ -412,8 +412,9 @@ static errcode_t write_image_file(ocfs2_filesys *ofs, int fd)
 	hdr->hdr_fsblksz 	= ofs->fs_blocksize;
 	hdr->hdr_imgblkcnt	= blk;
 	hdr->hdr_bmpblksz	= ost->ost_bmpblksz;
-	hdr->hdr_superblkcnt 	= ocfs2_get_backup_super_offset(ofs, supers,
-							ARRAY_SIZE(supers));
+	hdr->hdr_superblkcnt 	=
+		ocfs2_get_backup_super_offsets(ofs, supers,
+					       ARRAY_SIZE(supers));
 	for (i = 0; i < hdr->hdr_superblkcnt; i++)
 		hdr->hdr_superblocks[i] = ocfs2_image_get_blockno(ofs,
 								  supers[i]);

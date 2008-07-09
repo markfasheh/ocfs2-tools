@@ -236,32 +236,6 @@ static errcode_t write_out_superblock(o2fsck_state *ost)
 	return ocfs2_write_super(ost->ost_fs);
 }
 
-static errcode_t update_backup_super(o2fsck_state *ost)
-{
-	errcode_t ret;
-	int num;
-	struct ocfs2_dinode *di = ost->ost_fs->fs_super;
-	struct ocfs2_super_block *sb = OCFS2_RAW_SB(di);
-	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
-
-	if (!OCFS2_HAS_COMPAT_FEATURE(sb, OCFS2_FEATURE_COMPAT_BACKUP_SB))
-		return 0;
-
-	num = ocfs2_get_backup_super_offset(ost->ost_fs,
-					    blocks, ARRAY_SIZE(blocks));
-	if (!num)
-		return 0;
-
-	ret = ocfs2_refresh_backup_super(ost->ost_fs, blocks, num);
-	if (ret) {
-		com_err(whoami, ret, "while refreshing backup superblocks.");
-		goto bail;
-	}
-
-bail:
-	return ret;
-}
-
 static void scale_time(time_t secs, unsigned *scaled, char **units)
 {
 	if (secs < 60) {
@@ -494,7 +468,7 @@ static errcode_t recover_backup_super(o2fsck_state *ost,
 	if (sb_num < 1 || sb_num > OCFS2_MAX_BACKUP_SUPERBLOCKS)
 		return -1;
 
-	ocfs2_get_backup_super_offset(NULL, offsets, ARRAY_SIZE(offsets));
+	ocfs2_get_backup_super_offsets(NULL, offsets, ARRAY_SIZE(offsets));
 
 	/* iterate all the blocksize to get the right one. */
 	for (blksize = OCFS2_MIN_BLOCKSIZE;
@@ -517,7 +491,7 @@ static errcode_t recover_backup_super(o2fsck_state *ost,
 	    	   "Recover superblock information from backup block"
 		   "#%"PRIu64"?", sb)) {
 		fs->fs_super->i_blkno = OCFS2_SUPER_BLOCK_BLKNO;
-		ret = ocfs2_write_super(fs);
+		ret = ocfs2_write_primary_super(fs);
 		if (ret)
 			goto bail;
 	}
@@ -871,13 +845,7 @@ done:
 		ret = write_out_superblock(ost);
 		if (ret)
 			com_err(whoami, ret, "while writing back the "
-				"superblock");
-		else {
-			ret = update_backup_super(ost);
-			if (ret)
-				com_err(whoami, ret,
-					"while updating backup superblock.");
-		}
+				"superblock(s)");
 	}
 
 unlock:

@@ -571,7 +571,7 @@ errcode_t remove_slots(ocfs2_filesys *fs)
 
 		/* The slot number is updated in the super block.*/
 		OCFS2_RAW_SB(fs->fs_super)->s_max_slots--;
-		ret = ocfs2_write_super(fs);
+		ret = ocfs2_write_primary_super(fs);
 		if (ret)
 			goto bail;
 

@@ -244,6 +244,9 @@ errcode_t io_init_cache_size(io_channel *channel, size_t bytes);
 void io_destroy_cache(io_channel *channel);
 
 errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb);
+/* Writes the main superblock at OCFS2_SUPER_BLOCK_BLKNO */
+errcode_t ocfs2_write_primary_super(ocfs2_filesys *fs);
+/* Writes the primary and backups if enabled */
 errcode_t ocfs2_write_super(ocfs2_filesys *fs);
 
 /*
@@ -592,8 +595,8 @@ errcode_t ocfs2_write_backup_super(ocfs2_filesys *fs, uint64_t blkno);
  * The unused ones, depending on the volume size, are zeroed.
  * Return the length of the block array.
  */
-int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,
-				  uint64_t *blocks, size_t len);
+int ocfs2_get_backup_super_offsets(ocfs2_filesys *fs,
+				   uint64_t *blocks, size_t len);
 
 /* This function will get the superblock pointed to by fs and copy it to
  * the blocks. But first it will ensure all the appropriate clusters are free.
@@ -602,12 +605,14 @@ int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,
  * In case of updating, it will override the backup blocks with the newest
  * superblock information.
  */
-errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
-				 uint64_t *blocks, size_t len);
+errcode_t ocfs2_set_backup_super_list(ocfs2_filesys *fs,
+				      uint64_t *blocks, size_t len);
 
-/* Refresh the backup superblock inoformation. */
-errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
-				     uint64_t *blocks, size_t len);
+/* Refresh the backup superblock information */
+errcode_t ocfs2_refresh_backup_supers(ocfs2_filesys *fs);
+/* Refresh a specific list of backup superblocks */
+errcode_t ocfs2_refresh_backup_super_list(ocfs2_filesys *fs,
+					  uint64_t *blocks, size_t len);
 
 errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf);
 
@@ -615,6 +620,17 @@ errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf);
 errcode_t ocfs2_get_last_cluster_offset(ocfs2_filesys *fs,
 					struct ocfs2_dinode *di,
 					uint32_t *v_cluster);
+
+/* These are deprecated names - don't use them */
+int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,
+				  uint64_t *blocks, size_t len);
+errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
+				 uint64_t *blocks, size_t len);
+errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
+				 uint64_t *blocks, size_t len);
+
+
+
 /* 
  * ${foo}_to_${bar} is a floor function.  blocks_to_clusters will
  * returns the cluster that contains a block, not the number of clusters

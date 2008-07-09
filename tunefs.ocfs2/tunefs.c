@@ -797,7 +797,8 @@ static errcode_t backup_super_check(ocfs2_filesys *fs)
 		return -1;
 	}
 
-	num = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	num = ocfs2_get_backup_super_offsets(fs, blocks,
+					     ARRAY_SIZE(blocks));
 	if (!num) {
 		com_err(opts.progname, 0,
 			"Volume is too small to hold backup superblocks");
@@ -1001,21 +1002,6 @@ bail:
 	return ret;
 }
 
-static errcode_t refresh_backup_super(ocfs2_filesys *fs)
-{
-	errcode_t ret;
-	int num;
-	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
-
-	num = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
-	if (!num)
-		return 0;
-
-	ret = ocfs2_refresh_backup_super(fs, blocks, num);
-
-	return ret;
-}
-
 static errcode_t update_backup_super(ocfs2_filesys *fs, uint64_t startblk,
 				     uint64_t newblocks)
 {
@@ -1023,7 +1009,8 @@ static errcode_t update_backup_super(ocfs2_filesys *fs, uint64_t startblk,
 	int num, i;
 	uint64_t *new_backup_super, blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
 
-	num = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	num = ocfs2_get_backup_super_offsets(fs, blocks,
+					     ARRAY_SIZE(blocks));
 	if (!num)
 		return 0;
 
@@ -1041,7 +1028,7 @@ static errcode_t update_backup_super(ocfs2_filesys *fs, uint64_t startblk,
 	} else
 		new_backup_super = blocks;
 
-	ret = ocfs2_set_backup_super(fs, new_backup_super, num);
+	ret = ocfs2_set_backup_super_list(fs, new_backup_super, num);
 	if (ret) {
 		com_err(opts.progname, ret, "while backing up superblock.");
 		goto bail;
@@ -1407,7 +1394,7 @@ skip_cluster_start:
 				OCFS2_TUNEFS_INPROG_REMOVE_SLOT;
 		}
 
-		ret = ocfs2_write_super(fs);
+		ret = ocfs2_write_primary_super(fs);
 		if (ret) {
 			com_err(opts.progname, ret,
 				"while writing resize incompat flag");
@@ -1552,38 +1539,14 @@ skip_cluster_start:
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_write_super(fs);
 		if (ret) {
-			com_err(opts.progname, ret, "while writing superblock");
+			com_err(opts.progname, ret,
+				"while writing superblock(s)");
 			goto unlock;
 		}
 		block_signals(SIG_UNBLOCK);
-		printf("Wrote Superblock\n");
-
-		/* superblock's information has changed.
-		 * We need to synchronize the backup blocks if needed.
-		 * We also have to admit that if upd_backup_super is set,
-		 * there is no need to refresh the backups since they are
-		 * written above by update_backup_super.
-		 */
-		if (!upd_backup_super &&
-		    OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
-					     OCFS2_FEATURE_COMPAT_BACKUP_SB)) {
-			block_signals(SIG_BLOCK);
-			ret = refresh_backup_super(fs);
-			block_signals(SIG_UNBLOCK);
-			if (ret) {
-				printf("Unable to refresh backup superblocks. "
-					"Please run fsck.ocfs2 before running "
-					"tunefs.ocfs2 to re-enable "
-					"backup superblocks.");
-				OCFS2_CLEAR_COMPAT_FEATURE(
-					OCFS2_RAW_SB(fs->fs_super),
-					OCFS2_FEATURE_COMPAT_BACKUP_SB);
-				block_signals(SIG_BLOCK);
-				ocfs2_write_super(fs);
-				block_signals(SIG_UNBLOCK);
-			}
-		}
+		printf("Wrote Superblock(s)\n");
 	}
+
 online_resize_unlock:
 	if (online_resize)
 		online_resize_unlock(fs);

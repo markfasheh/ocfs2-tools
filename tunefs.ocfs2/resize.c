@@ -199,7 +199,7 @@ static errcode_t reserve_backup_in_group(ocfs2_filesys *fs,
 				      OCFS2_FEATURE_COMPAT_BACKUP_SB))
 		goto out;
 
-	numsb = ocfs2_get_backup_super_offset(fs, blocks, ARRAY_SIZE(blocks));
+	numsb = ocfs2_get_backup_super_offsets(fs, blocks, ARRAY_SIZE(blocks));
 	if (numsb <= 0)
 		goto out;
 

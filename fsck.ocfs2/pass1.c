@@ -1147,8 +1147,8 @@ static void write_cluster_alloc(o2fsck_state *ost)
 	memset(&clusters, 0, sizeof(clusters));
 	if (OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(ost->ost_fs->fs_super),
 				     OCFS2_FEATURE_COMPAT_BACKUP_SB)) {
-		num = ocfs2_get_backup_super_offset(ost->ost_fs, blocks,
-					   ARRAY_SIZE(blocks));
+		num = ocfs2_get_backup_super_offsets(ost->ost_fs, blocks,
+						     ARRAY_SIZE(blocks));
 		if (num) {
 			backup_super = 1;
 			for (i = 0; i < num; i++)
