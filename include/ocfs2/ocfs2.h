@@ -624,8 +624,8 @@ errcode_t ocfs2_get_last_cluster_offset(ocfs2_filesys *fs,
 /* These are deprecated names - don't use them */
 int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,
 				  uint64_t *blocks, size_t len);
-errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
-				 uint64_t *blocks, size_t len);
+errcode_t ocfs2_refresh_backup_super(ocfs2_filesys *fs,
+				     uint64_t *blocks, size_t len);
 errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
 				 uint64_t *blocks, size_t len);
 
