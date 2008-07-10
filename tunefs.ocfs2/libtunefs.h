@@ -29,6 +29,8 @@
 #define TUNEFS_FLAG_ONLINE	0x02	/* Operation can run online */
 #define TUNEFS_FLAG_NOCLUSTER	0x04	/* Operation does not need the
 					   cluster stack */
+#define TUNEFS_FLAG_ALLOCATION	0x08	/* Operation will use the
+					   allocator */
 
 /* Verbosity levels for verbosef/errorf/tcom_err */
 #define VL_FLAG_STDOUT	0x100	/* or'd with a level, output to stdout */

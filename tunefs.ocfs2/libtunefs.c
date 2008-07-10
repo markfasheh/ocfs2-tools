@@ -32,6 +32,7 @@
 #include <getopt.h>
 
 #include "ocfs2/ocfs2.h"
+#include "ocfs2/bitops.h"
 
 #include "libtunefs.h"
 #include "libtunefs_err.h"
@@ -518,6 +519,209 @@ out_err:
 	return err;
 }
 
+static int tunefs_count_free_bits(struct ocfs2_group_desc *gd)
+{
+	int end = 0;
+	int start;
+	int bits = 0;
+
+	while (end < gd->bg_bits) {
+		start = ocfs2_find_next_bit_clear(gd->bg_bitmap, gd->bg_bits, end);
+		if (start >= gd->bg_bits)
+			break;
+		end = ocfs2_find_next_bit_set(gd->bg_bitmap, gd->bg_bits, start);
+		bits += (end - start);
+	}
+
+	return bits;
+}
+
+static errcode_t tunefs_validate_chain_group(ocfs2_filesys *fs,
+					     struct ocfs2_dinode *di,
+					     int chain)
+{
+	errcode_t ret = 0;
+	uint64_t blkno;
+	char *buf = NULL;
+	struct ocfs2_group_desc *gd;
+	struct ocfs2_chain_list *cl;
+	struct ocfs2_chain_rec *cr;
+	uint32_t total = 0;
+	uint32_t free = 0;
+	uint16_t bits;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		verbosef(VL_LIB,
+			 "%s while allocating a buffer for chain group "
+			 "validation\n",
+			 error_message(ret));
+		goto bail;
+	}
+
+	total = 0;
+	free = 0;
+
+	cl = &(di->id2.i_chain);
+	cr = &(cl->cl_recs[chain]);
+	blkno = cr->c_blkno;
+
+	while (blkno) {
+		ret = ocfs2_read_group_desc(fs, blkno, buf);
+		if (ret) {
+			verbosef(VL_LIB,
+				 "%s while reading chain group descriptor "
+				 "at block %"PRIu64"\n",
+				 error_message(ret), blkno);
+			goto bail;
+		}
+
+		gd = (struct ocfs2_group_desc *)buf;
+
+		if (gd->bg_parent_dinode != di->i_blkno) {
+			ret = OCFS2_ET_CORRUPT_CHAIN;
+			verbosef(VL_LIB,
+				 "Chain allocator at block %"PRIu64" is "
+				 "corrupt.  It contains group descriptor "
+				 "at %"PRIu64", but that descriptor says "
+				 "it belongs to allocator %"PRIu64"\n",
+				 (uint64_t)di->i_blkno, blkno,
+				 (uint64_t)gd->bg_parent_dinode);
+			goto bail;
+		}
+
+		if (gd->bg_chain != chain) {
+			ret = OCFS2_ET_CORRUPT_CHAIN;
+			verbosef(VL_LIB,
+				 "Chain allocator at block %"PRIu64" is "
+				 "corrupt.  Group descriptor at %"PRIu64" "
+				 "was found on chain %u, but it says it "
+				 "belongs to chain %u\n",
+				 (uint64_t)di->i_blkno, blkno,
+				 chain, gd->bg_chain);
+			goto bail;
+		}
+
+		bits = tunefs_count_free_bits(gd);
+		if (bits != gd->bg_free_bits_count) {
+			ret = OCFS2_ET_CORRUPT_CHAIN;
+			verbosef(VL_LIB,
+				 "Chain allocator at block %"PRIu64" is "
+				 "corrupt.  Group descriptor at %"PRIu64" "
+				 "has %u free bits but says it has %u\n",
+				 (uint64_t)di->i_blkno, (uint64_t)blkno,
+				 bits, gd->bg_free_bits_count);
+			goto bail;
+		}
+
+		if (gd->bg_bits > gd->bg_size * 8) {
+			ret = OCFS2_ET_CORRUPT_CHAIN;
+			verbosef(VL_LIB,
+				 "Chain allocator at block %"PRIu64" is "
+				 "corrupt.  Group descriptor at %"PRIu64" "
+				 "can only hold %u bits, but it claims to "
+				 "have %u\n",
+				 (uint64_t)di->i_blkno, (uint64_t)blkno,
+				 gd->bg_size * 8, gd->bg_bits);
+			goto bail;
+		}
+
+		if (gd->bg_free_bits_count >= gd->bg_bits) {
+			ret = OCFS2_ET_CORRUPT_CHAIN;
+			verbosef(VL_LIB,
+				 "Chain allocator at block %"PRIu64" is "
+				 "corrupt.  Group descriptor at %"PRIu64" "
+				 "claims to have more free bits than "
+				 "total bits\n",
+				 (uint64_t)di->i_blkno, (uint64_t)blkno);
+			goto bail;
+		}
+
+		total += gd->bg_bits;
+		free += gd->bg_free_bits_count;
+		blkno = gd->bg_next_group;
+	}
+
+	if (cr->c_total != total) {
+		ret = OCFS2_ET_CORRUPT_CHAIN;
+		verbosef(VL_LIB,
+			 "Chain allocator at block %"PRIu64" is corrupt. "
+			 "It contains %u total bits, but it says it has "
+			 "%u\n",
+			 (uint64_t)di->i_blkno, total, cr->c_total);
+		goto bail;
+
+	}
+
+	if (cr->c_free != free) {
+		ret = OCFS2_ET_CORRUPT_CHAIN;
+		verbosef(VL_LIB,
+			 "Chain allocator at block %"PRIu64" is corrupt. "
+			 "It contains %u free bits, but it says it has "
+			 "%u\n",
+			 (uint64_t)di->i_blkno, free, cr->c_free);
+		goto bail;
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
+
+static errcode_t tunefs_global_bitmap_check(ocfs2_filesys *fs)
+{
+	errcode_t ret = 0;
+	uint64_t bm_blkno = 0;
+	char *buf = NULL;
+	struct ocfs2_chain_list *cl;
+	struct ocfs2_dinode *di;
+	int i;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		verbosef(VL_LIB,
+			 "%s while allocating an inode buffer to validate "
+			 "the global bitmap\n",
+			 error_message(ret));
+		goto bail;
+	}
+
+	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE, 0,
+					&bm_blkno);
+	if (ret) {
+		verbosef(VL_LIB,
+			 "%s while looking up the global bitmap inode\n",
+			 error_message(ret));
+		goto bail;
+	}
+
+	ret = ocfs2_read_inode(fs, bm_blkno, buf);
+	if (ret) {
+		verbosef(VL_LIB,
+			 "%s while reading the global bitmap inode at "
+			 "block %"PRIu64"",
+			 error_message(ret), bm_blkno);
+		goto bail;
+	}
+
+	di = (struct ocfs2_dinode *)buf;
+	cl = &(di->id2.i_chain);
+
+	for (i = 0; i < cl->cl_next_free_rec; ++i) {
+		ret = tunefs_validate_chain_group(fs, di, i);
+		if (ret)
+			goto bail;
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 {
 	errcode_t ret;
@@ -625,16 +829,19 @@ errcode_t tunefs_open(const char *device, int flags)
 		goto out;
 
 	/*
-	 * We will use block cache in io. Now whether the cluster is locked or
-	 * the volume is mount local, in both situation we can safely use cache.
-	 * If io_init_cache failed, we will go on the tunefs work without
-	 * the io_cache, so there is no check here.
+	 * We will use block cache in io.  Now, whether the cluster is
+	 * locked or the volume is mount local, in both situation we can
+	 * safely use cache.  If io_init_cache failed, we will go on the
+	 * tunefs work without the io_cache, so there is no check here.
 	 */
 	io_init_cache(fs->fs_io, ocfs2_extent_recs_per_eb(fs->fs_blocksize));
 
 	/* Offline operations need clean journals */
 	if (err != TUNEFS_ET_PERFORM_ONLINE) {
 		tmp = tunefs_journal_check(fs);
+		/* Allocating operations should validate the bitmap */
+		if (!tmp && (flags & TUNEFS_FLAG_ALLOCATION))
+			tmp = tunefs_global_bitmap_check(fs);
 		if (tmp) {
 			err = tmp;
 			tunefs_unlock_cluster();
