@@ -607,6 +607,10 @@ int ocfs2_get_backup_super_offsets(ocfs2_filesys *fs,
  */
 errcode_t ocfs2_set_backup_super_list(ocfs2_filesys *fs,
 				      uint64_t *blocks, size_t len);
+/* Conversely, this clears all the allocator bits associated with the
+ * specified backup superblocks */
+errcode_t ocfs2_clear_backup_super_list(ocfs2_filesys *fs,
+					uint64_t *blocks, size_t len);
 
 /* Refresh the backup superblock information */
 errcode_t ocfs2_refresh_backup_supers(ocfs2_filesys *fs);

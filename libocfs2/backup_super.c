@@ -54,6 +54,65 @@ int ocfs2_get_backup_super_offsets(ocfs2_filesys *fs,
 	return i;
 }
 
+errcode_t ocfs2_clear_backup_super_list(ocfs2_filesys *fs,
+					uint64_t *blocks, size_t len)
+{
+	size_t i;
+	errcode_t ret = 0;
+	uint64_t bm_blk;
+	int loaded = 0;
+
+	if (!len || !blocks || !*blocks)
+		goto bail;
+	len = ocfs2_min(len,(size_t)OCFS2_MAX_BACKUP_SUPERBLOCKS);
+
+	/*
+	 * Don't clear anything if backup superblocks aren't enabled -
+	 * there might be real data there!  If backup superblocks are
+	 * enabled, we know these blocks are backups, and we're
+	 * safe to clear them.
+	 */
+	if (!OCFS2_HAS_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+				      OCFS2_FEATURE_COMPAT_BACKUP_SB))
+		goto bail;
+
+	if (!fs->fs_cluster_alloc) {
+		loaded = 1;
+		ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+						0, &bm_blk);
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_read_cached_inode(fs, bm_blk, &fs->fs_cluster_alloc);
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_load_chain_allocator(fs, fs->fs_cluster_alloc);
+		if (ret)
+			goto bail;
+	}
+
+	for (i = 0; i < len; i++) {
+		ret = ocfs2_chain_free(fs,
+				       fs->fs_cluster_alloc,
+				       ocfs2_blocks_to_clusters(fs,
+								blocks[i]));
+		/* Ignore the 'bit was already free' error */
+		if (ret &&
+		    (ret != OCFS2_ET_FREEING_UNALLOCATED_REGION))
+			goto bail;
+	}
+
+	ret = ocfs2_write_chain_allocator(fs, fs->fs_cluster_alloc);
+
+bail:
+	if (fs->fs_cluster_alloc && loaded) {
+		ocfs2_free_cached_inode(fs, fs->fs_cluster_alloc);
+		fs->fs_cluster_alloc = NULL;
+	}
+	return ret;
+}
+
 static errcode_t check_cluster(ocfs2_bitmap *bitmap, uint64_t bit)
 {
 	errcode_t ret;
@@ -80,7 +139,7 @@ errcode_t ocfs2_set_backup_super_list(ocfs2_filesys *fs,
 	errcode_t ret = 0;
 	char *buf = NULL;
 	uint64_t bm_blk, *blkno = blocks;
-	int val;
+	int val, loaded = 0;
 	uint32_t cluster, bpc = fs->fs_clustersize / fs->fs_blocksize;
 
 	if (!len || !blocks || !*blocks)
@@ -88,6 +147,7 @@ errcode_t ocfs2_set_backup_super_list(ocfs2_filesys *fs,
 	len = ocfs2_min(len,(size_t)OCFS2_MAX_BACKUP_SUPERBLOCKS);
 
 	if (!fs->fs_cluster_alloc) {
+		loaded = 1;
 		ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
 						0, &bm_blk);
 		if (ret)
@@ -141,7 +201,7 @@ errcode_t ocfs2_set_backup_super_list(ocfs2_filesys *fs,
 bail:
 	if (buf)
 		ocfs2_free(&buf);
-	if (fs->fs_cluster_alloc) {
+	if (fs->fs_cluster_alloc && loaded) {
 		ocfs2_free_cached_inode(fs, fs->fs_cluster_alloc);
 		fs->fs_cluster_alloc = NULL;
 	}
