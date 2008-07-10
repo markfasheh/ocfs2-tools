@@ -733,22 +733,22 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
 		verbosef(VL_LIB,
-			 "%s while allocating a block during journal "
-			 "resize",
+			 "%s while allocating inode buffer for journal "
+			 "resize\n",
 			 error_message(ret));
 		return ret;
 	}
 
 	for (i = 0; i < max_slots; ++i) {
-		snprintf (jrnl_file, sizeof(jrnl_file),
-			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
-
-		ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, jrnl_file,
-				   strlen(jrnl_file), NULL, &blkno);
+		ocfs2_sprintf_system_inode_name(jrnl_file,
+						OCFS2_MAX_FILENAME_LEN,
+						JOURNAL_SYSTEM_INODE, i);
+		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
+						&blkno);
 		if (ret) {
 			verbosef(VL_LIB,
 				 "%s while looking up \"%s\" during "
-				 "journal resize",
+				 "journal resize\n",
 				 error_message(ret),
 				 jrnl_file);
 			goto bail;
@@ -757,10 +757,9 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		ret = ocfs2_read_inode(fs, blkno, buf);
 		if (ret) {
 			verbosef(VL_LIB,
-				 "%s while reading inode at block "
-				 "%"PRIu64" during journal resize",
-				 error_message(ret),
-				 blkno);
+				 "%s while reading journal inode "
+				 "%"PRIu64" for resizing\n",
+				 error_message(ret), blkno);
 			goto bail;
 		}
 
@@ -768,18 +767,19 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		if (num_clusters == di->i_clusters)
 			continue;
 
-		verbosef(VL_LIB, "Updating journal \"%s\"\n", jrnl_file);
+		verbosef(VL_LIB,
+			 "Resizing journal \"%s\" to %"PRIu32" clusters\n",
+			 jrnl_file, num_clusters);
 		ret = ocfs2_make_journal(fs, blkno, num_clusters);
 		if (ret) {
 			verbosef(VL_LIB,
-				 "%s while creating %s at block "
-				 "%"PRIu64" of %u clusters during journal "
-				 "resize",
+				 "%s while resizing \"%s\" at block "
+				 "%"PRIu64" to %"PRIu32" clusters\n",
 				 error_message(ret), jrnl_file, blkno,
 				 num_clusters);
 			goto bail;
 		}
-		verbosef(VL_LIB, "Update of journal \"%s\" complete\n",
+		verbosef(VL_LIB, "Successfully resized journal \"%s\"\n",
 			 jrnl_file);
 	}
 
