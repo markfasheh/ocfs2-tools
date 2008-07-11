@@ -66,9 +66,13 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size);
 void tunefs_usage(void);
 void tunefs_verbose(void);
 void tunefs_quiet(void);
-void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...);
-void errorf(const char *fmt, ...);
-void tcom_err(errcode_t code, const char *fmt, ...);
-int tunefs_interact(const char *fmt, ...);
+void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...)
+	__attribute__ ((format (printf, 2, 3)));
+void errorf(const char *fmt, ...)
+	__attribute__ ((format (printf, 1, 2)));
+void tcom_err(errcode_t code, const char *fmt, ...)
+	__attribute__ ((format (printf, 2, 3)));
+int tunefs_interact(const char *fmt, ...)
+	__attribute__ ((format (printf, 1, 2)));
 
 #endif  /* _LIBTUNEFS_H */

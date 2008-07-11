@@ -80,6 +80,8 @@ static void vfverbosef(FILE *f, int level, const char *fmt, va_list args)
 }
 
 static void fverbosef(FILE *f, int level, const char *fmt, ...)
+	__attribute__ ((format (printf, 3, 4)));
+static void fverbosef(FILE *f, int level, const char *fmt, ...)
 {
 	va_list args;
 
