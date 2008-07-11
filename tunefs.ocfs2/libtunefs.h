@@ -74,5 +74,7 @@ void tcom_err(errcode_t code, const char *fmt, ...)
 	__attribute__ ((format (printf, 2, 3)));
 int tunefs_interact(const char *fmt, ...)
 	__attribute__ ((format (printf, 1, 2)));
+int tunefs_interact_critical(const char *fmt, ...)
+	__attribute__ ((format (printf, 1, 2)));
 
 #endif  /* _LIBTUNEFS_H */

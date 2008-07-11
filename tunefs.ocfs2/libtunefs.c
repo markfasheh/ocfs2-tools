@@ -124,18 +124,12 @@ void tcom_err(errcode_t code, const char *fmt, ...)
 	va_end(args);
 }
 
-/* Pass this a question without a newline. */
-int tunefs_interact(const char *fmt, ...)
+static int vtunefs_interact(enum tunefs_verbosity_level level,
+			    const char *fmt, va_list args)
 {
 	char *s, buffer[NAME_MAX];
-	va_list args;
 
-	if (!interactive)
-		return 1;
-
-	va_start(args, fmt);
-	vfverbosef(stderr, VL_ERR, fmt, args);
-	va_end(args);
+	vfverbosef(stderr, level, fmt, args);
 
 	s = fgets(buffer, sizeof(buffer), stdin);
 	if (s && *s) {
@@ -145,6 +139,35 @@ int tunefs_interact(const char *fmt, ...)
 	}
 
 	return 0;
+}
+
+/* Pass this a question without a newline. */
+int tunefs_interact(const char *fmt, ...)
+{
+	int rc;
+	va_list args;
+
+	if (!interactive)
+		return 1;
+
+	va_start(args, fmt);
+	rc = vtunefs_interact(VL_ERR, fmt, args);
+	va_end(args);
+
+	return rc;
+}
+
+/* Only for "DON'T DO THIS WITHOUT REALLY CHECKING!" stuff */
+int tunefs_interact_critical(const char *fmt, ...)
+{
+	int rc;
+	va_list args;
+
+	va_start(args, fmt);
+	rc = vtunefs_interact(VL_CRIT, fmt, args);
+	va_end(args);
+
+	return rc;
 }
 
 static void handle_signal(int caught_sig)
