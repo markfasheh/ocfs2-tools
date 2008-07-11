@@ -69,5 +69,6 @@ void tunefs_quiet(void);
 void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...);
 void errorf(const char *fmt, ...);
 void tcom_err(errcode_t code, const char *fmt, ...);
+int tunefs_interact(const char *fmt, ...);
 
 #endif  /* _LIBTUNEFS_H */

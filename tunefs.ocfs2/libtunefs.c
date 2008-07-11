@@ -30,6 +30,7 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <getopt.h>
+#include <ctype.h>
 
 #include "ocfs2/ocfs2.h"
 #include "ocfs2/bitops.h"
@@ -47,6 +48,7 @@ static char progname[PATH_MAX] = "(Unknown)";
 static const char *usage_string;
 static int cluster_locked;
 static int verbosity = 1;
+static int interactive = 0;
 static uint32_t journal_clusters = 0;
 
 
@@ -118,6 +120,29 @@ void tcom_err(errcode_t code, const char *fmt, ...)
 	va_start(args, fmt);
 	com_err_va(progname, code, fmt, args);
 	va_end(args);
+}
+
+/* Pass this a question without a newline. */
+int tunefs_interact(const char *fmt, ...)
+{
+	char *s, buffer[NAME_MAX];
+	va_list args;
+
+	if (!interactive)
+		return 1;
+
+	va_start(args, fmt);
+	vfverbosef(stderr, VL_ERR, fmt, args);
+	va_end(args);
+
+	s = fgets(buffer, sizeof(buffer), stdin);
+	if (s && *s) {
+		tolower(*s);
+		if (*s == 'y')
+			return 1;
+	}
+
+	return 0;
 }
 
 static void handle_signal(int caught_sig)
@@ -267,6 +292,7 @@ static void tunefs_usage_internal(int error)
 	fverbosef(f, VL_ERR, "%s", usage_string ? usage_string : "(null)");
 	fverbosef(f, VL_ERR,
 		  "[opts] can be any mix of:\n"
+		  "\t-i|--interactive\n"
 		  "\t-v|--verbose (more than one increases verbosity)\n"
 		  "\t-q|--quiet (more than one decreases verbosity)\n"
 		  "\t-h|--help\n"
@@ -292,6 +318,7 @@ static errcode_t tunefs_parse_core_options(int *argc, char ***argv)
 		{ "version", 0, NULL, 'V' },
 		{ "verbose", 0, NULL, 'v' },
 		{ "quiet", 0, NULL, 'q' },
+		{ "interactive", 0, NULL, 'i'},
 		{ 0, 0, 0, 0}
 	};
 
@@ -303,7 +330,7 @@ static errcode_t tunefs_parse_core_options(int *argc, char ***argv)
 	opterr = 0;
 	error[0] = '\0';
 	while ((c = getopt_long(*argc, new_argv,
-				":hVvq", long_options, NULL)) != EOF) {
+				":hVvqi", long_options, NULL)) != EOF) {
 		switch (c) {
 			case 'h':
 				print_usage = 1;
@@ -319,6 +346,10 @@ static errcode_t tunefs_parse_core_options(int *argc, char ***argv)
 
 			case 'q':
 				tunefs_quiet();
+				break;
+
+			case 'i':
+				interactive = 1;
 				break;
 
 			case '?':
