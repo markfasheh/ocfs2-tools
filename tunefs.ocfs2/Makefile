@@ -13,14 +13,15 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 UNINST_LIBRARIES = libtunefs.a
 
-OCFS2NE_METHODS =			\
-	ocfs2ne_feature_backup_super	\
-	ocfs2ne_list_sparse_files	\
-	ocfs2ne_reset_uuid		\
-	ocfs2ne_set_label		\
-	ocfs2ne_set_journal_size	\
-	ocfs2ne_set_mount_type		\
-	ocfs2ne_set_slot_count		\
+OCFS2NE_METHODS =				\
+	ocfs2ne_feature_backup_super		\
+	ocfs2ne_feature_extended_slotmap	\
+	ocfs2ne_list_sparse_files		\
+	ocfs2ne_reset_uuid			\
+	ocfs2ne_set_label			\
+	ocfs2ne_set_journal_size		\
+	ocfs2ne_set_mount_type			\
+	ocfs2ne_set_slot_count			\
 	ocfs2ne_update_cluster_stack
 
 sbindir = $(root_sbindir)
