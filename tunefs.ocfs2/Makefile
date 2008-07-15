@@ -16,6 +16,7 @@ UNINST_LIBRARIES = libtunefs.a
 OCFS2NE_METHODS =				\
 	ocfs2ne_feature_backup_super		\
 	ocfs2ne_feature_extended_slotmap	\
+	ocfs2ne_feature_sparse_files		\
 	ocfs2ne_list_sparse_files		\
 	ocfs2ne_reset_uuid			\
 	ocfs2ne_set_label			\

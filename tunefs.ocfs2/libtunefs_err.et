@@ -70,4 +70,7 @@ ec      TUNEFS_ET_TRUNCATE_LOG_NOT_EMPTY,
 ec      TUNEFS_ET_LOCAL_ALLOC_NOT_EMPTY,
 	"Local allocation file is not empty"
 
+ec	TUNEFS_ET_UNWRITTEN_PRESENT,
+	"Unwritten extents are present"
+
 	end
