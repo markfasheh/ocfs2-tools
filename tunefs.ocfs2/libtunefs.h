@@ -153,4 +153,10 @@ int tunefs_interact(const char *fmt, ...)
 int tunefs_interact_critical(const char *fmt, ...)
 	__attribute__ ((format (printf, 1, 2)));
 
+errcode_t tunefs_foreach_inode(ocfs2_filesys *fs, int filetype_mask,
+			       errcode_t (*func)(ocfs2_filesys *fs,
+						 struct ocfs2_dinode *di,
+						 void *user_data),
+			       void *user_data);
+
 #endif  /* _LIBTUNEFS_H */

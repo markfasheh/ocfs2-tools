@@ -50,7 +50,7 @@ debug_%: debug_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libtunefs.a
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 endif
 
-LIBTUNEFS_CFILES = libtunefs.c
+LIBTUNEFS_CFILES = libtunefs.c foreach.c
 HFILES_GEN = libtunefs_err.h
 
 libtunefs_err.c libtunefs_err.h: libtunefs_err.et
