@@ -73,4 +73,7 @@ ec      TUNEFS_ET_LOCAL_ALLOC_NOT_EMPTY,
 ec	TUNEFS_ET_UNWRITTEN_PRESENT,
 	"Unwritten extents are present"
 
+ec	TUNEFS_ET_SPARSE_MISSING,
+	"Sparse files are missing"
+
 	end
