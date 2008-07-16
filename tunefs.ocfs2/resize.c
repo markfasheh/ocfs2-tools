@@ -557,8 +557,8 @@ errcode_t update_volume_size(ocfs2_filesys *fs, int *changed, int online)
 	}
 
 	if (!online) {
-		di->id1.bitmap1.i_total = total_bits;
-		di->id1.bitmap1.i_used = used_bits;
+		di->id1.bitmap1.i_total += total_bits;
+		di->id1.bitmap1.i_used += used_bits;
 
 		di->i_clusters += save_new_clusters;
 		di->i_size = (uint64_t) di->i_clusters * fs->fs_clustersize;
