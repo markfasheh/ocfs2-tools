@@ -34,6 +34,9 @@ ec	TUNEFS_ET_INVALID_STACK_NAME,
 ec	TUNEFS_ET_PERFORM_ONLINE,
 	"Operation needs to be performed online"
 
+ec	TUNEFS_ET_DEVICE_BUSY,
+	"Device is busy"
+
 ec	TUNEFS_ET_INTERNAL_FAILURE,
 	"Internal logic failure"
 

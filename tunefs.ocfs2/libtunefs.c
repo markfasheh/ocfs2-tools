@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -44,6 +46,11 @@
 #define TUNEFS_OCFS2_LOCK_ENV_ONLINE	"online"
 
 ocfs2_filesys *fs;
+static int local_fd = -1;		/* only used for LOCAL_FL */
+static unsigned int local_fd_count;	/* We can only open local_fd once
+					   (that's kind of the point :-),
+					   so multiple tunefs_open() calls
+					   just bump this count */
 static char progname[PATH_MAX] = "(Unknown)";
 static const char *usage_string;
 static int cluster_locked;
@@ -476,12 +483,69 @@ static errcode_t tunefs_get_lock_env(void)
 	return err;
 }
 
+/*
+ * Single-node filesystems need to prevent mount(8) from happening
+ * while tunefs.ocfs2 is running.  bd_claim does this for us when we
+ * open O_EXCL.
+ */
+static errcode_t tunefs_lock_local(ocfs2_filesys *fs, int flags)
+{
+	errcode_t err = 0;
+	int mount_flags;
+	int rc;
+
+	if (local_fd_count) {
+		local_fd_count++;
+		return 0;
+	}
+
+	rc = open64(fs->fs_devname, O_RDWR | O_EXCL);
+	if (rc < 0) {
+		if (errno == EBUSY) {
+			/* bd_claim has a hold, let's see if it's ocfs2 */
+			err = ocfs2_check_if_mounted(fs->fs_devname,
+						     &mount_flags);
+			if (!err) {
+				if (!(mount_flags & OCFS2_MF_MOUNTED) ||
+				    (mount_flags & OCFS2_MF_READONLY) ||
+				    (mount_flags & OCFS2_MF_SWAP) ||
+				    !(flags & TUNEFS_FLAG_ONLINE))
+					err = TUNEFS_ET_DEVICE_BUSY;
+				else
+					err = TUNEFS_ET_PERFORM_ONLINE;
+			}
+		} else if (errno == ENOENT)
+			err = OCFS2_ET_NAMED_DEVICE_NOT_FOUND;
+		else
+			err = OCFS2_ET_IO;
+	} else {
+		local_fd = rc;
+		local_fd_count = 1;
+	}
+
+	return err;
+}
+
+static void tunefs_unlock_local(ocfs2_filesys *fs)
+{
+	if (local_fd_count) {
+		local_fd_count--;
+		if (!local_fd_count) {
+			close(local_fd);  /* Don't care about errors */
+			local_fd = -1;
+		}
+	}
+}
+
 static errcode_t tunefs_unlock_cluster(void)
 {
 	errcode_t tmp, err = 0;
 
 	if (!fs)
 		return TUNEFS_ET_INTERNAL_FAILURE;
+
+	if (ocfs2_mount_local(fs))
+		tunefs_unlock_local(fs);
 
 	if (cluster_locked && fs->fs_dlm_ctxt) {
 		tunefs_block_signals();
@@ -507,7 +571,9 @@ static errcode_t tunefs_lock_cluster(int flags)
 {
 	errcode_t tmp, err = 0;
 
-	if (!ocfs2_mount_local(fs)) {
+	if (ocfs2_mount_local(fs)) {
+		err = tunefs_lock_local(fs, flags);
+	} else {
 		/* Has a parent process has done the locking for us? */
 		err = tunefs_get_lock_env();
 		if (!err ||
