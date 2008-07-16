@@ -20,6 +20,7 @@ OCFS2NE_METHODS =				\
 	ocfs2ne_feature_unwritten_extents	\
 	ocfs2ne_list_sparse_files		\
 	ocfs2ne_reset_uuid			\
+	ocfs2ne_resize_volume			\
 	ocfs2ne_set_label			\
 	ocfs2ne_set_journal_size		\
 	ocfs2ne_set_mount_type			\
