@@ -46,7 +46,13 @@
 #define TUNEFS_OCFS2_LOCK_ENV_LOCKED	"locked"
 #define TUNEFS_OCFS2_LOCK_ENV_ONLINE	"online"
 
-ocfs2_filesys *fs;
+
+struct tunefs_private {
+	struct list_head tp_list;
+	ocfs2_filesys *tp_fs;
+};
+
+static LIST_HEAD(fs_list);
 static int local_fd = -1;		/* only used for LOCAL_FL */
 static unsigned int local_fd_count;	/* We can only open local_fd once
 					   (that's kind of the point :-),
@@ -61,6 +67,11 @@ static int verbosity = 1;
 static int interactive = 0;
 static uint32_t journal_clusters = 0;
 
+
+static inline struct tunefs_private *to_private(ocfs2_filesys *fs)
+{
+	return fs->fs_private;
+}
 
 /* If all verbosity is turned off, make sure com_err() prints nothing. */
 static void quiet_com_err(const char *prog, long errcode, const char *fmt,
@@ -180,6 +191,17 @@ int tunefs_interact_critical(const char *fmt, ...)
 	return rc;
 }
 
+static void tunefs_close_all(void)
+{
+	struct list_head *pos, *n;
+	struct tunefs_private *tp;
+
+	list_for_each_safe(pos, n, &fs_list) {
+		tp = list_entry(pos, struct tunefs_private, tp_list);
+		tunefs_close(tp->tp_fs);
+	}
+}
+
 static void handle_signal(int caught_sig)
 {
 	int exitp = 0, abortp = 0;
@@ -218,7 +240,7 @@ static void handle_signal(int caught_sig)
 	if (abortp)
 		abort();
 
-	tunefs_close();
+	tunefs_close_all();
 
 	exit(1);
 }
@@ -267,7 +289,6 @@ void tunefs_unblock_signals(void)
 {
 	block_signals(SIG_UNBLOCK);
 }
-
 
 static void setup_argv0(const char *argv0)
 {
@@ -540,7 +561,7 @@ static void tunefs_unlock_local(ocfs2_filesys *fs)
 	}
 }
 
-static errcode_t tunefs_unlock_cluster(void)
+static errcode_t tunefs_unlock_cluster(ocfs2_filesys *fs)
 {
 	errcode_t tmp, err = 0;
 
@@ -570,7 +591,7 @@ static errcode_t tunefs_unlock_cluster(void)
 	return err;
 }
 
-static errcode_t tunefs_lock_cluster(int flags)
+static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 {
 	errcode_t tmp, err = 0;
 
@@ -637,7 +658,7 @@ out_set:
 		 * We safely call unlock here - the state is right.  Ignore
 		 * the result to pass the error from set_lock_env()
 		 */
-		tunefs_unlock_cluster();
+		tunefs_unlock_cluster(fs);
 	}
 
 out_err:
@@ -794,7 +815,6 @@ bail:
 
 	return ret;
 }
-
 
 static errcode_t tunefs_global_bitmap_check(ocfs2_filesys *fs)
 {
@@ -986,11 +1006,48 @@ errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg)
 	return 0;
 }
 
-errcode_t tunefs_open(const char *device, int flags)
+static errcode_t tunefs_add_fs(ocfs2_filesys *fs)
+{
+	errcode_t err;
+	struct tunefs_private *tp;
+
+	err = ocfs2_malloc0(sizeof(struct tunefs_private), &tp);
+	if (err)
+		return err;
+
+	fs->fs_private = tp;
+	tp->tp_fs = fs;
+
+	/*
+	 * This is purposely a push.  The first open of the filesystem
+	 * will be the one holding the locks, so we want it to be the last
+	 * close (a FILO stack).  When signals happen, tunefs_close_all()
+	 * pops each off in turn, finishing with the lock holder.
+	 */
+	list_add(&tp->tp_list, &fs_list);
+
+	return 0;
+}
+
+static void tunefs_remove_fs(ocfs2_filesys *fs)
+{
+	struct tunefs_private *tp = to_private(fs);
+
+	if (tp) {
+		list_del(&tp->tp_list);
+		tp->tp_fs = NULL;
+		fs->fs_private = NULL;
+		ocfs2_free(&tp);
+	}
+}
+
+errcode_t tunefs_open(const char *device, int flags,
+		      ocfs2_filesys **ret_fs)
 {
 	int rw = flags & TUNEFS_FLAG_RW;
 	errcode_t err, tmp;
 	int open_flags;
+	ocfs2_filesys *fs = NULL;
 
 	verbosef(VL_LIB, "Opening device \"%s\"\n", device);
 
@@ -1001,6 +1058,10 @@ errcode_t tunefs_open(const char *device, int flags)
 		open_flags |= OCFS2_FLAG_RO;
 
 	err = ocfs2_open(device, open_flags, 0, 0, &fs);
+	if (err)
+		goto out;
+
+	err = tunefs_add_fs(fs);
 	if (err)
 		goto out;
 
@@ -1025,7 +1086,7 @@ errcode_t tunefs_open(const char *device, int flags)
 		goto out;
 	}
 
-	err = tunefs_lock_cluster(flags);
+	err = tunefs_lock_cluster(fs, flags);
 	if (err &&
 	    (err != TUNEFS_ET_INVALID_STACK_NAME) &&
 	    (err != TUNEFS_ET_PERFORM_ONLINE))
@@ -1047,13 +1108,13 @@ errcode_t tunefs_open(const char *device, int flags)
 			tmp = tunefs_global_bitmap_check(fs);
 		if (tmp) {
 			err = tmp;
-			tunefs_unlock_cluster();
+			tunefs_unlock_cluster(fs);
 		}
 	} else {
 		tmp = tunefs_open_online_descriptor(fs);
 		if (tmp) {
 			err = tmp;
-			tunefs_unlock_cluster();
+			tunefs_unlock_cluster(fs);
 		}
 	}
 
@@ -1062,17 +1123,20 @@ out:
 	    (err != TUNEFS_ET_INVALID_STACK_NAME) &&
 	    (err != TUNEFS_ET_PERFORM_ONLINE)) {
 		if (fs) {
+			tunefs_remove_fs(fs);
 			ocfs2_close(fs);
 			fs = NULL;
 		}
 		verbosef(VL_LIB, "Open of device \"%s\" failed\n", device);
-	} else
+	} else {
 		verbosef(VL_LIB, "Device \"%s\" opened\n", device);
+		*ret_fs = fs;
+	}
 
 	return err;
 }
 
-errcode_t tunefs_close(void)
+errcode_t tunefs_close(ocfs2_filesys *fs)
 {
 	errcode_t tmp, err = 0;
 
@@ -1082,8 +1146,9 @@ errcode_t tunefs_close(void)
 	 */
 	if (fs) {
 		verbosef(VL_LIB, "Closing device \"%s\"\n", fs->fs_devname);
+		tunefs_remove_fs(fs);
 		tunefs_close_online_descriptor(fs);
-		err = tunefs_unlock_cluster();
+		err = tunefs_unlock_cluster(fs);
 		tmp = ocfs2_close(fs);
 		if (!err)
 			err = tmp;
@@ -1216,12 +1281,12 @@ bail:
 int parent = 0;
 
 
-static void closeup(const char *device)
+static void closeup(ocfs2_filesys *fs, const char *device)
 {
 	errcode_t err;
 
 	verbosef(VL_OUT, "success\n");
-	err = tunefs_close();
+	err = tunefs_close(fs);
 	if (err)  {
 		tcom_err(err, "- Unable to close device \"%s\".", device);
 	}
@@ -1231,6 +1296,7 @@ int main(int argc, char *argv[])
 {
 	errcode_t err;
 	const char *device;
+	ocfs2_filesys *fs;
 
 	err = tunefs_init(&argc, &argv,
 			  "Usage: debug_libtunefs [-p] <device>\n");
@@ -1262,32 +1328,33 @@ int main(int argc, char *argv[])
 	}
 
 	verbosef(VL_OUT, "Opening device \"%s\" read-only... ", device);
-	err = tunefs_open(device, TUNEFS_FLAG_RO);
+	err = tunefs_open(device, TUNEFS_FLAG_RO, &fs);
 	if (err) {
 		verbosef(VL_OUT, "failed\n");
 		tcom_err(err, "- Unable to open device \"%s\" read-only.",
 			 device);
 	} else
-		closeup(device);
+		closeup(fs, device);
 
 	verbosef(VL_OUT, "Opening device \"%s\" read-write... ", device);
-	err = tunefs_open(device, TUNEFS_FLAG_RW);
+	err = tunefs_open(device, TUNEFS_FLAG_RW, &fs);
 	if (err) {
 		verbosef(VL_OUT, "failed\n");
 		tcom_err(err, "- Unable to open device \"%s\" read-write.",
 			 device);
 	} else
-		closeup(device);
+		closeup(fs, device);
 
 	verbosef(VL_OUT,
 		 "Opening device \"%s\" for an online operation... ",
 		 device);
-	err = tunefs_open(device, TUNEFS_FLAG_RW | TUNEFS_FLAG_ONLINE);
+	err = tunefs_open(device, TUNEFS_FLAG_RW | TUNEFS_FLAG_ONLINE,
+			  &fs);
 	if (err == TUNEFS_ET_PERFORM_ONLINE) {
-		closeup(device);
+		closeup(fs, device);
 		verbosef(VL_OUT, "Operation would have been online\n");
 	} else if (!err) {
-		closeup(device);
+		closeup(fs, device);
 		verbosef(VL_OUT, "Operation would have been offline\n");
 	} else {
 		verbosef(VL_OUT, "failed\n");
@@ -1298,12 +1365,13 @@ int main(int argc, char *argv[])
 	verbosef(VL_OUT,
 		 "Opening device \"%s\" for a stackless operation... ",
 		 device);
-	err = tunefs_open(device, TUNEFS_FLAG_RW | TUNEFS_FLAG_NOCLUSTER);
+	err = tunefs_open(device, TUNEFS_FLAG_RW | TUNEFS_FLAG_NOCLUSTER,
+			  &fs);
 	if (err == TUNEFS_ET_INVALID_STACK_NAME) {
-		closeup(device);
+		closeup(fs, device);
 		verbosef(VL_OUT, "Expected cluster stack mismatch found\n");
 	} else if (!err) {
-		closeup(device);
+		closeup(fs, device);
 		verbosef(VL_OUT, "Cluster stacks already match\n");
 	} else {
 		verbosef(VL_OUT, "failed\n");

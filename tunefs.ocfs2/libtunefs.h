@@ -49,15 +49,14 @@ enum tunefs_verbosity_level {
 };
 
 
-extern ocfs2_filesys *fs;
-
 /* Handles generic option processing (-h, -v, etc), then munges argc and
  * argv to pass back to the calling application */
 errcode_t tunefs_init(int *argc, char ***argv, const char *usage);
 void tunefs_block_signals(void);
 void tunefs_unblock_signals(void);
-errcode_t tunefs_open(const char *device, int flags);
-errcode_t tunefs_close(void);
+errcode_t tunefs_open(const char *device, int flags,
+		      ocfs2_filesys **ret_fs);
+errcode_t tunefs_close(ocfs2_filesys *fs);
 errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag);
 errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag);
 
