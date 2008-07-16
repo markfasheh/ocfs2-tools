@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <errno.h>
@@ -51,6 +52,8 @@ static unsigned int local_fd_count;	/* We can only open local_fd once
 					   (that's kind of the point :-),
 					   so multiple tunefs_open() calls
 					   just bump this count */
+static int online_fd = -1;		/* fd for online ioctl(2) calls */
+static unsigned int online_fd_count;	/* Same as local_fd_count */
 static char progname[PATH_MAX] = "(Unknown)";
 static const char *usage_string;
 static int cluster_locked;
@@ -905,6 +908,84 @@ bail:
 	return ret;
 }
 
+static errcode_t tunefs_open_online_descriptor(ocfs2_filesys *fs)
+{
+	int rc, flags = 0;
+	errcode_t ret = 0;
+	char mnt_dir[PATH_MAX];
+
+	if (online_fd_count) {
+		online_fd_count++;
+		goto out;
+	}
+
+	memset(mnt_dir, 0, sizeof(mnt_dir));
+
+	ret = ocfs2_check_mount_point(fs->fs_devname, &flags,
+				      mnt_dir, sizeof(mnt_dir));
+	if (ret)
+		goto out;
+
+	if (!(flags & OCFS2_MF_MOUNTED) ||
+	    (flags & OCFS2_MF_READONLY) ||
+	    (flags & OCFS2_MF_SWAP)) {
+		ret = TUNEFS_ET_NOT_MOUNTED;
+		goto out;
+	}
+
+	rc = open64(mnt_dir, O_RDONLY);
+	if (rc < 0) {
+		if (errno == EBUSY)
+			ret = TUNEFS_ET_DEVICE_BUSY;
+		else if (errno == ENOENT)
+			ret = TUNEFS_ET_NOT_MOUNTED;
+		else
+			ret = OCFS2_ET_IO;
+	} else {
+		online_fd = rc;
+		online_fd_count = 1;
+	}
+
+out:
+	return ret;
+}
+
+static void tunefs_close_online_descriptor(ocfs2_filesys *fs)
+{
+	if (online_fd_count) {
+		online_fd_count--;
+		if (!online_fd_count) {
+			close(online_fd);  /* Don't care about errors */
+			online_fd = -1;
+		}
+	}
+}
+
+errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg)
+{
+	int rc;
+
+	if (online_fd < 0)
+		return TUNEFS_ET_INTERNAL_FAILURE;
+
+	rc = ioctl(online_fd, op, arg);
+	if (rc) {
+		switch (errno) {
+			case EBADF:
+			case EFAULT:
+			case ENOTTY:
+				return TUNEFS_ET_INTERNAL_FAILURE;
+				break;
+
+			default:
+				return TUNEFS_ET_ONLINE_FAILED;
+				break;
+		}
+	}
+
+	return 0;
+}
+
 errcode_t tunefs_open(const char *device, int flags)
 {
 	int rw = flags & TUNEFS_FLAG_RW;
@@ -968,6 +1049,12 @@ errcode_t tunefs_open(const char *device, int flags)
 			err = tmp;
 			tunefs_unlock_cluster();
 		}
+	} else {
+		tmp = tunefs_open_online_descriptor(fs);
+		if (tmp) {
+			err = tmp;
+			tunefs_unlock_cluster();
+		}
 	}
 
 out:
@@ -995,6 +1082,7 @@ errcode_t tunefs_close(void)
 	 */
 	if (fs) {
 		verbosef(VL_LIB, "Closing device \"%s\"\n", fs->fs_devname);
+		tunefs_close_online_descriptor(fs);
 		err = tunefs_unlock_cluster();
 		tmp = ocfs2_close(fs);
 		if (!err)

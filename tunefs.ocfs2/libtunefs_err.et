@@ -37,6 +37,12 @@ ec	TUNEFS_ET_PERFORM_ONLINE,
 ec	TUNEFS_ET_DEVICE_BUSY,
 	"Device is busy"
 
+ec	TUNEFS_ET_NOT_MOUNTED,
+	"Mountpoint not found for online operation"
+
+ec	TUNEFS_ET_ONLINE_FAILED,
+	"Online operation request failed (see dmesg)"
+
 ec	TUNEFS_ET_INTERNAL_FAILURE,
 	"Internal logic failure"
 
