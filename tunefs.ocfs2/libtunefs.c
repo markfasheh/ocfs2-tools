@@ -362,7 +362,7 @@ void tunefs_usage(void)
 
 extern int optind, opterr, optopt;
 extern char *optarg;
-static errcode_t tunefs_parse_core_options(int *argc, char ***argv)
+static void tunefs_parse_core_options(int *argc, char ***argv)
 {
 	errcode_t err;
 	int c;
@@ -380,8 +380,10 @@ static errcode_t tunefs_parse_core_options(int *argc, char ***argv)
 
 	setup_argv0(*argv[0]);
 	err = copy_argv(*argv, &new_argv);
-	if (err)
-		return err;
+	if (err) {
+		tcom_err(err, "while processing command-line arguments");
+		exit(1);
+	}
 
 	opterr = 0;
 	error[0] = '\0';
@@ -450,11 +452,9 @@ static errcode_t tunefs_parse_core_options(int *argc, char ***argv)
 
 	shuffle_argv(argc, optind, new_argv);
 	*argv = new_argv;
-
-	return 0;
 }
 
-errcode_t tunefs_init(int *argc, char ***argv, const char *usage)
+void tunefs_init(int *argc, char ***argv, const char *usage)
 {
 	initialize_tune_error_table();
 	initialize_ocfs_error_table();
@@ -466,10 +466,12 @@ errcode_t tunefs_init(int *argc, char ***argv, const char *usage)
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
-	if (setup_signals())
-		return TUNEFS_ET_SIGNALS_FAILED;
+	if (setup_signals()) {
+		errorf("%s\n", error_message(TUNEFS_ET_SIGNALS_FAILED));
+		exit(1);
+	}
 
-	return tunefs_parse_core_options(argc, argv);
+	tunefs_parse_core_options(argc, argv);
 }
 
 static errcode_t tunefs_set_lock_env(const char *status)
@@ -1274,6 +1276,158 @@ bail:
 	return ret;
 }
 
+static int single_feature_parse_option(char *arg, void *user_data)
+{
+	int rc = 0;
+	struct tunefs_feature *feat = user_data;
+
+	if (!arg) {
+		errorf("No action specified\n");
+		rc = 1;
+	} else if (!strcmp(arg, "enable"))
+		feat->tf_action = FEATURE_ENABLE;
+	else if (!strcmp(arg, "disable"))
+		feat->tf_action = FEATURE_DISABLE;
+	else {
+		errorf("Invalid action: \"%s\"\n", arg);
+		rc = 1;
+	}
+
+	return rc;
+}
+
+static int single_feature_run(ocfs2_filesys *fs, int flags, void *user_data)
+{
+	int rc = 0;
+	struct tunefs_feature *feat = user_data;
+
+	switch (feat->tf_action) {
+		case FEATURE_ENABLE:
+			rc = feat->tf_enable(fs, flags);
+			break;
+
+		case FEATURE_DISABLE:
+			rc = feat->tf_disable(fs, flags);
+			break;
+
+		case FEATURE_NOOP:
+			verbosef(VL_APP,
+				 "Ran NOOP for feature \"%s\" - how'd "
+				 "that happen?\n",
+				 feat->tf_name);
+			break;
+
+		default:
+			errorf("Unknown action %d called against feature "
+			       "\"%s\"\n",
+			       feat->tf_action, feat->tf_name);
+			rc = 1;
+			break;
+	}
+
+	return rc;
+}
+
+DEFINE_TUNEFS_OP(single_feature,
+		 NULL,
+		 0,
+		 single_feature_parse_option,
+		 single_feature_run,
+		 NULL);
+
+int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat)
+{
+	char usage[PATH_MAX];
+
+	snprintf(usage, PATH_MAX,
+		 "Usage: ocfs2ne_feature_%s [opts] <device> "
+		 "{enable|disable}\n",
+		 feat->tf_name);
+	single_feature_op.to_usage = usage;
+	single_feature_op.to_open_flags = feat->tf_open_flags;
+	single_feature_op.to_user_data = feat;
+
+	return tunefs_main(argc, argv, &single_feature_op);
+}
+
+int tunefs_main(int argc, char *argv[], struct tunefs_operation *op)
+{
+	errcode_t err;
+	int rc = 1;
+	int flags;
+	ocfs2_filesys *master_fs, *op_fs;
+	char *arg = NULL;
+
+	tunefs_init(&argc, &argv, op->to_usage);
+	if (argc < 2) {
+		errorf("No device specified\n");
+		tunefs_usage();
+		goto out;
+	}
+
+	if (op->to_parse_option) {
+		if (argc > 3) {
+			errorf("Too many arguments\n");
+			tunefs_usage();
+			goto out;
+		}
+		if (argc == 3)
+			arg = argv[2];
+
+		rc = op->to_parse_option(arg, op->to_user_data);
+		if (rc) {
+			tunefs_usage();
+			goto out;
+		}
+	} else if (argc > 2) {
+		errorf("Too many arguments\n");
+		tunefs_usage();
+		goto out;
+	}
+
+	flags = op->to_open_flags & ~(TUNEFS_FLAG_ONLINE |
+				      TUNEFS_FLAG_NOCLUSTER);
+	err = tunefs_open(argv[1], op->to_open_flags, &master_fs);
+	if (err == TUNEFS_ET_PERFORM_ONLINE)
+		flags |= TUNEFS_FLAG_ONLINE;
+	else if (err == TUNEFS_ET_INVALID_STACK_NAME)
+		flags |= TUNEFS_FLAG_NOCLUSTER;
+	else if (err) {
+		tcom_err(err, "- Unable to open device \"%s\" read-write.",
+			 argv[1]);
+		goto out;
+	}
+
+	err = tunefs_open(argv[1], flags, &op_fs);
+	if (err &&
+	    (err != TUNEFS_ET_PERFORM_ONLINE) &&
+	    (err != TUNEFS_ET_INVALID_STACK_NAME)) {
+		tcom_err(err,
+			 "- Unaable to open device \"%s\" for operation "
+			 "\"%s\"", argv[1], op->to_name);
+		goto out_close_master;
+	}
+
+	rc = op->to_run(op_fs, flags, op->to_user_data);
+
+	err = tunefs_close(op_fs);
+	if (err) {
+		tcom_err(err,
+			 "while closing device \"%s\" for operation \"%s\"",
+			 argv[1], op->to_name);
+		rc = 1;
+	}
+
+out_close_master:
+	err = tunefs_close(master_fs);
+	if (err) {
+		tcom_err(err, "while closing device \"%s\"", argv[1]);
+		rc = 1;
+	}
+
+out:
+	return rc;
+}
 
 #ifdef DEBUG_EXE
 
@@ -1298,12 +1452,8 @@ int main(int argc, char *argv[])
 	const char *device;
 	ocfs2_filesys *fs;
 
-	err = tunefs_init(&argc, &argv,
-			  "Usage: debug_libtunefs [-p] <device>\n");
-	if (err) {
-		tcom_err(err, "while initializing tunefs");
-		return 1;
-	}
+	tunefs_init(&argc, &argv,
+		    "Usage: debug_libtunefs [-p] <device>\n");
 
 	if (argc > 3) {
 		errorf("Too many arguments\n");
