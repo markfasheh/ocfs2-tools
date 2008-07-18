@@ -37,14 +37,14 @@ errcode_t reformat_slot_map(ocfs2_filesys *fs)
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 	int extended = ocfs2_uses_extended_slot_map(super);
 
-	if (opts.set_feature.incompat &
+	if (opts.set_feature.opt_incompat &
 	    OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP) {
 		if (extended) {
 			printf("Feature \"extended-slotmap\" is already enabled, skipping\n");
 			goto out;
 		}
 		OCFS2_SET_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP);
-	} else if (opts.clear_feature.incompat &
+	} else if (opts.clear_feature.opt_incompat &
 		   OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP) {
 		if (!extended) {
 			printf("Feature \"extended-slotmap\" is not enabled, skipping\n");

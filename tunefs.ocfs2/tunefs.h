@@ -90,8 +90,8 @@ typedef struct _ocfs2_tune_opts {
 	int backup_super;
 	int update_cluster;
 	int list_sparse;
-	fs_options set_feature;
-	fs_options clear_feature;
+	ocfs2_fs_options set_feature;
+	ocfs2_fs_options clear_feature;
 	char *feature_string;
 	time_t tune_time;
 } ocfs2_tune_opts;

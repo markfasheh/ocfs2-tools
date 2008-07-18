@@ -209,12 +209,12 @@ struct _ocfs2_devices {
 	struct ocfs2_slot_map_data *map; /* Mounted nodes, must be freed */
 };
 
-typedef struct _fs_options fs_options;
+typedef struct _ocfs2_fs_options ocfs2_fs_options;
 
-struct _fs_options {
-	uint32_t compat;
-	uint32_t incompat;
-	uint32_t ro_compat;
+struct _ocfs2_fs_options {
+	uint32_t opt_compat;
+	uint32_t opt_incompat;
+	uint32_t opt_ro_compat;
 };
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);
@@ -624,6 +624,26 @@ errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf);
 errcode_t ocfs2_get_last_cluster_offset(ocfs2_filesys *fs,
 					struct ocfs2_dinode *di,
 					uint32_t *v_cluster);
+
+/* Filesystem features */
+enum ocfs2_feature_levels {
+	OCFS2_FEATURE_LEVEL_DEFAULT = 0,
+	OCFS2_FEATURE_LEVEL_MAX_COMPAT,
+	OCFS2_FEATURE_LEVEL_MAX_FEATURES,
+};
+
+errcode_t ocfs2_parse_feature(const char *opts,
+			      ocfs2_fs_options *feature_flags,
+			      ocfs2_fs_options *reverse_flags);
+
+errcode_t ocfs2_parse_feature_level(const char *typestr,
+				    enum ocfs2_feature_levels *level);
+
+errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
+					       int level,
+					       ocfs2_fs_options *feature_set,
+					       ocfs2_fs_options *reverse_set);
+
 
 /* These are deprecated names - don't use them */
 int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,

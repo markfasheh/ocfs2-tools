@@ -526,8 +526,8 @@ get_state(int argc, char **argv)
 	enum ocfs2_fs_types fs_type = FS_DEFAULT;
 	int mount = -1;
 	int no_backup_super = -1;
-	enum feature_level_indexes index = FEATURE_LEVEL_DEFAULT;
-	fs_options feature_flags ={0,0,0}, reverse_flags = {0,0,0};
+	enum ocfs2_feature_levels level = OCFS2_FEATURE_LEVEL_DEFAULT;
+	ocfs2_fs_options feature_flags = {0,0,0}, reverse_flags = {0,0,0};
 
 	static struct option long_options[] = {
 		{ "block-size", 1, 0, 'b' },
@@ -681,7 +681,7 @@ get_state(int argc, char **argv)
 			break;
 
 		case FEATURE_LEVEL:
-			ret = parse_feature_level(optarg, &index);
+			ret = ocfs2_parse_feature_level(optarg, &level);
 			if (ret) {
 				com_err(progname, ret,
 					"when parsing fs-feature-level string");
@@ -690,9 +690,9 @@ get_state(int argc, char **argv)
 			break;
 
 		case FEATURES_OPTION:
-			ret = parse_feature(optarg,
-					    &feature_flags,
-					    &reverse_flags);
+			ret = ocfs2_parse_feature(optarg,
+						  &feature_flags,
+						  &reverse_flags);
 			if (ret) {
 				com_err(progname, ret,
 					"when parsing fs-features string");
@@ -794,20 +794,22 @@ get_state(int argc, char **argv)
 
 	s->fs_type = fs_type;
 
-	if(!merge_feature_flags_with_level(&s->feature_flags,
-					   index,
-					   &feature_flags, &reverse_flags)) {
-		com_err(s->progname, 0,
-			"Incompatible feature flags"
-			" were specified\n");
+	ret = ocfs2_merge_feature_flags_with_level(&s->feature_flags,
+						   level,
+						   &feature_flags,
+						   &reverse_flags);
+	if (ret) {
+		com_err(s->progname, ret,
+			"while reconciling specified features with chosen "
+			"defaults");
 		exit(1);
 	}
 
-	if (s->feature_flags.incompat & OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT)
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT)
 		s->mount = MOUNT_LOCAL;
 	else
 		s->mount = MOUNT_CLUSTER;
-	if (s->feature_flags.compat & OCFS2_FEATURE_COMPAT_BACKUP_SB)
+	if (s->feature_flags.opt_compat & OCFS2_FEATURE_COMPAT_BACKUP_SB)
 		s->no_backup_super = 0;
 	else
 		s->no_backup_super = 1;
@@ -1846,18 +1848,18 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_first_cluster_group = s->first_cluster_group_blkno;
 
 	if (s->hb_dev) {
-		s->feature_flags.incompat =
+		s->feature_flags.opt_incompat =
 				 	OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
-		s->feature_flags.compat = 0;
-		s->feature_flags.ro_compat = 0;
+		s->feature_flags.opt_compat = 0;
+		s->feature_flags.opt_ro_compat = 0;
 	}
 
 	if (s->mount == MOUNT_LOCAL)
-		s->feature_flags.incompat |=
-					 OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
+		s->feature_flags.opt_incompat |=
+			OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
 
 	if (s->cluster_stack) {
-		s->feature_flags.incompat |=
+		s->feature_flags.opt_incompat |=
 			(OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP|
 			 OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK);
 		memcpy(di->id2.i_super.s_cluster_info.ci_stack,
@@ -1872,11 +1874,11 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	 * "s->no_backup_super" according to the features in get_state,
 	 * so it is safe to clear the flag here.
 	 */
-	s->feature_flags.compat &= !OCFS2_FEATURE_COMPAT_BACKUP_SB;
+	s->feature_flags.opt_compat &= !OCFS2_FEATURE_COMPAT_BACKUP_SB;
 
-	di->id2.i_super.s_feature_incompat = s->feature_flags.incompat;
-	di->id2.i_super.s_feature_compat = s->feature_flags.compat;
-	di->id2.i_super.s_feature_ro_compat = s->feature_flags.ro_compat;
+	di->id2.i_super.s_feature_incompat = s->feature_flags.opt_incompat;
+	di->id2.i_super.s_feature_compat = s->feature_flags.opt_compat;
+	di->id2.i_super.s_feature_ro_compat = s->feature_flags.opt_ro_compat;
 
 	strcpy((char *)di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);

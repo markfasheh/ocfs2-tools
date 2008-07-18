@@ -60,6 +60,9 @@ ec	OCFS2_ET_UNSUPP_FEATURE,
 ec	OCFS2_ET_RO_UNSUPP_FEATURE,
 	"Unsupported read-only feature(s) found"
 
+ec	OCFS2_ET_CONFLICTING_FEATURES,
+	"Conflicting features specified"
+
 ec	OCFS2_ET_BAD_INODE_MAGIC,
 	"Bad magic number in inode"
 

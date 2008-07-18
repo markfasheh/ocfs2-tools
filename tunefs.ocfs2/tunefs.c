@@ -26,7 +26,6 @@
  */
 
 #include <tunefs.h>
-#include <ocfs2/feature_string.h>
 
 #define WHOAMI "tunefs.ocfs2"
 
@@ -317,9 +316,9 @@ static void get_options(int argc, char **argv)
 			break;
 
 		case FEATURES_OPTION:
-			ret = parse_feature(optarg,
-					    &opts.set_feature,
-					    &opts.clear_feature);
+			ret = ocfs2_parse_feature(optarg,
+						  &opts.set_feature,
+						  &opts.clear_feature);
 			if (ret) {
 				com_err(opts.progname, ret,
 					"when parsing --fs-features string");

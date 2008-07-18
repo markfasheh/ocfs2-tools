@@ -50,7 +50,6 @@
 #include <signal.h>
 #include <libgen.h>
 
-#include "ocfs2/feature_string.h"
 
 #ifndef MAX
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -238,7 +237,7 @@ struct _State {
 	uint32_t first_cluster_group;
 	uint64_t first_cluster_group_blkno;
 
-	fs_options feature_flags;
+	ocfs2_fs_options feature_flags;
 
 	enum ocfs2_fs_types fs_type;
 };
