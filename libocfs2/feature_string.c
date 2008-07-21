@@ -145,6 +145,28 @@ static int check_feature_flags(ocfs2_fs_options *fs_flags,
 }
 
 /*
+ * If we are asked to clear a feature, we also need to clear any other
+ * features that depend on it.
+ */
+static void ocfs2_feature_clear_deps(ocfs2_fs_options *reverse_set)
+{
+	int i;
+
+	for(i = 0; ocfs2_supported_features[i].ff_str; i++) {
+		if ((reverse_set->opt_compat &
+			ocfs2_supported_features[i].ff_flags.opt_compat) ||
+		    (reverse_set->opt_incompat &
+			ocfs2_supported_features[i].ff_flags.opt_incompat) ||
+		    (reverse_set->opt_ro_compat &
+			ocfs2_supported_features[i].ff_flags.opt_ro_compat)) {
+			merge_features(reverse_set,
+				       ocfs2_supported_features[i].ff_own_flags);
+		}
+	}
+
+}
+
+/*
  * Check and Merge all the diffent features set by the user.
  *
  * index: the feature level.
@@ -156,7 +178,6 @@ errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
 					       ocfs2_fs_options *feature_set,
 					       ocfs2_fs_options *reverse_set)
 {
-	int i;
 	ocfs2_fs_options level_set = feature_level_defaults[level];
 	/*
 	 * "Check whether the user asked for a flag to be set and cleared,
@@ -171,26 +192,16 @@ errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
 	merge_features(dest, *feature_set);
 
 	/*
-	 * We have to remove all the features in the reverse set
-	 * and other features which depend on them.
+	 * Ensure that all dependancies are correct in the reverse set.
+	 * A reverse set from ocfs2_parse_feature() will be correct, but
+	 * a hand-built one might not be.
 	 */
-	for(i = 0; ocfs2_supported_features[i].ff_str; i++) {
-		if ((reverse_set->opt_compat &
-			ocfs2_supported_features[i].ff_flags.opt_compat) ||
-		    (reverse_set->opt_incompat &
-			ocfs2_supported_features[i].ff_flags.opt_incompat) ||
-		    (reverse_set->opt_ro_compat &
-			ocfs2_supported_features[i].ff_flags.opt_ro_compat)) {
-			dest->opt_compat &=
-			~ocfs2_supported_features[i].ff_own_flags.opt_compat;
+	ocfs2_feature_clear_deps(reverse_set);
 
-			dest->opt_incompat &=
-			~ocfs2_supported_features[i].ff_own_flags.opt_incompat;
-
-			dest->opt_ro_compat &=
-			~ocfs2_supported_features[i].ff_own_flags.opt_ro_compat;
-		}
-	}
+	/* Now clear the reverse set from our destination */
+	dest->opt_compat &= ~reverse_set->opt_compat;
+	dest->opt_ro_compat &= ~reverse_set->opt_ro_compat;
+	dest->opt_incompat &= ~reverse_set->opt_incompat;
 
 	return 0;
 }
@@ -249,6 +260,7 @@ errcode_t ocfs2_parse_feature(const char *opts,
 	}
 
 	free(options);
+	ocfs2_feature_clear_deps(reverse_flags);
 
 	return 0;
 }

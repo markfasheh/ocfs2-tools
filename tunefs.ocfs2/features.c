@@ -82,11 +82,18 @@ errcode_t feature_check(ocfs2_filesys *fs)
 
 		/*
 		 * Turning off sparse files means we must also turn
-		 * off unwritten extents.
+		 * off unwritten extents.  Check to make sure the clear
+		 * list includes them.
 		 */
-		if (ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)))
-			opts.clear_feature.opt_ro_compat |=
-				OCFS2_FEATURE_RO_COMPAT_UNWRITTEN;
+		if (!(opts.clear_feature.opt_ro_compat &
+		      OCFS2_FEATURE_RO_COMPAT_UNWRITTEN))
+			goto bail;
+
+		/* But if we don't have unwritten extents, we don't need
+		 * to clear them. */
+		if (!ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)))
+			opts.clear_feature.opt_ro_compat &=
+				~OCFS2_FEATURE_RO_COMPAT_UNWRITTEN;
 
 		sparse_on = 0;
 		ret = clear_sparse_file_check(fs, opts.progname, 0);
