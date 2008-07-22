@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * libtunefs.c
+ * libocfs2ne.c
  *
  * Shared routines for the ocfs2 tunefs utility
  *
@@ -38,8 +38,8 @@
 #include "ocfs2/ocfs2.h"
 #include "ocfs2/bitops.h"
 
-#include "libtunefs.h"
-#include "libtunefs_err.h"
+#include "libocfs2ne.h"
+#include "libocfs2ne_err.h"
 
 #define WHOAMI "tunefs.ocfs2"
 #define TUNEFS_OCFS2_LOCK_ENV		"_TUNEFS_OCFS2_LOCK"
@@ -1490,7 +1490,7 @@ out:
 
 #ifdef DEBUG_EXE
 
-#define DEBUG_PROGNAME "debug_libtunefs"
+#define DEBUG_PROGNAME "debug_libocfs2ne"
 int parent = 0;
 
 
@@ -1512,7 +1512,7 @@ int main(int argc, char *argv[])
 	ocfs2_filesys *fs;
 
 	tunefs_init(&argc, &argv,
-		    "Usage: debug_libtunefs [-p] <device>\n");
+		    "Usage: debug_libocfs2ne [-p] <device>\n");
 
 	if (argc > 3) {
 		errorf("Too many arguments\n");

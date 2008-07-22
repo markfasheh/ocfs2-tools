@@ -21,7 +21,7 @@
 
 #include "ocfs2/ocfs2.h"
 
-#include "libtunefs.h"
+#include "libocfs2ne.h"
 
 static errcode_t tunefs_validate_inode(ocfs2_filesys *fs,
 				       struct ocfs2_dinode *di)

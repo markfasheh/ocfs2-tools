@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * libtunefs.h
+ * libocfs2ne.h
  *
  * tunefs helper library prototypes.
  *
@@ -44,7 +44,7 @@ enum tunefs_verbosity_level {
 #define VL_OUT		(VL_ERR | VL_FLAG_STDOUT)
 
 	VL_APP		= 2,	/* Verbose application status */
-	VL_LIB		= 3, 	/* libtunefs status */
+	VL_LIB		= 3, 	/* libocfs2ne status */
 	VL_DEBUG	= 4, 	/* Debugging output */
 };
 

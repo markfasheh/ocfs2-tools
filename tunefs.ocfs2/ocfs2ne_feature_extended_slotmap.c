@@ -24,8 +24,8 @@
 
 #include "ocfs2/ocfs2.h"
 
-#include "libtunefs.h"
-#include "libtunefs_err.h"
+#include "libocfs2ne.h"
+#include "libocfs2ne_err.h"
 
 
 static int enable_extended_slotmap(ocfs2_filesys *fs, int flags)

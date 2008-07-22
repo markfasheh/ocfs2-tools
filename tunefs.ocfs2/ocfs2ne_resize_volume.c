@@ -30,8 +30,8 @@
 #include "ocfs2/ocfs2.h"
 #include "ocfs2/bitops.h"
 
-#include "libtunefs.h"
-#include "libtunefs_err.h"
+#include "libocfs2ne.h"
+#include "libocfs2ne_err.h"
 
 
 /*

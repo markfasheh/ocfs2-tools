@@ -24,8 +24,8 @@
 
 #include "ocfs2/ocfs2.h"
 
-#include "libtunefs.h"
-#include "libtunefs_err.h"
+#include "libocfs2ne.h"
+#include "libocfs2ne_err.h"
 
 
 static int set_journal_size_parse_option(char *arg, void *user_data)

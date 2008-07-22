@@ -11,7 +11,7 @@ LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
-UNINST_LIBRARIES = libtunefs.a
+UNINST_LIBRARIES = libocfs2ne.a
 
 OCFS2NE_FEATURE_METHODS =			\
 	ocfs2ne_feature_backup_super		\
@@ -50,16 +50,16 @@ debug_%.o : %.c
 		$(INCLUDES) $(DEFINES) \
 		-DDEBUG_EXE -o $@ -c $<
 
-debug_%: debug_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libtunefs.a
+debug_%: debug_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libocfs2ne.a
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 endif
 
-LIBTUNEFS_CFILES = libtunefs.c foreach.c
-HFILES_GEN = libtunefs_err.h
+LIBOCFS2NE_CFILES = libocfs2ne.c foreach.c
+HFILES_GEN = libocfs2ne_err.h
 
-libtunefs_err.c libtunefs_err.h: libtunefs_err.et
-	compile_et libtunefs_err.et
+libocfs2ne_err.c libocfs2ne_err.h: libocfs2ne_err.et
+	compile_et libocfs2ne_err.et
 
 
 TUNEFS_CFILES =		\
@@ -74,21 +74,21 @@ TUNEFS_CFILES =		\
 OCFS2NE_CFILES = $(patsubst %,%.c,$(OCFS2NE_METHODS))
 OCFS2NE_FEATURE_CFILES = $(patsubst %,%.c,$(OCFS2NE_FEATURE_METHODS))
 
-CFILES = $(TUNFES_CFILES) $(LIBTUNEFS_CFILES) $(OCFS2NE_CFILES) $(OCFS2NE_FEATURE_CFILES) ocfs2ne_features.c
-HFILES = tunefs.h libtunefs.h
+CFILES = $(TUNFES_CFILES) $(LIBOCFS2NE_CFILES) $(OCFS2NE_CFILES) $(OCFS2NE_FEATURE_CFILES) ocfs2ne_features.c
+HFILES = tunefs.h libocfs2ne.h
 
 TUNEFS_OBJS = $(subst .c,.o,$(TUNEFS_CFILES))
-LIBTUNEFS_OBJS = $(subst .c,.o,$(LIBTUNEFS_CFILES)) libtunefs_err.o
+LIBOCFS2NE_OBJS = $(subst .c,.o,$(LIBOCFS2NE_CFILES)) libocfs2ne_err.o
 OCFS2NE_OBJS = $(subst .c,.o,$(OCFS2NE_CFILES))
 OCFS2NE_FEATURE_OBJS = $(subst .c,.o,$(OCFS2NE_FEATURE_CFILES))
 
-$(LIBTUNEFS_OBJS): $(HFILES_GEN)
+$(LIBOCFS2NE_OBJS): $(HFILES_GEN)
 $(OCFS2NE_OBJS): $(HFILES_GEN)
 $(OCFS2NE_FEATURE_OBJS): $(HFILES_GEN)
 
-DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in libtunefs_err.et
+DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in libocfs2ne_err.et
 
-libtunefs.a: $(LIBTUNEFS_OBJS)
+libocfs2ne.a: $(LIBOCFS2NE_OBJS)
 	rm -f $@
 	$(AR) r $@ $^
 	$(RANLIB) $@
@@ -96,17 +96,17 @@ libtunefs.a: $(LIBTUNEFS_OBJS)
 tunefs.ocfs2: $(TUNEFS_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
-$(OCFS2NE_METHODS): ocfs2ne_%: ocfs2ne_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libtunefs.a
+$(OCFS2NE_METHODS): ocfs2ne_%: ocfs2ne_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libocfs2ne.a
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
-ocfs2ne_features: ocfs2ne_features.o $(patsubst %,%.o,$(OCFS2NE_FEATURE_METHODS)) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libtunefs.a
+ocfs2ne_features: ocfs2ne_features.o $(patsubst %,%.o,$(OCFS2NE_FEATURE_METHODS)) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libocfs2ne.a
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
 CLEAN_RULES = clean-err
 
 clean-err:
-	rm -f libtunefs_err.c libtunefs_err.h
+	rm -f libocfs2ne_err.c libocfs2ne_err.h
 
 include $(TOPDIR)/Postamble.make
