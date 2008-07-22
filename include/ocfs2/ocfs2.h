@@ -655,6 +655,21 @@ errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
 					       ocfs2_fs_options *feature_set,
 					       ocfs2_fs_options *reverse_set);
 
+/*
+ * Get a callback with each feature in feature_set in order.  This will
+ * calculate the dependencies of each feature in feature_set, then call func
+ * once per feature, with only that feature passed to func.
+ */
+void ocfs2_feature_foreach(ocfs2_fs_options *feature_set,
+			   int (*func)(ocfs2_fs_options *feature,
+				       void *user_data),
+			   void *user_data);
+/* The reverse function.  It will call the features in reverse order. */
+void ocfs2_feature_reverse_foreach(ocfs2_fs_options *reverse_set,
+				   int (*func)(ocfs2_fs_options *feature,
+					       void *user_data),
+				   void *user_data);
+
 
 /* These are deprecated names - don't use them */
 int ocfs2_get_backup_super_offset(ocfs2_filesys *fs,

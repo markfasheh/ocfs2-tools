@@ -150,6 +150,16 @@ static int check_feature_flags(ocfs2_fs_options *fs_flags,
 	return ret;
 }
 
+static int feature_match(ocfs2_fs_options *a, ocfs2_fs_options *b)
+{
+	if ((a->opt_compat & b->opt_compat) ||
+	    (a->opt_incompat & b->opt_incompat) ||
+	    (a->opt_ro_compat & b->opt_ro_compat))
+		return 1;
+
+	return 0;
+}
+
 /*
  * If we are asked to clear a feature, we also need to clear any other
  * features that depend on it.
@@ -159,12 +169,8 @@ static void ocfs2_feature_clear_deps(ocfs2_fs_options *reverse_set)
 	int i;
 
 	for(i = 0; ocfs2_supported_features[i].ff_str; i++) {
-		if ((reverse_set->opt_compat &
-			ocfs2_supported_features[i].ff_flags.opt_compat) ||
-		    (reverse_set->opt_incompat &
-			ocfs2_supported_features[i].ff_flags.opt_incompat) ||
-		    (reverse_set->opt_ro_compat &
-			ocfs2_supported_features[i].ff_flags.opt_ro_compat)) {
+		if (feature_match(reverse_set,
+				  &ocfs2_supported_features[i].ff_flags)) {
 			merge_features(reverse_set,
 				       ocfs2_supported_features[i].ff_own_flags);
 		}
@@ -271,6 +277,71 @@ errcode_t ocfs2_parse_feature(const char *opts,
 	return 0;
 }
 
+static int compare_feature_forward(const void *pa, const void *pb)
+{
+	int ia = *(int *)pa;
+	int ib = *(int *)pb;
+	struct fs_feature_flags *fa = &ocfs2_supported_features[ia];
+	struct fs_feature_flags *fb = &ocfs2_supported_features[ib];
+
+	if (feature_match(&fb->ff_flags,
+			  &fa->ff_own_flags))
+		return -1;
+	if (feature_match(&fa->ff_flags,
+			  &fb->ff_own_flags))
+		return 1;
+	return 0;
+}
+
+static int compare_feature_backward(const void *pa, const void *pb)
+{
+	return compare_feature_forward(pb, pa);
+}
+
+static void __feature_foreach(int reverse, ocfs2_fs_options *feature_set,
+			      int (*func)(ocfs2_fs_options *feature,
+					  void *user_data),
+			      void *user_data)
+{
+	int i, index;
+	int num_features = sizeof(ocfs2_supported_features) /
+		sizeof(ocfs2_supported_features[0]);
+	int indices[num_features];
+
+	index = 0;
+	for (i = 0; ocfs2_supported_features[i].ff_str; i++) {
+		if (feature_match(feature_set,
+				  &ocfs2_supported_features[i].ff_own_flags)) {
+			indices[index] = i;
+			index++;
+		}
+	}
+
+	qsort(indices, index, sizeof(indices[0]),
+	      reverse ? compare_feature_backward : compare_feature_forward);
+
+	for (i = 0; i < index; i++) {
+		if (func(&ocfs2_supported_features[indices[i]].ff_own_flags,
+			 user_data))
+			break;
+	}
+}
+
+void ocfs2_feature_foreach(ocfs2_fs_options *feature_set,
+			   int (*func)(ocfs2_fs_options *feature,
+				       void *user_data),
+			   void *user_data)
+{
+	__feature_foreach(0, feature_set, func, user_data);
+}
+
+void ocfs2_feature_reverse_foreach(ocfs2_fs_options *reverse_set,
+				   int (*func)(ocfs2_fs_options *feature,
+					       void *user_data),
+				   void *user_data)
+{
+	__feature_foreach(1, reverse_set, func, user_data);
+}
 
 #ifdef DEBUG_EXE
 
@@ -305,6 +376,30 @@ static void print_features(char *desc, ocfs2_fs_options *feature_set)
 		    ocfs2_supported_features[i].ff_own_flags.opt_incompat)
 			fprintf(stdout, " %s",
 				ocfs2_supported_features[i].ff_str);
+	fprintf(stdout, "\n");
+}
+
+static int p_feature(ocfs2_fs_options *feature_set, void *user_data)
+{
+	int i;
+
+	for (i = 0; ocfs2_supported_features[i].ff_str; i++) {
+		if (feature_match(feature_set,
+				  &ocfs2_supported_features[i].ff_own_flags))
+			fprintf(stdout, " %s",
+				ocfs2_supported_features[i].ff_str);
+	}
+
+	return 0;
+}
+
+static void print_order(int reverse, ocfs2_fs_options *feature_set)
+{
+	fprintf(stdout, "In this order:");
+	if (reverse)
+		ocfs2_feature_reverse_foreach(feature_set, p_feature, NULL);
+	else
+		ocfs2_feature_foreach(feature_set, p_feature, NULL);
 	fprintf(stdout, "\n\n");
 }
 
@@ -373,10 +468,13 @@ int main(int argc, char *argv[])
 
 	print_features("\nmkfs.ocfs2 would set these features",
 		       &mkfs_features);
+	print_order(0, &mkfs_features);
 	print_features("tunefs.ocfs2 would set these features",
 		       &set_features);
+	print_order(0, &set_features);
 	print_features("tunefs.ocfs2 would clear these features",
 		       &clear_features);
+	print_order(1, &clear_features);
 
 	return 0;
 }
