@@ -121,6 +121,8 @@ struct tunefs_feature _name##_feature =					\
 struct tunefs_feature _name##_feature =					\
 	__TUNEFS_FEATURE(_name, _flags, 0, 0, _bit, _enable, _disable)
 
+int tunefs_feature_run(ocfs2_filesys *fs, int flags,
+		       struct tunefs_feature *feat);
 int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat);
 int tunefs_main(int argc, char *argv[], struct tunefs_operation *op);
 

@@ -1348,10 +1348,10 @@ static int single_feature_parse_option(char *arg, void *user_data)
 	return rc;
 }
 
-static int single_feature_run(ocfs2_filesys *fs, int flags, void *user_data)
+int tunefs_feature_run(ocfs2_filesys *fs, int flags,
+		       struct tunefs_feature *feat)
 {
 	int rc = 0;
-	struct tunefs_feature *feat = user_data;
 
 	switch (feat->tf_action) {
 		case FEATURE_ENABLE:
@@ -1378,6 +1378,13 @@ static int single_feature_run(ocfs2_filesys *fs, int flags, void *user_data)
 	}
 
 	return rc;
+}
+
+static int single_feature_run(ocfs2_filesys *fs, int flags, void *user_data)
+{
+	struct tunefs_feature *feat = user_data;
+
+	return tunefs_feature_run(fs, flags, feat);
 }
 
 DEFINE_TUNEFS_OP(single_feature,
