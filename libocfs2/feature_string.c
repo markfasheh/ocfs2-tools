@@ -355,17 +355,6 @@ errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
 					       ocfs2_fs_options *reverse_set)
 {
 	ocfs2_fs_options level_set = feature_level_defaults[level];
-	/*
-	 * "Check whether the user asked for a flag to be set and cleared,
-	 * which is illegal. The feature_set and reverse_set are both set
-	 * by "--fs-features", so they shouldn't collide with each other.
-	 */
-	if (!check_feature_flags(feature_set, reverse_set))
-		return OCFS2_ET_CONFLICTING_FEATURES;
-
-	/* Now combine all the features the user has set. */
-	*dest = level_set;
-	merge_features(dest, *feature_set);
 
 	/*
 	 * Ensure that all dependancies are correct in the reverse set.
@@ -373,6 +362,19 @@ errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
 	 * a hand-built one might not be.
 	 */
 	ocfs2_feature_clear_deps(reverse_set);
+
+	/*
+	 * Check whether the user asked for a flag to be set and cleared,
+	 * which is illegal. The feature_set and reverse_set are both set
+	 * by "--fs-features", so they shouldn't collide with each other,
+	 * but a hand-built one might have problems.
+	 */
+	if (!check_feature_flags(feature_set, reverse_set))
+		return OCFS2_ET_CONFLICTING_FEATURES;
+
+	/* Now combine all the features the user has set. */
+	*dest = level_set;
+	merge_features(dest, *feature_set);
 
 	/* Now clear the reverse set from our destination */
 	dest->opt_compat &= ~reverse_set->opt_compat;
@@ -437,6 +439,14 @@ errcode_t ocfs2_parse_feature(const char *opts,
 
 	free(options);
 	ocfs2_feature_clear_deps(reverse_flags);
+
+	/*
+	 * Check whether the user asked for a flag to be set and cleared,
+	 * which is illegal. The feature_set and reverse_set are both set
+	 * by "--fs-features", so they shouldn't collide with each other.
+	 */
+	if (!check_feature_flags(feature_flags, reverse_flags))
+		return OCFS2_ET_CONFLICTING_FEATURES;
 
 	return 0;
 }
