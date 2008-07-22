@@ -328,14 +328,14 @@ static void handle_daemon_left(struct cpg_address *addr,
 			/*
 			 * ocfs2_controld failed but the node is
 			 * still up.  If the node was part of any
-			 * mounts, we need to kick it out of cman
+			 * mounts, we need to kick it out of the cluster
 			 * to force fencing.
 			 */
 			/* XXX actually check for mounts */
 			if (1) {
 				log_error("kill node %d - ocfs2_controld PROCDOWN",
 					  addr->nodeid);
-				kill_cman(addr->nodeid);
+				kill_stack_node(addr->nodeid);
 			}
 
 			/* FALL THROUGH */

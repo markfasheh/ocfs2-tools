@@ -458,11 +458,11 @@ static void mount_set_group(struct cgroup *cg, void *user_data)
 /*
  * THIS FUNCTION CAUSES PROBLEMS.
  *
- * bail_on_mounts() is called when we are forced to exit via a signal or
- * cman dying on us.  As such, it tells ocfs2 that nodes are down but
- * not communicate with cman or cpg.  This can cause ocfs2 to self-fence or
- * cman to go nuts.  But hey, if you SIGKILL the daemon, you get what you
- * pay for.
+ * bail_on_mounts() is called when we are forced to exit via a signal
+ * or cluster stack dying on us.  As such, it tells ocfs2 that nodes
+ * are down but not communicate with the stack or cpg.  This can cause
+ * ocfs2 to self-fence or the stack to go nuts.  But hey, if you SIGKILL
+ * the daemon, you get what you pay for.
  */
 void bail_on_mounts(void)
 {

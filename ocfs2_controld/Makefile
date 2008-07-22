@@ -30,20 +30,24 @@ DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
 
 UNINST_HFILES = ocfs2_controld.h
 
-DAEMON_CFILES = main.c cman.c cpg.c mount.c ckpt.c
-TEST_CFILES = test_client.c
+DAEMON_CFILES = main.c cpg.c mount.c ckpt.c
 
-DAEMON_OBJS = $(subst .c,.o,$(DAEMON_CFILES))
+CMAN_CFILES = cman.c
+CMAN_DAEMON_CFILES = $(DAEMON_CFILES) $(CMAN_CFILES)
+CMAN_DAEMON_OBJS = $(subst .c,.o,$(CMAN_DAEMON_CFILES))
+
+TEST_CFILES = test_client.c
 TEST_OBJS = $(subst .c,.o,$(TEST_CFILES) $(PROTO_CFILES))
 MANS =
 
 DIST_FILES =				\
 	$(DAEMON_CFILES)		\
+	$(CMAN_CFILES)			\
 	$(TEST_CFILES)			\
 	$(UNINST_HFILES)		\
 	$(addsuffix .in,$(MANS))
 
-ocfs2_controld.cman: $(DAEMON_OBJS) $(LIBO2CB_DEPS)
+ocfs2_controld.cman: $(CMAN_DAEMON_OBJS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(OPENAIS_LIBS) -lcman
 
 test_client: $(TEST_OBJS) $(LIBO2CB_DEPS) $(LIBOCFS2_DEPS)

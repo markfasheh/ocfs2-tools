@@ -49,7 +49,7 @@ static cman_node_t      cman_nodes[O2NM_MAX_NODES];
 static int              cman_node_count;
 
 
-int kill_cman(int nodeid)
+int kill_stack_node(int nodeid)
 {
 	int error;
 
@@ -217,7 +217,7 @@ static void process_cman(int ci)
 	}
 }
 
-int setup_cman(void)
+int setup_stack(void)
 {
 	cman_node_t node;
 	int rv, fd;
@@ -291,7 +291,7 @@ int setup_cman(void)
 	return rv;
 }
 
-void exit_cman(void)
+void exit_stack(void)
 {
 	if (ch_admin)
 		cman_finish(ch_admin);

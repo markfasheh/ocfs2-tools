@@ -76,13 +76,13 @@ int ckpt_section_store(struct ckpt_handle *handle, const char *section,
 int ckpt_section_get(struct ckpt_handle *handle, const char *section,
 		     char **data, size_t *data_len);
 
-/* cman.c */
-int setup_cman(void);
+/* stack-specific interfaces (cman.c) */
+int setup_stack(void);
 char *nodeid2name(int nodeid);
 int validate_cluster(const char *cluster);
 int get_clustername(const char **cluster);
-int kill_cman(int nodeid);
-void exit_cman(void);
+int kill_stack_node(int nodeid);
+void exit_stack(void);
 
 /* cpg.c */
 int setup_cpg(void (*daemon_joined)(int first));

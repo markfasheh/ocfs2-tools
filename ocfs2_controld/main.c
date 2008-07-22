@@ -898,7 +898,7 @@ static int loop(void)
 	if (rv < 0)
 		goto out;
 
-	rv = setup_cman();
+	rv = setup_stack();
 	if (rv < 0)
 		goto out;
 
@@ -954,7 +954,7 @@ stop:
 	exit_cpg();
 	drop_node_checkpoint();
 	exit_ckpt();
-	exit_cman();
+	exit_stack();
 
 out:
 	return rv;
