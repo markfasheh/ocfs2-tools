@@ -244,6 +244,6 @@ DEFINE_TUNEFS_OP(features,
 int main(int argc, char *argv[])
 {
 	feature_state.fo_op = &features_op;
-	return tunefs_main(argc, argv, &features_op);
+	return tunefs_op_main(argc, argv, &features_op);
 }
 

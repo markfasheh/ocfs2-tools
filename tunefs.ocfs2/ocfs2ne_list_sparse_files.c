@@ -455,6 +455,6 @@ DEFINE_TUNEFS_OP(list_sparse,
 
 int main(int argc, char *argv[])
 {
-	return tunefs_main(argc, argv, &list_sparse_op);
+	return tunefs_op_main(argc, argv, &list_sparse_op);
 }
 

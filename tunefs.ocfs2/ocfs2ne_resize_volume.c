@@ -724,5 +724,5 @@ DEFINE_TUNEFS_OP(resize_volume,
 
 int main(int argc, char *argv[])
 {
-	return tunefs_main(argc, argv, &resize_volume_op);
+	return tunefs_op_main(argc, argv, &resize_volume_op);
 }

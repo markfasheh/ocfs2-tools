@@ -123,8 +123,9 @@ struct tunefs_feature _name##_feature =					\
 
 int tunefs_feature_run(ocfs2_filesys *fs, int flags,
 		       struct tunefs_feature *feat);
+
 int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat);
-int tunefs_main(int argc, char *argv[], struct tunefs_operation *op);
+int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op);
 
 /* Handles generic option processing (-h, -v, etc), then munges argc and
  * argv to pass back to the calling application */

@@ -1406,10 +1406,10 @@ int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat)
 	single_feature_op.to_open_flags = feat->tf_open_flags;
 	single_feature_op.to_user_data = feat;
 
-	return tunefs_main(argc, argv, &single_feature_op);
+	return tunefs_op_main(argc, argv, &single_feature_op);
 }
 
-int tunefs_main(int argc, char *argv[], struct tunefs_operation *op)
+int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 {
 	errcode_t err;
 	int rc = 1;

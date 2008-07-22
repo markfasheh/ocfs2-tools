@@ -1083,6 +1083,6 @@ DEFINE_TUNEFS_OP(set_slot_count,
 
 int main(int argc, char *argv[])
 {
-	return tunefs_main(argc, argv, &set_slot_count_op);
+	return tunefs_op_main(argc, argv, &set_slot_count_op);
 }
 

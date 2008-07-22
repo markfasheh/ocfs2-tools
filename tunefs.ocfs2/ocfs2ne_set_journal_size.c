@@ -84,6 +84,6 @@ DEFINE_TUNEFS_OP(set_journal_size,
 
 int main(int argc, char *argv[])
 {
-	return tunefs_main(argc, argv, &set_journal_size_op);
+	return tunefs_op_main(argc, argv, &set_journal_size_op);
 }
 

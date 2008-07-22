@@ -87,6 +87,6 @@ DEFINE_TUNEFS_OP(update_cluster_stack,
 
 int main(int argc, char *argv[])
 {
-	return tunefs_main(argc, argv, &update_cluster_stack_op);
+	return tunefs_op_main(argc, argv, &update_cluster_stack_op);
 }
 

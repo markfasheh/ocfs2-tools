@@ -73,6 +73,6 @@ DEFINE_TUNEFS_OP(reset_uuid,
 
 int main(int argc, char *argv[])
 {
-	return tunefs_main(argc, argv, &reset_uuid_op);
+	return tunefs_op_main(argc, argv, &reset_uuid_op);
 }
 
