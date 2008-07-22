@@ -202,8 +202,9 @@ DEFINE_TUNEFS_FEATURE_RO_COMPAT(unwritten_extents,
 				enable_unwritten_extents,
 				disable_unwritten_extents);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_feature_main(argc, argv, &unwritten_extents_feature);
 }
-
+#endif

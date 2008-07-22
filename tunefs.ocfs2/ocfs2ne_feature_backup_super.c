@@ -222,7 +222,9 @@ DEFINE_TUNEFS_FEATURE_COMPAT(backup_super,
 			     enable_backup_super,
 			     disable_backup_super);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_feature_main(argc, argv, &backup_super_feature);
 }
+#endif

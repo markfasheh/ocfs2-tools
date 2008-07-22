@@ -101,7 +101,9 @@ DEFINE_TUNEFS_FEATURE_INCOMPAT(extended_slotmap,
 			       enable_extended_slotmap,
 			       disable_extended_slotmap);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_feature_main(argc, argv, &extended_slotmap_feature);
 }
+#endif

@@ -6,6 +6,7 @@ stamp-md5
 tunefs.ocfs2.8
 libtunefs_err.[ch]
 debug_*
+ocfs2ne_features
 ocfs2ne_feature_backup_super
 ocfs2ne_feature_extended_slotmap
 ocfs2ne_feature_sparse_files

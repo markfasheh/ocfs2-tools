@@ -558,8 +558,9 @@ DEFINE_TUNEFS_FEATURE_INCOMPAT(sparse_files,
 			       enable_sparse_files,
 			       disable_sparse_files);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_feature_main(argc, argv, &sparse_files_feature);
 }
-
+#endif
