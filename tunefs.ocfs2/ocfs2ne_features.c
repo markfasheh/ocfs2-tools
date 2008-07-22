@@ -41,6 +41,7 @@ struct feature_op_state {
 
 extern struct tunefs_feature backup_super_feature;
 extern struct tunefs_feature extended_slotmap_feature;
+extern struct tunefs_feature local_feature;
 extern struct tunefs_feature sparse_files_feature;
 extern struct tunefs_feature unwritten_extents_feature;
 
@@ -48,6 +49,7 @@ struct feature_op_state feature_state = {
 	.fo_features = {
 		&backup_super_feature,
 		&extended_slotmap_feature,
+		&local_feature,
 		&sparse_files_feature,
 		&unwritten_extents_feature,
 		NULL,

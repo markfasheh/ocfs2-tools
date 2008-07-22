@@ -16,6 +16,7 @@ UNINST_LIBRARIES = libocfs2ne.a
 OCFS2NE_FEATURE_METHODS =			\
 	ocfs2ne_feature_backup_super		\
 	ocfs2ne_feature_extended_slotmap	\
+	ocfs2ne_feature_local			\
 	ocfs2ne_feature_sparse_files		\
 	ocfs2ne_feature_unwritten_extents
 
@@ -25,7 +26,6 @@ OCFS2NE_METHODS =				\
 	ocfs2ne_resize_volume			\
 	ocfs2ne_set_label			\
 	ocfs2ne_set_journal_size		\
-	ocfs2ne_set_mount_type			\
 	ocfs2ne_set_slot_count			\
 	ocfs2ne_update_cluster_stack
 
