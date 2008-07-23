@@ -166,7 +166,7 @@ static int generic_handle_arg(struct tunefs_option *opt, char *arg)
 		return 1;
 	}
 
-	return op->to_parse_option(arg, op->to_user_data);
+	return op->to_parse_option(op, arg);
 }
 
 /*
@@ -473,8 +473,7 @@ static errcode_t parse_feature_strings(void)
 		return 0;
 
 	verbosef(VL_APP, "Full feature string is \"%s\"\n", features);
-	rc = features_op.to_parse_option(features,
-					 features_op.to_user_data);
+	rc = features_op.to_parse_option(&features_op, features);
 	free(features);
 	if (rc)
 		print_usage(1);
@@ -526,8 +525,8 @@ static errcode_t parse_resize(const char *arg)
 		print_usage(1);
 	}
 
-	if (resize_volume_op.to_parse_option(operation_arg,
-					     resize_volume_op.to_user_data))
+	if (resize_volume_op.to_parse_option(&resize_volume_op,
+					     operation_arg))
 		print_usage(1);
 
 	return 0;

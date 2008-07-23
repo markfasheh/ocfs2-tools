@@ -58,27 +58,27 @@ enum tunefs_feature_action {
 struct tunefs_operation {
 	char		*to_name;
 	int		to_open_flags;	/* Flags for tunefs_open() */
-	int		(*to_parse_option)(char *arg, void *user_data);
-	int		(*to_run)(ocfs2_filesys *fs,
-				  int flags,	/* The tunefs_open() flags
+	int		(*to_parse_option)(struct tunefs_operation *op,
+					   char *arg);
+	int		(*to_run)(struct tunefs_operation *op,
+				  ocfs2_filesys *fs,
+				  int flags);	/* The tunefs_open() flags
 						   that mattered */
-				  void *user_data);
-	void		*to_user_data;
+	void		*to_private;
 	char		*to_debug_usage;	/* DEBUG_EXEC usage string  */
 };
 
-#define __TUNEFS_OP(_name, _usage, _flags, _parse, _run, _data)		\
+#define __TUNEFS_OP(_name, _usage, _flags, _parse, _run)		\
 {									\
 	.to_name		= #_name,				\
 	.to_open_flags		= _flags,				\
 	.to_parse_option	= _parse,				\
 	.to_run			= _run,					\
-	.to_user_data		= _data,				\
 	.to_debug_usage		= _usage,				\
 }
-#define DEFINE_TUNEFS_OP(_name, _usage, _flags, _parse, _run, _data)	\
+#define DEFINE_TUNEFS_OP(_name, _usage, _flags, _parse, _run)		\
 struct tunefs_operation _name##_op =					\
-	__TUNEFS_OP(_name, _usage, _flags, _parse, _run, _data)
+	__TUNEFS_OP(_name, _usage, _flags, _parse, _run)
 
 struct tunefs_feature {
 	char	*tf_name;

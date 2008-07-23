@@ -54,7 +54,8 @@ static errcode_t update_cluster(ocfs2_filesys *fs)
 	return ret;
 }
 
-static int update_cluster_stack_run(ocfs2_filesys *fs, int flags, void *unused)
+static int update_cluster_stack_run(struct tunefs_operation *op,
+				    ocfs2_filesys *fs, int flags)
 {
 	int rc = 0;
 	errcode_t err;
@@ -83,8 +84,7 @@ DEFINE_TUNEFS_OP(update_cluster_stack,
 		 "Usage: ocfs2ne_update_cluster_stack [opts] <device>\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_NOCLUSTER,
 		 NULL,
-		 update_cluster_stack_run,
-		 NULL);
+		 update_cluster_stack_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])

@@ -49,7 +49,8 @@ static errcode_t update_volume_uuid(ocfs2_filesys *fs)
 	return err;
 }
 
-static int reset_uuid_run(ocfs2_filesys *fs, int flags, void *unused)
+static int reset_uuid_run(struct tunefs_operation *op, ocfs2_filesys *fs,
+			  int flags)
 {
 	int rc = 0;
 	errcode_t err;
@@ -69,8 +70,7 @@ DEFINE_TUNEFS_OP(reset_uuid,
 		 "Usage: ocfs2ne_reset_uuid [opts] <device>\n",
 		 TUNEFS_FLAG_RW,
 		 NULL,
-		 reset_uuid_run,
-		 NULL);
+		 reset_uuid_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])

@@ -62,13 +62,12 @@ static errcode_t update_volume_label(ocfs2_filesys *fs, const char *label)
 	return err;
 }
 
-static int set_label_parse_option(char *arg, void *user_data)
+static int set_label_parse_option(struct tunefs_operation *op, char *arg)
 {
 	int rc = 0;
-	char **new_label = user_data;
 
 	if (arg)
-		*new_label = arg;
+		op->to_private = arg;
 	else {
 		errorf("No label specified\n");
 		rc = 1;
@@ -77,11 +76,12 @@ static int set_label_parse_option(char *arg, void *user_data)
 	return rc;
 }
 
-static int set_label_run(ocfs2_filesys *fs, int flags, void *user_data)
+static int set_label_run(struct tunefs_operation *op, ocfs2_filesys *fs,
+			 int flags)
 {
 	errcode_t err;
 	int rc = 0;
-	char *new_label = *(char **)user_data;
+	char *new_label = op->to_private;
 
 	err = update_volume_label(fs, new_label);
 	if (err) {
@@ -95,13 +95,11 @@ static int set_label_run(ocfs2_filesys *fs, int flags, void *user_data)
 }
 
 
-static char *new_label;
 DEFINE_TUNEFS_OP(set_label,
 		 "Usage: ocfs2ne_set_label [opts] <device> <label>\n",
 		 TUNEFS_FLAG_RW,
 		 set_label_parse_option,
-		 set_label_run,
-		 &new_label);
+		 set_label_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])

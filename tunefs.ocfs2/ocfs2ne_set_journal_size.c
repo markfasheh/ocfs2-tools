@@ -28,31 +28,44 @@
 #include "libocfs2ne_err.h"
 
 
-static int set_journal_size_parse_option(char *arg, void *user_data)
+static int set_journal_size_parse_option(struct tunefs_operation *op,
+					 char *arg)
 {
-	int rc = 0;
+	int rc = 1;
 	errcode_t err;
-	uint64_t *new_size = user_data;
+	uint64_t *new_size;
 
-	if (arg) {
-		err = tunefs_get_number(arg, new_size);
-		if (err) {
-			tcom_err(err, "- journal size is invalid\n");
-			rc = 1;
-		}
-	} else {
+
+	if (!arg) {
 		errorf("No size specified\n");
-		rc = 1;
+		goto out;
 	}
 
+	err = ocfs2_malloc0(sizeof(uint64_t), &new_size);
+	if (err) {
+		tcom_err(err, "while processing journal options");
+		goto out;
+	}
+
+	err = tunefs_get_number(arg, new_size);
+	if (!err)
+		rc = 0;
+	else
+		tcom_err(err, "- journal size is invalid\n");
+
+out:
 	return rc;
 }
 
-static int set_journal_size_run(ocfs2_filesys *fs, int flags, void *user_data)
+static int set_journal_size_run(struct tunefs_operation *op,
+				ocfs2_filesys *fs, int flags)
 {
 	errcode_t err;
 	int rc = 0;
-	uint64_t new_size = *(uint64_t *)user_data;
+	uint64_t new_size = *(uint64_t *)op->to_private;
+
+	ocfs2_free((uint64_t*)op->to_private);
+	op->to_private = NULL;
 
 	if (!tunefs_interact("Resize journals on device \"%s\" to "
 			     "%"PRIu64"? ",
@@ -74,13 +87,11 @@ out:
 }
 
 
-static uint64_t new_size;
 DEFINE_TUNEFS_OP(set_journal_size,
 		 "Usage: ocfs2ne_set_journal_size [opts] <device> <size>\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
 		 set_journal_size_parse_option,
-		 set_journal_size_run,
-		 &new_size);
+		 set_journal_size_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])

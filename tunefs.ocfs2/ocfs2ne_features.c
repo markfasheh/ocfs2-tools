@@ -29,9 +29,9 @@
 
 
 struct feature_op_state {
+	struct tunefs_operation	*fo_op;
 	ocfs2_fs_options	fo_feature_set;	/* Features to enabling */
 	ocfs2_fs_options	fo_reverse_set;	/* Features to disable */
-	struct tunefs_feature	*fo_features[];	/* List of known features */
 };
 
 extern struct tunefs_feature backup_super_feature;
@@ -40,26 +40,24 @@ extern struct tunefs_feature local_feature;
 extern struct tunefs_feature sparse_files_feature;
 extern struct tunefs_feature unwritten_extents_feature;
 
-struct feature_op_state feature_state = {
-	.fo_features = {
-		&backup_super_feature,
-		&extended_slotmap_feature,
-		&local_feature,
-		&sparse_files_feature,
-		&unwritten_extents_feature,
-		NULL,
-	},
+/* List of features supported by ocfs2ne */
+static struct tunefs_feature *features[] = {
+	&backup_super_feature,
+	&extended_slotmap_feature,
+	&local_feature,
+	&sparse_files_feature,
+	&unwritten_extents_feature,
+	NULL,
 };
 
 
-static struct tunefs_feature *find_feature(struct feature_op_state *state,
-					   ocfs2_fs_options *feature)
+static struct tunefs_feature *find_feature(ocfs2_fs_options *feature)
 {
 	int i;
 	struct tunefs_feature *feat = NULL;
 
-	for (i = 0; state->fo_features[i]; i++) {
-		feat = state->fo_features[i];
+	for (i = 0; features[i]; i++) {
+		feat = features[i];
 		if (!memcmp(&feat->tf_feature, feature,
 			    sizeof(ocfs2_fs_options))) {
 			break;
@@ -78,8 +76,6 @@ struct check_supported_context {
 	enum tunefs_feature_action	sc_action;
 };
 
-static void features_add_open_flags(int flags);
-
 /* Order doesn't actually matter here.  We just want to know that
  * tunefs supports this feature */
 static int check_supported_func(ocfs2_fs_options *feature, void *user_data)
@@ -87,7 +83,7 @@ static int check_supported_func(ocfs2_fs_options *feature, void *user_data)
 	int rc = 1;
 	struct check_supported_context *ctxt = user_data;
 	struct feature_op_state *state = ctxt->sc_state;
-	struct tunefs_feature *feat = find_feature(state, feature);
+	struct tunefs_feature *feat = find_feature(feature);
 
 	if (!feat) {
 		errorf("One or more of the features in \"%s\" are not "
@@ -142,7 +138,7 @@ static int check_supported_func(ocfs2_fs_options *feature, void *user_data)
 		 "Enabling" : "Disabling",
 		 feat->tf_name);
 	feat->tf_action = ctxt->sc_action;
-	features_add_open_flags(feat->tf_open_flags);
+	state->fo_op->to_open_flags |= feat->tf_open_flags;
 
 	rc = 0;
 
@@ -150,13 +146,12 @@ out:
 	return rc;
 }
 
-static int features_parse_option(char *arg, void *user_data)
+static int features_parse_option(struct tunefs_operation *op, char *arg)
 {
 	int rc = 1;
 	errcode_t err;
-	struct feature_op_state *state = user_data;
+	struct feature_op_state *state = NULL;
 	struct check_supported_context ctxt = {
-		.sc_state = state,
 		.sc_string = arg,
 	};
 
@@ -165,15 +160,21 @@ static int features_parse_option(char *arg, void *user_data)
 		goto out;
 	}
 
-	err = ocfs2_parse_feature(arg, &state->fo_feature_set,
-				  &state->fo_reverse_set);
+	err = ocfs2_malloc0(sizeof(struct feature_op_state), &state);
 	if (err) {
-		tcom_err(err,
-			 "while parsing feature options \"%s\"",
-			 arg);
+		tcom_err(err, "while processing feature options");
 		goto out;
 	}
 
+	state->fo_op = op;
+	err = ocfs2_parse_feature(arg, &state->fo_feature_set,
+				  &state->fo_reverse_set);
+	if (err) {
+		tcom_err(err, "while parsing feature options \"%s\"", arg);
+		goto out;
+	}
+
+	ctxt.sc_state = state;
 	ctxt.sc_action = FEATURE_ENABLE;
 	ocfs2_feature_foreach(&state->fo_feature_set, check_supported_func,
 			      &ctxt);
@@ -190,6 +191,11 @@ static int features_parse_option(char *arg, void *user_data)
 	rc = 0;
 
 out:
+	if (!rc)
+		op->to_private = state;
+	else if (state)
+		ocfs2_free(&state);
+
 	return rc;
 }
 
@@ -204,15 +210,15 @@ struct run_features_context {
 static int run_feature_func(ocfs2_fs_options *feature, void *user_data)
 {
 	struct run_features_context *ctxt = user_data;
-	struct tunefs_feature *feat = find_feature(ctxt->rc_state,
-						   feature);
+	struct tunefs_feature *feat = find_feature(feature);
 
 	return tunefs_feature_run(ctxt->rc_fs, ctxt->rc_flags, feat);
 }
 
-static int features_run(ocfs2_filesys *fs, int flags, void *user_data)
+static int features_run(struct tunefs_operation *op, ocfs2_filesys *fs,
+			int flags)
 {
-	struct feature_op_state *state = user_data;
+	struct feature_op_state *state = op->to_private;
 	struct run_features_context ctxt = {
 		.rc_state = state,
 		.rc_fs = fs,
@@ -227,6 +233,9 @@ static int features_run(ocfs2_filesys *fs, int flags, void *user_data)
 				      run_feature_func,
 				      &ctxt);
 
+	ocfs2_free(&state);
+	op->to_private = NULL;
+
 	return ctxt.rc_error;
 }
 
@@ -235,14 +244,7 @@ DEFINE_TUNEFS_OP(features,
 		 "Usage: ocfs2ne_features [opts] <device> <features>\n",
 		 0,
 		 features_parse_option,
-		 features_run,
-		 &feature_state);
-
-/* We're going to union the flags needed by the features we're processing */
-static void features_add_open_flags(int flags)
-{
-	features_op.to_open_flags |= flags;
-}
+		 features_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])

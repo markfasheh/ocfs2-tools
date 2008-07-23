@@ -1336,10 +1336,11 @@ bail:
 	return ret;
 }
 
-static int single_feature_parse_option(char *arg, void *user_data)
+static int single_feature_parse_option(struct tunefs_operation *op,
+				       char *arg)
 {
 	int rc = 0;
-	struct tunefs_feature *feat = user_data;
+	struct tunefs_feature *feat = op->to_private;
 
 	if (!arg) {
 		errorf("No action specified\n");
@@ -1388,9 +1389,10 @@ int tunefs_feature_run(ocfs2_filesys *fs, int flags,
 	return rc;
 }
 
-static int single_feature_run(ocfs2_filesys *fs, int flags, void *user_data)
+static int single_feature_run(struct tunefs_operation *op,
+			      ocfs2_filesys *fs, int flags)
 {
-	struct tunefs_feature *feat = user_data;
+	struct tunefs_feature *feat = op->to_private;
 
 	return tunefs_feature_run(fs, flags, feat);
 }
@@ -1399,8 +1401,7 @@ DEFINE_TUNEFS_OP(single_feature,
 		 NULL,
 		 0,
 		 single_feature_parse_option,
-		 single_feature_run,
-		 NULL);
+		 single_feature_run);
 
 int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat)
 {
@@ -1412,7 +1413,7 @@ int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat)
 		 feat->tf_name);
 	single_feature_op.to_debug_usage = usage;
 	single_feature_op.to_open_flags = feat->tf_open_flags;
-	single_feature_op.to_user_data = feat;
+	single_feature_op.to_private = feat;
 
 	return tunefs_op_main(argc, argv, &single_feature_op);
 }
@@ -1442,7 +1443,7 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 		if (argc == 3)
 			arg = argv[2];
 
-		rc = op->to_parse_option(arg, op->to_user_data);
+		rc = op->to_parse_option(op, arg);
 		if (rc) {
 			tunefs_debug_usage(1);
 			goto out;
@@ -1476,7 +1477,7 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 		goto out_close_master;
 	}
 
-	rc = op->to_run(op_fs, flags, op->to_user_data);
+	rc = op->to_run(op, op_fs, flags);
 
 	err = tunefs_close(op_fs);
 	if (err) {

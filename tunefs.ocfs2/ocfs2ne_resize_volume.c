@@ -683,27 +683,44 @@ out:
 	return err;
 }
 
-static int resize_volume_parse_option(char *arg, void *user_data)
+static int resize_volume_parse_option(struct tunefs_operation *op, char *arg)
 {
-	int rc = 0;
+	int rc = 1;
 	errcode_t err;
-	uint64_t *new_size = user_data;
+	uint64_t *new_size;
 
-	if (arg) {
+	err = ocfs2_malloc0(sizeof(uint64_t), &new_size);
+	if (err) {
+		tcom_err(err, "while processing volume size options");
+		goto out;
+	}
+
+	if (!arg)
+		*new_size = 0;
+	else {
 		err = tunefs_get_number(arg, new_size);
 		if (err) {
 			tcom_err(err, "- new size is invalid: %s", arg);
-			rc = 1;
+			ocfs2_free(&new_size);
+			goto out;
 		}
 	}
 
+	op->to_private = new_size;
+	rc = 0;
+
+out:
 	return rc;
 }
 
-static int resize_volume_run(ocfs2_filesys *fs, int flags, void *user_data)
+static int resize_volume_run(struct tunefs_operation *op,
+			     ocfs2_filesys *fs, int flags)
 {
 	errcode_t err;
-	uint64_t new_size = *(uint64_t *)user_data;
+	uint64_t new_size = *(uint64_t *)op->to_private;
+
+	ocfs2_free((uint64_t *)op->to_private);
+	op->to_private = NULL;
 
 	err = update_volume_size(fs, new_size, flags & TUNEFS_FLAG_ONLINE);
 
@@ -711,7 +728,6 @@ static int resize_volume_run(ocfs2_filesys *fs, int flags, void *user_data)
 }
 
 
-static uint64_t new_size;
 DEFINE_TUNEFS_OP(resize_volume,
 		 "Usage: ocfs2ne_resize_volume [opts] <device> [size]\n"
 		 "If [size] is left out, the filesystem will be "
@@ -719,8 +735,7 @@ DEFINE_TUNEFS_OP(resize_volume,
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION |
 		 TUNEFS_FLAG_ONLINE,
 		 resize_volume_parse_option,
-		 resize_volume_run,
-		 &new_size);
+		 resize_volume_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])

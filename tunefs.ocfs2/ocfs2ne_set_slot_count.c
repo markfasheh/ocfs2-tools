@@ -1017,19 +1017,20 @@ out:
 	return ret;
 }
 
-static int set_slot_count_parse_option(char *arg, void *user_data)
+static int set_slot_count_parse_option(struct tunefs_operation *op,
+				       char *arg)
 {
 	int rc = 1;
 	char *ptr = NULL;
-	int *num_slots = user_data;
+	long num_slots;
 
 	if (!arg) {
 		errorf("Number of slots not specified\n");
 		goto out;
 	}
 
-	*num_slots = strtol(arg, &ptr, 10);
-	if ((*num_slots == LONG_MIN) || (*num_slots == LONG_MAX)) {
+	num_slots = strtol(arg, &ptr, 10);
+	if ((num_slots == LONG_MIN) || (num_slots == LONG_MAX)) {
 		errorf("Number of slots is out of range: %s\n", arg);
 		goto out;
 	}
@@ -1037,8 +1038,12 @@ static int set_slot_count_parse_option(char *arg, void *user_data)
 		errorf("Invalid number: \"%s\"\n", arg);
 		goto out;
 	}
-	if (*num_slots < 1) {
+	if (num_slots < 1) {
 		errorf("At least one slot required\n");
+		goto out;
+	}
+	if (num_slots > INT_MAX) {
+		errorf("Number of slots is out of range: %s\n", arg);
 		goto out;
 	}
 	/*
@@ -1046,20 +1051,21 @@ static int set_slot_count_parse_option(char *arg, void *user_data)
 	 * the filesystem and determined the slot map format.
 	 */
 
+	op->to_private = (void *)num_slots;
 	rc = 0;
 
 out:
 	return rc;
 }
 
-static int set_slot_count_run(ocfs2_filesys *fs, int flags,
-			      void *user_data)
+static int set_slot_count_run(struct tunefs_operation *op,
+			      ocfs2_filesys *fs, int flags)
 {
 	errcode_t err;
 	int rc = 0;
-	int *num_slots = user_data;
+	int num_slots = (int)op->to_private;
 
-	err = update_slot_count(fs, *num_slots);
+	err = update_slot_count(fs, num_slots);
 	if (err) {
 		tcom_err(err,
 			 "- unable to update the number of slots on device "
@@ -1072,14 +1078,12 @@ static int set_slot_count_run(ocfs2_filesys *fs, int flags,
 }
 
 
-static int num_slots;
 DEFINE_TUNEFS_OP(set_slot_count,
 		 "Usage: ocfs2ne_set_slot_count [opts] <device> "
 		 "<number_of_slots>\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
 		 set_slot_count_parse_option,
-		 set_slot_count_run,
-		 &num_slots);
+		 set_slot_count_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])

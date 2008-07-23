@@ -429,7 +429,8 @@ bail:
 	return ret;
 }
 
-static int list_sparse_run(ocfs2_filesys *fs, int flags, void *unused)
+static int list_sparse_run(struct tunefs_operation *op, ocfs2_filesys *fs,
+			   int flags)
 {
 	int rc = 0;
 	errcode_t err;
@@ -450,8 +451,7 @@ DEFINE_TUNEFS_OP(list_sparse,
 		 "Usage: ocfs2ne_list_sparse_files [opts] <device>\n",
 		 TUNEFS_FLAG_RW,
 		 NULL,
-		 list_sparse_run,
-		 NULL);
+		 list_sparse_run);
 
 #ifdef DEBUG_EXE
 int main(int argc, char *argv[])
