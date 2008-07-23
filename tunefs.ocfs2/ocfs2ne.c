@@ -116,15 +116,16 @@ static struct tunefs_journal_option *tunefs_journal_options[] = {
 
 static errcode_t tunefs_queue_operation(struct tunefs_operation *op)
 {
+	errcode_t err;
 	struct tunefs_run *run;
 
-	run = malloc(sizeof(struct tunefs_run));
-	if (!run)
-		return TUNEFS_ET_NO_MEMORY;
+	err = ocfs2_malloc0(sizeof(struct tunefs_run), &run);
+	if (!err) {
+		run->tr_op = op;
+		list_add_tail(&run->tr_list, &tunefs_run_list);
+	}
 
-	run->tr_op = op;
-	list_add_tail(&run->tr_list, &tunefs_run_list);
-	return 0;
+	return err;
 }
 
 static void print_usage(int rc);
@@ -482,10 +483,10 @@ static struct tunefs_option *options[] = {
 	&resize_volume_option,
 	&journal_option,
 	&list_sparse_option,
-	&update_cluster_stack_option,
 	&mount_type_option,
 	&backup_super_option,
 	&features_option,
+	&update_cluster_stack_option,
 	NULL,
 };
 
@@ -510,21 +511,6 @@ static struct tunefs_option *find_option_by_val(int val)
 
 	for (i = 0; options[i]; i++) {
 		if (options[i]->opt_option.val == val) {
-			opt = options[i];
-			break;
-		}
-	}
-
-	return opt;
-}
-
-static struct tunefs_option *find_opt_by_name(const char *name)
-{
-	int i;
-	struct tunefs_option *opt = NULL;
-
-	for (i = 0; options[i]; i++) {
-		if (!strcmp(options[i]->opt_option.name, name)) {
 			opt = options[i];
 			break;
 		}
@@ -653,6 +639,7 @@ parse_option:
 
 static int build_options(char **optstring, struct option **longopts)
 {
+	errcode_t err;
 	int i, num_opts, rc = 0;
 	int unprintable_counter;
 	size_t optstring_len;
@@ -688,14 +675,14 @@ static int build_options(char **optstring, struct option **longopts)
 	}
 	num_opts = i;
 
-	str = malloc(sizeof(char) * (optstring_len + 1));
-	lopts = malloc(sizeof(struct option) * (num_opts + 1));
-	if (!str || !lopts) {
+	err = ocfs2_malloc0(sizeof(char) * (optstring_len + 1), &str);
+	if (!err)
+		err = ocfs2_malloc(sizeof(struct option) * (num_opts + 1),
+				   &lopts);
+	if (err) {
 		rc = -ENOMEM;
 		goto out;
 	}
-	memset(str, 0, sizeof(char) * (optstring_len + 1));
-	memset(lopts, 0, sizeof(struct option) * (num_opts + 1));
 
 	p = str;
 	*p = ':';
