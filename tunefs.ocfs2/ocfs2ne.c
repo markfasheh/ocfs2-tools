@@ -42,6 +42,12 @@
  * For most argument-free operations, they'll just specify their name and
  * val.  Options with arguments will mostly use generic_handle_arg() as
  * their ->opt_handle().
+ *
+ * If you are adding a new feature flag, do not add an option here.  It
+ * should be handled by --fs-features.  Just write a tunefs_feature in
+ * ocfs2ne_feature_<name>.c and add it to the list ocfs2ne_features.c.
+ * If you are adding an operation, make its option something that stands on
+ * its own and can use generic_handle_arg() if it needs an argument.
  */
 struct tunefs_option {
 	struct option	opt_option;		/* For getopt_long().  If
@@ -56,7 +62,11 @@ struct tunefs_option {
 						   option has no
 						   ->opt_handle() or is
 						   using
-						   generic_handle_arg() */
+						   generic_handle_arg().
+						   If set, opt_op will
+						   be added to the run_list
+						   when this option is
+						   seen. */
 	char		*opt_help;	/* Help string */
 	int		opt_set;	/* Was this option seen */
 	int		(*opt_handle)(struct tunefs_option *opt, char *arg);
@@ -81,16 +91,13 @@ extern struct tunefs_operation update_cluster_stack_op;
 
 static LIST_HEAD(tunefs_run_list);
 
-static int tunefs_queue_operation(struct tunefs_operation *op)
+static errcode_t tunefs_queue_operation(struct tunefs_operation *op)
 {
 	struct tunefs_run *run;
 
 	run = malloc(sizeof(struct tunefs_run));
-	if (!run) {
-		errorf("Unable to allocate memory while queuing an "
-		       "operation\n");
-		return 1;
-	}
+	if (!run)
+		return TUNEFS_ET_NO_MEMORY;
 
 	run->tr_op = op;
 	list_add_tail(&run->tr_list, &tunefs_run_list);
@@ -150,7 +157,6 @@ static int handle_interactive(struct tunefs_option *opt, char *arg)
  */
 static int generic_handle_arg(struct tunefs_option *opt, char *arg)
 {
-	int rc;
 	struct tunefs_operation *op = opt->opt_op;
 
 	if (!op->to_parse_option) {
@@ -160,25 +166,26 @@ static int generic_handle_arg(struct tunefs_option *opt, char *arg)
 		return 1;
 	}
 
-	rc = op->to_parse_option(arg, op->to_user_data);
-	if (!rc)
-		rc = tunefs_queue_operation(op);
-
-	return rc;
+	return op->to_parse_option(arg, op->to_user_data);
 }
 
 /*
- * The multiple options setting fs_features want to save off their feature
- * string.  They can use this function directly or indirectly.
+ * Store a copy of the argument on opt_private.
+ *
+ * For example, the multiple options setting fs_features want to save off
+ * their feature string.  They use this function directly or indirectly.
  */
 static int strdup_handle_arg(struct tunefs_option *opt, char *arg)
 {
-	char *ptr = strdup(arg);
+	char *ptr = NULL;
 
-	if (!ptr) {
-		errorf("Unable to allocate memory while processing "
-		       "options\n");
-		return 1;
+	if (arg) {
+		ptr = strdup(arg);
+		if (!ptr) {
+			errorf("Unable to allocate memory while processing "
+			       "options\n");
+			return 1;
+		}
 	}
 
 	opt->opt_private = ptr;
@@ -330,6 +337,17 @@ struct tunefs_option features_option = {
 	.opt_handle	= strdup_handle_arg,
 };
 
+struct tunefs_option resize_volume_option = {
+	.opt_option	= {
+		.name		= "volume-size",
+		.val		= 'S',
+		.has_arg	= 2,
+	},
+	.opt_help	=
+		"-S|--volume-size [blocks | clusters | bytes]\n"
+		"\t                 (defaults to blocks)",
+	.opt_handle	= strdup_handle_arg,
+};
 
 /* The order here creates the order in print_usage() */
 static struct tunefs_option *options[] = {
@@ -341,6 +359,7 @@ static struct tunefs_option *options[] = {
 	&set_label_option,
 	&set_slot_count_option,
 	&reset_uuid_option,
+	&resize_volume_option,
 	&list_sparse_option,
 	&update_cluster_stack_option,
 	&mount_type_option,
@@ -410,11 +429,13 @@ static void print_usage(int rc)
 		if (options[i]->opt_help)
 			verbosef(level, "\t%s\n", options[i]->opt_help);
 	}
-	verbosef(level, "[new-size] is only valid with the '-S' option\n");
+	verbosef(level,
+		 "[new-size] is only valid with the '-S' option\n"
+		 "All sizes can be specified with K/M/G/T/P suffixes\n");
 	exit(rc);
 }
 
-static int parse_feature_strings(void)
+static errcode_t parse_feature_strings(void)
 {
 	int i, rc;
 	char *tmp, *features = NULL;
@@ -448,13 +469,68 @@ static int parse_feature_strings(void)
 		features_len = new_features_len;
 	}
 
+	if (!features)
+		return 0;
+
 	verbosef(VL_APP, "Full feature string is \"%s\"\n", features);
 	rc = features_op.to_parse_option(features,
 					 features_op.to_user_data);
-	if (!rc)
-		rc = tunefs_queue_operation(&features_op);
+	free(features);
+	if (rc)
+		print_usage(1);
 
-	return rc;
+	return tunefs_queue_operation(&features_op);
+}
+
+/*
+ * We do resize_volume checks in this special-case function because the
+ * new size is separated from the option flag due to historical reasons.
+ *
+ * If resize_volume_option.opt_set, we'd better have an arg.  Or we'd
+ * better have neither.
+ */
+static errcode_t parse_resize(const char *arg)
+{
+	char operation_arg[NAME_MAX];  /* Should be big enough :-) */
+
+	if (!arg) {
+		if (resize_volume_option.opt_set) {
+			errorf("No size specified for volume resize\n");
+			print_usage(1);
+		} else
+			return 0;  /* no resize options */
+	}
+
+	if (!resize_volume_option.opt_set) {
+		errorf("Too many arguments\n");
+		print_usage(1);
+	}
+
+	/* Ok, we have the arguments we're supposed to have */
+
+	/*
+	 * We've stored any argument to -S on opt_private.  If there
+	 * is no argument, our new size is in blocks due to historical
+	 * reasons.
+	 *
+	 * We don't have an open filesystem at this point, so we
+	 * can't convert clusters<->blocks<->bytes.  So let's just tell
+	 * the resize operation what unit we're talking.
+	 */
+	if (snprintf(operation_arg, NAME_MAX, "%s:%s",
+		     resize_volume_option.opt_private ?
+		     (char *)resize_volume_option.opt_private : "blocks",
+		     arg) >= NAME_MAX) {
+		errorf("Argument to option '--%s' is too long: %s\n",
+		       resize_volume_option.opt_option.name, arg);
+		print_usage(1);
+	}
+
+	if (resize_volume_op.to_parse_option(operation_arg,
+					     resize_volume_op.to_user_data))
+		print_usage(1);
+
+	return 0;
 }
 
 static int build_options(char **optstring, struct option **longopts)
@@ -544,7 +620,7 @@ out:
 
 extern int optind, opterr, optopt;
 extern char *optarg;
-static errcode_t parse_options(int argc, char *argv[])
+static errcode_t parse_options(int argc, char *argv[], char **device)
 {
 	int c;
 	errcode_t err;
@@ -565,21 +641,21 @@ static errcode_t parse_options(int argc, char *argv[])
 		switch (c) {
 			case '?':
 				if (optopt)
-					errorf("Invalid option: \'-%c\'\n",
+					errorf("Invalid option: '-%c'\n",
 					       optopt);
 				else
-					errorf("Invalid option: \'%s\'\n",
+					errorf("Invalid option: '%s'\n",
 					       argv[optind - 1]);
 				print_usage(1);
 				break;
 
 			case ':':
 				if (optopt < CHAR_MAX)
-					errorf("Option \'-%c\' requires "
+					errorf("Option '-%c' requires "
 					       "an argument\n",
 					       optopt);
 				else
-					errorf("Option \'%s\' requires "
+					errorf("Option '%s' requires "
 					       "an argument\n",
 					       argv[optind - 1]);
 				print_usage(1);
@@ -589,7 +665,7 @@ static errcode_t parse_options(int argc, char *argv[])
 				opt = find_option_by_val(c);
 				if (!opt) {
 					errorf("Shouldn't have gotten "
-					       "here: option \'-%c\'\n",
+					       "here: option '-%c'\n",
 					       c);
 					print_usage(1);
 				}
@@ -597,7 +673,7 @@ static errcode_t parse_options(int argc, char *argv[])
 		}
 
 		if (opt->opt_set) {
-			errorf("Option \'-%c\' specified more than once\n",
+			errorf("Option '-%c' specified more than once\n",
 			       c);
 			print_usage(1);
 		}
@@ -606,16 +682,41 @@ static errcode_t parse_options(int argc, char *argv[])
 		if (opt->opt_handle) {
 			if (opt->opt_handle(opt, optarg))
 				print_usage(1);
-		} else {
-			if (tunefs_queue_operation(opt->opt_op)) {
-				err = TUNEFS_ET_NO_MEMORY;
-				break;
-			}
+		}
+		if (opt->opt_op) {
+			err = tunefs_queue_operation(opt->opt_op);
 		}
 	}
 
-	if (parse_feature_strings())
+	err = parse_feature_strings();
+	if (err)
+		goto out;
+
+	if (optind >= argc) {
+		errorf("No device specified\n");
 		print_usage(1);
+	}
+
+	*device = strdup(argv[optind]);
+	if (!*device) {
+		err = TUNEFS_ET_NO_MEMORY;
+		goto out;
+	}
+	optind++;
+
+	/* parse_resize() will check if we expected a size */
+	if (optind < argc) {
+		err = parse_resize(argv[optind]);
+		optind++;
+	} else
+		err = parse_resize(NULL);
+	if (err)
+		goto out;
+
+	if (optind < argc) {
+		errorf("Too many arguments\n");
+		print_usage(1);
+	}
 
 out:
 	return err;
@@ -639,10 +740,11 @@ int main(int argc, char *argv[])
 {
 	int rc = 1;
 	errcode_t err;
+	char *device;
 
 	tunefs_init(argv[0]);
 
-	err = parse_options(argc, argv);
+	err = parse_options(argc, argv, &device);
 	if (err) {
 		tcom_err(err, "while parsing options");
 		goto out;

@@ -692,7 +692,7 @@ static int resize_volume_parse_option(char *arg, void *user_data)
 	if (arg) {
 		err = tunefs_get_number(arg, new_size);
 		if (err) {
-			tcom_err(err, "- new size is invalid\n");
+			tcom_err(err, "- new size is invalid: %s", arg);
 			rc = 1;
 		}
 	}
