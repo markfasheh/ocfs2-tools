@@ -73,6 +73,16 @@ struct tunefs_option {
 	void		*opt_private;
 };
 
+/*
+ * ocfs2ne lumps all journal options as name[=value] arguments underneath
+ * '-J'.  They end up being tunefs_operations, and we link them up here.
+ */
+struct tunefs_journal_option {
+	char			*jo_name;
+	char			*jo_help;
+	struct tunefs_operation	*jo_op;
+};
+
 /* Things to run */
 struct tunefs_run {
 	struct list_head	tr_list;
@@ -90,6 +100,19 @@ extern struct tunefs_operation set_slot_count_op;
 extern struct tunefs_operation update_cluster_stack_op;
 
 static LIST_HEAD(tunefs_run_list);
+
+static struct tunefs_journal_option set_journal_size_option = {
+	.jo_name	= "size",
+	.jo_help	= "size=<journal-size>",
+	.jo_op		= &set_journal_size_op,
+};
+
+/* The list of all supported journal options */
+static struct tunefs_journal_option *tunefs_journal_options[] = {
+	&set_journal_size_option,
+	NULL,
+};
+
 
 static errcode_t tunefs_queue_operation(struct tunefs_operation *op)
 {
@@ -216,7 +239,96 @@ static int backup_super_handle_arg(struct tunefs_option *opt, char *arg)
 	return strdup_handle_arg(opt, "backup-super");
 }
 
-struct tunefs_option help_option = {
+static struct tunefs_journal_option *find_journal_option(char *name)
+{
+	int i;
+	struct tunefs_journal_option *jopt;
+
+	for (i = 0; tunefs_journal_options[i]; i++) {
+		jopt = tunefs_journal_options[i];
+		if (!strcmp(name, jopt->jo_name))
+			return jopt;
+	}
+
+	return NULL;
+}
+
+/* derived from e2fsprogs */
+static int handle_journal_arg(struct tunefs_option *opt, char *arg)
+{
+	errcode_t err;
+	int i, rc = 0;
+	char *options, *token, *next, *p, *val;
+	int journal_usage = 0;
+	struct tunefs_journal_option *jopt;
+
+	if (arg) {
+		options = strdup(arg);
+		if (!options) {
+			tcom_err(TUNEFS_ET_NO_MEMORY,
+				 "while processing journal options");
+			return 1;
+		}
+	} else
+		options = NULL;
+
+	for (token = options; token && *token; token = next) {
+		p = strchr(token, ',');
+		next = NULL;
+
+		if (p) {
+			*p = '\0';
+			next = p + 1;
+		}
+
+		val = strchr(token, '=');
+
+		if (val) {
+			*val = '\0';
+			val++;
+		}
+
+		jopt = find_journal_option(token);
+		if (!jopt) {
+			errorf("Unknown journal option: \"%s\"\n", token);
+			journal_usage++;
+			continue;
+		}
+
+		if (jopt->jo_op->to_parse_option) {
+			if (jopt->jo_op->to_parse_option(jopt->jo_op, val)) {
+				journal_usage++;
+				continue;
+			}
+		} else if (val) {
+			errorf("Journal option \"%s\" does not accept "
+			       "arguments\n",
+			       token);
+			journal_usage++;
+			continue;
+		}
+
+		err = tunefs_queue_operation(jopt->jo_op);
+		if (err) {
+			tcom_err(err, "while processing journal options");
+			rc = 1;
+			break;
+		}
+	}
+
+	if (journal_usage) {
+		verbosef(VL_ERR, "Valid journal options are:\n");
+		for (i = 0; tunefs_journal_options[i]; i++)
+			verbosef(VL_ERR, "\t%s\n",
+				 tunefs_journal_options[i]->jo_help);
+		rc = 1;
+	}
+
+	free(options);
+	return rc;
+}
+
+static struct tunefs_option help_option = {
 	.opt_option	= {
 		.name	= "help",
 		.val	= 'h',
@@ -224,7 +336,7 @@ struct tunefs_option help_option = {
 	.opt_handle	= handle_help,
 };
 
-struct tunefs_option version_option = {
+static struct tunefs_option version_option = {
 	.opt_option	= {
 		.name	= "version",
 		.val	= 'V',
@@ -232,7 +344,7 @@ struct tunefs_option version_option = {
 	.opt_handle	= handle_version,
 };
 
-struct tunefs_option verbose_option = {
+static struct tunefs_option verbose_option = {
 	.opt_option	= {
 		.name	= "verbose",
 		.val	= 'v',
@@ -242,7 +354,7 @@ struct tunefs_option verbose_option = {
 	.opt_handle	= handle_verbosity,
 };
 
-struct tunefs_option quiet_option = {
+static struct tunefs_option quiet_option = {
 	.opt_option	= {
 		.name	= "quiet",
 		.val	= 'q',
@@ -252,7 +364,7 @@ struct tunefs_option quiet_option = {
 	.opt_handle	= handle_verbosity,
 };
 
-struct tunefs_option interactive_option = {
+static struct tunefs_option interactive_option = {
 	.opt_option	= {
 		.name	= "interactive",
 		.val	= 'i',
@@ -261,7 +373,7 @@ struct tunefs_option interactive_option = {
 	.opt_handle	= handle_interactive,
 };
 
-struct tunefs_option list_sparse_option = {
+static struct tunefs_option list_sparse_option = {
 	.opt_option	= {
 		.name	= "list-sparse",
 		.val	= CHAR_MAX,
@@ -270,7 +382,7 @@ struct tunefs_option list_sparse_option = {
 	.opt_op		= &list_sparse_op,
 };
 
-struct tunefs_option reset_uuid_option = {
+static struct tunefs_option reset_uuid_option = {
 	.opt_option	= {
 		.name	= "uuid-reset",
 		.val	= 'U',
@@ -279,7 +391,7 @@ struct tunefs_option reset_uuid_option = {
 	.opt_op		= &reset_uuid_op,
 };
 
-struct tunefs_option update_cluster_stack_option = {
+static struct tunefs_option update_cluster_stack_option = {
 	.opt_option	= {
 		.name	= "update-cluster-stack",
 		.val	= CHAR_MAX,
@@ -288,7 +400,7 @@ struct tunefs_option update_cluster_stack_option = {
 	.opt_op		= &update_cluster_stack_op,
 };
 
-struct tunefs_option set_slot_count_option = {
+static struct tunefs_option set_slot_count_option = {
 	.opt_option	= {
 		.name		= "node-slots",
 		.val		= 'N',
@@ -299,7 +411,7 @@ struct tunefs_option set_slot_count_option = {
 	.opt_op		= &set_slot_count_op,
 };
 
-struct tunefs_option set_label_option = {
+static struct tunefs_option set_label_option = {
 	.opt_option	= {
 		.name		= "label",
 		.val		= 'L',
@@ -310,7 +422,7 @@ struct tunefs_option set_label_option = {
 	.opt_op		= &set_label_op,
 };
 
-struct tunefs_option mount_type_option = {
+static struct tunefs_option mount_type_option = {
 	.opt_option	= {
 		.name		= "mount",
 		.val		= 'M',
@@ -319,7 +431,7 @@ struct tunefs_option mount_type_option = {
 	.opt_handle	= mount_type_handle_arg,
 };
 
-struct tunefs_option backup_super_option = {
+static struct tunefs_option backup_super_option = {
 	.opt_option	= {
 		.name	= "backup-super",
 		.val	= CHAR_MAX,
@@ -327,7 +439,7 @@ struct tunefs_option backup_super_option = {
 	.opt_handle	= backup_super_handle_arg,
 };
 
-struct tunefs_option features_option = {
+static struct tunefs_option features_option = {
 	.opt_option	= {
 		.name		= "fs-features",
 		.val		= CHAR_MAX,
@@ -337,16 +449,24 @@ struct tunefs_option features_option = {
 	.opt_handle	= strdup_handle_arg,
 };
 
-struct tunefs_option resize_volume_option = {
+static struct tunefs_option resize_volume_option = {
 	.opt_option	= {
 		.name		= "volume-size",
 		.val		= 'S',
 		.has_arg	= 2,
 	},
-	.opt_help	=
-		"-S|--volume-size [blocks | clusters | bytes]\n"
-		"\t                 (defaults to blocks)",
+	.opt_help	= "-S|--volume-size",
 	.opt_handle	= strdup_handle_arg,
+};
+
+static struct tunefs_option journal_option = {
+	.opt_option	= {
+		.name		= "journal-options",
+		.val		= 'J',
+		.has_arg	= 1,
+	},
+	.opt_help	= "-J|--journal-options <options>",
+	.opt_handle	= handle_journal_arg,
 };
 
 /* The order here creates the order in print_usage() */
@@ -360,6 +480,7 @@ static struct tunefs_option *options[] = {
 	&set_slot_count_option,
 	&reset_uuid_option,
 	&resize_volume_option,
+	&journal_option,
 	&list_sparse_option,
 	&update_cluster_stack_option,
 	&mount_type_option,
