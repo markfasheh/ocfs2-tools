@@ -117,7 +117,6 @@ fi
 /sbin/debugfs.ocfs2
 /sbin/o2cb_ctl
 /sbin/mount.ocfs2
-/sbin/ocfs2cdsl
 /sbin/o2image
 /sbin/ocfs2_hb_ctl
 /etc/init.d/o2cb
@@ -132,7 +131,6 @@ fi
 /usr/share/man/man8/mounted.ocfs2.8.gz
 /usr/share/man/man8/o2cb_ctl.8.gz
 /usr/share/man/man8/ocfs2_hb_ctl.8.gz
-/usr/share/man/man8/ocfs2cdsl.8.gz
 /usr/share/man/man8/o2image.8.gz
 /usr/share/man/man7/o2cb.7.gz
 

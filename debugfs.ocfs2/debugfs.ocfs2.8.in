@@ -225,7 +225,6 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 .BR tunefs.ocfs2(8)
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
-.BR ocfs2cdsl(8)
 .BR o2image(8)
 .BR o2cb(7)
 

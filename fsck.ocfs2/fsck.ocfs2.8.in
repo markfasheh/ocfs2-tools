@@ -96,7 +96,6 @@ The exit code returned by \fBfsck.ocfs2\fR is the sum of the following condition
 .BR tunefs.ocfs2(8)
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
-.BR ocfs2cdsl(8)
 .BR o2cb(7)
 
 

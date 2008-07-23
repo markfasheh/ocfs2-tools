@@ -57,7 +57,6 @@ Displays help and exit.
 .BR tunefs.ocfs2(8)
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
-.BR ocfs2cdsl(8)
 .BR debugfs.ocfs2(8)
 
 .SH "AUTHORS"

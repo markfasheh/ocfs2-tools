@@ -83,7 +83,6 @@ Mount the file system read-write.
 .BR tunefs.ocfs2(8)
 .BR mounted.ocfs2(8)
 .BR debugfs.ocfs2(8)
-.BR ocfs2cdsl(8)
 .BR o2cb(7)
 
 .SH "AUTHORS"

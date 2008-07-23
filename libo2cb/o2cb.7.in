@@ -134,7 +134,6 @@ node:
 .BR tunefs.ocfs2(8)
 .BR debugfs.ocfs2(8)
 .BR ocfs2console(8)
-.BR ocfs2cdsl(8)
 
 .SH "AUTHORS"
 Oracle Corporation

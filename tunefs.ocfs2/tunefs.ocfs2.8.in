@@ -140,7 +140,6 @@ UUID=80d1adf4-3fde-40dd-9b56-d370462ace17
 .BR debugfs.ocfs2(8)
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
-.BR ocfs2cdsl(8)
 .BR o2cb(7)
 
 .SH "AUTHORS"

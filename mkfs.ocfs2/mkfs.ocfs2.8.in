@@ -159,7 +159,6 @@ consume the given number of file system blocks (see \fB-b\fR) on the device.
 .BR tunefs.ocfs2(8)
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
-.BR ocfs2cdsl(8)
 .BR o2cb(7)
 
 .SH "AUTHORS"
