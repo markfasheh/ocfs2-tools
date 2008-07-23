@@ -225,6 +225,55 @@ static void dump_meta_lvb(const char *raw_lvb, FILE *out)
 }
 
 /* 0 = eof, > 0 = success, < 0 = error */
+static int dump_version_two(FILE *file, FILE *out)
+{
+	unsigned long long num_prmode, num_exmode;
+	unsigned int num_prmode_failed, num_exmode_failed;
+	unsigned long long  total_prmode, total_exmode;
+	unsigned int max_prmode, max_exmode, num_refresh;
+	int ret;
+
+#define NSEC_PER_USEC   1000
+
+	ret = fscanf(file, "%llu\t"
+		     "%llu\t"
+		     "%u\t"
+		     "%u\t"
+		     "%llu\t"
+		     "%llu\t"
+		     "%u\t"
+		     "%u\t"
+		     "%u\t",
+		     &num_prmode,
+		     &num_exmode,
+		     &num_prmode_failed,
+		     &num_exmode_failed,
+		     &total_prmode,
+		     &total_exmode,
+		     &max_prmode,
+		     &max_exmode,
+		     &num_refresh);
+	if (ret != 9) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	fprintf(out, "PR > Gets: %llu  Fails: %u    Waits (usec) Total: %llu  "
+		"Max: %u\n",
+		num_prmode, num_prmode_failed, total_prmode/NSEC_PER_USEC,
+		max_prmode/NSEC_PER_USEC);
+	fprintf(out, "EX > Gets: %llu  Fails: %u    Waits (usec) Total: %llu  "
+		"Max: %u\n",
+		num_exmode, num_exmode_failed, total_exmode/NSEC_PER_USEC,
+		max_exmode/NSEC_PER_USEC);
+	fprintf(out, "Disk Refreshes: %u\n", num_refresh);
+
+	ret = 1;
+out:
+	return ret;
+}
+
+/* 0 = eof, > 0 = success, < 0 = error */
 static int dump_version_one(FILE *file, FILE *out, int lvbs, int only_busy,
 			    int *skipped)
 {
@@ -298,7 +347,6 @@ static int dump_version_one(FILE *file, FILE *out, int lvbs, int only_busy,
 		if (id[0] == 'M')
 			dump_meta_lvb(lvb, out);
 	}
-	fprintf(out, "\n");
 
 	*skipped = 0;
 
@@ -320,7 +368,7 @@ static int end_line(FILE *f)
 	return 0;
 }
 
-#define CURRENT_PROTO 1
+#define CURRENT_PROTO 2
 /* returns 0 on error or end of file */
 static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy)
 {
@@ -341,6 +389,17 @@ static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy)
 	ret = dump_version_one(file, out, lvbs, only_busy, &skipped);
 	if (ret <= 0)
 		return 0;
+
+	if (!skipped) {
+		if (version >= 2) {
+			ret = dump_version_two(file, out);
+			if (ret <= 0)
+				return 0;
+		}
+	}
+
+	if (!skipped)
+		fprintf(out, "\n");
 
 	/* Read to the end of the record here. Any new fields tagged
 	 * onto the current format will be silently ignored. */
