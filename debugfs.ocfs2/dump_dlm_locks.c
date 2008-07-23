@@ -44,21 +44,33 @@ static void dump_raw_lvb(const char *lvb, FILE *out)
 	fprintf(out, "\n");
 }
 
+static void get_lock_level(int level, char *str, int len)
+{
+	switch (level) {
+	case 0:
+		strncpy(str, "NL", len);
+		break;
+	case 3:
+		strncpy(str, "PR", len);
+		break;
+	case 5:
+		strncpy(str, "EX", len);
+		break;
+	default:
+		snprintf(str, len, "%d", level);
+		break;
+	}
+}
+
 static void dump_lock(struct lock *lock, char *queue, FILE *out)
 {
 	GString *action = NULL;
-	char *ast, *bast, *level;
+	char *ast, *bast, level[5], conv[5];
 
 	action = g_string_new(NULL);
 
-	if (lock->type == 0)
-		level = "NL";
-	else if (lock->type == 3)
-		level = "PR";
-	else if (lock->type == 5)
-		level = "EX";
-	else
-		level = "??";
+	get_lock_level(lock->type, level, sizeof(level));
+	get_lock_level(lock->convert_type, conv, sizeof(conv));
 
 	ast = (lock->ast_list) ? "Yes" : "No";
 	bast = (lock->bast_list) ? "Yes" : "No";
@@ -78,8 +90,8 @@ static void dump_lock(struct lock *lock, char *queue, FILE *out)
 	if (!action->len)
 		g_string_append(action, "None");
 
-	fprintf(out, " %-10s  %-4d  %-5s  %-4d  %-15s  %-4d  %-3s  %-4s  %s\n",
-		queue, lock->node, level, lock->convert_type, lock->cookie,
+	fprintf(out, " %-10s  %-4d  %-5s  %-4s  %-15s  %-4d  %-3s  %-4s  %s\n",
+		queue, lock->node, level, conv, lock->cookie,
 		lock->refs, ast, bast, action->str);
 
 	g_string_free(action, 1);
@@ -87,24 +99,24 @@ static void dump_lock(struct lock *lock, char *queue, FILE *out)
 
 static void get_lockres_state(__u16 state, GString *str)
 {
-	if (state && DLM_LOCK_RES_UNINITED)
-		g_string_append(str, "Uninitialized");
-	if (state && DLM_LOCK_RES_RECOVERING)
-		g_string_append(str, "Recovering");
-	if (state && DLM_LOCK_RES_READY)
-		g_string_append(str, "Ready");
-	if (state && DLM_LOCK_RES_DIRTY)
-		g_string_append(str, "Dirty");
-	if (state && DLM_LOCK_RES_IN_PROGRESS)
-		g_string_append(str, "InProgress");
-	if (state && DLM_LOCK_RES_MIGRATING)
-		g_string_append(str, "Migrating");
-	if (state && DLM_LOCK_RES_DROPPING_REF)
-		g_string_append(str, "DroppingRef");
-	if (state && DLM_LOCK_RES_BLOCK_DIRTY)
-		g_string_append(str, "BlockDirty");
-	if (state && DLM_LOCK_RES_SETREF_INPROG)
-		g_string_append(str, "SetRefInProg");
+	if (state & DLM_LOCK_RES_UNINITED)
+		g_string_append(str, "Uninitialized ");
+	if (state & DLM_LOCK_RES_RECOVERING)
+		g_string_append(str, "Recovering ");
+	if (state & DLM_LOCK_RES_READY)
+		g_string_append(str, "Ready ");
+	if (state & DLM_LOCK_RES_DIRTY)
+		g_string_append(str, "Dirty ");
+	if (state & DLM_LOCK_RES_IN_PROGRESS)
+		g_string_append(str, "InProgress ");
+	if (state & DLM_LOCK_RES_MIGRATING)
+		g_string_append(str, "Migrating ");
+	if (state & DLM_LOCK_RES_DROPPING_REF)
+		g_string_append(str, "DroppingRef ");
+	if (state & DLM_LOCK_RES_BLOCK_DIRTY)
+		g_string_append(str, "BlockDirty ");
+	if (state & DLM_LOCK_RES_SETREF_INPROG)
+		g_string_append(str, "SetRefInProg ");
 	if (!str->len)
 		g_string_append(str, "");
 }
