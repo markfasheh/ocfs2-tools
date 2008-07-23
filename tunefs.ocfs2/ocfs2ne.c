@@ -485,32 +485,29 @@ static errcode_t parse_feature_strings(void)
  * We do resize_volume checks in this special-case function because the
  * new size is separated from the option flag due to historical reasons.
  *
- * If resize_volume_option.opt_set, we'd better have an arg.  Or we'd
- * better have neither.
+ * If resize_volume_option.opt_set, we may or may not have arg.  A NULL
+ * arg is means "fill up the LUN".  If !opt_set, arg must be NULL.
  */
 static errcode_t parse_resize(const char *arg)
 {
 	char operation_arg[NAME_MAX];  /* Should be big enough :-) */
 
-	if (!arg) {
-		if (resize_volume_option.opt_set) {
-			errorf("No size specified for volume resize\n");
-			print_usage(1);
-		} else
-			return 0;  /* no resize options */
-	}
-
 	if (!resize_volume_option.opt_set) {
-		errorf("Too many arguments\n");
-		print_usage(1);
+		if (arg) {
+			errorf("Too many arguments\n");
+			print_usage(1);
+		}
+
+		return 0;  /* no resize options */
 	}
 
-	/* Ok, we have the arguments we're supposed to have */
+	if (!arg)
+		goto parse_option;
 
 	/*
 	 * We've stored any argument to -S on opt_private.  If there
-	 * is no argument, our new size is in blocks due to historical
-	 * reasons.
+	 * was no argument to -S, our new size is in blocks due to
+	 * historical reasons.
 	 *
 	 * We don't have an open filesystem at this point, so we
 	 * can't convert clusters<->blocks<->bytes.  So let's just tell
@@ -525,8 +522,9 @@ static errcode_t parse_resize(const char *arg)
 		print_usage(1);
 	}
 
+parse_option:
 	if (resize_volume_op.to_parse_option(&resize_volume_op,
-					     operation_arg))
+					     arg ? operation_arg : NULL))
 		print_usage(1);
 
 	return 0;

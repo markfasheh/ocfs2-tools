@@ -40,6 +40,27 @@
 static char lock_name[OCFS2_LOCK_ID_MAX_LEN] = "tunefs-online-resize-lock";
 
 
+/*
+ * We can handle a new size specified in bytes, blocks, or clusters.
+ * However, we don't have an open filesystem at the time we parse the
+ * new size.  Thus, we store off the choice in struct resize_specs until
+ * we're ready to go.
+ */
+enum resize_units {
+	RESIZE_BYTES	= 0,
+	RESIZE_BLOCKS	= 1,
+	RESIZE_CLUSTERS	= 2,
+};
+static char *resize_unit_strings[] = {
+	[RESIZE_BYTES]		= "bytes:",
+	[RESIZE_BLOCKS]		= "blocks:",
+	[RESIZE_CLUSTERS]	= "clusters:",
+};
+struct resize_specs {
+	enum resize_units	rs_unit;
+	uint64_t		rs_size;
+};
+
 static errcode_t online_resize_lock(ocfs2_filesys *fs)
 {
 	if (ocfs2_mount_local(fs))
@@ -683,30 +704,55 @@ out:
 	return err;
 }
 
+static int resize_parse_units(struct resize_specs *specs, char *arg)
+{
+	int i;
+	size_t len, arglen = strlen(arg);
+	size_t sizecount =
+		sizeof(resize_unit_strings) / sizeof(resize_unit_strings[0]);
+
+	for (i = 0; i < sizecount; i++) {
+		len = strlen(resize_unit_strings[i]);
+		if (len > arglen)
+			continue;
+		if (strncmp(resize_unit_strings[i], arg, len))
+			continue;
+
+		specs->rs_unit = i;
+		return len;
+	}
+
+	specs->rs_unit = RESIZE_BYTES;
+	return 0;
+}
+
 static int resize_volume_parse_option(struct tunefs_operation *op, char *arg)
 {
 	int rc = 1;
+	size_t len;
 	errcode_t err;
-	uint64_t *new_size;
+	struct resize_specs *specs;
 
-	err = ocfs2_malloc0(sizeof(uint64_t), &new_size);
+	err = ocfs2_malloc0(sizeof(uint64_t), &specs);
 	if (err) {
 		tcom_err(err, "while processing volume size options");
 		goto out;
 	}
 
-	if (!arg)
-		*new_size = 0;
-	else {
-		err = tunefs_get_number(arg, new_size);
+	if (arg) {
+		len = resize_parse_units(specs, arg);
+		arg += len;
+		err = tunefs_get_number(arg, &specs->rs_size);
 		if (err) {
 			tcom_err(err, "- new size is invalid: %s", arg);
-			ocfs2_free(&new_size);
+			ocfs2_free(&specs);
 			goto out;
 		}
 	}
 
-	op->to_private = new_size;
+	verbosef(VL_DEBUG, "Resize specifications: %"PRIu64" %s\n",
+		 specs->rs_size, resize_unit_strings[specs->rs_unit]);
+	op->to_private = specs;
 	rc = 0;
 
 out:
@@ -717,12 +763,31 @@ static int resize_volume_run(struct tunefs_operation *op,
 			     ocfs2_filesys *fs, int flags)
 {
 	errcode_t err;
-	uint64_t new_size = *(uint64_t *)op->to_private;
+	uint64_t new_size;
+	struct resize_specs *specs = op->to_private;
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 
-	ocfs2_free((uint64_t *)op->to_private);
-	op->to_private = NULL;
+	new_size = specs->rs_size;
+	switch (specs->rs_unit) {
+		case RESIZE_CLUSTERS:
+			new_size = new_size << super->s_clustersize_bits;
+			break;
+
+		case RESIZE_BLOCKS:
+			new_size = new_size << super->s_blocksize_bits;
+
+		case RESIZE_BYTES:
+		default:
+			break;
+	}
+	/* Handle wrapping */
+	if (new_size < specs->rs_size)
+		new_size = UINT64_MAX;
 
 	err = update_volume_size(fs, new_size, flags & TUNEFS_FLAG_ONLINE);
+
+	ocfs2_free(&specs);
+	op->to_private = NULL;
 
 	return err != 0;
 }
