@@ -1,6 +1,6 @@
 [off]	ocfs2_extent_rec    	[size]
 0x000	e_cpos              	+0x04
-0x004	e_int_clusters         	+0x04
+0x004	e_int_clusters      	+0x04
 0x008	e_blkno             	+0x08
 	Total               	0x010
 
@@ -58,12 +58,12 @@
 0x038	s_blocksize_bits    	+0x04
 0x03C	s_clustersize_bits  	+0x04
 0x040	s_max_slots         	+0x02
-0x042	s_tunefs_flag         	+0x02
+0x042	s_tunefs_flag       	+0x02
 0x044	s_reserved1         	+0x04
 0x048	s_first_cluster_group	+0x08
 0x050	s_label             	+0x40
 0x090	s_uuid              	+0x10
-	Total               	0x0A0
+	Total               	0x140
 
 [off]	ocfs2_local_alloc   	[size]
 0x000	la_bm_off           	+0x04
@@ -96,19 +96,21 @@
 0x064	i_atime_nsec        	+0x04
 0x068	i_ctime_nsec        	+0x04
 0x06C	i_mtime_nsec        	+0x04
-0x070	i_reserved1         	+0x48
+0x070	i_attr              	+0x04
+0x076	i_dyn_features      	+0x02
+0x078	i_reserved2         	+0x40
 0x0B8	id1.i_pad1          	+0x08
 0x0B8	id1.dev1.i_rdev     	+0x08
 0x0B8	id1.bitmap1.i_used  	+0x04
 0x0BC	id1.bitmap1.i_total 	+0x04
 0x0B8	id1.journal1.ij_flags	+0x04
-0x0BC	id1.journal1.ij_pad 	+0x04
-0x0C0	id2.i_super         	+0xA0
+0x0BC	id1.journal1.ij_recovery_generation	+0x04
+0x0C0	id2.i_super         	+0x140
 0x0C0	id2.i_lab           	+0x10
 0x0C0	id2.i_chain         	+0x10
 0x0C0	id2.i_list          	+0x10
 0x0C0	id2.i_symlink       	+0x00
-	Total               	0x160
+	Total               	0x200
 
 [off]	struct ocfs2_dir_entry	[size]
 0x000	inode               	+0x08

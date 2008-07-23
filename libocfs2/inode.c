@@ -99,8 +99,11 @@ static void ocfs2_swap_inode_second(struct ocfs2_dinode *di)
 	else if (di->i_flags & OCFS2_BITMAP_FL) {
 		di->id1.bitmap1.i_used = bswap_32(di->id1.bitmap1.i_used);
 		di->id1.bitmap1.i_total = bswap_32(di->id1.bitmap1.i_total);
-	} else if (di->i_flags & OCFS2_JOURNAL_FL)
+	} else if (di->i_flags & OCFS2_JOURNAL_FL) {
 		di->id1.journal1.ij_flags = bswap_32(di->id1.journal1.ij_flags);
+		di->id1.journal1.ij_recovery_generation =
+			bswap_32(di->id1.journal1.ij_recovery_generation);
+	}
 
 	/* we need to be careful to swap the union member that is in use.
 	 * first the ones that are explicitly marked with flags.. */ 

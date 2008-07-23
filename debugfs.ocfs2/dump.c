@@ -265,6 +265,8 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 		if (in->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL)
 			fprintf(out, "Dirty ");
 		fprintf(out, "\n");
+		fprintf(out, "\tRecovery Generation: %u\n",
+			in->id1.journal1.ij_recovery_generation);
 	}
 
 	if (flags)

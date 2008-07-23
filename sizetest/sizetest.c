@@ -195,7 +195,7 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, id1.bitmap1.i_used);
 	SHOW_OFFSET(struct ocfs2_dinode, id1.bitmap1.i_total);
 	SHOW_OFFSET(struct ocfs2_dinode, id1.journal1.ij_flags);
-	SHOW_OFFSET(struct ocfs2_dinode, id1.journal1.ij_pad);
+	SHOW_OFFSET(struct ocfs2_dinode, id1.journal1.ij_recovery_generation);
 
 	SHOW_OFFSET(struct ocfs2_dinode, id2.i_super);
 	SHOW_OFFSET(struct ocfs2_dinode, id2.i_lab);
