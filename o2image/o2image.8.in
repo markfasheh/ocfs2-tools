@@ -1,4 +1,4 @@
-.TH "o2image" "8" "December 2007" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2image" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2image \- Save/Restore critical ocfs2 filesystem data to a file.
 .SH "SYNOPSIS"

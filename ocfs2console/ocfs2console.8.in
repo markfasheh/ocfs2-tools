@@ -1,4 +1,4 @@
-.TH "ocfs2console" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "ocfs2console" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 ocfs2console - GUI console for \fIOCFS2\fR.
 .SH "SYNOPSIS"
@@ -17,6 +17,7 @@ One can also use this tool to format, tune, mount and umount \fIOCFS2\fR volumes
 .BR mounted.ocfs2(8)
 .BR debugfs.ocfs2(8)
 .BR ocfs2cdsl(8)
+.BR o2cb(7)
 
 .SH AUTHORS
 Oracle Corporation

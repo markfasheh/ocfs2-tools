@@ -1,4 +1,4 @@
-.TH "mount.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mount.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "SYNOPSIS"
@@ -84,6 +84,7 @@ Mount the file system read-write.
 .BR mounted.ocfs2(8)
 .BR debugfs.ocfs2(8)
 .BR ocfs2cdsl(8)
+.BR o2cb(7)
 
 .SH "AUTHORS"
 Oracle Corporation

@@ -57,7 +57,9 @@ libo2cb.a: $(OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et
+MANS = o2cb.7
+
+DIST_FILES = $(CFILES) $(HFILES) o2cb_err.et o2cb.7.in
 
 CLEAN_RULES = clean-err
 

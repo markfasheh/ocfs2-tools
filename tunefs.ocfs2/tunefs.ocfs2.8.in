@@ -1,4 +1,4 @@
-.TH "tunefs.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
@@ -141,6 +141,7 @@ UUID=80d1adf4-3fde-40dd-9b56-d370462ace17
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
 .BR ocfs2cdsl(8)
+.BR o2cb(7)
 
 .SH "AUTHORS"
 Oracle Corporation

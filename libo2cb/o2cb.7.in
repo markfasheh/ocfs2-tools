@@ -1,0 +1,143 @@
+.TH "o2cb" "7" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+o2cb \- Default cluster stack for the \fIOCFS2\fR file system.
+.SH "DESCRIPTION"
+.PP 
+\fBo2cb\fR is the default cluster stack for the \fIOCFS2\fR file system. It
+includes a node manager (o2nm) to keep track of the nodes in the cluster,
+a heartbeat agent (o2hb) to detect live nodes, a network agent (o2net) for
+intra-cluster node communication and a distributed lock manager (o2dlm)
+to keep track of lock resources. All these components are in-kernel. It also
+includes an in-memory file system, dlmfs, to allow userspace to access the
+in-kernel dlm.
+
+This cluster stack has two configuration files, namely, \fI/etc/ocfs2/cluster.conf\fR
+and \fI/etc/sysconfig/o2cb\fR. Whereas the former keeps track of the cluster layout,
+the latter keeps track of the cluster timeouts. Both files are only read when the
+cluster is brought online. Values in use by the online cluster can be perused in the
+/sys/kernel/config/cluster directory structure.
+
+.SH "CONFIGURATION"
+.PP
+The cluster layout is specified in \fB/etc/ocfs2/cluster.conf\fR. While it is easier
+to populate and propagate this configuration file using \fBocfs2console(8)\fR, one can
+also do it by manually as long as care is taken to format the file correctly.
+
+While the console utility is intuitive to use, there are few points to keep in mind.
+.TP
+	1. The node name needs to match the hostname. It does not need to include the domain name. For example, appserver.oracle.com can be appserver.
+.TP
+	2. The IP address need not be the one associated with that hostname. As in, any valid IP address on that node can be used. O2CB will not attempt to match the node name (hostname) with the specified IP address.
+.PP
+For best performance, use of a private interconnect (lower latency) is recommended.
+
+The cluster.conf file is in a stanza format with two types of stanzas, namely, cluster
+and node. A typical cluster.conf will have one cluster stanza and multiple node stanzas.
+
+The \fIcluster stanza\fR has two parameters:
+.TP
+\fBnode_count\fR
+Total number of nodes in the cluster
+.TP
+\fBname\fR
+Name of the cluster
+
+.PP
+The \fInode stanza\fR has five parameters:
+.TP
+\fBip_port\fR
+IP port
+.TP
+\fBip_address\fR
+IP address
+.TP
+\fBnumber\fR
+Unique node number from 0-254
+.TP
+\fBname\fR
+Hostname
+.TP
+\fBcluster\fR
+Name of the cluster
+.PP
+Users populating cluster.conf manually should follow the format strictly. As in,
+stanza header should start at the first column and end with a colon, stanza parameters
+should start after a tab, a blank line should demarcate each stanza and care taken to
+avoid stray whitespaces.
+
+The O2CB cluster timeouts are specified in \fB/etc/sysconfig/o2cb\fR and can be
+configured using the \fIo2cb\fR init script.
+
+These timeouts are used by the O2CB clusterstack to determine whether a node is dead
+or alive. While the use of default values is recommended, users can experiment with
+other values if the defaults are causing spurious fencing.
+
+The \fIcluster timeouts\fR are:
+.TP
+\fBHeartbeat Dead Threshold\fR
+The Disk Heartbeat timeout is the number of two second iterations before a node is
+considered dead. The exact formula used to convert the timeout in seconds to the
+number of iterations is as follows:
+
+O2CB_HEARTBEAT_THRESHOLD = (((timeout in seconds) / 2) + 1)
+
+For e.g., to specify a 60 sec timeout, set it to 31. For 120 secs, set it to 61. The default for this timeout is 60 secs (O2CB_HEARTBEAT_THRESHOLD = 31).
+
+.TP
+\fBNetwork Idle Timeout\fR
+The Network Idle timeout specifies the time in milliseconds before a network connection
+is considered dead. It defaults to 30000 ms.
+
+.TP
+\fBNetwork Keepalive Delay\fR
+The Network Keepalive specifies the maximum delay in milliseconds before a keepalive
+packet is sent to another node to check whether it is alive or not. If the node is alive,
+it will respond. Its defaults to 2000 ms.
+
+.TP
+\fBNetwork Reconnect Delay\fR
+The Network Reconnect specifies the minimum delay in milliseconds between connection
+attempts. It defaults to 2000 ms.
+.PP
+
+.SH "EXAMPLES"
+A sample /etc/ocfs2/cluster.conf.
+
+cluster:
+    node_count = 3
+    name = webcluster
+
+node:
+    ip_port = 7777
+    ip_address = 192.168.0.107
+    number = 7
+    name = node7
+    cluster = webcluster
+
+node:
+    ip_port = 7777
+    ip_address = 192.168.0.106
+    number = 6
+    name = node6
+    cluster = webcluster
+
+node:
+    ip_port = 7777
+    ip_address = 192.168.0.110
+    number = 10
+    name = node10
+    cluster = webcluster
+
+.SH "SEE ALSO"
+.BR mkfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR ocfs2console(8)
+.BR ocfs2cdsl(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2004, 2008 Oracle. All rights reserved.

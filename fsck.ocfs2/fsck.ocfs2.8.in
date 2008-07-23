@@ -1,4 +1,4 @@
-.TH "fsck.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "fsck.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -97,6 +97,7 @@ The exit code returned by \fBfsck.ocfs2\fR is the sum of the following condition
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
 .BR ocfs2cdsl(8)
+.BR o2cb(7)
 
 
 .SH "AUTHORS"

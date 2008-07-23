@@ -1,4 +1,4 @@
-.TH "mounted.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mounted.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mounted.ocfs2 \- Detects all \fIOCFS2\fR volumes on a system.
 .SH "SYNOPSIS"
@@ -44,6 +44,7 @@ Device      FS     Nodes
 .BR debugfs.ocfs2(8)
 .BR ocfs2console(8)
 .BR ocfs2cdsl(8)
+.BR o2cb(7)
 
 .SH "AUTHORS"
 Oracle Corporation

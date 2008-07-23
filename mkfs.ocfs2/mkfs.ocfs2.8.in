@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -160,6 +160,7 @@ consume the given number of file system blocks (see \fB-b\fR) on the device.
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
 .BR ocfs2cdsl(8)
+.BR o2cb(7)
 
 .SH "AUTHORS"
 Oracle Corporation

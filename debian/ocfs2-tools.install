@@ -13,6 +13,7 @@ usr/share/man/man8/fsck.ocfs2.checks.8
 usr/share/man/man8/mkfs.ocfs2.8
 usr/share/man/man8/mount.ocfs2.8
 usr/share/man/man8/mounted.ocfs2.8
+usr/share/man/man7/o2cb.7
 usr/share/man/man8/o2cb_ctl.8
 usr/share/man/man8/ocfs2_hb_ctl.8
 usr/share/man/man8/ocfs2cdsl.8

@@ -134,6 +134,7 @@ fi
 /usr/share/man/man8/ocfs2_hb_ctl.8.gz
 /usr/share/man/man8/ocfs2cdsl.8.gz
 /usr/share/man/man8/o2image.8.gz
+/usr/share/man/man7/o2cb.7.gz
 
 
 %files -n ocfs2console

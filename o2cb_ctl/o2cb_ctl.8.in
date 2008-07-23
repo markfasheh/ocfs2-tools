@@ -1,4 +1,4 @@
-.TH "o2cb_ctl" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2cb_ctl" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2cb_ctl \- Control program for the \fIO2CB\fR cluster service.
 .SH "SYNOPSIS"
@@ -136,6 +136,7 @@ $ o2cb_ctl -H -n node5 -a ip_address=192.168.1.5
 .BR mounted.ocfs2(8)
 .BR ocfs2console(8)
 .BR ocfs2cdsl(8)
+.BR o2cb(7)
 
 .SH "AUTHORS"
 Oracle Corporation
