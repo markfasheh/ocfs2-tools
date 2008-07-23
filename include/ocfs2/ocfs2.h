@@ -196,7 +196,7 @@ struct ocfs2_slot_map_data {
 
 struct _ocfs2_devices {
 	struct list_head list;
-	char dev_name[100];
+	char dev_name[PATH_MAX];
 	uint8_t label[64];
 	uint8_t uuid[16];
 	int mount_flags;
