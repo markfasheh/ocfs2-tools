@@ -453,8 +453,9 @@ DEFINE_TUNEFS_OP(list_sparse,
 		 list_sparse_run,
 		 NULL);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_op_main(argc, argv, &list_sparse_op);
 }
-
+#endif

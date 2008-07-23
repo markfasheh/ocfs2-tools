@@ -30,7 +30,7 @@ OCFS2NE_METHODS =				\
 	ocfs2ne_update_cluster_stack
 
 sbindir = $(root_sbindir)
-SBIN_PROGRAMS = tunefs.ocfs2 $(OCFS2NE_METHODS) ocfs2ne_features
+SBIN_PROGRAMS = tunefs.ocfs2 ocfs2ne
 
 INCLUDES = -I$(TOPDIR)/include -I.
 DEFINES = -DVERSION=\"$(VERSION)\"
@@ -43,14 +43,18 @@ DEBUG_EXE_PROGRAMS = $(addprefix debug_,$(subst .c,,$(DEBUG_EXE_FILES)))
 
 .SECONDARY:
 
-UNINST_PROGRAMS += $(DEBUG_EXE_PROGRAMS)
+UNINST_PROGRAMS += $(filter-out debug_ocfs2ne_features,$(DEBUG_EXE_PROGRAMS))
 
 debug_%.o : %.c
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) \
 		-DDEBUG_EXE -o $@ -c $<
 
-debug_%: debug_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libocfs2ne.a
+debug_ocfs2ne_features: debug_ocfs2ne_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
+		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+
+debug_%: debug_%.o libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 endif
@@ -71,7 +75,7 @@ TUNEFS_CFILES =		\
 	resize.c	\
 	format_slotmap.c
 
-OCFS2NE_CFILES = $(patsubst %,%.c,$(OCFS2NE_METHODS))
+OCFS2NE_CFILES = $(patsubst %,%.c,$(OCFS2NE_METHODS)) ocfs2ne.c
 OCFS2NE_FEATURE_CFILES = $(patsubst %,%.c,$(OCFS2NE_FEATURE_METHODS))
 
 CFILES = $(TUNFES_CFILES) $(LIBOCFS2NE_CFILES) $(OCFS2NE_CFILES) $(OCFS2NE_FEATURE_CFILES) ocfs2ne_features.c
@@ -101,6 +105,10 @@ $(OCFS2NE_METHODS): ocfs2ne_%: ocfs2ne_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(L
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
 ocfs2ne_features: ocfs2ne_features.o $(patsubst %,%.o,$(OCFS2NE_FEATURE_METHODS)) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libocfs2ne.a
+	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
+		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+
+ocfs2ne: $(OCFS2NE_OBJS) ocfs2ne_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 

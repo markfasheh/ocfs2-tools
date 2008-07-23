@@ -29,11 +29,6 @@
 
 
 struct feature_op_state {
-	struct tunefs_operation	*fo_op;		/* A pointer back to
-						   features_op so we can
-						   set to_open_flags based
-						   on the features we're
-						   changing */
 	ocfs2_fs_options	fo_feature_set;	/* Features to enabling */
 	ocfs2_fs_options	fo_reverse_set;	/* Features to disable */
 	struct tunefs_feature	*fo_features[];	/* List of known features */
@@ -82,6 +77,8 @@ struct check_supported_context {
 	int				sc_error;
 	enum tunefs_feature_action	sc_action;
 };
+
+static void features_add_open_flags(int flags);
 
 /* Order doesn't actually matter here.  We just want to know that
  * tunefs supports this feature */
@@ -145,7 +142,7 @@ static int check_supported_func(ocfs2_fs_options *feature, void *user_data)
 		 "Enabling" : "Disabling",
 		 feat->tf_name);
 	feat->tf_action = ctxt->sc_action;
-	state->fo_op->to_open_flags |= feat->tf_open_flags;
+	features_add_open_flags(feat->tf_open_flags);
 
 	rc = 0;
 
@@ -241,9 +238,15 @@ DEFINE_TUNEFS_OP(features,
 		 features_run,
 		 &feature_state);
 
-int main(int argc, char *argv[])
+/* We're going to union the flags needed by the features we're processing */
+static void features_add_open_flags(int flags)
 {
-	feature_state.fo_op = &features_op;
-	return tunefs_op_main(argc, argv, &features_op);
+	features_op.to_open_flags |= flags;
 }
 
+#ifdef DEBUG_EXE
+int main(int argc, char *argv[])
+{
+	return tunefs_op_main(argc, argv, &features_op);
+}
+#endif

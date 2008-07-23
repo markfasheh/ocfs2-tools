@@ -56,25 +56,25 @@ enum tunefs_feature_action {
 };
 
 struct tunefs_operation {
-	char	*to_name;
-	char	*to_usage;	/* Usage string */
-	int	to_open_flags;	/* Flags for tunefs_open() */
-	int	(*to_parse_option)(char *arg, void *user_data);
-	int	(*to_run)(ocfs2_filesys *fs,
-			  int flags,	/* The tunefs_open() flags that
-					   mattered */
-			  void *user_data);
-	void	*to_user_data;
+	char		*to_name;
+	int		to_open_flags;	/* Flags for tunefs_open() */
+	int		(*to_parse_option)(char *arg, void *user_data);
+	int		(*to_run)(ocfs2_filesys *fs,
+				  int flags,	/* The tunefs_open() flags
+						   that mattered */
+				  void *user_data);
+	void		*to_user_data;
+	char		*to_debug_usage;	/* DEBUG_EXEC usage string  */
 };
 
 #define __TUNEFS_OP(_name, _usage, _flags, _parse, _run, _data)		\
 {									\
 	.to_name		= #_name,				\
-	.to_usage		= _usage,				\
 	.to_open_flags		= _flags,				\
 	.to_parse_option	= _parse,				\
 	.to_run			= _run,					\
 	.to_user_data		= _data,				\
+	.to_debug_usage		= _usage,				\
 }
 #define DEFINE_TUNEFS_OP(_name, _usage, _flags, _parse, _run, _data)	\
 struct tunefs_operation _name##_op =					\
@@ -129,7 +129,7 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op);
 
 /* Handles generic option processing (-h, -v, etc), then munges argc and
  * argv to pass back to the calling application */
-void tunefs_init(int *argc, char ***argv, const char *usage);
+void tunefs_init(const char *argv0);
 void tunefs_block_signals(void);
 void tunefs_unblock_signals(void);
 errcode_t tunefs_open(const char *device, int flags,
@@ -142,9 +142,11 @@ errcode_t tunefs_get_number(char *arg, uint64_t *res);
 errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size);
 errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg);
 
-void tunefs_usage(void);
+const char *tunefs_progname(void);
+void tunefs_version(void);
 void tunefs_verbose(void);
 void tunefs_quiet(void);
+void tunefs_interactive(void);
 void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...)
 	__attribute__ ((format (printf, 2, 3)));
 void errorf(const char *fmt, ...)

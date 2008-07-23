@@ -64,6 +64,7 @@ static int reset_uuid_run(ocfs2_filesys *fs, int flags, void *unused)
 	return rc;
 }
 
+
 DEFINE_TUNEFS_OP(reset_uuid,
 		 "Usage: ocfs2ne_reset_uuid [opts] <device>\n",
 		 TUNEFS_FLAG_RW,
@@ -71,8 +72,9 @@ DEFINE_TUNEFS_OP(reset_uuid,
 		 reset_uuid_run,
 		 NULL);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_op_main(argc, argv, &reset_uuid_op);
 }
-
+#endif

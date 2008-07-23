@@ -82,8 +82,9 @@ DEFINE_TUNEFS_OP(set_journal_size,
 		 set_journal_size_run,
 		 &new_size);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_op_main(argc, argv, &set_journal_size_op);
 }
-
+#endif

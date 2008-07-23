@@ -1081,8 +1081,9 @@ DEFINE_TUNEFS_OP(set_slot_count,
 		 set_slot_count_run,
 		 &num_slots);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_op_main(argc, argv, &set_slot_count_op);
 }
-
+#endif

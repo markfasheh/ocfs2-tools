@@ -103,8 +103,9 @@ DEFINE_TUNEFS_OP(set_label,
 		 set_label_run,
 		 &new_label);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_op_main(argc, argv, &set_label_op);
 }
-
+#endif

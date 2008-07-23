@@ -162,6 +162,11 @@ static int vtunefs_interact(enum tunefs_verbosity_level level,
 	return 0;
 }
 
+void tunefs_interactive(void)
+{
+	interactive = 1;
+}
+
 /* Pass this a question without a newline. */
 int tunefs_interact(const char *fmt, ...)
 {
@@ -290,6 +295,16 @@ void tunefs_unblock_signals(void)
 	block_signals(SIG_UNBLOCK);
 }
 
+void tunefs_version(void)
+{
+	verbosef(VL_ERR, "%s %s\n", progname, VERSION);
+}
+
+const char *tunefs_progname(void)
+{
+	return progname;
+}
+
 static void setup_argv0(const char *argv0)
 {
 	char *pname;
@@ -338,7 +353,7 @@ static void shuffle_argv(int *argc, int optind, char **argv)
 	*argc = new_argc;
 }
 
-static void tunefs_usage_internal(int error)
+static void tunefs_debug_usage(int error)
 {
 	FILE *f = stderr;
 
@@ -355,14 +370,9 @@ static void tunefs_usage_internal(int error)
 		  "\t-V|--version\n");
 }
 
-void tunefs_usage(void)
-{
-	tunefs_usage_internal(1);
-}
-
 extern int optind, opterr, optopt;
 extern char *optarg;
-static void tunefs_parse_core_options(int *argc, char ***argv)
+static void tunefs_parse_core_options(int *argc, char ***argv, char *usage)
 {
 	errcode_t err;
 	int c;
@@ -378,7 +388,7 @@ static void tunefs_parse_core_options(int *argc, char ***argv)
 		{ 0, 0, 0, 0}
 	};
 
-	setup_argv0(*argv[0]);
+	usage_string = usage;
 	err = copy_argv(*argv, &new_argv);
 	if (err) {
 		tcom_err(err, "while processing command-line arguments");
@@ -407,7 +417,7 @@ static void tunefs_parse_core_options(int *argc, char ***argv)
 				break;
 
 			case 'i':
-				interactive = 1;
+				tunefs_interactive();
 				break;
 
 			case '?':
@@ -442,7 +452,7 @@ static void tunefs_parse_core_options(int *argc, char ***argv)
 		verbosef(VL_ERR, "%s %s\n", progname, VERSION);
 
 	if (print_usage)
-		tunefs_usage_internal(*error != '\0');
+		tunefs_debug_usage(*error != '\0');
 
 	if (print_usage || print_version)
 		exit(0);
@@ -454,14 +464,14 @@ static void tunefs_parse_core_options(int *argc, char ***argv)
 	*argv = new_argv;
 }
 
-void tunefs_init(int *argc, char ***argv, const char *usage)
+void tunefs_init(const char *argv0)
 {
 	initialize_tune_error_table();
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
 
-	usage_string = usage;
+	setup_argv0(argv0);
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -470,8 +480,6 @@ void tunefs_init(int *argc, char ***argv, const char *usage)
 		errorf("%s\n", error_message(TUNEFS_ET_SIGNALS_FAILED));
 		exit(1);
 	}
-
-	tunefs_parse_core_options(argc, argv);
 }
 
 static errcode_t tunefs_set_lock_env(const char *status)
@@ -1402,7 +1410,7 @@ int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat)
 		 "Usage: ocfs2ne_feature_%s [opts] <device> "
 		 "{enable|disable}\n",
 		 feat->tf_name);
-	single_feature_op.to_usage = usage;
+	single_feature_op.to_debug_usage = usage;
 	single_feature_op.to_open_flags = feat->tf_open_flags;
 	single_feature_op.to_user_data = feat;
 
@@ -1417,17 +1425,18 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 	ocfs2_filesys *master_fs, *op_fs;
 	char *arg = NULL;
 
-	tunefs_init(&argc, &argv, op->to_usage);
+	tunefs_init(argv[0]);
+	tunefs_parse_core_options(&argc, &argv, op->to_debug_usage);
 	if (argc < 2) {
 		errorf("No device specified\n");
-		tunefs_usage();
+		tunefs_debug_usage(1);
 		goto out;
 	}
 
 	if (op->to_parse_option) {
 		if (argc > 3) {
 			errorf("Too many arguments\n");
-			tunefs_usage();
+			tunefs_debug_usage(1);
 			goto out;
 		}
 		if (argc == 3)
@@ -1435,12 +1444,12 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 
 		rc = op->to_parse_option(arg, op->to_user_data);
 		if (rc) {
-			tunefs_usage();
+			tunefs_debug_usage(1);
 			goto out;
 		}
 	} else if (argc > 2) {
 		errorf("Too many arguments\n");
-		tunefs_usage();
+		tunefs_debug_usage(1);
 		goto out;
 	}
 
@@ -1511,18 +1520,19 @@ int main(int argc, char *argv[])
 	const char *device;
 	ocfs2_filesys *fs;
 
-	tunefs_init(&argc, &argv,
-		    "Usage: debug_libocfs2ne [-p] <device>\n");
+	tunefs_init(argv[0]);
+	tunefs_parse_core_options(&argc, &argv,
+				  "Usage: debug_libocfs2ne [-p] <device>\n");
 
 	if (argc > 3) {
 		errorf("Too many arguments\n");
-		tunefs_usage();
+		tunefs_debug_usage(1);
 		return 1;
 	}
 	if (argc == 3) {
 		if (strcmp(argv[1], "-p")) {
 			errorf("Invalid argument: \'%s\'\n", argv[1]);
-			tunefs_usage();
+			tunefs_debug_usage(1);
 			return 1;
 		}
 		parent = 1;
@@ -1532,7 +1542,7 @@ int main(int argc, char *argv[])
 		device = argv[1];
 	} else {
 		errorf("Device must be specified\n");
-		tunefs_usage();
+		tunefs_debug_usage(1);
 		return 1;
 	}
 

@@ -78,6 +78,7 @@ static int update_cluster_stack_run(ocfs2_filesys *fs, int flags, void *unused)
 	return rc;
 }
 
+
 DEFINE_TUNEFS_OP(update_cluster_stack,
 		 "Usage: ocfs2ne_update_cluster_stack [opts] <device>\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_NOCLUSTER,
@@ -85,8 +86,9 @@ DEFINE_TUNEFS_OP(update_cluster_stack,
 		 update_cluster_stack_run,
 		 NULL);
 
+#ifdef DEBUG_EXE
 int main(int argc, char *argv[])
 {
 	return tunefs_op_main(argc, argv, &update_cluster_stack_op);
 }
-
+#endif
