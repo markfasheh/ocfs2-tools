@@ -114,7 +114,19 @@ static struct tunefs_journal_option *tunefs_journal_options[] = {
 };
 
 
-static errcode_t tunefs_queue_operation(struct tunefs_operation *op)
+/*
+ * Operations are intended to run in the order we see them in the
+ * command-line arguments.  As each option is seen, the operation is
+ * added with tunefs_append_operation().
+ *
+ * There are two exceptions.  First, special-cased options (pretty much
+ * the feature) will end up at the end because we can't process them
+ * until we've seen all command-line arguments.
+ *
+ * Second, resize is the only user of tunefs_prepend_operation().  We want
+ * to grow the filesystem *before* we do anything that might require space!
+ */
+static errcode_t tunefs_append_operation(struct tunefs_operation *op)
 {
 	errcode_t err;
 	struct tunefs_run *run;
@@ -127,6 +139,21 @@ static errcode_t tunefs_queue_operation(struct tunefs_operation *op)
 
 	return err;
 }
+
+static errcode_t tunefs_prepend_operation(struct tunefs_operation *op)
+{
+	errcode_t err;
+	struct tunefs_run *run;
+
+	err = ocfs2_malloc0(sizeof(struct tunefs_run), &run);
+	if (!err) {
+		run->tr_op = op;
+		list_add(&run->tr_list, &tunefs_run_list);
+	}
+
+	return err;
+}
+
 
 static void print_usage(int rc);
 static int handle_help(struct tunefs_option *opt, char *arg)
@@ -309,7 +336,7 @@ static int handle_journal_arg(struct tunefs_option *opt, char *arg)
 			continue;
 		}
 
-		err = tunefs_queue_operation(jopt->jo_op);
+		err = tunefs_append_operation(jopt->jo_op);
 		if (err) {
 			tcom_err(err, "while processing journal options");
 			rc = 1;
@@ -585,7 +612,7 @@ static errcode_t parse_feature_strings(void)
 	if (rc)
 		print_usage(1);
 
-	return tunefs_queue_operation(&features_op);
+	return tunefs_append_operation(&features_op);
 }
 
 /*
@@ -634,7 +661,11 @@ parse_option:
 					     arg ? operation_arg : NULL))
 		print_usage(1);
 
-	return 0;
+	/*
+	 * We _prepend_ resize, because we want any other operations to
+	 * have all the space they need.
+	 */
+	return tunefs_prepend_operation(&resize_volume_op);
 }
 
 static int build_options(char **optstring, struct option **longopts)
@@ -789,7 +820,7 @@ static errcode_t parse_options(int argc, char *argv[], char **device)
 				print_usage(1);
 		}
 		if (opt->opt_op) {
-			err = tunefs_queue_operation(opt->opt_op);
+			err = tunefs_append_operation(opt->opt_op);
 		}
 	}
 
