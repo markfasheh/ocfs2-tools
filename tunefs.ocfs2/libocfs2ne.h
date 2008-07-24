@@ -121,11 +121,18 @@ struct tunefs_feature _name##_feature =					\
 struct tunefs_feature _name##_feature =					\
 	__TUNEFS_FEATURE(_name, _flags, 0, 0, _bit, _enable, _disable)
 
-int tunefs_feature_run(ocfs2_filesys *fs, int flags,
-		       struct tunefs_feature *feat);
 
-int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat);
-int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op);
+/*
+ * Run a tunefs_operation with its own ocfs2_filesys.  The special
+ * error TUNEFS_ET_OPERATION_FAILED means the operation itself failed.
+ * It will have handled any error output.  Any other errors are from
+ * tunefs_op_run() itself.
+ */
+errcode_t tunefs_op_run(ocfs2_filesys *master_fs,
+			struct tunefs_operation *op);
+/* The same, but for tunefs_feature */
+errcode_t tunefs_feature_run(ocfs2_filesys *master_fs,
+			     struct tunefs_feature *feat);
 
 /* Handles generic option processing (-h, -v, etc), then munges argc and
  * argv to pass back to the calling application */
@@ -163,5 +170,13 @@ errcode_t tunefs_foreach_inode(ocfs2_filesys *fs, int filetype_mask,
 						 struct ocfs2_dinode *di,
 						 void *user_data),
 			       void *user_data);
+
+/*
+ * For debugging programs.  These open a filesystem and call
+ * tunefs_*_run() as appropriate.
+ */
+int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat);
+int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op);
+
 
 #endif  /* _LIBTUNEFS_H */

@@ -76,4 +76,7 @@ ec	TUNEFS_ET_UNWRITTEN_PRESENT,
 ec	TUNEFS_ET_SPARSE_MISSING,
 	"Sparse files are missing"
 
+ec	TUNEFS_ET_OPERATION_FAILED,
+	"Operation failed"
+
 	end

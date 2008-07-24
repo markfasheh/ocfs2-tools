@@ -1357,11 +1357,25 @@ static int single_feature_parse_option(struct tunefs_operation *op,
 	return rc;
 }
 
-int tunefs_feature_run(ocfs2_filesys *fs, int flags,
-		       struct tunefs_feature *feat)
+errcode_t tunefs_feature_run(ocfs2_filesys *master_fs,
+			     struct tunefs_feature *feat)
 {
 	int rc = 0;
+	errcode_t err, tmp;
+	ocfs2_filesys *fs;
+	int flags;
 
+	flags = feat->tf_open_flags & ~(TUNEFS_FLAG_ONLINE |
+				      TUNEFS_FLAG_NOCLUSTER);
+	err = tunefs_open(master_fs->fs_devname, feat->tf_open_flags, &fs);
+	if (err == TUNEFS_ET_PERFORM_ONLINE)
+		flags |= TUNEFS_FLAG_ONLINE;
+	else if (err == TUNEFS_ET_INVALID_STACK_NAME)
+		flags |= TUNEFS_FLAG_NOCLUSTER;
+	else
+		goto out;
+
+	err = 0;
 	switch (feat->tf_action) {
 		case FEATURE_ENABLE:
 			rc = feat->tf_enable(fs, flags);
@@ -1382,19 +1396,62 @@ int tunefs_feature_run(ocfs2_filesys *fs, int flags,
 			errorf("Unknown action %d called against feature "
 			       "\"%s\"\n",
 			       feat->tf_action, feat->tf_name);
-			rc = 1;
+			err = TUNEFS_ET_INTERNAL_FAILURE;
 			break;
 	}
 
-	return rc;
+	if (rc)
+		err = TUNEFS_ET_OPERATION_FAILED;
+
+	tmp = tunefs_close(fs);
+	if (!err)
+		err = tmp;
+
+out:
+	return err;
+}
+
+errcode_t tunefs_op_run(ocfs2_filesys *master_fs,
+			struct tunefs_operation *op)
+{
+	errcode_t err, tmp;
+	ocfs2_filesys *fs;
+	int flags;
+
+	flags = op->to_open_flags & ~(TUNEFS_FLAG_ONLINE |
+				      TUNEFS_FLAG_NOCLUSTER);
+	err = tunefs_open(master_fs->fs_devname, op->to_open_flags, &fs);
+	if (err == TUNEFS_ET_PERFORM_ONLINE)
+		flags |= TUNEFS_FLAG_ONLINE;
+	else if (err == TUNEFS_ET_INVALID_STACK_NAME)
+		flags |= TUNEFS_FLAG_NOCLUSTER;
+	else
+		goto out;
+
+	err = 0;
+	if (op->to_run(op, fs, flags))
+		err = TUNEFS_ET_OPERATION_FAILED;
+
+	tmp = tunefs_close(fs);
+	if (!err)
+		err = tmp;
+
+out:
+	return err;
 }
 
 static int single_feature_run(struct tunefs_operation *op,
 			      ocfs2_filesys *fs, int flags)
 {
+	errcode_t err;
 	struct tunefs_feature *feat = op->to_private;
 
-	return tunefs_feature_run(fs, flags, feat);
+	err = tunefs_feature_run(fs, feat);
+	if (err && (err != TUNEFS_ET_OPERATION_FAILED))
+		tcom_err(err, "while toggling feature \"%s\"",
+			 feat->tf_name);
+
+	return err;
 }
 
 DEFINE_TUNEFS_OP(single_feature,
@@ -1422,8 +1479,7 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 {
 	errcode_t err;
 	int rc = 1;
-	int flags;
-	ocfs2_filesys *master_fs, *op_fs;
+	ocfs2_filesys *fs;
 	char *arg = NULL;
 
 	tunefs_init(argv[0]);
@@ -1454,41 +1510,23 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 		goto out;
 	}
 
-	flags = op->to_open_flags & ~(TUNEFS_FLAG_ONLINE |
-				      TUNEFS_FLAG_NOCLUSTER);
-	err = tunefs_open(argv[1], op->to_open_flags, &master_fs);
-	if (err == TUNEFS_ET_PERFORM_ONLINE)
-		flags |= TUNEFS_FLAG_ONLINE;
-	else if (err == TUNEFS_ET_INVALID_STACK_NAME)
-		flags |= TUNEFS_FLAG_NOCLUSTER;
-	else if (err) {
+	err = tunefs_open(argv[1], op->to_open_flags, &fs);
+	if (err &&
+	    (err != TUNEFS_ET_PERFORM_ONLINE) &&
+	    (err != TUNEFS_ET_INVALID_STACK_NAME)) {
 		tcom_err(err, "- Unable to open device \"%s\" read-write.",
 			 argv[1]);
 		goto out;
 	}
 
-	err = tunefs_open(argv[1], flags, &op_fs);
-	if (err &&
-	    (err != TUNEFS_ET_PERFORM_ONLINE) &&
-	    (err != TUNEFS_ET_INVALID_STACK_NAME)) {
-		tcom_err(err,
-			 "- Unaable to open device \"%s\" for operation "
-			 "\"%s\"", argv[1], op->to_name);
-		goto out_close_master;
-	}
+	err = tunefs_op_run(fs, op);
+	if (!err)
+		rc = 0;
+	else if (err != TUNEFS_ET_OPERATION_FAILED)
+		tcom_err(err, "while running operation \"%s\"",
+			 op->to_name);
 
-	rc = op->to_run(op, op_fs, flags);
-
-	err = tunefs_close(op_fs);
-	if (err) {
-		tcom_err(err,
-			 "while closing device \"%s\" for operation \"%s\"",
-			 argv[1], op->to_name);
-		rc = 1;
-	}
-
-out_close_master:
-	err = tunefs_close(master_fs);
+	err = tunefs_close(fs);
 	if (err) {
 		tcom_err(err, "while closing device \"%s\"", argv[1]);
 		rc = 1;

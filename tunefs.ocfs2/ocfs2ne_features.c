@@ -203,16 +203,21 @@ out:
 struct run_features_context {
 	struct feature_op_state	*rc_state;
 	ocfs2_filesys		*rc_fs;
-	int			rc_flags;
 	int			rc_error;
 };
 
 static int run_feature_func(ocfs2_fs_options *feature, void *user_data)
 {
+	errcode_t err;
 	struct run_features_context *ctxt = user_data;
 	struct tunefs_feature *feat = find_feature(feature);
 
-	return tunefs_feature_run(ctxt->rc_fs, ctxt->rc_flags, feat);
+	err = tunefs_feature_run(ctxt->rc_fs, feat);
+	if (err && (err != TUNEFS_ET_OPERATION_FAILED))
+		tcom_err(err, "while toggling feature \"%s\"",
+			 feat->tf_name);
+
+	return err;
 }
 
 static int features_run(struct tunefs_operation *op, ocfs2_filesys *fs,
@@ -222,7 +227,6 @@ static int features_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 	struct run_features_context ctxt = {
 		.rc_state = state,
 		.rc_fs = fs,
-		.rc_flags = flags,
 	};
 
 	ocfs2_feature_reverse_foreach(&state->fo_reverse_set,
