@@ -22,6 +22,7 @@ OCFS2NE_FEATURE_METHODS =			\
 
 OCFS2NE_METHODS =				\
 	ocfs2ne_list_sparse_files		\
+	ocfs2ne_query				\
 	ocfs2ne_reset_uuid			\
 	ocfs2ne_resize_volume			\
 	ocfs2ne_set_label			\

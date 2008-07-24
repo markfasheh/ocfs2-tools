@@ -91,6 +91,7 @@ struct tunefs_run {
 
 
 extern struct tunefs_operation list_sparse_op;
+extern struct tunefs_operation query_op;
 extern struct tunefs_operation reset_uuid_op;
 extern struct tunefs_operation features_op;
 extern struct tunefs_operation resize_volume_op;
@@ -399,6 +400,17 @@ static struct tunefs_option interactive_option = {
 	},
 	.opt_help	= "-i|--interactive",
 	.opt_handle	= handle_interactive,
+};
+
+static struct tunefs_option query_option = {
+	.opt_option	= {
+		.name		= "query",
+		.val		= 'Q',
+		.has_arg	= 1,
+	},
+	.opt_help	= "-Q|--query <query-format>",
+	.opt_handle	= &generic_handle_arg,
+	.opt_op		= &query_op,
 };
 
 static struct tunefs_option list_sparse_option = {
