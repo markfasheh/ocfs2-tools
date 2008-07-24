@@ -36,6 +36,18 @@ struct fs_feature_flags {
 	ocfs2_fs_options ff_flags;
 };
 
+/* Printable names for feature flags */
+struct feature_name {
+	const char		*fn_name;
+	ocfs2_fs_options	fn_flag;	/* Only the bit for this
+						   feature */
+};
+
+struct tunefs_flag_name {
+	const char	*tfn_name;
+	uint16_t	tfn_flag;
+};
+
 struct feature_level_translation {
 	const char *fl_str;
 	enum ocfs2_feature_levels fl_type;
@@ -64,6 +76,7 @@ static ocfs2_fs_options feature_level_defaults[] = {
 	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN}, /* OCFS2_FEATURE_LEVEL_MAX_FEATURES */
 };
 
+/* These are the features we support in mkfs/tunefs via --fs-features */
 static struct fs_feature_flags ocfs2_supported_features[] = {
 	{
 		"local",
@@ -100,6 +113,75 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
 		NULL,
 		{0, 0, 0},
 		{0, 0, 0}
+	},
+};
+
+/*
+ * These are the printable names of all flags in s_feature_compat,
+ * s_feature_ro_compat, and s_feature_incompat.  If libocfs2 supports this
+ * feature, its printable name must be here.
+ *
+ * These MUST be kept in sync with the flags in ocfs2_fs.h.
+ */
+static struct feature_name ocfs2_feature_names[] = {
+	{
+		.fn_name = "Heartbeat",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV, 0},
+	},
+	{
+		.fn_name = "AbortedResize",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG, 0},
+	},
+	{
+		.fn_name = "Local",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, 0},
+	},
+	{
+		.fn_name = "Sparse",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, 0},
+	},
+	{
+		.fn_name = "ExtendedSlotMap",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP, 0},
+	},
+	{
+		.fn_name = "AbortedTunefs",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG, 0},
+	},
+	{
+		.fn_name = "UserspaceStack",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK, 0},
+	},
+	{
+		.fn_name = "BackupSuper",
+		.fn_flag = {OCFS2_FEATURE_COMPAT_BACKUP_SB, 0, 0},
+	},
+	{
+		.fn_name = "UnwrittenExtents",
+		.fn_flag = {0, 0, OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},
+	},
+	{
+		.fn_name = "InlineData",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_INLINE_DATA, 0},
+	},
+	{
+		.fn_name = NULL,
+	},
+};
+
+/*
+ * The printable names of every flag in s_tunefs_flag.  If libocfs2 supports
+ * the flag, its name must be here.
+ *
+ * These MUST be kept in sync with the flags in ocfs2_fs.h.
+ */
+static struct tunefs_flag_name ocfs2_tunefs_flag_names[] = {
+	{
+		.tfn_name = "RemoveSlot",
+		.tfn_flag = OCFS2_TUNEFS_INPROG_REMOVE_SLOT,
+	},
+	{
+		.tfn_name = NULL,
 	},
 };
 
@@ -159,6 +241,94 @@ static int feature_match(ocfs2_fs_options *a, ocfs2_fs_options *b)
 
 	return 0;
 }
+
+errcode_t ocfs2_snprint_feature_flags(char *str, size_t size,
+				      ocfs2_fs_options *flags)
+{
+	int i, printed;
+	char *ptr = str;
+	size_t remain = size;
+	errcode_t err = 0;
+	char *sep = " ";
+	ocfs2_fs_options found = {0, 0, 0};
+
+	for (i = 0; ocfs2_feature_names[i].fn_name; i++) {
+		if (!feature_match(flags, &ocfs2_feature_names[i].fn_flag))
+			continue;
+		merge_features(&found, ocfs2_feature_names[i].fn_flag);
+
+		printed = snprintf(ptr, remain, "%s%s",
+				   ptr == str ? "" : sep,
+				   ocfs2_feature_names[i].fn_name);
+		if (printed < 0)
+			err = OCFS2_ET_INTERNAL_FAILURE;
+		else if (printed >= remain)
+			err = OCFS2_ET_NO_SPACE;
+		if (err)
+			break;
+
+		remain -= printed;
+		ptr += printed;
+	}
+
+	if (!err) {
+		if ((found.opt_compat != flags->opt_compat) ||
+		    (found.opt_ro_compat != flags->opt_ro_compat) ||
+		    (found.opt_incompat != flags->opt_incompat)) {
+			printed = snprintf(ptr, remain, "%sUnknown",
+					   ptr == str ? "" : sep);
+			if (printed < 0)
+				err = OCFS2_ET_INTERNAL_FAILURE;
+			else if (printed >= remain)
+				err = OCFS2_ET_NO_SPACE;
+		}
+	}
+
+	return err;
+}
+
+errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags)
+{
+	int i, printed;
+	char *ptr = str;
+	size_t remain = size;
+	errcode_t err = 0;
+	char *sep = " ";
+	uint16_t found = 0;
+
+	for (i = 0; ocfs2_tunefs_flag_names[i].tfn_name; i++) {
+		if (!(flags & ocfs2_tunefs_flag_names[i].tfn_flag))
+			continue;
+		found |= ocfs2_tunefs_flag_names[i].tfn_flag;
+
+		printed = snprintf(ptr, remain, "%s%s",
+				   ptr == str ? "" : sep,
+				   ocfs2_tunefs_flag_names[i].tfn_name);
+		if (printed < 0)
+			err = OCFS2_ET_INTERNAL_FAILURE;
+		else if (printed >= remain)
+			err = OCFS2_ET_NO_SPACE;
+		if (err)
+			break;
+
+		remain -= printed;
+		ptr += printed;
+	}
+
+	if (!err) {
+		if (found != flags) {
+			printed = snprintf(ptr, remain, "%sUnknown",
+					   ptr == str ? "" : sep);
+			if (printed < 0)
+				err = OCFS2_ET_INTERNAL_FAILURE;
+			else if (printed >= remain)
+				err = OCFS2_ET_NO_SPACE;
+		}
+	}
+
+	return err;
+}
+
 
 /*
  * If we are asked to clear a feature, we also need to clear any other
@@ -379,6 +549,57 @@ static void print_features(char *desc, ocfs2_fs_options *feature_set)
 	fprintf(stdout, "\n");
 }
 
+static void printable_mkfs(ocfs2_fs_options *feature_set)
+{
+	errcode_t err;
+	char buf[PATH_MAX];
+	ocfs2_fs_options flags;
+
+	fprintf(stdout, "Printable version of mkfs features:\n");
+
+	memset(&flags, 0, sizeof(flags));
+	flags.opt_compat = feature_set->opt_compat;
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (err)
+		snprintf(buf, PATH_MAX, "An error occurred: %s",
+			 error_message(err));
+	fprintf(stdout, "COMPAT:\t\t%s\n", buf);
+
+	memset(&flags, 0, sizeof(flags));
+	flags.opt_ro_compat = feature_set->opt_ro_compat;
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (err)
+		snprintf(buf, PATH_MAX, "An error occurred: %s",
+			 error_message(err));
+	fprintf(stdout, "RO_COMPAT:\t%s\n", buf);
+
+	memset(&flags, 0, sizeof(flags));
+	flags.opt_incompat = feature_set->opt_incompat;
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (err)
+		snprintf(buf, PATH_MAX, "An error occurred: %s",
+			 error_message(err));
+	fprintf(stdout, "INCOMPAT:\t%s\n", buf);
+
+	fprintf(stdout, "\n");
+}
+
+static void print_tunefs_flags(void)
+{
+	errcode_t err;
+	char buf[PATH_MAX];
+
+	fprintf(stdout, "Printable s_tunefs_flag:\n");
+
+	err = ocfs2_snprint_tunefs_flags(buf, PATH_MAX,
+					 OCFS2_TUNEFS_INPROG_REMOVE_SLOT);
+	if (err)
+		snprintf(buf, PATH_MAX, "An error occurred: %s",
+			 error_message(err));
+	fprintf(stdout, "FLAGS:\t\t%s\n", buf);
+	fprintf(stdout, "\n");
+}
+
 static int p_feature(ocfs2_fs_options *feature_set, void *user_data)
 {
 	int i;
@@ -469,12 +690,15 @@ int main(int argc, char *argv[])
 	print_features("\nmkfs.ocfs2 would set these features",
 		       &mkfs_features);
 	print_order(0, &mkfs_features);
+	printable_mkfs(&mkfs_features);
 	print_features("tunefs.ocfs2 would set these features",
 		       &set_features);
 	print_order(0, &set_features);
 	print_features("tunefs.ocfs2 would clear these features",
 		       &clear_features);
 	print_order(1, &clear_features);
+
+	print_tunefs_flags();
 
 	return 0;
 }

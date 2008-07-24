@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * utils.c
  *
  * utility functions
@@ -27,86 +29,65 @@
 
 extern dbgfs_gbls gbls;
 
-/*
- * Tests features in a flag field and adds to a printable string.  Expects
- * the flag field named 'flag' and the string named 'str'.  Primarily for
- * readability.
- */
-#define test_feature(_flag, _flagstr) do {		\
-	typeof(flag) _f = (_flag);			\
-	if (flag & _f) {				\
-		g_string_append(str, (_flagstr));	\
-		g_string_append_c(str, ' ');		\
-		flag &= ~_f;				\
-	}						\
-} while (0)
-
 void get_incompat_flag(uint32_t flag, GString *str)
 {
+	errcode_t err;
+	char buf[PATH_MAX];
+	ocfs2_fs_options flags = {
+		.opt_incompat = flag,
+	};
 
-	test_feature(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV, "Heartbeat");
-	test_feature(OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG, "AbortedResize");
-	test_feature(OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, "Local");
-	test_feature(OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, "Sparse");
-	test_feature(OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP,
-		     "ExtendedSlotMap");
-	test_feature(OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK,
-		     "UserspaceClusterStack");
-	test_feature(OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG, "AbortedTunefs");
-	test_feature(OCFS2_FEATURE_INCOMPAT_INLINE_DATA, "InlineData");
-
-        /* test_feature() clears out known flags */
-	if (flag)
-		g_string_append(str, "Unknown ");
-
-	if (!str->len)
-		g_string_append(str, "None");
-
-	return;
+	*buf = '\0';
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (!err)
+		g_string_append(str, buf);
+	else
+		com_err(gbls.cmd, err, "while processing feature flags");
 }
 
 void get_tunefs_flag(uint32_t incompat_flag, uint16_t flag, GString *str)
 {
-	if (!(incompat_flag & OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG)) {
-		g_string_append(str, "None");
-		return;
-	}
+	errcode_t err;
+	char buf[PATH_MAX];
 
-	if (flag & OCFS2_TUNEFS_INPROG_REMOVE_SLOT)
-		g_string_append(str, "RemoveSlot ");
-
-	if (flag & ~OCFS2_TUNEFS_INPROG_REMOVE_SLOT)
-		g_string_append(str, "Unknown ");
-
-	return;
+	*buf = '\0';
+	err = ocfs2_snprint_tunefs_flags(buf, PATH_MAX, flag);
+	if (!err)
+		g_string_append(str, buf);
+	else
+		com_err(gbls.cmd, err, "while processing inprog flags");
 }
 
 void get_compat_flag(uint32_t flag, GString *str)
 {
-	test_feature(OCFS2_FEATURE_COMPAT_BACKUP_SB, "BackupSuper");
+	errcode_t err;
+	char buf[PATH_MAX];
+	ocfs2_fs_options flags = {
+		.opt_compat = flag,
+	};
 
-        /* test_feature() clears out known flags */
-        if (flag)
-		g_string_append(str, "Unknown ");
-
-	if (!str->len)
-		g_string_append(str, "None");
-
-	return;
+	*buf = '\0';
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (!err)
+		g_string_append(str, buf);
+	else
+		com_err(gbls.cmd, err, "while processing feature flags");
 }
 
 void get_rocompat_flag(uint32_t flag, GString *str)
 {
-	test_feature(OCFS2_FEATURE_RO_COMPAT_UNWRITTEN, "Unwritten");
+	errcode_t err;
+	char buf[PATH_MAX];
+	ocfs2_fs_options flags = {
+		.opt_ro_compat = flag,
+	};
 
-        /* test_feature() clears out known flags */
-        if (flag)
-		 g_string_append(str, "Unknown ");
-
-	if (!str->len)
-		g_string_append(str, "None");
-
-	return;
+	*buf = '\0';
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (!err)
+		g_string_append(str, buf);
+	else
+		com_err(gbls.cmd, err, "while processing feature flags");
 }
 
 /*
