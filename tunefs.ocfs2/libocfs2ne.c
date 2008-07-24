@@ -1365,6 +1365,8 @@ errcode_t tunefs_feature_run(ocfs2_filesys *master_fs,
 	ocfs2_filesys *fs;
 	int flags;
 
+	verbosef(VL_DEBUG, "Running feature \"%s\"\n", feat->tf_name);
+
 	flags = feat->tf_open_flags & ~(TUNEFS_FLAG_ONLINE |
 				      TUNEFS_FLAG_NOCLUSTER);
 	err = tunefs_open(master_fs->fs_devname, feat->tf_open_flags, &fs);
@@ -1372,7 +1374,7 @@ errcode_t tunefs_feature_run(ocfs2_filesys *master_fs,
 		flags |= TUNEFS_FLAG_ONLINE;
 	else if (err == TUNEFS_ET_INVALID_STACK_NAME)
 		flags |= TUNEFS_FLAG_NOCLUSTER;
-	else
+	else if (err)
 		goto out;
 
 	err = 0;
@@ -1418,6 +1420,8 @@ errcode_t tunefs_op_run(ocfs2_filesys *master_fs,
 	ocfs2_filesys *fs;
 	int flags;
 
+	verbosef(VL_DEBUG, "Running operation \"%s\"\n", op->to_name);
+
 	flags = op->to_open_flags & ~(TUNEFS_FLAG_ONLINE |
 				      TUNEFS_FLAG_NOCLUSTER);
 	err = tunefs_open(master_fs->fs_devname, op->to_open_flags, &fs);
@@ -1425,7 +1429,7 @@ errcode_t tunefs_op_run(ocfs2_filesys *master_fs,
 		flags |= TUNEFS_FLAG_ONLINE;
 	else if (err == TUNEFS_ET_INVALID_STACK_NAME)
 		flags |= TUNEFS_FLAG_NOCLUSTER;
-	else
+	else if (err)
 		goto out;
 
 	err = 0;

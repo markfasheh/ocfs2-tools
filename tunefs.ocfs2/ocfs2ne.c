@@ -606,7 +606,7 @@ static errcode_t parse_feature_strings(void)
 	if (!features)
 		return 0;
 
-	verbosef(VL_APP, "Full feature string is \"%s\"\n", features);
+	verbosef(VL_DEBUG, "Full feature string is \"%s\"\n", features);
 	rc = features_op.to_parse_option(&features_op, features);
 	free(features);
 	if (rc)
@@ -858,18 +858,104 @@ out:
 	return err;
 }
 
-static int run_operations(void)
-{
-	struct list_head *p;
-	struct tunefs_run *run;
 
-	list_for_each(p, &tunefs_run_list) {
-		run = list_entry(p, struct tunefs_run, tr_list);
-		verbosef(VL_OUT, "Performing \"%s\"\n",
-			 run->tr_op->to_name);
+/*
+ * This goes through tunefs_run_list and runs each operation in turn.
+ * Once an operation has completed, it is removed from the list.  If filter
+ * is non-zero, only operations that match filter are run this pass.
+ */
+static int run_operation_filter(ocfs2_filesys *fs, int filter)
+{
+	errcode_t err = 0;
+	struct list_head *pos, *n;
+	struct tunefs_run *run;
+	struct tunefs_operation *op;
+
+	list_for_each_safe(pos, n, &tunefs_run_list) {
+		run = list_entry(pos, struct tunefs_run, tr_list);
+		op = run->tr_op;
+
+		if (filter && !(op->to_open_flags & filter))
+			continue;
+
+		list_del(&run->tr_list);
+		ocfs2_free(&run);
+
+		err = tunefs_op_run(fs, op);
+		if (err) {
+			if (err != TUNEFS_ET_OPERATION_FAILED) {
+				tcom_err(err,
+					 "while trying to perform "
+					 "operation \"%s\"",
+					 op->to_name);
+			}
+			break;
+		}
 	}
 
-	return 0;
+	return err;
+}
+
+static int run_operations(const char *device)
+{
+	int rc;
+	errcode_t tmp, err = 0;
+	struct list_head *p;
+	struct tunefs_run *run;
+	ocfs2_filesys *fs;
+	int open_flags;
+
+
+	/*
+	 * We have a specific order here.  If we open the filesystem and
+	 * get TUNEFS_ET_INVALID_STACK_NAME, we know that
+	 * update_cluster_stack is involved.  We want to run that, then
+	 * close and reopen the filesystem.  This should allow us to
+	 * continue with any other operations.
+	 *
+	 * Next, if we get TUNEFS_ET_PERFORM_ONLINE, we have at least
+	 * one operation capable of working online.  We want to run through
+	 * the online capable ops before failing anything that cannot be
+	 * done online.  Basically, do as much as we can.
+	 *
+	 * Last, anything else is run.  This is the normal state if we have
+	 * a correctly configured cluster and have locked down the
+	 * filesystem.  It runs in the order we added things to
+	 * tunefs_run_list.
+	 */
+	while (!err && !list_empty(&tunefs_run_list)) {
+		rc = 0;
+		open_flags = 0;
+		list_for_each(p, &tunefs_run_list) {
+			run = list_entry(p, struct tunefs_run, tr_list);
+			open_flags |= run->tr_op->to_open_flags;
+		}
+
+		err = tunefs_open(device, open_flags, &fs);
+		if (err == TUNEFS_ET_INVALID_STACK_NAME)
+			rc = run_operation_filter(fs, TUNEFS_FLAG_NOCLUSTER);
+		else if (err == TUNEFS_ET_PERFORM_ONLINE)
+			rc = run_operation_filter(fs, TUNEFS_FLAG_ONLINE);
+		else if (!err)
+			rc = run_operation_filter(fs, 0);
+		else {
+			tcom_err(err, "while opening device \"%s\"",
+				 device);
+			break;
+		}
+
+		if (rc)
+			err = TUNEFS_ET_OPERATION_FAILED;
+
+		tmp = tunefs_close(fs);
+		if (tmp)
+			tcom_err(tmp, "while closing device \"%s\"",
+				 device);
+		if (!err)
+			err = tmp;
+	}
+
+	return err;
 }
 
 int main(int argc, char *argv[])
@@ -886,7 +972,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	rc = run_operations();
+	rc = run_operations(device);
 
 out:
 	return rc;
