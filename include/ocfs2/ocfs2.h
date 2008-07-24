@@ -68,20 +68,6 @@
 
 #define OCFS2_LIB_ABORTED_TUNEFS_SUPP		OCFS2_TUNEFS_INPROG_REMOVE_SLOT
 
-/*
- * Printable strings for feature flags
- * These MUST be kept in sync with the flags in ocfs2_fs.h, and MUST
- * be named <flag>_STR.
- */
-#define OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV_STR	"Heartbeat"
-#define OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG_STR	"AbortedResize"
-#define OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT_STR		"Local"
-#define OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC_STR		"SparseAlloc"
-#define OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP_STR	"ExtendedSlotMap"
-#define OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG_STR	"TunefsAbort"
-#define OCFS2_FEATURE_COMPAT_BACKUP_SB_STR		"BackupSuper"
-#define OCFS2_FEATURE_RO_COMPAT_UNWRITTEN_STR		"UnwrittenExtents"
-#define OCFS2_TUNEFS_INPROG_REMOVE_SLOT_STR		"RemoveSlot"
 
 /* define OCFS2_SB for ocfs2-tools */
 #define OCFS2_SB(sb)	(sb)
@@ -632,6 +618,9 @@ enum ocfs2_feature_levels {
 	OCFS2_FEATURE_LEVEL_MAX_FEATURES,
 };
 
+errcode_t ocfs2_snprint_feature_flags(char *str, size_t size,
+				      ocfs2_fs_options *flags);
+errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags);
 errcode_t ocfs2_parse_feature(const char *opts,
 			      ocfs2_fs_options *feature_flags,
 			      ocfs2_fs_options *reverse_flags);

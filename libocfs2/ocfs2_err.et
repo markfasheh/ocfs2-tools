@@ -171,4 +171,7 @@ ec	OCFS2_ET_NO_BACKUP_SUPER,
 ec      OCFS2_ET_TOO_MANY_SLOTS,
         "Too many slots for slot map"
 
+ec	OCFS2_ET_UNKNOWN_FEATURE,
+	"Unknown feature"
+
 	end

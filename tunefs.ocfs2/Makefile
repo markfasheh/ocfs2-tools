@@ -15,7 +15,6 @@ sbindir = $(root_sbindir)
 SBIN_PROGRAMS = tunefs.ocfs2
 
 INCLUDES = -I$(TOPDIR)/include -I.
-INCLUDES += $(GLIB_CFLAGS)
 DEFINES = -DVERSION=\"$(VERSION)\"
 
 MANS = tunefs.ocfs2.8
@@ -36,6 +35,6 @@ OBJS = $(subst .c,.o,$(CFILES))
 DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in
 
 tunefs.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
-	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make

@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * query.c
  *
  * ocfs2 tune utility - implements query
@@ -24,7 +26,6 @@
 
 #include <tunefs.h>
 #include <printf.h>
-#include <glib.h>
 
 /*This number is from the man page of uuid_unparse. */
 #define UUID_UNPARSE_LEN	36
@@ -32,52 +33,50 @@
 extern ocfs2_filesys *fs_gbl;
 extern ocfs2_tune_opts opts;
 
-#define prepend_flgstr(_flag, _FLAG, _str, _sep) \
-	do { \
-		if ((_flag) & (_FLAG)) { \
-			g_string_prepend((_str), (_sep)); \
-			g_string_prepend((_str), _FLAG##_STR); \
-		} \
-	} while (0)
 
-static void tunefs_inprog_flag_in_str(uint32_t flag, GString *str)
+static void tunefs_inprog_flag_in_str(uint32_t flag, char *buf, size_t len)
 {
-	prepend_flgstr(flag, OCFS2_TUNEFS_INPROG_REMOVE_SLOT, str, " ");
+	errcode_t err;
 
-	if (flag & ~(OCFS2_TUNEFS_INPROG_REMOVE_SLOT))
-		g_string_prepend(str, "Unknown ");
+	err = ocfs2_snprint_tunefs_flags(buf, len, flag);
+	if (err)
+		com_err(opts.progname, err, "while processing inprog flags");
 }
 
-static void incompat_flag_in_str(uint32_t flag, GString *str)
+static void incompat_flag_in_str(uint32_t flag, char *buf, size_t len)
 {
-	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV, str, " ");
-	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG, str, " ");
-	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, str, " ");
-	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, str, " ");
+	errcode_t err;
+	ocfs2_fs_options flags = {
+		.opt_incompat = flag,
+	};
 
-	if (flag & ~(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV |
-		     OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG |
-		     OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT |
-		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
-		     OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG)) {
-		g_string_prepend(str, "Unknown ");
-	}
+	err = ocfs2_snprint_feature_flags(buf, len, &flags);
+	if (err)
+		com_err(opts.progname, err, "while processing feature flags");
 }
 
-static void compat_flag_in_str(uint32_t flag, GString *str)
+static void compat_flag_in_str(uint32_t flag, char *buf, size_t len)
 {
-	prepend_flgstr(flag, OCFS2_FEATURE_COMPAT_BACKUP_SB, str, " ");
+	errcode_t err;
+	ocfs2_fs_options flags = {
+		.opt_compat = flag,
+	};
 
-	if (flag & ~(OCFS2_FEATURE_COMPAT_BACKUP_SB))
-		g_string_prepend(str, "Unknown ");
+	err = ocfs2_snprint_feature_flags(buf, len, &flags);
+	if (err)
+		com_err(opts.progname, err, "while processing feature flags");
 }
 
-static void ro_compat_flag_in_str(uint32_t flag, GString *str)
+static void ro_compat_flag_in_str(uint32_t flag, char *buf, size_t len)
 {
-	prepend_flgstr(flag, OCFS2_FEATURE_RO_COMPAT_UNWRITTEN, str, " ");
+	errcode_t err;
+	ocfs2_fs_options flags = {
+		.opt_ro_compat = flag,
+	};
 
-	if (flag & ~(OCFS2_FEATURE_RO_COMPAT_UNWRITTEN))
-		g_string_prepend(str, "Unknown ");
+	err = ocfs2_snprint_feature_flags(buf, len, &flags);
+	if (err)
+		com_err(opts.progname, err, "while processing feature flags");
 }
 
 static int print_ulong(FILE *stream, const struct printf_info *info,
@@ -175,19 +174,16 @@ static int handle_uuid(FILE *stream, const struct printf_info *info,
 
 static int handle_flag(FILE *stream, const struct printf_info *info,
 		       const void *const *args, uint32_t flag,
-		       void(*flag_func)(uint32_t flag, GString *str))
+		       void(*flag_func)(uint32_t flag, char *buf, size_t len))
 {
-	GString *str = NULL;
+	char buf[PATH_MAX]; /* Should be big enough */
 	int len = 0;
 
-	str = g_string_new(NULL);
+	*buf = '\0';
+	(flag_func)(flag, buf, PATH_MAX);
 
-	(flag_func)(flag, str);
-
-	if (str->len)
-		len = print_string(stream, info, args, str->str);
-
-	g_string_free(str, 1);
+	if (*buf)
+		len = print_string(stream, info, args, buf);
 
 	return len;
 }
@@ -252,8 +248,7 @@ static char * process_escapes(char *queryfmt)
 
 	len = strlen(queryfmt);
 
-	fmt = malloc(len + 1);
-	if (!fmt)
+	if (ocfs2_malloc0(len + 1, &fmt))
 		return NULL;
 
 	for(i = 0, j = 0; i < len; ) {
@@ -330,5 +325,5 @@ void print_query(char *queryfmt)
 	register_printf_function('O', handle_ro_compat, handle_arginfo);
 
 	fprintf(stdout, fmt);
-	free(fmt);
+	ocfs2_free(&fmt);
 }
