@@ -691,6 +691,18 @@ Answering yes reconfigures the filesystem to use the current cluster stack.
 DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS USING THIS FILESYSTEM
 BEFORE CONTINUING.  OTHERWISE, YOU CAN CORRUPT THE FILESYSTEM AND LOSE DATA.
 
+.SS "INLINE_DATA_FLAG_INVALID"
+Inline file can only exist in a volume with inline supported, Fsck has found
+that a file in a non-inline volume has inline flag set.
+
+Answering yes remove this flag from the file.
+
+.SS "INLINE_DATA_COUNT_INVALID"
+For an inline file, there is a limit for id2.id_data.id_count. Fsck has found
+that this value isn't right.
+
+Answering yes change this value to the right number.
+
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)
 

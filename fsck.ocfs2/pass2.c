@@ -83,12 +83,19 @@ static int dirent_has_dots(struct ocfs2_dir_entry *dirent, int num_dots)
 	return dirent->name[0] == '.';
 }
 
-static int expected_dots(o2fsck_dirblock_entry *dbe, int offset)
+static int expected_dots(o2fsck_state *ost,
+			 o2fsck_dirblock_entry *dbe,
+			 int offset)
 {
+	int inline_off = offsetof(struct ocfs2_dinode, id2.i_data.id_data);
+
 	if (dbe->e_blkcount == 0) {
-		if (offset == 0)
+		if (offset == 0 ||
+		    (dbe->e_ino == dbe->e_blkno && offset == inline_off))
 			return 1;
-		if (offset == OCFS2_DIR_REC_LEN(1))
+		if (offset == OCFS2_DIR_REC_LEN(1) ||
+		    (dbe->e_ino == dbe->e_blkno &&
+		     offset == inline_off + OCFS2_DIR_REC_LEN(1)))
 			return 2;
 	}
 
@@ -99,7 +106,7 @@ static errcode_t fix_dirent_dots(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 				 struct ocfs2_dir_entry *dirent, int offset, 
 				 int left, unsigned int *flags)
 {
-	int expect_dots = expected_dots(dbe, offset);
+	int expect_dots = expected_dots(ost, dbe, offset);
 	int changed_len = 0;
 	struct ocfs2_dir_entry *next;
 	uint16_t new_len;
@@ -432,7 +439,7 @@ static errcode_t fix_dirent_linkage(o2fsck_state *ost,
 				    int offset,
 				    unsigned int *flags)
 {
-	int expect_dots = expected_dots(dbe, offset);
+	int expect_dots = expected_dots(ost, dbe, offset);
 	o2fsck_dir_parent *dp;
 	errcode_t ret = 0;
 	int is_dir;
@@ -637,14 +644,25 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	verbosef("dir block %"PRIu64" block offs %"PRIu64" in ino\n",
 		 dbe->e_blkno, dbe->e_blkcount);
 
-	if (dbe->e_blkcount >= ocfs2_blocks_in_bytes(dd->fs, di->i_size))
-		goto out;
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+		if (dbe->e_ino != dbe->e_blkno)
+			goto out;
 
- 	ret = ocfs2_read_dir_block(dd->fs, dbe->e_blkno, dd->dirblock_buf);
-	if (ret && ret != OCFS2_ET_DIR_CORRUPTED) {
-		com_err(whoami, ret, "while reading dir block %"PRIu64,
-			dbe->e_blkno);
-		goto out;
+		memcpy(dd->dirblock_buf, dd->inoblock_buf,
+		       dd->fs->fs_blocksize);
+		offset = offsetof(struct ocfs2_dinode, id2.i_data.id_data);
+	} else {
+		if (dbe->e_blkcount >= ocfs2_blocks_in_bytes(dd->fs,
+							     di->i_size))
+			goto out;
+
+		ret = ocfs2_read_dir_block(dd->fs, dbe->e_blkno,
+					   dd->dirblock_buf);
+		if (ret && ret != OCFS2_ET_DIR_CORRUPTED) {
+			com_err(whoami, ret, "while reading dir block %"PRIu64,
+				dbe->e_blkno);
+			goto out;
+		}
 	}
 
 	while (offset < dd->fs->fs_blocksize) {
@@ -735,8 +753,14 @@ next:
 	}
 
 	if (ret_flags & OCFS2_DIRENT_CHANGED) {
-		ret = ocfs2_write_dir_block(dd->fs, dbe->e_blkno,
-					    dd->dirblock_buf);
+		if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+			memcpy(dd->inoblock_buf, dd->dirblock_buf,
+			       dd->fs->fs_blocksize);
+			ret = ocfs2_write_inode(dd->fs, dbe->e_ino,
+						dd->dirblock_buf);
+		} else
+			ret = ocfs2_write_dir_block(dd->fs, dbe->e_blkno,
+						    dd->dirblock_buf);
 		if (ret) {
 			com_err(whoami, ret, "while writing dir block %"PRIu64,
 				dbe->e_blkno);

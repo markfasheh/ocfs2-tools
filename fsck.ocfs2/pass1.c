@@ -497,6 +497,16 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
 		o2fsck_write_inode(ost, blkno, di);
 	}
 
+	if ((di->i_dyn_features & OCFS2_INLINE_DATA_FL) &&
+	    !ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)) &&
+	    prompt(ost, PY, PR_INLINE_DATA_FLAG_INVALID,
+		   "Inode %"PRIu64" has inline flag set but the volume "
+		   "doesn't support it. Clear it?", (uint64_t)di->i_blkno)) {
+
+		di->i_dyn_features &= ~OCFS2_INLINE_DATA_FL;
+		o2fsck_write_inode(ost, blkno, di);
+	}
+
 	if (S_ISDIR(di->i_mode)) {
 		ocfs2_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
 		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0,
@@ -767,6 +777,24 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	    (S_ISLNK(di->i_mode) && di->i_clusters == 0))
 		return 0;
 
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+		/*
+		 * We add i_blkno as the dir block, so when the dir's
+		 * inode_no is the same as dir_block_no, we can tell
+		 * that this dir is inlinded and help us in the following
+		 * directory check.
+		 */
+		if (S_ISDIR(di->i_mode)) {
+			ret = o2fsck_add_dir_block(&ost->ost_dirblocks,
+						   di->i_blkno,
+						   di->i_blkno, 0);
+			if (ret)
+				return ret;
+		}
+
+		goto size_cluster_check;
+	}
+
 	ret = o2fsck_check_extents(ost, di);
 	if (ret == 0)
 		ret = ocfs2_block_iterate_inode(fs, di,
@@ -816,6 +844,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		goto out;	
 	}
 
+size_cluster_check:
 	/*
 	 * i_size and i_cluster mean quite different between a non-sparse
 	 * and sparse file system.
@@ -831,9 +860,47 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	 * end of the visible cluster end. It is also reasonable for a file
 	 * which has no allocated blocks but any number of byte sizes,
 	 * so we don't need to check its size either.
+	 *
+	 * In an inline file, i_clusters should be zero and i_size should be
+	 * less than the max inline data size.
 	 */
-	if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
-	    OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) {
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+		uint16_t max_inline = ocfs2_max_inline_data(fs->fs_blocksize);
+
+		/* id_count is check first. */
+		if (di->id2.i_data.id_count != max_inline &&
+		    prompt(ost, PY, PR_INLINE_DATA_COUNT_INVALID,
+			   "Inode %"PRIu64" is inline file and its id_count "
+			   "is %u which should be %u. Correct this "
+			   "count?", (uint64_t)di->i_blkno,
+			   di->id2.i_data.id_count, max_inline)) {
+			di->id2.i_data.id_count = max_inline;
+			o2fsck_write_inode(ost, blkno, di);
+		}
+
+		/* i_size is checked for symlinks elsewhere */
+		if (di->i_size > max_inline &&
+		    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64
+			   "has a size of %"PRIu64" which exceeds the max "
+			   "inline data size %u. "
+			   "Correct the file size?",
+			   (uint64_t)di->i_blkno, (uint64_t)di->i_size,
+			   max_inline)) {
+			di->i_size = max_inline;
+			o2fsck_write_inode(ost, blkno, di);
+		}
+
+		if (di->i_clusters > 0 &&
+		    prompt(ost, PY, PR_INODE_CLUSTERS,
+			   "Inode %"PRIu64" has %"PRIu32" clusters but it has "
+			   "inline data flag set. "
+			   "Correct the number of clusters?",
+			   (uint64_t)di->i_blkno, di->i_clusters)) {
+			di->i_clusters = 0;
+			o2fsck_write_inode(ost, blkno, di);
+		}
+	} else if (OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &
+		   OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC) {
 		if (vb.vb_num_blocks > 0) {
 			expected = ocfs2_blocks_to_clusters(fs,
 							 vb.vb_last_block + 1);
