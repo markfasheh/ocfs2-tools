@@ -129,6 +129,10 @@ struct tunefs_feature {
  * functions.  ocfs2ne will report "unsupported".  Each function should be
  * idempotent and use tunefs_interact() before writing to the filesystem.
  *
+ * A feature should check the flags it needs set or cleared before it can
+ * enable or disable.  While ocfs2ne will make sure to run features in
+ * order, the user may skip a feature in interactive mode.
+ *
  * DEFINE_TUNEFS_FEATURE_COMPAT(), DEFINE_TUNEFS_FEATURE_RO_COMPAT(), or
  * DEFINE_TUNEFS_FEATURE_INCOMPAT() are used as appropriate to define the
  * tunefs_feature structure.  This links the enable and disable functions
