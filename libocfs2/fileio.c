@@ -65,6 +65,31 @@ static int read_whole_func(ocfs2_filesys *fs,
 	return 0;
 }
 
+static errcode_t ocfs2_inline_data_read(struct ocfs2_dinode *di, void *buf,
+					uint32_t count, uint64_t offset,
+					uint32_t *got)
+{
+	struct ocfs2_inline_data *id;
+	uint8_t *p;
+
+	if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL))
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	id = &(di->id2.i_data);
+	*got = 0;
+
+	if (offset > id->id_count)
+		return 0;
+
+	p = (__u8 *) &(id->id_data);
+	p += offset;
+
+	*got = ocfs2_min((di->i_size - offset), (uint64_t)count);
+	memcpy(buf, p, *got);
+
+	return 0;
+}
+
 errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs,
 				uint64_t blkno,
 				char **buf,
@@ -95,10 +120,13 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs,
 		goto out_free;
 
 	retval = ocfs2_malloc_blocks(fs->fs_io,
-				     ocfs2_clusters_to_blocks(fs, di->i_clusters),
+				     ocfs2_blocks_in_bytes(fs, di->i_size),
 				     buf);
 	if (retval)
 		goto out_free;
+
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		return ocfs2_inline_data_read(di, *buf, di->i_size, 0, len);
 
 	ctx.buf = *buf;
 	ctx.ptr = *buf;
@@ -139,6 +167,10 @@ errcode_t ocfs2_file_read(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 	uint32_t	tmp;
 	uint64_t	num_blocks;
 	uint16_t	extent_flags;
+
+	if (ci->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		return ocfs2_inline_data_read(ci->ci_inode, buf, count,
+					      offset, got);
 
 	/* o_direct requires aligned io */
 	tmp = fs->fs_blocksize - 1;
@@ -232,8 +264,31 @@ bail:
 	return ret;
 }
 
-errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
-			   uint64_t offset, uint32_t *wrote)
+static errcode_t ocfs2_inline_data_write(struct ocfs2_dinode *di, void *buf,
+					 uint32_t count, uint64_t offset)
+{
+	struct ocfs2_inline_data *id;
+	uint8_t *p;
+
+	if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL))
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	id = &(di->id2.i_data);
+
+	if (offset + count > id->id_count)
+		return OCFS2_ET_NO_SPACE;
+
+	p = (__u8 *) &(id->id_data);
+	p += offset;
+
+	memcpy(p, buf, count);
+
+	return 0;
+}
+
+static errcode_t ocfs2_file_block_write(ocfs2_cached_inode *ci,
+					void *buf, uint32_t count,
+					uint64_t offset, uint32_t *wrote)
 {
 	ocfs2_filesys	*fs = ci->ci_fs;
 	errcode_t	ret = 0;
@@ -400,6 +455,122 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 
 	}
 
+	return ret;
+}
+
+static inline int ocfs2_size_fits_inline_data(struct ocfs2_dinode *di,
+					      uint64_t new_size)
+{
+	if (new_size <= di->id2.i_data.id_count)
+		return 1;
+	return 0;
+}
+
+errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci)
+{
+	errcode_t ret;
+	uint32_t bytes, n_clusters;
+	uint64_t p_start;
+	char *inline_data = NULL;
+	struct ocfs2_dinode *di = ci->ci_inode;
+	ocfs2_filesys *fs = ci->ci_fs;
+	uint64_t bpc = fs->fs_clustersize/fs->fs_blocksize;
+
+	if (di->i_size) {
+		ret = ocfs2_malloc_block(fs->fs_io, &inline_data);
+		if (ret)
+			goto out;
+
+		ret = ocfs2_inline_data_read(di, inline_data,
+					     fs->fs_blocksize,
+					     0, &bytes);
+		if (ret)
+			goto out;
+	}
+
+	ocfs2_dinode_new_extent_list(fs, di);
+	di->i_dyn_features &= ~OCFS2_INLINE_DATA_FL;
+
+	ret = ocfs2_new_clusters(fs, 1, 1, &p_start, &n_clusters);
+	if (ret || n_clusters == 0)
+		goto out;
+
+	ret = empty_blocks(fs, p_start, bpc);
+	if (ret)
+		goto out;
+
+	if (di->i_size) {
+		ret = io_write_block(fs->fs_io, p_start, 1, inline_data);
+		if (ret)
+			goto out;
+	}
+
+	ret = ocfs2_cached_inode_insert_extent(ci, 0, p_start, n_clusters, 0);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_write_cached_inode(fs, ci);
+out:
+	if (inline_data)
+		ocfs2_free(&inline_data);
+	return ret;
+}
+
+static errcode_t ocfs2_try_to_write_inline_data(ocfs2_cached_inode *ci,
+						void *buf, uint32_t count,
+						uint64_t offset)
+{
+	int ret, written = 0;
+	uint64_t end = offset + count;
+	ocfs2_filesys *fs = ci->ci_fs;
+	struct ocfs2_dinode *di = ci->ci_inode;
+
+	/* Handle inodes which already have inline data 1st. */
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+		if (ocfs2_size_fits_inline_data(ci->ci_inode, end))
+			goto do_inline_write;
+
+		/*
+		 * The write won't fit - we have to give this inode an
+		 * inline extent list now.
+		 */
+		ret = ocfs2_convert_inline_data_to_extents(ci);
+		if (!ret)
+			ret = OCFS2_ET_CANNOT_INLINE_DATA;
+		goto out;
+	}
+
+	if (di->i_clusters > 0 || end > ocfs2_max_inline_data(fs->fs_blocksize))
+		return OCFS2_ET_CANNOT_INLINE_DATA;
+
+	ocfs2_set_inode_data_inline(fs, ci->ci_inode);
+	ci->ci_inode->i_dyn_features |= OCFS2_INLINE_DATA_FL;
+
+do_inline_write:
+	ret = ocfs2_inline_data_write(di, buf, count, offset);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_write_cached_inode(fs, ci);
+out:
+	return ret;
+}
+
+errcode_t ocfs2_file_write(ocfs2_cached_inode *ci,
+			   void *buf, uint32_t count,
+			   uint64_t offset, uint32_t *wrote)
+{
+	errcode_t ret;
+	ocfs2_filesys *fs = ci->ci_fs;
+
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super))) {
+		ret = ocfs2_try_to_write_inline_data(ci, buf, count, offset);
+		if (!ret || ret != OCFS2_ET_CANNOT_INLINE_DATA)
+			goto out;
+	}
+
+	ret = ocfs2_file_block_write(ci, buf, count, offset, wrote);
+out:
 	return ret;
 }
 

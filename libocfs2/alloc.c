@@ -120,6 +120,33 @@ static int ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
 	return (megabytes << ONE_MB_SHIFT) >> cluster_size_bits;
 }
 
+static inline void ocfs2_zero_dinode_id2(int blocksize,
+					 struct ocfs2_dinode *di)
+{
+	memset(&di->id2, 0, blocksize - offsetof(struct ocfs2_dinode, id2));
+}
+
+void ocfs2_dinode_new_extent_list(ocfs2_filesys *fs,
+				  struct ocfs2_dinode *di)
+{
+	ocfs2_zero_dinode_id2(fs->fs_blocksize, di);
+
+	di->id2.i_list.l_tree_depth = 0;
+	di->id2.i_list.l_next_free_rec = 0;
+	di->id2.i_list.l_count = ocfs2_extent_recs_per_inode(fs->fs_blocksize);
+}
+
+void ocfs2_set_inode_data_inline(ocfs2_filesys *fs, struct ocfs2_dinode *di)
+{
+	struct ocfs2_inline_data *idata = &di->id2.i_data;
+
+	ocfs2_zero_dinode_id2(fs->fs_blocksize, di);
+
+	idata->id_count = ocfs2_max_inline_data(fs->fs_blocksize);
+
+	di->i_dyn_features |= OCFS2_INLINE_DATA_FL;
+}
+
 static void ocfs2_init_inode(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			     int16_t slot, uint64_t gd_blkno,
 			     uint64_t blkno, uint16_t mode,
@@ -171,10 +198,7 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	if (flags & OCFS2_SUPER_BLOCK_FL)
 		return ;
 
-	fel = &di->id2.i_list;
-	fel->l_tree_depth = 0;
-	fel->l_next_free_rec = 0;
-	fel->l_count = ocfs2_extent_recs_per_inode(fs->fs_blocksize);
+	ocfs2_dinode_new_extent_list(fs, di);
 }
 
 static void ocfs2_init_eb(ocfs2_filesys *fs,

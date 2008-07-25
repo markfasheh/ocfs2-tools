@@ -482,6 +482,9 @@ errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
 					   uint32_t cpos, uint64_t c_blkno,
 					   uint32_t clusters, uint16_t flag);
 
+void ocfs2_dinode_new_extent_list(ocfs2_filesys *fs, struct ocfs2_dinode *di);
+void ocfs2_set_inode_data_inline(ocfs2_filesys *fs, struct ocfs2_dinode *di);
+errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci);
 errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
 errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode, int flags);
 errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino);
@@ -826,6 +829,12 @@ static inline int ocfs2_uses_extended_slot_map(struct ocfs2_super_block *osb)
 	return 0;
 }
 
+static inline int ocfs2_support_inline_data(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_INLINE_DATA)
+		return 1;
+	return 0;
+}
 
 /*
  * shamelessly lifted from the kernel
