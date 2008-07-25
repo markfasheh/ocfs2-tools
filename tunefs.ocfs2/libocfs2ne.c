@@ -43,9 +43,6 @@
 #include "libocfs2ne_err.h"
 
 #define WHOAMI "tunefs.ocfs2"
-#define TUNEFS_OCFS2_LOCK_ENV		"_TUNEFS_OCFS2_LOCK"
-#define TUNEFS_OCFS2_LOCK_ENV_LOCKED	"locked"
-#define TUNEFS_OCFS2_LOCK_ENV_ONLINE	"online"
 
 
 /*
@@ -78,6 +75,9 @@ struct tunefs_filesystem_state {
 	 */
 	int		ts_cluster_locked;
 
+	/* Non-zero if we've ever mucked with the allocator */
+	int		ts_allocation;
+
 	/* Size of the largest journal seen in tunefs_journal_check() */
 	uint32_t	ts_journal_clusters;
 };
@@ -85,7 +85,12 @@ struct tunefs_filesystem_state {
 struct tunefs_private {
 	struct list_head		tp_list;
 	ocfs2_filesys			*tp_fs;
+
+	/* All tunefs_privates point to the master state. */
 	struct tunefs_filesystem_state	*tp_state;
+
+	/* Flags passed to tunefs_open() for this ocfs2_filesys */
+	int				tp_open_flags;
 };
 
 /* List of all ocfs2_filesys objects opened by tunefs_open() */
@@ -917,6 +922,8 @@ static errcode_t tunefs_global_bitmap_check(ocfs2_filesys *fs)
 	struct ocfs2_dinode *di;
 	int i;
 
+	verbosef(VL_LIB, "Verifying the global allocator\n");
+
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
 		verbosef(VL_LIB,
@@ -959,6 +966,31 @@ bail:
 	return ret;
 }
 
+static errcode_t tunefs_open_bitmap_check(ocfs2_filesys *fs)
+{
+	struct tunefs_private *tp = to_private(fs);
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (!(tp->tp_open_flags & TUNEFS_FLAG_ALLOCATION))
+		return 0;
+
+	state->ts_allocation = 1;
+	return tunefs_global_bitmap_check(fs);
+}
+
+static errcode_t tunefs_close_bitmap_check(ocfs2_filesys *fs)
+{
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (!state->ts_allocation)
+		return 0;
+
+	if (state->ts_master != fs)
+		return 0;
+
+	return tunefs_global_bitmap_check(fs);
+}
+
 static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 {
 	errcode_t ret;
@@ -967,7 +999,14 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 	struct ocfs2_dinode *di;
 	int i, dirty = 0;
 	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	struct tunefs_private *tp = to_private(fs);
 	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	/* We only need to check the journal once */
+	if (state->ts_journal_clusters)
+		return 0;
+
+	verbosef(VL_LIB, "Checking for dirty journals\n");
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
@@ -1013,6 +1052,14 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 			break;
 		}
 	}
+
+	/*
+	 * If anything follows a NOCLUSTER operation, it will have
+	 * closed and reopened the filesystem.  It must recheck the
+	 * journals.
+	 */
+	if (tp->tp_open_flags & TUNEFS_FLAG_NOCLUSTER)
+		state->ts_journal_clusters = 0;
 
 bail:
 	if (buf)
@@ -1096,7 +1143,7 @@ errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg)
 	return 0;
 }
 
-static errcode_t tunefs_add_fs(ocfs2_filesys *fs)
+static errcode_t tunefs_add_fs(ocfs2_filesys *fs, int flags)
 {
 	errcode_t err;
 	struct tunefs_private *tp;
@@ -1105,6 +1152,7 @@ static errcode_t tunefs_add_fs(ocfs2_filesys *fs)
 	if (err)
 		goto out;
 
+	tp->tp_open_flags = flags;
 	fs->fs_private = tp;
 	tp->tp_fs = fs;
 
@@ -1166,7 +1214,7 @@ errcode_t tunefs_open(const char *device, int flags,
 	if (err)
 		goto out;
 
-	err = tunefs_add_fs(fs);
+	err = tunefs_add_fs(fs, flags);
 	if (err)
 		goto out;
 
@@ -1208,9 +1256,8 @@ errcode_t tunefs_open(const char *device, int flags,
 	/* Offline operations need clean journals */
 	if (err != TUNEFS_ET_PERFORM_ONLINE) {
 		tmp = tunefs_journal_check(fs);
-		/* Allocating operations should validate the bitmap */
-		if (!tmp && (flags & TUNEFS_FLAG_ALLOCATION))
-			tmp = tunefs_global_bitmap_check(fs);
+		if (!tmp)
+			tmp = tunefs_open_bitmap_check(fs);
 		if (tmp) {
 			err = tmp;
 			tunefs_unlock_filesystem(fs);
@@ -1252,7 +1299,10 @@ errcode_t tunefs_close(ocfs2_filesys *fs)
 	if (fs) {
 		verbosef(VL_LIB, "Closing device \"%s\"\n", fs->fs_devname);
 		tunefs_close_online_descriptor(fs);
-		err = tunefs_unlock_filesystem(fs);
+		err = tunefs_close_bitmap_check(fs);
+		tmp = tunefs_unlock_filesystem(fs);
+		if (!err)
+			err = tmp;
 		tmp = ocfs2_close(fs);
 		if (!err)
 			err = tmp;
@@ -1372,6 +1422,12 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 	/* If no size was passed in, use the size we found at open() */
 	if (!num_clusters)
 		num_clusters = state->ts_journal_clusters;
+
+	/*
+	 * This can't come from a NOCLUSTER operation, so we'd better
+	 * have a size in ts_journal_clusters
+	 */
+	assert(num_clusters);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
