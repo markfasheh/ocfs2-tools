@@ -165,6 +165,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	char *str;
 	uint16_t mode;
 	GString *flags = NULL;
+	GString *dyn_features = NULL;
 	char tmp_str[30];
 	time_t tm;
 
@@ -213,6 +214,16 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	if (in->i_flags & OCFS2_DEALLOC_FL)
 		g_string_append (flags, "Dealloc ");
 
+	dyn_features = g_string_new(NULL);
+	if (in->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		g_string_append(dyn_features, "InlineData ");
+	if (in->i_dyn_features & OCFS2_HAS_XATTR_FL)
+		g_string_append(dyn_features, "HasXattr ");
+	if (in->i_dyn_features & OCFS2_INLINE_XATTR_FL)
+		g_string_append(dyn_features, "InlineXattr ");
+	if (in->i_dyn_features & OCFS2_INDEXED_DIR_FL)
+		g_string_append(dyn_features, "IndexedDir ");
+
 	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u (0x%x)\n",
 		(uint64_t)in->i_blkno, mode, in->i_generation, in->i_generation);
 
@@ -221,6 +232,9 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 
 	fprintf(out, "\tType: %s   Attr: 0x%x   Flags: %s\n", str, in->i_attr,
 		flags->str);
+
+	fprintf(out, "\tDynamic Features: (0x%x) %s\n", in->i_dyn_features,
+		dyn_features->str);
 
 	pw = getpwuid(in->i_uid);
 	gr = getgrgid(in->i_gid);
@@ -269,8 +283,15 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 			in->id1.journal1.ij_recovery_generation);
 	}
 
+	if (in->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+		fprintf(out, "\tInline Data Max: %u\n",
+			in->id2.i_data.id_count);
+	}
+
 	if (flags)
 		g_string_free (flags, 1);
+	if (dyn_features)
+		g_string_free(dyn_features, 1);
 	return ;
 }
 

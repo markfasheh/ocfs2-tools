@@ -53,6 +53,7 @@ void get_incompat_flag(uint32_t flag, GString *str)
 	test_feature(OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK,
 		     "UserspaceClusterStack");
 	test_feature(OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG, "AbortedTunefs");
+	test_feature(OCFS2_FEATURE_INCOMPAT_INLINE_DATA, "InlineData");
 
         /* test_feature() clears out known flags */
 	if (flag)

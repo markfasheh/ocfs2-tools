@@ -998,7 +998,7 @@ static void do_stat (char **args)
 		dump_fast_symlink(out, (char *)inode->id2.i_symlink);
 	else if (inode->i_flags & OCFS2_DEALLOC_FL)
 		dump_truncate_log(out, &(inode->id2.i_dealloc));
-	else
+	else if (!(inode->i_dyn_features & OCFS2_INLINE_DATA_FL))
 		ret = traverse_extents(gbls.fs, &(inode->id2.i_list), out);
 
 	if (ret)
