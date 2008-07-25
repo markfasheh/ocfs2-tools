@@ -34,6 +34,7 @@
 #include <limits.h>
 #include <getopt.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include "ocfs2/ocfs2.h"
 #include "ocfs2/bitops.h"
@@ -47,25 +48,47 @@
 #define TUNEFS_OCFS2_LOCK_ENV_ONLINE	"online"
 
 
-struct tunefs_private {
-	struct list_head tp_list;
-	ocfs2_filesys *tp_fs;
+/*
+ * Keeps track of how ocfs2ne sees the filesystem.  This structure is
+ * filled in by the master ocfs2_filesys (the first caller to
+ * tunefs_open()).  Every other ocfs2_filesys refers to it.
+ */
+struct tunefs_filesystem_state {
+	/* The master ocfs2_filesys (first tunefs_open()) */
+	ocfs2_filesys	*ts_master;
+
+	/*
+	 * When a single-node (local) filesystem is opened, we prevent
+	 * concurrent mount(2) by opening the device O_EXCL.  This is the
+	 * fd we used.  The value is -1 for cluster-aware filesystems.
+	 */
+	int			ts_local_fd;
+
+	/*
+	 * Already-mounted filesystems can only do online operations.
+	 * This is the fd we send ioctl(2)s to.  If the filesystem isn't
+	 * in use, this is -1.
+	 */
+	int			ts_online_fd;
+
+	/* Size of the largest journal seen in tunefs_journal_check() */
+	uint32_t		ts_journal_clusters;
 };
 
+struct tunefs_private {
+	struct list_head		tp_list;
+	ocfs2_filesys			*tp_fs;
+	struct tunefs_filesystem_state	*tp_state;
+};
+
+/* List of all ocfs2_filesys objects opened by tunefs_open() */
 static LIST_HEAD(fs_list);
-static int local_fd = -1;		/* only used for LOCAL_FL */
-static unsigned int local_fd_count;	/* We can only open local_fd once
-					   (that's kind of the point :-),
-					   so multiple tunefs_open() calls
-					   just bump this count */
-static int online_fd = -1;		/* fd for online ioctl(2) calls */
-static unsigned int online_fd_count;	/* Same as local_fd_count */
+
 static char progname[PATH_MAX] = "(Unknown)";
 static const char *usage_string;
 static int cluster_locked;
 static int verbosity = 1;
 static int interactive = 0;
-static uint32_t journal_clusters = 0;
 
 /* Refcount for calls to tunefs_[un]block_signals() */
 static unsigned int blocked_signals_count;
@@ -74,6 +97,49 @@ static unsigned int blocked_signals_count;
 static inline struct tunefs_private *to_private(ocfs2_filesys *fs)
 {
 	return fs->fs_private;
+}
+
+static struct tunefs_filesystem_state *tunefs_get_master_state(void)
+{
+	struct tunefs_filesystem_state *s = NULL;
+	struct tunefs_private *tp;
+
+	if (!list_empty(&fs_list)) {
+		tp = list_entry(fs_list.prev, struct tunefs_private,
+			       tp_list);
+		s = tp->tp_state;
+	}
+
+	return s;
+}
+
+static struct tunefs_filesystem_state *tunefs_get_state(ocfs2_filesys *fs)
+{
+	struct tunefs_private *tp = to_private(fs);
+
+	return tp->tp_state;
+}
+
+static errcode_t tunefs_set_state(ocfs2_filesys *fs)
+{
+	errcode_t err = 0;
+	struct tunefs_private *tp = to_private(fs);
+	struct tunefs_filesystem_state *s = tunefs_get_master_state();
+
+	if (!s) {
+		err = ocfs2_malloc0(sizeof(struct tunefs_filesystem_state),
+				    &s);
+		if (!err) {
+			s->ts_local_fd = -1;
+			s->ts_online_fd = -1;
+			s->ts_master = fs;
+		} else
+			s = NULL;
+	}
+
+	tp->tp_state = s;
+
+	return err;
 }
 
 /* If all verbosity is turned off, make sure com_err() prints nothing. */
@@ -157,7 +223,7 @@ static int vtunefs_interact(enum tunefs_verbosity_level level,
 
 	s = fgets(buffer, sizeof(buffer), stdin);
 	if (s && *s) {
-		tolower(*s);
+		*s = tolower(*s);
 		if (*s == 'y')
 			return 1;
 	}
@@ -538,11 +604,10 @@ static errcode_t tunefs_lock_local(ocfs2_filesys *fs, int flags)
 	errcode_t err = 0;
 	int mount_flags;
 	int rc;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
-	if (local_fd_count) {
-		local_fd_count++;
+	if (state->ts_local_fd > -1)
 		return 0;
-	}
 
 	rc = open64(fs->fs_devname, O_RDWR | O_EXCL);
 	if (rc < 0) {
@@ -563,22 +628,19 @@ static errcode_t tunefs_lock_local(ocfs2_filesys *fs, int flags)
 			err = OCFS2_ET_NAMED_DEVICE_NOT_FOUND;
 		else
 			err = OCFS2_ET_IO;
-	} else {
-		local_fd = rc;
-		local_fd_count = 1;
-	}
+	} else
+		state->ts_local_fd = rc;
 
 	return err;
 }
 
 static void tunefs_unlock_local(ocfs2_filesys *fs)
 {
-	if (local_fd_count) {
-		local_fd_count--;
-		if (!local_fd_count) {
-			close(local_fd);  /* Don't care about errors */
-			local_fd = -1;
-		}
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if ((state->ts_master == fs) && (state->ts_local_fd > -1)) {
+		close(state->ts_local_fd);  /* Don't care about errors */
+		state->ts_local_fd = -1;
 	}
 }
 
@@ -896,6 +958,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 	struct ocfs2_dinode *di;
 	int i, dirty = 0;
 	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
@@ -928,8 +991,8 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 
 		di = (struct ocfs2_dinode *)buf;
 
-		if (di->i_clusters > journal_clusters)
-			journal_clusters = di->i_clusters;
+		if (di->i_clusters > state->ts_journal_clusters)
+			state->ts_journal_clusters = di->i_clusters;
 
 		dirty = di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL;
 		if (dirty) {
@@ -954,11 +1017,10 @@ static errcode_t tunefs_open_online_descriptor(ocfs2_filesys *fs)
 	int rc, flags = 0;
 	errcode_t ret = 0;
 	char mnt_dir[PATH_MAX];
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
-	if (online_fd_count) {
-		online_fd_count++;
+	if (state->ts_online_fd > -1)
 		goto out;
-	}
 
 	memset(mnt_dir, 0, sizeof(mnt_dir));
 
@@ -982,10 +1044,8 @@ static errcode_t tunefs_open_online_descriptor(ocfs2_filesys *fs)
 			ret = TUNEFS_ET_NOT_MOUNTED;
 		else
 			ret = OCFS2_ET_IO;
-	} else {
-		online_fd = rc;
-		online_fd_count = 1;
-	}
+	} else
+		state->ts_online_fd = rc;
 
 out:
 	return ret;
@@ -993,23 +1053,23 @@ out:
 
 static void tunefs_close_online_descriptor(ocfs2_filesys *fs)
 {
-	if (online_fd_count) {
-		online_fd_count--;
-		if (!online_fd_count) {
-			close(online_fd);  /* Don't care about errors */
-			online_fd = -1;
-		}
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if ((state->ts_master == fs) && (state->ts_online_fd > -1)) {
+		close(state->ts_online_fd);  /* Don't care about errors */
+		state->ts_online_fd = -1;
 	}
 }
 
 errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg)
 {
 	int rc;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
-	if (online_fd < 0)
+	if (state->ts_online_fd < 0)
 		return TUNEFS_ET_INTERNAL_FAILURE;
 
-	rc = ioctl(online_fd, op, arg);
+	rc = ioctl(state->ts_online_fd, op, arg);
 	if (rc) {
 		switch (errno) {
 			case EBADF:
@@ -1034,10 +1094,17 @@ static errcode_t tunefs_add_fs(ocfs2_filesys *fs)
 
 	err = ocfs2_malloc0(sizeof(struct tunefs_private), &tp);
 	if (err)
-		return err;
+		goto out;
 
 	fs->fs_private = tp;
 	tp->tp_fs = fs;
+
+	err = tunefs_set_state(fs);
+	if (err) {
+		fs->fs_private = NULL;
+		ocfs2_free(&tp);
+		goto out;
+	}
 
 	/*
 	 * This is purposely a push.  The first open of the filesystem
@@ -1047,18 +1114,25 @@ static errcode_t tunefs_add_fs(ocfs2_filesys *fs)
 	 */
 	list_add(&tp->tp_list, &fs_list);
 
-	return 0;
+out:
+	return err;
 }
 
 static void tunefs_remove_fs(ocfs2_filesys *fs)
 {
 	struct tunefs_private *tp = to_private(fs);
+	struct tunefs_filesystem_state *s = tp->tp_state;
 
 	if (tp) {
 		list_del(&tp->tp_list);
 		tp->tp_fs = NULL;
 		fs->fs_private = NULL;
 		ocfs2_free(&tp);
+	}
+
+	if (s && (s->ts_master == fs)) {
+		assert(list_empty(&fs_list));
+		ocfs2_free(&s);
 	}
 }
 
@@ -1167,12 +1241,13 @@ errcode_t tunefs_close(ocfs2_filesys *fs)
 	 */
 	if (fs) {
 		verbosef(VL_LIB, "Closing device \"%s\"\n", fs->fs_devname);
-		tunefs_remove_fs(fs);
 		tunefs_close_online_descriptor(fs);
 		err = tunefs_unlock_cluster(fs);
 		tmp = ocfs2_close(fs);
 		if (!err)
 			err = tmp;
+
+		tunefs_remove_fs(fs);
 
 		if (!err)
 			verbosef(VL_LIB, "Device closed\n");
@@ -1277,6 +1352,7 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 	uint32_t num_clusters;
 	char *buf = NULL;
 	struct ocfs2_dinode *di;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
 	num_clusters =
 		ocfs2_clusters_in_blocks(fs,
@@ -1285,7 +1361,7 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 
 	/* If no size was passed in, use the size we found at open() */
 	if (!num_clusters)
-		num_clusters = journal_clusters;
+		num_clusters = state->ts_journal_clusters;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
