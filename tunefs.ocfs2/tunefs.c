@@ -488,11 +488,12 @@ static errcode_t add_slots(ocfs2_filesys *fs)
 
 			/* if dir, alloc space to it */
 			if (ftype == OCFS2_FT_DIR) {
-				ret = ocfs2_expand_dir(fs, blkno, fs->fs_sysdir_blkno);
+				ret = ocfs2_init_dir(fs, blkno,
+						     fs->fs_sysdir_blkno);
 				if (ret) {
 					printf("\n");
-					com_err(opts.progname, ret,
-						"while expanding system directory");
+					com_err(opts.progname, ret, "while "
+						"initializing system directory");
 					goto bail;
 				}
 			}
@@ -500,15 +501,7 @@ static errcode_t add_slots(ocfs2_filesys *fs)
 			/* Add the inode to the system dir */
 			ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname, blkno,
 					 ftype);
-			if (!ret)
-				goto next_file;
-			if (ret == OCFS2_ET_DIR_NO_SPACE) {
-				ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno,
-						       fs->fs_sysdir_blkno);
-				if (!ret)
-					ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
-							 fname, blkno, ftype);
-			} else {
+			if (ret) {
 				com_err(opts.progname, 0, "while linking inode "
 					"%"PRIu64" to the system directory", blkno);
 				goto bail;

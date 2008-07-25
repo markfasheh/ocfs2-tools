@@ -198,7 +198,11 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	if (flags & OCFS2_SUPER_BLOCK_FL)
 		return ;
 
-	ocfs2_dinode_new_extent_list(fs, di);
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)) &&
+	    S_ISDIR(di->i_mode))
+		ocfs2_set_inode_data_inline(fs, di);
+	else
+		ocfs2_dinode_new_extent_list(fs, di);
 }
 
 static void ocfs2_init_eb(ocfs2_filesys *fs,

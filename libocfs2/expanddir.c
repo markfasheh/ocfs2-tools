@@ -42,8 +42,7 @@
  *
  */
 errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
-			   uint64_t dir,
-			   uint64_t parent_dir)
+			   uint64_t dir)
 {
 	errcode_t ret = 0;
 	ocfs2_cached_inode *cinode = NULL;
@@ -52,6 +51,7 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	uint64_t new_blk;
 	uint64_t contig;
 	char *buf = NULL;
+	struct ocfs2_dir_entry *de;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -65,6 +65,12 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	ret = ocfs2_read_cached_inode(fs, dir, &cinode);
 	if (ret)
 		goto bail;
+
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)) &&
+	    cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+		ret = ocfs2_convert_inline_data_to_extents(cinode);
+		goto bail;
+	}
 
 	/* This relies on the fact that i_size of a directory is a
 	 * multiple of blocksize */
@@ -92,37 +98,139 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	if (ret) 
 		goto bail;
 
-	/* init new dir block, with dotty entries if it's first */
-	if (used_blks == 0)
-		ret = ocfs2_new_dir_block(fs, dir, parent_dir, &buf);
-	else
-		ret = ocfs2_new_dir_block(fs, 0, 0, &buf);
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		goto bail;
+
+	memset(buf, 0, fs->fs_blocksize);
+	de = (struct ocfs2_dir_entry *)buf;
+	de->rec_len = fs->fs_blocksize;
 
 	/* write new dir block */
 	ret = ocfs2_write_dir_block(fs, new_blk, buf);
 	if (ret)
 		goto bail;
 
-	/* did we just add a '..' reference to a parent?  if so, update
-	 * them */
-	if (used_blks == 0) {
-		struct ocfs2_dinode *parent =
-			(struct ocfs2_dinode *)buf;
-		ret = ocfs2_read_inode(fs, parent_dir, buf);
-		if (ret)
-			goto bail;
-		parent->i_links_count++;
-		ret = ocfs2_write_inode(fs, parent_dir, buf);
-		if (ret)
-			goto bail;
-	}
-
 	/* increase the size */
 	cinode->ci_inode->i_size += fs->fs_blocksize;
 
 	/* update the size of the inode */
+	ret = ocfs2_write_cached_inode(fs, cinode);
+	if (ret)
+		goto bail;
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	if (cinode)
+		ocfs2_free_cached_inode(fs, cinode);
+
+	return ret;
+}
+
+static void ocfs2_fill_initial_dirents(uint64_t dir, uint64_t parent,
+				       char *start, uint16_t size)
+{
+	struct ocfs2_dir_entry *de = (struct ocfs2_dir_entry *)start;
+
+	de->inode = dir;
+	de->name_len = 1;
+	de->rec_len = OCFS2_DIR_REC_LEN(de->name_len);
+	de->name[0] = '.';
+	de->file_type = OCFS2_FT_DIR;
+
+	de = (struct ocfs2_dir_entry *) ((char *)de + de->rec_len);
+	de->inode = parent;
+	de->rec_len = size - OCFS2_DIR_REC_LEN(1);
+	de->name_len = 2;
+	strcpy(de->name, "..");
+	de->file_type = OCFS2_FT_DIR;
+}
+
+errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
+			 uint64_t dir,
+			 uint64_t parent_dir)
+{
+	errcode_t ret = 0;
+	ocfs2_cached_inode *cinode = NULL;
+	struct ocfs2_dinode *parent;
+	uint16_t size;
+	uint64_t blkno, contig;
+	char *buf = NULL, *data = NULL;
+	struct ocfs2_inline_data *inline_data;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	/* ensure it is a dir */
+	ret = ocfs2_check_directory(fs, dir);
+	if (ret)
+		goto bail;
+
+	/* read inode */
+	ret = ocfs2_read_cached_inode(fs, dir, &cinode);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto bail;
+
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super))) {
+		if (!(cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL))
+			return OCFS2_ET_DIR_CORRUPTED;
+
+		inline_data = &cinode->ci_inode->id2.i_data;
+		data = inline_data->id_data;
+		size = inline_data->id_count;
+	} else {
+		if (cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)
+			return OCFS2_ET_DIR_CORRUPTED;
+
+		ret = ocfs2_expand_dir(fs, dir);
+		if (ret)
+			goto bail;
+
+		ocfs2_free_cached_inode(fs, cinode);
+		cinode = NULL;
+
+		ret = ocfs2_read_cached_inode(fs, dir, &cinode);
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_extent_map_get_blocks(cinode, 0, 1,
+						  &blkno, &contig, NULL);
+		if (ret)
+			goto bail;
+
+		data = buf;
+		size = fs->fs_blocksize;
+	}
+
+	/* set '..' and '.' in dir. */
+	ocfs2_fill_initial_dirents(dir, parent_dir, data, size);
+
+	if (!(cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
+		ret = ocfs2_write_dir_block(fs, blkno, buf);
+		if (ret)
+			goto bail;
+	}
+
+	/* set link count of the parent */
+	ret = ocfs2_read_inode(fs, parent_dir, buf);
+	if (ret)
+		goto bail;
+	parent = (struct ocfs2_dinode *)buf;
+	parent->i_links_count++;
+	ret = ocfs2_write_inode(fs, parent_dir, buf);
+	if (ret)
+		goto bail;
+
+	/* increase the size */
+	cinode->ci_inode->i_size = size;
+
+	/* update the inode */
 	ret = ocfs2_write_cached_inode(fs, cinode);
 	if (ret)
 		goto bail;

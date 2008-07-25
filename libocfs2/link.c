@@ -135,8 +135,19 @@ errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 	if (retval)
 		return retval;
 
-	if (!ls.done)
-		return OCFS2_ET_DIR_NO_SPACE;
+	if (!ls.done) {
+		retval = ocfs2_expand_dir(fs, dir);
+		if (retval)
+			return retval;
+
+		retval = ocfs2_dir_iterate(fs, dir,
+					   OCFS2_DIRENT_FLAG_INCLUDE_EMPTY,
+					   NULL, link_proc, &ls);
+		if (retval)
+			return retval;
+		if (!ls.done)
+			return OCFS2_ET_INTERNAL_FAILURE;
+	}
 
 #if 0 /* Maybe later */
         retval = ocfs2_malloc_block(fs->fs_io, &buf);

@@ -63,7 +63,6 @@ CFILES = 		\
 	memory.c	\
 	mkjournal.c	\
 	namei.c		\
-	newdir.c	\
 	openfs.c	\
 	slot_map.c	\
 	sysfile.c	\

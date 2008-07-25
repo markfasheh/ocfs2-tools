@@ -74,7 +74,7 @@ static void check_root(o2fsck_state *ost)
 		return;
 	}
 
-	ret = ocfs2_expand_dir(ost->ost_fs, blkno, blkno);
+	ret = ocfs2_init_dir(ost->ost_fs, blkno, blkno);
 	if (ret) {
 		com_err(whoami, ret, "while trying to expand a new root "
 			"directory");
@@ -141,15 +141,13 @@ static void check_lostfound(o2fsck_state *ost)
 		return;
 	}
 
-	ret = ocfs2_expand_dir(ost->ost_fs, blkno, ost->ost_fs->fs_root_blkno);
+	ret = ocfs2_init_dir(ost->ost_fs, blkno, ost->ost_fs->fs_root_blkno);
 	if (ret) {
 		com_err(whoami, ret, "while trying to expand a new "
 			"/lost+found directory");
 		goto out;
 	}
 
-	/* XXX expand_dir itself will leak added dir blocks in some error
-	 * paths so we don't bother trying to clean them up either */
 	ret = ocfs2_link(ost->ost_fs, ost->ost_fs->fs_root_blkno, name, blkno,
 			 OCFS2_FT_DIR);
 	if (ret) {
@@ -286,15 +284,6 @@ void o2fsck_reconnect_file(o2fsck_state *ost, uint64_t inode)
 	ret = ocfs2_link(ost->ost_fs, ost->ost_lostfound_ino, iname, inode,
 			 type);
 	if (ret) {
-		if (ret == OCFS2_ET_DIR_NO_SPACE) {
-			ret = ocfs2_expand_dir(ost->ost_fs,
-					       ost->ost_lostfound_ino,
-					       ost->ost_fs->fs_root_blkno);
-			if (ret == 0)
-				ret = ocfs2_link(ost->ost_fs,
-						 ost->ost_lostfound_ino,
-						 iname, inode, type);
-		}
 		com_err(whoami, ret, "while trying to link inode %"PRIu64" "
 			"into /lost+found", inode);
 		goto out;

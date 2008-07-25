@@ -167,21 +167,13 @@ static errcode_t create_orphan_dir(o2fsck_state *ost, char *fname)
 	if (ret)
 		goto bail;
 
-	ret = ocfs2_expand_dir(fs, blkno, fs->fs_sysdir_blkno);
+	ret = ocfs2_init_dir(fs, blkno, fs->fs_sysdir_blkno);
 	if (ret)
 		goto bail;
 
 	/* Add the inode to the system dir */
 	ret = ocfs2_link(fs, fs->fs_sysdir_blkno, fname, blkno,
 			 OCFS2_FT_DIR);
-	if (ret == OCFS2_ET_DIR_NO_SPACE) {
-		ret = ocfs2_expand_dir(fs, fs->fs_sysdir_blkno,
-				       fs->fs_sysdir_blkno);
-		if (!ret)
-			ret = ocfs2_link(fs, fs->fs_sysdir_blkno,
-					 fname, blkno, OCFS2_FT_DIR);
-	}
-
 	if (ret)
 		goto bail;
 

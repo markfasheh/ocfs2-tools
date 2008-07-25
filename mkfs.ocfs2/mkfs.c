@@ -2298,7 +2298,7 @@ static void create_lost_found_dir(State *s)
 		goto bail;
 	}
 
-	ret = ocfs2_expand_dir(fs, lost_found_blkno, fs->fs_root_blkno);
+	ret = ocfs2_init_dir(fs, lost_found_blkno, fs->fs_root_blkno);
 	if (ret) {
 		com_err(s->progname, ret, "while adding lost+found dir data");
 		goto bail;

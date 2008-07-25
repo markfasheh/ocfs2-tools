@@ -35,6 +35,9 @@
 #include "dir_iterate.h"
 #include "dir_util.h"
 
+static int ocfs2_inline_dir_iterate(ocfs2_filesys *fs,
+				    struct ocfs2_dinode *di,
+				    struct dir_context *ctx);
 /*
  * This function checks to see whether or not a potential deleted
  * directory entry looks valid.  What we do is check the deleted entry
@@ -71,6 +74,7 @@ errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 					 void	*priv_data),
 			     void *priv_data)
 {
+	struct ocfs2_dinode *di;
 	struct		dir_context	ctx;
 	errcode_t	retval;
 	
@@ -90,8 +94,22 @@ errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 	ctx.func = func;
 	ctx.priv_data = priv_data;
 	ctx.errcode = 0;
-	retval = ocfs2_block_iterate(fs, dir, 0,
-				     ocfs2_process_dir_block, &ctx);
+
+	retval = ocfs2_read_inode(fs, dir, ctx.buf);
+	if (retval)
+		goto out;
+
+	di = (struct ocfs2_dinode *)ctx.buf;
+
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)) &&
+	    di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		retval = ocfs2_inline_dir_iterate(fs, di, &ctx);
+	else
+		retval = ocfs2_block_iterate(fs, dir, 0,
+					     ocfs2_process_dir_block,
+					     &ctx);
+
+out:
 	if (!block_buf)
 		ocfs2_free(&ctx.buf);
 	if (retval)
@@ -138,34 +156,17 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 				  xlate_func, &xl);
 }
 
-/*
- * Helper function which is private to this module.  Used by
- * ocfs2_dir_iterate() and ocfs2_dblist_dir_iterate()
- */
-int ocfs2_process_dir_block(ocfs2_filesys *fs,
-			    uint64_t	blocknr,
-			    uint64_t	blockcnt,
-			    uint16_t	ext_flags,
-			    void	*priv_data)
+static int ocfs2_process_dir_entry(ocfs2_filesys *fs,
+				   unsigned int offset,
+				   int entry,
+				   int *changed,
+				   int *do_abort,
+				   struct dir_context *ctx)
 {
-	struct dir_context *ctx = (struct dir_context *) priv_data;
-	unsigned int	offset = 0;
-	unsigned int	next_real_entry = 0;
-	int		ret = 0;
-	int		changed = 0;
-	int		do_abort = 0;
-	int		entry, size;
+	errcode_t ret;
 	struct ocfs2_dir_entry *dirent;
-
-	if (blockcnt < 0)
-		return 0;
-
-	entry = blockcnt ? OCFS2_DIRENT_OTHER_FILE :
-		OCFS2_DIRENT_DOT_FILE;
-	
-	ctx->errcode = ocfs2_read_dir_block(fs, blocknr, ctx->buf);
-	if (ctx->errcode)
-		return OCFS2_BLOCK_ABORT;
+	unsigned int next_real_entry = 0;
+	int size;
 
 	while (offset < fs->fs_blocksize) {
 		dirent = (struct ocfs2_dir_entry *) (ctx->buf + offset);
@@ -193,9 +194,9 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 			entry++;
 			
 		if (ret & OCFS2_DIRENT_CHANGED)
-			changed++;
+			*changed += 1;
 		if (ret & OCFS2_DIRENT_ABORT) {
-			do_abort++;
+			*do_abort += 1;
 			break;
 		}
 next:		
@@ -220,6 +221,66 @@ next:
 		}
 		offset += dirent->rec_len;
 	}
+
+	return 0;
+}
+
+static int ocfs2_inline_dir_iterate(ocfs2_filesys *fs,
+				    struct ocfs2_dinode *di,
+				    struct dir_context *ctx)
+{
+	unsigned int offset = offsetof(struct ocfs2_dinode, id2.i_data.id_data);
+	unsigned int next_real_entry = 0;
+	int ret = 0, changed = 0, do_abort = 0, entry;
+
+	entry = OCFS2_DIRENT_DOT_FILE;
+
+	ret = ocfs2_process_dir_entry(fs, offset, entry, &changed,
+				      &do_abort, ctx);
+	if (ret)
+		return ret;
+
+	if (changed) {
+		ctx->errcode = ocfs2_write_inode(fs, di->i_blkno, ctx->buf);
+		if (ctx->errcode)
+			return OCFS2_BLOCK_ABORT;
+	}
+
+	return 0;
+}
+
+/*
+ * Helper function which is private to this module.  Used by
+ * ocfs2_dir_iterate() and ocfs2_dblist_dir_iterate()
+ */
+int ocfs2_process_dir_block(ocfs2_filesys *fs,
+			    uint64_t	blocknr,
+			    uint64_t	blockcnt,
+			    uint16_t	ext_flags,
+			    void	*priv_data)
+{
+	struct dir_context *ctx = (struct dir_context *) priv_data;
+	unsigned int	offset = 0;
+	unsigned int	next_real_entry = 0;
+	int		ret = 0;
+	int		changed = 0;
+	int		do_abort = 0;
+	int		entry;
+
+	if (blockcnt < 0)
+		return 0;
+
+	entry = blockcnt ? OCFS2_DIRENT_OTHER_FILE :
+		OCFS2_DIRENT_DOT_FILE;
+
+	ctx->errcode = ocfs2_read_dir_block(fs, blocknr, ctx->buf);
+	if (ctx->errcode)
+		return OCFS2_BLOCK_ABORT;
+
+	ret = ocfs2_process_dir_entry(fs, offset, entry, &changed,
+				      &do_abort, ctx);
+	if (ret)
+		return ret;
 
 	if (changed) {
 		ctx->errcode = ocfs2_write_dir_block(fs, blocknr,

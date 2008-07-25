@@ -466,6 +466,26 @@ static inline int ocfs2_size_fits_inline_data(struct ocfs2_dinode *di,
 	return 0;
 }
 
+static void ocfs2_expand_last_dirent(char *start, uint16_t old_size,
+				     uint16_t new_size)
+{
+	struct ocfs2_dir_entry *de;
+	struct ocfs2_dir_entry *prev_de;
+	char *de_buf, *limit;
+	uint16_t bytes = new_size - old_size;
+
+	limit = start + old_size;
+	de_buf = start;
+	de = (struct ocfs2_dir_entry *)de_buf;
+	do {
+		prev_de = de;
+		de_buf += de->rec_len;
+		de = (struct ocfs2_dir_entry *)de_buf;
+	} while (de_buf < limit);
+
+	prev_de->rec_len += bytes;
+}
+
 errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci)
 {
 	errcode_t ret;
@@ -500,7 +520,15 @@ errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci)
 		goto out;
 
 	if (di->i_size) {
-		ret = io_write_block(fs->fs_io, p_start, 1, inline_data);
+		if (S_ISDIR(di->i_mode)) {
+			ocfs2_expand_last_dirent(inline_data, di->i_size,
+						 fs->fs_blocksize);
+
+			di->i_size = fs->fs_blocksize;
+			ret = ocfs2_write_dir_block(fs, p_start, inline_data);
+		} else
+			ret = io_write_block(fs->fs_io, p_start,
+					     1, inline_data);
 		if (ret)
 			goto out;
 	}

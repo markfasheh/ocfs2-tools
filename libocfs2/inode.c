@@ -196,6 +196,18 @@ static int has_extents(struct ocfs2_dinode *di)
 	return 1;
 }
 
+static inline void ocfs2_swap_inline_dir(struct ocfs2_dinode *di,
+					 int to_cpu)
+{
+	void *de_buf = di->id2.i_data.id_data;
+	uint64_t bytes = di->id2.i_data.id_count;
+
+	if (to_cpu)
+		ocfs2_swap_dir_entries_to_cpu(de_buf, bytes);
+	else
+		ocfs2_swap_dir_entries_from_cpu(de_buf, bytes);
+}
+
 void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di)
 {
 	if (cpu_is_little_endian)
@@ -203,6 +215,8 @@ void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di)
 
 	if (has_extents(di))
 		ocfs2_swap_extent_list_from_cpu(&di->id2.i_list);
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL && S_ISDIR(di->i_mode))
+		ocfs2_swap_inline_dir(di, 0);
 	ocfs2_swap_inode_third(di);
 	ocfs2_swap_inode_second(di);
 	ocfs2_swap_inode_first(di);
@@ -216,6 +230,8 @@ void ocfs2_swap_inode_to_cpu(struct ocfs2_dinode *di)
 	ocfs2_swap_inode_first(di);
 	ocfs2_swap_inode_second(di);
 	ocfs2_swap_inode_third(di);
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL && S_ISDIR(di->i_mode))
+		ocfs2_swap_inline_dir(di, 1);
 	if (has_extents(di))
 		ocfs2_swap_extent_list_to_cpu(&di->id2.i_list);
 }

@@ -460,9 +460,12 @@ errcode_t ocfs2_chain_force_val(ocfs2_filesys *fs,
 errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 				ocfs2_cached_inode *cinode);
 
+errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
+			 uint64_t dir,
+			 uint64_t parent_dir);
+
 errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
-			   uint64_t dir,
-			   uint64_t parent_dir);
+			   uint64_t dir);
 
 errcode_t ocfs2_test_inode_allocated(ocfs2_filesys *fs, uint64_t blkno,
 				     int *is_allocated);
