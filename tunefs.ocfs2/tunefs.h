@@ -123,4 +123,10 @@ int validate_vol_size(ocfs2_filesys *fs);
 errcode_t online_resize_check(ocfs2_filesys *fs);
 errcode_t online_resize_lock(ocfs2_filesys *fs);
 errcode_t online_resize_unlock(ocfs2_filesys *fs);
+
+errcode_t get_total_free_clusters(ocfs2_filesys *fs, uint32_t *clusters);
+
+errcode_t clear_inline_data_check(ocfs2_filesys *fs, char *progname);
+errcode_t clear_inline_data_flag(ocfs2_filesys *fs, char *progname);
+void free_inline_data_ctxt(void);
 #endif /* _TUNEFS_H */

@@ -163,7 +163,7 @@ out:
 	return ret;
 }
 
-static errcode_t get_total_free_clusters(ocfs2_filesys *fs, uint32_t *clusters)
+errcode_t get_total_free_clusters(ocfs2_filesys *fs, uint32_t *clusters)
 {
 	errcode_t ret;
 	uint64_t blkno;

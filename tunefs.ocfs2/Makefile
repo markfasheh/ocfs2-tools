@@ -27,7 +27,8 @@ CFILES =		\
 	sparse_file.c	\
 	features.c	\
 	resize.c	\
-	format_slotmap.c
+	format_slotmap.c \
+	inline_data.c
 
 HFILES = tunefs.h
 

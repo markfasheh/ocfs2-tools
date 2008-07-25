@@ -36,9 +36,11 @@ extern ocfs2_tune_opts opts;
 #define TUNEFS_RO_COMPAT_SET	OCFS2_FEATURE_RO_COMPAT_UNWRITTEN
 #define TUNEFS_RO_COMPAT_CLEAR	OCFS2_FEATURE_RO_COMPAT_UNWRITTEN
 #define TUNEFS_INCOMPAT_SET	(OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC | \
-				 OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
+				 OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP | \
+				 OCFS2_FEATURE_INCOMPAT_INLINE_DATA)
 #define TUNEFS_INCOMPAT_CLEAR	(OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC | \
-				 OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
+				 OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP | \
+				 OCFS2_FEATURE_INCOMPAT_INLINE_DATA)
 
 /*
  * Check whether we can add or remove a feature.
@@ -128,6 +130,15 @@ errcode_t feature_check(ocfs2_filesys *fs)
 		}
 	}
 
+	if (opts.clear_feature.opt_incompat &
+	    OCFS2_FEATURE_INCOMPAT_INLINE_DATA) {
+		if (!ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)))
+			goto bail;
+
+		ret = clear_inline_data_check(fs, opts.progname);
+		if (ret)
+			goto bail;
+	}
 	ret = 0;
 bail:
 	return ret;
@@ -153,6 +164,13 @@ errcode_t update_feature(ocfs2_filesys *fs)
 	if ((opts.set_feature.opt_incompat | opts.clear_feature.opt_incompat) &
 	    OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP)
 		ret = reformat_slot_map(fs);
+
+	if (opts.set_feature.opt_incompat & OCFS2_FEATURE_INCOMPAT_INLINE_DATA)
+		OCFS2_SET_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					   OCFS2_FEATURE_INCOMPAT_INLINE_DATA);
+	else if (opts.clear_feature.opt_incompat &
+		 OCFS2_FEATURE_INCOMPAT_INLINE_DATA)
+		ret = clear_inline_data_flag(fs, opts.progname);
 
 bail:
 	return ret;

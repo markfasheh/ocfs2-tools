@@ -1558,6 +1558,7 @@ close:
 	block_signals(SIG_UNBLOCK);
 
 	free_clear_ctxt();
+	free_inline_data_ctxt();
 
 	free_opts();
 
