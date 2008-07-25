@@ -67,6 +67,9 @@ static int verbosity = 1;
 static int interactive = 0;
 static uint32_t journal_clusters = 0;
 
+/* Refcount for calls to tunefs_[un]block_signals() */
+static unsigned int blocked_signals_count;
+
 
 static inline struct tunefs_private *to_private(ocfs2_filesys *fs)
 {
@@ -287,12 +290,20 @@ static void block_signals(int how)
 
 void tunefs_block_signals(void)
 {
-	block_signals(SIG_BLOCK);
+	if (!blocked_signals_count)
+		block_signals(SIG_BLOCK);
+	blocked_signals_count++;
 }
 
 void tunefs_unblock_signals(void)
 {
-	block_signals(SIG_UNBLOCK);
+	if (blocked_signals_count) {
+		blocked_signals_count--;
+		if (!blocked_signals_count)
+			block_signals(SIG_UNBLOCK);
+	} else
+		errorf("Trying to unblock signals, but signals were not "
+		       "blocked\n");
 }
 
 void tunefs_version(void)
