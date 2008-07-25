@@ -54,11 +54,13 @@ static void incompat_flag_in_str(uint32_t flag, GString *str)
 	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG, str, " ");
 	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, str, " ");
 	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, str, " ");
+	prepend_flgstr(flag, OCFS2_FEATURE_INCOMPAT_INLINE_DATA, str, " ");
 
 	if (flag & ~(OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV |
 		     OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG |
 		     OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT |
 		     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
+		     OCFS2_FEATURE_INCOMPAT_INLINE_DATA |
 		     OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG)) {
 		g_string_prepend(str, "Unknown ");
 	}
