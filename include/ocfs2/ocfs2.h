@@ -478,6 +478,9 @@ errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 			      uint64_t c_blkno, uint32_t clusters,
 			      uint16_t flag);
+errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
+					   uint32_t cpos, uint64_t c_blkno,
+					   uint32_t clusters, uint16_t flag);
 
 errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
 errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode, int flags);

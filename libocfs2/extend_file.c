@@ -3310,22 +3310,42 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 			      uint16_t flag)
 {
 	errcode_t ret;
-	struct insert_ctxt ctxt;
-	struct ocfs2_insert_type insert = {0, };
-	char *di_buf = NULL, *last_eb = NULL;
-	char *backup_buf = NULL;
-	int free_records = 0;
+	ocfs2_cached_inode *ci = NULL;
 
-	ret = ocfs2_malloc_block(fs->fs_io, &di_buf);
-	if (ret)
-		return ret;
-
-	ctxt.fs = fs;
-	ctxt.di = (struct ocfs2_dinode *)di_buf;
-
-	ret = ocfs2_read_inode(fs, ino, di_buf);
+	ret = ocfs2_read_cached_inode(fs, ino, &ci);
 	if (ret)
 		goto bail;
+
+	ret = ocfs2_cached_inode_insert_extent(ci, cpos, c_blkno,
+					       clusters, flag);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_write_cached_inode(fs, ci);
+
+bail:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+
+	return ret;
+}
+
+errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
+					   uint32_t cpos, uint64_t c_blkno,
+					   uint32_t clusters, uint16_t flag)
+{
+	errcode_t ret;
+	struct insert_ctxt ctxt;
+	struct ocfs2_insert_type insert = {0, };
+	char *last_eb = NULL;
+	char *backup_buf = NULL;
+	char *di_buf = NULL;
+	int free_records = 0;
+	ocfs2_filesys *fs = ci->ci_fs;
+
+	ctxt.fs = fs;
+	ctxt.di = ci->ci_inode;
+	di_buf = (char *)ctxt.di;
 
 	/* In order to orderize the written block sequence and avoid
 	 * the corruption for the inode, we duplicate the extent block
@@ -3380,8 +3400,6 @@ errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
 	if (ret)
 		goto bail;
 
-	ret = ocfs2_write_inode(fs, ino, di_buf);
-
 bail:
 	if (backup_buf) {
 		/* we have duplicated the extent block during the insertion.
@@ -3397,8 +3415,6 @@ bail:
 
 	if (last_eb)
 		ocfs2_free(&last_eb);
-	if (di_buf)
-		ocfs2_free(&di_buf);
 
 	return ret;
 }
@@ -3844,8 +3860,9 @@ errcode_t ocfs2_allocate_unwritten_extents(ocfs2_filesys *fs, uint64_t ino,
 			break;
 
 		cpos = ocfs2_blocks_to_clusters(fs, v_blkno);
-	 	ret = ocfs2_insert_extent(fs, ino, cpos, p_blkno, n_clusters,
-					  OCFS2_EXT_UNWRITTEN);
+		ret = ocfs2_cached_inode_insert_extent(ci, cpos,
+						       p_blkno, n_clusters,
+						       OCFS2_EXT_UNWRITTEN);
 		if (ret) {
 			/*
 			 * XXX: We don't wan't to overwrite the error
@@ -3856,20 +3873,16 @@ errcode_t ocfs2_allocate_unwritten_extents(ocfs2_filesys *fs, uint64_t ino,
 			goto out;
 		}
 
+		/* save up what we have done. */
+		ret = ocfs2_write_cached_inode(fs, ci);
+		if (ret)
+			goto out;
+
 		v_blkno = ocfs2_clusters_to_blocks(fs, cpos + n_clusters);
 	}
 
 	if (ci->ci_inode->i_size <= offset + len) {
-		/*
-		 * We have to reread the dinode since it is modified in
-		 * ocfs2_insert_extent.
-		 */
-		ocfs2_free_cached_inode(fs, ci);
-		ret = ocfs2_read_cached_inode(fs, ino, &ci);
-		if (ret)
-			goto out;
 		ci->ci_inode->i_size = offset + len;
-
 		ret = ocfs2_write_cached_inode(fs, ci);
 	}
 

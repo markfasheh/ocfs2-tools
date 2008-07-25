@@ -345,7 +345,7 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 			return ret;
 
 		if (insert) {
-	 		ret = ocfs2_insert_extent(fs, ci->ci_blkno,
+			ret = ocfs2_cached_inode_insert_extent(ci,
 					ocfs2_blocks_to_clusters(fs,v_blkno),
 					p_start, n_clusters, 0);
 			if (ret) {
@@ -358,13 +358,11 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 				return ret;
 			}
 
-			/*
-			 * since the inode information has been changed, we
-			 * may need to reinitialize it and test whether we can
-			 * really find the inserted extents.
-			 */
-			ocfs2_free_cached_inode(fs, ci);
-			ret = ocfs2_read_cached_inode(fs,ino, &ci);
+			/* save up what we have done. */
+			ret = ocfs2_write_cached_inode(fs, ci);
+			if (ret)
+				return ret;
+
 			ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
 						&p_blkno, NULL, NULL);
 			/* now we shouldn't find a hole. */
