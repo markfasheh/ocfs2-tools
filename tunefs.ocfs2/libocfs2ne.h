@@ -237,6 +237,13 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size);
  * tunefs_open() will have already connected to the filesystem.
  */
 errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg);
+/*
+ * Online operations need to make locks, but the ocfs2_filesys an
+ * operation gets may not be the one we used to access the dlm.
+ */
+errcode_t tunefs_dlm_lock(ocfs2_filesys *fs, const char *lockid,
+			  int flags, enum o2dlm_lock_level level);
+errcode_t tunefs_dlm_unlock(ocfs2_filesys *fs, char *lockid);
 
 /* Returns the program name from argv0 */
 const char *tunefs_progname(void);

@@ -63,19 +63,13 @@ struct resize_specs {
 
 static errcode_t online_resize_lock(ocfs2_filesys *fs)
 {
-	if (ocfs2_mount_local(fs))
-		return 0;
-
-	return o2dlm_lock(fs->fs_dlm_ctxt, lock_name,
-			  O2DLM_LEVEL_EXMODE, O2DLM_TRYLOCK);
+	return tunefs_dlm_lock(fs, lock_name, O2DLM_LEVEL_EXMODE,
+			       O2DLM_TRYLOCK);
 }
 
 static errcode_t online_resize_unlock(ocfs2_filesys *fs)
 {
-	if (ocfs2_mount_local(fs))
-		return 0;
-
-	return o2dlm_unlock(fs->fs_dlm_ctxt, lock_name);
+	return tunefs_dlm_unlock(fs, lock_name);
 }
 
 static errcode_t reserve_cluster(ocfs2_filesys *fs,

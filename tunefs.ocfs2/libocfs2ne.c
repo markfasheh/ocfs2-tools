@@ -594,6 +594,28 @@ static errcode_t tunefs_get_lock_env(void)
 	return err;
 }
 
+errcode_t tunefs_dlm_lock(ocfs2_filesys *fs, const char *lockid,
+			  int flags, enum o2dlm_lock_level level)
+{
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (ocfs2_mount_local(fs))
+		return 0;
+
+	return o2dlm_lock(state->ts_master->fs_dlm_ctxt, lockid, flags,
+			  level);
+}
+
+errcode_t tunefs_dlm_unlock(ocfs2_filesys *fs, char *lockid)
+{
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (ocfs2_mount_local(fs))
+		return 0;
+
+	return o2dlm_unlock(state->ts_master->fs_dlm_ctxt, lockid);
+}
+
 /*
  * Single-node filesystems need to prevent mount(8) from happening
  * while tunefs.ocfs2 is running.  bd_claim does this for us when we
