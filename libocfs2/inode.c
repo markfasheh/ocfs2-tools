@@ -148,6 +148,10 @@ static void ocfs2_swap_inode_second(struct ocfs2_dinode *di)
 
 		tl->tl_count = bswap_16(tl->tl_count);
 		tl->tl_used  = bswap_16(tl->tl_used);
+	} else if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+		struct ocfs2_inline_data *id = &di->id2.i_data;
+
+		id->id_count = bswap_16(id->id_count);
 	}
 }
 
@@ -174,6 +178,7 @@ static void ocfs2_swap_inode_first(struct ocfs2_dinode *di)
 	di->i_ctime_nsec    = bswap_32(di->i_ctime_nsec);
 	di->i_mtime_nsec    = bswap_32(di->i_mtime_nsec);
 	di->i_attr          = bswap_32(di->i_attr);
+	di->i_dyn_features  = bswap_16(di->i_dyn_features);
 }
 
 static int has_extents(struct ocfs2_dinode *di)
@@ -184,6 +189,8 @@ static int has_extents(struct ocfs2_dinode *di)
 		return 0;
 	/* i_flags doesn't indicate when id2 is a fast symlink */
 	if (S_ISLNK(di->i_mode) && di->i_size && di->i_clusters == 0)
+		return 0;
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
 		return 0;
 
 	return 1;
