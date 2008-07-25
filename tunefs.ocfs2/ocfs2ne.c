@@ -956,6 +956,7 @@ static int run_operations(const char *device)
 			break;
 		}
 
+		err = 0;
 		if (rc)
 			err = TUNEFS_ET_OPERATION_FAILED;
 
