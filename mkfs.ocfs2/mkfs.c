@@ -183,6 +183,13 @@ static int hb_dev_skip(State *s, int system_inode)
 	return ret;
 }
 
+static inline uint32_t system_dir_bytes_needed(State *s)
+{
+	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
+
+	return each * sys_blocks_needed(s->initial_slots);
+}
+
 int
 main(int argc, char **argv)
 {
@@ -315,9 +322,13 @@ main(int argc, char **argv)
 
 	superblock_rec.fe_off = (uint64_t)OCFS2_SUPER_BLOCK_BLKNO << s->blocksize_bits;
 
-	alloc_from_bitmap (s, 1, s->global_bm,
-			   &root_dir_rec.extent_off,
-			   &root_dir_rec.extent_len);
+	if (!s->inline_data) {
+		alloc_from_bitmap(s, 1, s->global_bm,
+				  &root_dir_rec.extent_off,
+				  &root_dir_rec.extent_len);
+		root_dir_rec.dir_data = NULL;
+	} else
+		root_dir_rec.dir_data = root_dir;
 
 	root_dir_rec.fe_off = alloc_inode(s, &root_dir_rec.suballoc_bit);
 	root_dir->record = &root_dir_rec;
@@ -325,10 +336,16 @@ main(int argc, char **argv)
 	add_entry_to_directory(s, root_dir, ".", root_dir_rec.fe_off, OCFS2_FT_DIR);
 	add_entry_to_directory(s, root_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
 
-	need = system_dir_blocks_needed(s) << s->blocksize_bits;
-	alloc_bytes_from_bitmap(s, need, s->global_bm,
-				&system_dir_rec.extent_off,
-				&system_dir_rec.extent_len);
+	need = system_dir_bytes_needed(s);
+	if (!s->inline_data || need > ocfs2_max_inline_data(s->blocksize)) {
+		need = system_dir_blocks_needed(s) << s->blocksize_bits;
+		alloc_bytes_from_bitmap(s, need, s->global_bm,
+					&system_dir_rec.extent_off,
+					&system_dir_rec.extent_len);
+		system_dir_rec.dir_data = NULL;
+	} else
+		system_dir_rec.dir_data = system_dir;
+
 	system_dir_rec.fe_off = alloc_inode(s, &system_dir_rec.suballoc_bit);
 	system_dir->record = &system_dir_rec;
 	add_entry_to_directory(s, system_dir, ".", system_dir_rec.fe_off, OCFS2_FT_DIR);
@@ -365,9 +382,14 @@ main(int argc, char **argv)
 		for (i = 0; i < s->initial_slots; ++i) {
 			tmprec = &record[ORPHAN_DIR_SYSTEM_INODE][i];
 			orphan_dir[i]->record = tmprec;
-			alloc_from_bitmap(s, 1, s->global_bm,
-					  &tmprec->extent_off,
-					  &tmprec->extent_len);
+			if (!s->inline_data) {
+				alloc_from_bitmap(s, 1, s->global_bm,
+						  &tmprec->extent_off,
+						  &tmprec->extent_len);
+				tmprec->dir_data = NULL;
+			} else
+				tmprec->dir_data = orphan_dir[i];
+
 			add_entry_to_directory(s, orphan_dir[i], ".",
 					       tmprec->fe_off,
 					       OCFS2_FT_DIR);
@@ -809,6 +831,10 @@ get_state(int argc, char **argv)
 		s->mount = MOUNT_LOCAL;
 	else
 		s->mount = MOUNT_CLUSTER;
+ 	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_INLINE_DATA)
+ 		s->inline_data = 1;
+ 	else
+ 		s->inline_data = 0;
 	if (s->feature_flags.opt_compat & OCFS2_FEATURE_COMPAT_BACKUP_SB)
 		s->no_backup_super = 0;
 	else
@@ -1765,7 +1791,6 @@ system_dir_blocks_needed(State *s)
 
 	return (bytes_needed + s->cluster_size - 1) >> s->cluster_size_bits;
 }
-
 #if 0
 /* This breaks stuff that depends on volume_size_in_clusters and
  * volume_size_in_blocks, and I'm not even sure it's necessary. If
@@ -2024,6 +2049,27 @@ format_file(State *s, SystemFileDiskRecord *rec)
 		ocfs2_set_rec_clusters(0, &di->id2.i_list.l_recs[0], clusters);
 		di->id2.i_list.l_recs[0].e_blkno =
 			rec->extent_off >> s->blocksize_bits;
+	} else if (S_ISDIR(di->i_mode) && s->inline_data && rec->dir_data) {
+		DirData *dir = rec->dir_data;
+		struct ocfs2_dir_entry *de =
+			(struct ocfs2_dir_entry *)(dir->buf + dir->last_off);
+		int dir_len = dir->last_off + OCFS2_DIR_REC_LEN(de->name_len);
+
+		if (dir_len > ocfs2_max_inline_data(s->blocksize)) {
+			com_err(s->progname, 0,
+				"Inline a dir which shouldn't be inline.\n");
+			clear_both_ends(s);
+			exit(1);
+		}
+		de->rec_len -= s->blocksize -
+			       ocfs2_max_inline_data(s->blocksize);
+		memset(&di->id2, 0,
+		       s->blocksize - offsetof(struct ocfs2_dinode, id2));
+
+		di->id2.i_data.id_count = ocfs2_max_inline_data(s->blocksize);
+		memcpy(di->id2.i_data.id_data, dir->buf, dir_len);
+		di->i_dyn_features |= OCFS2_INLINE_DATA_FL;
+		di->i_size = ocfs2_max_inline_data(s->blocksize);
 	}
 
 write_out:
@@ -2089,6 +2135,9 @@ write_group_data(State *s, AllocGroup *group)
 static void
 write_directory_data(State *s, DirData *dir)
 {
+	if (!dir->record->extent_len)
+		return;
+
 	if (dir->buf)
 		ocfs2_swap_dir_entries_from_cpu(dir->buf,
 						dir->record->file_size);

@@ -121,6 +121,7 @@ struct BitInfo {
 
 typedef struct _AllocGroup AllocGroup;
 typedef struct _SystemFileDiskRecord SystemFileDiskRecord;
+typedef struct _DirData DirData;
 
 struct _AllocGroup {
 	char *name;
@@ -149,6 +150,9 @@ struct _SystemFileDiskRecord {
 	int links;
 	int mode;
 	int cluster_bitmap;
+
+	/* record the dir entry so that inline dir can be stored with file. */
+	DirData *dir_data;
 };
 
 typedef struct _AllocBitmap AllocBitmap;
@@ -169,19 +173,9 @@ struct _AllocBitmap {
 	int num_chains;
 };
 
-typedef struct _DirData DirData;
-
 struct _DirData {
-	uint64_t disk_off;
-	uint64_t disk_len;
-
 	void *buf;
-	int buf_len;
-
 	int last_off;
-	uint64_t fe_disk_off;
-
-	int link_count;
 
 	SystemFileDiskRecord *record;
 };
@@ -198,6 +192,7 @@ struct _State {
 	int hb_dev;
 	int mount;
 	int no_backup_super;
+	int inline_data;
 
 	uint32_t blocksize;
 	uint32_t blocksize_bits;
