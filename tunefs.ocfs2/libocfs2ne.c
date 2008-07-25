@@ -62,17 +62,24 @@ struct tunefs_filesystem_state {
 	 * concurrent mount(2) by opening the device O_EXCL.  This is the
 	 * fd we used.  The value is -1 for cluster-aware filesystems.
 	 */
-	int			ts_local_fd;
+	int		ts_local_fd;
 
 	/*
 	 * Already-mounted filesystems can only do online operations.
 	 * This is the fd we send ioctl(2)s to.  If the filesystem isn't
 	 * in use, this is -1.
 	 */
-	int			ts_online_fd;
+	int		ts_online_fd;
+
+	/*
+	 * Do we have the cluster locked?  This can be zero if we're a
+	 * local filesystem.  If it is non-zero, ts_master->fs_dlm_ctxt
+	 * must be valid.
+	 */
+	int		ts_cluster_locked;
 
 	/* Size of the largest journal seen in tunefs_journal_check() */
-	uint32_t		ts_journal_clusters;
+	uint32_t	ts_journal_clusters;
 };
 
 struct tunefs_private {
@@ -85,14 +92,14 @@ struct tunefs_private {
 static LIST_HEAD(fs_list);
 
 static char progname[PATH_MAX] = "(Unknown)";
-static const char *usage_string;
-static int cluster_locked;
 static int verbosity = 1;
 static int interactive = 0;
 
 /* Refcount for calls to tunefs_[un]block_signals() */
 static unsigned int blocked_signals_count;
 
+/* For DEBUG_EXE programs */
+static const char *usage_string;
 
 static inline struct tunefs_private *to_private(ocfs2_filesys *fs)
 {
@@ -559,41 +566,6 @@ void tunefs_init(const char *argv0)
 	}
 }
 
-static errcode_t tunefs_set_lock_env(const char *status)
-{
-	errcode_t err = 0;
-
-	if (!status) {
-		if (unsetenv(TUNEFS_OCFS2_LOCK_ENV))
-			err = TUNEFS_ET_INTERNAL_FAILURE;
-	} else if (setenv(TUNEFS_OCFS2_LOCK_ENV, status, 1))
-		err = TUNEFS_ET_INTERNAL_FAILURE;
-
-	return err;
-}
-
-static errcode_t tunefs_get_lock_env(void)
-{
-	errcode_t err = TUNEFS_ET_INVALID_STACK_NAME;
-	int parent_locked = 0;
-	char *lockenv = getenv(TUNEFS_OCFS2_LOCK_ENV);
-
-	if (lockenv) {
-		parent_locked = 1;
-		if (!strcmp(lockenv, TUNEFS_OCFS2_LOCK_ENV_ONLINE))
-			err = TUNEFS_ET_PERFORM_ONLINE;
-		else if (!strcmp(lockenv, TUNEFS_OCFS2_LOCK_ENV_LOCKED))
-			err = 0;
-		else
-			parent_locked = 0;
-	}
-
-	if (parent_locked)
-		snprintf(progname, PATH_MAX, "%s",  PROGNAME);
-
-	return err;
-}
-
 errcode_t tunefs_dlm_lock(ocfs2_filesys *fs, const char *lockid,
 			  int flags, enum o2dlm_lock_level level)
 {
@@ -660,7 +632,8 @@ static void tunefs_unlock_local(ocfs2_filesys *fs)
 {
 	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
-	if ((state->ts_master == fs) && (state->ts_local_fd > -1)) {
+	assert(state->ts_master == fs);
+	if (state->ts_local_fd > -1) {
 		close(state->ts_local_fd);  /* Don't care about errors */
 		state->ts_local_fd = -1;
 	}
@@ -669,56 +642,62 @@ static void tunefs_unlock_local(ocfs2_filesys *fs)
 static errcode_t tunefs_unlock_cluster(ocfs2_filesys *fs)
 {
 	errcode_t tmp, err = 0;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
-	if (!fs)
-		return TUNEFS_ET_INTERNAL_FAILURE;
+	assert(state->ts_master == fs);
+	if (state->ts_cluster_locked) {
+		assert(fs->fs_dlm_ctxt);
 
-	if (ocfs2_mount_local(fs))
-		tunefs_unlock_local(fs);
-
-	if (cluster_locked && fs->fs_dlm_ctxt) {
 		tunefs_block_signals();
 		err = ocfs2_release_cluster(fs);
 		tunefs_unblock_signals();
-		cluster_locked = 0;
+		state->ts_cluster_locked = 0;
 	}
 
+	/* We shut down the dlm regardless of err */
 	if (fs->fs_dlm_ctxt) {
 		tmp = ocfs2_shutdown_dlm(fs, WHOAMI);
 		if (!err)
 			err = tmp;
 	}
 
-	tmp = tunefs_set_lock_env(NULL);
-	if (!err)
-		err = tmp;
+	return err;
+}
+
+/*
+ * We only unlock if we're closing the master filesystem.  We unlock
+ * both local and cluster locks, because we may have started as a local
+ * filesystem, then switched to a cluster filesystem in the middle.
+ */
+static errcode_t tunefs_unlock_filesystem(ocfs2_filesys *fs)
+{
+	errcode_t err = 0;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (state->ts_master == fs) {
+		tunefs_unlock_local(fs);
+		err = tunefs_unlock_cluster(fs);
+	}
 
 	return err;
 }
 
 static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 {
-	errcode_t tmp, err = 0;
+	errcode_t err = 0;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+	ocfs2_filesys *master_fs = state->ts_master;
 
-	if (ocfs2_mount_local(fs)) {
-		err = tunefs_lock_local(fs, flags);
-	} else {
-		/* Has a parent process has done the locking for us? */
-		err = tunefs_get_lock_env();
-		if (!err ||
-		    ((flags & TUNEFS_FLAG_ONLINE) &&
-		     (err == TUNEFS_ET_PERFORM_ONLINE)))
-			goto out_err;
+	if (state->ts_cluster_locked)
+		goto out;
 
+	if (!master_fs->fs_dlm_ctxt) {
 		err = o2cb_init();
 		if (err)
-			goto out_err;
+			goto out;
 
-		err = ocfs2_initialize_dlm(fs, WHOAMI);
+		err = ocfs2_initialize_dlm(master_fs, WHOAMI);
 		if (flags & TUNEFS_FLAG_NOCLUSTER) {
-			/* We have the right cluster, do nothing */
-			if (!err)
-				goto out_set;
 			if (err == O2CB_ET_INVALID_STACK_NAME) {
 				/*
 				 * We expected this - why else ask for
@@ -729,44 +708,52 @@ static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 				 * TUNEFS_FLAG_NOCLUSTER is not specified.
 				 */
 				err = TUNEFS_ET_INVALID_STACK_NAME;
-				goto out_set;
 			}
-		}
-
-		if (err)
-			goto out_err;
-
-		tunefs_block_signals();
-		err = ocfs2_lock_down_cluster(fs);
-		tunefs_unblock_signals();
-		if (!err)
-			cluster_locked = 1;
-		else if ((err == O2DLM_ET_TRYLOCK_FAILED) &&
-			 (flags & TUNEFS_FLAG_ONLINE)) {
-			err = TUNEFS_ET_PERFORM_ONLINE;
-		} else {
-			ocfs2_shutdown_dlm(fs, WHOAMI);
-			goto out_err;
-		}
+			/*
+			 * Success means do nothing, any other error
+			 * propagates up.
+			 */
+			goto out;
+		} else if (err)
+			goto out;
 	}
 
-out_set:
-	if (!err && cluster_locked)
-		tmp = tunefs_set_lock_env(TUNEFS_OCFS2_LOCK_ENV_LOCKED);
-	else if (err == TUNEFS_ET_PERFORM_ONLINE)
-		tmp = tunefs_set_lock_env(TUNEFS_OCFS2_LOCK_ENV_ONLINE);
+	tunefs_block_signals();
+	err = ocfs2_lock_down_cluster(master_fs);
+	tunefs_unblock_signals();
+	if (!err)
+		state->ts_cluster_locked = 1;
+	else if ((err == O2DLM_ET_TRYLOCK_FAILED) &&
+		 (flags & TUNEFS_FLAG_ONLINE))
+		err = TUNEFS_ET_PERFORM_ONLINE;
 	else
-		tmp = tunefs_set_lock_env(NULL);
-	if (tmp) {
-		err = tmp;
-		/*
-		 * We safely call unlock here - the state is right.  Ignore
-		 * the result to pass the error from set_lock_env()
-		 */
-		tunefs_unlock_cluster(fs);
-	}
+		ocfs2_shutdown_dlm(fs, WHOAMI);
 
-out_err:
+out:
+	return err;
+}
+
+/*
+ * We try to lock the filesystem in *this* ocfs2_filesys.  We get the
+ * state off of the master, but the filesystem may have changed since
+ * the master opened its ocfs2_filesys.  It might have been switched to
+ * LOCAL or something.  We trust the current status in order to make our
+ * decision.
+ *
+ * Inside the underlying lock functions, they check the state to see if
+ * they actually need to do anything.  If they don't have it locked, they
+ * will always retry the lock.  The filesystem may have gotten unmounted
+ * right after we ran our latest online operation.
+ */
+static errcode_t tunefs_lock_filesystem(ocfs2_filesys *fs, int flags)
+{
+	errcode_t err = 0;
+
+	if (ocfs2_mount_local(fs))
+		err = tunefs_lock_local(fs, flags);
+	else
+		err = tunefs_lock_cluster(fs, flags);
+
 	return err;
 }
 
@@ -1143,9 +1130,10 @@ out:
 static void tunefs_remove_fs(ocfs2_filesys *fs)
 {
 	struct tunefs_private *tp = to_private(fs);
-	struct tunefs_filesystem_state *s = tp->tp_state;
+	struct tunefs_filesystem_state *s = NULL;
 
 	if (tp) {
+		s = tp->tp_state;
 		list_del(&tp->tp_list);
 		tp->tp_fs = NULL;
 		fs->fs_private = NULL;
@@ -1203,7 +1191,7 @@ errcode_t tunefs_open(const char *device, int flags,
 		goto out;
 	}
 
-	err = tunefs_lock_cluster(fs, flags);
+	err = tunefs_lock_filesystem(fs, flags);
 	if (err &&
 	    (err != TUNEFS_ET_INVALID_STACK_NAME) &&
 	    (err != TUNEFS_ET_PERFORM_ONLINE))
@@ -1225,13 +1213,13 @@ errcode_t tunefs_open(const char *device, int flags,
 			tmp = tunefs_global_bitmap_check(fs);
 		if (tmp) {
 			err = tmp;
-			tunefs_unlock_cluster(fs);
+			tunefs_unlock_filesystem(fs);
 		}
 	} else {
 		tmp = tunefs_open_online_descriptor(fs);
 		if (tmp) {
 			err = tmp;
-			tunefs_unlock_cluster(fs);
+			tunefs_unlock_filesystem(fs);
 		}
 	}
 
@@ -1264,7 +1252,7 @@ errcode_t tunefs_close(ocfs2_filesys *fs)
 	if (fs) {
 		verbosef(VL_LIB, "Closing device \"%s\"\n", fs->fs_devname);
 		tunefs_close_online_descriptor(fs);
-		err = tunefs_unlock_cluster(fs);
+		err = tunefs_unlock_filesystem(fs);
 		tmp = ocfs2_close(fs);
 		if (!err)
 			err = tmp;
