@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_feature_unwritten_extents.c
+ * feature_unwritten_extents.c
  *
  * ocfs2 tune utility for enabling and disabling the unwritten extents
  * feature.

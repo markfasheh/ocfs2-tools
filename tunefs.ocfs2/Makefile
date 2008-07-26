@@ -13,12 +13,12 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 UNINST_LIBRARIES = libocfs2ne.a
 
-OCFS2NE_FEATURE_METHODS =			\
-	ocfs2ne_feature_backup_super		\
-	ocfs2ne_feature_extended_slotmap	\
-	ocfs2ne_feature_local			\
-	ocfs2ne_feature_sparse_files		\
-	ocfs2ne_feature_unwritten_extents
+OCFS2NE_FEATURE_METHODS =		\
+	feature_backup_super		\
+	feature_extended_slotmap	\
+	feature_local			\
+	feature_sparse_files		\
+	feature_unwritten_extents
 
 OCFS2NE_METHODS =				\
 	ocfs2ne_list_sparse_files		\

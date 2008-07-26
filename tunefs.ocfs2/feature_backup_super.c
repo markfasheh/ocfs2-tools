@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_feature_backup_super.c
+ * feature_backup_super.c
  *
  * ocfs2 tune utility to enable and disable the backup superblock feature.
  *
