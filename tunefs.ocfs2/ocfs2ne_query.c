@@ -19,15 +19,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <printf.h>
-#include <uuid/uuid.h>
 
 #include "ocfs2/ocfs2.h"
 
 #include "libocfs2ne.h"
 #include "libocfs2ne_err.h"
-
-/*This number is from the man page of uuid_unparse. */
-#define UUID_UNPARSE_LEN	36
 
 /* To get around passing arguments to printf() */
 static ocfs2_filesys *query_fs;
@@ -164,11 +160,7 @@ static int handle_label(FILE *stream, const struct printf_info *info,
 static int handle_uuid(FILE *stream, const struct printf_info *info,
 		       const void *const *args)
 {
-	char uuid[UUID_UNPARSE_LEN + 1];
-
-	uuid_unparse(OCFS2_RAW_SB(query_fs->fs_super)->s_uuid, uuid);
-
-	return print_string(stream, info, args, uuid);
+	return print_string(stream, info, args, query_fs->uuid_str);
 }
 
 static int handle_flag(FILE *stream, const struct printf_info *info,
