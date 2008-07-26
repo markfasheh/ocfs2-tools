@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_list_sparse_files.c
+ * op_list_sparse_files.c
  *
  * ocfs2 tune utility to list sparse files.
  *
@@ -447,7 +447,7 @@ static int list_sparse_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 }
 
 DEFINE_TUNEFS_OP(list_sparse,
-		 "Usage: ocfs2ne_list_sparse_files [opts] <device>\n",
+		 "Usage: op_list_sparse_files [opts] <device>\n",
 		 TUNEFS_FLAG_RW,
 		 NULL,
 		 list_sparse_run);

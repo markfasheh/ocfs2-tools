@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_query.c - query operation for tunefs
+ * op_query.c - query operation for tunefs
  *
  * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
  *
@@ -347,7 +347,7 @@ static int query_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 }
 
 DEFINE_TUNEFS_OP(query,
-		 "Usage: ocfs2ne_query [opts] <device> <query-format>\n",
+		 "Usage: op_query [opts] <device> <query-format>\n",
 		 TUNEFS_FLAG_RO,
 		 query_parse_option,
 		 query_run);

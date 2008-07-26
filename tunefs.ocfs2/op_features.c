@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_features.c
+ * op_features.c
  *
  * ocfs2 tune utility for adding and removing features.
  *
@@ -244,7 +244,7 @@ static int features_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 
 
 DEFINE_TUNEFS_OP(features,
-		 "Usage: ocfs2ne_features [opts] <device> <features>\n",
+		 "Usage: debug_op_features [opts] <device> <features>\n",
 		 0,
 		 features_parse_option,
 		 features_run);

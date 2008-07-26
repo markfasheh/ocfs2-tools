@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_set_label.c
+ * op_set_label.c
  *
  * ocfs2 tune utility for updating the volume label.
  *
@@ -95,7 +95,7 @@ static int set_label_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 
 
 DEFINE_TUNEFS_OP(set_label,
-		 "Usage: ocfs2ne_set_label [opts] <device> <label>\n",
+		 "Usage: op_set_label [opts] <device> <label>\n",
 		 TUNEFS_FLAG_RW,
 		 set_label_parse_option,
 		 set_label_run);

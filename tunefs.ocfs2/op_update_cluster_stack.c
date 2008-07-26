@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_update_cluster_stack.c
+ * op_update_cluster_stack.c
  *
  * ocfs2 tune utility for updating the cluster stack.
  *
@@ -80,7 +80,7 @@ static int update_cluster_stack_run(struct tunefs_operation *op,
 
 
 DEFINE_TUNEFS_OP(update_cluster_stack,
-		 "Usage: ocfs2ne_update_cluster_stack [opts] <device>\n",
+		 "Usage: op_update_cluster_stack [opts] <device>\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_NOCLUSTER,
 		 NULL,
 		 update_cluster_stack_run);

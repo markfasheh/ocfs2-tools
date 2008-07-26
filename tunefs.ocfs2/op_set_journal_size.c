@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_set_journal_size.c
+ * op_set_journal_size.c
  *
  * ocfs2 tune utility for updating the size of all journals.
  *
@@ -87,7 +87,7 @@ out:
 
 
 DEFINE_TUNEFS_OP(set_journal_size,
-		 "Usage: ocfs2ne_set_journal_size [opts] <device> <size>\n",
+		 "Usage: op_set_journal_size [opts] <device> <size>\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
 		 set_journal_size_parse_option,
 		 set_journal_size_run);

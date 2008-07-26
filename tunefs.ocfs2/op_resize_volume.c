@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_resize_volume.c
+ * op_resize_volume.c
  *
  * ocfs2 tune utility to resize the volume.
  *
@@ -787,7 +787,7 @@ static int resize_volume_run(struct tunefs_operation *op,
 
 
 DEFINE_TUNEFS_OP(resize_volume,
-		 "Usage: ocfs2ne_resize_volume [opts] <device> [size]\n"
+		 "Usage: op_resize_volume [opts] <device> [size]\n"
 		 "If [size] is left out, the filesystem will be "
 		 "resized to fill the volume\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION |

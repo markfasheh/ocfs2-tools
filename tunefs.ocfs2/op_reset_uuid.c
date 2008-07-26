@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_reset_uuid.c
+ * op_reset_uuid.c
  *
  * ocfs2 tune utility to reset the volume UUID.
  *
@@ -66,7 +66,7 @@ static int reset_uuid_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 
 
 DEFINE_TUNEFS_OP(reset_uuid,
-		 "Usage: ocfs2ne_reset_uuid [opts] <device>\n",
+		 "Usage: op_reset_uuid [opts] <device>\n",
 		 TUNEFS_FLAG_RW,
 		 NULL,
 		 reset_uuid_run);

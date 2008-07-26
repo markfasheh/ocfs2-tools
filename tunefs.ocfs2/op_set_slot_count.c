@@ -1,7 +1,7 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * ocfs2ne_set_slot_count.c
+ * op_set_slot_count.c
  *
  * ocfs2 tune utility for setting the number of slots available on the
  * filesystem.
@@ -1078,7 +1078,7 @@ static int set_slot_count_run(struct tunefs_operation *op,
 
 
 DEFINE_TUNEFS_OP(set_slot_count,
-		 "Usage: ocfs2ne_set_slot_count [opts] <device> "
+		 "Usage: op_set_slot_count [opts] <device> "
 		 "<number_of_slots>\n",
 		 TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
 		 set_slot_count_parse_option,

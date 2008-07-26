@@ -13,22 +13,23 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 UNINST_LIBRARIES = libocfs2ne.a
 
-OCFS2NE_FEATURE_METHODS =		\
+OCFS2NE_FEATURES =			\
 	feature_backup_super		\
 	feature_extended_slotmap	\
 	feature_local			\
 	feature_sparse_files		\
 	feature_unwritten_extents
 
-OCFS2NE_METHODS =				\
-	ocfs2ne_list_sparse_files		\
-	ocfs2ne_query				\
-	ocfs2ne_reset_uuid			\
-	ocfs2ne_resize_volume			\
-	ocfs2ne_set_label			\
-	ocfs2ne_set_journal_size		\
-	ocfs2ne_set_slot_count			\
-	ocfs2ne_update_cluster_stack
+OCFS2NE_OPERATIONS =			\
+	op_features			\
+	op_list_sparse_files		\
+	op_query			\
+	op_reset_uuid			\
+	op_resize_volume		\
+	op_set_label			\
+	op_set_journal_size		\
+	op_set_slot_count		\
+	op_update_cluster_stack
 
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = tunefs.ocfs2 ocfs2ne
@@ -44,14 +45,14 @@ DEBUG_EXE_PROGRAMS = $(addprefix debug_,$(subst .c,,$(DEBUG_EXE_FILES)))
 
 .SECONDARY:
 
-UNINST_PROGRAMS += $(filter-out debug_ocfs2ne_features,$(DEBUG_EXE_PROGRAMS))
+UNINST_PROGRAMS += $(filter-out debug_op_features,$(DEBUG_EXE_PROGRAMS))
 
 debug_%.o : %.c
 	$(CC) $(CFLAGS) $(LOCAL_CFLAGS) $(CPPFLAGS) $(LOCAL_CPPFLAGS) \
 		$(INCLUDES) $(DEFINES) \
 		-DDEBUG_EXE -o $@ -c $<
 
-debug_ocfs2ne_features: debug_ocfs2ne_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+debug_op_features: debug_op_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
@@ -76,20 +77,22 @@ TUNEFS_CFILES =		\
 	resize.c	\
 	format_slotmap.c
 
-OCFS2NE_CFILES = $(patsubst %,%.c,$(OCFS2NE_METHODS)) ocfs2ne.c
-OCFS2NE_FEATURE_CFILES = $(patsubst %,%.c,$(OCFS2NE_FEATURE_METHODS))
+OCFS2NE_OPERATION_CFILES = $(patsubst %,%.c,$(OCFS2NE_OPERATIONS))
+OCFS2NE_FEATURE_CFILES = $(patsubst %,%.c,$(OCFS2NE_FEATURES))
+OCFS2NE_CFILES =			\
+	ocfs2ne.c			\
+	$(OCFS2NE_OPERATION_CFILES)	\
+	$(OCFS2NE_FEATURE_CFILES)
 
-CFILES = $(TUNFES_CFILES) $(LIBOCFS2NE_CFILES) $(OCFS2NE_CFILES) $(OCFS2NE_FEATURE_CFILES) ocfs2ne_features.c
+CFILES = $(TUNFES_CFILES) $(LIBOCFS2NE_CFILES) $(OCFS2NE_CFILES)
 HFILES = tunefs.h libocfs2ne.h
 
 TUNEFS_OBJS = $(subst .c,.o,$(TUNEFS_CFILES))
 LIBOCFS2NE_OBJS = $(subst .c,.o,$(LIBOCFS2NE_CFILES)) o2ne_err.o
 OCFS2NE_OBJS = $(subst .c,.o,$(OCFS2NE_CFILES))
-OCFS2NE_FEATURE_OBJS = $(subst .c,.o,$(OCFS2NE_FEATURE_CFILES))
 
 $(LIBOCFS2NE_OBJS): $(HFILES_GEN)
 $(OCFS2NE_OBJS): $(HFILES_GEN)
-$(OCFS2NE_FEATURE_OBJS): $(HFILES_GEN)
 
 DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in o2ne_err.et
 
@@ -101,15 +104,7 @@ libocfs2ne.a: $(LIBOCFS2NE_OBJS)
 tunefs.ocfs2: $(TUNEFS_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
-$(OCFS2NE_METHODS): ocfs2ne_%: ocfs2ne_%.o $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libocfs2ne.a
-	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
-		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
-
-ocfs2ne_features: ocfs2ne_features.o $(patsubst %,%.o,$(OCFS2NE_FEATURE_METHODS)) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) libocfs2ne.a
-	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
-		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
-
-ocfs2ne: $(OCFS2NE_OBJS) ocfs2ne_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+ocfs2ne: $(OCFS2NE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 
