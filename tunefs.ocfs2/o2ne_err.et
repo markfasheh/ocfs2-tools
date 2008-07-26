@@ -1,0 +1,82 @@
+#
+# libtunefs_err.et
+#
+# Error codes for the OCFS2 tunefs internal library.
+#
+# Copyright (C) 2008 Oracle.  All rights reserved.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public
+# License, version 2, as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+	error_table o2ne
+
+ec      TUNEFS_ET_SIGNALS_FAILED,
+	"Unable to setup signal handling"
+
+ec	TUNEFS_ET_HEARTBEAT_DEV,
+	"Heartbeat devices cannot be tuned, they can only be re-formatted with mkfs.ocfs2"
+
+ec	TUNEFS_ET_RESIZE_IN_PROGRESS,
+	"This device was in the process of resizing. Run \"fsck.ocfs2 -f <device>\" to clean up the aborted operation, then try again"
+
+ec	TUNEFS_ET_TUNEFS_IN_PROGRESS,
+	"This device was in the process of another tunefs.ocfs2 operation.  Run \"fsck.ocfs2 -f <device>\" to clean up the aborted operation, then try " "again"
+
+ec	TUNEFS_ET_INVALID_STACK_NAME,
+	"Cluster stack specified does not match the one currently running"
+
+ec	TUNEFS_ET_PERFORM_ONLINE,
+	"Operation needs to be performed online"
+
+ec	TUNEFS_ET_DEVICE_BUSY,
+	"Device is busy"
+
+ec	TUNEFS_ET_NOT_MOUNTED,
+	"Mountpoint not found for online operation"
+
+ec	TUNEFS_ET_ONLINE_FAILED,
+	"Online operation request failed (see dmesg)"
+
+ec	TUNEFS_ET_INTERNAL_FAILURE,
+	"Internal logic failure"
+
+ec	TUNEFS_ET_NO_MEMORY,
+	"Unable to allocate memory"
+
+ec	TUNEFS_ET_JOURNAL_DIRTY,
+	"At least one journal has uncommitted changes.  Run fsck.ocfs2 to replay all dirty journals"
+
+ec	TUNEFS_ET_INVALID_NUMBER,
+	"Invalid number"
+
+ec	TUNEFS_ET_TOO_MANY_SLOTS_OLD,
+	"Filesystem cannot support more than 255 slots"
+
+ec	TUNEFS_ET_TOO_MANY_SLOTS_EXTENDED,
+	"Filesystem cannot support more than 32767 slots"
+
+ec      TUNEFS_ET_ORPHAN_DIR_NOT_EMPTY,
+	"Orphan dir is not empty"
+
+ec      TUNEFS_ET_TRUNCATE_LOG_NOT_EMPTY,
+	"Truncate log is not empty"
+
+ec      TUNEFS_ET_LOCAL_ALLOC_NOT_EMPTY,
+	"Local allocation file is not empty"
+
+ec	TUNEFS_ET_UNWRITTEN_PRESENT,
+	"Unwritten extents are present"
+
+ec	TUNEFS_ET_SPARSE_MISSING,
+	"Sparse file support is missing"
+
+ec	TUNEFS_ET_OPERATION_FAILED,
+	"Operation failed"
+
+	end
