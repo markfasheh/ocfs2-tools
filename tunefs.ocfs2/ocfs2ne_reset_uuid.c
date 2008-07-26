@@ -26,7 +26,6 @@
 #include "ocfs2/ocfs2.h"
 
 #include "libocfs2ne.h"
-#include "libocfs2ne_err.h"
 
 
 static errcode_t update_volume_uuid(ocfs2_filesys *fs)

@@ -27,7 +27,6 @@
 #include "ocfs2/kernel-rbtree.h"
 
 #include "libocfs2ne.h"
-#include "libocfs2ne_err.h"
 
 
 struct multi_link_file {

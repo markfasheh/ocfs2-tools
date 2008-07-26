@@ -22,6 +22,7 @@
 #define _LIBTUNEFS_H
 
 #define PROGNAME "tunefs.ocfs2"
+#include "o2ne_err.h"
 
 /*
  * Adding a capability to ocfs2ne is pretty simple.  You create a source

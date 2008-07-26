@@ -40,7 +40,6 @@
 #include "ocfs2/bitops.h"
 
 #include "libocfs2ne.h"
-#include "libocfs2ne_err.h"
 
 #define WHOAMI "tunefs.ocfs2"
 
@@ -729,7 +728,7 @@ static void setup_argv0(const char *argv0)
 
 void tunefs_init(const char *argv0)
 {
-	initialize_tune_error_table();
+	initialize_o2ne_error_table();
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();

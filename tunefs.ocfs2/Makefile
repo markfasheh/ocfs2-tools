@@ -61,10 +61,10 @@ debug_%: debug_%.o libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS
 endif
 
 LIBOCFS2NE_CFILES = libocfs2ne.c
-HFILES_GEN = libocfs2ne_err.h
+HFILES_GEN = o2ne_err.h
 
-libocfs2ne_err.c libocfs2ne_err.h: libocfs2ne_err.et
-	compile_et libocfs2ne_err.et
+o2ne_err.c o2ne_err.h: o2ne_err.et
+	compile_et o2ne_err.et
 
 
 TUNEFS_CFILES =		\
@@ -83,7 +83,7 @@ CFILES = $(TUNFES_CFILES) $(LIBOCFS2NE_CFILES) $(OCFS2NE_CFILES) $(OCFS2NE_FEATU
 HFILES = tunefs.h libocfs2ne.h
 
 TUNEFS_OBJS = $(subst .c,.o,$(TUNEFS_CFILES))
-LIBOCFS2NE_OBJS = $(subst .c,.o,$(LIBOCFS2NE_CFILES)) libocfs2ne_err.o
+LIBOCFS2NE_OBJS = $(subst .c,.o,$(LIBOCFS2NE_CFILES)) o2ne_err.o
 OCFS2NE_OBJS = $(subst .c,.o,$(OCFS2NE_CFILES))
 OCFS2NE_FEATURE_OBJS = $(subst .c,.o,$(OCFS2NE_FEATURE_CFILES))
 
@@ -91,7 +91,7 @@ $(LIBOCFS2NE_OBJS): $(HFILES_GEN)
 $(OCFS2NE_OBJS): $(HFILES_GEN)
 $(OCFS2NE_FEATURE_OBJS): $(HFILES_GEN)
 
-DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in libocfs2ne_err.et
+DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in o2ne_err.et
 
 libocfs2ne.a: $(LIBOCFS2NE_OBJS)
 	rm -f $@
@@ -116,6 +116,6 @@ ocfs2ne: $(OCFS2NE_OBJS) ocfs2ne_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a
 CLEAN_RULES = clean-err
 
 clean-err:
-	rm -f libocfs2ne_err.c libocfs2ne_err.h
+	rm -f o2ne_err.c o2ne_err.h
 
 include $(TOPDIR)/Postamble.make

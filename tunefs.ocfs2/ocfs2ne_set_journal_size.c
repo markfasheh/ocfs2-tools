@@ -25,7 +25,6 @@
 #include "ocfs2/ocfs2.h"
 
 #include "libocfs2ne.h"
-#include "libocfs2ne_err.h"
 
 
 static int set_journal_size_parse_option(struct tunefs_operation *op,

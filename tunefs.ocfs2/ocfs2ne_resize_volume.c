@@ -31,7 +31,6 @@
 #include "ocfs2/bitops.h"
 
 #include "libocfs2ne.h"
-#include "libocfs2ne_err.h"
 
 
 /*

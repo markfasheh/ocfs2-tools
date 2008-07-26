@@ -4,7 +4,7 @@ tunefs.ocfs2
 stamp-md5
 *.d
 tunefs.ocfs2.8
-libocfs2ne_err.[ch]
+o2ne_err.[ch]
 debug_*
 ocfs2ne
 ocfs2ne_features

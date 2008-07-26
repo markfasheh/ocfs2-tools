@@ -14,7 +14,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Public License for more details.
 #
-	error_table tune
+	error_table o2ne
 
 ec      TUNEFS_ET_SIGNALS_FAILED,
 	"Unable to setup signal handling"

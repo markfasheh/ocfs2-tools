@@ -23,7 +23,6 @@
 #include "ocfs2/ocfs2.h"
 
 #include "libocfs2ne.h"
-#include "libocfs2ne_err.h"
 
 /* To get around passing arguments to printf() */
 static ocfs2_filesys *query_fs;
