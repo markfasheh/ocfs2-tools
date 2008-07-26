@@ -106,6 +106,11 @@ static unsigned int blocked_signals_count;
 /* For DEBUG_EXE programs */
 static const char *usage_string;
 
+
+/*
+ * Code to manage the fs_private state.
+ */
+
 static inline struct tunefs_private *to_private(ocfs2_filesys *fs)
 {
 	return fs->fs_private;
@@ -153,6 +158,11 @@ static errcode_t tunefs_set_state(ocfs2_filesys *fs)
 
 	return err;
 }
+
+
+/*
+ * Code for interacting with the user.
+ */
 
 /* If all verbosity is turned off, make sure com_err() prints nothing. */
 static void quiet_com_err(const char *prog, long errcode, const char *fmt,
@@ -277,6 +287,356 @@ int tunefs_interact_critical(const char *fmt, ...)
 	return rc;
 }
 
+void tunefs_version(void)
+{
+	verbosef(VL_ERR, "%s %s\n", progname, VERSION);
+}
+
+const char *tunefs_progname(void)
+{
+	return progname;
+}
+
+
+/*
+ * Functions for use by operations.
+ */
+
+/* Call this with SIG_BLOCK to block and SIG_UNBLOCK to unblock */
+static void block_signals(int how)
+{
+     sigset_t sigs;
+
+     sigfillset(&sigs);
+     sigdelset(&sigs, SIGTRAP);
+     sigdelset(&sigs, SIGSEGV);
+     sigprocmask(how, &sigs, NULL);
+}
+
+void tunefs_block_signals(void)
+{
+	if (!blocked_signals_count)
+		block_signals(SIG_BLOCK);
+	blocked_signals_count++;
+}
+
+void tunefs_unblock_signals(void)
+{
+	if (blocked_signals_count) {
+		blocked_signals_count--;
+		if (!blocked_signals_count)
+			block_signals(SIG_UNBLOCK);
+	} else
+		errorf("Trying to unblock signals, but signals were not "
+		       "blocked\n");
+}
+
+errcode_t tunefs_dlm_lock(ocfs2_filesys *fs, const char *lockid,
+			  int flags, enum o2dlm_lock_level level)
+{
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (ocfs2_mount_local(fs))
+		return 0;
+
+	return o2dlm_lock(state->ts_master->fs_dlm_ctxt, lockid, flags,
+			  level);
+}
+
+errcode_t tunefs_dlm_unlock(ocfs2_filesys *fs, char *lockid)
+{
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (ocfs2_mount_local(fs))
+		return 0;
+
+	return o2dlm_unlock(state->ts_master->fs_dlm_ctxt, lockid);
+}
+
+errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg)
+{
+	int rc;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (state->ts_online_fd < 0)
+		return TUNEFS_ET_INTERNAL_FAILURE;
+
+	rc = ioctl(state->ts_online_fd, op, arg);
+	if (rc) {
+		switch (errno) {
+			case EBADF:
+			case EFAULT:
+			case ENOTTY:
+				return TUNEFS_ET_INTERNAL_FAILURE;
+				break;
+
+			default:
+				return TUNEFS_ET_ONLINE_FAILED;
+				break;
+		}
+	}
+
+	return 0;
+}
+
+errcode_t tunefs_get_number(char *arg, uint64_t *res)
+{
+	char *ptr = NULL;
+	uint64_t num;
+
+	num = strtoull(arg, &ptr, 0);
+
+	if ((ptr == arg) || (num == UINT64_MAX))
+		return TUNEFS_ET_INVALID_NUMBER;
+
+	switch (*ptr) {
+	case '\0':
+		break;
+
+	case 'p':
+	case 'P':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 't':
+	case 'T':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'g':
+	case 'G':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'm':
+	case 'M':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'k':
+	case 'K':
+		num *= 1024;
+		/* FALL THROUGH */
+
+	case 'b':
+	case 'B':
+		break;
+
+	default:
+		return TUNEFS_ET_INVALID_NUMBER;
+	}
+
+	*res = num;
+
+	return 0;
+}
+
+errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag)
+{
+	/* RESIZE is a special case due for historical reasons */
+	if (flag == OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+	} else {
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
+		OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag |= flag;
+	}
+
+	return ocfs2_write_primary_super(fs);
+}
+
+errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag)
+{
+	/* RESIZE is a special case due for historical reasons */
+	if (flag == OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
+	} else {
+		OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag &= ~flag;
+		if (OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag == 0)
+			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
+				~OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
+	}
+
+	return ocfs2_write_primary_super(fs);
+}
+
+errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
+{
+	errcode_t ret = 0;
+	char jrnl_file[OCFS2_MAX_FILENAME_LEN];
+	uint64_t blkno;
+	int i;
+	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	uint32_t num_clusters;
+	char *buf = NULL;
+	struct ocfs2_dinode *di;
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	num_clusters =
+		ocfs2_clusters_in_blocks(fs,
+					 ocfs2_blocks_in_bytes(fs,
+							       new_size));
+
+	/* If no size was passed in, use the size we found at open() */
+	if (!num_clusters)
+		num_clusters = state->ts_journal_clusters;
+
+	/*
+	 * This can't come from a NOCLUSTER operation, so we'd better
+	 * have a size in ts_journal_clusters
+	 */
+	assert(num_clusters);
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		verbosef(VL_LIB,
+			 "%s while allocating inode buffer for journal "
+			 "resize\n",
+			 error_message(ret));
+		return ret;
+	}
+
+	for (i = 0; i < max_slots; ++i) {
+		ocfs2_sprintf_system_inode_name(jrnl_file,
+						OCFS2_MAX_FILENAME_LEN,
+						JOURNAL_SYSTEM_INODE, i);
+		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
+						&blkno);
+		if (ret) {
+			verbosef(VL_LIB,
+				 "%s while looking up \"%s\" during "
+				 "journal resize\n",
+				 error_message(ret),
+				 jrnl_file);
+			goto bail;
+		}
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret) {
+			verbosef(VL_LIB,
+				 "%s while reading journal inode "
+				 "%"PRIu64" for resizing\n",
+				 error_message(ret), blkno);
+			goto bail;
+		}
+
+		di = (struct ocfs2_dinode *)buf;
+		if (num_clusters == di->i_clusters)
+			continue;
+
+		verbosef(VL_LIB,
+			 "Resizing journal \"%s\" to %"PRIu32" clusters\n",
+			 jrnl_file, num_clusters);
+		ret = ocfs2_make_journal(fs, blkno, num_clusters);
+		if (ret) {
+			verbosef(VL_LIB,
+				 "%s while resizing \"%s\" at block "
+				 "%"PRIu64" to %"PRIu32" clusters\n",
+				 error_message(ret), jrnl_file, blkno,
+				 num_clusters);
+			goto bail;
+		}
+		verbosef(VL_LIB, "Successfully resized journal \"%s\"\n",
+			 jrnl_file);
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
+static errcode_t tunefs_validate_inode(ocfs2_filesys *fs,
+				       struct ocfs2_dinode *di)
+{
+	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
+		    strlen(OCFS2_INODE_SIGNATURE)))
+		return OCFS2_ET_BAD_INODE_MAGIC;
+
+	ocfs2_swap_inode_to_cpu(di);
+
+	if (di->i_fs_generation != fs->fs_super->i_fs_generation)
+		return OCFS2_ET_INODE_NOT_VALID;
+
+	if (!(di->i_flags & OCFS2_VALID_FL))
+		return OCFS2_ET_INODE_NOT_VALID;
+
+	return 0;
+}
+
+errcode_t tunefs_foreach_inode(ocfs2_filesys *fs, int filetype_mask,
+			       errcode_t (*func)(ocfs2_filesys *fs,
+						 struct ocfs2_dinode *di,
+						 void *user_data),
+			       void *user_data)
+{
+	errcode_t ret;
+	uint64_t blkno;
+	char *buf;
+	struct ocfs2_dinode *di;
+	ocfs2_inode_scan *scan;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		verbosef(VL_LIB,
+			 "%s while allocating a buffer for inode scanning\n",
+			 error_message(ret));
+		goto out;
+	}
+
+	di = (struct ocfs2_dinode *)buf;
+
+	ret = ocfs2_open_inode_scan(fs, &scan);
+	if (ret) {
+		verbosef(VL_LIB,
+			 "%s while opening inode scan\n",
+			 error_message(ret));
+		goto out_free;
+	}
+
+	for(;;) {
+		ret = ocfs2_get_next_inode(scan, &blkno, buf);
+		if (ret) {
+			verbosef(VL_LIB, "%s while getting next inode\n",
+				 error_message(ret));
+			break;
+		}
+		if (blkno == 0)
+			break;
+
+		ret = tunefs_validate_inode(fs, di);
+		if (ret)
+			continue;
+
+		if (di->i_flags & OCFS2_SYSTEM_FL)
+			continue;
+
+		if (!func)
+			continue;
+
+		if (di->i_mode & filetype_mask) {
+			ret = func(fs, di, user_data);
+			if (ret)
+				break;
+		}
+	}
+
+	ocfs2_close_inode_scan(scan);
+out_free:
+	ocfs2_free(&buf);
+
+out:
+	return ret;
+}
+
+
+/*
+ * Starting, opening, closing, and exiting.
+ */
+
 static void tunefs_close_all(void)
 {
 	struct list_head *pos, *n;
@@ -355,44 +715,6 @@ static int setup_signals(void)
 	return rc;
 }
 
-/* Call this with SIG_BLOCK to block and SIG_UNBLOCK to unblock */
-static void block_signals(int how)
-{
-     sigset_t sigs;
-
-     sigfillset(&sigs);
-     sigdelset(&sigs, SIGTRAP);
-     sigdelset(&sigs, SIGSEGV);
-     sigprocmask(how, &sigs, NULL);
-}
-
-void tunefs_block_signals(void)
-{
-	if (!blocked_signals_count)
-		block_signals(SIG_BLOCK);
-	blocked_signals_count++;
-}
-
-void tunefs_unblock_signals(void)
-{
-	if (blocked_signals_count) {
-		blocked_signals_count--;
-		if (!blocked_signals_count)
-			block_signals(SIG_UNBLOCK);
-	} else
-		errorf("Trying to unblock signals, but signals were not "
-		       "blocked\n");
-}
-
-void tunefs_version(void)
-{
-	verbosef(VL_ERR, "%s %s\n", progname, VERSION);
-}
-
-const char *tunefs_progname(void)
-{
-	return progname;
-}
 
 static void setup_argv0(const char *argv0)
 {
@@ -403,154 +725,6 @@ static void setup_argv0(const char *argv0)
 	snprintf(pathtmp, PATH_MAX, "%s", argv0);
 	pname = basename(pathtmp);
 	snprintf(progname, PATH_MAX, "%s", pname);
-}
-
-static errcode_t copy_argv(char **argv, char ***new_argv)
-{
-	int i;
-	char **t_argv;
-
-	for (i = 0; argv[i]; i++)
-		;  /* Count argv */
-
-	/* This is intentionally leaked */
-	t_argv = malloc(sizeof(char *) * (i + 1));
-	if (!t_argv)
-		return TUNEFS_ET_NO_MEMORY;
-
-	for (i = 0; argv[i]; i++)
-		t_argv[i] = (char *)argv[i];
-	t_argv[i] = NULL;
-
-	*new_argv = t_argv;
-	return 0;
-}
-
-/* All the +1 are to leave argv[0] in place */
-static void shuffle_argv(int *argc, int optind, char **argv)
-{
-	int src, dst;
-	int new_argc = *argc - optind + 1;
-
-	for (src = optind, dst = 1; src < *argc; src++, dst++)
-		argv[dst] = argv[src];
-	if (dst != new_argc)
-		verbosef(VL_DEBUG,
-			 "dst is not new_argc %d %d\n", dst, new_argc);
-
-	argv[dst] = NULL;
-	*argc = new_argc;
-}
-
-static void tunefs_debug_usage(int error)
-{
-	FILE *f = stderr;
-
-	if (!error)
-		f = stdout;
-
-	fverbosef(f, VL_ERR, "%s", usage_string ? usage_string : "(null)");
-	fverbosef(f, VL_ERR,
-		  "[opts] can be any mix of:\n"
-		  "\t-i|--interactive\n"
-		  "\t-v|--verbose (more than one increases verbosity)\n"
-		  "\t-q|--quiet (more than one decreases verbosity)\n"
-		  "\t-h|--help\n"
-		  "\t-V|--version\n");
-}
-
-extern int optind, opterr, optopt;
-extern char *optarg;
-static void tunefs_parse_core_options(int *argc, char ***argv, char *usage)
-{
-	errcode_t err;
-	int c;
-	char **new_argv;
-	int print_usage = 0, print_version = 0;
-	char error[PATH_MAX];
-	static struct option long_options[] = {
-		{ "help", 0, NULL, 'h' },
-		{ "version", 0, NULL, 'V' },
-		{ "verbose", 0, NULL, 'v' },
-		{ "quiet", 0, NULL, 'q' },
-		{ "interactive", 0, NULL, 'i'},
-		{ 0, 0, 0, 0}
-	};
-
-	usage_string = usage;
-	err = copy_argv(*argv, &new_argv);
-	if (err) {
-		tcom_err(err, "while processing command-line arguments");
-		exit(1);
-	}
-
-	opterr = 0;
-	error[0] = '\0';
-	while ((c = getopt_long(*argc, new_argv,
-				":hVvqi", long_options, NULL)) != EOF) {
-		switch (c) {
-			case 'h':
-				print_usage = 1;
-				break;
-
-			case 'V':
-				print_version = 1;
-				break;
-
-			case 'v':
-				tunefs_verbose();
-				break;
-
-			case 'q':
-				tunefs_quiet();
-				break;
-
-			case 'i':
-				tunefs_interactive();
-				break;
-
-			case '?':
-				snprintf(error, PATH_MAX,
-					 "Invalid option: \'-%c\'",
-					 optopt);
-				print_usage = 1;
-				break;
-
-			case ':':
-				snprintf(error, PATH_MAX,
-					 "Option \'-%c\' requires an argument",
-					 optopt);
-				print_usage = 1;
-				break;
-
-			default:
-				snprintf(error, PATH_MAX,
-					 "Shouldn't get here %c %c",
-					 optopt, c);
-				break;
-		}
-
-		if (*error)
-			break;
-	}
-
-	if (*error)
-		errorf("%s\n", error);
-
-	if (print_version)
-		verbosef(VL_ERR, "%s %s\n", progname, VERSION);
-
-	if (print_usage)
-		tunefs_debug_usage(*error != '\0');
-
-	if (print_usage || print_version)
-		exit(0);
-
-	if (*error)
-		exit(1);
-
-	shuffle_argv(argc, optind, new_argv);
-	*argv = new_argv;
 }
 
 void tunefs_init(const char *argv0)
@@ -569,28 +743,6 @@ void tunefs_init(const char *argv0)
 		errorf("%s\n", error_message(TUNEFS_ET_SIGNALS_FAILED));
 		exit(1);
 	}
-}
-
-errcode_t tunefs_dlm_lock(ocfs2_filesys *fs, const char *lockid,
-			  int flags, enum o2dlm_lock_level level)
-{
-	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
-
-	if (ocfs2_mount_local(fs))
-		return 0;
-
-	return o2dlm_lock(state->ts_master->fs_dlm_ctxt, lockid, flags,
-			  level);
-}
-
-errcode_t tunefs_dlm_unlock(ocfs2_filesys *fs, char *lockid)
-{
-	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
-
-	if (ocfs2_mount_local(fs))
-		return 0;
-
-	return o2dlm_unlock(state->ts_master->fs_dlm_ctxt, lockid);
 }
 
 /*
@@ -1117,32 +1269,6 @@ static void tunefs_close_online_descriptor(ocfs2_filesys *fs)
 	}
 }
 
-errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg)
-{
-	int rc;
-	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
-
-	if (state->ts_online_fd < 0)
-		return TUNEFS_ET_INTERNAL_FAILURE;
-
-	rc = ioctl(state->ts_online_fd, op, arg);
-	if (rc) {
-		switch (errno) {
-			case EBADF:
-			case EFAULT:
-			case ENOTTY:
-				return TUNEFS_ET_INTERNAL_FAILURE;
-				break;
-
-			default:
-				return TUNEFS_ET_ONLINE_FAILED;
-				break;
-		}
-	}
-
-	return 0;
-}
-
 static errcode_t tunefs_add_fs(ocfs2_filesys *fs, int flags)
 {
 	errcode_t err;
@@ -1319,196 +1445,10 @@ errcode_t tunefs_close(ocfs2_filesys *fs)
 	return err;
 }
 
-errcode_t tunefs_get_number(char *arg, uint64_t *res)
-{
-	char *ptr = NULL;
-	uint64_t num;
 
-	num = strtoull(arg, &ptr, 0);
-
-	if ((ptr == arg) || (num == UINT64_MAX))
-		return TUNEFS_ET_INVALID_NUMBER;
-
-	switch (*ptr) {
-	case '\0':
-		break;
-
-	case 'p':
-	case 'P':
-		num *= 1024;
-		/* FALL THROUGH */
-
-	case 't':
-	case 'T':
-		num *= 1024;
-		/* FALL THROUGH */
-
-	case 'g':
-	case 'G':
-		num *= 1024;
-		/* FALL THROUGH */
-
-	case 'm':
-	case 'M':
-		num *= 1024;
-		/* FALL THROUGH */
-
-	case 'k':
-	case 'K':
-		num *= 1024;
-		/* FALL THROUGH */
-
-	case 'b':
-	case 'B':
-		break;
-
-	default:
-		return TUNEFS_ET_INVALID_NUMBER;
-	}
-
-	*res = num;
-
-	return 0;
-}
-
-errcode_t tunefs_set_in_progress(ocfs2_filesys *fs, int flag)
-{
-	/* RESIZE is a special case due for historical reasons */
-	if (flag == OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
-		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
-			OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
-	} else {
-		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat |=
-			OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
-		OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag |= flag;
-	}
-
-	return ocfs2_write_primary_super(fs);
-}
-
-errcode_t tunefs_clear_in_progress(ocfs2_filesys *fs, int flag)
-{
-	/* RESIZE is a special case due for historical reasons */
-	if (flag == OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG) {
-		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
-			~OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG;
-	} else {
-		OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag &= ~flag;
-		if (OCFS2_RAW_SB(fs->fs_super)->s_tunefs_flag == 0)
-			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat &=
-				~OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG;
-	}
-
-	return ocfs2_write_primary_super(fs);
-}
-
-errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
-{
-	errcode_t ret = 0;
-	char jrnl_file[OCFS2_MAX_FILENAME_LEN];
-	uint64_t blkno;
-	int i;
-	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
-	uint32_t num_clusters;
-	char *buf = NULL;
-	struct ocfs2_dinode *di;
-	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
-
-	num_clusters =
-		ocfs2_clusters_in_blocks(fs,
-					 ocfs2_blocks_in_bytes(fs,
-							       new_size));
-
-	/* If no size was passed in, use the size we found at open() */
-	if (!num_clusters)
-		num_clusters = state->ts_journal_clusters;
-
-	/*
-	 * This can't come from a NOCLUSTER operation, so we'd better
-	 * have a size in ts_journal_clusters
-	 */
-	assert(num_clusters);
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret) {
-		verbosef(VL_LIB,
-			 "%s while allocating inode buffer for journal "
-			 "resize\n",
-			 error_message(ret));
-		return ret;
-	}
-
-	for (i = 0; i < max_slots; ++i) {
-		ocfs2_sprintf_system_inode_name(jrnl_file,
-						OCFS2_MAX_FILENAME_LEN,
-						JOURNAL_SYSTEM_INODE, i);
-		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
-						&blkno);
-		if (ret) {
-			verbosef(VL_LIB,
-				 "%s while looking up \"%s\" during "
-				 "journal resize\n",
-				 error_message(ret),
-				 jrnl_file);
-			goto bail;
-		}
-
-		ret = ocfs2_read_inode(fs, blkno, buf);
-		if (ret) {
-			verbosef(VL_LIB,
-				 "%s while reading journal inode "
-				 "%"PRIu64" for resizing\n",
-				 error_message(ret), blkno);
-			goto bail;
-		}
-
-		di = (struct ocfs2_dinode *)buf;
-		if (num_clusters == di->i_clusters)
-			continue;
-
-		verbosef(VL_LIB,
-			 "Resizing journal \"%s\" to %"PRIu32" clusters\n",
-			 jrnl_file, num_clusters);
-		ret = ocfs2_make_journal(fs, blkno, num_clusters);
-		if (ret) {
-			verbosef(VL_LIB,
-				 "%s while resizing \"%s\" at block "
-				 "%"PRIu64" to %"PRIu32" clusters\n",
-				 error_message(ret), jrnl_file, blkno,
-				 num_clusters);
-			goto bail;
-		}
-		verbosef(VL_LIB, "Successfully resized journal \"%s\"\n",
-			 jrnl_file);
-	}
-
-bail:
-	if (buf)
-		ocfs2_free(&buf);
-
-	return ret;
-}
-
-static int single_feature_parse_option(struct tunefs_operation *op,
-				       char *arg)
-{
-	int rc = 0;
-	struct tunefs_feature *feat = op->to_private;
-
-	if (!arg) {
-		errorf("No action specified\n");
-		rc = 1;
-	} else if (!strcmp(arg, "enable"))
-		feat->tf_action = FEATURE_ENABLE;
-	else if (!strcmp(arg, "disable"))
-		feat->tf_action = FEATURE_DISABLE;
-	else {
-		errorf("Invalid action: \"%s\"\n", arg);
-		rc = 1;
-	}
-
-	return rc;
-}
+/*
+ * Helper functions for the main code.
+ */
 
 errcode_t tunefs_feature_run(ocfs2_filesys *master_fs,
 			     struct tunefs_feature *feat)
@@ -1595,6 +1535,180 @@ errcode_t tunefs_op_run(ocfs2_filesys *master_fs,
 
 out:
 	return err;
+}
+
+
+/*
+ * Helper calls for operation and feature DEBUG_EXE code
+ */
+
+static errcode_t copy_argv(char **argv, char ***new_argv)
+{
+	int i;
+	char **t_argv;
+
+	for (i = 0; argv[i]; i++)
+		;  /* Count argv */
+
+	/* This is intentionally leaked */
+	t_argv = malloc(sizeof(char *) * (i + 1));
+	if (!t_argv)
+		return TUNEFS_ET_NO_MEMORY;
+
+	for (i = 0; argv[i]; i++)
+		t_argv[i] = (char *)argv[i];
+	t_argv[i] = NULL;
+
+	*new_argv = t_argv;
+	return 0;
+}
+
+/* All the +1 are to leave argv[0] in place */
+static void shuffle_argv(int *argc, int optind, char **argv)
+{
+	int src, dst;
+	int new_argc = *argc - optind + 1;
+
+	for (src = optind, dst = 1; src < *argc; src++, dst++)
+		argv[dst] = argv[src];
+	if (dst != new_argc)
+		verbosef(VL_DEBUG,
+			 "dst is not new_argc %d %d\n", dst, new_argc);
+
+	argv[dst] = NULL;
+	*argc = new_argc;
+}
+
+static void tunefs_debug_usage(int error)
+{
+	FILE *f = stderr;
+
+	if (!error)
+		f = stdout;
+
+	fverbosef(f, VL_ERR, "%s", usage_string ? usage_string : "(null)");
+	fverbosef(f, VL_ERR,
+		  "[opts] can be any mix of:\n"
+		  "\t-i|--interactive\n"
+		  "\t-v|--verbose (more than one increases verbosity)\n"
+		  "\t-q|--quiet (more than one decreases verbosity)\n"
+		  "\t-h|--help\n"
+		  "\t-V|--version\n");
+}
+
+extern int optind, opterr, optopt;
+extern char *optarg;
+static void tunefs_parse_core_options(int *argc, char ***argv, char *usage)
+{
+	errcode_t err;
+	int c;
+	char **new_argv;
+	int print_usage = 0, print_version = 0;
+	char error[PATH_MAX];
+	static struct option long_options[] = {
+		{ "help", 0, NULL, 'h' },
+		{ "version", 0, NULL, 'V' },
+		{ "verbose", 0, NULL, 'v' },
+		{ "quiet", 0, NULL, 'q' },
+		{ "interactive", 0, NULL, 'i'},
+		{ 0, 0, 0, 0}
+	};
+
+	usage_string = usage;
+	err = copy_argv(*argv, &new_argv);
+	if (err) {
+		tcom_err(err, "while processing command-line arguments");
+		exit(1);
+	}
+
+	opterr = 0;
+	error[0] = '\0';
+	while ((c = getopt_long(*argc, new_argv,
+				":hVvqi", long_options, NULL)) != EOF) {
+		switch (c) {
+			case 'h':
+				print_usage = 1;
+				break;
+
+			case 'V':
+				print_version = 1;
+				break;
+
+			case 'v':
+				tunefs_verbose();
+				break;
+
+			case 'q':
+				tunefs_quiet();
+				break;
+
+			case 'i':
+				tunefs_interactive();
+				break;
+
+			case '?':
+				snprintf(error, PATH_MAX,
+					 "Invalid option: \'-%c\'",
+					 optopt);
+				print_usage = 1;
+				break;
+
+			case ':':
+				snprintf(error, PATH_MAX,
+					 "Option \'-%c\' requires an argument",
+					 optopt);
+				print_usage = 1;
+				break;
+
+			default:
+				snprintf(error, PATH_MAX,
+					 "Shouldn't get here %c %c",
+					 optopt, c);
+				break;
+		}
+
+		if (*error)
+			break;
+	}
+
+	if (*error)
+		errorf("%s\n", error);
+
+	if (print_version)
+		tunefs_version();
+
+	if (print_usage)
+		tunefs_debug_usage(*error != '\0');
+
+	if (print_usage || print_version)
+		exit(0);
+
+	if (*error)
+		exit(1);
+
+	shuffle_argv(argc, optind, new_argv);
+	*argv = new_argv;
+}
+
+static int single_feature_parse_option(struct tunefs_operation *op,
+				       char *arg)
+{
+	int rc = 0;
+	struct tunefs_feature *feat = op->to_private;
+
+	if (!arg) {
+		errorf("No action specified\n");
+		rc = 1;
+	} else if (!strcmp(arg, "enable"))
+		feat->tf_action = FEATURE_ENABLE;
+	else if (!strcmp(arg, "disable"))
+		feat->tf_action = FEATURE_DISABLE;
+	else {
+		errorf("Invalid action: \"%s\"\n", arg);
+		rc = 1;
+	}
+
+	return rc;
 }
 
 static int single_feature_run(struct tunefs_operation *op,
@@ -1695,7 +1809,6 @@ out:
 
 #ifdef DEBUG_EXE
 
-#define DEBUG_PROGNAME "debug_libocfs2ne"
 int parent = 0;
 
 

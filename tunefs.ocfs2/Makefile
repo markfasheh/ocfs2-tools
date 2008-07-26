@@ -60,7 +60,7 @@ debug_%: debug_%.o libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
 endif
 
-LIBOCFS2NE_CFILES = libocfs2ne.c foreach.c
+LIBOCFS2NE_CFILES = libocfs2ne.c
 HFILES_GEN = libocfs2ne_err.h
 
 libocfs2ne_err.c libocfs2ne_err.h: libocfs2ne_err.et
