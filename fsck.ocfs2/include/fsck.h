@@ -73,6 +73,8 @@ typedef struct _o2fsck_state {
 			ost_fix_fs_gen:1;
 } o2fsck_state;
 
+errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost);
+
 /* The idea is to let someone off-site run fsck and have it give us 
  * enough information to diagnose problems with */
 extern int verbose;

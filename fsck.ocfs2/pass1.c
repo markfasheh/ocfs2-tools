@@ -762,7 +762,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 				     uint64_t blkno, struct ocfs2_dinode *di)
 {
 	uint64_t expected = 0, unexpected = 0;
-	errcode_t ret;
+	errcode_t ret = 0;
 	struct verifying_blocks vb = {
 		.vb_ost = ost,
 		.vb_di = di,

@@ -1100,6 +1100,12 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 			fs->fs_clusters = di->i_clusters;
 			fs->fs_blocks = ocfs2_clusters_to_blocks(fs,
 							 fs->fs_clusters);
+			ret = o2fsck_state_reinit(fs, ost);
+			if (ret) {
+				com_err(whoami, ret, "while reinit "
+					"o2fsck_state.");
+				goto out;
+			}
 		}
 	}
 

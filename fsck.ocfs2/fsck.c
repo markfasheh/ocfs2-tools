@@ -73,6 +73,8 @@ static char *whoami = "fsck.ocfs2";
 static o2fsck_state _ost;
 static int cluster_locked = 0;
 
+static void mark_magical_clusters(o2fsck_state *ost);
+
 static void handle_signal(int sig)
 {
 	switch (sig) {
@@ -191,6 +193,38 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, o2fsck_state *ost)
 		return ret;
 	}
 
+	return 0;
+}
+
+errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost)
+{
+	errcode_t ret;
+
+	ocfs2_bitmap_free(ost->ost_bad_inodes);
+	ost->ost_bad_inodes = NULL;
+
+	ocfs2_bitmap_free(ost->ost_dir_inodes);
+	ost->ost_dir_inodes = NULL;
+
+	ocfs2_bitmap_free(ost->ost_reg_inodes);
+	ost->ost_reg_inodes = NULL;
+
+	ocfs2_bitmap_free(ost->ost_allocated_clusters);
+	ost->ost_allocated_clusters = NULL;
+
+	o2fsck_icount_free(ost->ost_icount_in_inodes);
+	ost->ost_icount_in_inodes = NULL;
+
+	o2fsck_icount_free(ost->ost_icount_refs);
+	ost->ost_icount_refs = NULL;
+
+	ret = o2fsck_state_init(fs, ost);
+	if (ret) {
+		com_err(whoami, ret, "while intializing o2fsck_state.");
+		return ret;
+	}
+
+	mark_magical_clusters(ost);
 	return 0;
 }
 
