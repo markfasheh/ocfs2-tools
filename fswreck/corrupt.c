@@ -94,7 +94,7 @@ static void create_directory(ocfs2_filesys *fs, char *dirname, uint64_t *blkno)
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
-	ret = ocfs2_expand_dir(fs, *blkno, fs->fs_root_blkno);
+	ret = ocfs2_init_dir(fs, *blkno, fs->fs_root_blkno);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 

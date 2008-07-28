@@ -58,7 +58,7 @@ static void create_test_group_desc(ocfs2_filesys *fs, uint64_t *newblk,
 
 	bg = (struct ocfs2_group_desc *)buf;
 	*bg = *clone;
-	bg->bg_blkno = cpu_to_be64(*newblk);
+	bg->bg_blkno = cpu_to_le64(*newblk);
 	bg->bg_next_group = 0;
 
 	ret = io_write_block(fs->fs_io, *newblk, 1, buf);

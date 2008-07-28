@@ -73,7 +73,7 @@ static void create_directory(ocfs2_filesys *fs,
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
-	ret = ocfs2_expand_dir(fs, *blkno, parentblk);
+	ret = ocfs2_init_dir(fs, *blkno, parentblk);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
@@ -442,7 +442,7 @@ void mess_up_dir_not_connected(ocfs2_filesys *fs, uint64_t blkno)
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
-	ret = ocfs2_expand_dir(fs, tmp_blkno, blkno);
+	ret = ocfs2_init_dir(fs, tmp_blkno, blkno);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 

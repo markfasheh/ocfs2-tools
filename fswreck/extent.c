@@ -313,7 +313,7 @@ static void mess_up_record(ocfs2_filesys *fs, uint64_t blkno,
 			break;
 	 	case EXTENT_CLUSTERS_OVERRUN:
 			oldno = er->e_leaf_clusters;
-			er->e_leaf_clusters = fs->fs_clusters + 1;
+			er->e_leaf_clusters = 2;
 			er->e_blkno = ocfs2_clusters_to_blocks(fs, 
 							fs->fs_clusters - 1);
 			fprintf(stdout, "EXTENT_CLUSTERS_OVERRUN: "
