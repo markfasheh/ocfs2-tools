@@ -211,10 +211,8 @@ AC_CHECK_LIB(cman, cman_replyto_shutdown,
   [AC_MSG_WARN([libcman not found, cman support will not be built])])
 
 cpg_found=
-if test "x$cman_found" = "xyes"; then
-  AC_CHECK_HEADER(openais/cpg.h, cpg_found=yes,
-    [AC_MSG_WARN([openais/cpg.h not found, cman support will not be built])])
-fi
+AC_CHECK_HEADER(openais/cpg.h, cpg_found=yes,
+  [AC_MSG_WARN([openais/cpg.h not found, ocfs2_controld will not be built])])
 
 #
 # We can't use AC_CHECK_LIB on libcpg, because it is in
@@ -252,10 +250,21 @@ if test "x$CPG_LDFLAGS" != "x"; then
     AC_MSG_RESULT(yes)
 else
     AC_MSG_RESULT(no)
-    AC_MSG_WARN([libcpg not found, cman support will not be built])
+    AC_MSG_WARN([libcpg not found, ocfs2_controld will not be built])
     cpg_found=
 fi
 AC_SUBST(CPG_LDFLAGS)
+
+libdlmcontrol_found=
+AC_CHECK_LIB(dlmcontrol, dlmc_fs_connect,
+  [AC_CHECK_HEADER(libdlmcontrol.h, libdlmcontrol_found=yes,
+    [AC_MSG_WARN([libdlmcontrol.h not found, ocfs2_controld will not be built])],
+    [
+#include <sys/stat.h>
+#include <inttypes.h>
+#include <libdlm.h>
+])],
+  [AC_MSG_WARN([libdlmcontrol not found, ocfs2_controld will not be built])])
 
 LIBDLM_FOUND=
 AC_CHECK_HEADER(libdlm.h, LIBDLM_FOUND=yes,
@@ -279,13 +288,19 @@ fi
 AC_SUBST(BUILD_FSDLM_SUPPORT)
 AC_SUBST(DL_LIBS)
 
-BUILD_CMAN_SUPPORT=
-if test "x$cman_found" = "xyes" -a "x$cpg_found" = "xyes"; then
+BUILD_OCFS2_CONTROLD=
+if test "x$cpg_found" = "xyes" -a "x$libdlmcontrol_found" = "xyes"; then
   if test "x$fsdlm_found" = "xyes"; then
-    BUILD_CMAN_SUPPORT=yes
+    BUILD_OCFS2_CONTROLD=yes
   else
-    AC_MSG_WARN([fsdlm not available, cman support will not be built])
+    AC_MSG_WARN([fsdlm support is not available, ocfs2_controld will not be built])
   fi
+fi
+AC_SUBST(BUILD_OCFS2_CONTROLD)
+
+BUILD_CMAN_SUPPORT=
+if test "x$cman_found" = "xyes" -a "x$BUILD_OCFS2_CONTROLD" = "xyes"; then
+  BUILD_CMAN_SUPPORT=yes
 fi
 AC_SUBST(BUILD_CMAN_SUPPORT)
 

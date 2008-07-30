@@ -4,8 +4,10 @@ include $(TOPDIR)/Preamble.make
 
 sbindir = $(root_sbindir)
 
-ifneq ($(BUILD_CMAN_SUPPORT),)
+ifneq ($(BUILD_OCFS2_CONTROLD),)
+  ifneq ($(BUILD_CMAN_SUPPORT),)
 SBIN_PROGRAMS = ocfs2_controld.cman
+  endif
 UNINST_PROGRAMS = test_client
 endif
 
