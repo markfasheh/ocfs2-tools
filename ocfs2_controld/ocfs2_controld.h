@@ -97,6 +97,10 @@ int group_join(const char *name,
 	       void *user_data);
 int group_leave(struct cgroup *cg);
 
+/* dlmcontrol.c */
+int setup_dlmcontrol(void);
+void exit_dlmcontrol(void);
+
 /* mount.c */
 void init_mounts(void);
 int have_mounts(void);

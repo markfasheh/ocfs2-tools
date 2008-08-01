@@ -891,6 +891,13 @@ static void cpg_joined(int first)
 	log_debug("fs protocol is %d.%d",
 		  fs_running_proto.pv_major, fs_running_proto.pv_minor);
 
+	log_debug("Connecting to dlm_controld");
+	rv = setup_dlmcontrol();
+	if (rv) {
+		shutdown_daemon();
+		return;
+	}
+
 	log_debug("Opening control device");
 	err = o2cb_control_open(our_nodeid, &fs_running_proto);
 	if (err) {
@@ -969,6 +976,7 @@ stop:
 	bail_on_mounts();
 
 	o2cb_control_close();
+	exit_dlmcontrol();
 	exit_cpg();
 	drop_node_checkpoint();
 	exit_ckpt();
