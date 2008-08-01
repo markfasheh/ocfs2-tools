@@ -267,6 +267,7 @@ int main(int argc, char **argv)
 	struct o2cb_region_desc desc;
 	int clustered = 1;
 	int hb_started = 0;
+	struct stat statbuf;
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -382,9 +383,21 @@ int main(int argc, char **argv)
 			o2cb_complete_group_join(&cluster, &desc, errno);
 		}
 		block_signals (SIG_UNBLOCK);
-		com_err(progname, ret, "while mounting %s on %s. "
-			"Check 'dmesg' for more information on this error.",
-			mo.dev, mo.dir);
+
+		/* complain mount failure */
+		if (lstat(mo.dir, &statbuf))
+			com_err(progname, 0, "mount point %s does not "
+				"exist", mo.dir);
+		else if (stat(mo.dir, &statbuf))
+			com_err(progname, 0, "mount point %s is a "
+				"broken symbolic link", mo.dir);
+		else if (!S_ISDIR(statbuf.st_mode))
+			com_err(progname, 0, "mount point %s is not "
+				"a directory", mo.dir);
+		else
+			com_err(progname, ret, "while mounting %s on %s. "
+				"Check 'dmesg' for more information on this "
+				"error.", mo.dev, mo.dir);
 		goto bail;
 	}
 	if (hb_started) {
