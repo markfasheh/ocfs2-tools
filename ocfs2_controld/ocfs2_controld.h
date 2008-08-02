@@ -100,6 +100,10 @@ int group_leave(struct cgroup *cg);
 /* dlmcontrol.c */
 int setup_dlmcontrol(void);
 void exit_dlmcontrol(void);
+int dlmcontrol_register(const char *name,
+			void (*result_func)(int status, void *user_data),
+			void *user_data);
+int dlmcontrol_unregister(const char *name);
 
 /* mount.c */
 void init_mounts(void);
