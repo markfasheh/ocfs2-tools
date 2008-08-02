@@ -43,6 +43,7 @@ struct mountgroup {
 	struct list_head	mg_list;
 	struct cgroup		*mg_group;
 	int			mg_leave_on_join;
+	int			mg_registered;
 
 	char			mg_uuid[OCFS2_UUID_STR_LEN + 1];
 	char			mg_device[PATH_MAX + 1];
@@ -196,9 +197,9 @@ static struct service *find_service(struct mountgroup *mg,
 	return NULL;
 }
 
-static void remove_service(struct mountgroup *mg,
-			      const char *service)
+static void remove_service(struct mountgroup *mg, const char *service)
 {
+	int rc;
 	struct service *ms;
 
 	ms = find_service(mg, service);
@@ -219,6 +220,17 @@ static void remove_service(struct mountgroup *mg,
 	if (list_empty(&mg->mg_services)) {
 		/* Set in-progress for leave */
 		mg->mg_ms_in_progress = ms;
+
+		if (mg->mg_registered) {
+			log_debug("Unregistering mountgroup %s",
+				  mg->mg_uuid);
+			rc = dlmcontrol_unregister(mg->mg_uuid);
+			if (rc)
+				log_error("Unable to deregister mountgroup "
+					  "%s: %s",
+					  mg->mg_uuid, strerror(-rc));
+			mg->mg_registered = 0;
+		}
 
 		log_debug("time to leave group %s", mg->mg_uuid);
 		if (mg->mg_group) {
@@ -312,8 +324,42 @@ static void add_service(struct mountgroup *mg, const char *device,
 		list_add(&ms->ms_list, &mg->mg_services);
 }
 
+static void register_result(int status, void *user_data)
+{
+	struct mountgroup *mg = user_data;
+	struct service *ms;
+
+	if (!mg->mg_group) {
+		log_error("No cgroup (mg %s)", mg->mg_uuid);
+		return;
+	}
+
+	ms = mg->mg_ms_in_progress;
+	if (!ms) {
+		log_error("No service in progress for mountgroup %s",
+			  mg->mg_uuid);
+		return;
+	}
+
+	if (status) {
+		fill_error(mg, -status,
+			   "Error registering mg %s with dlm_controld: %s",
+			   mg->mg_uuid, strerror(-status));
+
+		/* remove_service() will kick off a LEAVE if needed */
+		remove_service(mg, ms->ms_service);
+		return;
+	}
+
+	log_debug("Mountgroup %s successfully registered with dlm_controld",
+		  mg->mg_uuid);
+	mg->mg_registered = 1;
+	notify_mount_client(mg);
+}
+
 static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 {
+	int rc;
 	struct service *ms;
 
 	if (mg->mg_group) {
@@ -350,7 +396,19 @@ static void finish_join(struct mountgroup *mg, struct cgroup *cg)
 
 	/* Ok, we've successfully joined the group */
 	mg->mg_group = cg;
-	notify_mount_client(mg);
+
+	/* Now tell dlm_controld */
+	log_debug("Registering mountgroup %s with dlm_controld",
+		  mg->mg_uuid);
+	rc = dlmcontrol_register(mg->mg_uuid, register_result, mg);
+	if (rc) {
+		fill_error(mg, -rc,
+			   "Unable to register mountgroup %s with "
+			   "dlm_controld: %s",
+			   mg->mg_uuid, strerror(errno));
+		/* remove_service() will kick off a LEAVE if needed */
+		remove_service(mg, ms->ms_service);
+	}
 }
 
 static void mount_node_down(int nodeid, void *user_data)
