@@ -676,6 +676,11 @@ errcode_t ocfs2_set_backup_super(ocfs2_filesys *fs,
  *
  * ${foo}_in_${bar} is a ceiling function.  clusters_in_blocks will give
  * the number of clusters needed to hold a given number of blocks.
+ *
+ * These functions return UINTxx_MAX when they overflow, but UINTxx_MAX
+ * cannot be used to check overflow.  UINTxx_MAX is a valid value in much
+ * of ocfs2.  The caller is responsible for preventing overflow before
+ * using these functions.
  */
 
 static inline uint64_t ocfs2_clusters_to_blocks(ocfs2_filesys *fs,
@@ -694,18 +699,54 @@ static inline uint32_t ocfs2_blocks_to_clusters(ocfs2_filesys *fs,
 	int b_to_c_bits =
 		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
 		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	uint64_t ret = blocks >> b_to_c_bits;
 
-	return (uint32_t)(blocks >> b_to_c_bits);
+	if (ret > UINT32_MAX)
+		ret = UINT32_MAX;
+
+	return (uint32_t)ret;
 }
 
-static inline uint64_t ocfs2_blocks_in_bytes(ocfs2_filesys *fs, uint64_t bytes)
+static inline uint64_t ocfs2_clusters_to_bytes(ocfs2_filesys *fs,
+					       uint32_t clusters)
 {
-	uint64_t ret = bytes + fs->fs_blocksize - 1;
+	uint64_t ret = clusters;
 
-	if (ret < bytes) /* deal with wrapping */
-		return UINT64_MAX;
+	ret = ret << OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+	if (ret < clusters)
+		ret = UINT64_MAX;
 
-	return ret >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	return ret;
+}
+
+static inline uint32_t ocfs2_bytes_to_clusters(ocfs2_filesys *fs,
+					       uint64_t bytes)
+{
+	uint64_t ret =
+		bytes >> OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+
+	if (ret > UINT32_MAX)
+		ret = UINT32_MAX;
+
+	return (uint32_t)ret;
+}
+
+static inline uint64_t ocfs2_blocks_to_bytes(ocfs2_filesys *fs,
+					     uint64_t blocks)
+{
+	uint64_t ret =
+		blocks << OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+
+	if (ret < blocks)
+		ret = UINT64_MAX;
+
+	return ret;
+}
+
+static inline uint64_t ocfs2_bytes_to_blocks(ocfs2_filesys *fs,
+					     uint64_t bytes)
+{
+	return bytes >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 }
 
 static inline uint32_t ocfs2_clusters_in_blocks(ocfs2_filesys *fs, 
@@ -718,8 +759,39 @@ static inline uint32_t ocfs2_clusters_in_blocks(ocfs2_filesys *fs,
 	if (ret < blocks) /* deal with wrapping */
 		ret = UINT64_MAX;
 
-	return (uint32_t)(ret >> c_to_b_bits);
+	ret = ret >> c_to_b_bits;
+	if (ret > UINT32_MAX)
+		ret = UINT32_MAX;
+
+	return (uint32_t)ret;
 }
+
+static inline uint32_t ocfs2_clusters_in_bytes(ocfs2_filesys *fs,
+					       uint64_t bytes)
+{
+	uint64_t ret = bytes + fs->fs_clustersize - 1;
+
+	if (ret < bytes) /* deal with wrapping */
+		ret = UINT64_MAX;
+
+	ret = ret >> OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+	if (ret > UINT32_MAX)
+		ret = UINT32_MAX;
+
+	return (uint32_t)ret;
+}
+
+static inline uint64_t ocfs2_blocks_in_bytes(ocfs2_filesys *fs,
+					     uint64_t bytes)
+{
+	uint64_t ret = bytes + fs->fs_blocksize - 1;
+
+	if (ret < bytes) /* deal with wrapping */
+		return UINT64_MAX;
+
+	return ret >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+}
+
 
 /* given a cluster offset, calculate which block group it belongs to
  * and return that block offset. */
