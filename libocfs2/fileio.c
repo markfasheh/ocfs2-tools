@@ -126,7 +126,8 @@ errcode_t ocfs2_read_whole_file(ocfs2_filesys *fs,
 		goto out_free;
 
 	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
-		return ocfs2_inline_data_read(di, *buf, di->i_size, 0, len);
+		return ocfs2_inline_data_read(di, *buf, di->i_size, 0,
+					      (uint32_t *)len);
 
 	ctx.buf = *buf;
 	ctx.ptr = *buf;
@@ -548,7 +549,7 @@ static errcode_t ocfs2_try_to_write_inline_data(ocfs2_cached_inode *ci,
 						void *buf, uint32_t count,
 						uint64_t offset)
 {
-	int ret, written = 0;
+	int ret;
 	uint64_t end = offset + count;
 	ocfs2_filesys *fs = ci->ci_fs;
 	struct ocfs2_dinode *di = ci->ci_inode;

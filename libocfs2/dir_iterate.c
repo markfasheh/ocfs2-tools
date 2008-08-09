@@ -230,7 +230,6 @@ static int ocfs2_inline_dir_iterate(ocfs2_filesys *fs,
 				    struct dir_context *ctx)
 {
 	unsigned int offset = offsetof(struct ocfs2_dinode, id2.i_data.id_data);
-	unsigned int next_real_entry = 0;
 	int ret = 0, changed = 0, do_abort = 0, entry;
 
 	entry = OCFS2_DIRENT_DOT_FILE;
@@ -261,7 +260,6 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 {
 	struct dir_context *ctx = (struct dir_context *) priv_data;
 	unsigned int	offset = 0;
-	unsigned int	next_real_entry = 0;
 	int		ret = 0;
 	int		changed = 0;
 	int		do_abort = 0;

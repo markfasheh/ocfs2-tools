@@ -152,7 +152,6 @@ static void ocfs2_init_inode(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			     uint64_t blkno, uint16_t mode,
 			     uint32_t flags)
 {
-	struct ocfs2_extent_list *fel;
 	int cs_bits = OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 	unsigned int tl_recs;
 

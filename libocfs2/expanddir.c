@@ -182,7 +182,7 @@ errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
 			return OCFS2_ET_DIR_CORRUPTED;
 
 		inline_data = &cinode->ci_inode->id2.i_data;
-		data = inline_data->id_data;
+		data = (char *)inline_data->id_data;
 		size = inline_data->id_count;
 	} else {
 		if (cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)
