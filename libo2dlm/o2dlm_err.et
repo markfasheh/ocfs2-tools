@@ -108,4 +108,7 @@ ec	O2DLM_ET_LVB_WRITE,
 ec      O2DLM_ET_SEEK,
 	"Could not seek within file descriptor"
 
+ec	O2DLM_ET_DOMAIN_BUSY,
+	"The domain is busy and cannot be accessed"
+
 	end

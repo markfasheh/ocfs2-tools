@@ -127,6 +127,7 @@ static errcode_t o2dlm_alloc_ctxt(const char *mnt_path,
 	if (!ctxt)
 		return O2DLM_ET_NO_MEMORY;
 
+	memset(ctxt, 0, sizeof(*ctxt));
 	ctxt->ct_hash_size = O2DLM_DEFAULT_HASH_SIZE;
 
 	ctxt->ct_hash = calloc(ctxt->ct_hash_size, sizeof(struct list_head));
@@ -685,7 +686,6 @@ static errcode_t o2dlm_initialize_classic(const char *dlmfs_path,
 /* Dynamic symbols */
 static dlm_lshandle_t (*fsdlm_create_lockspace)(const char *name,
 						mode_t mode);
-static dlm_lshandle_t (*fsdlm_open_lockspace)(const char *name);
 static int (*fsdlm_release_lockspace)(const char *name,
 				      dlm_lshandle_t ls,
 				      int force);
@@ -725,7 +725,6 @@ static errcode_t load_fsdlm(struct o2dlm_ctxt *ctxt)
 } while (0)
 
 	load_sym(dlm_create_lockspace);
-	load_sym(dlm_open_lockspace);
 	load_sym(dlm_release_lockspace);
 	load_sym(dlm_ls_lock_wait);
 	load_sym(dlm_ls_unlock_wait);
@@ -928,9 +927,6 @@ static errcode_t o2dlm_initialize_fsdlm(const char *domain_name,
 	}
 
 	ctxt->ct_handle = fsdlm_create_lockspace(ctxt->ct_domain_path, 0600);
-	if (!ctxt->ct_handle && (errno == EEXIST))
-		ctxt->ct_handle = fsdlm_open_lockspace(ctxt->ct_domain_path);
-
 	if (!ctxt->ct_handle) {
 		switch (errno) {
 			case EINVAL:
@@ -938,6 +934,13 @@ static errcode_t o2dlm_initialize_fsdlm(const char *domain_name,
 				break;
 			case ENOMEM:
 				ret = O2DLM_ET_NO_MEMORY;
+				break;
+			case EEXIST:
+				/*
+				 * This is a special case for older
+				 * versions of fs/dlm.
+				 */
+				ret = O2DLM_ET_DOMAIN_BUSY;
 				break;
 			case EACCES:
 			case EPERM:
