@@ -104,6 +104,7 @@ int dlmcontrol_register(const char *name,
 			void (*result_func)(int status, void *user_data),
 			void *user_data);
 int dlmcontrol_unregister(const char *name);
+void dlmcontrol_node_down(const char *name, int nodeid);
 
 /* mount.c */
 void init_mounts(void);

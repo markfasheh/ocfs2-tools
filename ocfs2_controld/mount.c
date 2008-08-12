@@ -422,6 +422,8 @@ static void mount_node_down(int nodeid, void *user_data)
 	if (err)
 		log_debug("%s while trying to send DOWN message",
 			  error_message(err));
+
+	dlmcontrol_node_down(mg->mg_uuid, nodeid);
 }
 
 static void force_node_down(int nodeid, void *user_data)

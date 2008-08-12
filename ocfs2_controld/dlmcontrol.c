@@ -34,8 +34,15 @@
 struct dlmcontrol_fs {
 	struct list_head	df_list;
 	char			df_name[DLM_LOCKSPACE_LEN+1];
+	struct list_head	df_notifications;
 	void			(*df_result)(int status, void *user_data);
 	void			*df_user_data;
+};
+
+/* Keeps track of pending node-down notifications */
+struct dlmcontrol_notification {
+	struct list_head	dn_list;
+	int			dn_nodeid;
 };
 
 static int dlmcontrol_ci;	/* Client number in the main loop */
@@ -61,6 +68,7 @@ int dlmcontrol_register(const char *name,
 	}
 
 	snprintf(df->df_name, DLM_LOCKSPACE_LEN+1, "%s", name);
+	INIT_LIST_HEAD(&df->df_notifications);
 	df->df_result = result_func;
 	df->df_user_data = user_data;
 
@@ -101,6 +109,47 @@ static struct dlmcontrol_fs *find_fs(const char *name)
 	return NULL;
 }
 
+static struct dlmcontrol_notification *find_notification(struct dlmcontrol_fs *df,
+							 int nodeid)
+{
+	struct list_head *pos;
+	struct dlmcontrol_notification *dn;
+
+	list_for_each(pos, &df->df_notifications) {
+		dn = list_entry(pos, struct dlmcontrol_notification,
+				dn_list);
+		if (dn->dn_nodeid == nodeid)
+			return dn;
+	}
+
+	return NULL;
+}
+
+static void complete_notification(struct dlmcontrol_fs *df, int nodeid)
+{
+	struct dlmcontrol_notification *dn;
+
+	dn = find_notification(df, nodeid);
+	if (dn) {
+		log_debug("Completing notification on \"%s\" for node %d\n",
+			  df->df_name, nodeid);
+		list_del(&dn->dn_list);
+		free(dn);
+	}
+}
+
+static void complete_all_notifications(struct dlmcontrol_fs *df)
+{
+	struct list_head *pos, *n;
+	struct dlmcontrol_notification *dn;
+
+	list_for_each_safe(pos, n, &df->df_notifications) {
+		dn = list_entry(pos, struct dlmcontrol_notification,
+				dn_list);
+		complete_notification(df, dn->dn_nodeid);
+	}
+}
+
 int dlmcontrol_unregister(const char *name)
 {
 	int rc;
@@ -120,6 +169,8 @@ int dlmcontrol_unregister(const char *name)
 	 * the face of errors.
 	 */
 	log_debug("Unregistering \"%s\" from dlm_controld", name);
+
+	complete_all_notifications(df);
 	rc = dlmc_fs_unregister(dlmcontrol_fd, df->df_name);
 	if (rc) {
 		rc = -errno;
@@ -144,6 +195,72 @@ static void dlmcontrol_unregister_all(void)
 		/* This is exit-time, don't care about errors */
 		dlmcontrol_unregister(df->df_name);
 	}
+}
+
+/*
+ * This is a fire and forget function.  It will queue the notification and
+ * send it to dlm_controld.  If dlm_controld responds in the negative, this
+ * function is called again to send.  This goes on until dlm_controld sees
+ * the node go down.
+ *
+ * We don't sleep because the process switching should be good enough.
+ *
+ * If there is any error, malloc/network/whatever, we kill the daemon.  We
+ * can't continue safely if we're not interacting with dlm_controld.
+ */
+void dlmcontrol_node_down(const char *name, int nodeid)
+{
+	int rc;
+	struct dlmcontrol_fs *df;
+	struct dlmcontrol_notification *dn;
+
+	df = find_fs(name);
+	if (!df) {
+		log_error("Name \"%s\" is unknown", name);
+		return;
+	}
+
+	dn = find_notification(df, nodeid);
+	if (!dn) {
+		dn = malloc(sizeof(struct dlmcontrol_notification));
+		if (!dn) {
+			log_error("Unable to allocate memory");
+			goto fail;
+		}
+		dn->dn_nodeid = nodeid;
+		list_add(&dn->dn_list, &df->df_notifications);
+	}
+
+	log_debug("Sending notification of node %d for \"%s\"",
+		  dn->dn_nodeid, df->df_name);
+	rc = dlmc_fs_notified(dlmcontrol_fd, df->df_name, dn->dn_nodeid);
+	if (rc) {
+		log_error("Unable to send notification for node %d on "
+			  "\"%s\": %s",
+			  dn->dn_nodeid, df->df_name, strerror(errno));
+		goto fail;
+	}
+
+	return;
+
+fail:
+	shutdown_daemon();
+}
+
+static void notify_result(struct dlmcontrol_fs *df, int nodeid, int status)
+{
+	if (!find_notification(df, nodeid)) {
+		log_error("Notified for nodeid %d on \"%s\", but we never asked for it!",
+			  nodeid, df->df_name);
+		return;
+	}
+
+	if (!status) {
+		complete_notification(df, nodeid);
+		return;
+	}
+
+	dlmcontrol_node_down(df->df_name, nodeid);
 }
 
 static void dead_dlmcontrol(int ci)
@@ -195,8 +312,9 @@ static void process_dlmcontrol(int ci)
 			break;
 
 		case DLMC_RESULT_NOTIFIED:
-			log_debug("Notified for \"%s\"", name);
-			/* XXX: handle */
+			log_debug("Notified for \"%s\", node %d, status %d",
+				  name, nodeid, status);
+			notify_result(df, nodeid, status);
 			break;
 
 		default:
