@@ -134,6 +134,18 @@ out:
 	return rc;
 }
 
+static void dlmcontrol_unregister_all(void)
+{
+	struct list_head *pos, *n;
+	struct dlmcontrol_fs *df;
+
+	list_for_each_safe(pos, n, &register_list) {
+		df = list_entry(pos, struct dlmcontrol_fs, df_list);
+		/* This is exit-time, don't care about errors */
+		dlmcontrol_unregister(df->df_name);
+	}
+}
+
 static void dead_dlmcontrol(int ci)
 {
 	if (ci != dlmcontrol_ci) {
@@ -229,6 +241,7 @@ void exit_dlmcontrol(void)
 	if (dlmcontrol_fd < 0)
 		return;
 
+	dlmcontrol_unregister_all();
 	log_debug("Closing dlm_controld connection");
 	dlmc_fs_disconnect(dlmcontrol_fd);
 }
