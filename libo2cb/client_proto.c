@@ -17,6 +17,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <limits.h>
 
 #include "o2cb/o2cb_client_proto.h"
 
