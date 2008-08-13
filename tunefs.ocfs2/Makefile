@@ -33,7 +33,7 @@ OCFS2NE_OPERATIONS =			\
 	op_update_cluster_stack
 
 sbindir = $(root_sbindir)
-SBIN_PROGRAMS = tunefs.ocfs2 ocfs2ne
+SBIN_PROGRAMS = tunefs.ocfs2
 
 INCLUDES = -I$(TOPDIR)/include -I.
 DEFINES = -DVERSION=\"$(VERSION)\"
@@ -68,17 +68,6 @@ HFILES_GEN = o2ne_err.h
 o2ne_err.c o2ne_err.h: o2ne_err.et
 	compile_et o2ne_err.et
 
-
-TUNEFS_CFILES =		\
-	tunefs.c	\
-	query.c		\
-	remove_slot.c	\
-	sparse_file.c	\
-	features.c	\
-	resize.c	\
-	format_slotmap.c \
-	inline_data.c
-
 OCFS2NE_OPERATION_CFILES = $(patsubst %,%.c,$(OCFS2NE_OPERATIONS))
 OCFS2NE_FEATURE_CFILES = $(patsubst %,%.c,$(OCFS2NE_FEATURES))
 OCFS2NE_CFILES =			\
@@ -86,10 +75,9 @@ OCFS2NE_CFILES =			\
 	$(OCFS2NE_OPERATION_CFILES)	\
 	$(OCFS2NE_FEATURE_CFILES)
 
-CFILES = $(TUNFES_CFILES) $(LIBOCFS2NE_CFILES) $(OCFS2NE_CFILES)
-HFILES = tunefs.h libocfs2ne.h
+CFILES = $(LIBOCFS2NE_CFILES) $(OCFS2NE_CFILES)
+HFILES = libocfs2ne.h
 
-TUNEFS_OBJS = $(subst .c,.o,$(TUNEFS_CFILES))
 LIBOCFS2NE_OBJS = $(subst .c,.o,$(LIBOCFS2NE_CFILES)) o2ne_err.o
 OCFS2NE_OBJS = $(subst .c,.o,$(OCFS2NE_CFILES))
 
@@ -103,12 +91,12 @@ libocfs2ne.a: $(LIBOCFS2NE_OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-tunefs.ocfs2: $(TUNEFS_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
-	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
-
 ocfs2ne: $(OCFS2NE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
 		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+
+tunefs.ocfs2: ocfs2ne
+	ln -f ocfs2ne tunefs.ocfs2
 
 CLEAN_RULES = clean-err
 
