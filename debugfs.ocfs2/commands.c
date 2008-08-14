@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * commands.c
  *
  * handles debugfs commands
@@ -70,6 +72,7 @@ static void do_fs_locks (char **args);
 static void do_bmap (char **args);
 static void do_icheck (char **args);
 static void do_dlm_locks (char **args);
+static void do_controld(char **args);
 
 dbgfs_gbls gbls;
 
@@ -79,6 +82,7 @@ static Command commands[] = {
 	{ "cd",		do_cd },
 	{ "chroot",	do_chroot },
 	{ "close",	do_close },
+	{ "controld",   do_controld },
 	{ "curdev",	do_curdev },
 	{ "dlm_locks",	do_dlm_locks },
 	{ "dump",	do_dump },
@@ -824,6 +828,7 @@ static void do_help (char **args)
 	printf ("cd <filespec>\t\t\t\tChange directory\n");
 	printf ("chroot <filespec>\t\t\tChange root\n");
 	printf ("close\t\t\t\t\tClose a device\n");
+	printf ("controld dump\t\t\tObtain information from ocfs2_controld\n");
 	printf ("curdev\t\t\t\t\tShow current device\n");
 	printf ("decode <lockname#> ...\t\t\tDecode block#(s) from the lockname(s)\n");
 	printf ("dlm_locks [-l] lockname\t\t\tShow live dlm locking state\n");
@@ -888,6 +893,43 @@ static void do_lcd (char **args)
 	}
 
 	return ;
+}
+
+/*
+ * do_controld_dump()
+ *
+ */
+static void do_controld_dump(char **args)
+{
+	FILE *out;
+	errcode_t ret;
+	char *debug_buffer;
+
+	ret = o2cb_control_daemon_debug(&debug_buffer);
+	if (ret) {
+		com_err(args[0], ret, "while obtaining the debug buffer");
+		return;
+	}
+
+	out = open_pager(gbls.interactive);
+	fprintf(out, "%s", debug_buffer);
+	close_pager(out);
+	free(debug_buffer);
+}
+
+/*
+ * do_controld()
+ *
+ */
+static void do_controld(char **args)
+{
+	if (!args[1])
+		fprintf(stderr, "%s: Operation required\n", args[0]);
+	else if (!strcmp(args[1], "dump"))
+		do_controld_dump(args);
+	else
+		fprintf(stderr, "%s: Invalid operation: \"%s\"\n",
+			args[0], args[1]);
 }
 
 /*

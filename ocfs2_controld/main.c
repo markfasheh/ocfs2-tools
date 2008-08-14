@@ -245,44 +245,6 @@ out:
 	return rc;
 }
 
-int do_read(int fd, void *buf, size_t count)
-{
-	int rv, off = 0;
-
-	while (off < count) {
-		rv = read(fd, buf + off, count - off);
-		if (rv == 0)
-			return -1;
-		if (rv == -1 && errno == EINTR)
-			continue;
-		if (rv == -1)
-			return -1;
-		off += rv;
-	}
-	return 0;
-}
-
-int do_write(int fd, void *buf, size_t count)
-{
-	int rv, off = 0;
-
- retry:
-	rv = write(fd, buf + off, count);
-	if (rv == -1 && errno == EINTR)
-		goto retry;
-	if (rv < 0) {
-		log_error("write errno %d", errno);
-		return rv;
-	}
-
-	if (rv != count) {
-		count -= rv;
-		off += rv;
-		goto retry;
-	}
-	return 0;
-}
-
 static int do_mount(int ci, int fd, const char *fstype, const char *uuid,
 		    const char *cluster, const char *device,
 		    const char *service)
@@ -406,18 +368,84 @@ int connection_add(int fd, void (*work)(int ci), void (*dead)(int ci))
 	return -ELOOP;
 }
 
-static int dump_debug(int ci)
+/* 4 characters for "ITEM", 1 for the space, 1 for the '\0' */
+#define DEBUG_BYTES_PER_ITEM	(OCFS2_CONTROLD_MAXLINE - 6)
+static size_t debug_bytes_to_count(size_t bytes)
 {
-	int len = DUMP_SIZE;
+	return (bytes + DEBUG_BYTES_PER_ITEM - 1) / DEBUG_BYTES_PER_ITEM;
+}
 
-	if (dump_wrap) {
-		len = DUMP_SIZE - dump_point;
-		do_write(client[ci].fd, dump_buf + dump_point, len);
-		len = dump_point;
+static int send_debug(int fd, const char *ptr, size_t bytes)
+{
+	int rc = 0;
+	size_t remain = bytes;
+	size_t itemlen = DEBUG_BYTES_PER_ITEM;
+	char itembuf[DEBUG_BYTES_PER_ITEM + 1];
+
+	while (remain) {
+		if (itemlen > remain)
+			itemlen = remain;
+		memcpy(itembuf, ptr, itemlen);
+		itembuf[itemlen] = '\0';
+		rc = send_message(fd, CM_ITEM, itembuf);
+		if (rc)
+			break;
+
+		ptr += itemlen;
+		remain -= itemlen;
 	}
 
-	do_write(client[ci].fd, dump_buf, len);
-	return 0;
+	return rc;
+}
+
+static int dump_debug(int ci, int fd)
+{
+	int rc, rctmp;
+	char error_msg[100];  /* Arbitrary size smaller than a message */
+	int count = 0;
+
+	if (dump_wrap)
+		count += debug_bytes_to_count(DUMP_SIZE - dump_point);
+	count += debug_bytes_to_count(dump_point);
+
+	rc = send_message(fd, CM_ITEMCOUNT, count);
+	if (rc) {
+		snprintf(error_msg, sizeof(error_msg),
+			 "Unable to send ITEMCOUNT: %s",
+			 strerror(-rc));
+		goto out_status;
+	}
+
+	if (dump_wrap) {
+		rc = send_debug(fd, dump_buf + dump_point,
+				DUMP_SIZE - dump_point);
+		if (rc) {
+			snprintf(error_msg, sizeof(error_msg),
+				 "Unable to send ITEM: %s",
+				 strerror(-rc));
+			goto out_status;
+		}
+	}
+	rc = send_debug(fd, dump_buf, dump_point);
+	if (rc) {
+		snprintf(error_msg, sizeof(error_msg),
+			 "Unable to send ITEM: %s",
+			 strerror(-rc));
+		goto out_status;
+	}
+
+	strcpy(error_msg, "OK");
+
+out_status:
+	rctmp = send_message(fd, CM_STATUS, -rc, error_msg);
+	if (rctmp) {
+		log_error("Error sending STATUS message: %s",
+			  strerror(-rc));
+		if (!rc)
+			rc = rctmp;
+	}
+
+	return rc;
 }
 
 static int send_filesystems(int ci, int fd, const char *fstype,
@@ -540,6 +568,10 @@ static void process_client(int ci)
 		rv = send_filesystems(ci, fd, argv[0], argv[1]);
 		break;
 
+		case CM_DUMP:
+		rv = dump_debug(ci, fd);
+		break;
+
 		case CM_STATUS:
 		log_error("Someone sent us cm_status!");
 		break;
@@ -548,20 +580,6 @@ static void process_client(int ci)
 		log_error("Invalid message received");
 		break;
 	}
-#if 0
-	if (daemon_debug_opt)
-		dump_state();
-#endif
-
-#if 0
-	} else if (!strcmp(cmd, "dump")) {
-		dump_debug(ci);
-
-	} else {
-		rv = -EINVAL;
-		goto reply;
-	}
-#endif
 
 	return;
 }

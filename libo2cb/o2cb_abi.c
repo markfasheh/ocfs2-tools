@@ -1921,6 +1921,83 @@ void o2cb_free_nodes_list(char **nodes)
 	o2cb_free_dir_list(nodes);
 }
 
+static errcode_t dump_list_to_string(char **dump_list, char **debug)
+{
+	int i;
+	size_t len, count = 0;
+	char *ptr;
+
+	for (i = 0; dump_list[i]; i++)
+		count += strlen(dump_list[i]);
+
+	*debug = malloc(sizeof(char) * (count + 1));
+	if (!*debug)
+		return O2CB_ET_NO_MEMORY;
+
+	ptr = *debug;
+	ptr[count] = '\0';
+	for (i = 0; dump_list[i]; i++) {
+		len = strlen(dump_list[i]);
+		memcpy(ptr, dump_list[i], len);
+		ptr += len;
+	}
+
+	return 0;
+}
+
+errcode_t o2cb_control_daemon_debug(char **debug)
+{
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	int rc, fd = -1;
+	char buf[OCFS2_CONTROLD_MAXLINE];
+	char **dump_list = NULL;
+
+	rc = ocfs2_client_connect();
+	if (rc < 0) {
+		/* fprintf(stderr, "Unable to connect to ocfs2_controld: %s\n",
+			strerror(-rc)); */
+		switch (rc) {
+			case -EACCES:
+			case -EPERM:
+				err = O2CB_ET_PERMISSION_DENIED;
+				break;
+
+			default:
+				err = O2CB_ET_SERVICE_UNAVAILABLE;
+				break;
+		}
+		goto out;
+	}
+	fd = rc;
+
+	rc = send_message(fd, CM_DUMP);
+	if (rc) {
+		/* fprintf(stderr,
+			"Unable to send DUMP message: %s\n",
+			strerror(-rc)); */
+		err = O2CB_ET_IO;
+		goto out;
+	}
+
+	rc = receive_list(fd, buf, &dump_list);
+	if (rc) {
+		/* fprintf(stderr, "Error reading from daemon: %s\n",
+			strerror(-rc)); */
+		err = O2CB_ET_IO;
+		goto out;
+	}
+
+	err = dump_list_to_string(dump_list, debug);
+	o2cb_free_dir_list(dump_list);
+
+out:
+	if (fd != -1)
+		close(fd);
+
+	return err;
+}
+
+
 errcode_t o2cb_get_hb_thread_pid (const char *cluster_name, const char *region_name,
 			   pid_t *pid)
 {

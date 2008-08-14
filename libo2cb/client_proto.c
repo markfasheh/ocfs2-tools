@@ -45,6 +45,7 @@ DEFINE_MESSAGE(LISTMOUNTS, 2, "%s %s")
 DEFINE_MESSAGE(LISTCLUSTERS, 0, "")
 DEFINE_MESSAGE(ITEMCOUNT, 1, "%u")
 DEFINE_MESSAGE(ITEM, 1, "%s")
+DEFINE_MESSAGE(DUMP, 0, "")
 END_MESSAGES(message_list)
 
 const char *message_to_string(client_message message)

@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * main.c
  *
  * entry point for debugfs.ocfs2
@@ -430,6 +432,7 @@ int main (int argc, char **argv)
 	dbgfs_opts opts;
 	FILE *cmd = NULL;
 
+	initialize_o2cb_error_table();
 	initialize_ocfs_error_table();
 
 #define INSTALL_SIGNAL(sig)					\

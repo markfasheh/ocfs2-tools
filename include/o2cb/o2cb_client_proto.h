@@ -42,6 +42,7 @@ typedef enum {
 	CM_LISTCLUSTERS,
 	CM_ITEMCOUNT,
 	CM_ITEM,
+	CM_DUMP,
 } client_message;
 
 int client_listen(const char *path);

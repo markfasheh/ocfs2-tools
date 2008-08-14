@@ -68,6 +68,8 @@ void o2cb_free_cluster_list(char **clusters);
 errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes);
 void o2cb_free_nodes_list(char **nodes);
 
+errcode_t o2cb_control_daemon_debug(char **debug);
+
 struct o2cb_cluster_desc {
 	char *c_stack;		/* The cluster stack, NULL for classic */
 	char *c_cluster;	/* The name of the cluster, NULL for the
