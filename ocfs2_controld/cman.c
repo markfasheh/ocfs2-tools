@@ -48,6 +48,7 @@ static int              old_node_count;
 static cman_node_t      cman_nodes[O2NM_MAX_NODES];
 static int              cman_node_count;
 
+const char *stackname = "cman";
 
 int kill_stack_node(int nodeid)
 {

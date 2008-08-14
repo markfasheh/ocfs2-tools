@@ -38,6 +38,7 @@ extern char dump_buf[DUMP_SIZE];
 extern int dump_point;
 extern int dump_wrap;
 extern int our_nodeid;
+extern const char *stackname;
 
 extern void daemon_dump_save(void);
 

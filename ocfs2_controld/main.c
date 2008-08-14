@@ -1154,9 +1154,9 @@ int main(int argc, char **argv)
 		com_err(prog_name, err, "while determining the current cluster stack");
 		return 1;
 	}
-	if (strcmp(stack, "cman")) {
-		fprintf(stderr, "%s: This daemon supports the \"cman\" stack, but the \"%s\" stack is in use\n",
-			prog_name, stack);
+	if (strcmp(stack, stackname)) {
+		fprintf(stderr, "%s: This daemon supports the \"%s\" stack, but the \"%s\" stack is in use\n",
+			prog_name, stackname, stack);
 		return 1;
 	}
 
