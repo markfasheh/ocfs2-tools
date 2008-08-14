@@ -203,6 +203,12 @@ LIBS="$ocfs_tools_save_LIBS"
 
 AC_SUBST(BUILD_DEBUGOCFS2)
 
+pcmk_found=
+AC_CHECK_LIB(crmcluster, crm_get_peer,
+  [AC_CHECK_HEADER(pacemaker/crm_config.h, pcmk_found=yes,
+    [AC_MSG_WARN([Pacemaker headers not found, pacemaker support will not be built])])],
+  [AC_MSG_WARN([libcrmcluster not found, pacemaker support will not be built])])
+
 # We use cman_replyto_shutdown to insure a new enough libcman
 cman_found=
 AC_CHECK_LIB(cman, cman_replyto_shutdown,
@@ -297,6 +303,12 @@ if test "x$cpg_found" = "xyes" -a "x$libdlmcontrol_found" = "xyes"; then
   fi
 fi
 AC_SUBST(BUILD_OCFS2_CONTROLD)
+
+BUILD_PCMK_SUPPORT=
+if test "x$pcmk_found" = "xyes" -a "x$BUILD_OCFS2_CONTROLD" = "xyes"; then
+  BUILD_PCMK_SUPPORT=yes
+fi
+AC_SUBST(BUILD_PCMK_SUPPORT)
 
 BUILD_CMAN_SUPPORT=
 if test "x$cman_found" = "xyes" -a "x$BUILD_OCFS2_CONTROLD" = "xyes"; then

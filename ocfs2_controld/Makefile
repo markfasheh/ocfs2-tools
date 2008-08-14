@@ -6,12 +6,18 @@ sbindir = $(root_sbindir)
 
 ifneq ($(BUILD_OCFS2_CONTROLD),)
   ifneq ($(BUILD_CMAN_SUPPORT),)
-SBIN_PROGRAMS = ocfs2_controld.cman
+SBIN_PROGRAMS += ocfs2_controld.cman
   endif
 UNINST_PROGRAMS = test_client
 endif
 
-INCLUDES = -I$(TOPDIR)/include -I.
+ifneq ($(BUILD_PCMK_SUPPORT),)
+SBIN_PROGRAMS += ocfs2_controld.pcmk
+# Some pacemaker headers which pacemaker.c includes want this.
+PCMK_INCLUDES = -I/usr/include/pacemaker -I/usr/include/heartbeat/ $(GLIB_CFLAGS)
+endif
+
+INCLUDES = -I$(TOPDIR)/include -I. $(PCMK_INCLUDES)
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
@@ -39,6 +45,10 @@ CMAN_CFILES = cman.c
 CMAN_DAEMON_CFILES = $(DAEMON_CFILES) $(CMAN_CFILES)
 CMAN_DAEMON_OBJS = $(subst .c,.o,$(CMAN_DAEMON_CFILES))
 
+PCMK_CFILES = pacemaker.c
+PCMK_DAEMON_CFILES = $(DAEMON_CFILES) $(PCMK_CFILES)
+PCMK_DAEMON_OBJS = $(subst .c,.o,$(PCMK_DAEMON_CFILES))
+
 TEST_CFILES = test_client.c
 TEST_OBJS = $(subst .c,.o,$(TEST_CFILES) $(PROTO_CFILES))
 MANS =
@@ -49,6 +59,9 @@ DIST_FILES =				\
 	$(TEST_CFILES)			\
 	$(UNINST_HFILES)		\
 	$(addsuffix .in,$(MANS))
+ocfs2_controld.pcmk: $(PCMK_DAEMON_OBJS) $(LIBO2CB_DEPS)
+	$(LINK) $(GLIB_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(OPENAIS_LIBS) \
+		$(DLMCONTROL_LIBS) -lcrmcluster
 
 ocfs2_controld.cman: $(CMAN_DAEMON_OBJS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(OPENAIS_LIBS) \
