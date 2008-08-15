@@ -593,7 +593,7 @@ static void process_listener(int ci)
 		return;
 	}
 
-	i = connection_add(fd, process_client, NULL);
+	i = connection_add(fd, process_client, dead_client);
 	if (i < 0) {
 		log_error("Error adding client: %s", strerror(-i));
 		close(fd);
