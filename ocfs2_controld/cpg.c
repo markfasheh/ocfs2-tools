@@ -28,7 +28,11 @@
 #include <errno.h>
 #include <syslog.h>
 #include <time.h>
-#include <openais/cpg.h>
+#ifdef HAVE_COROSYNC
+# include <corosync/cpg.h>
+#else
+# include <openais/cpg.h>
+#endif
 
 #include "ocfs2-kernel/kernel-list.h"
 

@@ -217,49 +217,101 @@ AC_CHECK_LIB(cman, cman_replyto_shutdown,
   [AC_MSG_WARN([libcman not found, cman support will not be built])])
 
 cpg_found=
-AC_CHECK_HEADER(openais/cpg.h, cpg_found=yes,
-  [AC_MSG_WARN([openais/cpg.h not found, ocfs2_controld will not be built])])
+HAVE_COROSYNC=
+AC_CHECK_HEADER(corosync/cpg.h, [
+  cpg_found=yes
+  HAVE_COROSYNC=yes ],
+  [AC_CHECK_HEADER(openais/cpg.h, cpg_found=yes,
+    [AC_MSG_WARN([openais/cpg.h not found, ocfs2_controld will not be built])])])
+AC_SUBST(HAVE_COROSYNC)
 
 #
-# We can't use AC_CHECK_LIB on libcpg, because it is in
-# ${libdir}/openais, and we can't expand it in configure.in.  What we'll
-# try instead is to search AIS_TRY_PATH for -L<element>/openais -lcpg.
+# We can't use AC_CHECK_LIB on corosync or openais libraries, because they
+# are in ${libdir}/corosync or ${libdir}/openais, and we can't expand it in
+# configure.in.  What we'll try instead is to search AIS_TRY_PATH for
+# -L<element>/<package> -l<lib>.
 # NOTE that the initial colon ':' is *intentional*.  We want the empty
 # string first in case the user passed LDFLAGS.
 #
+AIS_TRY_PATH=":/usr/lib64:/usr/lib:/usr/local/lib64:/usr/local/lib"
+
 CPG_LDFLAGS=
 if test "x$cpg_found" = "xyes"; then
-    # Remember, AIS_TRY_PATH starts with a colon ':' on purpose
-    AIS_TRY_PATH=":/usr/lib64:/usr/lib:/usr/local/lib64:/usr/local/lib"
+    cpg_found=
+    if test "x$HAVE_COROSYNC" = "xyes"; then
+        cpg_package=corosync
+    else
+        cpg_package=openais
+    fi
+    TRY_PATH="$AIS_TRY_PATH"
     AC_MSG_CHECKING([for cpg_initialize in -lcpg])
-    while test "x$AIS_TRY_PATH" != "x"; do
-	TRY="`echo $AIS_TRY_PATH | cut -f1 -d:`"
-	AIS_TRY_PATH="`echo $AIS_TRY_PATH | cut -f2- -d:`"
+    while test "x$TRY_PATH" != "x"; do
+        TRY="`echo $TRY_PATH | cut -f1 -d:`"
+        TRY_PATH="`echo $TRY_PATH | cut -f2- -d:`"
 
-	if test "x$TRY" != "x"; then
-	    TRY="-L${TRY}/openais"
-	fi
-        TRY="$TRY"
+        if test "x$TRY" != "x"; then
+            TRY="-L${TRY}/${cpg_package}"
+        fi
+        # TRY="$TRY"
 
-	saved_LDFLAGS="$LDFLAGS"
-	LDFLAGS="$LDFLAGS $TRY -lcpg"
-	AC_LINK_IFELSE([AC_LANG_CALL([], [cpg_initialize])],
-		       [CPG_LDFLAGS="$TRY"])
-	LDFLAGS="$saved_LDFLAGS"
+        saved_LDFLAGS="$LDFLAGS"
+        LDFLAGS="$LDFLAGS $TRY -lcpg"
+        AC_LINK_IFELSE([AC_LANG_CALL([], [cpg_initialize])],
+        	       cpg_found=yes)
+        LDFLAGS="$saved_LDFLAGS"
 
-	if test "x$CPG_LDFLAGS" != "x"; then
-	    break
-	fi
+        if test "x$cpg_found" = "xyes"; then
+            CPG_LDFLAGS="$TRY"
+            break
+        fi
     done
 fi
-if test "x$CPG_LDFLAGS" != "x"; then
+if test "x$cpg_found" = "xyes"; then
     AC_MSG_RESULT(yes)
 else
     AC_MSG_RESULT(no)
     AC_MSG_WARN([libcpg not found, ocfs2_controld will not be built])
-    cpg_found=
 fi
 AC_SUBST(CPG_LDFLAGS)
+
+ckpt_found=
+AC_CHECK_HEADER(openais/saCkpt.h, ckpt_found=yes,
+  [AC_MSG_WARN([openais/saCkpt.h not found, ocfs2_controld will not be built])],
+  [#include <openais/saAis.h>])
+
+AIS_LDFLAGS=
+if test "x$ckpt_found" = "xyes"; then
+    ckpt_found=
+    TRY_PATH="$AIS_TRY_PATH"
+    AC_MSG_CHECKING([for saCkptInitialize in -lSaCkpt])
+    while test "x$TRY_PATH" != "x"; do
+        TRY="`echo $TRY_PATH | cut -f1 -d:`"
+        TRY_PATH="`echo $TRY_PATH | cut -f2- -d:`"
+
+        if test "x$TRY" != "x"; then
+            TRY="-L${TRY}/openais"
+        fi
+        # TRY="$TRY"
+
+        saved_LDFLAGS="$LDFLAGS"
+        LDFLAGS="$LDFLAGS $TRY -lSaCkpt"
+        AC_LINK_IFELSE([AC_LANG_CALL([], [saCkptInitialize])],
+        	       ckpt_found=yes)
+        LDFLAGS="$saved_LDFLAGS"
+
+        if test "x$ckpt_found" = "xyes"; then
+            AIS_LDFLAGS="$TRY"
+            break
+        fi
+    done
+fi
+if test "x$ckpt_found" = "xyes"; then
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+    AC_MSG_WARN([libSaCkpt not found, ocfs2_controld will not be built])
+fi
+AC_SUBST(AIS_LDFLAGS)
 
 libdlmcontrol_found=
 AC_CHECK_LIB(dlmcontrol, dlmc_fs_connect,
@@ -295,7 +347,7 @@ AC_SUBST(BUILD_FSDLM_SUPPORT)
 AC_SUBST(DL_LIBS)
 
 BUILD_OCFS2_CONTROLD=
-if test "x$cpg_found" = "xyes" -a "x$libdlmcontrol_found" = "xyes"; then
+if test "x$cpg_found" = "xyes" -a "x$ckpt_found" = "xyes" -a "x$libdlmcontrol_found" = "xyes"; then
   if test "x$fsdlm_found" = "xyes"; then
     BUILD_OCFS2_CONTROLD=yes
   else

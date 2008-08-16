@@ -22,7 +22,8 @@ LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
-OPENAIS_LIBS = $(CPG_LDFLAGS) -lcpg -lSaCkpt
+COROSYNC_LIBS = $(CPG_LDFLAGS) -lcpg
+OPENAIS_LIBS = $(AIS_LDFLAGS) -lSaCkpt
 DLMCONTROL_LIBS = -ldlmcontrol
 
 ifdef OCFS2_DEBUG
@@ -35,10 +36,13 @@ CFLAGS := $(OPTS) -Wall -Wstrict-prototypes -Wmissing-prototypes \
 	  -Wmissing-declarations
 
 DEFINES = -DOCFS2_FLAT_INCLUDES -DO2DLM_FLAT_INCLUDES \
-	  -DO2CB_FLAT_INCLUDES -DHAVE_CMAN -DVERSION=\"$(VERSION)\"
+	  -DO2CB_FLAT_INCLUDES -DVERSION=\"$(VERSION)\"
 
 UNINST_HFILES = ocfs2_controld.h
 
+ifneq ($(HAVE_COROSYNC),)
+DEFINES += -DHAVE_COROSYNC=1
+endif
 DAEMON_CFILES = main.c cpg.c mount.c ckpt.c dlmcontrol.c
 
 CMAN_CFILES = cman.c
@@ -60,12 +64,13 @@ DIST_FILES =				\
 	$(UNINST_HFILES)		\
 	$(addsuffix .in,$(MANS))
 ocfs2_controld.pcmk: $(PCMK_DAEMON_OBJS) $(LIBO2CB_DEPS)
-	$(LINK) $(GLIB_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(OPENAIS_LIBS) \
+	$(LINK) $(GLIB_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) \
+		$(OPENAIS_LIBS) $(COROSYNC_LIBS) \
 		$(DLMCONTROL_LIBS) -lcrmcluster
 
 ocfs2_controld.cman: $(CMAN_DAEMON_OBJS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(OPENAIS_LIBS) \
-		$(DLMCONTROL_LIBS) -lcman
+		$(COROSYNC_LIBS) $(DLMCONTROL_LIBS) -lcman
 
 test_client: $(TEST_OBJS) $(LIBO2CB_DEPS) $(LIBOCFS2_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
