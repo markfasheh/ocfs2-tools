@@ -37,6 +37,7 @@
 struct service {
 	struct list_head	ms_list;
 	char			ms_service[PATH_MAX + 1];
+	int			ms_additional;	/* This is a second mount */
 };
 
 struct mountgroup {
@@ -287,6 +288,16 @@ static void add_service(struct mountgroup *mg, const char *device,
 				   mg->mg_uuid, service);
 			return;
 		}
+
+		/*
+		 * There can be more than one real mount.  However, if an
+		 * additional mount fails in sys_mount(2), we can't have
+		 * complete_mount() removing the service.  We only want that
+		 * to happen when it's the first mount.
+		 */
+		log_debug("Additional mount of %s starting for %s",
+			  mg->mg_uuid, service);
+		ms->ms_additional = 1;
 	} else {
 		ms = malloc(sizeof(struct service));
 		if (!ms) {
@@ -608,7 +619,7 @@ out:
 		send_message(fd, CM_STATUS, mg->mg_error, mg->mg_error_msg);
 		mg->mg_error = 0;
 
-		if (mg->mg_error == EALREADY)
+		if (rc == -EALREADY)
 			mg->mg_mount_notified = 1;
 		else {
 			log_error("mount: %s", mg->mg_error_msg);
@@ -711,14 +722,27 @@ int complete_mount(int ci, int fd, const char *uuid, const char *errcode,
 	 */
 	mg->mg_ms_in_progress = NULL;
 
+	if (ms->ms_additional) {
+		/*
+		 * Our additional real mount is done whether it succeeded
+		 * or failed.  We only have to clear the additional state
+		 * and reply OK.
+		 */
+		log_debug("Completed additional mount of filesystem %s, "
+			  "error is %ld",
+			  mg->mg_uuid, err);
+		ms->ms_additional = 0;
+		err = 0;
+	}
+
 	if (!err) {
 		mg->mg_mount_fd = -1;
 		mg->mg_mount_ci = -1;
 	} else {
 		/*
 		 * remove_service() will kick off a leave if this was
-		 * the last service.  As part of the leave, it will add
-		 * reset ms_in_progress.
+		 * the last service.  As part of the leave, it will set
+		 * ms_in_progress.
 		 */
 		remove_service(mg, service);
 
@@ -833,6 +857,8 @@ void dead_mounter(int ci, int fd)
 	if (!ms)
 		return;
 
+	log_error("Mounter for filesystem %s, service %s died", mg->mg_uuid,
+		  ms->ms_service);
 	mg->mg_mount_ci = -1;
 	mg->mg_mount_fd = -1;
 
@@ -845,12 +871,26 @@ void dead_mounter(int ci, int fd)
 		return;
 
 	/*
+	 * If this was just an additional real mount, we just clear the
+	 * state.
+	 */
+	if (ms->ms_additional) {
+		log_debug("Additional mounter of filesystem %s died",
+			  mg->mg_uuid);
+		ms->ms_additional = 0;
+		mg->mg_ms_in_progress = NULL;
+		return;
+	}
+
+	/*
 	 * We haven't notified the client yet.  Thus, the client can't have
 	 * called mount(2).  Let's just abort this service.  If this was
 	 * the last service, we'll plan to leave the group.
 	 */
-	if (!mg->mg_mount_notified)
+	if (!mg->mg_mount_notified) {
 		remove_service(mg, ms->ms_service);
+		return;
+	}
 
 	/*
 	 * XXX
@@ -859,9 +899,25 @@ void dead_mounter(int ci, int fd)
 	 * expecting the client to call mount(2).  But the client died.
 	 * We don't know if that happened, so we can't leave the group.
 	 *
-	 * That's not totally true, btw.  Eventually we'll be opening the
-	 * sysfs file.  Once we have that info, we'll do better here.
+	 * We do know, though, that all the other in-progress operations
+	 * (group join, dlmc_fs_register) must have completed, or we
+	 * wouldn't have set mg_mount_notified.  Thus, we can treat it as
+	 * a live mount.  Witness the power of a fully armed and
+	 * operational mountgroup.
+	 *
+	 * We can clear the in-progress flag and allow other mounters.  If
+	 * it really mounted, it can be unmounted.  If it didn't mount, the
+	 * state can be torn down with ocfs2_hb_ctl.
+	 *
+	 * Maybe later we'll learn how to detect the mount via the kernel
+	 * and tear it down ourselves.  But not right now.
 	 */
+
+	log_error("Kernel mount of filesystem %s already entered, "
+		  "assuming it succeeded",
+		  mg->mg_uuid);
+
+	mg->mg_ms_in_progress = NULL;
 }
 
 int send_mountgroups(int ci, int fd)
