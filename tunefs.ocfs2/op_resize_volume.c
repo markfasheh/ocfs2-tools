@@ -704,7 +704,7 @@ static int resize_volume_parse_option(struct tunefs_operation *op, char *arg)
 	errcode_t err;
 	struct resize_specs *specs;
 
-	err = ocfs2_malloc0(sizeof(uint64_t), &specs);
+	err = ocfs2_malloc0(sizeof(struct resize_specs), &specs);
 	if (err) {
 		tcom_err(err, "while processing volume size options");
 		goto out;
