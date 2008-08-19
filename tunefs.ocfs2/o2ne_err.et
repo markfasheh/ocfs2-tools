@@ -79,4 +79,7 @@ ec	TUNEFS_ET_SPARSE_MISSING,
 ec	TUNEFS_ET_OPERATION_FAILED,
 	"Operation failed"
 
+ec	TUNEFS_ET_ONLINE_NOT_SUPPORTED,
+	"This online operation is not available"
+
 	end

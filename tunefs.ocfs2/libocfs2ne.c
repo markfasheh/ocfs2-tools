@@ -365,8 +365,11 @@ errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg)
 		switch (errno) {
 			case EBADF:
 			case EFAULT:
-			case ENOTTY:
 				return TUNEFS_ET_INTERNAL_FAILURE;
+				break;
+
+			case ENOTTY:
+				return TUNEFS_ET_ONLINE_NOT_SUPPORTED;
 				break;
 
 			default:
