@@ -261,14 +261,12 @@ int setup_stack(void)
 		log_debug("Local node name: %s", local_node_uname);
 	}
 
-	/* 16 := CRM_SERVICE */
 retry:
 	log_debug("Creating connection to our AIS plugin");
-	rc = saServiceConnect (&ais_fd_sync, &ais_fd_async, 16);
-	if (rc != SA_AIS_OK) {
-		log_error("Connection to our AIS plugin failed: %s (%d)",
-			  ais_error2text(rc), rc);
-	}	
+	rc = saServiceConnect (&ais_fd_sync, &ais_fd_async, CRM_SERVICE);
+	if (rc != SA_AIS_OK)
+		log_error("Connection to our AIS plugin (%d) failed: %s (%d)",
+			  CRM_SERVICE, ais_error2text(rc), rc);
 
 	switch(rc) {
 	case SA_AIS_OK:
