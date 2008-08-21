@@ -22,6 +22,7 @@
 
 #include <crm/crm.h>
 #include <crm/common/cluster.h>
+#include <fencing/stonithd_api.h>
 
 #include "ocfs2-kernel/kernel-list.h"
 #include "o2cb/o2cb.h"
@@ -35,6 +36,7 @@
 
 int			our_nodeid = 0;
 static int		pcmk_ci;
+static int		stonithd_ci;
 static char *		clustername = "pacemaker";
 extern struct list_head mounts;
 const char *stackname = "pcmk";
@@ -45,10 +47,21 @@ char *local_node_uname = NULL;
 int kill_stack_node(int nodeid)
 {
 	int error = 1;
+	stonith_ops_t st_op;
+	char *target = nodeid2name(nodeid);
 
-	log_debug("killing node %d", nodeid);
+	log_debug("killing node %d (aka. %s)", nodeid, target);
 
-	/* error = cman_kill_node(ch_admin, nodeid); */
+	if(target) {
+		st_op.timeout = 150;
+		st_op.node_uuid = NULL;
+		st_op.private_data = NULL;
+		st_op.node_name = target;
+		st_op.optype = POWEROFF;
+
+		error = stonithd_node_fence(&st_op);
+	}
+
 	if (error)
 		log_debug("Unable to kill node %d, %d %d", nodeid, error,
 			  errno);
@@ -108,6 +121,9 @@ static void dead_pcmk(int ci)
 
 void exit_stack(void)
 {
+	log_debug("closing stonithd connection");
+	stonithd_signoff();
+
 	log_debug("closing pacemaker connection");
 	if (ais_fd_async) {
 		close(ais_fd_async);
@@ -242,6 +258,120 @@ bail:
 	return;
 }
 
+static void dead_stonithd(int ci)
+{
+	if (ci != stonithd_ci) {
+		log_error("Unknown connection %d", ci);
+		return;
+	}
+
+	log_error("stonithd connection died");
+	shutdown_daemon();
+	connection_dead(ci);
+}
+
+static void process_stonithd(int ci)
+{
+	IPC_Channel *stonithd_ch = stonithd_input_IPC_channel();
+
+	while (stonithd_op_result_ready()) {
+		if (stonithd_ch->ch_status != IPC_CONNECT) {
+			/* The message which was pending for us is that
+			 * the IPC status is now IPC_DISCONNECT */
+			break;
+		}
+
+		if (ST_FAIL == stonithd_receive_ops_result(FALSE)) {
+			log_error("stonithd_receive_ops_result() failed");
+		}
+	}
+
+	if (stonithd_ch->ch_status != IPC_CONNECT)
+		dead_stonithd(stonithd_ci);
+}
+
+static void result_stonithd(stonith_ops_t *op)
+{
+	if (op == NULL) {
+		log_error("Called with a NULL op!");
+		return;
+	}
+
+	log_debug("Stonithd result: call=%d, optype=%d, node_name=%s, result=%d, node_list=%s, action=%s",
+		  op->call_id, op->optype, op->node_name, op->op_result,
+		  (char *)op->node_list, op->private_data);
+
+	switch(op->op_result) {
+		case STONITH_SUCCEEDED:
+			break;
+		case STONITH_CANNOT:
+		case STONITH_TIMEOUT:
+		case STONITH_GENERIC:
+			log_error("Stonith of %s failed (%d)",
+				  op->node_name, op->op_result);
+			break;
+		default:
+			log_error("Unsupported action result: %d", op->op_result);
+	}
+}
+
+static gboolean setup_stonith(void)
+{
+	int lpc = 0;
+	int rc = ST_OK;
+	int stonithd_fd;
+	const char *reason = NULL;
+	IPC_Channel *stonithd_ch = NULL;
+
+	for(lpc = 0; lpc < 30; lpc++) {
+		log_debug("Attempting connection to fencing daemon...");
+
+		sleep(1);
+		rc = stonithd_signon("ocfs2-tools");
+		if(rc == ST_OK)
+			break;
+
+		log_error("Sign-in failed: pausing and trying again in 2s...");
+		sleep(1);
+	}
+
+	if(rc != ST_OK) {
+		reason = "Sign-in failed";
+		goto bail;
+	}
+
+	rc = stonithd_set_stonith_ops_callback(result_stonithd);
+	if(rc != ST_OK) {
+		reason = "Setup failed";
+		goto bail;
+	}
+
+	stonithd_ch = stonithd_input_IPC_channel();
+	if(stonithd_ch == NULL) {
+		reason = "No connection";
+		goto bail;
+	}
+	stonithd_fd = stonithd_ch->ops->get_recv_select_fd(stonithd_ch);
+	if(stonithd_ch <= 0) {
+		reason = "No fd";
+		goto bail;
+	}
+
+	stonithd_ci = connection_add(stonithd_fd, process_stonithd,
+				     dead_stonithd);
+	if (stonithd_ci < 0) {
+		log_error("Unable to add stonithd client: %s",
+			  strerror(-stonithd_ci));
+		goto bail;
+	}
+
+	return TRUE;
+
+bail:
+	log_error("Unable to add stonithd client: %s", reason);
+	return FALSE;
+}
+
 int setup_stack(void)
 {
 	int retries = 0;
@@ -250,6 +380,7 @@ int setup_stack(void)
 	int rc = SA_AIS_OK;
 	struct utsname name;
 
+	crm_log_init("ocfs2_controld", LOG_INFO, FALSE, TRUE, 0, NULL);
 	crm_peer_init();
 
 	if (local_node_uname == NULL) {
@@ -300,7 +431,7 @@ retry:
 	log_debug("Local node id: %d", our_nodeid);
 
 	pcmk_ci = connection_add(ais_fd_async, process_pcmk, dead_pcmk);
-	if (pcmk_ci >= 0)
+	if (pcmk_ci >= 0 && setup_stonith())
 		return ais_fd_async;
 
 	log_error("Unable to add pacemaker client: %s", strerror(-pcmk_ci));

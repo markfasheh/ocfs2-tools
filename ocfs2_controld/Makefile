@@ -66,7 +66,7 @@ DIST_FILES =				\
 ocfs2_controld.pcmk: $(PCMK_DAEMON_OBJS) $(LIBO2CB_DEPS)
 	$(LINK) $(GLIB_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) \
 		$(OPENAIS_LIBS) $(COROSYNC_LIBS) \
-		$(DLMCONTROL_LIBS) -lcrmcluster
+		$(DLMCONTROL_LIBS) -lcrmcluster -lstonithd
 
 ocfs2_controld.cman: $(CMAN_DAEMON_OBJS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(OPENAIS_LIBS) \
