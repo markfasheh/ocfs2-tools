@@ -296,6 +296,9 @@ retry:
 	/* Requesting the current list of known nodes */
 	send_ais_text(crm_class_members, __FUNCTION__, TRUE, NULL, crm_msg_ais);
 
+	our_nodeid = get_ais_nodeid();
+	log_debug("Local node id: %d", our_nodeid);
+
 	pcmk_ci = connection_add(ais_fd_async, process_pcmk, dead_pcmk);
 	if (pcmk_ci >= 0)
 		return ais_fd_async;
