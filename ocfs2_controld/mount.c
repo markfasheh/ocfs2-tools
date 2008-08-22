@@ -17,6 +17,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <unistd.h>
 #include <inttypes.h>
 #include <errno.h>
 #include <syslog.h>
@@ -437,18 +438,11 @@ static void mount_node_down(int nodeid, void *user_data)
 	dlmcontrol_node_down(mg->mg_uuid, nodeid);
 }
 
-static void force_node_down(int nodeid, void *user_data)
-{
-	struct mountgroup *mg = user_data;
-
-	log_error("Forcing node %d down in group %s", nodeid, mg->mg_uuid);
-	mount_node_down(nodeid, mg);
-}
-
 static void finish_leave(struct mountgroup *mg)
 {
 	struct list_head *p, *n;
 	struct service *ms;
+	struct timespec ts;
 
 	if (list_empty(&mg->mg_services) &&
 	    mg->mg_ms_in_progress) {
@@ -463,13 +457,33 @@ static void finish_leave(struct mountgroup *mg)
 		goto out;
 	}
 
-	/* This leave is unexpected */
-
+	/*
+	 * This leave is unexpected.  If we weren't part of the group, we
+	 * just cleanup our state.  However, if we were part of a group, we
+	 * cannot safely continue and must die.  Fail-fast allows other
+	 * nodes to make a decision about us.
+	 */
 	log_error("Unexpected leave of group %s", mg->mg_uuid);
-	if (mg->mg_group)
-		for_each_node(mg->mg_group, force_node_down, mg);
-	else
-		log_error("No mg_group for group %s", mg->mg_uuid);
+
+
+	if (mg->mg_group) {
+		log_error("Group %s is live, exiting", mg->mg_uuid);
+
+		/*
+		 * The _exit(2) may cause a reboot, and we want the errors
+		 * to hit syslogd(8).  We can't call sync(2) which might
+		 * sleep on an ocfs2 operation.  I'd say sleeping for 10ms
+		 * is a good compromise.  Local syslogd(8) won't have time
+		 * to write to disk, but a network syslogd(8) should get
+		 * the data.
+		 */
+		ts.tv_sec = 0;
+		ts.tv_nsec = 10000000;
+		nanosleep(&ts, NULL);
+		_exit(1);
+	}
+
+	log_error("No mg_group for group %s", mg->mg_uuid);
 
 	list_for_each_safe(p, n, &mg->mg_services) {
 		ms = list_entry(p, struct service, ms_list);
