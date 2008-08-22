@@ -821,7 +821,30 @@ int remove_mount(int ci, int fd, const char *uuid, const char *service)
 	if (mg->mg_ms_in_progress) {
 		fill_error(&mg_error, EBUSY,
 			   "Another mount is in progress");
-		goto out;;
+
+		/*
+		 * If the service we're removing has ms_additional set, it
+		 * must be the filesystem service.  That means the
+		 * in_progress service is an additional real mount, but
+		 * the kernel is no longer mounted.
+		 *
+		 * As such, the in-progress service is now a new mount, and
+		 * we clear the ms_addditional flag.  It will succeed or
+		 * fail as a new mount.
+		 */
+		if (ms->ms_additional) {
+			if (ms != mg->mg_ms_in_progress)
+				log_error("Somehow ms_additional was set "
+					  "even though the in-progress "
+					  "mount isn't the filesystem "
+					  "(group %s, removing %s, "
+					  "in-progress %s",
+					  mg->mg_uuid, ms->ms_service,
+					  mg->mg_ms_in_progress->ms_service);
+			ms->ms_additional = 0;
+		}
+
+		goto out;
 	}
 
 	if ((mg->mg_mount_ci != -1) ||
