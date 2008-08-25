@@ -33,8 +33,8 @@ static errcode_t update_volume_uuid(ocfs2_filesys *fs)
 	errcode_t err;
 	unsigned char new_uuid[OCFS2_VOL_UUID_LEN];
 
-	if (!tunefs_interact("Reset the volume UUID on device \"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Reset the volume UUID on device \"%s\"? ",
+			    fs->fs_devname))
 		return 0;
 
 	uuid_generate(new_uuid);

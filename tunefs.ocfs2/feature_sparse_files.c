@@ -116,9 +116,9 @@ static int enable_sparse_files(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Enable the sparse file feature on device "
-			     "\"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Enable the sparse file feature on device "
+			    "\"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	ret = tunefs_foreach_inode(fs, truncate_to_i_size, NULL);
@@ -452,9 +452,9 @@ static int disable_sparse_files(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Disable the sparse file feature on device "
-			     "\"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Disable the sparse file feature on device "
+			    "\"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	memset(&ctxt, 0, sizeof(ctxt));

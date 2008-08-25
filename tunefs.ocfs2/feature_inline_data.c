@@ -59,9 +59,9 @@ static int enable_inline_data(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Enable the inline data feature on device "
-			     "\"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Enable the inline data feature on device "
+			    "\"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	OCFS2_SET_INCOMPAT_FEATURE(super,
@@ -178,9 +178,9 @@ static int disable_inline_data(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Disable the inline data feature on device "
-			     "\"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Disable the inline data feature on device "
+			    "\"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	memset(&ctxt, 0, sizeof(ctxt));

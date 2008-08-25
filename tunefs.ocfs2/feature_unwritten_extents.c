@@ -51,9 +51,9 @@ static int enable_unwritten_extents(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Enable the unwritten extents feature on "
-			     "device \"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Enable the unwritten extents feature on "
+			    "device \"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	OCFS2_SET_RO_COMPAT_FEATURE(super,
@@ -140,9 +140,9 @@ static int disable_unwritten_extents(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Disable the unwritten extents feature on "
-			     "device \"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Disable the unwritten extents feature on "
+			    "device \"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	ret = clear_unwritten_extents(fs);

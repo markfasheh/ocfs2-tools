@@ -661,9 +661,9 @@ static errcode_t update_volume_size(ocfs2_filesys *fs, uint64_t new_size,
 		goto out;
 	}
 
-	if (!tunefs_interact("Grow the filesystem on device \"%s\" from "
-			     "%"PRIu32" to %"PRIu32" clusters? ",
-			     fs->fs_devname, fs->fs_clusters, new_clusters))
+	if (!tools_interact("Grow the filesystem on device \"%s\" from "
+			    "%"PRIu32" to %"PRIu32" clusters? ",
+			    fs->fs_devname, fs->fs_clusters, new_clusters))
 		goto out;
 
 	if (online)

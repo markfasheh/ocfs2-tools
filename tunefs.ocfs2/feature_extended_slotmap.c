@@ -39,9 +39,9 @@ static int enable_extended_slotmap(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Enable the extended slot map feature on "
-			     "device \"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Enable the extended slot map feature on "
+			    "device \"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	OCFS2_SET_INCOMPAT_FEATURE(super,
@@ -72,9 +72,9 @@ static int disable_extended_slotmap(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Disable the extended slot map feature on "
-			     "device \"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Disable the extended slot map feature on "
+			    "device \"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super,

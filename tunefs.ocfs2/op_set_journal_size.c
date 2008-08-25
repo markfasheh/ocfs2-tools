@@ -70,9 +70,9 @@ static int set_journal_size_run(struct tunefs_operation *op,
 	ocfs2_free(&argp);
 	op->to_private = NULL;
 
-	if (!tunefs_interact("Resize journals on device \"%s\" to "
-			     "%"PRIu64"? ",
-			     fs->fs_devname, new_size))
+	if (!tools_interact("Resize journals on device \"%s\" to "
+			    "%"PRIu64"? ",
+			    fs->fs_devname, new_size))
 		goto out;
 
 	tunefs_block_signals();

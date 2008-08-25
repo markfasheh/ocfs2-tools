@@ -1,7 +1,9 @@
-TOPDIR = ..
+TOPDIR = ../..
 
 include $(TOPDIR)/Preamble.make
 
-SUBDIRS = tools-internal ocfs2-kernel o2dlm o2cb ocfs2
+HFILES = verbose.h
+
+DIST_FILES = $(HFILES)
 
 include $(TOPDIR)/Postamble.make

@@ -955,9 +955,9 @@ static errcode_t update_slot_count(ocfs2_filesys *fs, int num_slots)
 		goto out;
 	}
 
-	if (!tunefs_interact("Change the number of node slots on device "
-			     "\"%s\" from %d to %d? ",
-			     fs->fs_devname, orig_slots, num_slots))
+	if (!tools_interact("Change the number of node slots on device "
+			    "\"%s\" from %d to %d? ",
+			    fs->fs_devname, orig_slots, num_slots))
 		goto out;
 
 	tunefs_block_signals();

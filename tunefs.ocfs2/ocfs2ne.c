@@ -20,7 +20,6 @@
 #define _GNU_SOURCE /* for getopt_long and O_DIRECT */
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <inttypes.h>
 #include <getopt.h>
 #include <assert.h>
@@ -164,7 +163,7 @@ static int handle_help(struct tunefs_option *opt, char *arg)
 
 static int handle_version(struct tunefs_option *opt, char *arg)
 {
-	tunefs_version();
+	tools_version();
 	exit(0);
 	return 1;
 }
@@ -176,11 +175,11 @@ static int handle_verbosity(struct tunefs_option *opt, char *arg)
 	switch (opt->opt_option.val)
 	{
 		case 'v':
-			tunefs_verbose();
+			tools_verbose();
 			break;
 
 		case 'q':
-			tunefs_quiet();
+			tools_quiet();
 			break;
 
 		default:
@@ -197,7 +196,7 @@ static int handle_verbosity(struct tunefs_option *opt, char *arg)
 
 static int handle_interactive(struct tunefs_option *opt, char *arg)
 {
-	tunefs_interactive();
+	tools_interactive();
 	return 0;
 }
 
@@ -561,15 +560,15 @@ static struct tunefs_option *find_option_by_val(int val)
 static void print_usage(int rc)
 {
 	int i;
-	enum tunefs_verbosity_level level = VL_ERR;
+	enum tools_verbosity_level level = VL_ERR;
 
 	if (!rc)
 		level = VL_OUT;
 
 	verbosef(level, "Usage: %s [options] <device> [new-size]\n",
-		 tunefs_progname());
-	verbosef(level, "       %s -h|--help\n", tunefs_progname());
-	verbosef(level, "       %s -V|--version\n", tunefs_progname());
+		 tools_progname());
+	verbosef(level, "       %s -h|--help\n", tools_progname());
+	verbosef(level, "       %s -V|--version\n", tools_progname());
 	verbosef(level, "[options] can be any mix of:\n");
 	for (i = 0; options[i]; i++) {
 		if (options[i]->opt_help)

@@ -21,7 +21,6 @@
 #define _GNU_SOURCE /* for getopt_long and O_DIRECT */
 
 #include <stdio.h>
-#include <stdarg.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -33,7 +32,6 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <getopt.h>
-#include <ctype.h>
 #include <assert.h>
 
 #include "ocfs2/ocfs2.h"
@@ -95,10 +93,6 @@ struct tunefs_private {
 /* List of all ocfs2_filesys objects opened by tunefs_open() */
 static LIST_HEAD(fs_list);
 
-static char progname[PATH_MAX] = "(Unknown)";
-static int verbosity = 1;
-static int interactive = 0;
-
 /* Refcount for calls to tunefs_[un]block_signals() */
 static unsigned int blocked_signals_count;
 
@@ -156,144 +150,6 @@ static errcode_t tunefs_set_state(ocfs2_filesys *fs)
 	tp->tp_state = s;
 
 	return err;
-}
-
-
-/*
- * Code for interacting with the user.
- */
-
-/* If all verbosity is turned off, make sure com_err() prints nothing. */
-static void quiet_com_err(const char *prog, long errcode, const char *fmt,
-			  va_list args)
-{
-	return;
-}
-
-void tunefs_verbose(void)
-{
-	verbosity++;
-	if (verbosity == 1)
-		reset_com_err_hook();
-}
-
-void tunefs_quiet(void)
-{
-	if (verbosity == 1)
-		set_com_err_hook(quiet_com_err);
-	verbosity--;
-}
-
-static void vfverbosef(FILE *f, int level, const char *fmt, va_list args)
-{
-	if (level <= verbosity)
-		vfprintf(f, fmt, args);
-}
-
-static void fverbosef(FILE *f, int level, const char *fmt, ...)
-	__attribute__ ((format (printf, 3, 4)));
-static void fverbosef(FILE *f, int level, const char *fmt, ...)
-{
-	va_list args;
-
-	va_start(args, fmt);
-	vfverbosef(f, level, fmt, args);
-	va_end(args);
-}
-
-void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...)
-{
-	va_list args;
-	FILE *f = stderr;
-
-	if (level & VL_FLAG_STDOUT) {
-		f = stdout;
-		level &= ~VL_FLAG_STDOUT;
-	}
-
-	va_start(args, fmt);
-	vfverbosef(f, level, fmt, args);
-	va_end(args);
-}
-
-void errorf(const char *fmt, ...)
-{
-	va_list args;
-
-	va_start(args, fmt);
-	fverbosef(stderr, VL_ERR, "%s: ", progname);
-	vfverbosef(stderr, VL_ERR, fmt, args);
-	va_end(args);
-}
-
-void tcom_err(errcode_t code, const char *fmt, ...)
-{
-	va_list args;
-
-	va_start(args, fmt);
-	com_err_va(progname, code, fmt, args);
-	va_end(args);
-}
-
-static int vtunefs_interact(enum tunefs_verbosity_level level,
-			    const char *fmt, va_list args)
-{
-	char *s, buffer[NAME_MAX];
-
-	vfverbosef(stderr, level, fmt, args);
-
-	s = fgets(buffer, sizeof(buffer), stdin);
-	if (s && *s) {
-		*s = tolower(*s);
-		if (*s == 'y')
-			return 1;
-	}
-
-	return 0;
-}
-
-void tunefs_interactive(void)
-{
-	interactive = 1;
-}
-
-/* Pass this a question without a newline. */
-int tunefs_interact(const char *fmt, ...)
-{
-	int rc;
-	va_list args;
-
-	if (!interactive)
-		return 1;
-
-	va_start(args, fmt);
-	rc = vtunefs_interact(VL_ERR, fmt, args);
-	va_end(args);
-
-	return rc;
-}
-
-/* Only for "DON'T DO THIS WITHOUT REALLY CHECKING!" stuff */
-int tunefs_interact_critical(const char *fmt, ...)
-{
-	int rc;
-	va_list args;
-
-	va_start(args, fmt);
-	rc = vtunefs_interact(VL_CRIT, fmt, args);
-	va_end(args);
-
-	return rc;
-}
-
-void tunefs_version(void)
-{
-	verbosef(VL_ERR, "%s %s\n", progname, VERSION);
-}
-
-const char *tunefs_progname(void)
-{
-	return progname;
 }
 
 
@@ -774,18 +630,6 @@ static int setup_signals(void)
 	return rc;
 }
 
-
-static void setup_argv0(const char *argv0)
-{
-	char *pname;
-	char pathtmp[PATH_MAX];
-
-	/* This shouldn't care which basename(3) we get */
-	snprintf(pathtmp, PATH_MAX, "%s", argv0);
-	pname = basename(pathtmp);
-	snprintf(progname, PATH_MAX, "%s", pname);
-}
-
 void tunefs_init(const char *argv0)
 {
 	initialize_o2ne_error_table();
@@ -793,7 +637,7 @@ void tunefs_init(const char *argv0)
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
 
-	setup_argv0(argv0);
+	tools_setup_argv0(argv0);
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -1640,19 +1484,19 @@ static void shuffle_argv(int *argc, int optind, char **argv)
 
 static void tunefs_debug_usage(int error)
 {
-	FILE *f = stderr;
+	enum tools_verbosity_level level = VL_ERR;
 
 	if (!error)
-		f = stdout;
+		level = VL_OUT;
 
-	fverbosef(f, VL_ERR, "%s", usage_string ? usage_string : "(null)");
-	fverbosef(f, VL_ERR,
-		  "[opts] can be any mix of:\n"
-		  "\t-i|--interactive\n"
-		  "\t-v|--verbose (more than one increases verbosity)\n"
-		  "\t-q|--quiet (more than one decreases verbosity)\n"
-		  "\t-h|--help\n"
-		  "\t-V|--version\n");
+	verbosef(level, "%s", usage_string ? usage_string : "(null)");
+	verbosef(level,
+		 "[opts] can be any mix of:\n"
+		 "\t-i|--interactive\n"
+		 "\t-v|--verbose (more than one increases verbosity)\n"
+		 "\t-q|--quiet (more than one decreases verbosity)\n"
+		 "\t-h|--help\n"
+		 "\t-V|--version\n");
 }
 
 extern int optind, opterr, optopt;
@@ -1694,15 +1538,15 @@ static void tunefs_parse_core_options(int *argc, char ***argv, char *usage)
 				break;
 
 			case 'v':
-				tunefs_verbose();
+				tools_verbose();
 				break;
 
 			case 'q':
-				tunefs_quiet();
+				tools_quiet();
 				break;
 
 			case 'i':
-				tunefs_interactive();
+				tools_interactive();
 				break;
 
 			case '?':
@@ -1734,7 +1578,7 @@ static void tunefs_parse_core_options(int *argc, char ***argv, char *usage)
 		errorf("%s\n", error);
 
 	if (print_version)
-		tunefs_version();
+		tools_version();
 
 	if (print_usage)
 		tunefs_debug_usage(*error != '\0');

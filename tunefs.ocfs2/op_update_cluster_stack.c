@@ -32,7 +32,7 @@ static errcode_t update_cluster(ocfs2_filesys *fs)
 	errcode_t ret;
 	struct o2cb_cluster_desc desc;
 
-	if (!tunefs_interact_critical(
+	if (!tools_interact_critical(
 		"Updating on-disk cluster information "
 		"to match the running cluster.\n"
 		"DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE "

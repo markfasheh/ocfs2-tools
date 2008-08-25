@@ -21,8 +21,8 @@
 #ifndef _LIBTUNEFS_H
 #define _LIBTUNEFS_H
 
-#define PROGNAME "tunefs.ocfs2"
 #include "o2ne_err.h"
+#include "tools-internal/verbose.h"
 
 /*
  * Adding a capability to ocfs2ne is pretty simple.  You create a source
@@ -43,8 +43,8 @@
  * - It must be idempotent.  If filesystem is already in the correct
  *   state, the method should do nothing and return success.
  *
- * - It must use tunefs_interact() before writing any changes.  If the
- *   user specified -i, tunefs_interact() will ask the user before
+ * - It must use tools_interact() before writing any changes.  If the
+ *   user specified -i, tools_interact() will ask the user before
  *   proceeding.  Otherwise, it always returns "go ahead", so you can
  *   always call it safely.
  *
@@ -71,21 +71,6 @@
 #define TUNEFS_FLAG_ALLOCATION	0x08	/* Operation will use the
 					   allocator */
 
-/* Verbosity levels for verbosef/errorf/tcom_err */
-#define VL_FLAG_STDOUT	0x100	/* or'd with a level, output to stdout */
-enum tunefs_verbosity_level {
-	VL_CRIT	 	= 0,	/* Don't use this!  I still haven't
-				   thought of anything so critical that
-				   -q should be ignored */
-	VL_ERR		= 1,	/* Error messages */
-
-/* Regular output is the same level as errors */
-#define VL_OUT		(VL_ERR | VL_FLAG_STDOUT)
-
-	VL_APP		= 2,	/* Verbose application status */
-	VL_LIB		= 3, 	/* libocfs2ne status */
-	VL_DEBUG	= 4, 	/* Debugging output */
-};
 
 /* What to do with a feature */
 enum tunefs_feature_action {
@@ -252,35 +237,6 @@ errcode_t tunefs_online_ioctl(ocfs2_filesys *fs, int op, void *arg);
 errcode_t tunefs_dlm_lock(ocfs2_filesys *fs, const char *lockid,
 			  int flags, enum o2dlm_lock_level level);
 errcode_t tunefs_dlm_unlock(ocfs2_filesys *fs, char *lockid);
-
-/* Returns the program name from argv0 */
-const char *tunefs_progname(void);
-
-/* Prints the version of ocfs2ne */
-void tunefs_version(void);
-
-/* Increase and decrease the verbosity level */
-void tunefs_verbose(void);
-void tunefs_quiet(void);
-
-/* Sets the process interactive */
-void tunefs_interactive(void);
-
-/*
- * Output that honors the verbosity level.  tcom_err() is for errcode_t
- * errors.  errorf() is for all other errors.  verbosef() is for verbose
- * output.
- */
-void verbosef(enum tunefs_verbosity_level level, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
-void errorf(const char *fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
-void tcom_err(errcode_t code, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
-int tunefs_interact(const char *fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
-int tunefs_interact_critical(const char *fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
 
 /*
  * A wrapper for inode scanning.  Calls func() for each valid inode.

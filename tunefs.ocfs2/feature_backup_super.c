@@ -73,9 +73,9 @@ static int disable_backup_super(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Disable the backup superblock feature on "
-			     "device \"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Disable the backup superblock feature on "
+			    "device \"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	tunefs_block_signals();
@@ -190,9 +190,9 @@ static int enable_backup_super(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Enable the backup superblock feature on "
-			     "device \"%s\"? ",
-			     fs->fs_devname))
+	if (!tools_interact("Enable the backup superblock feature on "
+			    "device \"%s\"? ",
+			    fs->fs_devname))
 		goto out;
 
 	tunefs_block_signals();

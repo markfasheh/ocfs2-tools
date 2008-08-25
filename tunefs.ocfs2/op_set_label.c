@@ -42,11 +42,11 @@ static errcode_t update_volume_label(ocfs2_filesys *fs, const char *label)
 		return 0;
 	}
 
-	if (!tunefs_interact("Change the label on device \"%s\" from "
-			     "\"%.*s\" to \"%.*s\"? ",
-			     fs->fs_devname, OCFS2_MAX_VOL_LABEL_LEN,
-			     OCFS2_RAW_SB(fs->fs_super)->s_label,
-			     OCFS2_MAX_VOL_LABEL_LEN, label))
+	if (!tools_interact("Change the label on device \"%s\" from "
+			    "\"%.*s\" to \"%.*s\"? ",
+			    fs->fs_devname, OCFS2_MAX_VOL_LABEL_LEN,
+			    OCFS2_RAW_SB(fs->fs_super)->s_label,
+			    OCFS2_MAX_VOL_LABEL_LEN, label))
 		return 0;
 
 	memset(OCFS2_RAW_SB(fs->fs_super)->s_label, 0,

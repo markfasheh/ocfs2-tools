@@ -2,6 +2,9 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
+LIBTOOLS_INTERNAL_LIBS = -L$(TOPDIR)/libtools-internal -ltools-internal
+LIBTOOLS_INTERNAL_DEPS = $(TOPDIR)/libtools-internal/libtools-internal.a
+
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
@@ -53,13 +56,13 @@ debug_%.o : %.c
 		$(INCLUDES) $(DEFINES) \
 		-DDEBUG_EXE -o $@ -c $<
 
-debug_op_features: debug_op_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+debug_op_features: debug_op_features.o $(OCFS2NE_FEATURE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) $(LIBTOOLS_INTERNAL_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
-		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+		$(LIBO2CB_LIBS) $(LIBTOOLS_INTERNAL_LIBS) $(COM_ERR_LIBS)
 
-debug_%: debug_%.o libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+debug_%: debug_%.o libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) $(LIBTOOLS_INTERNAL_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
-		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+		$(LIBO2CB_LIBS) $(LIBTOOLS_INTERNAL_LIBS) $(COM_ERR_LIBS)
 endif
 
 LIBOCFS2NE_CFILES = libocfs2ne.c
@@ -91,9 +94,9 @@ libocfs2ne.a: $(LIBOCFS2NE_OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-ocfs2ne: $(OCFS2NE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
+ocfs2ne: $(OCFS2NE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) $(LIBTOOLS_INTERNAL_DEPS)
 	$(LINK) $(LIBOCFS2_LIBS) $(UUID_LIBS) $(LIBO2DLM_LIBS) \
-		$(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+		$(LIBO2CB_LIBS) $(LIBTOOLS_INTERNAL_LIBS) $(COM_ERR_LIBS)
 
 tunefs.ocfs2: ocfs2ne
 	ln -f ocfs2ne tunefs.ocfs2

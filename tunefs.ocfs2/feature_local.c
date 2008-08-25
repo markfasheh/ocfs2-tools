@@ -40,9 +40,9 @@ static int disable_local(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Make device \"%s\" a cluster-aware "
-			     "filesystem? ",
-			     fs->fs_devname))
+	if (!tools_interact("Make device \"%s\" a cluster-aware "
+			    "filesystem? ",
+			    fs->fs_devname))
 		goto out;
 
 	/*
@@ -97,9 +97,9 @@ static int enable_local(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tunefs_interact("Make device \"%s\" a single-node "
-			     "(non-clustered) filesystem? ",
-			     fs->fs_devname))
+	if (!tools_interact("Make device \"%s\" a single-node "
+			    "(non-clustered) filesystem? ",
+			    fs->fs_devname))
 		goto out;
 
 	sb->s_feature_incompat |=
