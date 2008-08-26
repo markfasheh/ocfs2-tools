@@ -143,6 +143,9 @@
  */
 #define OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK	0x0080
 
+/* Metadata checksum and error correction */
+#define OCFS2_FEATURE_INCOMPAT_META_ECC		0x0200
+
 /*
  * backup superblock flag is used to indicate that this volume
  * has backup superblocks.
@@ -390,6 +393,22 @@ static unsigned char ocfs2_type_by_mode[S_IFMT >> S_SHIFT] = {
  * Convenience casts
  */
 #define OCFS2_RAW_SB(dinode)		(&((dinode)->id2.i_super))
+
+/*
+ * Block checking structure.  This is used in metadata to validate the
+ * contents.  If OCFS2_FEATURE_INCOMPAT_META_ECC is not set, it is all
+ * zeros.
+ */
+struct ocfs2_block_check {
+/*00*/  __le32 bc_crc32e;       /* 802.3 Ethernet II CRC32 */
+	__le16 bc_ecc;          /* Single-error-correction parity vector.
+				   This is a simple Hamming code dependant
+				   on the blocksize.  OCFS2's maximum
+				   blocksize, 4K, requires 16 parity bits,
+				   so we fit in __le16. */
+__le16 bc_reserved1;
+/*08*/
+};
 
 /*
  * On disk extent record for OCFS2

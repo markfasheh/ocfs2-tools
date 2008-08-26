@@ -36,6 +36,7 @@ CFILES = 		\
 	alloc.c		\
 	bitmap.c	\
 	bitops.c	\
+	blockcheck.c	\
 	cached_inode.c	\
 	chain.c		\
 	chainalloc.c	\
@@ -76,6 +77,7 @@ CFILES = 		\
 
 HFILES =		\
 	bitmap.h	\
+	blockcheck.h	\
 	dir_iterate.h	\
 	dir_util.h	\
 	dlm.h		\
