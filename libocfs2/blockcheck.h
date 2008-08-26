@@ -20,8 +20,7 @@
 #ifndef _BLOCKCHECK_H
 #define _BLOCKCHECK_H
 
-extern void ocfs2_hamming_encode(unsigned char *data, unsigned int d,
-				 uint32_t *parity);
+extern uint32_t ocfs2_hamming_encode(unsigned char *data, unsigned int d);
 extern void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
 			      unsigned int fix);
 extern uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len);

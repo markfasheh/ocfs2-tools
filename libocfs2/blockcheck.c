@@ -31,7 +31,7 @@
 #include "ocfs2/byteorder.h"
 
 #include "blockcheck.h"
-
+#include "crc32table.h"
 
 
 static inline unsigned int hc_hweight32(unsigned int w)
@@ -108,11 +108,11 @@ static unsigned int calc_code_bit(unsigned int i)
 }
 
 /* XXX: Not endian safe? */
-void ocfs2_hamming_encode(unsigned char *data, unsigned int d,
-			  uint32_t *parity)
+uint32_t ocfs2_hamming_encode(unsigned char *data, unsigned int d)
 {
 	unsigned int p = calc_parity_bits(d);
 	unsigned int i, j, b;
+	uint32_t parity = 0;
 	unsigned int plist[p];  /* XXX: We use a simple array to avoid ugly
 				   bitops on *parity.  Perhaps this makes us
 				   slower? */
@@ -120,7 +120,6 @@ void ocfs2_hamming_encode(unsigned char *data, unsigned int d,
 	if (!p)
 		abort();
 
-	*parity = 0;
 	memset(plist, 0, sizeof(unsigned int) * p);
 
 	/*
@@ -160,10 +159,13 @@ void ocfs2_hamming_encode(unsigned char *data, unsigned int d,
 		}
 	}
 
-	/* Now fill *parity */
+	/* Now fill parity */
 	for (j = 0; j < p; j++)
 		if (plist[j])
-			ocfs2_set_bit(j, parity);
+			ocfs2_set_bit(j, &parity);
+
+	/* ocfs2 bitops are little-endian, return a host-endian value */
+	return le32_to_cpu(parity);
 }
 
 void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
@@ -201,20 +203,13 @@ void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
 }
 
 /*
- * table-less crc32_le() stolen from the kernel.  The kernel's slowest
- * version :-)
+ * table-based crc32_le() stolen from the kernel.  This is the one we know
+ * the filesystem is using.
  *
  * RFC 3385 shows that the 802.3 crc32 (this one) has the same properties
  * and probabilities as crc32c (which iSCSI uses) for data blocks < 2^16
  * bits.  We fit.
  */
-
-/*
- * There are multiple 16-bit CRC polynomials in common use, but this is
- * *the* standard CRC-32 polynomial, first popularized by Ethernet.
- * x^32+x^26+x^23+x^22+x^16+x^12+x^11+x^10+x^8+x^7+x^5+x^4+x^2+x^1+x^0
- */
-#define CRCPOLY_LE 0xedb88320
 
 /**
  * crc32_le() - Calculate bitwise little-endian Ethernet AUTODIN II CRC32
@@ -226,13 +221,50 @@ void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
  */
 uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len)
 {
-	int i;
-	while (len--) {
-		crc ^= *p++;
-		for (i = 0; i < 8; i++)
-			crc = (crc >> 1) ^ ((crc & 1) ? CRCPOLY_LE : 0);
+	const uint32_t      *b =(uint32_t *)p;
+	const uint32_t      *tab = crc32table_le;
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+# define DO_CRC(x) crc = tab[ (crc ^ (x)) & 255 ] ^ (crc>>8)
+#else
+# define DO_CRC(x) crc = tab[ ((crc >> 24) ^ (x)) & 255] ^ (crc<<8)
+#endif
+
+	crc = cpu_to_le32(crc);
+	/* Align it */
+	if(((long)b)&3 && len){
+		do {
+			uint8_t *p = (uint8_t *)b;
+			DO_CRC(*p++);
+			b = (void *)p;
+		} while ((--len) && ((long)b)&3 );
 	}
-	return crc;
+	if(len >= 4){
+		/* load data 32 bits wide, xor data 32 bits wide. */
+		size_t save_len = len & 3;
+	        len = len >> 2;
+		--b; /* use pre increment below(*++b) for speed */
+		do {
+			crc ^= *++b;
+			DO_CRC(0);
+			DO_CRC(0);
+			DO_CRC(0);
+			DO_CRC(0);
+		} while (--len);
+		b++; /* point to next byte(s) */
+		len = save_len;
+	}
+	/* And the last few bytes */
+	if(len){
+		do {
+			uint8_t *p = (uint8_t *)b;
+			DO_CRC(*p++);
+			b = (void *)p;
+		} while (--len);
+	}
+
+	return le32_to_cpu(crc);
+#undef DO_CRC
 }
 
 /*
@@ -244,23 +276,25 @@ uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len)
  * take care of zeroing it before calculating the check information.  If
  * bc does not point inside data, the caller must make sure any inline
  * ocfs2_block_check structures are zeroed.
+ *
+ * The data buffer must be in on-disk endian (little endian for ocfs2).
+ * bc will be filled with little-endian values and will be ready to go to
+ * disk.
  */
 void ocfs2_block_check_compute(ocfs2_filesys *fs, void *data,
 			       struct ocfs2_block_check *bc)
 {
-	uint32_t crc, ecc;
-
-	/* XXX: Caller has already swapped the inode, so this needs
-	 * endian fixup */
+	uint32_t crc;
+	uint16_t ecc;
 
 	memset(bc, 0, sizeof(struct ocfs2_block_check));
 
-	/* XXX: I think crc32_le() might need bitreverse() */
 	crc = crc32_le(~0, data, fs->fs_blocksize);
-	ocfs2_hamming_encode(data, fs->fs_blocksize, &ecc);
+	/* We know this will return max 16 bits */
+	ecc = (uint16_t)ocfs2_hamming_encode(data, fs->fs_blocksize);
 
-	bc->bc_crc32e = crc;
-	bc->bc_ecc = (uint16_t)ecc;  /* We know it's max 16 bits */
+	bc->bc_crc32e = cpu_to_le32(crc);
+	bc->bc_ecc = cpu_to_le16(ecc);  /* We know it's max 16 bits */
 }
 
 /*
@@ -268,15 +302,17 @@ void ocfs2_block_check_compute(ocfs2_filesys *fs, void *data,
  * the function will take care of zeroing bc before calculating check codes.
  * If bc is not a pointer inside data, the caller must have zeroed any
  * inline ocfs2_block_check structures.
+ *
+ * Again, the data passed in should be the on-disk endian.
  */
 errcode_t ocfs2_block_check_validate(ocfs2_filesys *fs, void *data,
 				     struct ocfs2_block_check *bc)
 {
-	struct ocfs2_block_check check = *bc;
+	struct ocfs2_block_check check;
 	uint32_t crc, ecc;
 
-	/* XXX: Caller has already swapped the inode, so this needs
-	 * endian fixup */
+	check.bc_crc32e = le32_to_cpu(bc->bc_crc32e);
+	check.bc_ecc = le16_to_cpu(bc->bc_ecc);
 
 	memset(bc, 0, sizeof(struct ocfs2_block_check));
 
@@ -286,7 +322,7 @@ errcode_t ocfs2_block_check_validate(ocfs2_filesys *fs, void *data,
 		return 0;
 
 	/* Ok, try ECC fixups */
-	ocfs2_hamming_encode(data, fs->fs_blocksize, &ecc);
+	ecc = ocfs2_hamming_encode(data, fs->fs_blocksize);
 	ocfs2_hamming_fix(data, fs->fs_blocksize, ecc ^ check.bc_ecc);
 
 	/* And check the crc32 again */
@@ -376,11 +412,11 @@ int main(int argc, char *argv[])
 	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\"\n", blkno,
 		filename);
 
-	OCFS2_SET_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
-				   OCFS2_FEATURE_INCOMPAT_META_ECC);
+	/* We want to check the on-disk version of the inode*/
+	ocfs2_swap_inode_from_cpu(di);
 	ocfs2_block_check_compute(fs, buf, &check);
 	fprintf(stdout, "crc32le: %"PRIu32", ecc: %"PRIu16"\n",
-		check.bc_crc32e, check.bc_ecc);
+		le32_to_cpu(check.bc_crc32e), le16_to_cpu(check.bc_ecc));
 
 out_free:
 	ocfs2_free(&buf);
