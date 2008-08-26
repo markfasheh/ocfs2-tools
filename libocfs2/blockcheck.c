@@ -28,6 +28,7 @@
 
 #include "ocfs2/ocfs2.h"
 #include "ocfs2/bitops.h"
+#include "ocfs2/byteorder.h"
 
 #include "blockcheck.h"
 
@@ -251,9 +252,6 @@ void ocfs2_block_check_compute(ocfs2_filesys *fs, void *data,
 
 	/* XXX: Caller has already swapped the inode, so this needs
 	 * endian fixup */
-	if (!OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
-					OCFS2_FEATURE_INCOMPAT_META_ECC))
-		return;
 
 	memset(bc, 0, sizeof(struct ocfs2_block_check));
 
@@ -279,9 +277,6 @@ errcode_t ocfs2_block_check_validate(ocfs2_filesys *fs, void *data,
 
 	/* XXX: Caller has already swapped the inode, so this needs
 	 * endian fixup */
-	if (!OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
-					OCFS2_FEATURE_INCOMPAT_META_ECC))
-		return 0;
 
 	memset(bc, 0, sizeof(struct ocfs2_block_check));
 
