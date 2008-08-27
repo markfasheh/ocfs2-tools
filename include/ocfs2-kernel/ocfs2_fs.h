@@ -497,7 +497,7 @@ struct ocfs2_truncate_log {
 struct ocfs2_extent_block
 {
 /*00*/	__u8 h_signature[8];		/* Signature for verification */
-	__le64 h_reserved1;
+	struct ocfs2_block_check h_check;	/* Error checking */
 /*10*/	__le16 h_suballoc_slot;		/* Slot suballocator this
 					   extent_header belongs to */
 	__le16 h_suballoc_bit;		/* Bit offset in suballocator
@@ -657,11 +657,12 @@ struct ocfs2_dinode {
 	__le32 i_atime_nsec;
 	__le32 i_ctime_nsec;
 	__le32 i_mtime_nsec;
-	__le32 i_attr;
+/*70*/	__le32 i_attr;
 	__le16 i_orphaned_slot;		/* Only valid when OCFS2_ORPHANED_FL
 					   was set in i_flags */
 	__le16 i_dyn_features;
-/*70*/	__le64 i_reserved2[8];
+/*78*/	struct ocfs2_block_check i_check;	/* Error checking */
+/*80*/	__le64 i_reserved2[7];
 /*B8*/	union {
 		__le64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
@@ -728,7 +729,8 @@ struct ocfs2_group_desc
 /*20*/	__le64   bg_parent_dinode;       /* dinode which owns me, in
 					   blocks */
 	__le64   bg_blkno;               /* Offset on disk, in blocks */
-/*30*/	__le64   bg_reserved2[2];
+/*30*/	struct ocfs2_block_check bg_check;	/* Error checking */
+	__le64   bg_reserved2;
 /*40*/	__u8    bg_bitmap[0];
 };
 
