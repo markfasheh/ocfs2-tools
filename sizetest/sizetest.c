@@ -102,7 +102,7 @@ static void print_ocfs2_extent_block(void)
 	START_TYPE(ocfs2_extent_block);
 
 	SHOW_OFFSET(struct ocfs2_extent_block, h_signature);
-	SHOW_OFFSET(struct ocfs2_extent_block, h_reserved1);
+	SHOW_OFFSET(struct ocfs2_extent_block, h_check);
 	SHOW_OFFSET(struct ocfs2_extent_block, h_suballoc_slot);
 	SHOW_OFFSET(struct ocfs2_extent_block, h_suballoc_bit);
 	SHOW_OFFSET(struct ocfs2_extent_block, h_fs_generation);
@@ -188,6 +188,7 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, i_mtime_nsec);
 	SHOW_OFFSET(struct ocfs2_dinode, i_attr);
 	SHOW_OFFSET(struct ocfs2_dinode, i_dyn_features);
+	SHOW_OFFSET(struct ocfs2_dinode, i_check);
 	SHOW_OFFSET(struct ocfs2_dinode, i_reserved2);
 
 	SHOW_OFFSET(struct ocfs2_dinode, id1.i_pad1);
@@ -235,6 +236,7 @@ static void print_ocfs2_group_desc(void)
 	SHOW_OFFSET(struct ocfs2_group_desc, bg_next_group);
 	SHOW_OFFSET(struct ocfs2_group_desc, bg_parent_dinode);
 	SHOW_OFFSET(struct ocfs2_group_desc, bg_blkno);
+	SHOW_OFFSET(struct ocfs2_group_desc, bg_check);
 	SHOW_OFFSET(struct ocfs2_group_desc, bg_reserved2);
 	SHOW_OFFSET(struct ocfs2_group_desc, bg_bitmap);
 	
