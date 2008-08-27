@@ -114,6 +114,10 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 		goto out_blk;
 	di = (struct ocfs2_dinode *)blk;
 
+	ret = ocfs2_validate_meta_ecc(fs, blk, &di->i_check);
+	if (ret)
+		goto out_blk;
+
 	ret = OCFS2_ET_BAD_MAGIC;
 	if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
 		   strlen(OCFS2_SUPER_BLOCK_SIGNATURE)))

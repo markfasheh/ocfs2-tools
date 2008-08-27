@@ -333,6 +333,30 @@ errcode_t ocfs2_block_check_validate(ocfs2_filesys *fs, void *data,
 	return OCFS2_ET_IO;
 }
 
+/*
+ * These are the main API.  They check the superblock flag before
+ * calling the underlying operations.
+ *
+ * They expect the buffer to be in disk format.
+ */
+void ocfs2_compute_meta_ecc(ocfs2_filesys *fs, void *data,
+			    struct ocfs2_block_check *bc)
+{
+	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)))
+		ocfs2_block_check_compute(fs, data, bc);
+}
+
+errcode_t ocfs2_validate_meta_ecc(ocfs2_filesys *fs, void *data,
+				  struct ocfs2_block_check *bc)
+{
+	errcode_t err = 0;
+
+	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)))
+		err = ocfs2_block_check_validate(fs, data, bc);
+
+	return err;
+}
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 

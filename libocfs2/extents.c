@@ -124,6 +124,10 @@ errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs,
 
 	eb = (struct ocfs2_extent_block *)blk;
 
+	ret = ocfs2_validate_meta_ecc(fs, blk, &eb->h_check);
+	if (ret)
+		goto out;
+
 	if (memcmp(eb->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
 		   strlen(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
 		ret = OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC;
@@ -179,6 +183,7 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 	eb = (struct ocfs2_extent_block *) blk;
 	ocfs2_swap_extent_block_from_cpu(eb);
 
+	ocfs2_compute_meta_ecc(fs, blk, &eb->h_check);
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)
 		goto out;

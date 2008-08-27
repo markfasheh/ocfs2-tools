@@ -256,6 +256,9 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 		goto out;
 
 	di = (struct ocfs2_dinode *)blk;
+	ret = ocfs2_validate_meta_ecc(fs, blk, &di->i_check);
+	if (ret)
+		goto out;
 
 	ret = OCFS2_ET_BAD_INODE_MAGIC;
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
@@ -297,6 +300,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 	di = (struct ocfs2_dinode *)blk;
 	ocfs2_swap_inode_from_cpu(di);
 
+	ocfs2_compute_meta_ecc(fs, blk, &di->i_check);
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)
 		goto out;
