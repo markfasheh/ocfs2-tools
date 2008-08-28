@@ -269,7 +269,23 @@ int ocfs2_check_volume(State *s)
 	}
 
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
-	if (ret) {
+	if ((ret == OCFS2_ET_UNSUPP_FEATURE) ||
+	    (ret == OCFS2_ET_RO_UNSUPP_FEATURE)) {
+		com_err(s->progname, ret, "while opening device \"%s\"",
+			s->device_name);
+		if (!s->force) {
+			fprintf(stderr,
+				"As this is an existing OCFS2 volume, it could be mounted on an another node in the cluster.\n"
+				"However, as %s is unable to read the superblock, it cannot detect if the volume is in use or not.\n"
+				"To skip this check, use --force or -F.\n",
+				s->progname);
+			return -1;
+		} else {
+			fprintf(stderr,
+				"WARNING: Cluster check disabled.\n");
+			return 1;
+		}
+	} else if (ret) {
 		if (ret == OCFS2_ET_OCFS_REV)
 			fprintf(stdout, "Overwriting existing ocfs partition.\n");
 		return 0;
