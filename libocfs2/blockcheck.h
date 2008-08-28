@@ -24,10 +24,4 @@ extern uint32_t ocfs2_hamming_encode(unsigned char *data, unsigned int d);
 extern void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
 			      unsigned int fix);
 extern uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len);
-extern void ocfs2_block_check_compute(ocfs2_filesys *fs,
-				      void *data,
-				      struct ocfs2_block_check *bc);
-extern errcode_t ocfs2_block_check_validate(ocfs2_filesys *fs,
-					    void *data,
-					    struct ocfs2_block_check *bc);
 #endif
