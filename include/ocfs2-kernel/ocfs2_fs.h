@@ -145,7 +145,7 @@
 #define OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK	0x0080
 
 /* Metadata checksum and error correction */
-#define OCFS2_FEATURE_INCOMPAT_META_ECC		0x0200
+#define OCFS2_FEATURE_INCOMPAT_META_ECC		0x0800
 
 /*
  * backup superblock flag is used to indicate that this volume
