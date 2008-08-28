@@ -230,6 +230,10 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	fprintf(out, "\tFS Generation: %u (0x%x)\n", in->i_fs_generation,
 		in->i_fs_generation);
 
+	fprintf(out, "\tCRC32: %"PRIu32"   ECC: %"PRIu16"\n",
+		le32_to_cpu(in->i_check.bc_crc32e),
+		le16_to_cpu(in->i_check.bc_ecc));
+
 	fprintf(out, "\tType: %s   Attr: 0x%x   Flags: %s\n", str, in->i_attr,
 		flags->str);
 
@@ -378,6 +382,10 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
 	fprintf (out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
 		 (uint64_t)blk->h_blkno, (uint64_t)blk->h_next_leaf_blk);
 
+	fprintf(out, "\tCRC32: %"PRIu32"   ECC: %"PRIu16"\n",
+		le32_to_cpu(blk->h_check.bc_crc32e),
+		le16_to_cpu(blk->h_check.bc_ecc));
+
 	return ;
 }
 
@@ -396,6 +404,10 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
 			 grp->bg_chain,
 			 (uint64_t)grp->bg_parent_dinode,
 			 grp->bg_generation);
+		fprintf(out, "\tCRC32: %"PRIu32"   ECC: %"PRIu16"\n",
+			le32_to_cpu(grp->bg_check.bc_crc32e),
+			le16_to_cpu(grp->bg_check.bc_ecc));
+
 		fprintf(out, "\t##   %-15s   %-6s   %-6s   %-6s   %-6s   %-6s\n",
 			"Block#", "Total", "Used", "Free", "Contig", "Size");
 	}
