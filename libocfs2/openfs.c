@@ -126,6 +126,7 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	memcpy(swapblk, blk, fs->fs_blocksize);
 	orig_super = fs->fs_super;
 	fs->fs_super = (struct ocfs2_dinode *)swapblk;
+	ocfs2_swap_inode_to_cpu(fs->fs_super);
 
 	ret = ocfs2_validate_meta_ecc(fs, blk, &di->i_check);
 
@@ -309,7 +310,8 @@ errcode_t ocfs2_open(const char *name, int flags,
 				io_set_blksize(fs->fs_io, block_size);
 				ret = ocfs2_read_super(fs, (uint64_t)superblock,
 						       NULL);
-				if (ret == OCFS2_ET_BAD_MAGIC)
+				if ((ret == OCFS2_ET_BAD_MAGIC) ||
+				    (ret == OCFS2_ET_IO))
 					continue;
 				break;
 			}
