@@ -102,8 +102,8 @@ out:
 errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 {
 	errcode_t ret;
-	char *blk;
-	struct ocfs2_dinode *di;
+	char *blk, *swapblk;
+	struct ocfs2_dinode *di, *orig_super;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &blk);
 	if (ret)
@@ -112,9 +112,26 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	ret = ocfs2_read_blocks(fs, superblock, 1, blk);
 	if (ret)
 		goto out_blk;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &swapblk);
+	if (ret)
+		goto out_blk;
 	di = (struct ocfs2_dinode *)blk;
 
+	/*
+	 * We want to use the latest superblock to validate.  We need
+	 * a local-endian copy in fs->fs_super, and the unswapped copy to
+	 * check in blk.
+	 */
+	memcpy(swapblk, blk, fs->fs_blocksize);
+	orig_super = fs->fs_super;
+	fs->fs_super = (struct ocfs2_dinode *)swapblk;
+
 	ret = ocfs2_validate_meta_ecc(fs, blk, &di->i_check);
+
+	fs->fs_super = orig_super;
+	ocfs2_free(&swapblk);
+
 	if (ret)
 		goto out_blk;
 
