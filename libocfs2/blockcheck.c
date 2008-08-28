@@ -281,7 +281,7 @@ uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len)
  * bc will be filled with little-endian values and will be ready to go to
  * disk.
  */
-void ocfs2_block_check_compute(ocfs2_filesys *fs, void *data,
+void ocfs2_block_check_compute(void *data, size_t blocksize,
 			       struct ocfs2_block_check *bc)
 {
 	uint32_t crc;
@@ -289,9 +289,9 @@ void ocfs2_block_check_compute(ocfs2_filesys *fs, void *data,
 
 	memset(bc, 0, sizeof(struct ocfs2_block_check));
 
-	crc = crc32_le(~0, data, fs->fs_blocksize);
+	crc = crc32_le(~0, data, blocksize);
 	/* We know this will return max 16 bits */
-	ecc = (uint16_t)ocfs2_hamming_encode(data, fs->fs_blocksize);
+	ecc = (uint16_t)ocfs2_hamming_encode(data, blocksize);
 
 	bc->bc_crc32e = cpu_to_le32(crc);
 	bc->bc_ecc = cpu_to_le16(ecc);  /* We know it's max 16 bits */
@@ -305,7 +305,7 @@ void ocfs2_block_check_compute(ocfs2_filesys *fs, void *data,
  *
  * Again, the data passed in should be the on-disk endian.
  */
-errcode_t ocfs2_block_check_validate(ocfs2_filesys *fs, void *data,
+errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 				     struct ocfs2_block_check *bc)
 {
 	struct ocfs2_block_check check;
@@ -317,16 +317,16 @@ errcode_t ocfs2_block_check_validate(ocfs2_filesys *fs, void *data,
 	memset(bc, 0, sizeof(struct ocfs2_block_check));
 
 	/* Fast path - if the crc32 validates, we're good to go */
-	crc = crc32_le(~0, data, fs->fs_blocksize);
+	crc = crc32_le(~0, data, blocksize);
 	if (crc == check.bc_crc32e)
 		return 0;
 
 	/* Ok, try ECC fixups */
-	ecc = ocfs2_hamming_encode(data, fs->fs_blocksize);
-	ocfs2_hamming_fix(data, fs->fs_blocksize, ecc ^ check.bc_ecc);
+	ecc = ocfs2_hamming_encode(data, blocksize);
+	ocfs2_hamming_fix(data, blocksize, ecc ^ check.bc_ecc);
 
 	/* And check the crc32 again */
-	crc = crc32_le(~0, data, fs->fs_blocksize);
+	crc = crc32_le(~0, data, blocksize);
 	if (crc == check.bc_crc32e)
 		return 0;
 
@@ -343,7 +343,7 @@ void ocfs2_compute_meta_ecc(ocfs2_filesys *fs, void *data,
 			    struct ocfs2_block_check *bc)
 {
 	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)))
-		ocfs2_block_check_compute(fs, data, bc);
+		ocfs2_block_check_compute(data, fs->fs_blocksize, bc);
 }
 
 errcode_t ocfs2_validate_meta_ecc(ocfs2_filesys *fs, void *data,
@@ -352,7 +352,7 @@ errcode_t ocfs2_validate_meta_ecc(ocfs2_filesys *fs, void *data,
 	errcode_t err = 0;
 
 	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)))
-		err = ocfs2_block_check_validate(fs, data, bc);
+		err = ocfs2_block_check_validate(data, fs->fs_blocksize, bc);
 
 	return err;
 }
@@ -438,7 +438,7 @@ int main(int argc, char *argv[])
 
 	/* We want to check the on-disk version of the inode*/
 	ocfs2_swap_inode_from_cpu(di);
-	ocfs2_block_check_compute(fs, buf, &check);
+	ocfs2_block_check_compute(buf, fs->fs_blocksize, &check);
 	fprintf(stdout, "crc32le: %"PRIu32", ecc: %"PRIu16"\n",
 		le32_to_cpu(check.bc_crc32e), le16_to_cpu(check.bc_ecc));
 
