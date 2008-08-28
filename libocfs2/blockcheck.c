@@ -308,6 +308,7 @@ void ocfs2_block_check_compute(void *data, size_t blocksize,
 errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 				     struct ocfs2_block_check *bc)
 {
+	errcode_t err = 0;
 	struct ocfs2_block_check check;
 	uint32_t crc, ecc;
 
@@ -319,7 +320,7 @@ errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 	/* Fast path - if the crc32 validates, we're good to go */
 	crc = crc32_le(~0, data, blocksize);
 	if (crc == check.bc_crc32e)
-		return 0;
+		goto out;
 
 	/* Ok, try ECC fixups */
 	ecc = ocfs2_hamming_encode(data, blocksize);
@@ -328,9 +329,15 @@ errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 	/* And check the crc32 again */
 	crc = crc32_le(~0, data, blocksize);
 	if (crc == check.bc_crc32e)
-		return 0;
+		goto out;
 
-	return OCFS2_ET_IO;
+	err = OCFS2_ET_IO;
+
+out:
+	bc->bc_crc32e = cpu_to_le32(check.bc_crc32e);
+	bc->bc_ecc = cpu_to_le16(check.bc_ecc);
+
+	return err;
 }
 
 /*
