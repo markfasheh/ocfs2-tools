@@ -70,8 +70,8 @@ errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
 		return OCFS2_ET_JOURNAL_TOO_SMALL;
 
 	memset(buf, 0, buflen);
-	jsb->s_header.h_magic     = JFS_MAGIC_NUMBER;
-	jsb->s_header.h_blocktype = JFS_SUPERBLOCK_V2;
+	jsb->s_header.h_magic     = JBD2_MAGIC_NUMBER;
+	jsb->s_header.h_blocktype = JBD2_SUPERBLOCK_V2;
 
 	jsb->s_blocksize = fs->fs_blocksize;
 	jsb->s_maxlen    = jrnl_size_in_blks;
@@ -157,7 +157,7 @@ errcode_t ocfs2_read_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 	disk = (journal_superblock_t *)blk;
 	jsb = (journal_superblock_t *)jsb_buf;
 
-	if (disk->s_header.h_magic != htonl(JFS_MAGIC_NUMBER)) {
+	if (disk->s_header.h_magic != htonl(JBD2_MAGIC_NUMBER)) {
 		ret = OCFS2_ET_BAD_JOURNAL_SUPERBLOCK_MAGIC;
 		goto out;
 	}

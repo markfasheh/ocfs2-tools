@@ -215,20 +215,20 @@ void get_publish_flag (uint32_t flag, GString *str)
 void get_journal_block_type (uint32_t jtype, GString *str)
 {
 	switch (jtype) {
-	case JFS_DESCRIPTOR_BLOCK:
-		g_string_append (str, "JFS_DESCRIPTOR_BLOCK");
+	case JBD2_DESCRIPTOR_BLOCK:
+		g_string_append (str, "JBD2_DESCRIPTOR_BLOCK");
 		break;
-	case JFS_COMMIT_BLOCK:
-		g_string_append (str, "JFS_COMMIT_BLOCK");
+	case JBD2_COMMIT_BLOCK:
+		g_string_append (str, "JBD2_COMMIT_BLOCK");
 		break;
-	case JFS_SUPERBLOCK_V1:
-		g_string_append (str, "JFS_SUPERBLOCK_V1");
+	case JBD2_SUPERBLOCK_V1:
+		g_string_append (str, "JBD2_SUPERBLOCK_V1");
 		break;
-	case JFS_SUPERBLOCK_V2:
-		g_string_append (str, "JFS_SUPERBLOCK_V2");
+	case JBD2_SUPERBLOCK_V2:
+		g_string_append (str, "JBD2_SUPERBLOCK_V2");
 		break;
-	case JFS_REVOKE_BLOCK:
-		g_string_append (str, "JFS_REVOKE_BLOCK");
+	case JBD2_REVOKE_BLOCK:
+		g_string_append (str, "JBD2_REVOKE_BLOCK");
 		break;
 	}
 
@@ -249,17 +249,17 @@ void get_tag_flag (uint32_t flags, GString *str)
 		goto done;
 	}
 
-	if (flags & JFS_FLAG_ESCAPE)
-		g_string_append (str, "JFS_FLAG_ESCAPE ");
+	if (flags & JBD2_FLAG_ESCAPE)
+		g_string_append (str, "JBD2_FLAG_ESCAPE ");
 
-	if (flags & JFS_FLAG_SAME_UUID)
-		g_string_append (str, "JFS_FLAG_SAME_UUID ");
+	if (flags & JBD2_FLAG_SAME_UUID)
+		g_string_append (str, "JBD2_FLAG_SAME_UUID ");
 
-	if (flags & JFS_FLAG_DELETED)
-		g_string_append (str, "JFS_FLAG_DELETED ");
+	if (flags & JBD2_FLAG_DELETED)
+		g_string_append (str, "JBD2_FLAG_DELETED ");
 
-	if (flags & JFS_FLAG_LAST_TAG)
-		g_string_append (str, "JFS_FLAG_LAST_TAG");
+	if (flags & JBD2_FLAG_LAST_TAG)
+		g_string_append (str, "JBD2_FLAG_LAST_TAG");
 
 done:
 	return ;

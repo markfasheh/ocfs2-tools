@@ -3,30 +3,25 @@
  *
  * Copyright (C) 2000 Andreas Dilger
  * Copyright (C) 2000 Theodore Ts'o
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004,2008 Oracle.  All rights reserved.
  *
  * Parts of the code are based on fs/jfs/journal.c by Stephen C. Tweedie
  * Copyright (C) 1999 Red Hat Software
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
- * License, version 2,  as published by the Free Software Foundation.
+ * License version 2 as published by the Free Software Foundation.
  * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  * 
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 021110-1307, USA.
- *
  * --
- * This replays the jbd journals for each slot.  First all the journals are
+ * This replays the jbd2 journals for each slot.  First all the journals are
  * walked to detect inconsistencies.  Only journals with no problems will be
  * replayed.  IO errors during replay will just result in partial journal
- * replay, just like jbd does in the kernel.  Journals that don't pass
+ * replay, just like jbd2 does in the kernel.  Journals that don't pass
  * consistency checks, like having overlapping blocks or strange fields, are
  * ignored and left for later passes to clean up.  
 
@@ -202,29 +197,31 @@ static uint64_t jwrap(journal_superblock_t *jsb, uint64_t block)
 	return block;
 }
 
-static errcode_t count_tags(ocfs2_filesys *fs, char *buf, size_t size,
-			    uint64_t *nr_ret)
+static errcode_t count_tags(ocfs2_filesys *fs, journal_superblock_t *jsb,
+			    char *buf, uint64_t *nr_ret)
 {
-	journal_block_tag_t *tag, *last;
+	char *tagp, *last;
+	journal_block_tag_t *tag;
+	int tag_bytes = journal_tag_bytes(jsb);
 	uint64_t nr = 0;
 
-	if (size < sizeof(journal_header_t) + sizeof(*tag))
+	if (jsb->s_blocksize < sizeof(journal_header_t) + tag_bytes)
 		return OCFS2_ET_BAD_JOURNAL_TAG;
 
-       	tag = (journal_block_tag_t *)&buf[sizeof(journal_header_t)];
-       	last = (journal_block_tag_t *)&buf[size - sizeof(*tag)];
+	tagp = &buf[sizeof(journal_header_t)];
+	last = &buf[jsb->s_blocksize - tag_bytes];
 
-	for(; tag <= last; tag++) {
+	for(; tagp <= last; tagp += tag_bytes) {
+		tag = (journal_block_tag_t *)tagp;
 		nr++;
 		if (ocfs2_block_out_of_range(fs, 
 					     be32_to_cpu(tag->t_blocknr)))
 			return OCFS2_ET_BAD_JOURNAL_TAG;
 
-		if (tag->t_flags & cpu_to_be32(JFS_FLAG_LAST_TAG))
+		if (tag->t_flags & cpu_to_be32(JBD2_FLAG_LAST_TAG))
 			break;
-		/* inline uuids are 16 bytes, tags are 8 */
-		if (!(tag->t_flags & cpu_to_be32(JFS_FLAG_SAME_UUID)))
-			tag += 2;
+		if (!(tag->t_flags & cpu_to_be32(JBD2_FLAG_SAME_UUID)))
+			tagp += 16;
 	}
 
 	*nr_ret = nr;
@@ -288,14 +285,16 @@ static errcode_t read_journal_block(ocfs2_filesys *fs,
 static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 			       char *buf, uint64_t seq, uint64_t *next_block)
 {
-	journal_block_tag_t tag, *tagp;
+	journal_block_tag_t tag;
+	char *tagp;
 	size_t i, num;
 	char *io_buf = NULL;
 	errcode_t err, ret = 0;
+	int tag_bytes = journal_tag_bytes(ji->ji_jsb);
 		
-	tagp = (journal_block_tag_t *)(buf + sizeof(journal_header_t));
+	tagp = buf + sizeof(journal_header_t);
 	num = (ji->ji_jsb->s_blocksize - sizeof(journal_header_t)) / 
-	      sizeof(tag);
+		tag_bytes;
 
 	ret = ocfs2_malloc_blocks(fs->fs_io, 1, &io_buf);
 	if (ret) {
@@ -303,8 +302,8 @@ static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 		goto out;
 	}
 
-	for(i = 0; i < num; i++, tagp++, (*next_block)++) {
-		memcpy(&tag, tagp, sizeof(tag));
+	for(i = 0; i < num; i++, tagp += tag_bytes, (*next_block)++) {
+		memcpy(&tag, tagp, tag_bytes);
 		tag.t_flags = be32_to_cpu(tag.t_flags);
 		tag.t_blocknr = be32_to_cpu(tag.t_blocknr);
 
@@ -322,8 +321,8 @@ static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 			goto skip_io;
 		}
 
-		if (tag.t_flags & JFS_FLAG_ESCAPE) {
-			uint32_t magic = cpu_to_be32(JFS_MAGIC_NUMBER);
+		if (tag.t_flags & JBD2_FLAG_ESCAPE) {
+			uint32_t magic = cpu_to_be32(JBD2_MAGIC_NUMBER);
 			memcpy(io_buf, &magic, sizeof(magic));
 		}
 
@@ -333,11 +332,10 @@ static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 			ret = err;
 
 	skip_io:
-		if (tag.t_flags & JFS_FLAG_LAST_TAG)
+		if (tag.t_flags & JBD2_FLAG_LAST_TAG)
 			i = num; /* be sure to increment next_block */
-		/* inline uuids are 16 bytes, tags are 8 */
-		if (!(tag.t_flags & JFS_FLAG_SAME_UUID))
-			tagp += 2;
+		if (!(tag.t_flags & JBD2_FLAG_SAME_UUID))
+			tagp += 16;
 	}
 	
 out:
@@ -389,7 +387,7 @@ static errcode_t walk_journal(ocfs2_filesys *fs, int slot,
 
 		verbosef("jh magic %x\n", jh.h_magic);
 
-		if (jh.h_magic != JFS_MAGIC_NUMBER)
+		if (jh.h_magic != JBD2_MAGIC_NUMBER)
 			break;
 
 		verbosef("jh block %x\n", jh.h_blocktype);
@@ -399,7 +397,7 @@ static errcode_t walk_journal(ocfs2_filesys *fs, int slot,
 			break;
 
 		switch(jh.h_blocktype) {
-		case JFS_DESCRIPTOR_BLOCK:
+		case JBD2_DESCRIPTOR_BLOCK:
 			verbosef("found a desc type %x\n", jh.h_blocktype);
 			/* replay the blocks described in the desc block */
 			if (recover) {
@@ -411,19 +409,19 @@ static errcode_t walk_journal(ocfs2_filesys *fs, int slot,
 			}
 
 			/* just record the blocks as used and carry on */ 
-			err = count_tags(fs, buf, jsb->s_blocksize, &nr);
+			err = count_tags(fs, jsb, buf, &nr);
 			if (err)
 				ret = err;
 			else
 				next_block = jwrap(jsb, next_block + nr);
 			break;
 
-		case JFS_COMMIT_BLOCK:
+		case JBD2_COMMIT_BLOCK:
 			verbosef("found a commit type %x\n", jh.h_blocktype);
 			next_seq++;
 			break;
 
-		case JFS_REVOKE_BLOCK:
+		case JBD2_REVOKE_BLOCK:
 			verbosef("found a revoke type %x\n", jh.h_blocktype);
 			add_revoke_records(ji, buf, jsb->s_blocksize,
 					   next_seq);

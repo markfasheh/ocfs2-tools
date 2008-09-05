@@ -53,7 +53,7 @@
 #include <o2dlm/o2dlm.h>
 #include <o2cb/o2cb.h>
 #include <ocfs2/ocfs2_err.h>
-#include <ocfs2/jbd.h>
+#include <ocfs2/jbd2.h>
 #include <ocfs2-kernel/ocfs2_lockid.h>
 
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		(OCFS2_FEATURE_INCOMPAT_SUPP | \

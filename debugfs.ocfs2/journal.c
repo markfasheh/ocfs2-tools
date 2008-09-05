@@ -27,8 +27,8 @@
 
 extern dbgfs_gbls gbls;
 
-static void scan_journal(FILE *out, char *buf, int len,
-			 uint64_t *blocknum, uint64_t *last_unknown)
+static void scan_journal(FILE *out, journal_superblock_t *jsb, char *buf,
+			 int len, uint64_t *blocknum, uint64_t *last_unknown)
 {
 	char *block;
 	char *p;
@@ -40,12 +40,12 @@ static void scan_journal(FILE *out, char *buf, int len,
 	while (len) {
 		block = p;
 		header = (journal_header_t *)block;
-		if (header->h_magic == ntohl(JFS_MAGIC_NUMBER)) {
+		if (header->h_magic == ntohl(JBD2_MAGIC_NUMBER)) {
 			if (*last_unknown) {
 				dump_jbd_unknown(out, *last_unknown, *blocknum);
 				*last_unknown = 0;
 			}
-			dump_jbd_block(out, header, *blocknum);
+			dump_jbd_block(out, jsb, header, *blocknum);
 		} else {
 			type = detect_block(block);
 			if (type < 0) {
@@ -71,6 +71,7 @@ static void scan_journal(FILE *out, char *buf, int len,
 errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out)
 {
 	char *buf = NULL;
+	char *jsb_buf = NULL;
 	char *p;
 	uint64_t blocknum;
 	uint64_t len;
@@ -81,10 +82,18 @@ errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out)
 	int buflenbits;
 	ocfs2_cached_inode *ci = NULL;
 	errcode_t ret;
+	journal_superblock_t *jsb;
 
 	ret = ocfs2_read_cached_inode(fs, blkno, &ci);
 	if (ret) {
 		com_err(gbls.cmd, ret, "while reading inode %"PRIu64, blkno);
+		goto bail;
+	}
+
+	ret = ocfs2_malloc_block(fs->fs_io, &jsb_buf);
+	if (ret) {
+		com_err(gbls.cmd, ret,
+			"while allocating journal superblock buffer");
 		goto bail;
 	}
 
@@ -98,6 +107,7 @@ errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out)
 
 	offset = 0;
 	blocknum = 0;
+	jsb = (journal_superblock_t *)jsb_buf;
 	while (1) {
 		ret = ocfs2_file_read(ci, buf, buflen, offset, &got);
 		if (ret) {
@@ -112,13 +122,15 @@ errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out)
 		len = got;
 
 		if (offset == 0) {
-			dump_jbd_superblock(out, (journal_superblock_t *)buf);
+			memcpy(jsb_buf, buf, fs->fs_blocksize);
+			dump_jbd_superblock(out, jsb);
+			ocfs2_swap_journal_superblock(jsb);
 			blocknum++;
 			p += fs->fs_blocksize;
 			len -= fs->fs_blocksize;
 		}
 
-		scan_journal(out, p, len, &blocknum, &last_unknown);
+		scan_journal(out, jsb, p, len, &blocknum, &last_unknown);
 
 		if (got < buflen)
 			break;
@@ -131,6 +143,8 @@ errcode_t read_journal(ocfs2_filesys *fs, uint64_t blkno, FILE *out)
 	}
 
 bail:
+	if (jsb_buf)
+		ocfs2_free(&jsb_buf);
 	if (buf)
 		ocfs2_free(&buf);
 	if (ci)

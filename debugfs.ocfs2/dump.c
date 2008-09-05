@@ -513,7 +513,8 @@ void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb)
  * dump_jbd_block()
  *
  */
-void dump_jbd_block (FILE *out, journal_header_t *header, uint64_t blknum)
+void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
+		     journal_header_t *header, uint64_t blknum)
 {
 	int i;
 	int j;
@@ -526,20 +527,21 @@ void dump_jbd_block (FILE *out, journal_header_t *header, uint64_t blknum)
 	uint32_t *blocknr;
 	char *uuid;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
+	int tag_bytes = journal_tag_bytes(jsb);
 
 	tagflg = g_string_new (NULL);
 
 	fprintf (out, "\tBlock %"PRIu64": ", blknum);
 
 	switch (ntohl(header->h_blocktype)) {
-	case JFS_DESCRIPTOR_BLOCK:
+	case JBD2_DESCRIPTOR_BLOCK:
 		fprintf (out, "Journal Descriptor\n");
 		dump_jbd_header (out, header);
 
 		fprintf (out, "\t%3s %-15s %-s\n", "No.", "Blocknum", "Flags");
 
 		for (i = sizeof(journal_header_t); i < (1 << sb->s_blocksize_bits);
-		     i+=sizeof(journal_block_tag_t)) {
+		     i+=tag_bytes) {
 			tag = (journal_block_tag_t *) &blk[i];
 
 			get_tag_flag(ntohl(tag->t_flags), tagflg);
@@ -547,12 +549,12 @@ void dump_jbd_block (FILE *out, journal_header_t *header, uint64_t blknum)
 				 count, ntohl(tag->t_blocknr), tagflg->str);
 			g_string_truncate (tagflg, 0);
 
-			if (tag->t_flags & htonl(JFS_FLAG_LAST_TAG))
+			if (tag->t_flags & htonl(JBD2_FLAG_LAST_TAG))
 				break;
 
 			/* skip the uuid. */
-			if (!(tag->t_flags & htonl(JFS_FLAG_SAME_UUID))) {
-				uuid = &blk[i + sizeof(journal_block_tag_t)];
+			if (!(tag->t_flags & htonl(JBD2_FLAG_SAME_UUID))) {
+				uuid = &blk[i + tag_bytes];
 				fprintf (out, "\tUUID: ");
 				for(j = 0; j < 16; j++)
 					fprintf (out, "%02X",uuid[j]);
@@ -563,12 +565,12 @@ void dump_jbd_block (FILE *out, journal_header_t *header, uint64_t blknum)
 		}
 		break;
 
-	case JFS_COMMIT_BLOCK:
+	case JBD2_COMMIT_BLOCK:
 		fprintf(out, "Journal Commit Block\n");
 		dump_jbd_header (out, header);
 		break;
 
-	case JFS_REVOKE_BLOCK:							/*TODO*/
+	case JBD2_REVOKE_BLOCK:							/*TODO*/
 		fprintf(out, "Journal Revoke Block\n");
 		dump_jbd_header (out, header);
 		revoke = (journal_revoke_header_t *) blk;
