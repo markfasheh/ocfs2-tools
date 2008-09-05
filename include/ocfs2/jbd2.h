@@ -176,12 +176,4 @@ typedef struct journal_superblock_s
 #define JBD2_KNOWN_ROCOMPAT_FEATURES	0
 #define JBD2_KNOWN_INCOMPAT_FEATURES	JBD2_FEATURE_INCOMPAT_REVOKE
 
-static inline size_t journal_tag_bytes(journal_superblock_t *jsb)
-{
-	if (JBD2_HAS_INCOMPAT_FEATURE(jsb, JBD2_FEATURE_INCOMPAT_64BIT))
-		return JBD2_TAG_SIZE64;
-	else
-		return JBD2_TAG_SIZE32;
-}
-
 #endif		/* _JBD2_H_ */

@@ -527,7 +527,7 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 	uint32_t *blocknr;
 	char *uuid;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
-	int tag_bytes = journal_tag_bytes(jsb);
+	int tag_bytes = ocfs2_journal_tag_bytes(jsb);
 
 	tagflg = g_string_new (NULL);
 
@@ -545,8 +545,10 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 			tag = (journal_block_tag_t *) &blk[i];
 
 			get_tag_flag(ntohl(tag->t_flags), tagflg);
-			fprintf (out, "\t%2d. %-15u %-s\n",
-				 count, ntohl(tag->t_blocknr), tagflg->str);
+			fprintf (out, "\t%2d. %-15"PRIu64" %-s\n",
+				 count,
+                                 ocfs2_journal_tag_block(tag, tag_bytes),
+                                 tagflg->str);
 			g_string_truncate (tagflg, 0);
 
 			if (tag->t_flags & htonl(JBD2_FLAG_LAST_TAG))

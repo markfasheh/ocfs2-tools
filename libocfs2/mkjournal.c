@@ -34,6 +34,22 @@
 #include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
 
+size_t ocfs2_journal_tag_bytes(journal_superblock_t *jsb)
+{
+	if (JBD2_HAS_INCOMPAT_FEATURE(jsb, JBD2_FEATURE_INCOMPAT_64BIT))
+		return JBD2_TAG_SIZE64;
+	else
+		return JBD2_TAG_SIZE32;
+}
+
+uint64_t ocfs2_journal_tag_block(journal_block_tag_t *tag, size_t tag_bytes)
+{
+	uint64_t blockno = be32_to_cpu(tag->t_blocknr);
+	if (tag_bytes > JBD2_TAG_SIZE32)
+		blockno |= (uint64_t)be32_to_cpu(tag->t_blocknr_high) << 32;
+	return blockno;
+}
+
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb)
 {
 	if (cpu_is_big_endian)

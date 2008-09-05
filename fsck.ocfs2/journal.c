@@ -202,7 +202,7 @@ static errcode_t count_tags(ocfs2_filesys *fs, journal_superblock_t *jsb,
 {
 	char *tagp, *last;
 	journal_block_tag_t *tag;
-	int tag_bytes = journal_tag_bytes(jsb);
+	int tag_bytes = ocfs2_journal_tag_bytes(jsb);
 	uint64_t nr = 0;
 
 	if (jsb->s_blocksize < sizeof(journal_header_t) + tag_bytes)
@@ -215,7 +215,7 @@ static errcode_t count_tags(ocfs2_filesys *fs, journal_superblock_t *jsb,
 		tag = (journal_block_tag_t *)tagp;
 		nr++;
 		if (ocfs2_block_out_of_range(fs, 
-					     be32_to_cpu(tag->t_blocknr)))
+					     ocfs2_journal_tag_block(tag, tag_bytes)))
 			return OCFS2_ET_BAD_JOURNAL_TAG;
 
 		if (tag->t_flags & cpu_to_be32(JBD2_FLAG_LAST_TAG))
@@ -285,12 +285,14 @@ static errcode_t read_journal_block(ocfs2_filesys *fs,
 static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 			       char *buf, uint64_t seq, uint64_t *next_block)
 {
-	journal_block_tag_t tag;
 	char *tagp;
+	journal_block_tag_t *tag;
 	size_t i, num;
 	char *io_buf = NULL;
 	errcode_t err, ret = 0;
-	int tag_bytes = journal_tag_bytes(ji->ji_jsb);
+	int tag_bytes = ocfs2_journal_tag_bytes(ji->ji_jsb);
+	uint32_t t_flags;
+	uint64_t block64;
 		
 	tagp = buf + sizeof(journal_header_t);
 	num = (ji->ji_jsb->s_blocksize - sizeof(journal_header_t)) / 
@@ -303,16 +305,16 @@ static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 	}
 
 	for(i = 0; i < num; i++, tagp += tag_bytes, (*next_block)++) {
-		memcpy(&tag, tagp, tag_bytes);
-		tag.t_flags = be32_to_cpu(tag.t_flags);
-		tag.t_blocknr = be32_to_cpu(tag.t_blocknr);
+		tag = (journal_block_tag_t *)tagp;
+		t_flags = be32_to_cpu(tag->t_flags);
+		block64 = ocfs2_journal_tag_block(tag, tag_bytes);
 
 		*next_block = jwrap(ji->ji_jsb, *next_block);
 
 		verbosef("recovering journal block %"PRIu64" to disk block "
-			 "%"PRIu32"\n", *next_block, tag.t_blocknr);	
+			 "%"PRIu64"\n", *next_block, block64);
 
-		if (revoke_this_block(&ji->ji_revoke, tag.t_blocknr, seq))
+		if (revoke_this_block(&ji->ji_revoke, block64, seq))
 			goto skip_io;
 
 		err = read_journal_block(fs, ji, *next_block, io_buf, 1);
@@ -321,20 +323,19 @@ static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 			goto skip_io;
 		}
 
-		if (tag.t_flags & JBD2_FLAG_ESCAPE) {
+		if (t_flags & JBD2_FLAG_ESCAPE) {
 			uint32_t magic = cpu_to_be32(JBD2_MAGIC_NUMBER);
 			memcpy(io_buf, &magic, sizeof(magic));
 		}
 
-		err = io_write_block(fs->fs_io, tag.t_blocknr, 1, 
-				     io_buf);
+		err = io_write_block(fs->fs_io, block64, 1, io_buf);
 		if (err)
 			ret = err;
 
 	skip_io:
-		if (tag.t_flags & JBD2_FLAG_LAST_TAG)
+		if (t_flags & JBD2_FLAG_LAST_TAG)
 			i = num; /* be sure to increment next_block */
-		if (!(tag.t_flags & JBD2_FLAG_SAME_UUID))
+		if (!(t_flags & JBD2_FLAG_SAME_UUID))
 			tagp += 16;
 	}
 	
