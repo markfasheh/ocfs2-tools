@@ -165,6 +165,16 @@ errcode_t ocfs2_read_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 	memcpy(jsb_buf, blk, fs->fs_blocksize);
 	ocfs2_swap_journal_superblock(jsb);
 
+	if (JBD2_HAS_INCOMPAT_FEATURE(jsb, ~JBD2_KNOWN_INCOMPAT_FEATURES)) {
+		ret = OCFS2_ET_UNSUPP_FEATURE;
+		goto out;
+	}
+
+	if (JBD2_HAS_RO_COMPAT_FEATURE(jsb, ~JBD2_KNOWN_ROCOMPAT_FEATURES)) {
+		ret = OCFS2_ET_RO_UNSUPP_FEATURE;
+		goto out;
+	}
+
 	ret = 0;
 out:
 	ocfs2_free(&blk);
