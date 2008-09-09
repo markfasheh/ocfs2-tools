@@ -289,6 +289,10 @@ errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 					 char *jsb_buf);
 errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
 			     uint32_t clusters);
+errcode_t ocfs2_journal_clear_features(journal_superblock_t *jsb,
+				       ocfs2_fs_options *features);
+errcode_t ocfs2_journal_set_features(journal_superblock_t *jsb,
+				     ocfs2_fs_options *features);
 extern size_t ocfs2_journal_tag_bytes(journal_superblock_t *jsb);
 extern uint64_t ocfs2_journal_tag_block(journal_block_tag_t *tag,
 					size_t tag_bytes);

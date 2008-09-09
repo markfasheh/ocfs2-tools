@@ -50,6 +50,58 @@ uint64_t ocfs2_journal_tag_block(journal_block_tag_t *tag, size_t tag_bytes)
 	return blockno;
 }
 
+/* Returns true if we support these journal features */
+static int ocfs2_journal_check_available_features(journal_superblock_t *jsb,
+						  ocfs2_fs_options *features)
+{
+	/* ocfs2 has never supported a superblock other than _V2 */
+	if (jsb->s_header.h_blocktype != JBD2_SUPERBLOCK_V2)
+		return 0;
+
+	if ((features->opt_compat & JBD2_KNOWN_COMPAT_FEATURES) !=
+	    features->opt_compat)
+		return 0;
+
+	if ((features->opt_ro_compat & JBD2_KNOWN_ROCOMPAT_FEATURES) !=
+	    features->opt_ro_compat)
+		return 0;
+
+	if ((features->opt_incompat & JBD2_KNOWN_INCOMPAT_FEATURES) !=
+	    features->opt_incompat)
+		return 0;
+
+	return 1;
+}
+
+errcode_t ocfs2_journal_set_features(journal_superblock_t *jsb,
+				     ocfs2_fs_options *features)
+{
+
+	if (!ocfs2_journal_check_available_features(jsb, features))
+		return OCFS2_ET_UNSUPP_FEATURE;
+
+
+	jsb->s_feature_compat |= features->opt_compat;
+	jsb->s_feature_ro_compat |= features->opt_ro_compat;
+	jsb->s_feature_incompat |= features->opt_incompat;
+
+	return 0;
+}
+
+errcode_t ocfs2_journal_clear_features(journal_superblock_t *jsb,
+				       ocfs2_fs_options *features)
+{
+
+	if (!ocfs2_journal_check_available_features(jsb, features))
+		return OCFS2_ET_UNSUPP_FEATURE;
+
+	jsb->s_feature_compat &= ~(features->opt_compat);
+	jsb->s_feature_ro_compat &= ~(features->opt_ro_compat);
+	jsb->s_feature_incompat &= ~(features->opt_incompat);
+
+	return 0;
+}
+
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb)
 {
 	if (cpu_is_big_endian)
