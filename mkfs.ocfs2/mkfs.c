@@ -1875,7 +1875,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	if (s->hb_dev) {
 		s->feature_flags.opt_incompat =
 				 	OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV;
-		s->feature_flags.opt_compat = 0;
+		s->feature_flags.opt_compat = OCFS2_FEATURE_COMPAT_JBD2_SB;
 		s->feature_flags.opt_ro_compat = 0;
 	}
 
