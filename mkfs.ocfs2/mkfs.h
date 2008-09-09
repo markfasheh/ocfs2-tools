@@ -212,6 +212,7 @@ struct _State {
 	unsigned int initial_slots;
 
 	uint64_t journal_size_in_bytes;
+	int journal64;
 
 	char *vol_label;
 	char *device_name;

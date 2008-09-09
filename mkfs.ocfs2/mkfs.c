@@ -28,7 +28,8 @@
 static State *get_state(int argc, char **argv);
 static int get_number(char *arg, uint64_t *res);
 static void parse_journal_opts(char *progname, const char *opts,
-			       uint64_t *journal_size_in_bytes);
+			       uint64_t *journal_size_in_bytes,
+			       int *journal64);
 static void usage(const char *progname);
 static void version(const char *progname);
 static void fill_defaults(State *s);
@@ -545,6 +546,7 @@ get_state(int argc, char **argv)
 	int ret;
 	uint64_t val;
 	uint64_t journal_size_in_bytes = 0;
+	int journal64 = 0;
 	enum ocfs2_fs_types fs_type = FS_DEFAULT;
 	int mount = -1;
 	int no_backup_super = -1;
@@ -667,7 +669,8 @@ get_state(int argc, char **argv)
 
 		case 'J':
 			parse_journal_opts(progname, optarg,
-					   &journal_size_in_bytes);
+					   &journal_size_in_bytes,
+					   &journal64);
 			break;
 
 		case 'H':
@@ -811,6 +814,7 @@ get_state(int argc, char **argv)
 	s->format_time   = time(NULL);
 
 	s->journal_size_in_bytes = journal_size_in_bytes;
+	s->journal64 = journal64;
 
 	s->hb_dev = hb_dev;
 
@@ -909,21 +913,29 @@ get_number(char *arg, uint64_t *res)
 /* derived from e2fsprogs */
 static void
 parse_journal_opts(char *progname, const char *opts,
-		   uint64_t *journal_size_in_bytes)
+		   uint64_t *journal_size_in_bytes, int *journal64)
 {
 	char *options, *token, *next, *p, *arg;
 	int ret, journal_usage = 0;
 	uint64_t val;
+	int invert;
 
 	options = strdup(opts);
 
 	for (token = options; token && *token; token = next) {
 		p = strchr(token, ',');
 		next = NULL;
+		invert = 0;
 
 		if (p) {
 			*p = '\0';
 			next = p + 1;
+		}
+
+		arg = strstr(token, "no");
+		if (arg == token) {
+			invert = 1;
+			token += strlen("no");
 		}
 
 		arg = strchr(token, '=');
@@ -934,7 +946,7 @@ parse_journal_opts(char *progname, const char *opts,
 		}
 
 		if (strcmp(token, "size") == 0) {
-			if (!arg) {
+			if (!arg || invert) {
 				journal_usage++;
 				continue;
 			}
@@ -951,6 +963,18 @@ parse_journal_opts(char *progname, const char *opts,
 			}
 
 			*journal_size_in_bytes = val;
+		} else if (strcmp(token, "block32") == 0) {
+			if (arg) {
+				journal_usage++;
+				continue;
+			}
+			*journal64 = invert;
+		} else if (strcmp(token, "block64") == 0) {
+			if (arg) {
+				journal_usage++;
+				continue;
+			}
+			*journal64 = !invert;
 		} else
 			journal_usage++;
 	}
@@ -959,7 +983,9 @@ parse_journal_opts(char *progname, const char *opts,
 		com_err(progname, 0,
 			"Bad journal options specified. Valid journal "
 			"options are:\n"
-			"\tsize=<journal size>\n");
+			"\tsize=<journal size>\n"
+			"\t[no]block32\n"
+			"\t[no]block64\n");
 		exit(1);
 	}
 
@@ -1824,13 +1850,21 @@ check_32bit_blocks(State *s)
 {
 	uint64_t max = UINT32_MAX;
        
+	if (s->journal64)
+		return;
+
 	if (s->volume_size_in_blocks <= max)
 		return;
 
 	fprintf(stderr, "ERROR: jbd can only store block numbers in 32 bits. "
-		"%s can hold %"PRIu64" blocks which overflows this limit. "
-		"Consider increasing the block size or decreasing the device "
-		"size.\n", s->device_name, s->volume_size_in_blocks);
+		"%s can hold %"PRIu64" blocks which overflows this limit. If "
+		"you have a new enough Ocfs2 with JBD2 support, you can try "
+		"formatting with the \"-Jblock64\" option to turn on support "
+		"for this size block device.\n"
+		"Otherwise, consider increasing the block size or "
+		"decreasing the device size.\n",
+		s->device_name, s->volume_size_in_blocks);
+
 	exit(1);
 }
 
@@ -2378,7 +2412,8 @@ static void format_journals(State *s)
 	ocfs2_filesys *fs = NULL;
 	char jrnl_file[40];
 	ocfs2_fs_options features = {
-		.opt_incompat = 0,
+		.opt_incompat =
+			s->journal64 ? JBD2_FEATURE_INCOMPAT_64BIT : 0,
 	};
 
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);

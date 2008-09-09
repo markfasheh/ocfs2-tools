@@ -47,6 +47,24 @@ options are comma separated, and may take an argument using the equals
 Create a journal of size \fIjournal\-size\fR. Minimum size is 4M.
 If omitted, a value is heuristically determined by the file system size.
 .RE
+.RS 1.2i
+.TP
+\fBblock32\fR
+Use a standard 32bit journal.  The journal will be able to access up to
+2^32-1 blocks.  This is the default.  It has been the journal format for
+\fIOCFS2\fR volumes since the beginning.  The journal is compatible with
+all versions of \fIOCFS2\fR.  Prepending \fBno\fR is equivalent to the
+\fBblock64\fR journal option.
+.RE
+.RS 1.2i
+.TP
+\fBblock64\fR
+Use a 64bit journal.  The journal will be able to access up to 2^64-1
+blocks.  This allows large filesystems that can extend to the
+theoretical limits of \fIOCFS2\fR.  It requires a new-enough filesystem
+driver based on JBD2.  Prepending \fBno\fR is equivalent to the
+\fBblock32\fR journal option.
+.RE
 
 .TP
 \fB\-L, \-\-label\fR \fIvolume\-label\fR
