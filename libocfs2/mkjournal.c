@@ -166,10 +166,12 @@ errcode_t ocfs2_init_journal_superblock(ocfs2_filesys *fs, char *buf,
  */
 static errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 						 uint32_t size,
+						 ocfs2_fs_options *features,
 						 char  **ret_jsb)
 {
 	errcode_t retval;
 	char *buf = NULL;
+	journal_superblock_t *jsb;
 
 	*ret_jsb = NULL;
 
@@ -177,6 +179,11 @@ static errcode_t ocfs2_create_journal_superblock(ocfs2_filesys *fs,
 		goto bail;
 
 	retval = ocfs2_init_journal_superblock(fs, buf, fs->fs_blocksize, size);
+	if (retval)
+		goto bail;
+
+	jsb = (journal_superblock_t *)buf;
+	retval = ocfs2_journal_set_features(jsb, features);
 	if (retval)
 		goto bail;
 
@@ -287,7 +294,8 @@ out:
 }
 
 static errcode_t ocfs2_format_journal(ocfs2_filesys *fs,
-				      ocfs2_cached_inode *ci)
+				      ocfs2_cached_inode *ci,
+				      ocfs2_fs_options *features)
 {
 	errcode_t ret = 0;
 	char *buf = NULL, *jsb_buf = NULL;
@@ -312,7 +320,8 @@ static errcode_t ocfs2_format_journal(ocfs2_filesys *fs,
 	}
 
 	jrnl_blocks = ocfs2_clusters_to_blocks(fs, ci->ci_inode->i_clusters);
-	ret = ocfs2_create_journal_superblock(fs, jrnl_blocks, &jsb_buf);
+	ret = ocfs2_create_journal_superblock(fs, jrnl_blocks, features,
+					      &jsb_buf);
 	if (ret)
 		goto out;
 
@@ -332,7 +341,7 @@ out:
 }
 
 errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
-			     uint32_t clusters)
+			     uint32_t clusters, ocfs2_fs_options *features)
 {
 	errcode_t ret = 0;
 	ocfs2_cached_inode *ci = NULL;
@@ -396,7 +405,7 @@ errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
 		}
 	}
 
-	ret = ocfs2_format_journal(fs, ci);
+	ret = ocfs2_format_journal(fs, ci, features);
 out:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);

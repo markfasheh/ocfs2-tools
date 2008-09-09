@@ -288,7 +288,7 @@ errcode_t ocfs2_read_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 					 char *jsb_buf);
 errcode_t ocfs2_make_journal(ocfs2_filesys *fs, uint64_t blkno,
-			     uint32_t clusters);
+			     uint32_t clusters, ocfs2_fs_options *features);
 errcode_t ocfs2_journal_clear_features(journal_superblock_t *jsb,
 				       ocfs2_fs_options *features);
 errcode_t ocfs2_journal_set_features(journal_superblock_t *jsb,

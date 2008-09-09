@@ -758,6 +758,9 @@ errcode_t o2fsck_check_journals(o2fsck_state *ost)
 	char fname[OCFS2_MAX_FILENAME_LEN];
 	uint16_t i, max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	ocfs2_cached_inode *ci = NULL;
+	ocfs2_fs_options features = {
+		.opt_incompat = 0,
+	};
 
 	for (i = 0; i < max_slots; i++) {
 		ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, i,
@@ -792,7 +795,7 @@ errcode_t o2fsck_check_journals(o2fsck_state *ost)
 			    fname))
 			continue;
 
-		ret = ocfs2_make_journal(fs, blkno, num_clusters);
+		ret = ocfs2_make_journal(fs, blkno, num_clusters, &features);
 		if (ret)
 			goto out;
 	}

@@ -77,6 +77,9 @@ struct tunefs_filesystem_state {
 
 	/* Size of the largest journal seen in tunefs_journal_check() */
 	uint32_t	ts_journal_clusters;
+
+	/* Journal feature bits found during tunefs_journal_check() */
+	ocfs2_fs_options	ts_journal_features;
 };
 
 struct tunefs_private {
@@ -387,7 +390,8 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		verbosef(VL_LIB,
 			 "Resizing journal \"%s\" to %"PRIu32" clusters\n",
 			 jrnl_file, num_clusters);
-		ret = ocfs2_make_journal(fs, blkno, num_clusters);
+		ret = ocfs2_make_journal(fs, blkno, num_clusters,
+					 &state->ts_journal_features);
 		if (ret) {
 			verbosef(VL_LIB,
 				 "%s while resizing \"%s\" at block "
@@ -1054,9 +1058,10 @@ static errcode_t tunefs_close_bitmap_check(ocfs2_filesys *fs)
 static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 {
 	errcode_t ret;
-	char *buf = NULL;
-	uint64_t blkno;
-	struct ocfs2_dinode *di;
+	char *jsb_buf = NULL;
+	ocfs2_cached_inode *ci = NULL;
+	uint64_t blkno, contig;
+	journal_superblock_t *jsb;
 	int i, dirty = 0;
 	uint16_t max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	struct tunefs_private *tp = to_private(fs);
@@ -1068,7 +1073,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 
 	verbosef(VL_LIB, "Checking for dirty journals\n");
 
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	ret = ocfs2_malloc_block(fs->fs_io, &jsb_buf);
 	if (ret) {
 		verbosef(VL_LIB,
 			"%s while allocating a block during journal "
@@ -1088,7 +1093,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 			goto bail;
 		}
 
-		ret = ocfs2_read_inode(fs, blkno, buf);
+		ret = ocfs2_read_cached_inode(fs, blkno, &ci);
 		if (ret) {
 			verbosef(VL_LIB,
 				 "%s while reading inode %"PRIu64" during "
@@ -1097,12 +1102,12 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 			goto bail;
 		}
 
-		di = (struct ocfs2_dinode *)buf;
+		state->ts_journal_clusters =
+			ocfs2_max(state->ts_journal_clusters,
+				  ci->ci_inode->i_clusters);
 
-		if (di->i_clusters > state->ts_journal_clusters)
-			state->ts_journal_clusters = di->i_clusters;
-
-		dirty = di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL;
+		dirty = (ci->ci_inode->id1.journal1.ij_flags &
+			 OCFS2_JOURNAL_DIRTY_FL);
 		if (dirty) {
 			ret = TUNEFS_ET_JOURNAL_DIRTY;
 			verbosef(VL_LIB,
@@ -1111,6 +1116,27 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 				 i);
 			break;
 		}
+
+		ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &blkno, &contig, NULL);
+		if (!ret)
+			ret = ocfs2_read_journal_superblock(fs, blkno,
+							    jsb_buf);
+		if (ret) {
+			verbosef(VL_LIB,
+				 "%s while reading journal superblock "
+				 "for inode %"PRIu64" during journal "
+				 "check",
+				 error_message(ret), ci->ci_blkno);
+			goto bail;
+		}
+
+		jsb = (journal_superblock_t *)jsb_buf;
+		state->ts_journal_features.opt_compat |=
+			jsb->s_feature_compat;
+		state->ts_journal_features.opt_ro_compat |=
+			jsb->s_feature_ro_compat;
+		state->ts_journal_features.opt_incompat |=
+			jsb->s_feature_incompat;
 	}
 
 	/*
@@ -1122,8 +1148,10 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 		state->ts_journal_clusters = 0;
 
 bail:
-	if (buf)
-		ocfs2_free(&buf);
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+	if (jsb_buf)
+		ocfs2_free(&jsb_buf);
 
 	return ret;
 }

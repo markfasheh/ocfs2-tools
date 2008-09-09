@@ -2377,6 +2377,9 @@ static void format_journals(State *s)
 	uint64_t blkno;
 	ocfs2_filesys *fs = NULL;
 	char jrnl_file[40];
+	ocfs2_fs_options features = {
+		.opt_incompat = 0,
+	};
 
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
@@ -2399,7 +2402,8 @@ static void format_journals(State *s)
 			goto error;
 		}
 
-		ret = ocfs2_make_journal(fs, blkno, journal_size_in_clusters);
+		ret = ocfs2_make_journal(fs, blkno, journal_size_in_clusters,
+					 &features);
 		if (ret) {
 			com_err(s->progname, ret,
 				"while formatting journal \"%.*s\"",
