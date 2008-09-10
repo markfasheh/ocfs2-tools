@@ -88,7 +88,7 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 
 	fprintf(out, "\tMax Node Slots: %u\n", sb->s_max_slots);
 
-	fprintf(out, "\tLabel: %s\n", sb->s_label);
+	fprintf(out, "\tLabel: %.*s\n", OCFS2_MAX_VOL_LABEL_LEN, sb->s_label);
 	fprintf(out, "\tUUID: ");
 	for (i = 0; i < 16; i++)
 		fprintf(out, "%02X", sb->s_uuid[i]);
