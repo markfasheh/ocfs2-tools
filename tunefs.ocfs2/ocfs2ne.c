@@ -200,6 +200,30 @@ static int handle_interactive(struct tunefs_option *opt, char *arg)
 	return 0;
 }
 
+static int handle_answer(struct tunefs_option *opt, char *arg)
+{
+	int rc = 0;
+
+	switch (opt->opt_option.val)
+	{
+		case 'y':
+			tools_interactive_yes();
+			break;
+
+		case 'n':
+			tools_interactive_no();
+			break;
+
+		default:
+			errorf("Invalid option to handle_answer: %c\n",
+			       opt->opt_option.val);
+			rc = 1;
+			break;
+	}
+
+	return rc;
+}
+
 /*
  * Plain operations just want to have their ->to_parse_option() called.
  * Their tunefs_option can use this function if they set opt_op to the
@@ -400,6 +424,24 @@ static struct tunefs_option interactive_option = {
 	.opt_handle	= handle_interactive,
 };
 
+static struct tunefs_option yes_option = {
+	.opt_option	= {
+		.name	= "yes",
+		.val	= 'y',
+	},
+	.opt_help	= "-y|--yes",
+	.opt_handle	= handle_answer,
+};
+
+static struct tunefs_option no_option = {
+	.opt_option	= {
+		.name	= "no",
+		.val	= 'n',
+	},
+	.opt_help	= "-n|--no",
+	.opt_handle	= handle_answer,
+};
+
 static struct tunefs_option query_option = {
 	.opt_option	= {
 		.name		= "query",
@@ -525,6 +567,8 @@ static struct tunefs_option *options[] = {
 	&backup_super_option,
 	&features_option,
 	&update_cluster_stack_option,
+	&yes_option,
+	&no_option,
 	NULL,
 };
 

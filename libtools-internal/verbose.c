@@ -32,6 +32,7 @@
 static char progname[PATH_MAX] = "(Unknown)";
 static int verbosity = 1;
 static int interactive = 0;
+static int interactive_answer = 0;
 
 void tools_setup_argv0(const char *argv0)
 {
@@ -123,7 +124,13 @@ static int vtools_interact(enum tools_verbosity_level level,
 
 	vfverbosef(stderr, level, fmt, args);
 
-	s = fgets(buffer, sizeof(buffer), stdin);
+	if (interactive_answer) {
+		fverbosef(stderr, level, "%c\n", interactive_answer);
+		sprintf(buffer, "%c", interactive_answer);
+		s = buffer;
+	} else
+		s = fgets(buffer, sizeof(buffer), stdin);
+
 	if (s && *s) {
 		*s = tolower(*s);
 		if (*s == 'y')
@@ -136,6 +143,16 @@ static int vtools_interact(enum tools_verbosity_level level,
 void tools_interactive(void)
 {
 	interactive = 1;
+}
+
+void tools_interactive_yes(void)
+{
+	interactive_answer = 'y';
+}
+
+void tools_interactive_no(void)
+{
+	interactive_answer = 'n';
 }
 
 /* Pass this a question without a newline. */

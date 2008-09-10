@@ -52,6 +52,9 @@ void tools_quiet(void);
 
 /* Sets the process interactive */
 void tools_interactive(void);
+/* Sets automatic answers for interactive questions */
+void tools_interactive_yes(void);
+void tools_interactive_no(void);
 
 /*
  * Output that honors the verbosity level.  tcom_err() is for errcode_t
