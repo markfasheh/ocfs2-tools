@@ -174,6 +174,7 @@ typedef struct journal_superblock_s
 /* Features known to this kernel version: */
 #define JBD2_KNOWN_COMPAT_FEATURES	0
 #define JBD2_KNOWN_ROCOMPAT_FEATURES	0
-#define JBD2_KNOWN_INCOMPAT_FEATURES	JBD2_FEATURE_INCOMPAT_REVOKE
+#define JBD2_KNOWN_INCOMPAT_FEATURES	(JBD2_FEATURE_INCOMPAT_REVOKE \
+					 | JBD2_FEATURE_INCOMPAT_64BIT)
 
 #endif		/* _JBD2_H_ */
