@@ -1899,7 +1899,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	 * "s->no_backup_super" according to the features in get_state,
 	 * so it is safe to clear the flag here.
 	 */
-	s->feature_flags.opt_compat &= !OCFS2_FEATURE_COMPAT_BACKUP_SB;
+	s->feature_flags.opt_compat &= ~OCFS2_FEATURE_COMPAT_BACKUP_SB;
 
 	di->id2.i_super.s_feature_incompat = s->feature_flags.opt_incompat;
 	di->id2.i_super.s_feature_compat = s->feature_flags.opt_compat;
