@@ -97,6 +97,7 @@ extern struct tunefs_operation set_journal_size_op;
 extern struct tunefs_operation set_label_op;
 extern struct tunefs_operation set_slot_count_op;
 extern struct tunefs_operation update_cluster_stack_op;
+extern struct tunefs_operation cloned_volume_op;
 
 static LIST_HEAD(tunefs_run_list);
 
@@ -480,6 +481,16 @@ static struct tunefs_option update_cluster_stack_option = {
 	.opt_op		= &update_cluster_stack_op,
 };
 
+static struct tunefs_option cloned_volume_option = {
+	.opt_option	= {
+		.name		= "cloned-volume",
+		.val		= CHAR_MAX,
+		.has_arg	= 2,
+	},
+	.opt_help	= "   --cloned-volume [new-label]",
+	.opt_op		= &cloned_volume_op,
+};
+
 static struct tunefs_option set_slot_count_option = {
 	.opt_option	= {
 		.name		= "node-slots",
@@ -567,6 +578,7 @@ static struct tunefs_option *options[] = {
 	&backup_super_option,
 	&features_option,
 	&update_cluster_stack_option,
+	&cloned_volume_option,
 	&yes_option,
 	&no_option,
 	NULL,
@@ -963,10 +975,16 @@ static int run_operations(const char *device)
 
 	/*
 	 * We have a specific order here.  If we open the filesystem and
-	 * get TUNEFS_ET_INVALID_STACK_NAME, we know that
-	 * update_cluster_stack is involved.  We want to run that, then
-	 * close and reopen the filesystem.  This should allow us to
-	 * continue with any other operations.
+	 * get TUNEFS_ET_CLUSTER_SKIPPED, we know that cloned_volume is
+	 * involved.  We want to run that first and change our volume's
+	 * UUID+label, then close and reopen the filesystem.  We should be
+	 * able to continue with any other operations.
+	 *
+	 * Next, if we open the filesystem and * get
+	 * TUNEFS_ET_INVALID_STACK_NAME, we know that update_cluster_stack
+	 * is involved.  We want to run that, and again close and reopen
+	 * the filesystem.  This should allow us to continue with any
+	 * other operations.
 	 *
 	 * Next, if we get TUNEFS_ET_PERFORM_ONLINE, we have at least
 	 * one operation capable of working online.  We want to run through
@@ -987,7 +1005,9 @@ static int run_operations(const char *device)
 		}
 
 		err = tunefs_open(device, open_flags, &fs);
-		if (err == TUNEFS_ET_INVALID_STACK_NAME)
+		if (err == TUNEFS_ET_CLUSTER_SKIPPED)
+			rc = run_operation_filter(fs, TUNEFS_FLAG_SKIPCLUSTER);
+		else if (err == TUNEFS_ET_INVALID_STACK_NAME)
 			rc = run_operation_filter(fs, TUNEFS_FLAG_NOCLUSTER);
 		else if (err == TUNEFS_ET_PERFORM_ONLINE)
 			rc = run_operation_filter(fs, TUNEFS_FLAG_ONLINE);

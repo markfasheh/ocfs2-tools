@@ -82,4 +82,7 @@ ec	TUNEFS_ET_OPERATION_FAILED,
 ec	TUNEFS_ET_ONLINE_NOT_SUPPORTED,
 	"This online operation is not available"
 
+ec	TUNEFS_ET_CLUSTER_SKIPPED,
+	"Cluster stack initialization was skipped"
+
 	end

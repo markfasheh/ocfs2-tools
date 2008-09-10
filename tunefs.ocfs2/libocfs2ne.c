@@ -751,6 +751,11 @@ static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 	if (state->ts_cluster_locked)
 		goto out;
 
+	if (flags & TUNEFS_FLAG_SKIPCLUSTER) {
+		err = TUNEFS_ET_CLUSTER_SKIPPED;
+		goto out;
+	}
+
 	if (!master_fs->fs_dlm_ctxt) {
 		err = o2cb_init();
 		if (err)
@@ -1223,6 +1228,23 @@ static void tunefs_remove_fs(ocfs2_filesys *fs)
 	}
 }
 
+
+/*
+ * Return true if this error code is a special (non-fatal) ocfs2ne
+ * error code.
+ */
+static int tunefs_special_errorp(errcode_t err)
+{
+	if (err == TUNEFS_ET_CLUSTER_SKIPPED)
+		return 1;
+	if (err == TUNEFS_ET_INVALID_STACK_NAME)
+		return 1;
+	if (err == TUNEFS_ET_PERFORM_ONLINE)
+		return 1;
+
+	return 0;
+}
+
 errcode_t tunefs_open(const char *device, int flags,
 		      ocfs2_filesys **ret_fs)
 {
@@ -1269,9 +1291,7 @@ errcode_t tunefs_open(const char *device, int flags,
 	}
 
 	err = tunefs_lock_filesystem(fs, flags);
-	if (err &&
-	    (err != TUNEFS_ET_INVALID_STACK_NAME) &&
-	    (err != TUNEFS_ET_PERFORM_ONLINE))
+	if (err && !tunefs_special_errorp(err))
 		goto out;
 
 	/*
@@ -1281,6 +1301,13 @@ errcode_t tunefs_open(const char *device, int flags,
 	 * tunefs work without the io_cache, so there is no check here.
 	 */
 	io_init_cache(fs->fs_io, ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+
+	/*
+	 * SKIPCLUSTER operations don't check the journals - they couldn't
+	 * replay them anyway.
+	 */
+	if (err == TUNEFS_ET_CLUSTER_SKIPPED)
+		goto out;
 
 	/* Offline operations need clean journals */
 	if (err != TUNEFS_ET_PERFORM_ONLINE) {
@@ -1300,9 +1327,7 @@ errcode_t tunefs_open(const char *device, int flags,
 	}
 
 out:
-	if (err &&
-	    (err != TUNEFS_ET_INVALID_STACK_NAME) &&
-	    (err != TUNEFS_ET_PERFORM_ONLINE)) {
+	if (err && !tunefs_special_errorp(err)) {
 		if (fs) {
 			tunefs_remove_fs(fs);
 			ocfs2_close(fs);
@@ -1425,6 +1450,8 @@ errcode_t tunefs_op_run(ocfs2_filesys *master_fs,
 		flags |= TUNEFS_FLAG_ONLINE;
 	else if (err == TUNEFS_ET_INVALID_STACK_NAME)
 		flags |= TUNEFS_FLAG_NOCLUSTER;
+	else if (err == TUNEFS_ET_CLUSTER_SKIPPED)
+		flags |= TUNEFS_FLAG_SKIPCLUSTER;
 	else if (err)
 		goto out;
 
@@ -1685,9 +1712,7 @@ int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op)
 	}
 
 	err = tunefs_open(argv[1], op->to_open_flags, &fs);
-	if (err &&
-	    (err != TUNEFS_ET_PERFORM_ONLINE) &&
-	    (err != TUNEFS_ET_INVALID_STACK_NAME)) {
+	if (err && !tunefs_special_errorp(err)) {
 		tcom_err(err, "- Unable to open device \"%s\" read-write.",
 			 argv[1]);
 		goto out;

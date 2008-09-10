@@ -70,6 +70,8 @@
 					   cluster stack */
 #define TUNEFS_FLAG_ALLOCATION	0x08	/* Operation will use the
 					   allocator */
+#define TUNEFS_FLAG_SKIPCLUSTER	0x10	/* Operation cannot start the
+					   cluster stack */
 
 
 /* What to do with a feature */

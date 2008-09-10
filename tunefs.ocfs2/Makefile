@@ -25,6 +25,7 @@ OCFS2NE_FEATURES =			\
 	feature_unwritten_extents
 
 OCFS2NE_OPERATIONS =			\
+	op_cloned_volume		\
 	op_features			\
 	op_list_sparse_files		\
 	op_query			\
