@@ -78,7 +78,8 @@ void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	return ;
 }
 
-static void create_directory(ocfs2_filesys *fs, char *dirname, uint64_t *blkno)
+static void create_named_directory(ocfs2_filesys *fs, char *dirname,
+				   uint64_t *blkno)
 {
 	errcode_t ret;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
@@ -147,11 +148,17 @@ void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 	case CORRUPT_DIR_NOT_CONNECTED:
 		func = mess_up_dir_not_connected;
 		break;
+	case CORRUPT_INLINE_DATA_FLAG:
+		func = mess_up_inline_flag;
+		break;
+	case CORRUPT_INLINE_DATA_COUNT:
+		func = mess_up_inline_count;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", code);
 	}
 
-	create_directory(fs, "tmp", &blkno);
+	create_named_directory(fs, "tmp", &blkno);
 
 	if (func)
 		func(fs, blkno);

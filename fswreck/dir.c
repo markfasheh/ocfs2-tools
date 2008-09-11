@@ -43,7 +43,7 @@
 
 extern char *progname;
 
-static void create_directory(ocfs2_filesys *fs,
+void create_directory(ocfs2_filesys *fs,
 				uint64_t parentblk, uint64_t *blkno)
 {
 	errcode_t ret;

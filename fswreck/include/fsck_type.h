@@ -112,6 +112,8 @@ enum fsck_type
 	INODE_NOT_CONNECTED,
 	INODE_COUNT,
 	INODE_ORPHANED,
+	INLINE_DATA_FLAG_INVALID,
+	INLINE_DATA_COUNT_INVALID,
 	NUM_FSCK_TYPE
 };
 
@@ -183,6 +185,10 @@ enum fsck_type
  * Directory parent duplicate error: DIR_PARENT_DUP
  *
  * Directory not connected error: DIR_NOT_CONNECTED
+ *
+ * Inline file flag error:	INLINE_DATA_FLAG_INVALID
+ *
+ * Inline file id_count error:  INLINE_DATA_COUNT_INVALID
  *
  */
 #endif

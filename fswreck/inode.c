@@ -9,12 +9,12 @@
  * modify it under the terms of the GNU General Public
  * License as published by the Free Software Foundation; either
  * version 2 of the License, or (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
@@ -27,7 +27,7 @@
  * Inode field error: 	INODE_SUBALLOC, INODE_GEN, INODE_GEN_FIX,INODE_BLKNO,
 			INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT
  *
- * Inode link not connected error: INODE_LINK_NOT_CONNECTED 
+ * Inode link not connected error: INODE_LINK_NOT_CONNECTED
  *
  * Inode orphaned error:	INODE_ORPHANED
  *
@@ -47,12 +47,12 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 	struct ocfs2_dinode *di;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)  
-		FSWRK_COM_FATAL(progname, ret);	
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
 
 	ret = ocfs2_read_inode(fs, blkno, buf);
 	if (ret)
-		FSWRK_COM_FATAL(progname, ret);	
+		FSWRK_COM_FATAL(progname, ret);
 
 	di = (struct ocfs2_dinode *)buf;
 
@@ -70,7 +70,7 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "INODE_GEN_FIX: "
 			"Corrupt inode#%"PRIu64", change generation "
 			" from %u to 0x1234, please answer 'n' when "
-			"INODE_GEN error shows in fsck.ocfs2\n", 
+			"INODE_GEN error shows in fsck.ocfs2\n",
 			blkno, di->i_fs_generation);
 		di->i_fs_generation = 0x1234;
 		break;
@@ -116,7 +116,7 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 	default:
 		FSWRK_FATAL("Invalid type[%d]\n", type);
 	}
-	
+
 	ret = ocfs2_write_inode(fs, blkno, buf);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
@@ -136,7 +136,7 @@ void mess_up_inode_field(ocfs2_filesys *fs, uint64_t blkno)
 					INODE_NZ_DTIME, INODE_SUBALLOC,
 					INODE_SIZE, INODE_CLUSTERS,
 					INODE_COUNT};
-	
+
 	for (i = 0; i < ARRAY_ELEMENTS(types); i++) {
 		create_file(fs, blkno, &tmpblkno);
 
@@ -147,7 +147,7 @@ void mess_up_inode_field(ocfs2_filesys *fs, uint64_t blkno)
 		}
 
 		damage_inode(fs, tmpblkno, types[i]);
-	}	
+	}
 	return;
 }
 
@@ -174,14 +174,14 @@ void mess_up_inode_orphaned(ocfs2_filesys *fs, uint16_t slotnum)
 
 	if (slotnum == UINT16_MAX)
 		slotnum = 0;
-	snprintf(parentdir, sizeof(parentdir), 	
+	snprintf(parentdir, sizeof(parentdir),
 		 ocfs2_system_inodes[ORPHAN_DIR_SYSTEM_INODE].si_name, slotnum);
-	
+
 	ret = ocfs2_lookup(fs, sb->s_system_dir_blkno, parentdir,
 			   strlen(parentdir), NULL, &blkno);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
-	
+
 	create_file(fs, blkno, &tmpblkno);
 
 	fprintf(stdout, "INODE_ORPHANED: "
@@ -202,7 +202,7 @@ void mess_up_inode_alloc(ocfs2_filesys *fs, uint16_t slotnum)
 		FSWRK_COM_FATAL(progname, ret);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)  
+	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
 	ret = ocfs2_read_inode(fs, tmpblkno, buf);
@@ -222,5 +222,114 @@ void mess_up_inode_alloc(ocfs2_filesys *fs, uint16_t slotnum)
 
 	if (buf)
 		ocfs2_free(&buf);
+	return;
+}
+
+void mess_up_inline_flag(ocfs2_filesys *fs, uint64_t blkno)
+{
+
+	int i;
+	errcode_t ret;
+	char *buf = NULL, file_type[20];
+	uint64_t inline_blkno;
+	struct ocfs2_dinode *di;
+	struct ocfs2_super_block *osb;
+
+	osb = OCFS2_RAW_SB(fs->fs_super);
+	if (ocfs2_support_inline_data(osb))
+		FSWRK_FATAL("should specfiy a noinline-data supported "
+			    "volume to do this corruption\n");
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	for (i = 0; i < 2; i++) {
+		if (i == 0) {
+			create_file(fs, blkno, &inline_blkno);
+			snprintf(file_type, 20, "%s", "Regular file");
+		} else {
+			create_directory(fs, blkno, &inline_blkno);
+			snprintf(file_type, 20, "%s", "Diectory");
+		}
+
+		ret = ocfs2_read_inode(fs, inline_blkno, buf);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+
+		di = (struct ocfs2_dinode *)buf;
+		if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
+			di->i_dyn_features |= OCFS2_INLINE_DATA_FL;
+			ret = ocfs2_write_inode(fs, inline_blkno, buf);
+			if (ret)
+				FSWRK_COM_FATAL(progname, ret);
+		}
+
+		fprintf(stdout, "INLINE_DATA_FLAG_INVALID: "
+			"Create an inlined inode#%"PRIu64"(%s) "
+			"on a noinline-data supported volume\n",
+			inline_blkno, file_type);
+	}
+
+	if (buf)
+		ocfs2_free(&buf);
+	return;
+}
+
+void mess_up_inline_count(ocfs2_filesys *fs, uint64_t blkno)
+{
+	int i;
+	errcode_t ret;
+	char *buf = NULL, file_type[20];
+	uint64_t inline_blkno;
+	struct ocfs2_dinode *di;
+	uint16_t max_inline_sz;
+	struct ocfs2_super_block *osb;
+
+	osb = OCFS2_RAW_SB(fs->fs_super);
+	if (!ocfs2_support_inline_data(osb))
+		FSWRK_FATAL("Should specify a inline-data supported "
+			    "volume to do this corruption\n");
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	for (i = 0; i < 2; i++) {
+		if (i == 0) {
+			create_file(fs, blkno, &inline_blkno);
+			snprintf(file_type, 20, "%s", "Regular file");
+		} else {
+			create_directory(fs, blkno, &inline_blkno);
+			snprintf(file_type, 20, "%s", "Diectroy");
+		}
+
+		ret = ocfs2_read_inode(fs, inline_blkno, buf);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+
+		di = (struct ocfs2_dinode *)buf;
+		max_inline_sz = ocfs2_max_inline_data(fs->fs_blocksize);
+
+		if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL))
+			di->i_dyn_features |= OCFS2_INLINE_DATA_FL;
+
+		di->id2.i_data.id_count = 0;
+		di->i_size = max_inline_sz + 1;
+		di->i_clusters = 1;
+
+		ret = ocfs2_write_inode(fs, inline_blkno, buf);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+
+		fprintf(stdout, "INLINE_DATA_COUNT_INVALID: "
+			"Create an inlined inode#%"PRIu64"(%s),"
+			"whose id_count, i_size and i_clusters "
+			"been messed up\n", inline_blkno, file_type);
+	}
+
+	if (buf)
+		ocfs2_free(&buf);
+
 	return;
 }

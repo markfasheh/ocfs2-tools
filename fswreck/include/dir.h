@@ -31,4 +31,6 @@ void mess_up_dir_ent(ocfs2_filesys *fs, uint64_t blkno);
 void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno);
 void mess_up_dir_not_connected(ocfs2_filesys *fs, uint64_t blkno);
 
+void create_directory(ocfs2_filesys *fs, uint64_t parentblk, uint64_t *blkno);
+
 #endif		/* __DIR_H */
