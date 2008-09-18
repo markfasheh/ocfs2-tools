@@ -513,6 +513,48 @@ out:
 	return ret;
 }
 
+/*
+ * Test whether clusters have the specified value in the bitmap.
+ * test: expected value
+ * matches: 1 if all bits match test, else 0
+ */
+errcode_t ocfs2_test_clusters(ocfs2_filesys *fs,
+			      uint32_t len,
+			      uint64_t start_blkno,
+			      int test,
+			      int *matches)
+{
+	errcode_t ret;
+	uint32_t start_cluster;
+	int set = 0;
+
+	*matches = 0;
+
+	if (!len)
+		return 0;
+
+	ret = ocfs2_load_allocator(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+				   0, &fs->fs_cluster_alloc);
+	if (ret)
+		goto out;
+
+	start_cluster = ocfs2_blocks_to_clusters(fs, start_blkno);
+
+	while (len) {
+		ret = ocfs2_bitmap_test(fs->fs_cluster_alloc->ci_chains,
+					start_cluster, &set);
+		if (ret || set != test)
+			goto out;
+
+		len--;
+		start_cluster++;
+	}
+
+	*matches = 1;
+out:
+	return ret;
+}
+
 #ifdef DEBUG_EXE
 #include <stdio.h>
 

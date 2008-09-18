@@ -514,6 +514,11 @@ errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
 errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
 			      uint32_t len,
 			      uint64_t start_blkno);
+errcode_t ocfs2_test_clusters(ocfs2_filesys *fs,
+			      uint32_t len,
+			      uint64_t start_blkno,
+			      int test,
+			      int *matches);
 
 errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir, const char *name,
 		       int namelen, char *buf, uint64_t *inode);
