@@ -38,6 +38,11 @@
 #include "problem.h"
 #include "util.h"
 
+struct orphan_dir_ctxt {
+	o2fsck_state *ost;
+	uint64_t orphan_dir;
+};
+
 static const char *whoami = "pass4";
 
 static void check_link_counts(o2fsck_state *ost,
@@ -102,7 +107,8 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 				 char	*buf,
 				 void	*priv_data)
 {
-	o2fsck_state *ost = priv_data;
+	struct orphan_dir_ctxt *ctxt = priv_data;
+	o2fsck_state *ost = ctxt->ost;
 	int ret_flags = 0;
 	errcode_t ret;
 
@@ -141,10 +147,12 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 	 * though they have 0 on disk */
 	o2fsck_icount_delta(ost->ost_icount_in_inodes, dirent->inode, -1);
 
-	/* dirs have this dirent ref and their '.' dirent */
-	if (dirent->file_type == OCFS2_FT_DIR)
+	/* dirs have this dirent ref and their '.' dirent and we also need to
+	 * handle '..' dirent for their parents. */
+	if (dirent->file_type == OCFS2_FT_DIR) {
 		o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -2);
-	else
+		o2fsck_icount_delta(ost->ost_icount_refs, ctxt->orphan_dir, -1);
+	} else
 		o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -1);
 
 	dirent->inode = 0;
@@ -194,7 +202,9 @@ static errcode_t replay_orphan_dir(o2fsck_state *ost)
 	int bytes;
 	int i;
 	int num_slots = OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots;
+	struct orphan_dir_ctxt ctxt;
 
+	ctxt.ost = ost;
 	for (i = 0; i < num_slots; ++i) {
 		bytes = ocfs2_sprintf_system_inode_name(name, PATH_MAX,
 				ORPHAN_DIR_SYSTEM_INODE, i);
@@ -225,9 +235,10 @@ static errcode_t replay_orphan_dir(o2fsck_state *ost)
 			}
 		}
 
+		ctxt.orphan_dir = ino;
 		ret = ocfs2_dir_iterate(ost->ost_fs, ino,
 					OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,
-					replay_orphan_iterate, ost);
+					replay_orphan_iterate, &ctxt);
 	}
 
 out:
