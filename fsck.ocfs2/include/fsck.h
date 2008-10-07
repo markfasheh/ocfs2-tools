@@ -70,7 +70,8 @@ typedef struct _o2fsck_state {
  					  * errors as we exit */
  			ost_stale_mounts:1, /* set when reading publish blocks
  					     * that still indicated mounted */
-			ost_fix_fs_gen:1;
+			ost_fix_fs_gen:1,
+			ost_has_journal_dirty:1;
 } o2fsck_state;
 
 errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost);

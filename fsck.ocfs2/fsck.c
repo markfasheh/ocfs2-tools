@@ -449,12 +449,15 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 				       int open_flags, uint64_t blkno,
 				       uint64_t blksize)
 {	
-	int replayed = 0, should = 0;
+	int replayed = 0, should = 0, has_dirty = 0;
 	errcode_t ret = 0;
 
-	ret = o2fsck_should_replay_journals(ost->ost_fs, &should);
+	ret = o2fsck_should_replay_journals(ost->ost_fs, &should, &has_dirty);
 	if (ret)
 		goto out;
+
+	ost->ost_has_journal_dirty = has_dirty ? 1 : 0;
+
 	if (!should)
 		goto out;
 

@@ -515,7 +515,8 @@ out:
  * stop a second journal replay but leave the dirty bit set so that the kernel
  * will truncate the orphaned inodes. 
  */
-errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
+errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should,
+					int *has_dirty)
 {
 	uint16_t i, max_slots;
 	char *buf = NULL;
@@ -563,6 +564,8 @@ errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should)
 		verbosef("slot %d JOURNAL_DIRTY_FL: %d\n", i, is_dirty);
 		if (!is_dirty)
 			continue;
+		else
+			*has_dirty = 1;
 
 		ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno,
 						  &contig, NULL);
@@ -1038,3 +1041,36 @@ out:
 	return ret;
 }
 
+static errcode_t ocfs2_clear_journal_flag(ocfs2_filesys *fs,
+					  struct ocfs2_dinode *di,
+					  int slot)
+{
+	errcode_t ret = 0;
+
+	if (!(di->i_flags & OCFS2_VALID_FL) ||
+	    !(di->i_flags & OCFS2_SYSTEM_FL) ||
+	    !(di->i_flags & OCFS2_JOURNAL_FL))
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if (!(di->id1.journal1.ij_flags & OCFS2_JOURNAL_DIRTY_FL))
+		goto bail;
+
+	di->id1.journal1.ij_flags &= ~OCFS2_JOURNAL_DIRTY_FL;
+
+	ret = ocfs2_write_inode(fs, di->i_blkno, (char *)di);
+	if (!ret)
+		printf("Slot %d's journal dirty flag removed\n", slot);
+
+bail:
+	return ret;
+}
+
+errcode_t o2fsck_clear_journal_flags(o2fsck_state *ost)
+{
+	if (!ost->ost_has_journal_dirty)
+		return 0;
+
+	return handle_slots_system_file(ost->ost_fs,
+					JOURNAL_SYSTEM_INODE,
+					ocfs2_clear_journal_flag);
+}

@@ -27,7 +27,9 @@
 #include "fsck.h"
 
 errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed);
-errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should);
+errcode_t o2fsck_should_replay_journals(ocfs2_filesys *fs, int *should,
+					int *has_dirty);
+errcode_t o2fsck_clear_journal_flags(o2fsck_state *ost);
 errcode_t o2fsck_check_journals(o2fsck_state *ost);
 
 #endif /* __O2FSCK_JOURNAL_H__ */
