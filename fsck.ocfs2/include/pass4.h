@@ -26,6 +26,7 @@
 
 #include "fsck.h"
 
+errcode_t replay_orphan_dir(o2fsck_state *ost, int slot_recovery);
 errcode_t o2fsck_pass4(o2fsck_state *ost);
 
 #endif /* __O2FSCK_PASS4_H__ */

@@ -24,6 +24,7 @@
 
 errcode_t o2fsck_replay_truncate_logs(ocfs2_filesys *fs);
 errcode_t o2fsck_replay_local_allocs(ocfs2_filesys *fs);
+errcode_t o2fsck_replay_orphan_dirs(o2fsck_state *ost);
 
 #endif /* __O2FSCK_SLOT_RECOVERY_H__ */
 

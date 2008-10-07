@@ -20,6 +20,7 @@
 #include <ocfs2/bitops.h>
 #include "util.h"
 #include "slot_recovery.h"
+#include "pass4.h"
 
 static errcode_t ocfs2_clear_truncate_log(ocfs2_filesys *fs,
 					  struct ocfs2_dinode *di,
@@ -166,4 +167,39 @@ errcode_t o2fsck_replay_local_allocs(ocfs2_filesys *fs)
 	return handle_slots_system_file(fs,
 					LOCAL_ALLOC_SYSTEM_INODE,
 					ocfs2_clear_local_alloc);
+}
+
+static errcode_t ocfs2_clear_link_count(ocfs2_filesys *fs,
+					struct ocfs2_dinode *di,
+					int slot)
+{
+	errcode_t ret = 0;
+
+	if (!(di->i_flags & OCFS2_VALID_FL) ||
+	    !(di->i_flags & OCFS2_SYSTEM_FL) ||
+	    !S_ISDIR(di->i_mode))
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if (di->i_links_count == 2)
+		goto bail;
+
+	di->i_links_count = 2;
+	ret = ocfs2_write_inode(fs, di->i_blkno, (char *)di);
+	if (!ret)
+		printf("Slot %d's orphan dir replayed successfully\n", slot);
+
+bail:
+	return ret;
+}
+
+errcode_t o2fsck_replay_orphan_dirs(o2fsck_state *ost)
+{
+	errcode_t ret;
+
+	ret = replay_orphan_dir(ost, 1);
+	if (ret)
+		return ret;
+
+	return handle_slots_system_file(ost->ost_fs, ORPHAN_DIR_SYSTEM_INODE,
+					ocfs2_clear_link_count);
 }

@@ -110,7 +110,7 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 	struct orphan_dir_ctxt *ctxt = priv_data;
 	o2fsck_state *ost = ctxt->ost;
 	int ret_flags = 0;
-	errcode_t ret;
+	errcode_t ret = 0;
 
 	if (!(ost->ost_fs->fs_flags & OCFS2_FLAG_RW)) {
 		printf("** Skipping orphan dir replay because -n was "
@@ -119,11 +119,13 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 		goto out;
 	}
 
-	if (!prompt(ost, PY, PR_INODE_ORPHANED,
-		   "Inode %"PRIu64" was found in the orphan directory. "
-		   "Delete its contents and unlink it?",
-		   (uint64_t)dirent->inode)) {
-		goto out;
+	/* Only ask for confirmation in force check. */
+	if (ost->ost_force) {
+		if (!prompt(ost, PY, PR_INODE_ORPHANED,
+			   "Inode %"PRIu64" was found in the orphan directory. "
+			   "Delete its contents and unlink it?",
+			   (uint64_t)dirent->inode))
+			goto out;
 	}
 
 	ret = ocfs2_truncate(ost->ost_fs, dirent->inode, 0);
@@ -142,23 +144,35 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 		goto out;
 	}
 
-	/* this matches a special case in o2fsck_verify_inode_fields() where
-	 * orphan dir members are recorded as having 1 link count, even
-	 * though they have 0 on disk */
-	o2fsck_icount_delta(ost->ost_icount_in_inodes, dirent->inode, -1);
+	/* Only calculate icount in force check. */
+	if (ost->ost_force) {
+		/*
+		 * this matches a special case in o2fsck_verify_inode_fields()
+		 * where orphan dir members are recorded as having 1 link count,
+		 * even though they have 0 on disk
+		 */
+		o2fsck_icount_delta(ost->ost_icount_in_inodes,
+				    dirent->inode, -1);
 
-	/* dirs have this dirent ref and their '.' dirent and we also need to
-	 * handle '..' dirent for their parents. */
-	if (dirent->file_type == OCFS2_FT_DIR) {
-		o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -2);
-		o2fsck_icount_delta(ost->ost_icount_refs, ctxt->orphan_dir, -1);
-	} else
-		o2fsck_icount_delta(ost->ost_icount_refs, dirent->inode, -1);
+		/*
+		 * dirs have this dirent ref and their '.' dirent and we also
+		 * need to handle '..' dirent for their parents.
+		 */
+		if (dirent->file_type == OCFS2_FT_DIR) {
+			o2fsck_icount_delta(ost->ost_icount_refs,
+					    dirent->inode, -2);
+			o2fsck_icount_delta(ost->ost_icount_refs,
+					    ctxt->orphan_dir, -1);
+		} else
+			o2fsck_icount_delta(ost->ost_icount_refs,
+					    dirent->inode, -1);
+	}
 
 	dirent->inode = 0;
 	ret_flags |= OCFS2_DIRENT_CHANGED;
 
 out:
+	ost->ost_err = ret;
 	return ret_flags;
 }
 
@@ -194,7 +208,13 @@ bail:
 	return ret;
 }
 
-static errcode_t replay_orphan_dir(o2fsck_state *ost)
+/*
+ * replay_orphan_dir could happen in 2 places and we handle it diffrently.
+ * 1. In slot recovery, we will return any error which lead to a force check.
+ * 2. in o2fsck_pass4, all other errors should be fixed in pass0,1,2 and 3, so
+ *    we try to fix some errors by ourselves.
+ */
+errcode_t replay_orphan_dir(o2fsck_state *ost, int slot_recovery)
 {
 	errcode_t ret = OCFS2_ET_CORRUPT_SUPERBLOCK;
 	char name[PATH_MAX];
@@ -216,6 +236,9 @@ static errcode_t replay_orphan_dir(o2fsck_state *ost)
 		ret = ocfs2_lookup(ost->ost_fs, ost->ost_fs->fs_sysdir_blkno,
 				   name, bytes, NULL, &ino);
 		if (ret) {
+			if (slot_recovery)
+				goto out;
+
 			if (ret != OCFS2_ET_FILE_NOT_FOUND)
 				goto out;
 
@@ -236,9 +259,14 @@ static errcode_t replay_orphan_dir(o2fsck_state *ost)
 		}
 
 		ctxt.orphan_dir = ino;
+		ost->ost_err = 0;
 		ret = ocfs2_dir_iterate(ost->ost_fs, ino,
 					OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,
 					replay_orphan_iterate, &ctxt);
+		if (!ret)
+			ret = ost->ost_err;
+		if (ret && slot_recovery)
+			break;
 	}
 
 out:
@@ -285,7 +313,7 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 
 	printf("Pass 4a: checking for orphaned inodes\n");
 
-	ret = replay_orphan_dir(ost);
+	ret = replay_orphan_dir(ost, 0);
 	if (ret) {
 		com_err(whoami, ret, "while trying to replay the orphan "
 			"directory");
