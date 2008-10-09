@@ -124,3 +124,48 @@ size_t o2fsck_bitcount(unsigned char *bytes, size_t len)
 
 	return count;
 }
+
+errcode_t handle_slots_system_file(ocfs2_filesys *fs,
+				   int type,
+				   errcode_t (*func)(ocfs2_filesys *fs,
+						     struct ocfs2_dinode *di,
+						     int slot))
+{
+	errcode_t ret;
+	uint64_t blkno;
+	int slot, max_slots;
+	char *buf = NULL;
+	struct ocfs2_dinode *di;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto bail;
+
+	di = (struct ocfs2_dinode *)buf;
+
+	max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+
+	for (slot = 0; slot < max_slots; slot++) {
+		ret = ocfs2_lookup_system_inode(fs,
+						type,
+						slot, &blkno);
+		if (ret)
+			goto bail;
+
+		ret = ocfs2_read_inode(fs, blkno, buf);
+		if (ret)
+			goto bail;
+
+		if (func) {
+			ret = func(fs, di, slot);
+			if (ret)
+				goto bail;
+		}
+	}
+
+bail:
+
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}

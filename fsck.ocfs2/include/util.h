@@ -48,4 +48,9 @@ errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
 errcode_t o2fsck_read_publish(o2fsck_state *ost);
 size_t o2fsck_bitcount(unsigned char *bytes, size_t len);
 
+errcode_t handle_slots_system_file(ocfs2_filesys *fs,
+				   int type,
+				   errcode_t (*func)(ocfs2_filesys *fs,
+						     struct ocfs2_dinode *di,
+						     int slot));
 #endif /* __O2FSCK_UTIL_H__ */
