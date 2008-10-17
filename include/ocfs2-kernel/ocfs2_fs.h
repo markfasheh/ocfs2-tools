@@ -662,8 +662,9 @@ struct ocfs2_dinode {
 	__le16 i_orphaned_slot;		/* Only valid when OCFS2_ORPHANED_FL
 					   was set in i_flags */
 	__le16 i_dyn_features;
-/*78*/	struct ocfs2_block_check i_check;	/* Error checking */
-/*80*/	__le64 i_reserved2[7];
+	__le64 i_xattr_lock;
+/*80*/	struct ocfs2_block_check i_check;	/* Error checking */
+/*88*/	__le64 i_reserved2[6];
 /*B8*/	union {
 		__le64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
