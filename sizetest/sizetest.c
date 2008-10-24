@@ -137,10 +137,15 @@ static void print_ocfs2_super_block(void)
 	SHOW_OFFSET(struct ocfs2_super_block, s_clustersize_bits);
 	SHOW_OFFSET(struct ocfs2_super_block, s_max_slots);
 	SHOW_OFFSET(struct ocfs2_super_block, s_tunefs_flag);
-	SHOW_OFFSET(struct ocfs2_super_block, s_reserved1);
+	SHOW_OFFSET(struct ocfs2_super_block, s_uuid_hash);
 	SHOW_OFFSET(struct ocfs2_super_block, s_first_cluster_group);
 	SHOW_OFFSET(struct ocfs2_super_block, s_label);
 	SHOW_OFFSET(struct ocfs2_super_block, s_uuid);
+	SHOW_OFFSET(struct ocfs2_super_block, s_cluster_info);
+	SHOW_OFFSET(struct ocfs2_super_block, s_xattr_inline_size);
+	SHOW_OFFSET(struct ocfs2_super_block, s_reserved0);
+	SHOW_OFFSET(struct ocfs2_super_block, s_reserved1);
+	SHOW_OFFSET(struct ocfs2_super_block, s_reserved2);
 	
         END_TYPE(struct ocfs2_super_block);
         printf("\n");
@@ -169,6 +174,7 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, i_suballoc_slot);
 	SHOW_OFFSET(struct ocfs2_dinode, i_suballoc_bit);
 	SHOW_OFFSET(struct ocfs2_dinode, i_reserved0);
+	SHOW_OFFSET(struct ocfs2_dinode, i_xattr_inline_size);
 	SHOW_OFFSET(struct ocfs2_dinode, i_clusters);
 	SHOW_OFFSET(struct ocfs2_dinode, i_uid);
 	SHOW_OFFSET(struct ocfs2_dinode, i_gid);
@@ -187,7 +193,9 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, i_ctime_nsec);
 	SHOW_OFFSET(struct ocfs2_dinode, i_mtime_nsec);
 	SHOW_OFFSET(struct ocfs2_dinode, i_attr);
+	SHOW_OFFSET(struct ocfs2_dinode, i_orphaned_slot);
 	SHOW_OFFSET(struct ocfs2_dinode, i_dyn_features);
+	SHOW_OFFSET(struct ocfs2_dinode, i_xattr_loc);
 	SHOW_OFFSET(struct ocfs2_dinode, i_check);
 	SHOW_OFFSET(struct ocfs2_dinode, i_reserved2);
 
@@ -202,6 +210,8 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, id2.i_lab);
 	SHOW_OFFSET(struct ocfs2_dinode, id2.i_chain);
 	SHOW_OFFSET(struct ocfs2_dinode, id2.i_list);
+	SHOW_OFFSET(struct ocfs2_dinode, id2.i_dealloc);
+	SHOW_OFFSET(struct ocfs2_dinode, id2.i_data);
 	SHOW_OFFSET(struct ocfs2_dinode, id2.i_symlink);
 	
         END_TYPE(struct ocfs2_dinode);
