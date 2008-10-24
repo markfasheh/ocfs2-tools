@@ -204,7 +204,7 @@ static int setup_sigpipe(void)
 {
 	int rc;
 	int signal_pipe[2];
-	struct sigaction act;
+	struct sigaction act = { .sa_handler = handler, };
 
 	rc = pipe(signal_pipe);
 	if (rc) {
@@ -216,10 +216,7 @@ static int setup_sigpipe(void)
 
 	sigpipe_write_fd = signal_pipe[1];
 
-	act.sa_sigaction = NULL;
-	act.sa_restorer = NULL;
 	sigemptyset(&act.sa_mask);
-	act.sa_handler = handler;
 #ifdef SA_INTERRUPT
 	act.sa_flags = SA_INTERRUPT;
 #endif
