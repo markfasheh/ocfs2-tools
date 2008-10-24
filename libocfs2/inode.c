@@ -127,7 +127,10 @@ static void ocfs2_swap_inode_second(struct ocfs2_dinode *di)
 		sb->s_blocksize_bits      = bswap_32(sb->s_blocksize_bits);
 		sb->s_clustersize_bits    = bswap_32(sb->s_clustersize_bits);
 		sb->s_max_slots           = bswap_16(sb->s_max_slots);
+		sb->s_tunefs_flag         = bswap_16(sb->s_tunefs_flag);
+		sb->s_uuid_hash           = bswap_32(sb->s_uuid_hash);
 		sb->s_first_cluster_group = bswap_64(sb->s_first_cluster_group);
+		sb->s_xattr_inline_size   = bswap_16(sb->s_xattr_inline_size);
 
 	} else if (di->i_flags & OCFS2_LOCAL_ALLOC_FL) {
 		struct ocfs2_local_alloc *la = &di->id2.i_lab;
@@ -160,6 +163,7 @@ static void ocfs2_swap_inode_first(struct ocfs2_dinode *di)
 	di->i_generation    = bswap_32(di->i_generation);
 	di->i_suballoc_slot = bswap_16(di->i_suballoc_slot);
 	di->i_suballoc_bit  = bswap_16(di->i_suballoc_bit);
+	di->i_xattr_inline_size = bswap_16(di->i_xattr_inline_size);
 	di->i_clusters      = bswap_32(di->i_clusters);
 	di->i_uid           = bswap_32(di->i_uid);
 	di->i_gid           = bswap_32(di->i_gid);
@@ -178,7 +182,9 @@ static void ocfs2_swap_inode_first(struct ocfs2_dinode *di)
 	di->i_ctime_nsec    = bswap_32(di->i_ctime_nsec);
 	di->i_mtime_nsec    = bswap_32(di->i_mtime_nsec);
 	di->i_attr          = bswap_32(di->i_attr);
+	di->i_orphaned_slot = bswap_16(di->i_orphaned_slot);
 	di->i_dyn_features  = bswap_16(di->i_dyn_features);
+	di->i_xattr_loc     = bswap_64(di->i_xattr_loc);
 }
 
 static int has_extents(struct ocfs2_dinode *di)
