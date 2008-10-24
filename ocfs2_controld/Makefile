@@ -59,6 +59,7 @@ MANS =
 
 DIST_FILES =				\
 	$(DAEMON_CFILES)		\
+	$(PCMK_CFILES)			\
 	$(CMAN_CFILES)			\
 	$(TEST_CFILES)			\
 	$(UNINST_HFILES)		\
