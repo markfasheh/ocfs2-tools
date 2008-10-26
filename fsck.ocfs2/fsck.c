@@ -66,6 +66,7 @@
 #include "pass4.h"
 #include "problem.h"
 #include "util.h"
+#include "slot_recovery.h"
 
 int verbose = 0;
 
@@ -495,6 +496,43 @@ out:
 	return ret;
 }
 
+/*
+ * Do the slot recovery, replay truncate log, local aloc and orphan dir.
+ * If there is any error, a force check is enabled.
+ */
+static errcode_t o2fsck_slot_recovery(o2fsck_state *ost)
+{
+	errcode_t ret = 0;
+
+	if (!(ost->ost_fs->fs_flags & OCFS2_FLAG_RW)) {
+		printf("** Skipping slot recovery because -n was "
+		       "given. **\n");
+		goto out;
+	}
+
+	ret = o2fsck_replay_local_allocs(ost->ost_fs);
+	if (ret)
+		goto out;
+
+	ret = o2fsck_replay_truncate_logs(ost->ost_fs);
+	if (ret)
+		goto out;
+
+	/*
+	 * If the user want a force-check, orphan_dir will be
+	 * replayed after the full check.
+	 */
+	if (!ost->ost_force) {
+		ret = o2fsck_replay_orphan_dirs(ost);
+		if (ret)
+			com_err(whoami, ret, "while trying to replay the orphan"
+				" directory");
+	}
+
+out:
+	return ret;
+}
+
 static errcode_t recover_backup_super(o2fsck_state *ost,
 				      char* device, int sb_num)
 {
@@ -612,6 +650,7 @@ int main(int argc, char **argv)
 	int c, open_flags = OCFS2_FLAG_RW | OCFS2_FLAG_STRICT_COMPAT_CHECK;
 	int sb_num = 0;
 	int fsck_mask = FSCK_OK;
+	int slot_recover_err = 0;
 	errcode_t ret;
 
 	memset(ost, 0, sizeof(o2fsck_state));
@@ -823,9 +862,17 @@ int main(int argc, char **argv)
 		goto unlock;
 	}
 
+	ret = o2fsck_slot_recovery(ost);
+	if (ret) {
+		printf("fsck encountered errors while recovering slot "
+		       "information, check forced.\n");
+		slot_recover_err = 1;
+		ost->ost_force = 1;
+	}
+
 	if (fs_is_clean(ost, filename)) {
 		fsck_mask = FSCK_OK;
-		goto unlock;
+		goto clear_dirty_flag;
 	}
 
 #if 0
@@ -874,15 +921,39 @@ done:
 	if (ret)
 		fsck_mask |= FSCK_ERROR;
 	else {
+		fsck_mask = FSCK_OK;
 		ost->ost_saw_error = 0;
 		printf("All passes succeeded.\n");
 	}
 
+clear_dirty_flag:
 	if (ost->ost_fs->fs_flags & OCFS2_FLAG_RW) {
 		ret = write_out_superblock(ost);
 		if (ret)
 			com_err(whoami, ret, "while writing back the "
 				"superblock(s)");
+		if (fsck_mask == FSCK_OK) {
+			if (slot_recover_err) {
+				ret = o2fsck_slot_recovery(ost);
+				if (ret) {
+					com_err(whoami, ret, "while doing slot "
+						"recovery.");
+					goto unlock;
+				}
+			}
+
+			ret = o2fsck_clear_journal_flags(ost);
+			if (ret) {
+				com_err(whoami, ret, "while clear dirty "
+					"journal flag.");
+				goto unlock;
+			}
+
+			ret = ocfs2_format_slot_map(ost->ost_fs);
+			if (ret)
+				com_err(whoami, ret, "while format slot "
+					"map.");
+		}
 	}
 
 unlock:
