@@ -825,9 +825,9 @@ static errcode_t fix_journals_func(o2fsck_state *ost,
 			err = ocfs2_make_journal(fs, ci->ci_blkno,
 						 jc->jc_max_clusters,
 						 &jc->jc_max_features);
-		}
 
-		ji->i_error = err;
+			ji->i_error = err;
+		}
 		goto out;
 	}
 
