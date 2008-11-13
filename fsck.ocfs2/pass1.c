@@ -923,7 +923,7 @@ size_cluster_check:
 		if (vb.vb_num_blocks > 0)
 			expected = ocfs2_clusters_in_blocks(fs, vb.vb_num_blocks);
 
-		if (di->i_clusters < expected &&
+		if (di->i_clusters != expected &&
 		    prompt(ost, PY, PR_INODE_CLUSTERS,
 			   "Inode %"PRIu64" has %"PRIu32" clusters but its "
 			   "blocks fit in %"PRIu64" clusters. "
@@ -951,7 +951,7 @@ size_cluster_check:
 			expected = ocfs2_clusters_in_blocks(fs,
 							vb.vb_last_block + 1);
 
-		if (di->i_clusters < expected &&
+		if (di->i_clusters != expected &&
 		    prompt(ost, PY, PR_INODE_CLUSTERS,
 			   "Inode %"PRIu64" has %"PRIu32" clusters but its "
 			   "blocks fit in %"PRIu64" clusters.  Correct the "
