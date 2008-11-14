@@ -82,10 +82,10 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint64_t blkno,
 					   uint16_t chain, uint16_t cpg,
 					   uint16_t bpc);
-static void create_lost_found_dir(State *s);
-static void format_journals(State *s);
-static void format_slotmap(State *s);
-static int format_backup_super(State *s);
+static void create_lost_found_dir(State *s, ocfs2_filesys *fs);
+static void format_journals(State *s, ocfs2_filesys *fs);
+static void format_slotmap(State *s, ocfs2_filesys *fs);
+static int format_backup_super(State *s, ocfs2_filesys *fs);
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -189,6 +189,70 @@ static inline uint32_t system_dir_bytes_needed(State *s)
 	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
 
 	return each * sys_blocks_needed(s->initial_slots);
+}
+
+static void finish_normal_format(State *s)
+{
+	errcode_t ret;
+	int num;
+	ocfs2_filesys *fs;
+
+	/* These routines use libocfs2 to do their work. We
+	 * don't share an ocfs2_filesys context between the
+	 * journal format and the lost+found create so that
+	 * the library can use the journal for the latter in
+	 * future revisions. */
+
+	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
+	if (ret) {
+		com_err(s->progname, ret,
+			"while opening file system for final "
+			"operations.");
+		clear_both_ends(s);
+		exit(1);
+	}
+
+	ret = io_init_cache(fs->fs_io,
+			    ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+	if (ret)
+		com_err(s->progname, ret,
+			"while initializing the I/O cache.  Continuing "
+			"without a cache (safe, but slower)");
+
+	if (!s->no_backup_super) {
+		if (!s->quiet)
+			printf("Writing backup superblock: ");
+
+		num = format_backup_super(s, fs);
+		if (!s->quiet)
+			printf("%d block(s)\n", num);
+	}
+
+	if (!s->quiet)
+		printf("Formatting Journals: ");
+
+	format_journals(s, fs);
+
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Formatting slot map: ");
+
+	format_slotmap(s, fs);
+
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Writing lost+found: ");
+
+	create_lost_found_dir(s, fs);
+
+	if (!s->quiet)
+		printf("done\n");
+
+	ocfs2_close(fs);
 }
 
 int
@@ -457,46 +521,8 @@ main(int argc, char **argv)
 	if (!s->quiet)
 		printf("done\n");
 
-	if (!s->hb_dev) {
-		/* These routines use libocfs2 to do their work. We
-		 * don't share an ocfs2_filesys context between the
-		 * journal format and the lost+found create so that
-		 * the library can use the journal for the latter in
-		 * future revisions. */
-
-		if (!s->no_backup_super) {
-			if (!s->quiet)
-				printf("Writing backup superblock: ");
-
-			num = format_backup_super(s);
-			if (!s->quiet)
-				printf("%d block(s)\n", num);
-		}
-
-		if (!s->quiet)
-			printf("Formatting Journals: ");
-
-		format_journals(s);
-
-		if (!s->quiet)
-			printf("done\n");
-
-		if (!s->quiet)
-			printf("Formatting slot map: ");
-
-		format_slotmap(s);
-
-		if (!s->quiet)
-			printf("done\n");
-
-		if (!s->quiet)
-			printf("Writing lost+found: ");
-
-		create_lost_found_dir(s);
-
-		if (!s->quiet)
-			printf("done\n");
-	}
+	if (!s->hb_dev)
+		finish_normal_format(s);
 
 	close_device(s);
 
@@ -2363,17 +2389,10 @@ clear_both_ends(State *s)
 	return ;
 }
 
-static void create_lost_found_dir(State *s)
+static void create_lost_found_dir(State *s, ocfs2_filesys *fs)
 {
 	errcode_t ret;
-	ocfs2_filesys *fs = NULL;
 	uint64_t lost_found_blkno;
-
-	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
-	if (ret) {
-		com_err(s->progname, ret, "while opening new file system");
-		goto bail;
-	}
 
 	ret = ocfs2_new_inode(fs, &lost_found_blkno, S_IFDIR | 0755);
 	if (ret) {
@@ -2395,7 +2414,6 @@ static void create_lost_found_dir(State *s)
 		goto bail;
 	}
 
-	ocfs2_close(fs);
 	return ;
 
 bail:
@@ -2403,24 +2421,17 @@ bail:
 	exit(1);
 }
 
-static void format_journals(State *s)
+static void format_journals(State *s, ocfs2_filesys *fs)
 {
 	errcode_t ret;
 	int i;
 	uint32_t journal_size_in_clusters;
 	uint64_t blkno;
-	ocfs2_filesys *fs = NULL;
 	char jrnl_file[40];
 	ocfs2_fs_options features = {
 		.opt_incompat =
 			s->journal64 ? JBD2_FEATURE_INCOMPAT_64BIT : 0,
 	};
-
-	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
-	if (ret) {
-		com_err(s->progname, ret, "while opening new file system");
-		goto error;
-	}
 
 	journal_size_in_clusters = s->journal_size_in_bytes >>
 		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
@@ -2447,7 +2458,6 @@ static void format_journals(State *s)
 		}
 	}
 
-	ocfs2_close(fs);
 	return;
 
 error:
@@ -2455,44 +2465,23 @@ error:
 	exit(1);
 }
 
-static void format_slotmap(State *s)
+static void format_slotmap(State *s, ocfs2_filesys *fs)
 {
 	errcode_t ret;
-	ocfs2_filesys *fs;
-
-	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
-	if (ret) {
-		com_err(s->progname, ret, "while opening new file system");
-		goto error;
-	}
 
 	ret = ocfs2_format_slot_map(fs);
 	if (ret) {
-	    com_err(s->progname, ret, "while formatting the slot map");
-	    goto error;
+		com_err(s->progname, ret, "while formatting the slot map");
+		clear_both_ends(s);
+		exit(1);
 	}
-
-	ocfs2_close(fs);
-	return;
-
-error:
-	clear_both_ends(s);
-	exit(1);
 }
 
-static int format_backup_super(State *s)
+static int format_backup_super(State *s, ocfs2_filesys *fs)
 {
 	errcode_t ret;
-	ocfs2_filesys *fs = NULL;
 	size_t len;
 	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
-
-	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
-	if (ret) {
-		com_err(s->progname, ret,
-			"while opening file system for backup superblock.");
-		goto error;
-	}
 
 	len = ocfs2_get_backup_super_offsets(fs, blocks, ARRAY_SIZE(blocks));
 
@@ -2512,7 +2501,6 @@ static int format_backup_super(State *s)
 		goto error;
 	}
 
-	ocfs2_close(fs);
 	return len;
 
 error:
