@@ -491,6 +491,45 @@ out:
 	return ret;
 }
 
+errcode_t ocfs2_test_cluster_allocated(ocfs2_filesys *fs, uint32_t cpos,
+				       int *is_allocated)
+{
+	errcode_t ret;
+	ret = ocfs2_load_allocator(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+				   0, &fs->fs_cluster_alloc);
+	if (!ret) {
+		ret = ocfs2_chain_test(fs, fs->fs_cluster_alloc, cpos,
+				       is_allocated);
+	}
+
+	return ret;
+}
+
+errcode_t ocfs2_new_specific_cluster(ocfs2_filesys *fs, uint32_t cpos)
+{
+	errcode_t ret;
+	int allocatedp = 0;
+
+	/* Loads the allocator if we need it */
+	ret = ocfs2_test_cluster_allocated(fs, cpos, &allocatedp);
+	if (ret)
+		goto out;
+
+	if (allocatedp) {
+		ret = OCFS2_ET_BIT_NOT_FOUND;
+		goto out;
+	}
+
+	ocfs2_chain_force_val(fs, fs->fs_cluster_alloc, cpos, 1, NULL);
+	ret = ocfs2_write_chain_allocator(fs, fs->fs_cluster_alloc);
+	if (ret)
+		ocfs2_free_clusters(fs, 1,
+				    ocfs2_blocks_to_clusters(fs, cpos));
+
+out:
+	return ret;
+}
+
 errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
 			      uint32_t len,
 			      uint64_t start_blkno)

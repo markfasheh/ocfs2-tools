@@ -511,6 +511,9 @@ errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
 			     uint32_t requested,
 			     uint64_t *start_blkno,
 			     uint32_t *clusters_found);
+errcode_t ocfs2_test_cluster_allocated(ocfs2_filesys *fs, uint32_t cpos,
+				       int *is_allocated);
+errcode_t ocfs2_new_specific_cluster(ocfs2_filesys *fs, uint32_t cpos);
 errcode_t ocfs2_free_clusters(ocfs2_filesys *fs,
 			      uint32_t len,
 			      uint64_t start_blkno);
