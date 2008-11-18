@@ -911,3 +911,68 @@ errcode_t open_debugfs_file(const char *debugfs_path, const char *dirname,
 out:
 	return ret;
 }
+
+void init_stringlist(struct list_head *strlist)
+{
+	INIT_LIST_HEAD(strlist);
+}
+
+errcode_t add_to_stringlist(char *str, struct list_head *strlist)
+{
+	struct strings *s;
+
+	if (!str || !strlen(str))
+		return 0;
+
+	s = calloc(1, sizeof(struct strings));
+	if (!s)
+		return OCFS2_ET_NO_MEMORY;
+
+	INIT_LIST_HEAD(&s->s_list);
+	s->s_str = strdup(str);
+	if (!s->s_str) {
+		free(s);
+		return OCFS2_ET_NO_MEMORY;
+	}
+
+	list_add_tail(&s->s_list, strlist);
+
+	return 0;
+}
+
+void free_stringlist(struct list_head *strlist)
+{
+	struct strings *s;
+	struct list_head *iter, *iter2;
+
+	if (list_empty(strlist))
+		return;
+
+	list_for_each_safe(iter, iter2, strlist) {
+		s = list_entry(iter, struct strings, s_list);
+		list_del(iter);
+		free(s->s_str);
+		free(s);
+	}
+}
+
+int del_from_stringlist(char *str, struct list_head *strlist)
+{
+	struct strings *s;
+	struct list_head *iter, *iter2;
+
+	if (!list_empty(strlist)) {
+		list_for_each_safe(iter, iter2, strlist) {
+			s = list_entry(iter, struct strings, s_list);
+			if (!strcmp(str, s->s_str)) {
+				list_del(iter);
+				free(s->s_str);
+				free(s);
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+

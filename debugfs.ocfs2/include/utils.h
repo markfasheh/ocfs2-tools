@@ -32,6 +32,11 @@ typedef struct _rdump_opts {
 	int verbose;
 } rdump_opts;
 
+struct strings {
+	char *s_str;
+	struct list_head s_list;
+};
+
 void get_incompat_flag(uint32_t flag, GString *str);
 void get_tunefs_flag(uint32_t incompat_flag, uint16_t flag, GString *str);
 void get_compat_flag(uint32_t flag, GString *str);
@@ -59,5 +64,10 @@ void find_max_contig_free_bits(struct ocfs2_group_desc *gd, int *max_contig_free
 errcode_t get_debugfs_path(char *debugfs_path, int len);
 errcode_t open_debugfs_file(const char *debugfs_path, const char *dirname,
 			    const char *uuid, const char *filename, FILE **fd);
+
+void init_stringlist(struct list_head *strlist);
+void free_stringlist(struct list_head *strlist);
+errcode_t add_to_stringlist(char *str, struct list_head *strlist);
+int del_from_stringlist(char *str, struct list_head *strlist);
 
 #endif		/* __UTILS_H__ */
