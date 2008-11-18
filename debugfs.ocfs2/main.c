@@ -48,7 +48,7 @@ static void usage (char *progname)
 {
 	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
 	g_print ("usage: %s -d, --decode <lockres>\n", progname);
-	g_print ("usage: %s -e, --encode <lock type> <block num> <generation>\n", progname);
+	g_print ("usage: %s -e, --encode <lock type> <block num> <generation|parent>\n", progname);
 	g_print ("usage: %s [-f cmdfile] [-R request] [-i] [-s backup#] [-V] [-w] [-n] [-?] [device]\n", progname);
 	g_print ("\t-f, --file <cmdfile>\t\tExecute commands in cmdfile\n");
 	g_print ("\t-R, --request <command>\t\tExecute a single command\n");
@@ -117,8 +117,9 @@ static void process_decode_lockres(int argc, char **argv, int startind)
 	int i;
 	errcode_t ret;
 	enum ocfs2_lock_type type;
-	uint64_t blkno;
-	uint32_t generation;
+	uint64_t blkno = 0;
+	uint32_t generation = 0;
+	uint64_t parent = 0;
 
 	if (startind + 1 > argc) {
 		usage(gbls.progname);
@@ -126,34 +127,34 @@ static void process_decode_lockres(int argc, char **argv, int startind)
 	}
 
 	for (i = startind; i < argc; ++i) {
-		ret = ocfs2_decode_lockres(argv[i], -1, &type, &blkno,
-					   &generation);
-		if (ret) {
-			com_err(gbls.progname, ret, "while decoding lockres %s",
-				argv[i]);
+		ret = ocfs2_decode_lockres(argv[i], &type, &blkno,
+					   &generation, &parent);
+		if (ret)
 			continue;
-		}
 
 		printf("Lockres:    %s\n", argv[i]);
-		printf("Type:       %s\n",
-		       ocfs2_get_lock_type_string(type));
-		printf("Block:      %"PRIu64"\n", blkno);
-		printf("Generation: 0x%08x\n", generation);
+		printf("Type:       %s\n", ocfs2_lock_type_string(type));
+		if (blkno)
+			printf("Block:      %"PRIu64"\n", blkno);
+		if (generation)
+			printf("Generation: 0x%08x\n", generation);
+		if (parent)
+			printf("Parent:	    %"PRIu64"\n", parent);
 		printf("\n");
 	}
 
 	return ;
 }
 
-/* [M|D|S] [blkno] [generation] */
 static void process_encode_lockres(int argc, char **argv, int startind)
 {
 	int i;
 	errcode_t ret;
 	enum ocfs2_lock_type type;
 	uint64_t blkno;
-	uint32_t generation;
-	char lockres[50];
+	uint64_t extra; /* generation or parent */
+	char lock[OCFS2_LOCK_ID_MAX_LEN];
+	char tmp[OCFS2_LOCK_ID_MAX_LEN];
 
 	if (startind + 3 > argc) {
 		usage(gbls.progname);
@@ -164,15 +165,21 @@ static void process_encode_lockres(int argc, char **argv, int startind)
 
 	type = ocfs2_get_lock_type(argv[i++][0]);
 	blkno = strtoull(argv[i++], NULL, 0);
-	generation = strtoul(argv[i++], NULL, 0);
+	extra = strtoull(argv[i++], NULL, 0);
 
-	ret = ocfs2_encode_lockres(type, blkno, generation, lockres);
+	if (type == OCFS2_LOCK_TYPE_DENTRY) {
+		ret = ocfs2_encode_lockres(type, blkno, 0, extra, tmp);
+		if (!ret)
+			ret = ocfs2_printable_lockres(tmp, lock, sizeof(lock));
+	} else
+		ret = ocfs2_encode_lockres(type, blkno, (uint32_t)extra, 0,
+					   lock);
 	if (ret) {
-		com_err(gbls.progname, ret, "while encoding lockres");
+		com_err(gbls.progname, ret, "while encoding lockname");
 		return ;
 	}
 
-	printf("%s\n", lockres);
+	printf("%s\n", lock);
 
 	return ;
 }

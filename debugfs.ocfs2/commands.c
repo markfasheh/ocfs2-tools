@@ -1399,52 +1399,39 @@ static void do_rdump(char **args)
 /*
  * do_encode_lockres()
  *
+ * This function only encodes the Super and the Inode lock. For the
+ * rest, use the --encode parameter directly.
  */
 static void do_encode_lockres (char **args)
 {
-	struct ocfs2_dinode *inode;
+	struct ocfs2_dinode *inode = (struct ocfs2_dinode *)gbls.blockbuf;
 	uint64_t blkno;
-	char *buf = NULL;
+	uint32_t gen = 0;
 	errcode_t ret = 0;
-	char suprlock[50] = "\0";
-	char metalock[50] = "\0";
-	char datalock[50] = "\0";
-	char rdwrlock[50] = "\0";
+	char lock[OCFS2_LOCK_ID_MAX_LEN];
+	enum ocfs2_lock_type type = OCFS2_LOCK_TYPE_META;
 
 	if (process_inode_args(args, &blkno))
-		return ;
+		return;
 
-	if (blkno == OCFS2_SUPER_BLOCK_BLKNO) {
-		ret = ocfs2_encode_lockres(OCFS2_LOCK_TYPE_SUPER, blkno, 0,
-					   suprlock);
-	} else {
-		buf = gbls.blockbuf;
-		ret = ocfs2_read_inode(gbls.fs, blkno, buf);
-		if (!ret) {
-			inode = (struct ocfs2_dinode *)buf;
-			ocfs2_encode_lockres(OCFS2_LOCK_TYPE_META, blkno,
-					     inode->i_generation, metalock);
-			ocfs2_encode_lockres(OCFS2_LOCK_TYPE_DATA, blkno,
-					     inode->i_generation, datalock);
-			ocfs2_encode_lockres(OCFS2_LOCK_TYPE_RW, blkno,
-					     inode->i_generation, rdwrlock);
+	if (blkno == OCFS2_SUPER_BLOCK_BLKNO)
+		type = OCFS2_LOCK_TYPE_SUPER;
+	else {
+		ret = ocfs2_read_inode(gbls.fs, blkno, (char *)inode);
+		if (ret) {
+			com_err(args[0], ret, "while reading inode %"PRIu64"",
+				blkno);
+			return;
 		}
+		gen = inode->i_generation;
 	}
 
-	if (ret) {
-		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
-		return ;
-	}
+	ret = ocfs2_encode_lockres(type, blkno, gen, 0, lock);
+	if (ret)
+		return;
 
 	printf("\t");
-	if (*suprlock)
-		printf("%s ", suprlock);
-	if (*metalock)
-		printf("%s ", metalock);
-	if (*datalock)
-		printf("%s ", datalock);
-	if (*rdwrlock)
-		printf("%s ", rdwrlock);
+	printf("%s ", lock);
 	printf("\n");
 
 	return ;

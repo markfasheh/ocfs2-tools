@@ -594,10 +594,14 @@ enum ocfs2_lock_type ocfs2_get_lock_type(char c);
 char *ocfs2_get_lock_type_string(enum ocfs2_lock_type type);
 
 errcode_t ocfs2_encode_lockres(enum ocfs2_lock_type type, uint64_t blkno,
-			       uint32_t generation, char *lockres);
+			       uint32_t generation, uint64_t parent,
+			       char *lockres);
 
-errcode_t ocfs2_decode_lockres(char *lockres, int len, enum ocfs2_lock_type *type,
-			       uint64_t *blkno, uint32_t *generation);
+errcode_t ocfs2_decode_lockres(char *lockres, enum ocfs2_lock_type *type,
+			       uint64_t *blkno, uint32_t *generation,
+			       uint64_t *parent);
+
+errcode_t ocfs2_printable_lockres(char *lockres, char *name, int len);
 
 /* write the superblock at the specific block. */
 errcode_t ocfs2_write_backup_super(ocfs2_filesys *fs, uint64_t blkno);

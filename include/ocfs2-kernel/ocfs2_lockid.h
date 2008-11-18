@@ -35,12 +35,17 @@
 #define OCFS2_LOCK_ID_MAX_LEN  32
 #define OCFS2_LOCK_ID_PAD "000000"
 
+#define OCFS2_DENTRY_LOCK_INO_START 18
+
 enum ocfs2_lock_type {
 	OCFS2_LOCK_TYPE_META = 0,
 	OCFS2_LOCK_TYPE_DATA,
 	OCFS2_LOCK_TYPE_SUPER,
 	OCFS2_LOCK_TYPE_RENAME,
 	OCFS2_LOCK_TYPE_RW,
+	OCFS2_LOCK_TYPE_DENTRY,
+	OCFS2_LOCK_TYPE_OPEN,
+	OCFS2_LOCK_TYPE_FLOCK,
 	OCFS2_NUM_LOCK_TYPES
 };
 
@@ -63,11 +68,41 @@ static inline char ocfs2_lock_type_char(enum ocfs2_lock_type type)
 		case OCFS2_LOCK_TYPE_RW:
 			c = 'W';
 			break;
+		case OCFS2_LOCK_TYPE_DENTRY:
+			c = 'N';
+			break;
+		case OCFS2_LOCK_TYPE_OPEN:
+			c = 'O';
+			break;
+		case OCFS2_LOCK_TYPE_FLOCK:
+			c = 'F';
+			break;
 		default:
 			c = '\0';
 	}
 
 	return c;
+}
+
+static char *ocfs2_lock_type_strings[] = {
+	[OCFS2_LOCK_TYPE_META] = "Meta",
+	[OCFS2_LOCK_TYPE_DATA] = "Data",
+	[OCFS2_LOCK_TYPE_SUPER] = "Super",
+	[OCFS2_LOCK_TYPE_RENAME] = "Rename",
+	/* Need to differntiate from [R]ename.. serializing writes is the
+	 * important job it does, anyway. */
+	[OCFS2_LOCK_TYPE_RW] = "Write/Read",
+	[OCFS2_LOCK_TYPE_DENTRY] = "Dentry",
+	[OCFS2_LOCK_TYPE_OPEN] = "Open",
+	[OCFS2_LOCK_TYPE_FLOCK] = "Flock",
+};
+
+static inline const char *ocfs2_lock_type_string(enum ocfs2_lock_type type)
+{
+#ifdef __KERNEL__
+	BUG_ON(type >= OCFS2_NUM_LOCK_TYPES);
+#endif
+	return ocfs2_lock_type_strings[type];
 }
 
 #endif  /* OCFS2_LOCKID_H */

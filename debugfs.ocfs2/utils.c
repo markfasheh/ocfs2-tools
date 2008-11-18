@@ -307,30 +307,37 @@ void close_pager(FILE *stream)
  * inodestr_to_inode()
  *
  * Returns ino if string is of the form <ino>
- *
- * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
- * redistributed under the terms of the GNU Public License.
  */
 int inodestr_to_inode(char *str, uint64_t *blkno)
 {
 	int len;
+	char *buf = NULL;
 	char *end;
+	int ret = OCFS2_ET_INVALID_LOCKRES;
 
 	len = strlen(str);
-	if ((len > 2) && (str[0] == '<') && (str[len-1] == '>')) {
-		if (ocfs2_get_lock_type(str[1]) < OCFS2_NUM_LOCK_TYPES) {
-			if (!ocfs2_decode_lockres(str+1, len-2, NULL, blkno,
-						  NULL))
-				return 0;
-			else
-				return -1;
-		}
-		*blkno = strtoull(str+1, &end, 0);
-		if (*end=='>')
-			return 0;
+	if (!((len > 2) && (str[0] == '<') && (str[len - 1] == '>')))
+		goto bail;
+
+	ret = OCFS2_ET_NO_MEMORY;
+	buf = strndup(str + 1, len - 2);
+	if (!buf)
+		goto bail;
+
+	ret = 0;
+	if (ocfs2_get_lock_type(buf[0]) < OCFS2_NUM_LOCK_TYPES)
+		ret = ocfs2_decode_lockres(buf, NULL, blkno, NULL, NULL);
+	else {
+		*blkno = strtoull(buf, &end, 0);
+		if (*end)
+			ret = OCFS2_ET_INVALID_LOCKRES;
 	}
 
-	return -1;
+bail:
+	if (buf)
+		free(buf);
+
+	return ret;
 }
 
 /*

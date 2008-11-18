@@ -5,7 +5,7 @@
  *
  * Encode and decode lockres name
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -22,6 +22,7 @@
  * Boston, MA 021110-1307, USA.
  */
 
+#include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
 
 #include <string.h>
@@ -40,32 +41,27 @@ enum ocfs2_lock_type ocfs2_get_lock_type(char c)
 		return OCFS2_LOCK_TYPE_RENAME;
 	case 'W':
 		return OCFS2_LOCK_TYPE_RW;
+	case 'N':
+		return OCFS2_LOCK_TYPE_DENTRY;
+	case 'O':
+		return OCFS2_LOCK_TYPE_OPEN;
+	case 'F':
+		return OCFS2_LOCK_TYPE_FLOCK;
 	default:
 		return OCFS2_NUM_LOCK_TYPES;
 	}
 }
 
-char *ocfs2_get_lock_type_string(enum ocfs2_lock_type type)
-{
-	switch (type) {
-	case OCFS2_LOCK_TYPE_META:
-		return "Metadata";
-	case OCFS2_LOCK_TYPE_DATA:
-		return "Data";
-	case OCFS2_LOCK_TYPE_SUPER:
-		return "Superblock";
-	case OCFS2_LOCK_TYPE_RENAME:
-		return "Rename";
-	case OCFS2_LOCK_TYPE_RW:
-		return "Write/Read";
-	default:
-		return NULL;
-	}
-}
-
+/*
+ * This function encodes the lockname just like the filesystem. Meaning
+ * the dentry lock gets encoded in its binary form.
+ */
 errcode_t ocfs2_encode_lockres(enum ocfs2_lock_type type, uint64_t blkno,
-			       uint32_t generation, char *lockres)
+			       uint32_t generation, uint64_t parent,
+			       char *lockres)
 {
+	uint64_t b;
+
 	if (type >= OCFS2_NUM_LOCK_TYPES)
 		return OCFS2_ET_INVALID_LOCKRES;
 
@@ -73,53 +69,82 @@ errcode_t ocfs2_encode_lockres(enum ocfs2_lock_type type, uint64_t blkno,
 	generation = ((type == OCFS2_LOCK_TYPE_SUPER) ||
 		      (type == OCFS2_LOCK_TYPE_RENAME)) ? 0 : generation;
 
-	snprintf(lockres, OCFS2_LOCK_ID_MAX_LEN, "%c%s%016"PRIx64"%08x",
-		 ocfs2_lock_type_char(type), OCFS2_LOCK_ID_PAD,
-		 blkno, generation);
+	if (type != OCFS2_LOCK_TYPE_DENTRY) {
+		snprintf(lockres, OCFS2_LOCK_ID_MAX_LEN, "%c%s%016"PRIx64"%08x",
+			 ocfs2_lock_type_char(type), OCFS2_LOCK_ID_PAD,
+			 blkno, generation);
+	} else {
+		snprintf(lockres, OCFS2_DENTRY_LOCK_INO_START, "%c%016llx",
+			 ocfs2_lock_type_char(OCFS2_LOCK_TYPE_DENTRY),
+			 (long long)parent);
+		b = bswap_64(blkno);
+		memcpy(&lockres[OCFS2_DENTRY_LOCK_INO_START], &b, sizeof(b));
+	}
 
 	return 0;
 }
 
-errcode_t ocfs2_decode_lockres(char *lockres, int len, enum ocfs2_lock_type *type,
-			       uint64_t *blkno, uint32_t *generation)
+errcode_t ocfs2_decode_lockres(char *lockres, enum ocfs2_lock_type *type,
+			       uint64_t *blkno, uint32_t *generation,
+			       uint64_t *parent)
 {
-	char *lock = NULL;
-	errcode_t ret = OCFS2_ET_NO_MEMORY;
-	char blkstr[20];
 	int i = 0;
+	enum ocfs2_lock_type t;
+	char *l = lockres;
+	uint64_t b = 0;
+	uint64_t p = 0;
+	uint32_t g = 0;
 	
-	if (len != -1) {
-		lock = calloc(len+1, 1);
-		if (!lock)
-			goto bail;
-		strncpy(lock, lockres, len);
-	} else
-		lock = lockres;
+	if ((t = ocfs2_get_lock_type(*l)) >= OCFS2_NUM_LOCK_TYPES)
+		return OCFS2_ET_INVALID_LOCKRES;
 
-	ret = OCFS2_ET_INVALID_LOCKRES;
-	
-	if ((strlen(lock) + 1) != OCFS2_LOCK_ID_MAX_LEN)
-		goto bail;
-
-	if (ocfs2_get_lock_type(lock[0]) >= OCFS2_NUM_LOCK_TYPES)
-		goto bail;
+	if (t != OCFS2_LOCK_TYPE_DENTRY) {
+		i = sscanf(l + 1, OCFS2_LOCK_ID_PAD"%016llx%08x", &b, &g);
+		if (i != 2)
+			return OCFS2_ET_INVALID_LOCKRES;
+	} else {
+		i = sscanf(l + 1, "%016llx", &p);
+		if (i != 1)
+			return OCFS2_ET_INVALID_LOCKRES;
+		b = strtoull(&l[OCFS2_DENTRY_LOCK_INO_START], NULL, 16);
+	}
 
 	if (type)
-		*type = ocfs2_get_lock_type(lock[i]);
+		*type = t;
 
-	i = 1 + strlen(OCFS2_LOCK_ID_PAD);
-	memset(blkstr, 0, sizeof(blkstr));
-	memcpy(blkstr, &lock[i], 16);
 	if (blkno)
-		*blkno = strtoull(blkstr, NULL, 16);
+		*blkno = b;
 
-	i += 16;
 	if (generation)
-		*generation = strtoul(&lock[i], NULL, 16);
+		*generation = g;
 
-	ret = 0;
-bail:
-	if (len != -1 && lock)
-		free(lock);
-	return ret;
+	if (parent)
+		*parent = p;
+
+	return 0;
+}
+
+/*
+ * This function is useful when printing the dentry lock. It converts the
+ * dentry lockname into a string using the same scheme as used in dlmglue.
+ */
+errcode_t ocfs2_printable_lockres(char *lockres, char *name, int len)
+{
+	uint64_t b;
+
+	memset(name, 0, len);
+
+	if (ocfs2_get_lock_type(*lockres) >= OCFS2_NUM_LOCK_TYPES)
+		return OCFS2_ET_INVALID_LOCKRES;
+
+	if (ocfs2_get_lock_type(*lockres) == OCFS2_LOCK_TYPE_DENTRY) {
+		memcpy((uint64_t *)&b,
+		       (char *)&lockres[OCFS2_DENTRY_LOCK_INO_START],
+		       sizeof(uint64_t));
+		snprintf(name, len, "%.*s%08x", OCFS2_DENTRY_LOCK_INO_START - 1,
+			 lockres, (unsigned int)bswap_64(b));
+	} else
+		snprintf(name, len, "%s", lockres);
+
+	return 0;
 }

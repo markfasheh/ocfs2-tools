@@ -253,7 +253,7 @@ errcode_t ocfs2_super_lock(ocfs2_filesys *fs)
 	errcode_t ret;
 
 	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_SUPER, OCFS2_SUPER_BLOCK_BLKNO,
-			     0, lock_name);
+			     0, 0, lock_name);
 
 	ret = o2dlm_lock(fs->fs_dlm_ctxt, lock_name,
 			 O2DLM_TRYLOCK, O2DLM_LEVEL_EXMODE);
@@ -267,7 +267,7 @@ errcode_t ocfs2_super_unlock(ocfs2_filesys *fs)
 	errcode_t ret;
 
 	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_SUPER, OCFS2_SUPER_BLOCK_BLKNO,
-			     0, lock_name);
+			     0, 0, lock_name);
 
 	ret = o2dlm_unlock(fs->fs_dlm_ctxt, lock_name);
 
@@ -283,7 +283,7 @@ errcode_t ocfs2_meta_lock(ocfs2_filesys *fs,
 	errcode_t ret;
 
 	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_META, ci->ci_blkno,
-			     ci->ci_inode->i_generation, lock_name);
+			     ci->ci_inode->i_generation, 0, lock_name);
 
 	ret = o2dlm_lock(fs->fs_dlm_ctxt, lock_name, flags, level);
 
@@ -297,7 +297,7 @@ errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs,
 	errcode_t ret;
 
 	ocfs2_encode_lockres(OCFS2_LOCK_TYPE_META, ci->ci_blkno,
-			     ci->ci_inode->i_generation, lock_name);
+			     ci->ci_inode->i_generation, 0, lock_name);
 
 	ret = o2dlm_unlock(fs->fs_dlm_ctxt, lock_name);
 
