@@ -397,24 +397,6 @@ static void read_lockres(FILE *file, struct lockres *res, int lvb)
 	}
 }
 
-static int lockname_in_list(char *name, struct list_head *locklist)
-{
-	struct locknames *l;
-	struct list_head *iter, *iter2;
-
-	if (!list_empty(locklist)) {
-		list_for_each_safe(iter, iter2, locklist) {
-			l = list_entry(iter, struct locknames, list);
-			if (!strncmp(name, l->name, sizeof(l->name))) {
-				list_del(iter);
-				return 1;
-			}
-		}
-	}
-
-	return 0;
-}
-
 static int get_next_dlm_lockname(FILE *file, char *name, int len)
 {
 	char line[512];
@@ -459,7 +441,7 @@ void dump_dlm_locks(char *uuid, FILE *out, int dump_lvbs,
 	init_lockres(&res);
 
 	while (get_next_dlm_lockname(file, name, sizeof(name))) {
-		if (show_all_locks || lockname_in_list(name, locklist)) {
+		if (show_all_locks || del_from_stringlist(name, locklist)) {
 			read_lockres(file, &res, dump_lvbs);
 
 			dump_lockres(name, &res, out);

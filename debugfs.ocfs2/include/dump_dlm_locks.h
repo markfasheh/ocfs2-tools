@@ -74,12 +74,7 @@ struct lock {
 	struct list_head list;
 };
 
-struct locknames {
-	char name[OCFS2_LOCK_ID_MAX_LEN];
-	struct list_head list;
-};
-
 void dump_dlm_locks(char *uuid, FILE *out, int dump_lvbs,
-		    struct list_head *all_locks);
+		    struct list_head *locklist);
 
 #endif		/* _DUMP_DLM_LOCKS_H_ */

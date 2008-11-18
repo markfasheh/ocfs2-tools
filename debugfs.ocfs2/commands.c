@@ -1484,14 +1484,12 @@ static void do_dlm_locks(char **args)
 	FILE *out;
 	int dump_lvbs = 0;
 	int i;
-	struct locknames *lock;
 	struct list_head locklist;
-	struct list_head *iter, *iter2;
 
 	if (check_device_open())
 		return;
 
-	INIT_LIST_HEAD(&locklist);
+	init_stringlist(&locklist);
 
 	i = 1;
 	if (args[i] && strlen(args[i])) {
@@ -1500,27 +1498,16 @@ static void do_dlm_locks(char **args)
 			i++;
 		}
 
-		for ( ; args[i] && strlen(args[i]); ++i) {
-			lock = calloc(1, sizeof(struct locknames));
-			if (!lock)
+		for ( ; args[i] && strlen(args[i]); ++i)
+			if (add_to_stringlist(args[i], &locklist))
 				break;
-			INIT_LIST_HEAD(&lock->list);
-			strncpy(lock->name, args[i], sizeof(lock->name));
-			list_add_tail(&lock->list, &locklist);
-		}
 	}
 
 	out = open_pager(gbls.interactive);
 	dump_dlm_locks(gbls.fs->uuid_str, out, dump_lvbs, &locklist);
 	close_pager(out);
 
-	if (!list_empty(&locklist)) {
-		list_for_each_safe(iter, iter2, &locklist) {
-			lock = list_entry(iter, struct locknames, list);
-			list_del(iter);
-			free(lock);
-		}
-	}
+	free_stringlist(&locklist);
 }
 
 /*
