@@ -20,8 +20,16 @@
 #include <unistd.h>
 #include <syslog.h>
 
-#include <crm/crm.h>
-#include <crm/common/cluster.h>
+#include <bzlib.h>
+
+#include <pacemaker/crm_config.h>
+/* heartbeat support is irrelevant here */
+#undef SUPPORT_HEARTBEAT
+#define SUPPORT_HEARTBEAT 0
+
+#include <pacemaker/crm/crm.h>
+#include <pacemaker/crm/ais.h>
+#include <pacemaker/crm/common/cluster.h>
 #include <fencing/stonithd_api.h>
 
 #include "ocfs2-kernel/kernel-list.h"
@@ -29,9 +37,6 @@
 
 #include "ocfs2_controld.h"
 
-#include <bzlib.h>
-#include <crm/crm.h>
-#include <crm/ais.h>
 #include <sys/utsname.h>
 
 int			our_nodeid = 0;
