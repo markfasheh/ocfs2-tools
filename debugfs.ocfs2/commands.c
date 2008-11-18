@@ -1519,21 +1519,41 @@ static void do_fs_locks(char **args)
 	FILE *out;
 	int dump_lvbs = 0;
 	int only_busy = 0;
-	int i = 0;
+	int c, argc;
+	struct list_head locklist;
 
 	if (check_device_open())
 		return;
 
-	while (args[++i]) {
-		if (!strcmp("-l", args[i]))
+	for (argc = 0; (args[argc]); ++argc);
+	optind = 0;
+
+	while ((c = getopt(argc, args, "lB")) != -1) {
+		switch (c) {
+		case 'l':
 			dump_lvbs = 1;
-		else if (!strcmp("-B", args[i]))
+			break;
+		case 'B':
 			only_busy = 1;
+			break;
+		default:
+			break;
+		}
+	}
+
+	init_stringlist(&locklist);
+
+	if (optind < argc) {
+		for ( ; args[optind] && strlen(args[optind]); ++optind)
+			if (add_to_stringlist(args[optind], &locklist))
+				break;
 	}
 
 	out = open_pager(gbls.interactive);
-	dump_fs_locks(gbls.fs->uuid_str, out, dump_lvbs, only_busy);
+	dump_fs_locks(gbls.fs->uuid_str, out, dump_lvbs, only_busy, &locklist);
 	close_pager(out);
+
+	free_stringlist(&locklist);
 }
 
 /*

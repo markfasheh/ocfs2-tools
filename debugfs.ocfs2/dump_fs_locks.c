@@ -275,7 +275,7 @@ out:
 
 /* 0 = eof, > 0 = success, < 0 = error */
 static int dump_version_one(FILE *file, FILE *out, int lvbs, int only_busy,
-			    int *skipped)
+			    struct list_head *locklist, int *skipped)
 {
 	char id[OCFS2_LOCK_ID_MAX_LEN + 1];	
 	char lvb[DLM_LVB_LEN];
@@ -327,6 +327,13 @@ static int dump_version_one(FILE *file, FILE *out, int lvbs, int only_busy,
 		lvb[i] = (char) dummy;
 	}
 
+	if (!list_empty(locklist)) {
+		if (!del_from_stringlist(id, locklist)) {
+			ret = 1;
+			goto out;
+		}
+	}
+
 	if (only_busy) {
 		if (!(flags & OCFS2_LOCK_BUSY)) {
 			ret = 1;
@@ -370,7 +377,8 @@ static int end_line(FILE *f)
 
 #define CURRENT_PROTO 2
 /* returns 0 on error or end of file */
-static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy)
+static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy,
+			    struct list_head *locklist)
 {
 	unsigned int version;
 	int ret;
@@ -386,7 +394,7 @@ static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy)
 		return 0;
 	}
 
-	ret = dump_version_one(file, out, lvbs, only_busy, &skipped);
+	ret = dump_version_one(file, out, lvbs, only_busy, locklist, &skipped);
 	if (ret <= 0)
 		return 0;
 
@@ -408,11 +416,13 @@ static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy)
 	return ret;
 }
 
-void dump_fs_locks(char *uuid_str, FILE *out, int dump_lvbs, int only_busy)
+void dump_fs_locks(char *uuid_str, FILE *out, int dump_lvbs, int only_busy,
+		   struct list_head *locklist)
 {
 	errcode_t ret;
 	char debugfs_path[PATH_MAX];
 	FILE *file;
+	int show_select;
 
 	ret = get_debugfs_path(debugfs_path, sizeof(debugfs_path));
 	if (ret) {
@@ -430,8 +440,12 @@ void dump_fs_locks(char *uuid_str, FILE *out, int dump_lvbs, int only_busy)
 		return;
 	}
 
-	while (dump_one_lockres(file, out, dump_lvbs, only_busy))
-		;
+	show_select = !list_empty(locklist);
+
+	while (dump_one_lockres(file, out, dump_lvbs, only_busy, locklist)) {
+		if (show_select && list_empty(locklist))
+			break;
+	}
 
 	fclose(file);
 }
