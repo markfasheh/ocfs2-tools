@@ -1027,6 +1027,7 @@ static void lockfile(void)
 
 static void daemonize(void)
 {
+	int fd;
 	pid_t pid = fork();
 	if (pid < 0) {
 		perror("main: cannot fork");
@@ -1040,6 +1041,18 @@ static void daemonize(void)
 	close(0);
 	close(1);
 	close(2);
+	fd = open("/dev/null", O_RDWR);
+	if (fd >= 0) {
+		/* dup2 to 0 / 1 / 2 (stdin / stdout / stderr) */
+		dup2(fd, STDIN_FILENO);  /* 0 */
+		dup2(fd, STDOUT_FILENO); /* 1 */
+		dup2(fd, STDERR_FILENO); /* 2 */
+
+		/* Should be 0, but just in case it isn't... */
+		if (fd > 2) {
+			close(fd);
+		}
+	}
 	openlog("ocfs2_controld", LOG_PID, LOG_DAEMON);
 
 	lockfile();
