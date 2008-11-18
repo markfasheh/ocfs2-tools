@@ -2258,17 +2258,16 @@ close_device(State *s)
 static int
 initial_slots_for_volume(uint64_t size)
 {
-	int i, shift = ONE_GB_SHIFT;
-	int defaults[4] = { 2, 4, 8, 16 };
+	size >>= ONE_GB_SHIFT;
 
-	for (i = 0, shift = ONE_GB_SHIFT; i < 4; i++, shift += 3) {
-		size >>= shift;
-
-		if (!size)
-			break;
-	}
-
-	return (i < 4) ? defaults[i] : 32;
+	if (size < 2)
+		return 2;
+	else if (size < 10)
+		return 4;
+	else if (size < 1024)
+		return 8;
+	else
+		return 16;
 }
 
 static void
