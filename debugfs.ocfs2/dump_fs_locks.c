@@ -416,28 +416,37 @@ static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy,
 	return ret;
 }
 
-void dump_fs_locks(char *uuid_str, FILE *out, int dump_lvbs, int only_busy,
-		   struct list_head *locklist)
+void dump_fs_locks(char *uuid_str, FILE *out, char *path, int dump_lvbs,
+		   int only_busy, struct list_head *locklist)
 {
 	errcode_t ret;
 	char debugfs_path[PATH_MAX];
 	FILE *file;
 	int show_select;
 
-	ret = get_debugfs_path(debugfs_path, sizeof(debugfs_path));
-	if (ret) {
-		fprintf(stderr, "Could not locate debugfs file system. "
-			"Perhaps it is not mounted?\n");
-		return;
-	}
+	if (path == NULL) {
+		ret = get_debugfs_path(debugfs_path, sizeof(debugfs_path));
+		if (ret) {
+			fprintf(stderr, "Could not locate debugfs file system. "
+				"Perhaps it is not mounted?\n");
+			return;
+		}
 
-	ret = open_debugfs_file(debugfs_path, "ocfs2", uuid_str,
-				"locking_state", &file);
-	if (ret) {
-		fprintf(stderr, "Could not open debug state for \"%s\".\n"
-			"Perhaps that OCFS2 file system is not mounted?\n",
-			uuid_str);
-		return;
+		ret = open_debugfs_file(debugfs_path, "ocfs2", uuid_str,
+					"locking_state", &file);
+		if (ret) {
+			fprintf(stderr, "Could not open debug state for "
+				"\"%s\".\nPerhaps that OCFS2 file system is "
+				"not mounted?\n", uuid_str);
+			return;
+		}
+	} else {
+		file = fopen(path, "r");
+		if (!file) {
+			fprintf(stderr, "Could not open file at \"%s\"\n",
+				path);
+			return;
+		}
 	}
 
 	show_select = !list_empty(locklist);

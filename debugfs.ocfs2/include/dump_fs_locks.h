@@ -25,7 +25,7 @@
 #ifndef _DUMP_FS_LOCKS_H_
 #define _DUMP_FS_LOCKS_H_
 
-void dump_fs_locks(char *uuid, FILE *out, int dump_lvbs, int only_busy,
-		   struct list_head *locklist);
+void dump_fs_locks(char *uuid_str, FILE *out, char *path, int dump_lvbs,
+		   int only_busy, struct list_head *locklist);
 
 #endif		/* _DUMP_FS_LOCKS_H_ */

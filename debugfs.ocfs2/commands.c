@@ -836,7 +836,7 @@ static void do_help (char **args)
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
 	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
-	printf ("fs_locks [-l] [-B]\t\t\tShow live fs locking state\n");
+	printf ("fs_locks [-f <file>] [-l] [-B]\t\t\tShow live fs locking state\n");
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("hb\t\t\t\t\tShows the used heartbeat blocks\n");
 	printf ("help, ?\t\t\t\t\tThis information\n");
@@ -1521,14 +1521,12 @@ static void do_fs_locks(char **args)
 	int only_busy = 0;
 	int c, argc;
 	struct list_head locklist;
-
-	if (check_device_open())
-		return;
+	char *path = NULL, *uuid_str = NULL;
 
 	for (argc = 0; (args[argc]); ++argc);
 	optind = 0;
 
-	while ((c = getopt(argc, args, "lB")) != -1) {
+	while ((c = getopt(argc, args, "lBf:")) != -1) {
 		switch (c) {
 		case 'l':
 			dump_lvbs = 1;
@@ -1536,9 +1534,20 @@ static void do_fs_locks(char **args)
 		case 'B':
 			only_busy = 1;
 			break;
+		case 'f':
+			path = optarg;
+			break;
 		default:
 			break;
 		}
+	}
+	if ((path == NULL)) {
+		/* Only error for a missing device if we're asked to
+		 * read from a live file system. */
+		if (check_device_open())
+			return;
+
+		uuid_str = gbls.fs->uuid_str;
 	}
 
 	init_stringlist(&locklist);
@@ -1550,7 +1559,8 @@ static void do_fs_locks(char **args)
 	}
 
 	out = open_pager(gbls.interactive);
-	dump_fs_locks(gbls.fs->uuid_str, out, dump_lvbs, only_busy, &locklist);
+	dump_fs_locks(uuid_str, out, path, dump_lvbs, only_busy,
+		      &locklist);
 	close_pager(out);
 
 	free_stringlist(&locklist);
