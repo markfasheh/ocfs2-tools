@@ -71,6 +71,13 @@ extent tree references an invalid extent block.
 Answering yes stops the tree from referencing the invalid extent block.  This
 may truncate data from the file which contains the tree.
 
+.SS "EXTENT_EB_CLUSTER_RANGE"
+Deep extent trees are built by forming a tree out of extent blocks.  An
+extent record represent a wrong clusters count than the extent block contains.
+
+Answering yes change clusters count in the extent record to the number the below
+extent block contains.
+
 .SS "EXTENT_LIST_DEPTH"
 Extent lists contain a record of their depth in the tree.  An extent list
 was found whose recorded depth doesn't match the position they have in the

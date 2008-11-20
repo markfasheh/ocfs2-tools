@@ -57,11 +57,12 @@ struct extent_info {
 static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 			  struct ocfs2_dinode *di,
 			  struct ocfs2_extent_list *el,
-			  uint16_t max_recs, int *changed);
+			  uint16_t max_recs, int *changed,
+			  uint32_t *total_clusters);
 
 static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 			  struct ocfs2_dinode *di, uint64_t blkno,
-			  int *is_valid)
+			  int *is_valid, uint32_t *total_clusters)
 {
 	int changed = 0;
 	char *buf = NULL;
@@ -128,7 +129,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 
 	check_el(ost, ei, di, &eb->h_list,
 		 ocfs2_extent_recs_per_eb(ost->ost_fs->fs_blocksize), 
-		 &changed);
+		 &changed, total_clusters);
 
 	if (changed) {
 		ret = ocfs2_write_extent_block(ost->ost_fs, blkno, buf);
@@ -155,7 +156,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 {
 	errcode_t ret = 0;
 	uint64_t first_block;
-	uint32_t last_cluster;
+	uint32_t last_cluster, total_clusters;
 
 	verbosef("cpos %u clusters %u blkno %"PRIu64"\n", er->e_cpos,
 		 er->e_clusters, er->e_blkno);
@@ -170,7 +171,9 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		 * is checked */
 		ei->ei_expect_depth = 1;
 		ei->ei_expected_depth = el->l_tree_depth - 1;
-		check_eb(ost, ei, di, er->e_blkno, &is_valid);
+		ret = 0;
+		total_clusters = 0;
+		check_eb(ost, ei, di, er->e_blkno, &is_valid, &total_clusters);
 		if (!is_valid && 
 		    prompt(ost, PY, PR_EXTENT_EB_INVALID,
 			   "The extent record for cluster offset "
@@ -181,8 +184,22 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 
 			er->e_blkno = 0;
 			*changed = 1;
+			goto out;
 		}
-		ret = 0;
+
+		if (el->l_recs[el->l_next_free_rec-1].e_blkno == er->e_blkno &&
+		    total_clusters != er->e_clusters &&
+		    prompt(ost, PY, PR_EXTENT_EB_CLUSTER_RANGE,
+			   "The extent record for cluster offset %"PRIu32" "
+			   "in inode %"PRIu64" has a cluster count of %"PRIu32
+			   " while its extent block has %"PRIu32" clusters "
+			   "allocated. Change it to what extent block "
+			   "represents?", er->e_cpos, di->i_blkno,
+			   er->e_clusters, total_clusters)) {
+			er->e_clusters = total_clusters;
+			*changed = 1;
+		}
+
 		goto out;
 	}
 
@@ -230,7 +247,8 @@ out:
 static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 			  struct ocfs2_dinode *di,
 			  struct ocfs2_extent_list *el,
-			  uint16_t max_recs, int *changed)
+			  uint16_t max_recs, int *changed,
+			  uint32_t *total_clusters)
 {
 	int trust_next_free = 1;
 	struct ocfs2_extent_rec *er;
@@ -319,6 +337,8 @@ static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 			continue;
 		}
 
+		if (total_clusters)
+			*total_clusters += er->e_clusters;
 
 		/* we've already accounted for the extent block as part of
 		 * the extent block chain groups */
@@ -350,7 +370,7 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 	
 	ret = check_el(ost, &ei, di, &di->id2.i_list, 
 	         ocfs2_extent_recs_per_inode(ost->ost_fs->fs_blocksize),
-		 &changed);
+		 &changed, NULL);
 
 	if (changed)
 		o2fsck_write_inode(ost, di->i_blkno, di);
