@@ -139,6 +139,7 @@ static errcode_t get_desc(const char *dev)
 	} else {
 		region_desc->r_name = NULL;
 		region_desc->r_device_name = NULL;
+		goto out_close;
 	}
 
 	err = ocfs2_fill_cluster_desc(fs, cluster_desc);
@@ -160,6 +161,7 @@ static errcode_t get_desc(const char *dev)
 		cluster_desc->c_cluster = NULL;
 	}
 
+out_close:
 	ocfs2_close(fs);
 
 out:
