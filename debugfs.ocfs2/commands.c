@@ -831,7 +831,7 @@ static void do_help (char **args)
 	printf ("controld dump\t\t\tObtain information from ocfs2_controld\n");
 	printf ("curdev\t\t\t\t\tShow current device\n");
 	printf ("decode <lockname#> ...\t\t\tDecode block#(s) from the lockname(s)\n");
-	printf ("dlm_locks [-l] lockname\t\t\tShow live dlm locking state\n");
+	printf ("dlm_locks [-f <file>] [-l] lockname\t\t\tShow live dlm locking state\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
@@ -1485,26 +1485,44 @@ static void do_dlm_locks(char **args)
 	int dump_lvbs = 0;
 	int i;
 	struct list_head locklist;
-
-	if (check_device_open())
-		return;
+	char *path = NULL, *uuid_str = NULL;
+	int c, argc;
 
 	init_stringlist(&locklist);
 
-	i = 1;
-	if (args[i] && strlen(args[i])) {
-		if (!strcmp("-l", args[i])) {
-			dump_lvbs = 1;
-			i++;
-		}
+	for (argc = 0; (args[argc]); ++argc);
+	optind = 0;
 
+	while ((c = getopt(argc, args, "lf:")) != -1) {
+		switch (c) {
+		case 'l':
+			dump_lvbs = 1;
+			break;
+		case 'f':
+			path = optarg;
+			break;
+		default:
+			break;
+		}
+	}
+	if ((path == NULL)) {
+		/* Only error for a missing device if we're asked to
+		 * read from a live file system. */
+		if (check_device_open())
+			return;
+
+		uuid_str = gbls.fs->uuid_str;
+	}
+
+	i = optind;
+	if (args[i] && strlen(args[i])) {
 		for ( ; args[i] && strlen(args[i]); ++i)
 			if (add_to_stringlist(args[i], &locklist))
 				break;
 	}
 
 	out = open_pager(gbls.interactive);
-	dump_dlm_locks(gbls.fs->uuid_str, out, dump_lvbs, &locklist);
+	dump_dlm_locks(uuid_str, out, path, dump_lvbs, &locklist);
 	close_pager(out);
 
 	free_stringlist(&locklist);

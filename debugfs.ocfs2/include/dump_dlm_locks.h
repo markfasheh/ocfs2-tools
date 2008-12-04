@@ -74,7 +74,7 @@ struct lock {
 	struct list_head list;
 };
 
-void dump_dlm_locks(char *uuid, FILE *out, int dump_lvbs,
+void dump_dlm_locks(char *uuid, FILE *out, char *path, int dump_lvbs,
 		    struct list_head *locklist);
 
 #endif		/* _DUMP_DLM_LOCKS_H_ */
