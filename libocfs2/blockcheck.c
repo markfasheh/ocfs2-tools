@@ -291,7 +291,7 @@ void ocfs2_block_check_compute(void *data, size_t blocksize,
 
 	crc = crc32_le(~0, data, blocksize);
 	/* We know this will return max 16 bits */
-	ecc = (uint16_t)ocfs2_hamming_encode(data, blocksize);
+	ecc = (uint16_t)ocfs2_hamming_encode(data, blocksize * 8);
 
 	bc->bc_crc32e = cpu_to_le32(crc);
 	bc->bc_ecc = cpu_to_le16(ecc);  /* We know it's max 16 bits */
@@ -323,8 +323,8 @@ errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 		goto out;
 
 	/* Ok, try ECC fixups */
-	ecc = ocfs2_hamming_encode(data, blocksize);
-	ocfs2_hamming_fix(data, blocksize, ecc ^ check.bc_ecc);
+	ecc = ocfs2_hamming_encode(data, blocksize * 8);
+	ocfs2_hamming_fix(data, blocksize * 8, ecc ^ check.bc_ecc);
 
 	/* And check the crc32 again */
 	crc = crc32_le(~0, data, blocksize);
