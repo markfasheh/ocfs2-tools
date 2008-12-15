@@ -107,20 +107,25 @@ static unsigned int calc_code_bit(unsigned int i)
 	return b;
 }
 
-/* XXX: Not endian safe? */
-uint32_t ocfs2_hamming_encode(unsigned char *data, unsigned int d)
+/*
+ * This is the low level encoder function.  It can be called across
+ * multiple hunks just like the crc32 code.  'd' is the number of bits
+ * _in_this_hunk_.  nr is the bit offset of this hunk.  So, if you had
+ * two 512B buffers, you would do it like so:
+ *
+ * parity = ocfs2_hamming_encode(0, buf1, 512 * 8, 0);
+ * parity = ocfs2_hamming_encode(parity, buf2, 512 * 8, 512 * 8);
+ *
+ * If you just have one buffer, use ocfs2_hamming_encode_block().
+ */
+uint32_t ocfs2_hamming_encode(uint32_t parity, void *data, unsigned int d,
+			      unsigned int nr)
 {
 	unsigned int p = calc_parity_bits(d);
 	unsigned int i, j, b;
-	uint32_t parity = 0;
-	unsigned int plist[p];  /* XXX: We use a simple array to avoid ugly
-				   bitops on *parity.  Perhaps this makes us
-				   slower? */
 
 	if (!p)
 		abort();
-
-	memset(plist, 0, sizeof(unsigned int) * p);
 
 	/*
 	 * b is the hamming code bit number.  Hamming code specifies a
@@ -133,8 +138,11 @@ uint32_t ocfs2_hamming_encode(unsigned char *data, unsigned int d)
 	 */
 	for (i = 0; (i = ocfs2_find_next_bit_set(data, d, i)) < d; i++)
 	{
-
-		b = calc_code_bit(i);
+		/*
+		 * i is the offset in this hunk, nr + i is the total bit
+		 * offset.
+		 */
+		b = calc_code_bit(nr + i);
 
 		for (j = 0; j < p; j++)
 		{
@@ -155,20 +163,28 @@ uint32_t ocfs2_hamming_encode(unsigned char *data, unsigned int d)
 			 * our loop.
 			 */
 			if (b & (1 << j))
-				plist[j] ^= 1;
+				parity ^= (1 << j);
 		}
 	}
 
-	/* Now fill parity */
-	for (j = 0; j < p; j++)
-		if (plist[j])
-			ocfs2_set_bit(j, &parity);
-
-	/* ocfs2 bitops are little-endian, return a host-endian value */
-	return le32_to_cpu(parity);
+	/* While the data buffer was treated as little endian, the
+	 * return value is in host endian. */
+	return parity;
 }
 
-void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
+uint32_t ocfs2_hamming_encode_block(void *data, unsigned int blocksize)
+{
+	return ocfs2_hamming_encode(0, data, blocksize * 8, 0);
+}
+
+/*
+ * Like ocfs2_hamming_encode(), this can handle hunks.  nr is the bit
+ * offset of the current hunk.  If bit to be fixed is not part of the
+ * current hunk, this does nothing.
+ *
+ * If you only have one hunk, use ocfs2_hamming_fix_block().
+ */
+void ocfs2_hamming_fix(void *data, unsigned int d, unsigned int nr,
 		       unsigned int fix)
 {
 	unsigned int p = calc_parity_bits(d);
@@ -184,13 +200,37 @@ void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
 	if (hc_hweight32(fix) == 1)
 		return;
 
-	/* See hamming_encode() for a description of 'b' */
-	for (i = 0, b = 1; i < d; i++, b++)
+	/*
+	 * nr + d is the bit right past the data hunk we're looking at.
+	 * If fix after that, nothing to do
+	 */
+	if (fix >= calc_code_bit(nr + d))
+		return;
+
+	/*
+	 * nr is the offset in the data hunk we're starting at.  Let's
+	 * start b at the offset in the code buffer.  See hamming_encode()
+	 * for a more detailed description of 'b'.
+	 */
+	b = calc_code_bit(nr);
+	/* If the fix is before this hunk, nothing to do */
+	if (fix < b)
+		return;
+
+	for (i = 0; i < d; i++, b++)
 	{
 		/* Skip past parity bits */
 		while (hc_hweight32(b) == 1)
 			b++;
 
+		/*
+		 * i is the offset in this data hunk.
+		 * nr + i is the offset in the total data buffer.
+		 * b is the offset in the total code buffer.
+		 *
+		 * Thus, when b == fix, bit i in the current hunk needs
+		 * fixing.
+		 */
 		if (b == fix)
 		{
 			if (ocfs2_test_bit(i, data))
@@ -200,6 +240,12 @@ void ocfs2_hamming_fix(unsigned char *data, unsigned int d,
 			break;
 		}
 	}
+}
+
+void ocfs2_hamming_fix_block(void *data, unsigned int blocksize,
+			     unsigned int fix)
+{
+	ocfs2_hamming_fix(data, blocksize * 8, 0, fix);
 }
 
 /*
@@ -291,7 +337,7 @@ void ocfs2_block_check_compute(void *data, size_t blocksize,
 
 	crc = crc32_le(~0, data, blocksize);
 	/* We know this will return max 16 bits */
-	ecc = (uint16_t)ocfs2_hamming_encode(data, blocksize * 8);
+	ecc = (uint16_t)ocfs2_hamming_encode_block(data, blocksize * 8);
 
 	bc->bc_crc32e = cpu_to_le32(crc);
 	bc->bc_ecc = cpu_to_le16(ecc);  /* We know it's max 16 bits */
@@ -323,8 +369,8 @@ errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 		goto out;
 
 	/* Ok, try ECC fixups */
-	ecc = ocfs2_hamming_encode(data, blocksize * 8);
-	ocfs2_hamming_fix(data, blocksize * 8, ecc ^ check.bc_ecc);
+	ecc = ocfs2_hamming_encode_block(data, blocksize * 8);
+	ocfs2_hamming_fix_block(data, blocksize * 8, ecc ^ check.bc_ecc);
 
 	/* And check the crc32 again */
 	crc = crc32_le(~0, data, blocksize);
