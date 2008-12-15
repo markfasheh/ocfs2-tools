@@ -115,10 +115,12 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	if (ret)
 		goto out_blk;
 
-	ret = ocfs2_malloc_block(fs->fs_io, &swapblk);
-	if (ret)
-		goto out_blk;
 	di = (struct ocfs2_dinode *)blk;
+
+	ret = OCFS2_ET_BAD_MAGIC;
+	if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
+		   strlen(OCFS2_SUPER_BLOCK_SIGNATURE)))
+		goto out_blk;
 
 	/*
 	 * We want to use the latest superblock to validate.  We need
@@ -126,6 +128,10 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	 * check in blk.  ocfs2_validate_meta_ecc() uses fs->fs_super and
 	 * fs->fs_blocksize.
 	 */
+	ret = ocfs2_malloc_block(fs->fs_io, &swapblk);
+	if (ret)
+		goto out_blk;
+
 	memcpy(swapblk, blk, blocksize);
 	orig_super = fs->fs_super;
 	orig_blocksize = fs->fs_blocksize;
@@ -142,13 +148,7 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	if (ret)
 		goto out_blk;
 
-	ret = OCFS2_ET_BAD_MAGIC;
-	if (memcmp(di->i_signature, OCFS2_SUPER_BLOCK_SIGNATURE,
-		   strlen(OCFS2_SUPER_BLOCK_SIGNATURE)))
-		goto out_blk;
-
 	ocfs2_swap_inode_to_cpu(di);
-
 	if (!sb)
 		fs->fs_super = di;
 	else {
