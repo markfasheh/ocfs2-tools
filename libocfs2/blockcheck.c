@@ -48,34 +48,6 @@ static inline unsigned int hc_hweight32(unsigned int w)
 }
 
 /*
- * Find the log base 2 of 32-bit v.
- *
- * Algorithm found on http://graphics.stanford.edu/~seander/bithacks.html,
- * by Sean Eron Anderson.  Code on the page is in the public domain unless
- * otherwise noted.
- *
- * This particular algorithm is credited to Eric Cole.
- */
-static int find_highest_bit_set(unsigned int v)
-{
-
-	static const int MultiplyDeBruijnBitPosition[32] =
-	{
-		0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
-		31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
-	};
-
-	v |= v >> 1; /* first round down to power of 2 */
-	v |= v >> 2;
-	v |= v >> 4;
-	v |= v >> 8;
-	v |= v >> 16;
-	v = (v >> 1) + 1;
-
-	return MultiplyDeBruijnBitPosition[(uint32_t)(v * 0x077CB531UL) >> 27];
-}
-
-/*
  * Calculate the bit offset in the hamming code buffer based on the bit's
  * offset in the data buffer.  Since the hamming code reserves all
  * power-of-two bits for parity, the data bit number and the code bit
@@ -88,10 +60,14 @@ static int find_highest_bit_set(unsigned int v)
  * so it's a parity bit.  2 is a power of two (2^1), so it's a parity bit.
  * 3 is not a power of two.  So bit 1 of the data buffer ends up as bit 3
  * in the code buffer.
+ *
+ * The caller passes in *p if it wants to keep track of the most recent
+ * number of parity bits added.  This allows the function to start the
+ * calculation at the last place.
  */
-static unsigned int calc_code_bit(unsigned int i)
+static unsigned int calc_code_bit(unsigned int i, unsigned int *p_cache)
 {
-	unsigned int b, p;
+	unsigned int b, p = 0;
 
 	/*
 	 * Data bits are 0-based, but we're talking code bits, which
@@ -99,11 +75,9 @@ static unsigned int calc_code_bit(unsigned int i)
 	 */
 	b = i + 1;
 
-	/*
-	 * As a cheat, we know that all bits below b's highest bit must be
-	 * parity bits, so we can start there.
-	 */
-        p = find_highest_bit_set(b);
+	/* Use the cache if it is there */
+	if (p_cache)
+		p = *p_cache;
         b += p;
 
 	/*
@@ -112,10 +86,13 @@ static unsigned int calc_code_bit(unsigned int i)
 	 * We compare with (b + 1) because we have to compare with what b
 	 * would be _if_ it were bumped up by the parity bit.  Capice?
 	 *
-	 * We start p at 2^p because of the cheat above.
+	 * p is set above.
 	 */
-	for (p = (1 << p); p < (b + 1); p <<= 1)
+	for (; (1 << p) < (b + 1); p++)
 		b++;
+
+	if (p_cache)
+		*p_cache = p;
 
 	return b;
 }
@@ -134,7 +111,7 @@ static unsigned int calc_code_bit(unsigned int i)
 uint32_t ocfs2_hamming_encode(uint32_t parity, void *data, unsigned int d,
 			      unsigned int nr)
 {
-	unsigned int i, b;
+	unsigned int i, b, p = 0;
 
 	if (!d)
 		abort();
@@ -154,7 +131,7 @@ uint32_t ocfs2_hamming_encode(uint32_t parity, void *data, unsigned int d,
 		 * i is the offset in this hunk, nr + i is the total bit
 		 * offset.
 		 */
-		b = calc_code_bit(nr + i);
+		b = calc_code_bit(nr + i, &p);
 
 		/*
 		 * Data bits in the resultant code are checked by
@@ -211,7 +188,7 @@ void ocfs2_hamming_fix(void *data, unsigned int d, unsigned int nr,
 	 * nr + d is the bit right past the data hunk we're looking at.
 	 * If fix after that, nothing to do
 	 */
-	if (fix >= calc_code_bit(nr + d))
+	if (fix >= calc_code_bit(nr + d, NULL))
 		return;
 
 	/*
@@ -219,7 +196,7 @@ void ocfs2_hamming_fix(void *data, unsigned int d, unsigned int nr,
 	 * start b at the offset in the code buffer.  See hamming_encode()
 	 * for a more detailed description of 'b'.
 	 */
-	b = calc_code_bit(nr);
+	b = calc_code_bit(nr, NULL);
 	/* If the fix is before this hunk, nothing to do */
 	if (fix < b)
 		return;
@@ -486,6 +463,66 @@ static unsigned int calc_code_bit_orig(unsigned int i)
 }
 
 /*
+ * Find the log base 2 of 32-bit v.
+ *
+ * Algorithm found on http://graphics.stanford.edu/~seander/bithacks.html,
+ * by Sean Eron Anderson.  Code on the page is in the public domain unless
+ * otherwise noted.
+ *
+ * This particular algorithm is credited to Eric Cole.
+ */
+static int find_highest_bit_set(unsigned int v)
+{
+
+	static const int MultiplyDeBruijnBitPosition[32] =
+	{
+		0, 1, 28, 2, 29, 14, 24, 3, 30, 22, 20, 15, 25, 17, 4, 8,
+		31, 27, 13, 23, 21, 19, 16, 7, 26, 12, 18, 6, 11, 5, 10, 9
+	};
+
+	v |= v >> 1; /* first round down to power of 2 */
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	v = (v >> 1) + 1;
+
+	return MultiplyDeBruijnBitPosition[(uint32_t)(v * 0x077CB531UL) >> 27];
+}
+
+static unsigned int calc_code_bit_cheat(unsigned int i)
+{
+	unsigned int b, p;
+
+	/*
+	 * Data bits are 0-based, but we're talking code bits, which
+	 * are 1-based.
+	 */
+	b = i + 1;
+
+	/*
+	 * As a cheat, we know that all bits below b's highest bit must be
+	 * parity bits, so we can start there.
+	 */
+        p = find_highest_bit_set(b);
+        b += p;
+
+	/*
+	 * For every power of two below our bit number, bump our bit.
+	 *
+	 * We compare with (b + 1) because we have to compare with what b
+	 * would be _if_ it were bumped up by the parity bit.  Capice?
+	 *
+	 * We start p at 2^p because of the cheat above.
+	 */
+	for (p = (1 << p); p < (b + 1); p <<= 1)
+		b++;
+
+	return b;
+}
+
+
+/*
  * This is the low level encoder function.  It can be called across
  * multiple hunks just like the crc32 code.  'd' is the number of bits
  * _in_this_hunk_.  nr is the bit offset of this hunk.  So, if you had
@@ -606,7 +643,7 @@ static uint32_t ocfs2_hamming_encode_orig_bits(uint32_t parity, void *data,
 
 /*
  * This version uses the direct parity ^= b, but the original
- * calc_parity_bits()
+ * calc_code_bit()
  */
 static uint32_t ocfs2_hamming_encode_orig_code_bit(uint32_t parity, void *data,
 						   unsigned int d, unsigned int nr)
@@ -656,6 +693,60 @@ static uint32_t ocfs2_hamming_encode_orig_code_bit(uint32_t parity, void *data,
 	 * return value is in host endian. */
 	return parity;
 }
+
+/*
+ * This version uses the direct parity ^= b, but the cheating
+ * calc_code_bit().
+ */
+static uint32_t ocfs2_hamming_encode_cheat_code_bit(uint32_t parity, void *data,
+						    unsigned int d, unsigned int nr)
+{
+	unsigned int i, b;
+
+	if (!d)
+		abort();
+
+	/*
+	 * b is the hamming code bit number.  Hamming code specifies a
+	 * 1-based array, but C uses 0-based.  So 'i' is for C, and 'b' is
+	 * for the algorithm.
+	 *
+	 * The i++ in the for loop is so that the start offset passed
+	 * to ocfs2_find_next_bit_set() is one greater than the previously
+	 * found bit.
+	 */
+	for (i = 0; (i = ocfs2_find_next_bit_set(data, d, i)) < d; i++)
+	{
+		/*
+		 * i is the offset in this hunk, nr + i is the total bit
+		 * offset.
+		 */
+		b = calc_code_bit_cheat(nr + i);
+
+		/*
+		 * Data bits in the resultant code are checked by
+		 * parity bits that are part of the bit number
+		 * representation.  Huh?
+		 *
+		 * <wikipedia href="http://en.wikipedia.org/wiki/Hamming_code">
+		 * In other words, the parity bit at position 2^k
+		 * checks bits in positions having bit k set in
+		 * their binary representation.  Conversely, for
+		 * instance, bit 13, i.e. 1101(2), is checked by
+		 * bits 1000(2) = 8, 0100(2)=4 and 0001(2) = 1.
+		 * </wikipedia>
+		 *
+		 * Note that 'k' is the _code_ bit number.  'b' in
+		 * our loop.
+		 */
+		parity ^= b;
+	}
+
+	/* While the data buffer was treated as little endian, the
+	 * return value is in host endian. */
+	return parity;
+}
+
 
 struct run_context {
 	char *rc_name;
@@ -762,6 +853,10 @@ static void run_hamming(char *buf, int size, int count)
 
 	hc.hc_rc.rc_name = "Parity xor with orig calc code bit";
 	hc.hc_encode = ocfs2_hamming_encode_orig_code_bit;
+	timeme(&hc.hc_rc);
+
+	hc.hc_rc.rc_name = "Parity xor with cheating calc code bit";
+	hc.hc_encode = ocfs2_hamming_encode_cheat_code_bit;
 	timeme(&hc.hc_rc);
 
 	hc.hc_rc.rc_name = "Current hamming code";
