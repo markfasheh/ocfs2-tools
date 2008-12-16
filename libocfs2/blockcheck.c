@@ -24,6 +24,10 @@
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
 #define _LARGEFILE64_SOURCE
 
+#ifdef DEBUG_EXE
+# define _BSD_SOURCE  /* For timersub() */
+#endif
+
 #include <inttypes.h>
 
 #include "ocfs2/ocfs2.h"
@@ -337,7 +341,7 @@ void ocfs2_block_check_compute(void *data, size_t blocksize,
 
 	crc = crc32_le(~0, data, blocksize);
 	/* We know this will return max 16 bits */
-	ecc = (uint16_t)ocfs2_hamming_encode_block(data, blocksize * 8);
+	ecc = (uint16_t)ocfs2_hamming_encode_block(data, blocksize);
 
 	bc->bc_crc32e = cpu_to_le32(crc);
 	bc->bc_ecc = cpu_to_le16(ecc);  /* We know it's max 16 bits */
@@ -369,8 +373,8 @@ errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 		goto out;
 
 	/* Ok, try ECC fixups */
-	ecc = ocfs2_hamming_encode_block(data, blocksize * 8);
-	ocfs2_hamming_fix_block(data, blocksize * 8, ecc ^ check.bc_ecc);
+	ecc = ocfs2_hamming_encode_block(data, blocksize);
+	ocfs2_hamming_fix_block(data, blocksize, ecc ^ check.bc_ecc);
 
 	/* And check the crc32 again */
 	crc = crc32_le(~0, data, blocksize);
@@ -411,7 +415,187 @@ errcode_t ocfs2_validate_meta_ecc(ocfs2_filesys *fs, void *data,
 }
 
 #ifdef DEBUG_EXE
+#include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <assert.h>
+#include <errno.h>
+
+/*
+ * The function hamming_encode_orig() is my original, tested version.  It's
+ * slow.  We work from it to make a faster one.
+ */
+
+/*
+ * This is the low level encoder function.  It can be called across
+ * multiple hunks just like the crc32 code.  'd' is the number of bits
+ * _in_this_hunk_.  nr is the bit offset of this hunk.  So, if you had
+ * two 512B buffers, you would do it like so:
+ *
+ * parity = ocfs2_hamming_encode(0, buf1, 512 * 8, 0);
+ * parity = ocfs2_hamming_encode(parity, buf2, 512 * 8, 512 * 8);
+ *
+ * If you just have one buffer, use ocfs2_hamming_encode_block().
+ */
+static uint32_t hamming_encode_orig(uint32_t parity, void *data, unsigned int d,
+				    unsigned int nr)
+{
+	unsigned int p = calc_parity_bits(d);
+	unsigned int i, j, b;
+
+	if (!p)
+		abort();
+
+	/*
+	 * b is the hamming code bit number.  Hamming code specifies a
+	 * 1-based array, but C uses 0-based.  So 'i' is for C, and 'b' is
+	 * for the algorithm.
+	 *
+	 * The i++ in the for loop is so that the start offset passed
+	 * to ocfs2_find_next_bit_set() is one greater than the previously
+	 * found bit.
+	 */
+	for (i = 0; (i = ocfs2_find_next_bit_set(data, d, i)) < d; i++)
+	{
+		/*
+		 * i is the offset in this hunk, nr + i is the total bit
+		 * offset.
+		 */
+		b = calc_code_bit(nr + i);
+
+		for (j = 0; j < p; j++)
+		{
+			/*
+			 * Data bits in the resultant code are checked by
+			 * parity bits that are part of the bit number
+			 * representation.  Huh?
+			 *
+			 * <wikipedia href="http://en.wikipedia.org/wiki/Hamming_code">
+			 * In other words, the parity bit at position 2^k
+			 * checks bits in positions having bit k set in
+			 * their binary representation.  Conversely, for
+			 * instance, bit 13, i.e. 1101(2), is checked by
+			 * bits 1000(2) = 8, 0100(2)=4 and 0001(2) = 1.
+			 * </wikipedia>
+			 *
+			 * Note that 'k' is the _code_ bit number.  'b' in
+			 * our loop.
+			 */
+			if (b & (1 << j))
+				parity ^= (1 << j);
+		}
+	}
+
+	/* While the data buffer was treated as little endian, the
+	 * return value is in host endian. */
+	return parity;
+}
+
+struct run_context {
+	char *rc_name;
+	void *rc_data;
+	int rc_size;
+	int rc_count;
+	void (*rc_func)(struct run_context *ct, int nr);
+};
+
+static void timeme(struct run_context *ct)
+{
+	int i;
+	struct rusage start;
+	struct rusage stop;
+	struct timeval sys_diff, usr_diff;
+
+	assert(!getrusage(RUSAGE_SELF, &start));
+
+	for (i = 0; i < ct->rc_count; i++)
+		ct->rc_func(ct, i);
+
+	assert(!getrusage(RUSAGE_SELF, &stop));
+	timersub(&stop.ru_utime, &start.ru_utime, &usr_diff);
+	timersub(&stop.ru_stime, &start.ru_stime, &sys_diff);
+
+	fprintf(stderr, "Time for %s: %ld.%06ld user, %ld.%06ld system\n",
+		ct->rc_name, usr_diff.tv_sec, usr_diff.tv_usec,
+		sys_diff.tv_sec, sys_diff.tv_usec);
+}
+
+static void crc32_func(struct run_context *ct, int nr)
+{
+	uint32_t crc = ~0;
+
+	crc = crc32_le(crc, ct->rc_data, ct->rc_size);
+}
+
+static void run_crc32(char *buf, int size, int count)
+{
+	struct run_context ct = {
+		.rc_name = "CRC32",
+		.rc_data = buf,
+		.rc_size = size,
+		.rc_count = count,
+		.rc_func = crc32_func,
+	};
+
+	timeme(&ct);
+}
+
+struct hamming_context {
+	struct run_context hc_rc;
+	uint32_t hc_ecc;
+	int hc_ecc_valid;
+	uint32_t (*hc_encode)(uint32_t parity, void *data, unsigned int d,
+			      unsigned int nr);
+};
+
+#define rc_to_hc(_rc) ((struct hamming_context *)(_rc))
+
+static void hamming_func(struct run_context *ct, int nr)
+{
+	uint32_t ecc = 0;
+	struct hamming_context *hc = rc_to_hc(ct);
+
+	ecc = hc->hc_encode(ecc, ct->rc_data, ct->rc_size * 8, 0);
+
+	if (hc->hc_ecc_valid) {
+		if (hc->hc_ecc != ecc) {
+			fprintf(stderr,
+				"Calculated ecc %"PRIu32" != saved ecc %"PRIu32"\n",
+				ecc, hc->hc_ecc);
+			exit(1);
+		}
+	} else {
+		assert(!nr);
+		hc->hc_ecc = ecc;
+		hc->hc_ecc_valid = 1;
+	};
+}
+
+static void run_hamming(char *buf, int size, int count)
+{
+	struct hamming_context hc = {
+		.hc_rc = {
+			.rc_name = "Original hamming code",
+			.rc_data = buf,
+			.rc_size = size,
+			.rc_count = count,
+			.rc_func = hamming_func,
+		},
+		.hc_encode = hamming_encode_orig,
+	};
+
+	timeme(&hc.hc_rc);
+
+	hc.hc_rc.rc_name = "Current hamming code";
+	hc.hc_encode = ocfs2_hamming_encode;
+	timeme(&hc.hc_rc);
+}
 
 static uint64_t read_number(const char *num)
 {
@@ -425,25 +609,68 @@ static uint64_t read_number(const char *num)
 	return val;
 }
 
+static void get_file(char *filename, char **buf, int *size)
+{
+	int rc, fd, tot = 0;
+	char *b;
+	struct stat stat_buf;
+
+	rc  = stat(filename, &stat_buf);
+	if (rc) {
+		fprintf(stderr, "Unable to stat \"%s\": %s\n", filename,
+			strerror(errno));
+		exit(1);
+	}
+	if (!S_ISREG(stat_buf.st_mode)) {
+		fprintf(stderr, "File \"%s\" is not a regular file\n",
+			filename);
+		exit(1);
+	}
+
+	b = malloc(stat_buf.st_size * sizeof(char));
+	if (!b) {
+		fprintf(stderr, "Unable to allocate buffer: %s\n",
+			strerror(errno));
+		exit(1);
+	}
+
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		fprintf(stderr, "Unable to open \"%s\": %s\n", filename,
+			strerror(errno));
+		exit(1);
+	}
+
+	while (tot < stat_buf.st_size) {
+		rc = read(fd, b + tot, stat_buf.st_size - tot);
+		if (rc < 0) {
+			fprintf(stderr, "Error reading from \"%s\": %s\n",
+				filename, strerror(errno));
+			exit(1);
+		}
+		if (!rc) {
+			fprintf(stderr, "Unexpected EOF while reading from \"%s\"\n",
+				filename);
+			exit(1);
+		}
+		tot += rc;
+	}
+
+	close(fd);
+	*size = stat_buf.st_size;
+	*buf = b;
+}
+
 static void print_usage(void)
 {
 	fprintf(stderr,
-		"Usage: blockcheck <filename> <inode_num>\n");
+		"Usage: blockcheck <filename> [<count>]\n");
 }
-
-extern int opterr, optind;
-extern char *optarg;
 
 int main(int argc, char *argv[])
 {
-	errcode_t ret;
-	uint64_t blkno;
+	int size, count = 1;
 	char *filename, *buf;
-	ocfs2_filesys *fs;
-	struct ocfs2_dinode *di;
-	struct ocfs2_block_check check;
-
-	blkno = OCFS2_SUPER_BLOCK_BLKNO;
 
 	initialize_ocfs_error_table();
 
@@ -455,57 +682,27 @@ int main(int argc, char *argv[])
 	filename = argv[1];
 
 	if (argc > 2) {
-		blkno = read_number(argv[2]);
-		if (blkno < OCFS2_SUPER_BLOCK_BLKNO) {
-			fprintf(stderr, "Invalid blockno: %"PRIu64"\n", blkno);
+		count = read_number(argv[2]);
+		if (count < 1) {
+			fprintf(stderr, "Invalid count: %d\n", count);
 			print_usage();
 			return 1;
 		}
 	}
 
-	ret = ocfs2_open(filename, OCFS2_FLAG_RO, 0, 0, &fs);
-	if (ret) {
-		com_err(argv[0], ret,
-			"while opening file \"%s\"", filename);
-		goto out;
-	}
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret) {
-		com_err(argv[0], ret,
-			"while allocating inode buffer");
-		goto out_close;
-	}
+	get_file(filename, &buf, &size);
+	run_crc32(buf, size, count);
+	run_hamming(buf, size, count);
 
 
-	ret = ocfs2_read_inode(fs, blkno, buf);
-	if (ret) {
-		com_err(argv[0], ret, "while reading inode %"PRIu64, blkno);
-		goto out_free;
-	}
-
-	di = (struct ocfs2_dinode *)buf;
-
-	fprintf(stdout, "OCFS2 inode %"PRIu64" on \"%s\"\n", blkno,
-		filename);
-
-	/* We want to check the on-disk version of the inode*/
-	ocfs2_swap_inode_from_cpu(di);
-	ocfs2_block_check_compute(buf, fs->fs_blocksize, &check);
+#if 0
+	ocfs2_block_check_compute(buf, size, &check);
 	fprintf(stdout, "crc32le: %"PRIu32", ecc: %"PRIu16"\n",
 		le32_to_cpu(check.bc_crc32e), le16_to_cpu(check.bc_ecc));
+#endif
 
-out_free:
-	ocfs2_free(&buf);
+	free(buf);
 
-out_close:
-	ret = ocfs2_close(fs);
-	if (ret) {
-		com_err(argv[0], ret,
-			"while closing file \"%s\"", filename);
-	}
-
-out:
 	return 0;
 }
 
