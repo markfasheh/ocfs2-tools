@@ -84,8 +84,8 @@ errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes)
 	return ocfs2_swap_dir_entries_direction(buf, bytes, 1);
 }
 
-errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
-                               void *buf)
+errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			       uint64_t block, void *buf)
 {
 	errcode_t	retval;
 
@@ -96,8 +96,8 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, uint64_t block,
 	return ocfs2_swap_dir_entries_to_cpu(buf, fs->fs_blocksize);
 }
 
-errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, uint64_t block,
-                                void *inbuf)
+errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+				uint64_t block, void *inbuf)
 {
 	errcode_t	retval;
 	char		*buf = NULL;

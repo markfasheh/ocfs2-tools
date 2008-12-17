@@ -61,7 +61,8 @@ static errcode_t get_more_dir_blocks(ocfs2_dir_scan *scan)
 	if (ret)
 		return ret;
 
-	ret = ocfs2_read_dir_block(scan->fs, blkno, scan->buf);
+	ret = ocfs2_read_dir_block(scan->fs, scan->inode->ci_inode, blkno,
+				   scan->buf);
 	if (ret)
 		return ret;
 
