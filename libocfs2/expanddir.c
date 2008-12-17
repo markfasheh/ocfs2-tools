@@ -107,7 +107,7 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	de->rec_len = fs->fs_blocksize;
 
 	/* write new dir block */
-	ret = ocfs2_write_dir_block(fs, new_blk, buf);
+	ret = ocfs2_write_dir_block(fs, cinode->ci_inode, new_blk, buf);
 	if (ret)
 		goto bail;
 
@@ -212,7 +212,7 @@ errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
 	ocfs2_fill_initial_dirents(dir, parent_dir, data, size);
 
 	if (!(cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
-		ret = ocfs2_write_dir_block(fs, blkno, buf);
+		ret = ocfs2_write_dir_block(fs, cinode->ci_inode, blkno, buf);
 		if (ret)
 			goto bail;
 	}

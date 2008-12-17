@@ -30,6 +30,7 @@
 struct dir_context {
 	uint64_t dir;
 	int flags;
+	struct ocfs2_dinode *di;
 	char *buf;
 	int (*func)(uint64_t dir,
 		    int entry,

@@ -656,7 +656,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 							     di->i_size))
 			goto out;
 
-		ret = ocfs2_read_dir_block(dd->fs, dbe->e_blkno,
+		ret = ocfs2_read_dir_block(dd->fs, di, dbe->e_blkno,
 					   dd->dirblock_buf);
 		if (ret && ret != OCFS2_ET_DIR_CORRUPTED) {
 			com_err(whoami, ret, "while reading dir block %"PRIu64,
@@ -759,7 +759,7 @@ next:
 			ret = ocfs2_write_inode(dd->fs, dbe->e_ino,
 						dd->dirblock_buf);
 		} else
-			ret = ocfs2_write_dir_block(dd->fs, dbe->e_blkno,
+			ret = ocfs2_write_dir_block(dd->fs, di, dbe->e_blkno,
 						    dd->dirblock_buf);
 		if (ret) {
 			com_err(whoami, ret, "while writing dir block %"PRIu64,

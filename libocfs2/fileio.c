@@ -526,7 +526,8 @@ errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci)
 						 fs->fs_blocksize);
 
 			di->i_size = fs->fs_blocksize;
-			ret = ocfs2_write_dir_block(fs, p_start, inline_data);
+			ret = ocfs2_write_dir_block(fs, di, p_start,
+						    inline_data);
 		} else
 			ret = io_write_block(fs->fs_io, p_start,
 					     1, inline_data);

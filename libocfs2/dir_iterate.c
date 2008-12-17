@@ -95,9 +95,19 @@ errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 	ctx.priv_data = priv_data;
 	ctx.errcode = 0;
 
+	retval = ocfs2_malloc_block(fs->fs_io, &ctx.di);
+	if (retval)
+		goto out;
+
 	retval = ocfs2_read_inode(fs, dir, ctx.buf);
 	if (retval)
 		goto out;
+
+	/*
+	 * Save off the inode - some paths use the buffer for dirent
+	 * data.
+	 */
+	memcpy(ctx.di, ctx.buf, fs->fs_blocksize);
 
 	di = (struct ocfs2_dinode *)ctx.buf;
 
@@ -112,6 +122,8 @@ errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 out:
 	if (!block_buf)
 		ocfs2_free(&ctx.buf);
+	if (ctx.di)
+		ocfs2_free(&ctx.di);
 	if (retval)
 		return retval;
 	return ctx.errcode;
@@ -271,7 +283,7 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 	entry = blockcnt ? OCFS2_DIRENT_OTHER_FILE :
 		OCFS2_DIRENT_DOT_FILE;
 
-	ctx->errcode = ocfs2_read_dir_block(fs, blocknr, ctx->buf);
+	ctx->errcode = ocfs2_read_dir_block(fs, ctx->di, blocknr, ctx->buf);
 	if (ctx->errcode)
 		return OCFS2_BLOCK_ABORT;
 
@@ -281,7 +293,7 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 		return ret;
 
 	if (changed) {
-		ctx->errcode = ocfs2_write_dir_block(fs, blocknr,
+		ctx->errcode = ocfs2_write_dir_block(fs, ctx->di, blocknr,
 						     ctx->buf);
 		if (ctx->errcode)
 			return OCFS2_BLOCK_ABORT;
