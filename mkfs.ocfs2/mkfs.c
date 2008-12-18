@@ -2257,6 +2257,8 @@ static void mkfs_swap_dir(State *s, DirData *dir,
 		swap_entry_func(p, end);
 		if (end != s->blocksize)
 			ocfs2_swap_dir_trailer(trailer);
+		/* Remember, this does nothing if the feature isn't set */
+		ocfs2_compute_meta_ecc(&fake_fs, p, &trailer->db_check);
 		offset += s->blocksize;
 		p += offset;
 	}

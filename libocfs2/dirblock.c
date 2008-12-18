@@ -159,6 +159,10 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		end = ocfs2_dir_trailer_blk_off(fs);
 		trailer = ocfs2_dir_trailer_from_block(fs, buf);
 
+		retval = ocfs2_validate_meta_ecc(fs, buf, &trailer->db_check);
+		if (retval)
+			goto out;
+
 		if (memcmp(trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
 			   strlen(OCFS2_DIR_TRAILER_SIGNATURE))) {
 			retval = OCFS2_ET_BAD_DIR_BLOCK_MAGIC;
@@ -191,18 +195,22 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 
 	memcpy(buf, inbuf, fs->fs_blocksize);
 
-	if (ocfs2_dir_has_trailer(fs, di)) {
+	if (ocfs2_dir_has_trailer(fs, di))
 		end = ocfs2_dir_trailer_blk_off(fs);
-		trailer = ocfs2_dir_trailer_from_block(fs, buf);
-	}
 
 	retval = ocfs2_swap_dir_entries_from_cpu(buf, end);
 	if (retval)
 		goto out;
 	
-	if (trailer)
+	/*
+	 * We can always set trailer - ocfs2_compute_meta_ecc() does
+	 * nothing if the filesystem doesn't have the feature turned on
+	 */
+	trailer = ocfs2_dir_trailer_from_block(fs, buf);
+	if (ocfs2_dir_has_trailer(fs, di))
 		ocfs2_swap_dir_trailer(trailer);
 
+	ocfs2_compute_meta_ecc(fs, buf, &trailer->db_check);
  	retval = io_write_block(fs->fs_io, block, 1, buf);
 out:
 	ocfs2_free(&buf);
