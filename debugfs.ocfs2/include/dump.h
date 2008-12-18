@@ -33,6 +33,11 @@ typedef struct _list_dir_opts {
 	char *buf;
 } list_dir_opts;
 
+struct dir_trailer_walk {
+	ocfs2_filesys *fs;
+	FILE *out;
+};
+
 void dump_super_block (FILE *out, struct ocfs2_super_block *sb);
 void dump_local_alloc (FILE *out, struct ocfs2_local_alloc *loc);
 void dump_truncate_log (FILE *out, struct ocfs2_truncate_log *tl);
@@ -43,6 +48,8 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk);
 void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp, int index);
 int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 		     char *buf, void *priv_data);
+int dump_dir_trailers(struct ocfs2_dir_entry *rec, int offset, int blocksize,
+		      char *buf, void *priv_data);
 void dump_jbd_header (FILE *out, journal_header_t *header);
 void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb);
 void dump_jbd_block (FILE *out, journal_superblock_t *jsb,

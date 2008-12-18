@@ -73,6 +73,7 @@ static void do_bmap (char **args);
 static void do_icheck (char **args);
 static void do_dlm_locks (char **args);
 static void do_controld(char **args);
+static void do_dir_trailers(char **args);
 
 dbgfs_gbls gbls;
 
@@ -107,7 +108,8 @@ static Command commands[] = {
 	{ "stat",	do_stat },
 	{ "stats",	do_stats },
 	{ "encode",	do_encode_lockres },
-	{ "decode",	do_decode_lockres }
+	{ "decode",	do_decode_lockres },
+	{ "dir_trailers",	do_dir_trailers },
 };
 
 /*
@@ -833,6 +835,7 @@ static void do_help (char **args)
 	printf ("decode <lockname#> ...\t\t\tDecode block#(s) from the lockname(s)\n");
 	printf ("dlm_locks [-f <file>] [-l] lockname\t\t\tShow live dlm locking state\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
+	printf ("dir_trailers <filespec>\t\t\tDump directory block trailers\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
 	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
@@ -1234,6 +1237,55 @@ static void do_group (char **args)
 	close_pager (out);
 
 	return ;
+}
+
+/*
+ * do_dir_trailers()
+ *
+ */
+static void do_dir_trailers (char **args)
+{
+	struct ocfs2_dinode *inode;
+	uint64_t ino_blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+	struct dir_trailer_walk ctxt;
+
+	if (process_inode_args(args, &ino_blkno))
+		return;
+
+	out = open_pager(gbls.interactive);
+
+	ctxt.fs = gbls.fs;
+	ctxt.out = out;
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, ino_blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading inode %"PRIu64"",
+			ino_blkno);
+		close_pager (out);
+		return ;
+	}
+
+	inode = (struct ocfs2_dinode *)buf;
+	if (!ocfs2_dir_has_trailer(gbls.fs, inode)) {
+		fprintf(out, "Inode %"PRIu64" has no trailers\n", ino_blkno);
+		close_pager (out);
+		return;
+	}
+
+	ret = ocfs2_dir_iterate(gbls.fs, ino_blkno,
+				OCFS2_DIRENT_FLAG_INCLUDE_TRAILER, NULL,
+				dump_dir_trailers, (void *)&ctxt);
+	if (ret)
+		com_err(args[0], ret, "while iterating directory at "
+			"block %"PRIu64"", ino_blkno);
+
+	close_pager(out);
+
+	return;
 }
 
 /*

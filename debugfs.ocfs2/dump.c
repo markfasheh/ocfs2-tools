@@ -469,6 +469,25 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 }
 
 /*
+ * dump_dir_entry()
+ *
+ */
+int dump_dir_trailers(struct ocfs2_dir_entry *rec, int offset, int blocksize,
+		      char *buf, void *priv_data)
+{
+	struct dir_trailer_walk *ctxt = priv_data;
+	struct ocfs2_dir_block_trailer *trailer =
+		(struct ocfs2_dir_block_trailer *)rec;
+
+	if (ocfs2_dir_trailer_blk_off(ctxt->fs) != offset)
+		return 0;
+
+	fprintf(ctxt->out, "rec_len: %u\n", trailer->db_compat_rec_len);
+
+	return 0;
+}
+
+/*
  * dump_jbd_header()
  *
  */
