@@ -135,7 +135,7 @@ errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes)
 	return ocfs2_swap_dir_entries_direction(buf, bytes, 1);
 }
 
-static void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer)
+void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer)
 {
 	if (cpu_is_little_endian)
 		return;

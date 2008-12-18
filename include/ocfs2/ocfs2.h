@@ -306,6 +306,7 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				   char *eb_buf);
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
+void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer);
 errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			       uint64_t block, void *buf);
 errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
