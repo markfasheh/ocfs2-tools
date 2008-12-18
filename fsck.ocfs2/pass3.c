@@ -280,7 +280,6 @@ void o2fsck_reconnect_file(o2fsck_state *ost, uint64_t inode)
 	if (ret)
 		goto out;
 
-	/* XXX I gotta say, ocfs2_link_and_expand() seems pretty reasonable */
 	ret = ocfs2_link(ost->ost_fs, ost->ost_lostfound_ino, iname, inode,
 			 type);
 	if (ret) {

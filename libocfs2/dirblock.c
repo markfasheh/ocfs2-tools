@@ -34,9 +34,18 @@
 #include "ocfs2/ocfs2.h"
 
 
-static unsigned int ocfs2_dir_trailer_blk_off(ocfs2_filesys *fs)
+unsigned int ocfs2_dir_trailer_blk_off(ocfs2_filesys *fs)
 {
 	return fs->fs_blocksize - sizeof(struct ocfs2_dir_block_trailer);
+}
+
+struct ocfs2_dir_block_trailer *ocfs2_dir_trailer_from_block(ocfs2_filesys *fs,
+							     void *data)
+{
+	char *p = data;
+
+	p += ocfs2_dir_trailer_blk_off(fs);
+	return (struct ocfs2_dir_block_trailer *)p;
 }
 
 int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di)

@@ -310,6 +310,9 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			       uint64_t block, void *buf);
 errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 				uint64_t block, void *buf);
+unsigned int ocfs2_dir_trailer_blk_off(ocfs2_filesys *fs);
+struct ocfs2_dir_block_trailer *ocfs2_dir_trailer_from_block(ocfs2_filesys *fs,
+							     void *data);
 int ocfs2_supports_dir_trailer(ocfs2_filesys *fs);
 int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di);
 int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,

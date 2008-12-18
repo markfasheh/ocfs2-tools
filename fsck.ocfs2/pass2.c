@@ -193,6 +193,46 @@ out:
 	return ret;
 }
 
+/*
+ * The directory trailer has compatibility fields so it can be treated
+ * as an empty (deleted) dirent.  We need to make sure those are correct.
+ */
+static void fix_dir_trailer(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
+			    struct ocfs2_dir_block_trailer *trailer,
+			    unsigned int *flags)
+{
+	if (trailer->db_compat_inode &&
+	    prompt(ost, PY, PR_DIR_TRAILER_INODE,
+		   "Directory block trailer for logical block %"PRIu64" "
+		   "physcal block %"PRIu64" in directory inode %"PRIu64" "
+		   "has a non-zero inode number.  Clear it?",
+		   dbe->e_blkcount, dbe->e_blkno, dbe->e_ino)) {
+		trailer->db_compat_inode = 0;
+		*flags |= OCFS2_DIRENT_CHANGED;
+	}
+
+	if (trailer->db_compat_name_len &&
+	    prompt(ost, PY, PR_DIR_TRAILER_NAME_LEN,
+		   "Directory block trailer for logical block %"PRIu64" "
+		   "physcal block %"PRIu64" in directory inode %"PRIu64" "
+		   "has a non-zero name_len.  Clear it?",
+		   dbe->e_blkcount, dbe->e_blkno, dbe->e_ino)) {
+		trailer->db_compat_name_len = 0;
+		*flags |= OCFS2_DIRENT_CHANGED;
+	}
+
+	if ((trailer->db_compat_rec_len !=
+	     sizeof(struct ocfs2_dir_block_trailer)) &&
+	    prompt(ost, PY, PR_DIR_TRAILER_REC_LEN,
+		   "Directory block trailer for logical block %"PRIu64" "
+		   "physcal block %"PRIu64" in directory inode %"PRIu64" "
+		   "has an invalid rec_len.  Fix it?",
+		   dbe->e_blkcount, dbe->e_blkno, dbe->e_ino)) {
+		trailer->db_compat_rec_len = 0;
+		*flags |= OCFS2_DIRENT_CHANGED;
+	}
+}
+
 static int dirent_leaves_partial(struct ocfs2_dir_entry *dirent, int left)
 {
 	left -= dirent->rec_len;
@@ -612,7 +652,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 {
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
-	unsigned int offset = 0, ret_flags = 0;
+	unsigned int offset = 0, ret_flags = 0, end = dd->fs->fs_blocksize;
 	struct ocfs2_dinode *di = (struct ocfs2_dinode *)dd->inoblock_buf; 
 	errcode_t ret = 0;
 
@@ -663,9 +703,12 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 				dbe->e_blkno);
 			goto out;
 		}
+
+		if (ocfs2_dir_has_trailer(dd->fs, di))
+			end = ocfs2_dir_trailer_blk_off(dd->fs);
 	}
 
-	while (offset < dd->fs->fs_blocksize) {
+	while (offset < end) {
 		dirent = (struct ocfs2_dir_entry *)(dd->dirblock_buf + offset);
 
 		verbosef("checking dirent offset %d, rec_len %"PRIu16" "
@@ -679,7 +722,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		/* if we can't trust this dirent then fix it up or skip
 		 * the whole block */
 		if (corrupt_dirent_lengths(dirent,
-					   dd->fs->fs_blocksize - offset)) {
+					   end - offset)) {
 			if (!prompt(dd->ost, PY, PR_DIRENT_LENGTH,
 				    "Directory inode %"PRIu64" "
 				    "corrupted in logical block %"PRIu64" "
@@ -691,8 +734,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 			/* we edit the dirent in place so we try to parse
 			 * it again after fixing it */
-			fix_dirent_lengths(dirent,
-					   dd->fs->fs_blocksize - offset,
+			fix_dirent_lengths(dirent, end - offset,
 					   prev, &ret_flags);
 			continue;
 
@@ -708,8 +750,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		 * XXX should verify that ocfs2 reclaims entries like that.
 		 */
 		ret = fix_dirent_dots(dd->ost, dbe, dirent, offset, 
-					     dd->fs->fs_blocksize - offset,
-					     &ret_flags);
+				      end - offset, &ret_flags);
 		if (ret)
 			goto out;
 		if (dirent->inode == 0)
@@ -751,6 +792,12 @@ next:
 		offset += dirent->rec_len;
 		prev = dirent;
 	}
+
+	if (ocfs2_dir_has_trailer(dd->fs, di))
+		fix_dir_trailer(dd->ost, dbe,
+				ocfs2_dir_trailer_from_block(dd->fs,
+							     dd->dirblock_buf),
+				&ret_flags);
 
 	if (ret_flags & OCFS2_DIRENT_CHANGED) {
 		if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {

@@ -598,6 +598,28 @@ Answering yes will try to repair the directory entry.  This runs a very good
 chance of invalidating all the entries in the directory block.  Orphaned
 inodes may appear in lost+found.
 
+.SS "DIR_TRAILER_INODE"
+A directory block trailer is a fake directory entry at the end of the
+block.  The trailer has compatibility fields for when it is viewed as a
+directory entry.  The inode field must be zero.
+
+Answering yes will set the inode field to zero.
+
+.SS "DIR_TRAILER_NAME_LEN"
+A directory block trailer is a fake directory entry at the end of the
+block.  The trailer has compatibility fields for when it is viewed as a
+directory entry.  The name length field must be zero.
+
+Answering yes will set the name length field to zero.
+
+.SS "DIR_TRAILER_REC_LEN"
+A directory block trailer is a fake directory entry at the end of the
+block.  The trailer has compatibility fields for when it is viewed as a
+directory entry.  The record length field must be equal to the size of
+the trailer.
+
+Answering yes will set the record length field to the size of the trailer.
+
 \" pass3.c
 
 .SS "ROOT_DIR_MISSING"
