@@ -186,13 +186,12 @@ static int hb_dev_skip(State *s, int system_inode)
 	return ret;
 }
 
-static void fill_fake_fs(State *s, ocfs2_filesys *fake_fs,
-			 struct ocfs2_dinode *fake_super)
+static void fill_fake_fs(State *s, ocfs2_filesys *fake_fs, void *buf)
 {
-	memset(fake_super, 0, s->blocksize);
+	memset(buf, 0, s->blocksize);
 	memset(fake_fs, 0, sizeof(ocfs2_filesys));
 
-	fake_fs->fs_super = fake_super;
+	fake_fs->fs_super = buf;
 	fake_fs->fs_blocksize = s->blocksize;
 	fake_fs->fs_clustersize = s->cluster_size;
 
@@ -206,11 +205,11 @@ static void fill_fake_fs(State *s, ocfs2_filesys *fake_fs,
 
 static void mkfs_init_dir_trailer(State *s, void *buf)
 {
-	struct ocfs2_dinode fake_super;
+	char super_buf[OCFS2_MAX_BLOCKSIZE];
 	ocfs2_filesys fake_fs;
 	struct ocfs2_dir_entry *de;
 
-	fill_fake_fs(s, &fake_fs, &fake_super);
+	fill_fake_fs(s, &fake_fs, super_buf);
 
 	if (ocfs2_supports_dir_trailer(&fake_fs)) {
 		de = buf;
@@ -2241,14 +2240,14 @@ static void mkfs_swap_dir(State *s, DirData *dir,
 	char *p = dir->buf;
 	unsigned int offset = 0;
 	unsigned int end = s->blocksize;
+	char super_buf[OCFS2_MAX_BLOCKSIZE];
 	ocfs2_filesys fake_fs;
-	struct ocfs2_dinode fake_super;
 	struct ocfs2_dir_block_trailer *trailer;
 
 	if (!dir->record->extent_len)
 		return;
 
-	fill_fake_fs(s, &fake_fs, &fake_super);
+	fill_fake_fs(s, &fake_fs, super_buf);
 	if (!s->inline_data || !dir->record->dir_data)
 		end = ocfs2_dir_trailer_blk_off(&fake_fs);
 
