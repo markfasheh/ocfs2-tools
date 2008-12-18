@@ -115,7 +115,9 @@ errcode_t ocfs2_get_next_dir_entry(ocfs2_dir_scan *scan,
 			return OCFS2_ET_DIR_CORRUPTED;
 
 		scan->offset += dirent->rec_len;
-	} while (!valid_dirent(scan, dirent));
+	} while (!valid_dirent(scan, dirent) ||
+		 ocfs2_skip_dir_trailer(scan->fs, scan->inode->ci_inode,
+					dirent, scan->offset));
 
 	memcpy(out_dirent, dirent, sizeof(struct ocfs2_dir_entry));
 

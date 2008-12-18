@@ -96,6 +96,7 @@
 #define OCFS2_DIRENT_FLAG_INCLUDE_EMPTY		0x01
 #define OCFS2_DIRENT_FLAG_INCLUDE_REMOVED	0x02
 #define OCFS2_DIRENT_FLAG_EXCLUDE_DOTS		0x04
+#define OCFS2_DIRENT_FLAG_INCLUDE_TRAILER	0x08
 
 /* Return flags for the chain iterator functions */
 #define OCFS2_CHAIN_CHANGED	0x01
@@ -309,6 +310,10 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			       uint64_t block, void *buf);
 errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 				uint64_t block, void *buf);
+int ocfs2_supports_dir_trailer(ocfs2_filesys *fs);
+int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di);
+int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			   struct ocfs2_dir_entry *de, unsigned long offset);
 
 errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     uint64_t dir,

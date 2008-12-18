@@ -33,6 +33,38 @@
 #include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
 
+
+static unsigned int ocfs2_dir_trailer_blk_off(ocfs2_filesys *fs)
+{
+	return fs->fs_blocksize - sizeof(struct ocfs2_dir_block_trailer);
+}
+
+int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di)
+{
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)) &&
+	    (di->i_dyn_features & OCFS2_INLINE_DATA_FL))
+		return 0;
+
+	return ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super));
+}
+
+int ocfs2_supports_dir_trailer(ocfs2_filesys *fs)
+{
+	return ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super));
+}
+
+int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			   struct ocfs2_dir_entry *de, unsigned long offset)
+{
+	if (!ocfs2_dir_has_trailer(fs, di))
+		return 0;
+
+	if (offset != ocfs2_dir_trailer_blk_off(fs))
+		return 0;
+
+	return 1;
+}
+
 static void ocfs2_swap_dir_entry(struct ocfs2_dir_entry *dirent)
 {
 	if (cpu_is_little_endian)

@@ -189,12 +189,16 @@ static int ocfs2_process_dir_entry(ocfs2_filesys *fs,
 			ctx->errcode = OCFS2_ET_DIR_CORRUPTED;
 			return OCFS2_BLOCK_ABORT;
 		}
-		if (!dirent->inode &&
-		    !(ctx->flags & OCFS2_DIRENT_FLAG_INCLUDE_EMPTY))
+		if (ocfs2_skip_dir_trailer(fs, ctx->di, dirent, offset)) {
+			if (!(ctx->flags & OCFS2_DIRENT_FLAG_INCLUDE_TRAILER))
+				goto next;
+		} else if (!dirent->inode &&
+			   !(ctx->flags & OCFS2_DIRENT_FLAG_INCLUDE_EMPTY)) {
 			goto next;
-		if ((ctx->flags & OCFS2_DIRENT_FLAG_EXCLUDE_DOTS) &&
-		    is_dots(dirent->name, dirent->name_len))
+		} else if ((ctx->flags & OCFS2_DIRENT_FLAG_EXCLUDE_DOTS) &&
+			   is_dots(dirent->name, dirent->name_len)) {
 			goto next;
+		}
 
 		ret = (ctx->func)(ctx->dir,
 				  (next_real_entry > offset) ?
