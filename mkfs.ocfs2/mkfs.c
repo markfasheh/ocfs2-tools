@@ -203,18 +203,26 @@ static void fill_fake_fs(State *s, ocfs2_filesys *fake_fs, void *buf)
 		s->feature_flags.opt_compat;
 }
 
-static void mkfs_init_dir_trailer(State *s, void *buf)
+static void mkfs_init_dir_trailer(State *s, DirData *dir, void *buf)
 {
 	char super_buf[OCFS2_MAX_BLOCKSIZE];
 	ocfs2_filesys fake_fs;
 	struct ocfs2_dir_entry *de;
+	struct ocfs2_dinode fake_di = {
+		.i_blkno = dir->record->fe_off >> s->blocksize_bits,
+	};
+	uint64_t blkno = dir->record->extent_off;
+
+	/* Find out how far we are in our directory */
+	blkno += ((char *)buf) - ((char *)dir->buf);
+	blkno >>= s->blocksize_bits;
 
 	fill_fake_fs(s, &fake_fs, super_buf);
 
 	if (ocfs2_supports_dir_trailer(&fake_fs)) {
 		de = buf;
 		de->rec_len = ocfs2_dir_trailer_blk_off(&fake_fs);
-		ocfs2_init_dir_trailer(&fake_fs, buf);
+		ocfs2_init_dir_trailer(&fake_fs, &fake_di, blkno, buf);
 	}
 }
 
@@ -1819,7 +1827,7 @@ add_entry_to_directory(State *s, DirData *dir, char *name, uint64_t byte_off,
 	de->inode = 0;
 	de->rec_len = s->blocksize;
 	if (!s->inline_data || !dir->record->dir_data)
-		mkfs_init_dir_trailer(s, p);
+		mkfs_init_dir_trailer(s, dir, p);
 
 got_it:
 	de->name_len = strlen(name);
