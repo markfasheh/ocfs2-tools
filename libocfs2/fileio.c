@@ -530,7 +530,8 @@ errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci)
 			ocfs2_expand_last_dirent(inline_data, di->i_size,
 						 new_size);
 			if (ocfs2_supports_dir_trailer(fs))
-				ocfs2_init_dir_trailer(fs, inline_data);
+				ocfs2_init_dir_trailer(fs, di, p_start,
+						       inline_data);
 
 			di->i_size = fs->fs_blocksize;
 			ret = ocfs2_write_dir_block(fs, di, p_start,

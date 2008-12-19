@@ -318,7 +318,8 @@ int ocfs2_supports_dir_trailer(ocfs2_filesys *fs);
 int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di);
 int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			   struct ocfs2_dir_entry *de, unsigned long offset);
-void ocfs2_init_dir_trailer(ocfs2_filesys *fs, void *buf);
+void ocfs2_init_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			    uint64_t blkno, void *buf);
 
 errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     uint64_t dir,
