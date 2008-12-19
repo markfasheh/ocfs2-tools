@@ -483,9 +483,10 @@ int dump_dir_trailers(struct ocfs2_dir_entry *rec, int offset, int blocksize,
 		return 0;
 
 	fprintf(ctxt->out,
-                "\tBlock: %-15"PRIu64" Inode: %-15"PRIu64" rec_len: %-4u\n",
+                "\tDirblock: %-15"PRIu64" Inode: %-15"PRIu64" rec_len: %-4u\n",
                 trailer->db_blkno, trailer->db_parent_dinode,
                 trailer->db_compat_rec_len);
+        dump_block_check(ctxt->out, &trailer->db_check);
 
 	return 0;
 }
