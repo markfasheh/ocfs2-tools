@@ -64,5 +64,6 @@ void dump_inode_path (FILE *out, uint64_t blkno, char *path);
 void dump_logical_blkno(FILE *out, uint64_t blkno);
 void dump_icheck(FILE *out, int hdr, uint64_t blkno, uint64_t inode,
 		 int validoffset, uint64_t offset, int status);
+void dump_block_check(FILE *out, struct ocfs2_block_check *bc);
 
 #endif		/* __DUMP_H__ */
