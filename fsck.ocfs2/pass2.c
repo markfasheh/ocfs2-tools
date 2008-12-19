@@ -231,6 +231,28 @@ static void fix_dir_trailer(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		trailer->db_compat_rec_len = 0;
 		*flags |= OCFS2_DIRENT_CHANGED;
 	}
+
+	if ((trailer->db_blkno != dbe->e_blkno) &&
+	    prompt(ost, PY, PR_DIR_TRAILER_BLKNO,
+		   "Directory block trailer for logical block %"PRIu64" "
+		   "physcal block %"PRIu64" in directory inode %"PRIu64" "
+		   "has an invalid db_blkno of %"PRIu64".  Fix it?",
+		   dbe->e_blkcount, dbe->e_blkno, dbe->e_ino,
+		   trailer->db_blkno)) {
+		trailer->db_blkno = dbe->e_blkno;
+		*flags |= OCFS2_DIRENT_CHANGED;
+	}
+
+	if ((trailer->db_parent_dinode != dbe->e_ino) &&
+	    prompt(ost, PY, PR_DIR_TRAILER_PARENT_INODE,
+		   "Directory block trailer for logical block %"PRIu64" "
+		   "physcal block %"PRIu64" in directory inode %"PRIu64" "
+		   "claims it belongs to inoe %"PRIu64".  Fix it?",
+		   dbe->e_blkcount, dbe->e_blkno, dbe->e_ino,
+		   trailer->db_parent_dinode)) {
+		trailer->db_parent_dinode = dbe->e_ino;
+		*flags |= OCFS2_DIRENT_CHANGED;
+	}
 }
 
 static int dirent_leaves_partial(struct ocfs2_dir_entry *dirent, int left)

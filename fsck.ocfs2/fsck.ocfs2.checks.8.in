@@ -620,6 +620,20 @@ the trailer.
 
 Answering yes will set the record length field to the size of the trailer.
 
+.SS "DIR_TRAILER_BLKNO"
+A directory block trailer is a fake directory entry at the end of the
+block.  The self-referential block number is incorrect.
+
+Answering yes will set the block number to the correct block on disk.
+
+.SS "DIR_TRAILER_PARENT_INODE"
+A directory block trailer is a fake directory entry at the end of the
+block.  It has a pointer to the directory inode it belongs to.  This
+pointer is incorrect.
+
+Answering yes will set the parent inode pointer to the inode referencing
+this directory block.
+
 \" pass3.c
 
 .SS "ROOT_DIR_MISSING"
