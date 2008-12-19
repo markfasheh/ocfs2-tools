@@ -145,6 +145,8 @@ void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer)
 
 	bswap_64(trailer->db_compat_inode);
 	bswap_64(trailer->db_compat_rec_len);
+	bswap_64(trailer->db_blkno);
+	bswap_64(trailer->db_parent_dinode);
 }
 
 errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
