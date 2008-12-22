@@ -37,6 +37,7 @@ extern struct tunefs_feature backup_super_feature;
 extern struct tunefs_feature extended_slotmap_feature;
 extern struct tunefs_feature inline_data_feature;
 extern struct tunefs_feature local_feature;
+extern struct tunefs_feature metaecc_feature;
 extern struct tunefs_feature sparse_files_feature;
 extern struct tunefs_feature unwritten_extents_feature;
 
@@ -46,6 +47,7 @@ static struct tunefs_feature *features[] = {
 	&extended_slotmap_feature,
 	&inline_data_feature,
 	&local_feature,
+	&metaecc_feature,
 	&sparse_files_feature,
 	&unwritten_extents_feature,
 	NULL,
