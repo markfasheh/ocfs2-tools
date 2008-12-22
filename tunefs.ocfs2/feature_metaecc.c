@@ -78,6 +78,7 @@ struct tunefs_trailer_context {
 	uint64_t d_bytes_needed;
 	uint64_t d_blocks_needed;
 	char *d_new_blocks;
+	uint64_t d_new_byte_offset;
 	errcode_t d_err;
 };
 
@@ -158,9 +159,9 @@ static errcode_t walk_dirblock(ocfs2_filesys *fs,
 		/* Only live dirents need to be moved */
 		if (dirent->inode) {
 			verbosef(VL_DEBUG,
-				 "Moving dirent %.*s out of directory "
-				 "block %"PRIu64" to make way for the "
-				 "trailer\n",
+				 "Will moving dirent %.*s out of "
+				 "directory block %"PRIu64" to make way "
+				 "for the trailer\n",
 				 dirent->name_len, dirent->name,
 				 db->db_blkno);
 			add_bytes_needed(fs, tc, real_rec_len);
@@ -293,6 +294,94 @@ out:
 	return ret;
 }
 
+static void shift_dirent(ocfs2_filesys *fs,
+			 struct tunefs_trailer_context *tc,
+			 struct ocfs2_dir_entry *dirent)
+{
+	unsigned int toff = ocfs2_dir_trailer_blk_off(fs);
+	unsigned int block_offset = tc->d_bytes_needed % fs->fs_blocksize;
+	char *p;
+	/* Using the real rec_len */
+	unsigned int rec_len = OCFS2_DIR_REC_LEN(dirent->name_len);
+
+	/*
+	 * If the current byte offset would put us into a trailer, push
+	 * it out to the start of the next block.
+	 */
+	if ((block_offset + rec_len) > toff) {
+		tc->d_bytes_needed += fs->fs_blocksize - block_offset;
+	}
+}
+
+static errcode_t fixup_dirblock(ocfs2_filesys *fs,
+				struct tunefs_trailer_context *tc,
+				struct tunefs_trailer_dirblock *db)
+{
+	errcode_t ret = 0;
+	struct ocfs2_dir_entry *dirent;
+	unsigned int real_rec_len;
+	unsigned int offset;
+	unsigned int toff = ocfs2_dir_trailer_blk_off(fs);
+
+	/*
+	 * db_last is the last dirent we're *keeping*.  So we need to 
+	 * move out every valid dirent *after* db_last.
+	 *
+	 * tunefs_prepare_dir_trailer() should have calculated this
+	 * correctly.
+	 */
+	offset = ((char *)db->db_last) - db->db_buf;
+	offset += db->db_last->rec_len;
+	while (offset < fs->fs_blocksize) {
+		dirent = (struct ocfs2_dir_entry *) (db->db_buf + offset);
+		if (((offset + dirent->rec_len) > fs->fs_blocksize) ||
+		    (dirent->rec_len < 8) ||
+		    ((dirent->rec_len % 4) != 0) ||
+		    (((dirent->name_len & 0xFF)+8) > dirent->rec_len)) {
+			ret = OCFS2_ET_DIR_CORRUPTED;
+			break;
+		}
+
+		real_rec_len = dirent->inode ?
+			OCFS2_DIR_REC_LEN(dirent->name_len) :
+			OCFS2_DIR_REC_LEN(1);
+
+		assert((offset + real_rec_len) > toff);
+
+		/* Only live dirents need to be moved */
+		if (dirent->inode) {
+			verbosef(VL_DEBUG,
+				 "Moving dirent %.*s out of directory "
+				 "block %"PRIu64" to make way for the "
+				 "trailer\n",
+				 dirent->name_len, dirent->name,
+				 db->db_blkno);
+			shift_dirent(fs, tc, dirent);
+		}
+
+		offset += dirent->rec_len;
+	}
+
+	return ret;
+}
+
+static errcode_t run_dirblocks(ocfs2_filesys *fs,
+			       struct tunefs_trailer_context *tc)
+{
+	errcode_t ret = 0;
+	struct list_head *pos;
+	struct tunefs_trailer_dirblock *db;
+
+	list_for_each(pos, &tc->d_dirblocks) {
+		db = list_entry(pos, struct tunefs_trailer_dirblock, db_list);
+		ret = fixup_dirblock(fs, tc, db);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
 static errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 					    struct ocfs2_dinode *di,
 					    struct tunefs_trailer_context *tc)
@@ -307,6 +396,11 @@ static errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 		tc = our_tc;
 	}
 
+	if (tc->d_di != di) {
+		ret = OCFS2_ET_INVALID_ARGUMENT;
+		goto out;
+	}
+
 	ret = ocfs2_malloc_blocks(fs->fs_io, tc->d_blocks_needed,
 				  &tc->d_new_blocks);
 	if (ret)
@@ -315,6 +409,8 @@ static errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 	ret = expand_dir_if_needed(fs, di, tc->d_blocks_needed);
 	if (ret)
 		goto out;
+
+	ret = run_dirblocks(fs, tc);
 
 out:
 	if (our_tc)
