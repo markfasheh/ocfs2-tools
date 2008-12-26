@@ -13,29 +13,11 @@ This tool requires the \fIO2CB\fR cluster to be online.
 .SH "OPTIONS"
 .TP
 \fB\-\-fs\-features=\fR\fR\fI[no]sparse...\fR
-Turn specific file system features on or off. \fItunefs.ocfs2\fR will attempt to enable or disable the feature list provided. To enable a feature, include it in the list. To disable a feature, prepend \fBno\fR to the name.
-The following features are supported:
-.RS 1.2i
-.TP
-\fBsparse\fR
-Enable support for sparse files. With this, \fIOCFS2\fR can avoid allocating (and zeroing) data to fill holes. Available with the file system bundled with Linux kernels 2.6.22 and later.
-.RE
-.RS 1.2i
-.TP
-\fBunwritten\fR
-Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. \fIOCFS2\fR will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on. Available with the file system bundled with Linux kernels 2.6.23 and later.
-.RE
+Turn specific file system features on or off. \fItunefs.ocfs2\fR will attempt to enable or disable the feature list provided. To enable a feature, include it in the list. To disable a feature, prepend \fBno\fR to the name. For a list of feature names, see the man page for \fBmkfs.ocfs2\fR.
 
 .TP
 \fB\-J, \-\-journal\-options\fR \fIoptions\fR
-Modify the journal using options specified on the command\-line.
-Journal options are comma separated, and may take an argument using
-the equals ('=') sign. The following options are supported:
-.RS 1.2i
-.TP
-\fBsize\fR=\fIjournal\-size\fR
-Grow the size of journal files for all the slots. Minimum size is 4M.
-.RE
+Modify the journal using options specified on the command\-line. Journal options are comma separated, and may take an argument using the equals ('=') sign. For a list of possible options, see the man page for \fBmkfs.ocfs2\fR.
 
 .TP
 \fB\-L, \-\-label\fR \fIvolume\-label\fR

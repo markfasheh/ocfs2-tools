@@ -2,7 +2,7 @@
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
-\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-\-fs\-features=\fR\fI[no]sparse...\fR] [\fB\-\-fs\-feature\-level=\fR\fIfeature\-level\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-FqvV\fR] [\fB\-\-no\-backup\-super\fR] \fIdevice\fR [\fIblocks-count\fI]
+\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-\-fs\-features=\fR\fI[no]sparse...\fR] [\fB\-\-fs\-feature\-level=\fR\fIfeature\-level\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-FqvV\fR] \fIdevice\fR [\fIblocks-count\fI]
 .SH "DESCRIPTION"
 .PP
 \fBmkfs.ocfs2\fR is used to create an \fIOCFS2\fR file system on a \fIdevice\fR,
@@ -108,13 +108,13 @@ Turn specific file system features on or off. A comma separated list of feature 
 The following flags are supported:
 .RS 1.2i
 .TP
-\fBlocal\fR
-Create the file system as a local mount, so that it can be mounted without a cluster stack. Available with the file system bundled with Linux kernels 2.6.20 and later.
+\fBbackup-super\fR
+\fBmkfs.ocfs2\fR, by default, makes up to 6 backup copies of the super block at offsets 1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.  This can be useful in disaster recovery. This feature is fully compatible with all versions of the file system and generally should not be disabled.
 .RE
 .RS 1.2i
 .TP
-\fBbackup-super\fR
-Create backup super blocks for this volume.
+\fBlocal\fR
+Create the file system as a local mount, so that it can be mounted without a cluster stack. Available with the file system bundled with Linux kernels 2.6.20 and later.
 .RE
 .RS 1.2i
 .TP
@@ -125,6 +125,16 @@ Enable support for sparse files. With this, \fIOCFS2\fR can avoid allocating (an
 .TP
 \fBunwritten\fR
 Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. \fIOCFS2\fR will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on. Available with the file system bundled with Linux kernels 2.6.23 and later.
+.RE
+.RS 1.2i
+.TP
+\fBinline-data\fR
+Enable inline-data support. If this feature is turned on, /fIOCFS2/fR will store small files and directories inside the inode block. Data is transparently moved out to an extent when it no longer fits inside the inode block. In some cases, this can also make a positive impact on cold-cache directory and file operations. Available with the file system bundled with Linux kernels 2.6.24 and later.
+.RE
+.RS 1.2i
+.TP
+\fBextended-slotmap\fR
+The slot-map is a hidden file on an \fIOCFS2\fR fs which is used to map mounted nodes to system file resources. The extended slot map allows a larger range of possible node numbers, which is useful for userspace cluster stacks. This feature is automatically turned on when needed, thus users have no need to turn this on manually. Available in the file system bundled with Linux kernels 2.6.27 and later.
 .RE
 
 .TP
@@ -138,7 +148,7 @@ Chooses fewer features but ensures that the file system can be mounted from olde
 .RS 1.2i
 .TP
 \fBdefault\fR
-The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR.
+The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR and \fBunwritten\fR.
 .RE
 .RS 1.2i
 .TP
@@ -148,9 +158,7 @@ Choose the maximum amount of features available. This will typically provide the
 
 .TP
 \fB\-\-no-backup-super\fR
-\fBmkfs.ocfs2\fR, by default, makes upto 6 backup copies of the superblock
-at offsets 1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.
-Use this option to make the volume with no backup superblocks.
+This option is deprecated, please use \fB--fs-features=nobackup-super\fR instead.
 
 .TP
 \fB\-q, \-\-quiet\fR
