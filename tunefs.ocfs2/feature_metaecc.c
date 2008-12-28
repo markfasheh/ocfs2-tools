@@ -72,14 +72,20 @@ struct tunefs_trailer_dirblock {
 /* A directory inode we're adding trailers to */
 struct tunefs_trailer_context {
 	struct list_head d_list;
-	uint64_t d_blkno;
-	struct ocfs2_dinode *d_di;
-	struct list_head d_dirblocks;
-	uint64_t d_bytes_needed;
-	uint64_t d_blocks_needed;
-	char *d_new_blocks;
-	uint64_t d_new_byte_offset;
-	errcode_t d_err;
+	uint64_t d_blkno;		/* block number of the dir */
+	struct ocfs2_dinode *d_di;	/* The directory's inode */
+	struct list_head d_dirblocks;	/* List of its dirblocks */
+	uint64_t d_bytes_needed;	/* How many new bytes will
+					   cover the dirents we are moving
+					   to make way for trailers */
+	uint64_t d_blocks_needed;	/* How many blocks covers
+					   d_bytes_needed */
+	char *d_new_blocks;		/* Buffer of new blocks to fill */
+	char *d_cur_block;		/* Which block we're filling in
+					   d_new_blocks */
+	struct ocfs2_dir_entry *d_next_dirent;	/* Next dentry to use */
+	errcode_t d_err;		/* Any processing error during
+					   iteration of the directory */
 };
 
 static void tunefs_trailer_context_free(struct tunefs_trailer_context *tc)
@@ -87,7 +93,8 @@ static void tunefs_trailer_context_free(struct tunefs_trailer_context *tc)
 	struct tunefs_trailer_dirblock *db;
 	struct list_head *n, *pos;
 
-	list_del(&tc->d_list);
+	if (!list_empty(&tc->d_list))
+		list_del(&tc->d_list);
 
 	list_for_each_safe(pos, n, &tc->d_dirblocks) {
 		db = list_entry(pos, struct tunefs_trailer_dirblock, db_list);
@@ -159,7 +166,7 @@ static errcode_t walk_dirblock(ocfs2_filesys *fs,
 		/* Only live dirents need to be moved */
 		if (dirent->inode) {
 			verbosef(VL_DEBUG,
-				 "Will moving dirent %.*s out of "
+				 "Will move dirent %.*s out of "
 				 "directory block %"PRIu64" to make way "
 				 "for the trailer\n",
 				 dirent->name_len, dirent->name,
@@ -171,6 +178,10 @@ next:
 		prev = dirent;
 		offset += dirent->rec_len;
 	}
+
+	/* There were no dirents across the boundary */
+	if (!db->db_last)
+		db->db_last = prev;
 
 	return ret;
 }
@@ -239,6 +250,7 @@ static errcode_t tunefs_prepare_dir_trailer(ocfs2_filesys *fs,
 
 	tc->d_blkno = di->i_blkno;
 	tc->d_di = di;
+	INIT_LIST_HEAD(&tc->d_list);
 	INIT_LIST_HEAD(&tc->d_dirblocks);
 
 	ret = ocfs2_block_iterate_inode(fs, tc->d_di, 0,
@@ -298,19 +310,32 @@ static void shift_dirent(ocfs2_filesys *fs,
 			 struct tunefs_trailer_context *tc,
 			 struct ocfs2_dir_entry *dirent)
 {
-	unsigned int toff = ocfs2_dir_trailer_blk_off(fs);
-	unsigned int block_offset = tc->d_bytes_needed % fs->fs_blocksize;
-	char *p;
 	/* Using the real rec_len */
 	unsigned int rec_len = OCFS2_DIR_REC_LEN(dirent->name_len);
+	unsigned int offset, remain;
 
 	/*
 	 * If the current byte offset would put us into a trailer, push
 	 * it out to the start of the next block.
 	 */
-	if ((block_offset + rec_len) > toff) {
-		tc->d_bytes_needed += fs->fs_blocksize - block_offset;
+	if (rec_len > tc->d_next_dirent->rec_len) {
+		tc->d_cur_block += fs->fs_blocksize;
+		tc->d_next_dirent = (struct ocfs2_dir_entry *)tc->d_cur_block;
 	}
+
+	assert(ocfs2_blocks_in_bytes(fs,
+				     tc->d_cur_block - tc->d_new_blocks) <
+	       tc->d_blocks_needed);
+
+	offset = (char *)(tc->d_next_dirent) - tc->d_cur_block;
+	remain = tc->d_next_dirent->rec_len - rec_len;
+
+	memcpy(tc->d_cur_block + offset, dirent, rec_len);
+	tc->d_next_dirent->rec_len = rec_len;
+	offset += rec_len;
+	tc->d_next_dirent =
+		(struct ocfs2_dir_entry *)(tc->d_cur_block + offset);
+	tc->d_next_dirent->rec_len = remain;
 }
 
 static errcode_t fixup_dirblock(ocfs2_filesys *fs,
@@ -362,6 +387,20 @@ static errcode_t fixup_dirblock(ocfs2_filesys *fs,
 		offset += dirent->rec_len;
 	}
 
+	/*
+	 * Now that we've moved any dirents out of the way, we need to
+	 * fix up db_last and install the trailer.
+	 */
+	offset = ((char *)db->db_last) - db->db_buf;
+	verbosef(VL_DEBUG,
+		 "Last valid dirent of directory block %"PRIu64" "
+		 "(\"%.*s\") is %u bytes in.  Setting rec_len to %u and "
+		 "installing the trailer\n",
+		 db->db_blkno, db->db_last->name_len, db->db_last->name,
+		 offset, toff - offset);
+	db->db_last->rec_len = toff - offset;
+	ocfs2_init_dir_trailer(fs, tc->d_di, db->db_blkno, db->db_buf);
+
 	return ret;
 }
 
@@ -382,11 +421,43 @@ static errcode_t run_dirblocks(ocfs2_filesys *fs,
 	return ret;
 }
 
+static errcode_t init_new_dirblocks(ocfs2_filesys *fs,
+				    struct tunefs_trailer_context *tc)
+{
+	int i;
+	errcode_t ret;
+	uint64_t blkno;
+	uint64_t orig_block = ocfs2_blocks_in_bytes(fs, tc->d_di->i_size);
+	ocfs2_cached_inode *cinode;
+	char *blockptr;
+	struct ocfs2_dir_entry *first;
+
+	ret = ocfs2_read_cached_inode(fs, tc->d_blkno, &cinode);
+	if (ret)
+		goto out;
+	assert(!memcmp(tc->d_di, cinode->ci_inode, fs->fs_blocksize));
+
+	for (i = 0; i < tc->d_blocks_needed; i++) {
+		ret = ocfs2_extent_map_get_blocks(cinode, orig_block + i,
+						  1, &blkno, NULL, NULL);
+		if (ret)
+			goto out;
+		blockptr = tc->d_new_blocks + (i * fs->fs_blocksize);
+		memset(blockptr, 0, fs->fs_blocksize);
+		first = (struct ocfs2_dir_entry *)blockptr;
+		first->rec_len = ocfs2_dir_trailer_blk_off(fs);
+		ocfs2_init_dir_trailer(fs, tc->d_di, blkno, blockptr);
+	}
+
+out:
+	return ret;
+}
+
 static errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 					    struct ocfs2_dinode *di,
 					    struct tunefs_trailer_context *tc)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	struct tunefs_trailer_context *our_tc = NULL;
 
 	if (!tc) {
@@ -401,15 +472,24 @@ static errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 		goto out;
 	}
 
-	ret = ocfs2_malloc_blocks(fs->fs_io, tc->d_blocks_needed,
-				  &tc->d_new_blocks);
-	if (ret)
-		goto out;
+	if (tc->d_blocks_needed) {
+		ret = ocfs2_malloc_blocks(fs->fs_io, tc->d_blocks_needed,
+					  &tc->d_new_blocks);
+		if (ret)
+			goto out;
 
-	ret = expand_dir_if_needed(fs, di, tc->d_blocks_needed);
-	if (ret)
-		goto out;
+		tc->d_cur_block = tc->d_new_blocks;
 
+		ret = expand_dir_if_needed(fs, di, tc->d_blocks_needed);
+		if (ret)
+			goto out;
+
+		ret = init_new_dirblocks(fs, tc);
+		if (ret)
+			goto out;
+	}
+
+	tc->d_next_dirent = (struct ocfs2_dir_entry *)tc->d_cur_block;
 	ret = run_dirblocks(fs, tc);
 
 out:
@@ -914,101 +994,42 @@ bail:
 	return ret;
 }
 
-#if 0
-static errcode_t fill_one_hole(ocfs2_filesys *fs, struct sparse_file *file,
-			       struct hole_list *hole)
+static errcode_t install_trailers(ocfs2_filesys *fs,
+				  struct add_ecc_context *ctxt)
 {
 	errcode_t ret = 0;
-	uint32_t start = hole->start;
-	uint32_t len = hole->len;
-	uint32_t n_clusters;
-	uint64_t p_start;
+	struct tunefs_trailer_context *tc;
+	struct list_head *n, *pos;
+	struct add_ecc_iterate iter = {
+		.ic_ctxt = ctxt,
+	};
 
-	while (len) {
-		tunefs_block_signals();
-		ret = ocfs2_new_clusters(fs, 1, len,
-					 &p_start, &n_clusters);
-		if ((!ret && (n_clusters == 0)) ||
-		    (ret == OCFS2_ET_BIT_NOT_FOUND))
-			ret = OCFS2_ET_NO_SPACE;
+	list_for_each_safe(pos, n, &ctxt->ae_dirs) {
+		tc = list_entry(pos, struct tunefs_trailer_context, d_list);
+		verbosef(VL_DEBUG,
+			 "Writing trailer for dinode %"PRIu64"\n",
+			 tc->d_di->i_blkno);
+		ret = tunefs_install_dir_trailer(fs, tc->d_di, tc);
 		if (ret)
 			break;
 
-		ret = tunefs_empty_clusters(fs, p_start, n_clusters);
-		if (ret)
-			break;
+		iter.ic_di = tc->d_di;
+		tunefs_trailer_context_free(tc);
 
-		ret = ocfs2_insert_extent(fs, file->blkno,
-					  start, p_start,
-					  n_clusters, 0);
-		if (ret)
-			break;
-
-		len -= n_clusters;
-		start += n_clusters;
-		tunefs_unblock_signals();
-	}
-
-	if (ret)
-		tunefs_unblock_signals();
-
-	return ret;
-}
-
-static errcode_t fill_one_file(ocfs2_filesys *fs, struct sparse_file *file)
-{
-	errcode_t ret = 0;
-	struct hole_list *hole;
-	struct list_head *pos;
-
-	list_for_each(pos, &file->holes) {
-		hole = list_entry(pos, struct hole_list, list);
-		ret = fill_one_hole(fs, file, hole);
+		/*
+		 * Now that we've put trailers on the directory, we know
+		 * its allocation won't change.  Add its blocks to the
+		 * block list.  These will be cached, as installing the
+		 * trailer will have just touched them.
+		 */
+		ret = ocfs2_extent_iterate_inode(fs, tc->d_di, 0, NULL,
+						 dirdata_iterate, &iter);
 		if (ret)
 			break;
 	}
 
 	return ret;
 }
-
-static errcode_t fill_sparse_files(ocfs2_filesys *fs,
-				   struct fill_hole_context *ctxt)
-{
-	errcode_t ret = 0;
-	char *buf = NULL;
-	struct ocfs2_dinode *di = NULL;
-	struct list_head *pos;
-	struct sparse_file *file;
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		goto out;
-
-	/* Iterate all the holes and fill them. */
-	list_for_each(pos, &ctxt->files) {
-		file = list_entry(pos, struct sparse_file, list);
-		ret = fill_one_file(fs, file);
-		if (ret)
-			break;
-
-		if (!file->truncate)
-			continue;
-
-		ret = ocfs2_read_inode(fs, file->blkno, buf);
-		if (ret)
-			break;
-		di = (struct ocfs2_dinode *)buf;
-		ret = truncate_to_i_size(fs, di, NULL);
-		if (ret)
-			break;
-	}
-
-	ocfs2_free(&buf);
-
-out:
-	return ret;
-}
-#endif
 
 static int enable_metaecc(ocfs2_filesys *fs, int flags)
 {
@@ -1040,6 +1061,15 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 		else
 			tcom_err(ret,
 				 "while trying to find directory blocks");
+		goto out_cleanup;
+	}
+
+	ret = install_trailers(fs, &ctxt);
+	if (ret) {
+		tcom_err(ret,
+			 "while trying to install directory trailers on "
+			 "device \"%s\"",
+			 fs->fs_devname);
 		goto out_cleanup;
 	}
 
