@@ -196,6 +196,10 @@ static struct tunefs_flag_name ocfs2_tunefs_flag_names[] = {
 		.tfn_flag = OCFS2_TUNEFS_INPROG_REMOVE_SLOT,
 	},
 	{
+		.tfn_name = "DirTrailer",
+		.tfn_flag = OCFS2_TUNEFS_INPROG_DIR_TRAILER,
+	},
+	{
 		.tfn_name = NULL,
 	},
 };

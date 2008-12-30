@@ -21,6 +21,7 @@ OCFS2NE_FEATURES =			\
 	feature_extended_slotmap	\
 	feature_inline_data		\
 	feature_local			\
+	feature_metaecc			\
 	feature_sparse_files		\
 	feature_unwritten_extents
 
