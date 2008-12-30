@@ -1165,6 +1165,10 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 		goto out_cleanup;
 	}
 
+	ret = tunefs_set_in_progress(fs, OCFS2_TUNEFS_INPROG_DIR_TRAILER);
+	if (ret)
+		goto out_cleanup;
+
 	ret = install_trailers(fs, &ctxt);
 	if (ret) {
 		tcom_err(ret,
@@ -1173,6 +1177,10 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 			 fs->fs_devname);
 		goto out_cleanup;
 	}
+
+	ret = tunefs_clear_in_progress(fs, OCFS2_TUNEFS_INPROG_DIR_TRAILER);
+	if (ret)
+		goto out_cleanup;
 
 #if 0
 	ret = fill_sparse_files(fs, &ctxt);
