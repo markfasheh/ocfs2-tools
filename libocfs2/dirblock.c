@@ -33,6 +33,61 @@
 #include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
 
+
+unsigned int ocfs2_dir_trailer_blk_off(ocfs2_filesys *fs)
+{
+	return fs->fs_blocksize - sizeof(struct ocfs2_dir_block_trailer);
+}
+
+struct ocfs2_dir_block_trailer *ocfs2_dir_trailer_from_block(ocfs2_filesys *fs,
+							     void *data)
+{
+	char *p = data;
+
+	p += ocfs2_dir_trailer_blk_off(fs);
+	return (struct ocfs2_dir_block_trailer *)p;
+}
+
+int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di)
+{
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)) &&
+	    (di->i_dyn_features & OCFS2_INLINE_DATA_FL))
+		return 0;
+
+	return 0;
+}
+
+int ocfs2_supports_dir_trailer(ocfs2_filesys *fs)
+{
+	return 0;
+}
+
+int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			   struct ocfs2_dir_entry *de, unsigned long offset)
+{
+	if (!ocfs2_dir_has_trailer(fs, di))
+		return 0;
+
+	if (offset != ocfs2_dir_trailer_blk_off(fs))
+		return 0;
+
+	return 1;
+}
+
+void ocfs2_init_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			    uint64_t blkno, void *buf)
+{
+	struct ocfs2_dir_block_trailer *trailer =
+		ocfs2_dir_trailer_from_block(fs, buf);
+
+	memset(trailer, 0, sizeof(struct ocfs2_dir_block_trailer));
+	memcpy(trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
+	       strlen(OCFS2_DIR_TRAILER_SIGNATURE));
+	trailer->db_compat_rec_len = sizeof(struct ocfs2_dir_block_trailer);
+	trailer->db_blkno = blkno;
+	trailer->db_parent_dinode = di->i_blkno;
+}
+
 static void ocfs2_swap_dir_entry(struct ocfs2_dir_entry *dirent)
 {
 	if (cpu_is_little_endian)
@@ -84,16 +139,48 @@ errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes)
 	return ocfs2_swap_dir_entries_direction(buf, bytes, 1);
 }
 
+void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	bswap_64(trailer->db_compat_inode);
+	bswap_64(trailer->db_compat_rec_len);
+	bswap_64(trailer->db_blkno);
+	bswap_64(trailer->db_parent_dinode);
+}
+
 errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			       uint64_t block, void *buf)
 {
 	errcode_t	retval;
+	int		end = fs->fs_blocksize;
+	struct ocfs2_dir_block_trailer *trailer = NULL;
 
 	retval = ocfs2_read_blocks(fs, block, 1, buf);
 	if (retval)
-		return retval;
+		goto out;
 
-	return ocfs2_swap_dir_entries_to_cpu(buf, fs->fs_blocksize);
+	if (ocfs2_dir_has_trailer(fs, di)) {
+		end = ocfs2_dir_trailer_blk_off(fs);
+		trailer = ocfs2_dir_trailer_from_block(fs, buf);
+
+		if (memcmp(trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
+			   strlen(OCFS2_DIR_TRAILER_SIGNATURE))) {
+			retval = OCFS2_ET_BAD_DIR_BLOCK_MAGIC;
+			goto out;
+		}
+	}
+
+	retval = ocfs2_swap_dir_entries_to_cpu(buf, end);
+	if (!retval)
+		goto out;
+
+	if (trailer)
+		ocfs2_swap_dir_trailer(trailer);
+
+out:
+	return retval;
 }
 
 errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
@@ -101,6 +188,8 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 {
 	errcode_t	retval;
 	char		*buf = NULL;
+	int		end = fs->fs_blocksize;
+	struct ocfs2_dir_block_trailer *trailer = NULL;
 
 	retval = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (retval)
@@ -108,10 +197,21 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 
 	memcpy(buf, inbuf, fs->fs_blocksize);
 
-	retval = ocfs2_swap_dir_entries_from_cpu(buf, fs->fs_blocksize);
+	if (ocfs2_dir_has_trailer(fs, di))
+		end = ocfs2_dir_trailer_blk_off(fs);
+
+	retval = ocfs2_swap_dir_entries_from_cpu(buf, end);
 	if (retval)
 		goto out;
 	
+	/*
+	 * We can always set trailer - Nothing happens if it isn't actually
+	 * used.
+	 */
+	trailer = ocfs2_dir_trailer_from_block(fs, buf);
+	if (ocfs2_dir_has_trailer(fs, di))
+		ocfs2_swap_dir_trailer(trailer);
+
  	retval = io_write_block(fs->fs_io, block, 1, buf);
 out:
 	ocfs2_free(&buf);

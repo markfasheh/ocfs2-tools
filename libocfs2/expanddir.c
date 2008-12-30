@@ -104,7 +104,11 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 
 	memset(buf, 0, fs->fs_blocksize);
 	de = (struct ocfs2_dir_entry *)buf;
-	de->rec_len = fs->fs_blocksize;
+	if (ocfs2_dir_has_trailer(fs, cinode->ci_inode)) {
+		de->rec_len = ocfs2_dir_trailer_blk_off(fs);
+		ocfs2_init_dir_trailer(fs, cinode->ci_inode, new_blk, buf);
+	} else
+		de->rec_len = fs->fs_blocksize;
 
 	/* write new dir block */
 	ret = ocfs2_write_dir_block(fs, cinode->ci_inode, new_blk, buf);
@@ -206,10 +210,17 @@ errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
 
 		data = buf;
 		size = fs->fs_blocksize;
+		if (ocfs2_supports_dir_trailer(fs))
+			size = ocfs2_dir_trailer_blk_off(fs);
 	}
 
 	/* set '..' and '.' in dir. */
 	ocfs2_fill_initial_dirents(dir, parent_dir, data, size);
+
+	/* And set the trailer if necessary */
+	if (!(cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL) &&
+	    ocfs2_supports_dir_trailer(fs))
+		ocfs2_init_dir_trailer(fs, cinode->ci_inode, blkno, data);
 
 	if (!(cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
 		ret = ocfs2_write_dir_block(fs, cinode->ci_inode, blkno, buf);

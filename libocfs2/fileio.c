@@ -496,6 +496,7 @@ errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci)
 	struct ocfs2_dinode *di = ci->ci_inode;
 	ocfs2_filesys *fs = ci->ci_fs;
 	uint64_t bpc = fs->fs_clustersize/fs->fs_blocksize;
+	unsigned int new_size;
 
 	if (di->i_size) {
 		ret = ocfs2_malloc_block(fs->fs_io, &inline_data);
@@ -522,8 +523,15 @@ errcode_t ocfs2_convert_inline_data_to_extents(ocfs2_cached_inode *ci)
 
 	if (di->i_size) {
 		if (S_ISDIR(di->i_mode)) {
+			if (ocfs2_supports_dir_trailer(fs))
+				new_size = ocfs2_dir_trailer_blk_off(fs);
+			else
+				new_size = fs->fs_blocksize;
 			ocfs2_expand_last_dirent(inline_data, di->i_size,
-						 fs->fs_blocksize);
+						 new_size);
+			if (ocfs2_supports_dir_trailer(fs))
+				ocfs2_init_dir_trailer(fs, di, p_start,
+						       inline_data);
 
 			di->i_size = fs->fs_blocksize;
 			ret = ocfs2_write_dir_block(fs, di, p_start,

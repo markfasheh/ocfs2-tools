@@ -96,6 +96,7 @@
 #define OCFS2_DIRENT_FLAG_INCLUDE_EMPTY		0x01
 #define OCFS2_DIRENT_FLAG_INCLUDE_REMOVED	0x02
 #define OCFS2_DIRENT_FLAG_EXCLUDE_DOTS		0x04
+#define OCFS2_DIRENT_FLAG_INCLUDE_TRAILER	0x08
 
 /* Return flags for the chain iterator functions */
 #define OCFS2_CHAIN_CHANGED	0x01
@@ -307,10 +308,20 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				   char *eb_buf);
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
+void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer);
 errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			       uint64_t block, void *buf);
 errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 				uint64_t block, void *buf);
+unsigned int ocfs2_dir_trailer_blk_off(ocfs2_filesys *fs);
+struct ocfs2_dir_block_trailer *ocfs2_dir_trailer_from_block(ocfs2_filesys *fs,
+							     void *data);
+int ocfs2_supports_dir_trailer(ocfs2_filesys *fs);
+int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di);
+int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			   struct ocfs2_dir_entry *de, unsigned long offset);
+void ocfs2_init_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			    uint64_t blkno, void *buf);
 
 errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     uint64_t dir,

@@ -39,6 +39,10 @@ struct link_struct  {
 	uint64_t		inode;
 	int			flags;
 	int			done;
+	int			blockend;  /* What to consider the end
+					      of the block.  This handles
+					      the directory trailer if it
+					      exists */
 	struct ocfs2_dinode	*sb;
 };	
 
@@ -60,9 +64,9 @@ static int link_proc(struct ocfs2_dir_entry *dirent,
 	 * if so, absorb it into this one.
 	 */
 	next = (struct ocfs2_dir_entry *) (buf + offset + dirent->rec_len);
-	if ((offset + dirent->rec_len < blocksize - 8) &&
+	if ((offset + dirent->rec_len < ls->blockend - 8) &&
 	    (next->inode == 0) &&
-	    (offset + dirent->rec_len + next->rec_len <= blocksize)) {
+	    (offset + dirent->rec_len + next->rec_len <= ls->blockend)) {
 		dirent->rec_len += next->rec_len;
 		ret = OCFS2_DIRENT_CHANGED;
 	}
@@ -70,7 +74,7 @@ static int link_proc(struct ocfs2_dir_entry *dirent,
 	/*
 	 * If the directory entry is used, see if we can split the
 	 * directory entry to make room for the new name.  If so,
-	 *e truncate it and return.
+	 * truncate it and return.
 	 */
 	if (dirent->inode) {
 		min_rec_len = OCFS2_DIR_REC_LEN(dirent->name_len & 0xFF);
@@ -110,10 +114,8 @@ errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 {
 	errcode_t		retval;
 	struct link_struct	ls;
-#if 0 /* Maybe later */
-        char *buf;
-	struct ocfs2_dinode	inode;
-#endif
+	char			*buf;
+	struct ocfs2_dinode	*di;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -122,50 +124,57 @@ errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 	    (ino > fs->fs_blocks))
 		return OCFS2_ET_INVALID_ARGUMENT;
 
+        retval = ocfs2_malloc_block(fs->fs_io, &buf);
+        if (retval)
+            return retval;
+
+	retval = ocfs2_read_inode(fs, dir, buf);
+	if (retval)
+		goto out_free;
+
+        di = (struct ocfs2_dinode *)buf;
+
 	ls.name = name;
 	ls.namelen = name ? strlen(name) : 0;
 	ls.inode = ino;
 	ls.flags = flags;
 	ls.done = 0;
 	ls.sb = fs->fs_super;
+	if (ocfs2_dir_has_trailer(fs, di))
+		ls.blockend = ocfs2_dir_trailer_blk_off(fs);
+	else
+		ls.blockend = fs->fs_blocksize;
 
 	retval = ocfs2_dir_iterate(fs, dir,
                                    OCFS2_DIRENT_FLAG_INCLUDE_EMPTY,
                                    NULL, link_proc, &ls);
 	if (retval)
-		return retval;
+		goto out_free;
 
 	if (!ls.done) {
 		retval = ocfs2_expand_dir(fs, dir);
 		if (retval)
-			return retval;
+			goto out_free;
 
+		/* Gotta refresh */
+		retval = ocfs2_read_inode(fs, dir, buf);
+		if (retval)
+			goto out_free;
+
+		if (ocfs2_dir_has_trailer(fs, di))
+			ls.blockend = ocfs2_dir_trailer_blk_off(fs);
+		else
+			ls.blockend = fs->fs_blocksize;
 		retval = ocfs2_dir_iterate(fs, dir,
 					   OCFS2_DIRENT_FLAG_INCLUDE_EMPTY,
 					   NULL, link_proc, &ls);
-		if (retval)
-			return retval;
-		if (!ls.done)
-			return OCFS2_ET_INTERNAL_FAILURE;
+		if (!retval && !ls.done)
+			retval = OCFS2_ET_INTERNAL_FAILURE;
 	}
 
-#if 0 /* Maybe later */
-        retval = ocfs2_malloc_block(fs->fs_io, &buf);
-        if (retval)
-            return retval;
+out_free:
+	ocfs2_free(&buf);
 
-	if ((retval = ocfs2_read_inode(fs, dir, buf)) != 0)
-		return retval;
-
-        di = (ocfs2_dinode *)buf;
-
-	if (inode->i_flags & OCFS2_INDEX_FL) {
-		inode->i_flags &= ~OCFS2_INDEX_FL;
-		if ((retval = ocfs2_write_inode(fs, dir, buf)) != 0)
-			return retval;
-	}
-#endif
-
-	return 0;
+	return retval;
 }
 
