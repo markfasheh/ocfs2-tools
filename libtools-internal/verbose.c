@@ -26,8 +26,11 @@
 #include <ctype.h>
 #include <limits.h>
 #include <et/com_err.h>
+#include <inttypes.h>
 
 #include "tools-internal/verbose.h"
+#include "tools-internal/progress.h"
+#include "libtools-internal.h"
 
 static char progname[PATH_MAX] = "(Unknown)";
 static int verbosity = 1;
@@ -66,10 +69,18 @@ void tools_quiet(void)
 	verbosity--;
 }
 
+int tools_verbosity(void)
+{
+	return verbosity;
+}
+
 static void vfverbosef(FILE *f, int level, const char *fmt, va_list args)
 {
-	if (level <= verbosity)
+	if (level <= verbosity) {
+		tools_progress_clear();
 		vfprintf(f, fmt, args);
+		tools_progress_restore();
+	}
 }
 
 static void fverbosef(FILE *f, int level, const char *fmt, ...)
@@ -112,15 +123,23 @@ void tcom_err(errcode_t code, const char *fmt, ...)
 {
 	va_list args;
 
+	tools_progress_clear();
 	va_start(args, fmt);
 	com_err_va(progname, code, fmt, args);
 	va_end(args);
+	tools_progress_restore();
 }
 
 static int vtools_interact(enum tools_verbosity_level level,
 			   const char *fmt, va_list args)
 {
 	char *s, buffer[NAME_MAX];
+	int progress_enabled = tools_progress_enabled();
+
+	if (progress_enabled) {
+		tools_progress_clear();
+		tools_progress_disable();
+	}
 
 	vfverbosef(stderr, level, fmt, args);
 
@@ -130,6 +149,11 @@ static int vtools_interact(enum tools_verbosity_level level,
 		s = buffer;
 	} else
 		s = fgets(buffer, sizeof(buffer), stdin);
+
+	if (progress_enabled) {
+		tools_progress_enable();
+		tools_progress_restore();
+	}
 
 	if (s && *s) {
 		*s = tolower(*s);
@@ -153,6 +177,11 @@ void tools_interactive_yes(void)
 void tools_interactive_no(void)
 {
 	interactive_answer = 'n';
+}
+
+int tools_is_interactive(void)
+{
+	return interactive;
 }
 
 /* Pass this a question without a newline. */
