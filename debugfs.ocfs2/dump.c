@@ -451,6 +451,49 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 }
 
 /*
+ * dump_dir_block()
+ *
+ */
+void dump_dir_block(FILE *out, char *buf)
+{
+
+	struct ocfs2_dir_entry *dirent;
+	int offset = 0;
+	int end = ocfs2_dir_trailer_blk_off(gbls.fs);
+	struct ocfs2_dir_block_trailer *trailer =
+		ocfs2_dir_trailer_from_block(gbls.fs, buf);
+	list_dir_opts ls_opts = {
+		.fs	= gbls.fs,
+		.out	= out,
+	};
+
+	if (!strncmp((char *)trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
+		     sizeof(trailer->db_signature))) {
+		fprintf(out,
+			"\tTrailer Block: %-15"PRIu64" Inode: %-15"PRIu64" rec_len: %-4u\n",
+			trailer->db_blkno, trailer->db_parent_dinode,
+			trailer->db_compat_rec_len);
+	} else
+		end = gbls.fs->fs_blocksize;
+
+	fprintf(out, "\tEntries:\n");
+	while (offset < end) {
+		dirent = (struct ocfs2_dir_entry *) (buf + offset);
+		if (((offset + dirent->rec_len) > end) ||
+		    (dirent->rec_len < 8) ||
+		    ((dirent->rec_len % 4) != 0) ||
+		    (((dirent->name_len & 0xFF)+8) > dirent->rec_len)) {
+			/* Corrupted */
+			return;
+		}
+
+		dump_dir_entry(dirent, offset, gbls.fs->fs_blocksize, NULL,
+			       &ls_opts);
+		offset += dirent->rec_len;
+	}
+}
+
+/*
  * dump_jbd_header()
  *
  */
@@ -606,6 +649,8 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 			uint64_t blknum)
 {
+	struct ocfs2_dir_block_trailer *trailer;
+
 	fprintf (out, "\tBlock %"PRIu64": ", blknum);
 	switch (type) {
 	case DUMP_BLOCK_INODE:
@@ -624,6 +669,19 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 		fprintf(out, "Group\n");
 		ocfs2_swap_group_desc((struct ocfs2_group_desc *)buf);
 		dump_group_descriptor (out, (struct ocfs2_group_desc *)buf, 0);
+		fprintf (out, "\n");
+		break;
+	case DUMP_BLOCK_DIR_BLOCK:
+		fprintf(out, "Dirblock\n");
+		/*
+		 * We know there's a trailer, because that's how it
+		 * was detected
+		 */
+		ocfs2_swap_dir_entries_to_cpu(buf,
+					      ocfs2_dir_trailer_blk_off(gbls.fs));
+		trailer = ocfs2_dir_trailer_from_block(gbls.fs, buf);
+		ocfs2_swap_dir_trailer(trailer);
+		dump_dir_block(out, buf);
 		fprintf (out, "\n");
 		break;
 	default:

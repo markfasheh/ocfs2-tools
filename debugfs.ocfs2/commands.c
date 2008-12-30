@@ -73,6 +73,7 @@ static void do_bmap (char **args);
 static void do_icheck (char **args);
 static void do_dlm_locks (char **args);
 static void do_controld(char **args);
+static void do_dirblocks(char **args);
 
 dbgfs_gbls gbls;
 
@@ -107,7 +108,8 @@ static Command commands[] = {
 	{ "stat",	do_stat },
 	{ "stats",	do_stats },
 	{ "encode",	do_encode_lockres },
-	{ "decode",	do_decode_lockres }
+	{ "decode",	do_decode_lockres },
+	{ "dirblocks",	do_dirblocks },
 };
 
 /*
@@ -833,6 +835,7 @@ static void do_help (char **args)
 	printf ("decode <lockname#> ...\t\t\tDecode block#(s) from the lockname(s)\n");
 	printf ("dlm_locks [-f <file>] [-l] lockname\t\t\tShow live dlm locking state\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
+	printf ("dirblocks <filespec>\t\t\tDump directory blocks\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
 	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
@@ -1234,6 +1237,72 @@ static void do_group (char **args)
 	close_pager (out);
 
 	return ;
+}
+
+static int dirblocks_proxy(ocfs2_filesys *fs, uint64_t blkno,
+			   uint64_t bcount, uint16_t ext_flags,
+			   void *priv_data)
+{
+	errcode_t ret;
+	struct dirblocks_walk *ctxt = priv_data;
+
+	ret = ocfs2_read_dir_block(fs, ctxt->di, blkno, ctxt->buf);
+	if (!ret) {
+		fprintf(ctxt->out, "\tDirbloc: %"PRIu64"\n", blkno);
+		dump_dir_block(ctxt->out, ctxt->buf);
+	} else
+		com_err(gbls.cmd, ret,
+			"while reading dirblock %"PRIu64" on inode "
+			"%"PRIu64"\n",
+			blkno, ctxt->di->i_blkno);
+	return 0;
+}
+
+/*
+ * do_dirblocks()
+ *
+ */
+static void do_dirblocks (char **args)
+{
+	uint64_t ino_blkno;
+	errcode_t ret = 0;
+	struct dirblocks_walk ctxt = {
+		.fs = gbls.fs,
+	};
+
+	if (process_inode_args(args, &ino_blkno))
+		return;
+
+	ret = ocfs2_check_directory(gbls.fs, ino_blkno);
+	if (ret) {
+		com_err(args[0], ret, "while checking directory at "
+			"block %"PRIu64"", ino_blkno);
+		return;
+	}
+
+	ret = ocfs2_read_inode(gbls.fs, ino_blkno, gbls.blockbuf);
+	if (ret) {
+		com_err(args[0], ret, "while reading inode %"PRIu64"",
+			ino_blkno);
+		return;
+	}
+	ctxt.di = (struct ocfs2_dinode *)gbls.blockbuf;
+
+	ret = ocfs2_malloc_block(ctxt.fs->fs_io, &ctxt.buf);
+	if (ret) {
+		com_err(gbls.cmd, ret, "while allocating a block");
+		return;
+	}
+
+	ctxt.out = open_pager(gbls.interactive);
+	ret = ocfs2_block_iterate_inode(gbls.fs, ctxt.di, 0,
+					dirblocks_proxy, &ctxt);
+	if (ret)
+		com_err(args[0], ret, "while iterating directory at "
+			"block %"PRIu64"", ino_blkno);
+	close_pager(ctxt.out);
+
+	ocfs2_free(&ctxt.buf);
 }
 
 /*

@@ -25,6 +25,7 @@ enum dump_block_type {
 	DUMP_BLOCK_INODE,
 	DUMP_BLOCK_EXTENT_BLOCK,
 	DUMP_BLOCK_GROUP_DESCRIPTOR,
+	DUMP_BLOCK_DIR_BLOCK,
 };
 
 typedef struct _list_dir_opts {
@@ -33,6 +34,13 @@ typedef struct _list_dir_opts {
 	int long_opt;
 	char *buf;
 } list_dir_opts;
+
+struct dirblocks_walk {
+	ocfs2_filesys *fs;
+	FILE *out;
+	struct ocfs2_dinode *di;
+	char *buf;
+};
 
 void dump_super_block (FILE *out, struct ocfs2_super_block *sb);
 void dump_local_alloc (FILE *out, struct ocfs2_local_alloc *loc);
@@ -44,6 +52,7 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk);
 void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp, int index);
 int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 		     char *buf, void *priv_data);
+void dump_dir_block(FILE *out, char *buf);
 void dump_jbd_header (FILE *out, journal_header_t *header);
 void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb);
 void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
