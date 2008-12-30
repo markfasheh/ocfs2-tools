@@ -166,26 +166,34 @@ static enum dump_block_type detect_block (char *buf)
 	struct ocfs2_dinode *inode;
 	struct ocfs2_extent_block *extent;
 	struct ocfs2_group_desc *group;
+	struct ocfs2_dir_block_trailer *trailer;
 	enum dump_block_type ret = DUMP_BLOCK_UNKNOWN;
 
 	inode = (struct ocfs2_dinode *)buf;
-	if (!memcmp(inode->i_signature, OCFS2_INODE_SIGNATURE,
-		    sizeof(OCFS2_INODE_SIGNATURE))) {
+	if (!strncmp((char *)inode->i_signature, OCFS2_INODE_SIGNATURE,
+		     sizeof(inode->i_signature))) {
 		ret = DUMP_BLOCK_INODE;
 		goto bail;
 	}
 
 	extent = (struct ocfs2_extent_block *)buf;
-	if (!memcmp(extent->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
-		    sizeof(OCFS2_EXTENT_BLOCK_SIGNATURE))) {
+	if (!strncmp((char *)extent->h_signature, OCFS2_EXTENT_BLOCK_SIGNATURE,
+		     sizeof(extent->h_signature))) {
 		ret = DUMP_BLOCK_EXTENT_BLOCK;
 		goto bail;
 	}
 
 	group = (struct ocfs2_group_desc *)buf;
-	if (!memcmp(group->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
-		    sizeof(OCFS2_GROUP_DESC_SIGNATURE))) {
+	if (!strncmp((char *)group->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
+		     sizeof(group->bg_signature))) {
 		ret = DUMP_BLOCK_GROUP_DESCRIPTOR;
+		goto bail;
+	}
+
+	trailer = ocfs2_dir_trailer_from_block(gbls.fs, buf);
+	if (!strncmp((char *)trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
+		     sizeof(trailer->db_signature))) {
+		ret = DUMP_BLOCK_DIR_BLOCK;
 		goto bail;
 	}
 
