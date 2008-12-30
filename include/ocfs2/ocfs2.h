@@ -595,6 +595,17 @@ errcode_t ocfs2_write_slot_map_extended(ocfs2_filesys *fs,
 					int num_slots,
 					struct ocfs2_slot_map_extended *se);
 
+/* High level functions for metadata ecc */
+void ocfs2_compute_meta_ecc(ocfs2_filesys *fs, void *data,
+			    struct ocfs2_block_check *bc);
+errcode_t ocfs2_validate_meta_ecc(ocfs2_filesys *fs, void *data,
+				  struct ocfs2_block_check *bc);
+/* Low level checksum compute functions.  Use the high-level ones. */
+extern void ocfs2_block_check_compute(void *data, size_t blocksize,
+				      struct ocfs2_block_check *bc);
+extern errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
+					    struct ocfs2_block_check *bc);
+
 /* High level */
 errcode_t ocfs2_format_slot_map(ocfs2_filesys *fs);
 errcode_t ocfs2_load_slot_map(ocfs2_filesys *fs,
@@ -946,6 +957,15 @@ static inline int ocfs2_support_inline_data(struct ocfs2_super_block *osb)
 		return 1;
 	return 0;
 }
+
+static inline int ocfs2_meta_ecc(struct ocfs2_super_block *osb)
+{
+	if (OCFS2_HAS_INCOMPAT_FEATURE(osb,
+				       OCFS2_FEATURE_INCOMPAT_META_ECC))
+		return 1;
+	return 0;
+}
+
 
 /*
  * shamelessly lifted from the kernel
