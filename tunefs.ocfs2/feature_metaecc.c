@@ -1110,7 +1110,9 @@ static errcode_t install_trailers(ocfs2_filesys *fs,
 		verbosef(VL_DEBUG,
 			 "Writing trailer for dinode %"PRIu64"\n",
 			 tc->d_di->i_blkno);
+		tunefs_block_signals();
 		ret = tunefs_install_dir_trailer(fs, tc->d_di, tc);
+		tunefs_unblock_signals();
 		if (ret)
 			break;
 
@@ -1127,6 +1129,30 @@ static errcode_t install_trailers(ocfs2_filesys *fs,
 						 dirdata_iterate, &iter);
 		if (ret)
 			break;
+	}
+
+	return ret;
+}
+
+static errcode_t write_ecc_blocks(ocfs2_filesys *fs,
+				  struct add_ecc_context *ctxt)
+{
+	errcode_t ret = 0;
+	struct rb_node *n;
+	struct block_to_ecc *block;
+
+	verbosef(VL_DEBUG, "Dumping ecc block tree\n");
+	n = rb_first(&ctxt->ae_blocks);
+	while (n) {
+		block = rb_entry(n, struct block_to_ecc, e_node);
+		verbosef(VL_DEBUG, "Writing block %"PRIu64"\n",
+			 block->e_blkno);
+
+		ret = block->e_write(fs, block);
+		if (ret)
+			break;
+
+		n = rb_next(n);
 	}
 
 	return ret;
@@ -1182,22 +1208,15 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 	if (ret)
 		goto out_cleanup;
 
-#if 0
-	ret = fill_sparse_files(fs, &ctxt);
-	if (ret) {
-		tcom_err(ret,
-			 "while trying to fill the sparse files on device "
-			 "\"%s\"",
-			 fs->fs_devname);
-		goto out_cleanup;
-	}
-#endif
-
+	/* Set the feature bit in-memory and rewrite all our blocks */
 	OCFS2_SET_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_META_ECC);
+
+	ret = write_ecc_blocks(fs, &ctxt);
+	if (ret)
+		goto out_cleanup;
+
 	tunefs_block_signals();
-#if 0
 	ret = ocfs2_write_super(fs);
-#endif
 	tunefs_unblock_signals();
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
