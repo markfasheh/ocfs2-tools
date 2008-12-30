@@ -67,6 +67,10 @@ errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 
 	gd = (struct ocfs2_group_desc *)blk;
 
+	ret = ocfs2_validate_meta_ecc(fs, blk, &gd->bg_check);
+	if (ret)
+		goto out;
+
 	ret = OCFS2_ET_BAD_GROUP_DESC_MAGIC;
 	if (memcmp(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
 		   strlen(OCFS2_GROUP_DESC_SIGNATURE)))
@@ -107,6 +111,7 @@ errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	gd = (struct ocfs2_group_desc *)blk;
 	ocfs2_swap_group_desc(gd);
 
+	ocfs2_compute_meta_ecc(fs, blk, &gd->bg_check);
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
 	if (ret)
 		goto out;
