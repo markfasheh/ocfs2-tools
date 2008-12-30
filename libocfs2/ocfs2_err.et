@@ -178,4 +178,7 @@ ec	OCFS2_ET_CANNOT_INLINE_DATA,
 ec	OCFS2_ET_UNKNOWN_FEATURE,
 	"Unknown feature"
 
+ec	OCFS2_ET_BAD_DIR_BLOCK_MAGIC,
+	"Bad magic number in directory block"
+
 	end
