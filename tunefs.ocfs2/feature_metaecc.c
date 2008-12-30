@@ -120,9 +120,11 @@ static void add_bytes_needed(ocfs2_filesys *fs,
 
 	/*
 	 * If the current byte offset would put us into a trailer, push
-	 * it out to the start of the next block.
+	 * it out to the start of the next block.  Remember, dirents have
+	 * to be at least 16 bytes, which is why we check against the
+	 * next smallest size of 12.
 	 */
-	if ((block_offset + rec_len) > toff)
+	if ((block_offset + rec_len) > (toff - 12))
 		tc->d_bytes_needed += fs->fs_blocksize - block_offset;
 
 	tc->d_bytes_needed += rec_len;
@@ -316,9 +318,11 @@ static void shift_dirent(ocfs2_filesys *fs,
 
 	/*
 	 * If the current byte offset would put us into a trailer, push
-	 * it out to the start of the next block.
+	 * it out to the start of the next block.  Remember, dirents have
+	 * to be at least 16 bytes, which is why we check against the
+	 * next smallest size of 12.
 	 */
-	if (rec_len > tc->d_next_dirent->rec_len) {
+	if (rec_len > (tc->d_next_dirent->rec_len - 12)) {
 		tc->d_cur_block += fs->fs_blocksize;
 		tc->d_next_dirent = (struct ocfs2_dir_entry *)tc->d_cur_block;
 	}
@@ -332,10 +336,26 @@ static void shift_dirent(ocfs2_filesys *fs,
 
 	memcpy(tc->d_cur_block + offset, dirent, rec_len);
 	tc->d_next_dirent->rec_len = rec_len;
+
+	verbosef(VL_DEBUG,
+		 "Installed dirent %.*s at offset %u of new block "
+		 "%"PRIu64", rec_len %u\n",
+		 tc->d_next_dirent->name_len, tc->d_next_dirent->name,
+		 offset,
+		 ocfs2_blocks_in_bytes(fs, tc->d_cur_block - tc->d_new_blocks),
+		 rec_len);
+
+
 	offset += rec_len;
 	tc->d_next_dirent =
 		(struct ocfs2_dir_entry *)(tc->d_cur_block + offset);
 	tc->d_next_dirent->rec_len = remain;
+
+	verbosef(VL_DEBUG,
+		 "New block %"PRIu64" has its last dirent at %u, with %u "
+		 "bytes left\n",
+		 ocfs2_blocks_in_bytes(fs, tc->d_cur_block - tc->d_new_blocks),
+		 offset, remain);
 }
 
 static errcode_t fixup_dirblock(ocfs2_filesys *fs,
@@ -421,6 +441,28 @@ static errcode_t run_dirblocks(ocfs2_filesys *fs,
 	return ret;
 }
 
+static errcode_t write_dirblocks(ocfs2_filesys *fs,
+				 struct tunefs_trailer_context *tc)
+{
+	errcode_t ret = 0;
+	struct list_head *pos;
+	struct tunefs_trailer_dirblock *db;
+
+	list_for_each(pos, &tc->d_dirblocks) {
+		db = list_entry(pos, struct tunefs_trailer_dirblock, db_list);
+		ret = ocfs2_write_dir_block(fs, tc->d_di, db->db_blkno,
+					    db->db_buf);
+		if (ret) {
+			verbosef(VL_DEBUG,
+				 "Error writing dirblock %"PRIu64"\n",
+				 db->db_blkno);
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static errcode_t init_new_dirblocks(ocfs2_filesys *fs,
 				    struct tunefs_trailer_context *tc)
 {
@@ -452,6 +494,41 @@ static errcode_t init_new_dirblocks(ocfs2_filesys *fs,
 out:
 	return ret;
 }
+
+static errcode_t write_new_dirblocks(ocfs2_filesys *fs,
+				     struct tunefs_trailer_context *tc)
+{
+	int i;
+	errcode_t ret;
+	uint64_t blkno;
+	uint64_t orig_block = ocfs2_blocks_in_bytes(fs, tc->d_di->i_size);
+	ocfs2_cached_inode *cinode;
+	char *blockptr;
+
+	ret = ocfs2_read_cached_inode(fs, tc->d_blkno, &cinode);
+	if (ret)
+		goto out;
+	assert(!memcmp(tc->d_di, cinode->ci_inode, fs->fs_blocksize));
+
+	for (i = 0; i < tc->d_blocks_needed; i++) {
+		ret = ocfs2_extent_map_get_blocks(cinode, orig_block + i,
+						  1, &blkno, NULL, NULL);
+		if (ret)
+			goto out;
+		blockptr = tc->d_new_blocks + (i * fs->fs_blocksize);
+		ret = ocfs2_write_dir_block(fs, tc->d_di, blkno, blockptr);
+		if (ret) {
+			verbosef(VL_DEBUG,
+				 "Error writing dirblock %"PRIu64"\n",
+				 blkno);
+			goto out;
+		}
+	}
+
+out:
+	return ret;
+}
+
 
 static errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 					    struct ocfs2_dinode *di,
@@ -487,10 +564,34 @@ static errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 		ret = init_new_dirblocks(fs, tc);
 		if (ret)
 			goto out;
+		tc->d_next_dirent = (struct ocfs2_dir_entry *)tc->d_cur_block;
+		verbosef(VL_DEBUG, "t_next_dirent has rec_len of %u\n",
+			 tc->d_next_dirent->rec_len);
 	}
 
-	tc->d_next_dirent = (struct ocfs2_dir_entry *)tc->d_cur_block;
 	ret = run_dirblocks(fs, tc);
+	if (ret)
+		goto out;
+
+	/*
+	 * We write in a specific order.  We write any new dirblocks first
+	 * so that they are on disk.  Then we write the new i_size in the
+	 * inode.  If we crash at this point, the directory has duplicate
+	 * entries but no lost entries.  fsck can clean it up.  Finally, we
+	 * write the modified dirblocks with trailers.
+	 */
+	if (tc->d_blocks_needed) {
+		ret = write_new_dirblocks(fs, tc);
+		if (ret)
+			goto out;
+
+		di->i_size += ocfs2_blocks_to_bytes(fs, tc->d_blocks_needed);
+		ret = ocfs2_write_inode(fs, di->i_blkno, (char *)di);
+		if (ret)
+			goto out;
+	}
+
+	ret = write_dirblocks(fs, tc);
 
 out:
 	if (our_tc)
