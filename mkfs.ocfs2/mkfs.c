@@ -86,6 +86,8 @@ static void create_lost_found_dir(State *s, ocfs2_filesys *fs);
 static void format_journals(State *s, ocfs2_filesys *fs);
 static void format_slotmap(State *s, ocfs2_filesys *fs);
 static int format_backup_super(State *s, ocfs2_filesys *fs);
+static void mkfs_compute_meta_ecc(State *s, void *data,
+				  struct ocfs2_block_check *bc);
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -2011,6 +2013,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
 
 	ocfs2_swap_inode_from_cpu(di);
+	mkfs_compute_meta_ecc(s, di, &di->i_check);
 	do_pwrite(s, di, s->blocksize, super_off);
 	free(di);
 }
@@ -2176,6 +2179,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 
 write_out:
 	ocfs2_swap_inode_from_cpu(di);
+	mkfs_compute_meta_ecc(s, di, &di->i_check);
 	do_pwrite(s, di, s->blocksize, rec->fe_off);
 	free(di);
 }
@@ -2220,6 +2224,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 		memcpy(buf, gd, s->blocksize);
 		gd_buf = (struct ocfs2_group_desc *)buf;
 		ocfs2_swap_group_desc(gd_buf);
+		mkfs_compute_meta_ecc(s, buf, &gd_buf->bg_check);
 		do_pwrite(s, buf, s->cluster_size,
 			  gd->bg_blkno << s->blocksize_bits);
 	}
@@ -2231,6 +2236,7 @@ write_group_data(State *s, AllocGroup *group)
 {
 	uint64_t blkno = group->gd->bg_blkno;
 	ocfs2_swap_group_desc(group->gd);
+	mkfs_compute_meta_ecc(s, group->gd, &group->gd->bg_check);
 	do_pwrite(s, group->gd, s->blocksize, blkno << s->blocksize_bits);
 	ocfs2_swap_group_desc(group->gd);
 }
@@ -2258,6 +2264,8 @@ static void mkfs_swap_dir(State *s, DirData *dir,
 		swap_entry_func(p, end);
 		if (end != s->blocksize)
 			ocfs2_swap_dir_trailer(trailer);
+		/* Remember, this does nothing if the feature isn't set */
+		ocfs2_compute_meta_ecc(&fake_fs, p, &trailer->db_check);
 		offset += s->blocksize;
 		p += offset;
 	}
@@ -2584,4 +2592,11 @@ static int format_backup_super(State *s, ocfs2_filesys *fs)
 error:
 	clear_both_ends(s);
 	exit(1);
+}
+
+static void mkfs_compute_meta_ecc(State *s, void *data,
+				  struct ocfs2_block_check *bc)
+{
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_META_ECC)
+		ocfs2_block_check_compute(data, s->blocksize, bc);
 }
