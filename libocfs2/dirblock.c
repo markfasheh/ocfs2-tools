@@ -80,6 +80,7 @@ void ocfs2_init_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	struct ocfs2_dir_block_trailer *trailer =
 		ocfs2_dir_trailer_from_block(fs, buf);
 
+	memset(trailer, 0, sizeof(struct ocfs2_dir_block_trailer));
 	memcpy(trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
 	       strlen(OCFS2_DIR_TRAILER_SIGNATURE));
 	trailer->db_compat_rec_len = sizeof(struct ocfs2_dir_block_trailer);
