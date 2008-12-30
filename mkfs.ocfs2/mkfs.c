@@ -184,6 +184,46 @@ static int hb_dev_skip(State *s, int system_inode)
 	return ret;
 }
 
+static void fill_fake_fs(State *s, ocfs2_filesys *fake_fs, void *buf)
+{
+	memset(buf, 0, s->blocksize);
+	memset(fake_fs, 0, sizeof(ocfs2_filesys));
+
+	fake_fs->fs_super = buf;
+	fake_fs->fs_blocksize = s->blocksize;
+	fake_fs->fs_clustersize = s->cluster_size;
+
+	OCFS2_RAW_SB(fake_fs->fs_super)->s_feature_incompat =
+		s->feature_flags.opt_incompat;
+	OCFS2_RAW_SB(fake_fs->fs_super)->s_feature_ro_compat =
+		s->feature_flags.opt_ro_compat;
+	OCFS2_RAW_SB(fake_fs->fs_super)->s_feature_compat =
+		s->feature_flags.opt_compat;
+}
+
+static void mkfs_init_dir_trailer(State *s, DirData *dir, void *buf)
+{
+	char super_buf[OCFS2_MAX_BLOCKSIZE];
+	ocfs2_filesys fake_fs;
+	struct ocfs2_dir_entry *de;
+	struct ocfs2_dinode fake_di = {
+		.i_blkno = dir->record->fe_off >> s->blocksize_bits,
+	};
+	uint64_t blkno = dir->record->extent_off;
+
+	/* Find out how far we are in our directory */
+	blkno += ((char *)buf) - ((char *)dir->buf);
+	blkno >>= s->blocksize_bits;
+
+	fill_fake_fs(s, &fake_fs, super_buf);
+
+	if (ocfs2_supports_dir_trailer(&fake_fs)) {
+		de = buf;
+		de->rec_len = ocfs2_dir_trailer_blk_off(&fake_fs);
+		ocfs2_init_dir_trailer(&fake_fs, &fake_di, blkno, buf);
+	}
+}
+
 static inline uint32_t system_dir_bytes_needed(State *s)
 {
 	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
@@ -1784,6 +1824,8 @@ add_entry_to_directory(State *s, DirData *dir, char *name, uint64_t byte_off,
 	de = (struct ocfs2_dir_entry *)p;
 	de->inode = 0;
 	de->rec_len = s->blocksize;
+	if (!s->inline_data || !dir->record->dir_data)
+		mkfs_init_dir_trailer(s, dir, p);
 
 got_it:
 	de->name_len = strlen(name);
@@ -2159,7 +2201,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 {
 	int i;
 	uint64_t parent_blkno;
-	struct ocfs2_group_desc *gd;
+	struct ocfs2_group_desc *gd, *gd_buf;
 	char *buf = NULL;
 
 	buf = do_malloc(s, s->cluster_size);
@@ -2176,7 +2218,8 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 		 * blkno until now. */
 		gd->bg_parent_dinode = parent_blkno;
 		memcpy(buf, gd, s->blocksize);
-		ocfs2_swap_group_desc((struct ocfs2_group_desc *)buf);
+		gd_buf = (struct ocfs2_group_desc *)buf;
+		ocfs2_swap_group_desc(gd_buf);
 		do_pwrite(s, buf, s->cluster_size,
 			  gd->bg_blkno << s->blocksize_bits);
 	}
@@ -2192,6 +2235,44 @@ write_group_data(State *s, AllocGroup *group)
 	ocfs2_swap_group_desc(group->gd);
 }
 
+static void mkfs_swap_dir(State *s, DirData *dir,
+			  errcode_t (*swap_entry_func)(void *buf,
+						       uint64_t bytes))
+{
+	char *p = dir->buf;
+	unsigned int offset = 0;
+	unsigned int end = s->blocksize;
+	char super_buf[OCFS2_MAX_BLOCKSIZE];
+	ocfs2_filesys fake_fs;
+	struct ocfs2_dir_block_trailer *trailer;
+
+	if (!dir->record->extent_len)
+		return;
+
+	fill_fake_fs(s, &fake_fs, super_buf);
+	if (!s->inline_data || !dir->record->dir_data)
+		end = ocfs2_dir_trailer_blk_off(&fake_fs);
+
+	while (offset < dir->record->file_size) {
+		trailer = ocfs2_dir_trailer_from_block(&fake_fs, p);
+		swap_entry_func(p, end);
+		if (end != s->blocksize)
+			ocfs2_swap_dir_trailer(trailer);
+		offset += s->blocksize;
+		p += offset;
+	}
+}
+
+static void mkfs_swap_dir_from_cpu(State *s, DirData *dir)
+{
+	mkfs_swap_dir(s, dir, ocfs2_swap_dir_entries_from_cpu);
+}
+
+static void mkfs_swap_dir_to_cpu(State *s, DirData *dir)
+{
+	mkfs_swap_dir(s, dir, ocfs2_swap_dir_entries_to_cpu);
+}
+
 static void
 write_directory_data(State *s, DirData *dir)
 {
@@ -2199,12 +2280,10 @@ write_directory_data(State *s, DirData *dir)
 		return;
 
 	if (dir->buf)
-		ocfs2_swap_dir_entries_from_cpu(dir->buf,
-						dir->record->file_size);
+		mkfs_swap_dir_from_cpu(s, dir);
 	write_metadata(s, dir->record, dir->buf);
 	if (dir->buf)
-		ocfs2_swap_dir_entries_to_cpu(dir->buf,
-					      dir->record->file_size);
+		mkfs_swap_dir_to_cpu(s, dir);
 }
 
 static void
