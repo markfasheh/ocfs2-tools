@@ -186,6 +186,9 @@
  */
 #define OCFS2_TUNEFS_INPROG_REMOVE_SLOT		0x0001	/* Removing slots */
 
+/* Adding directory block trailers */
+#define OCFS2_TUNEFS_INPROG_DIR_TRAILER		0x0002
+
 /*
  * Flags on ocfs2_dinode.i_flags
  */
