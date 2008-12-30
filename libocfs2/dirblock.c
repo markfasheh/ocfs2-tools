@@ -54,12 +54,12 @@ int ocfs2_dir_has_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di)
 	    (di->i_dyn_features & OCFS2_INLINE_DATA_FL))
 		return 0;
 
-	return 0;
+	return ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super));
 }
 
 int ocfs2_supports_dir_trailer(ocfs2_filesys *fs)
 {
-	return 0;
+	return ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super));
 }
 
 int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
@@ -165,6 +165,10 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		end = ocfs2_dir_trailer_blk_off(fs);
 		trailer = ocfs2_dir_trailer_from_block(fs, buf);
 
+		retval = ocfs2_validate_meta_ecc(fs, buf, &trailer->db_check);
+		if (retval)
+			goto out;
+
 		if (memcmp(trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
 			   strlen(OCFS2_DIR_TRAILER_SIGNATURE))) {
 			retval = OCFS2_ET_BAD_DIR_BLOCK_MAGIC;
@@ -205,13 +209,14 @@ errcode_t ocfs2_write_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		goto out;
 	
 	/*
-	 * We can always set trailer - Nothing happens if it isn't actually
-	 * used.
+	 * We can always set trailer - ocfs2_compute_meta_ecc() does
+	 * nothing if the filesystem doesn't have the feature turned on
 	 */
 	trailer = ocfs2_dir_trailer_from_block(fs, buf);
 	if (ocfs2_dir_has_trailer(fs, di))
 		ocfs2_swap_dir_trailer(trailer);
 
+	ocfs2_compute_meta_ecc(fs, buf, &trailer->db_check);
  	retval = io_write_block(fs->fs_io, block, 1, buf);
 out:
 	ocfs2_free(&buf);
