@@ -35,6 +35,7 @@ static int enable_unwritten_extents(ocfs2_filesys *fs, int flags)
 {
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog;
 
 	if (ocfs2_writes_unwritten_extents(super)) {
 		verbosef(VL_APP,
@@ -56,6 +57,13 @@ static int enable_unwritten_extents(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
+	prog = tools_progress_start("Enable unwritten", "unwritten", 1);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		tcom_err(ret, "while initializing the progress display");
+		goto out;
+	}
+
 	OCFS2_SET_RO_COMPAT_FEATURE(super,
 				    OCFS2_FEATURE_RO_COMPAT_UNWRITTEN);
 	tunefs_block_signals();
@@ -64,19 +72,22 @@ static int enable_unwritten_extents(ocfs2_filesys *fs, int flags)
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
 out:
 	return ret;
 }
 
 static errcode_t unwritten_iterate(ocfs2_filesys *fs,
 				   struct ocfs2_dinode *di,
-				   void *unused)
+				   void *user_data)
 {
 	errcode_t ret = 0;
 	uint32_t clusters, v_cluster = 0, p_cluster, num_clusters;
 	uint16_t extent_flags;
 	uint64_t p_blkno;
 	ocfs2_cached_inode *ci = NULL;
+	struct tools_progress *prog = user_data;
 
 	if (!S_ISREG(di->i_mode))
 		goto bail;
@@ -105,6 +116,7 @@ static errcode_t unwritten_iterate(ocfs2_filesys *fs,
 			if (ret)
 				break;
 
+			tools_progress_step(prog, 1);
 			tunefs_block_signals();
 			ret = ocfs2_mark_extent_written(fs, di, v_cluster,
 							num_clusters,
@@ -112,6 +124,7 @@ static errcode_t unwritten_iterate(ocfs2_filesys *fs,
 			tunefs_unblock_signals();
 			if (ret)
 				break;
+			tools_progress_step(prog, 1);
 		}
 
 		v_cluster += num_clusters;
@@ -120,18 +133,22 @@ static errcode_t unwritten_iterate(ocfs2_filesys *fs,
 bail:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
+	tools_progress_step(prog, 1);
+
 	return ret;
 }
 
-static errcode_t clear_unwritten_extents(ocfs2_filesys *fs)
+static errcode_t clear_unwritten_extents(ocfs2_filesys *fs,
+					 struct tools_progress *prog)
 {
-	return tunefs_foreach_inode(fs, unwritten_iterate, NULL);
+	return tunefs_foreach_inode(fs, unwritten_iterate, prog);
 }
 
 static int disable_unwritten_extents(ocfs2_filesys *fs, int flags)
 {
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog = NULL;
 
 	if (!ocfs2_writes_unwritten_extents(super)) {
 		verbosef(VL_APP,
@@ -145,7 +162,14 @@ static int disable_unwritten_extents(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
-	ret = clear_unwritten_extents(fs);
+	prog = tools_progress_start("Disabling unwritten", "nounwritten", 0);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		tcom_err(ret, "while initializing the progress display");
+		goto out;
+	}
+
+	ret = clear_unwritten_extents(fs, prog);
 	if (ret) {
 		tcom_err(ret,
 			 "while trying to clear the unwritten extents on "
@@ -162,7 +186,11 @@ static int disable_unwritten_extents(ocfs2_filesys *fs, int flags)
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+
 out:
+	if (prog)
+		tools_progress_stop(prog);
 	return ret;
 }
 
