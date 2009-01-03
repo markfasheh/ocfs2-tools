@@ -95,6 +95,7 @@ static void update_volume_uuid(ocfs2_filesys *fs)
 static errcode_t cloned_volume(ocfs2_filesys *fs, const char *new_label)
 {
 	errcode_t err;
+	struct tools_progress *prog;
 
 	if (!tools_interact_critical(
 		"Updating the UUID and label on cloned volume \"%s\".\n"
@@ -106,13 +107,27 @@ static errcode_t cloned_volume(ocfs2_filesys *fs, const char *new_label)
 		fs->fs_devname))
 		return 0;
 
+	prog = tools_progress_start("Cloning volume", "cloning", 3);
+	if (!prog) {
+		err = TUNEFS_ET_NO_MEMORY;
+		tcom_err(err, "while initializing the progress display");
+		goto out;
+	}
+
 	update_volume_uuid(fs);
+	tools_progress_step(prog, 1);
+
 	update_volume_label(fs, new_label);
+	tools_progress_step(prog, 1);
 
 	tunefs_block_signals();
 	err = ocfs2_write_super(fs);
 	tunefs_unblock_signals();
+	tools_progress_step(prog, 1);
 
+	tools_progress_stop(prog);
+
+out:
 	return err;
 }
 
