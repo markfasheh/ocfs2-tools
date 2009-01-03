@@ -30,7 +30,7 @@
 static errcode_t update_volume_label(ocfs2_filesys *fs, const char *label)
 {
 	errcode_t err;
-	int len = strlen(label);
+	int len = strlen(label) + 1;  /* Compare the NUL too */
 
 	if (len > OCFS2_MAX_VOL_LABEL_LEN)
 		len = OCFS2_MAX_VOL_LABEL_LEN;
