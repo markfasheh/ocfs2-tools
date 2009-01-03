@@ -23,6 +23,7 @@
 
 #include "o2ne_err.h"
 #include "tools-internal/verbose.h"
+#include "tools-internal/progress.h"
 
 /*
  * Adding a capability to ocfs2ne is pretty simple.  You create a source

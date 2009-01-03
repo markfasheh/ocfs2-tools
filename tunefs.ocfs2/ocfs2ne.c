@@ -99,7 +99,13 @@ extern struct tunefs_operation set_slot_count_op;
 extern struct tunefs_operation update_cluster_stack_op;
 extern struct tunefs_operation cloned_volume_op;
 
+/* List of operations we're going to run */
 static LIST_HEAD(tunefs_run_list);
+
+/* Number of operations we're going to run */
+static int tunefs_op_count;
+/* Progress display for tunefs operations */
+static struct tools_progress *tunefs_op_progress;
 
 static struct tunefs_journal_option set_journal_size_option = {
 	.jo_name	= "size",
@@ -135,6 +141,7 @@ static errcode_t tunefs_append_operation(struct tunefs_operation *op)
 	if (!err) {
 		run->tr_op = op;
 		list_add_tail(&run->tr_list, &tunefs_run_list);
+		tunefs_op_count++;
 	}
 
 	return err;
@@ -149,6 +156,7 @@ static errcode_t tunefs_prepend_operation(struct tunefs_operation *op)
 	if (!err) {
 		run->tr_op = op;
 		list_add(&run->tr_list, &tunefs_run_list);
+		tunefs_op_count++;
 	}
 
 	return err;
@@ -198,6 +206,12 @@ static int handle_verbosity(struct tunefs_option *opt, char *arg)
 static int handle_interactive(struct tunefs_option *opt, char *arg)
 {
 	tools_interactive();
+	return 0;
+}
+
+static int handle_progress(struct tunefs_option *opt, char *arg)
+{
+	tools_progress_enable();
 	return 0;
 }
 
@@ -425,6 +439,15 @@ static struct tunefs_option interactive_option = {
 	.opt_handle	= handle_interactive,
 };
 
+static struct tunefs_option progress_option = {
+	.opt_option	= {
+		.name	= "progress",
+		.val	= 'p',
+	},
+	.opt_help	= "-p|--progress",
+	.opt_handle	= handle_progress,
+};
+
 static struct tunefs_option yes_option = {
 	.opt_option	= {
 		.name	= "yes",
@@ -565,6 +588,7 @@ static struct tunefs_option *options[] = {
 	&help_option,
 	&version_option,
 	&interactive_option,
+	&progress_option,
 	&verbose_option,
 	&quiet_option,
 	&set_label_option,
@@ -958,6 +982,7 @@ static int run_operation_filter(ocfs2_filesys *fs, int filter)
 			}
 			break;
 		}
+		tools_progress_step(tunefs_op_progress, 1);
 	}
 
 	return err;
@@ -1048,7 +1073,18 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
+	tunefs_op_progress = tools_progress_start("tunefs.ocfs2",
+						  "tunefs",
+						  tunefs_op_count);
+	if (!tunefs_op_progress) {
+		tcom_err(TUNEFS_ET_NO_MEMORY,
+			 "while initializing the progress display");
+		goto out;
+	}
+
 	rc = run_operations(device);
+
+	tools_progress_stop(tunefs_op_progress);
 
 out:
 	return rc;
