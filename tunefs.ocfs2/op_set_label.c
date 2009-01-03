@@ -31,6 +31,7 @@ static errcode_t update_volume_label(ocfs2_filesys *fs, const char *label)
 {
 	errcode_t err;
 	int len = strlen(label) + 1;  /* Compare the NUL too */
+	struct tools_progress *prog;
 
 	if (len > OCFS2_MAX_VOL_LABEL_LEN)
 		len = OCFS2_MAX_VOL_LABEL_LEN;
@@ -49,6 +50,13 @@ static errcode_t update_volume_label(ocfs2_filesys *fs, const char *label)
 			    OCFS2_MAX_VOL_LABEL_LEN, label))
 		return 0;
 
+	prog = tools_progress_start("Setting label", "label", 1);
+	if (!prog) {
+		err = TUNEFS_ET_NO_MEMORY;
+		tcom_err(err, "while initializing the progress display");
+		return err;
+	}
+
 	memset(OCFS2_RAW_SB(fs->fs_super)->s_label, 0,
 	       OCFS2_MAX_VOL_LABEL_LEN);
 	strncpy((char *)OCFS2_RAW_SB(fs->fs_super)->s_label, label,
@@ -57,6 +65,9 @@ static errcode_t update_volume_label(ocfs2_filesys *fs, const char *label)
 	tunefs_block_signals();
 	err = ocfs2_write_super(fs);
 	tunefs_unblock_signals();
+
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
 
 	return err;
 }
