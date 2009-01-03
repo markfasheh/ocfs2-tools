@@ -44,6 +44,7 @@ struct inline_data_context {
 	errcode_t ret;
 	uint32_t more_clusters;
 	struct list_head inodes;
+	struct tools_progress *prog;
 };
 
 
@@ -51,6 +52,7 @@ static int enable_inline_data(ocfs2_filesys *fs, int flags)
 {
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog = NULL;
 
 	if (ocfs2_support_inline_data(super)) {
 		verbosef(VL_APP,
@@ -64,6 +66,13 @@ static int enable_inline_data(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
+	prog = tools_progress_start("Enabling inline-data", "inline-data", 1);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		tcom_err(ret, "while initializing the progress display");
+		goto out;
+	}
+
 	OCFS2_SET_INCOMPAT_FEATURE(super,
 				   OCFS2_FEATURE_INCOMPAT_INLINE_DATA);
 	tunefs_block_signals();
@@ -72,7 +81,12 @@ static int enable_inline_data(ocfs2_filesys *fs, int flags)
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
@@ -97,6 +111,8 @@ static errcode_t inline_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	ctxt->more_clusters++;
 	list_add_tail(&idi->list, &ctxt->inodes);
 
+	tools_progress_step(ctxt->prog, 1);
+
 	return 0;
 
 bail:
@@ -108,6 +124,13 @@ static errcode_t find_inline_data(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	uint32_t free_clusters = 0;
+
+	ctxt->prog = tools_progress_start("Scanning filesystem", "scanning",
+					  0);
+	if (!ctxt->prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto bail;
+	}
 
 	ret = tunefs_foreach_inode(fs, inline_iterate, ctxt);
 	if (ret)
@@ -126,6 +149,9 @@ static errcode_t find_inline_data(ocfs2_filesys *fs,
 		ret = OCFS2_ET_NO_SPACE;
 
 bail:
+	if (ctxt->prog)
+		tools_progress_stop(ctxt->prog);
+
 	return ret;
 }
 
@@ -148,6 +174,12 @@ static errcode_t expand_inline_data(ocfs2_filesys *fs,
 	struct list_head *pos;
 	struct inline_data_inode *idi;
 	ocfs2_cached_inode *ci = NULL;
+	struct tools_progress *prog;
+
+	prog = tools_progress_start("Expanding inline files", "expanding",
+				    ctxt->more_clusters);
+	if (!ctxt->prog)
+		return TUNEFS_ET_NO_MEMORY;
 
 	list_for_each(pos, &ctxt->inodes) {
 		idi = list_entry(pos, struct inline_data_inode, list);
@@ -160,7 +192,11 @@ static errcode_t expand_inline_data(ocfs2_filesys *fs,
 
 		if (ret)
 			break;
+
+		tools_progress_step(prog, 1);
 	}
+
+	tools_progress_stop(prog);
 
 	return ret;
 }
@@ -170,6 +206,7 @@ static int disable_inline_data(ocfs2_filesys *fs, int flags)
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 	struct inline_data_context ctxt;
+	struct tools_progress *prog = NULL;
 
 	if (!ocfs2_support_inline_data(super)) {
 		verbosef(VL_APP,
@@ -182,6 +219,14 @@ static int disable_inline_data(ocfs2_filesys *fs, int flags)
 			    "\"%s\"? ",
 			    fs->fs_devname))
 		goto out;
+
+	prog = tools_progress_start("Disabling inline-data", "noinline-data", 3);
+
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		tcom_err(ret, "while initializing the progress display");
+		goto out;
+	}
 
 	memset(&ctxt, 0, sizeof(ctxt));
 	INIT_LIST_HEAD(&ctxt.inodes);
@@ -197,6 +242,8 @@ static int disable_inline_data(ocfs2_filesys *fs, int flags)
 		goto out_cleanup;
 	}
 
+	tools_progress_step(prog, 1);
+
 	ret = expand_inline_data(fs, &ctxt);
 	if (ret) {
 		tcom_err(ret,
@@ -206,6 +253,8 @@ static int disable_inline_data(ocfs2_filesys *fs, int flags)
 		goto out_cleanup;
 	}
 
+	tools_progress_step(prog, 1);
+
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
 				     OCFS2_FEATURE_INCOMPAT_INLINE_DATA);
 	tunefs_block_signals();
@@ -214,10 +263,15 @@ static int disable_inline_data(ocfs2_filesys *fs, int flags)
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+
 out_cleanup:
 	empty_inline_data_context(&ctxt);
 
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
