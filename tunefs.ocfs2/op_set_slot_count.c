@@ -60,6 +60,7 @@ static errcode_t add_slots(ocfs2_filesys *fs, int num_slots)
 	uint64_t blkno;
 	int i, j, max_slots;
 	int ftype;
+	struct tools_progress *prog = NULL;
 
 	if (ocfs2_uses_extended_slot_map(OCFS2_RAW_SB(fs->fs_super))) {
 		ret = TUNEFS_ET_TOO_MANY_SLOTS_EXTENDED;
@@ -70,6 +71,15 @@ static errcode_t add_slots(ocfs2_filesys *fs, int num_slots)
 	}
 	if (num_slots > max_slots)
 		goto bail;
+
+	prog = tools_progress_start("Adding slots", "addslots",
+				    (NUM_SYSTEM_INODES -
+				     OCFS2_LAST_GLOBAL_SYSTEM_INODE - 1) *
+				    (num_slots - old_num));
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto bail;
+	}
 
 	ret = 0;
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
@@ -87,6 +97,7 @@ static errcode_t add_slots(ocfs2_filesys *fs, int num_slots)
 				verbosef(VL_APP,
 					 "System file \"%s\" already exists\n",
 					 fname);
+				tools_progress_step(prog, 1);
 				continue;
 			}
 
@@ -132,10 +143,14 @@ static errcode_t add_slots(ocfs2_filesys *fs, int num_slots)
 			}
 			verbosef(VL_APP, "System file \"%s\" created\n",
 				 fname);
+			tools_progress_step(prog, 1);
 		}
 	}
 
 bail:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
@@ -864,10 +879,19 @@ static errcode_t remove_slots(ocfs2_filesys *fs, int num_slots)
 	errcode_t ret;
 	uint16_t old_num = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	uint16_t removed_slot = old_num - 1;
+	struct tools_progress *prog = NULL;
 
 	ret = remove_slot_check(fs, num_slots);
 	if (ret)
 		goto bail;
+
+	/* We have seven steps in removing each slot */
+	prog = tools_progress_start("Removing slots", "rmslots",
+				    (old_num - num_slots) * 7);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto bail;
+	}
 
 	/* This is cleared up in update_slot_count() if everything works */
 	ret = tunefs_set_in_progress(fs, OCFS2_TUNEFS_INPROG_REMOVE_SLOT);
@@ -883,12 +907,14 @@ static errcode_t remove_slots(ocfs2_filesys *fs, int num_slots)
 					  EXTENT_ALLOC_SYSTEM_INODE);
 		if (ret)
 			goto bail;
+		tools_progress_step(prog, 1);
 
 		/* Link the specified inode alloc file to others. */
 		ret = relink_system_alloc(fs, removed_slot, num_slots,
 					  INODE_ALLOC_SYSTEM_INODE);
 		if (ret)
 			goto bail;
+		tools_progress_step(prog, 1);
 
 		/* Truncate the orphan dir to release its clusters
 		 * to the global bitmap.
@@ -896,11 +922,13 @@ static errcode_t remove_slots(ocfs2_filesys *fs, int num_slots)
 		ret = truncate_orphan_dir(fs, removed_slot);
 		if (ret)
 			goto bail;
+		tools_progress_step(prog, 1);
 
 		/* empty the content of journal and truncate its clusters. */
 		ret = empty_and_truncate_journal(fs, removed_slot);
 		if (ret)
 			goto bail;
+		tools_progress_step(prog, 1);
 
 		/* Now, we decrease the max_slots first and then remove the
 		 * slots for the reason that:
@@ -922,11 +950,13 @@ static errcode_t remove_slots(ocfs2_filesys *fs, int num_slots)
 		ret = ocfs2_write_primary_super(fs);
 		if (ret)
 			goto bail;
+		tools_progress_step(prog, 1);
 
 		/* The extra system dir entries should be removed. */
 		ret = remove_slot_entry(fs, removed_slot);
 		if (ret)
 			goto bail;
+		tools_progress_step(prog, 1);
 
 		/* Decrease the i_links_count in system file directory
 		 * since the orphan_dir is removed.
@@ -934,11 +964,15 @@ static errcode_t remove_slots(ocfs2_filesys *fs, int num_slots)
 		ret = decrease_link_count(fs, fs->fs_sysdir_blkno);
 		if (ret)
 			goto bail;
+		tools_progress_step(prog, 1);
 
 		removed_slot--;
 	}
 
 bail:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
