@@ -31,6 +31,7 @@ static errcode_t update_cluster(ocfs2_filesys *fs)
 {
 	errcode_t ret;
 	struct o2cb_cluster_desc desc;
+	struct tools_progress *prog;
 
 	if (!tools_interact_critical(
 		"Updating on-disk cluster information "
@@ -42,6 +43,11 @@ static errcode_t update_cluster(ocfs2_filesys *fs)
 		))
 		return 0;
 
+	prog = tools_progress_start("Updating cluster stack",
+				    "stackinfo", 1);
+	if (!prog)
+		return TUNEFS_ET_NO_MEMORY;
+
 	ret = o2cb_running_cluster_desc(&desc);
 	if (!ret) {
 		tunefs_block_signals();
@@ -49,6 +55,9 @@ static errcode_t update_cluster(ocfs2_filesys *fs)
 		tunefs_unblock_signals();
 		o2cb_free_cluster_desc(&desc);
 	}
+
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
 
 	return ret;
 }
