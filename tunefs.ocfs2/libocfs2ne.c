@@ -334,6 +334,7 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 	char *buf = NULL;
 	struct ocfs2_dinode *di;
 	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+	struct tools_progress *prog;
 
 	num_clusters =
 		ocfs2_clusters_in_blocks(fs,
@@ -355,6 +356,17 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		verbosef(VL_LIB,
 			 "%s while allocating inode buffer for journal "
 			 "resize\n",
+			 error_message(ret));
+		return ret;
+	}
+
+	prog = tools_progress_start("Setting journal size", "jsize",
+				    max_slots);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		verbosef(VL_LIB,
+			 "%s while initializing progress display for "
+			 "journal resize\n",
 			 error_message(ret));
 		return ret;
 	}
@@ -384,8 +396,10 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		}
 
 		di = (struct ocfs2_dinode *)buf;
-		if (num_clusters == di->i_clusters)
+		if (num_clusters == di->i_clusters) {
+			tools_progress_step(prog, 1);
 			continue;
+		}
 
 		verbosef(VL_LIB,
 			 "Resizing journal \"%s\" to %"PRIu32" clusters\n",
@@ -402,9 +416,11 @@ errcode_t tunefs_set_journal_size(ocfs2_filesys *fs, uint64_t new_size)
 		}
 		verbosef(VL_LIB, "Successfully resized journal \"%s\"\n",
 			 jrnl_file);
+		tools_progress_step(prog, 1);
 	}
 
 bail:
+	tools_progress_stop(prog);
 	if (buf)
 		ocfs2_free(&buf);
 
