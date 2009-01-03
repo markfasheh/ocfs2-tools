@@ -57,9 +57,11 @@ struct sparse_file {
 
 struct fill_hole_context {
 	errcode_t ret;
+	struct tools_progress *prog;
 	uint32_t more_clusters;
 	uint32_t more_ebs;
 	struct list_head files;
+	uint64_t holecount;
 };
 
 /*
@@ -68,11 +70,12 @@ struct fill_hole_context {
  */
 static errcode_t truncate_to_i_size(ocfs2_filesys *fs,
 				    struct ocfs2_dinode *di,
-				    void *unused)
+				    void *user_data)
 {
 	errcode_t ret = 0;
 	uint32_t new_clusters;
 	ocfs2_cached_inode *ci = NULL;
+	struct tools_progress *prog = user_data;
 
 	if (!S_ISREG(di->i_mode))
 		goto out;
@@ -101,6 +104,8 @@ out:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
 
+	tools_progress_step(prog, 1);
+
 	return ret;
 }
 
@@ -108,6 +113,7 @@ static int enable_sparse_files(ocfs2_filesys *fs, int flags)
 {
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog = NULL;
 
 	if (ocfs2_sparse_alloc(super)) {
 		verbosef(VL_APP,
@@ -121,7 +127,14 @@ static int enable_sparse_files(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
-	ret = tunefs_foreach_inode(fs, truncate_to_i_size, NULL);
+	prog = tools_progress_start("Enabling sparse", "sparse", 0);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		tcom_err(ret, "while initializing the progress display");
+		goto out;
+	}
+
+	ret = tunefs_foreach_inode(fs, truncate_to_i_size, prog);
 	if (ret) {
 		tcom_err(ret,
 			 "while trying to remove any extraneous allocation");
@@ -136,7 +149,12 @@ static int enable_sparse_files(ocfs2_filesys *fs, int flags)
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
@@ -300,12 +318,17 @@ static errcode_t hole_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	ctxt->more_ebs += clusters;
 
 	list_add_tail(&file->list, &ctxt->files);
+	ctxt->holecount += file->holes_num;
+
+	tools_progress_step(ctxt->prog, 1);
 
 	return 0;
 
 bail:
 	if (file)
 		ocfs2_free(&file);
+	tools_progress_step(ctxt->prog, 1);
+
 	return ret;
 }
 
@@ -314,6 +337,13 @@ static errcode_t find_sparse_files(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	uint32_t free_clusters = 0;
+
+	ctxt->prog = tools_progress_start("Scanning filesystem", "scanning",
+					  0);
+	if (!ctxt->prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto bail;
+	}
 
 	ret = tunefs_foreach_inode(fs, hole_iterate, ctxt);
 	if (ret)
@@ -334,6 +364,11 @@ static errcode_t find_sparse_files(ocfs2_filesys *fs,
 		ret = OCFS2_ET_NO_SPACE;
 
 bail:
+	if (ctxt->prog) {
+		tools_progress_stop(ctxt->prog);
+		ctxt->prog = NULL;
+	}
+
 	return ret;
 }
 
@@ -377,7 +412,8 @@ static errcode_t fill_one_hole(ocfs2_filesys *fs, struct sparse_file *file,
 	return ret;
 }
 
-static errcode_t fill_one_file(ocfs2_filesys *fs, struct sparse_file *file)
+static errcode_t fill_one_file(ocfs2_filesys *fs, struct sparse_file *file,
+			       struct tools_progress *prog)
 {
 	errcode_t ret = 0;
 	struct hole_list *hole;
@@ -388,6 +424,7 @@ static errcode_t fill_one_file(ocfs2_filesys *fs, struct sparse_file *file)
 		ret = fill_one_hole(fs, file, hole);
 		if (ret)
 			break;
+		tools_progress_step(prog, 1);
 	}
 
 	return ret;
@@ -401,6 +438,14 @@ static errcode_t fill_sparse_files(ocfs2_filesys *fs,
 	struct ocfs2_dinode *di = NULL;
 	struct list_head *pos;
 	struct sparse_file *file;
+	struct tools_progress *prog;
+
+	prog = tools_progress_start("Filling holes", "filling",
+				    ctxt->holecount);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto out;
+	}
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -409,7 +454,7 @@ static errcode_t fill_sparse_files(ocfs2_filesys *fs,
 	/* Iterate all the holes and fill them. */
 	list_for_each(pos, &ctxt->files) {
 		file = list_entry(pos, struct sparse_file, list);
-		ret = fill_one_file(fs, file);
+		ret = fill_one_file(fs, file, prog);
 		if (ret)
 			break;
 
@@ -428,6 +473,9 @@ static errcode_t fill_sparse_files(ocfs2_filesys *fs,
 	ocfs2_free(&buf);
 
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
@@ -436,6 +484,7 @@ static int disable_sparse_files(ocfs2_filesys *fs, int flags)
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 	struct fill_hole_context ctxt;
+	struct tools_progress *prog = NULL;
 
 	if (!ocfs2_sparse_alloc(super)) {
 		verbosef(VL_APP,
@@ -457,6 +506,13 @@ static int disable_sparse_files(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
+	prog = tools_progress_start("Disabling sparse", "nosparse", 3);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		tcom_err(ret, "while initializing the progress display");
+		goto out;
+	}
+
 	memset(&ctxt, 0, sizeof(ctxt));
 	INIT_LIST_HEAD(&ctxt.files);
 	ret = find_sparse_files(fs, &ctxt);
@@ -469,6 +525,7 @@ static int disable_sparse_files(ocfs2_filesys *fs, int flags)
 			tcom_err(ret, "while trying to find sparse files");
 		goto out_cleanup;
 	}
+	tools_progress_step(prog, 1);
 
 	ret = fill_sparse_files(fs, &ctxt);
 	if (ret) {
@@ -478,6 +535,7 @@ static int disable_sparse_files(ocfs2_filesys *fs, int flags)
 			 fs->fs_devname);
 		goto out_cleanup;
 	}
+	tools_progress_step(prog, 1);
 
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
 				     OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC);
@@ -487,10 +545,15 @@ static int disable_sparse_files(ocfs2_filesys *fs, int flags)
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+
 out_cleanup:
 	empty_fill_hole_context(&ctxt);
 
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
