@@ -32,10 +32,15 @@ static errcode_t update_volume_uuid(ocfs2_filesys *fs)
 {
 	errcode_t err;
 	unsigned char new_uuid[OCFS2_VOL_UUID_LEN];
+	struct tools_progress *prog;
 
 	if (!tools_interact("Reset the volume UUID on device \"%s\"? ",
 			    fs->fs_devname))
 		return 0;
+
+	prog = tools_progress_start("Resetting UUID", "resetuuid", 1);
+	if (!prog)
+		return TUNEFS_ET_NO_MEMORY;
 
 	uuid_generate(new_uuid);
 	memcpy(OCFS2_RAW_SB(fs->fs_super)->s_uuid, new_uuid,
@@ -45,6 +50,8 @@ static errcode_t update_volume_uuid(ocfs2_filesys *fs)
 	err = ocfs2_write_super(fs);
 	tunefs_unblock_signals();
 
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
 	return err;
 }
 
