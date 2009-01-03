@@ -64,6 +64,7 @@ static int disable_backup_super(ocfs2_filesys *fs, int flags)
 {
 	errcode_t err = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog;
 
 	if (!OCFS2_HAS_COMPAT_FEATURE(super,
 				      OCFS2_FEATURE_COMPAT_BACKUP_SB)) {
@@ -78,6 +79,14 @@ static int disable_backup_super(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
+	prog = tools_progress_start("Disable backup-super",
+				    "nobackup-super", 1);
+	if (!prog) {
+		err = TUNEFS_ET_NO_MEMORY;
+		tcom_err(err, "while initializing the progress display");
+		goto out;
+	}
+
 	tunefs_block_signals();
 	err = empty_backup_supers(fs);
 	if (!err) {
@@ -91,6 +100,9 @@ static int disable_backup_super(ocfs2_filesys *fs, int flags)
 				 fs->fs_devname);
 	}
 	tunefs_unblock_signals();
+
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
 
 out:
 	return err;
@@ -181,6 +193,7 @@ static int enable_backup_super(ocfs2_filesys *fs, int flags)
 {
 	errcode_t err = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog;
 
 	if (OCFS2_HAS_COMPAT_FEATURE(super,
 				     OCFS2_FEATURE_COMPAT_BACKUP_SB)) {
@@ -195,8 +208,17 @@ static int enable_backup_super(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
+	prog = tools_progress_start("Enable backup-super", "backup-super",
+				    2);
+	if (!prog) {
+		err = TUNEFS_ET_NO_MEMORY;
+		tcom_err(err, "while initializing the progress display");
+		goto out;
+	}
+
 	tunefs_block_signals();
 	err = check_backup_offsets(fs);
+	tools_progress_step(prog, 1);
 	if (!err)
 		err = fill_backup_supers(fs);
 	if (!err) {
@@ -206,6 +228,9 @@ static int enable_backup_super(ocfs2_filesys *fs, int flags)
 			tcom_err(err, "while writing out the superblock\n");
 	}
 	tunefs_unblock_signals();
+
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
 
 	if (err)
 		errorf("Unable to enable the backup superblock feature on "
