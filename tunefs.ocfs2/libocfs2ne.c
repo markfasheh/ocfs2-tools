@@ -707,6 +707,15 @@ static errcode_t tunefs_unlock_cluster(ocfs2_filesys *fs)
 {
 	errcode_t tmp, err = 0;
 	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+	struct tools_progress *prog = NULL;
+
+	if (fs->fs_dlm_ctxt)
+		prog = tools_progress_start("Unlocking filesystem",
+					    "unlocking", 2);
+	/*
+	 * We continue even with no progress, because we're unlocking
+	 * and probably exiting.
+	 */
 
 	assert(state->ts_master == fs);
 	if (state->ts_cluster_locked) {
@@ -717,12 +726,18 @@ static errcode_t tunefs_unlock_cluster(ocfs2_filesys *fs)
 		tunefs_unblock_signals();
 		state->ts_cluster_locked = 0;
 	}
+	if (prog)
+		tools_progress_step(prog, 1);
 
 	/* We shut down the dlm regardless of err */
 	if (fs->fs_dlm_ctxt) {
 		tmp = ocfs2_shutdown_dlm(fs, WHOAMI);
 		if (!err)
 			err = tmp;
+	}
+	if (prog) {
+		tools_progress_step(prog, 1);
+		tools_progress_stop(prog);
 	}
 
 	return err;
@@ -751,12 +766,19 @@ static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 	errcode_t err = 0;
 	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 	ocfs2_filesys *master_fs = state->ts_master;
+	struct tools_progress *prog = NULL;
 
 	if (state->ts_cluster_locked)
 		goto out;
 
 	if (flags & TUNEFS_FLAG_SKIPCLUSTER) {
 		err = TUNEFS_ET_CLUSTER_SKIPPED;
+		goto out;
+	}
+
+	prog = tools_progress_start("Locking filesystem", "locking", 2);
+	if (!prog) {
+		err = TUNEFS_ET_NO_MEMORY;
 		goto out;
 	}
 
@@ -787,6 +809,8 @@ static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 			goto out;
 	}
 
+	tools_progress_step(prog, 1);
+
 	tunefs_block_signals();
 	err = ocfs2_lock_down_cluster(master_fs);
 	tunefs_unblock_signals();
@@ -798,7 +822,12 @@ static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 	else
 		ocfs2_shutdown_dlm(fs, WHOAMI);
 
+	tools_progress_step(prog, 1);
+
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return err;
 }
 
