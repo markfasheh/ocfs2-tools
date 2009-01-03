@@ -487,7 +487,7 @@ static struct tunefs_option cloned_volume_option = {
 		.val		= CHAR_MAX,
 		.has_arg	= 2,
 	},
-	.opt_help	= "   --cloned-volume [new-label]",
+	.opt_help	= "   --cloned-volume[=new-label]",
 	.opt_op		= &cloned_volume_op,
 };
 
