@@ -31,6 +31,7 @@ static int enable_extended_slotmap(ocfs2_filesys *fs, int flags)
 {
 	errcode_t err = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog;
 
 	if (ocfs2_uses_extended_slot_map(super)) {
 		verbosef(VL_APP,
@@ -44,6 +45,14 @@ static int enable_extended_slotmap(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
+	prog = tools_progress_start("Enable extended-slotmap",
+				    "extended-slotmap", 1);
+	if (!prog) {
+		err = TUNEFS_ET_NO_MEMORY;
+		tcom_err(err, "while initializing the progress display");
+		goto out;
+	}
+
 	OCFS2_SET_INCOMPAT_FEATURE(super,
 				   OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP);
 	tunefs_block_signals();
@@ -56,6 +65,9 @@ static int enable_extended_slotmap(ocfs2_filesys *fs, int flags)
 		tcom_err(err, "while formatting the extended slot map");
 	tunefs_unblock_signals();
 
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
+
 out:
 	return err;
 }
@@ -64,6 +76,7 @@ static int disable_extended_slotmap(ocfs2_filesys *fs, int flags)
 {
 	errcode_t err = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog;
 
 	if (!ocfs2_uses_extended_slot_map(super)) {
 		verbosef(VL_APP,
@@ -77,6 +90,14 @@ static int disable_extended_slotmap(ocfs2_filesys *fs, int flags)
 			    fs->fs_devname))
 		goto out;
 
+	prog = tools_progress_start("Disable extended-slotmap",
+				    "noextended-slotmap", 1);
+	if (!prog) {
+		err = TUNEFS_ET_NO_MEMORY;
+		tcom_err(err, "while initializing the progress display");
+		goto out;
+	}
+
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
 				     OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP);
 
@@ -89,6 +110,9 @@ static int disable_extended_slotmap(ocfs2_filesys *fs, int flags)
 	} else
 		tcom_err(err, "while formatting the old-style slot map");
 	tunefs_unblock_signals();
+
+	tools_progress_step(prog, 1);
+	tools_progress_stop(prog);
 
 out:
 	return err;
