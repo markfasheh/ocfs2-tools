@@ -33,7 +33,6 @@
 
 
 
-
 /* A dirblock we have to add a trailer to */
 struct tunefs_trailer_dirblock {
 	struct list_head db_list;
@@ -640,10 +639,15 @@ struct chain_to_ecc {
 
 struct add_ecc_context {
 	errcode_t ae_ret;
+	struct tools_progress *ae_prog;
+
 	uint32_t ae_clusters;
 	struct list_head ae_dirs;
+	uint64_t ae_dircount;
 	struct list_head ae_chains;
+	uint64_t ae_chaincount;
 	struct rb_root ae_blocks;
+	uint64_t ae_blockcount;
 };
 
 static void block_free(struct block_to_ecc *block)
@@ -712,6 +716,7 @@ static errcode_t block_insert(struct add_ecc_context *ctxt,
 
 	rb_link_node(&block->e_node, parent, p);
 	rb_insert_color(&block->e_node, &ctxt->ae_blocks);
+	ctxt->ae_blockcount++;
 	ret = 0;
 
 	return ret;
@@ -876,6 +881,7 @@ static errcode_t add_ecc_chain(struct add_ecc_context *ctxt,
 	if (!ret) {
 		cte->ce_blkno = blkno;
 		list_add_tail(&cte->ce_list, &ctxt->ae_chains);
+		ctxt->ae_chaincount++;
 	}
 
 	return ret;
@@ -1040,7 +1046,8 @@ static errcode_t find_chain_blocks(ocfs2_filesys *fs,
 	struct chain_to_ecc *cte;
 	struct ocfs2_dinode *di;
 	struct block_to_ecc *block;
-	char *buf;
+	char *buf = NULL;
+	struct tools_progress *prog;
 	struct add_ecc_iterate iter = {
 		.ic_ctxt = ctxt,
 	};
@@ -1048,6 +1055,13 @@ static errcode_t find_chain_blocks(ocfs2_filesys *fs,
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		goto out;
+
+	prog = tools_progress_start("Scanning allocators", "chains",
+				    ctxt->ae_chaincount);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto out;
+	}
 
 	list_for_each(pos, &ctxt->ae_chains) {
 		cte = list_entry(pos, struct chain_to_ecc, ce_list);
@@ -1076,11 +1090,15 @@ static errcode_t find_chain_blocks(ocfs2_filesys *fs,
 					  &iter);
 		if (ret)
 			break;
+		tools_progress_step(prog, 1);
 	}
 
-	ocfs2_free(&buf);
+	tools_progress_stop(prog);
 
 out:
+	if (buf)
+		ocfs2_free(&buf);
+
 	return ret;
 }
 
@@ -1151,6 +1169,7 @@ static errcode_t inode_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 				 "more blocks\n",
 				 tc->d_blkno, tc->d_blocks_needed);
 			list_add(&tc->d_list, &ctxt->ae_dirs);
+			ctxt->ae_dircount++;
 			ctxt->ae_clusters +=
 				ocfs2_clusters_in_blocks(fs,
 							 tc->d_blocks_needed);
@@ -1158,6 +1177,8 @@ static errcode_t inode_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	}
 
 out:
+	tools_progress_step(ctxt->ae_prog, 1);
+
 	return ret;
 }
 
@@ -1166,9 +1187,18 @@ static errcode_t find_blocks(ocfs2_filesys *fs, struct add_ecc_context *ctxt)
 	errcode_t ret;
 	uint32_t free_clusters = 0;
 
+	ctxt->ae_prog = tools_progress_start("Scanning filesystem",
+					     "scanning", 0);
+	if (!ctxt->ae_prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto bail;
+	}
+
 	ret = tunefs_foreach_inode(fs, inode_iterate, ctxt);
 	if (ret)
 		goto bail;
+	tools_progress_stop(ctxt->ae_prog);
+	ctxt->ae_prog = NULL;
 
 	ret = tunefs_get_free_clusters(fs, &free_clusters);
 	if (ret)
@@ -1183,6 +1213,8 @@ static errcode_t find_blocks(ocfs2_filesys *fs, struct add_ecc_context *ctxt)
 		ret = OCFS2_ET_NO_SPACE;
 
 bail:
+	if (ctxt->ae_prog)
+		tools_progress_stop(ctxt->ae_prog);
 	return ret;
 }
 
@@ -1192,10 +1224,13 @@ static errcode_t install_trailers(ocfs2_filesys *fs,
 	errcode_t ret = 0;
 	struct tunefs_trailer_context *tc;
 	struct list_head *n, *pos;
+	struct tools_progress *prog;
 	struct add_ecc_iterate iter = {
 		.ic_ctxt = ctxt,
 	};
 
+	prog = tools_progress_start("Installing dir trailers",
+				    "trailers", ctxt->ae_dircount);
 	list_for_each_safe(pos, n, &ctxt->ae_dirs) {
 		tc = list_entry(pos, struct tunefs_trailer_context, d_list);
 		verbosef(VL_DEBUG,
@@ -1220,7 +1255,10 @@ static errcode_t install_trailers(ocfs2_filesys *fs,
 						 dirdata_iterate, &iter);
 		if (ret)
 			break;
+
+		tools_progress_step(prog, 1);
 	}
+	tools_progress_stop(prog);
 
 	return ret;
 }
@@ -1231,6 +1269,12 @@ static errcode_t write_ecc_blocks(ocfs2_filesys *fs,
 	errcode_t ret = 0;
 	struct rb_node *n;
 	struct block_to_ecc *block;
+	struct tools_progress *prog;
+
+	prog = tools_progress_start("Writing blocks", "ECC",
+				    ctxt->ae_blockcount);
+	if (!prog)
+		return TUNEFS_ET_NO_MEMORY;
 
 	n = rb_first(&ctxt->ae_blocks);
 	while (n) {
@@ -1238,12 +1282,14 @@ static errcode_t write_ecc_blocks(ocfs2_filesys *fs,
 		verbosef(VL_DEBUG, "Writing block %"PRIu64"\n",
 			 block->e_blkno);
 
+		tools_progress_step(prog, 1);
 		ret = block->e_write(fs, block);
 		if (ret)
 			break;
 
 		n = rb_next(n);
 	}
+	tools_progress_stop(prog);
 
 	return ret;
 }
@@ -1253,6 +1299,7 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 	struct add_ecc_context ctxt;
+	struct tools_progress *prog = NULL;
 
 	if (ocfs2_meta_ecc(super)) {
 		verbosef(VL_APP,
@@ -1265,6 +1312,13 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 			    "\"%s\"? ",
 			    fs->fs_devname))
 		goto out;
+
+	prog = tools_progress_start("Enabling metaecc", "metaecc", 5);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		tcom_err(ret, "while initializing the progress display");
+		goto out;
+	}
 
 	memset(&ctxt, 0, sizeof(ctxt));
 	INIT_LIST_HEAD(&ctxt.ae_dirs);
@@ -1282,6 +1336,7 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 				 "while trying to find directory blocks");
 		goto out_cleanup;
 	}
+	tools_progress_step(prog, 1);
 
 	ret = tunefs_set_in_progress(fs, OCFS2_TUNEFS_INPROG_DIR_TRAILER);
 	if (ret)
@@ -1300,10 +1355,14 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 	if (ret)
 		goto out_cleanup;
 
+	tools_progress_step(prog, 1);
+
 	/* We're done with allocation, scan the chain allocators */
 	ret = find_chain_blocks(fs, &ctxt);
 	if (ret)
 		goto out_cleanup;
+
+	tools_progress_step(prog, 1);
 
 	/* Set the feature bit in-memory and rewrite all our blocks */
 	OCFS2_SET_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_META_ECC);
@@ -1311,16 +1370,23 @@ static int enable_metaecc(ocfs2_filesys *fs, int flags)
 	if (ret)
 		goto out_cleanup;
 
+	tools_progress_step(prog, 1);
+
 	tunefs_block_signals();
 	ret = ocfs2_write_super(fs);
 	tunefs_unblock_signals();
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+
 out_cleanup:
 	empty_add_ecc_context(&ctxt);
 
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
@@ -1328,6 +1394,7 @@ static int disable_metaecc(ocfs2_filesys *fs, int flags)
 {
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	struct tools_progress *prog = NULL;
 
 	if (!ocfs2_meta_ecc(super)) {
 		verbosef(VL_APP,
@@ -1336,10 +1403,17 @@ static int disable_metaecc(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-	if (!tools_interact("Enable the metadata ECC feature on device "
+	if (!tools_interact("Disable the metadata ECC feature on device "
 			    "\"%s\"? ",
 			    fs->fs_devname))
 		goto out;
+
+	prog = tools_progress_start("Disabling metaecc", "nometaecc", 1);
+	if (!prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto out;
+	}
+
 
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
 				     OCFS2_FEATURE_INCOMPAT_META_ECC);
@@ -1349,7 +1423,12 @@ static int disable_metaecc(ocfs2_filesys *fs, int flags)
 	if (ret)
 		tcom_err(ret, "while writing out the superblock");
 
+	tools_progress_step(prog, 1);
+
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 
