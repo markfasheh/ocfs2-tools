@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * dump.c
  *
  * dumps ocfs2 structures
@@ -601,21 +603,22 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
  * dump_jbd_metadata()
  *
  */
-void dump_jbd_metadata (FILE *out, int type, char *buf, uint64_t blknum)
+void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
+			uint64_t blknum)
 {
 	fprintf (out, "\tBlock %"PRIu64": ", blknum);
 	switch (type) {
-	case 1:
+	case DUMP_BLOCK_INODE:
 		fprintf(out, "Inode\n");
 		dump_inode (out, (struct ocfs2_dinode *)buf);
 		fprintf (out, "\n");
 		break;
-	case 2:
+	case DUMP_BLOCK_EXTENT_BLOCK:
 		fprintf(out, "Extent\n");
 		dump_extent_block (out, (struct ocfs2_extent_block *)buf);
 		fprintf (out, "\n");
 		break;
-	case 3:
+	case DUMP_BLOCK_GROUP_DESCRIPTOR:
 		fprintf(out, "Group\n");
 		dump_group_descriptor (out, (struct ocfs2_group_desc *)buf, 0);
 		fprintf (out, "\n");
