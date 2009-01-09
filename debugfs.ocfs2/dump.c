@@ -610,16 +610,19 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 	switch (type) {
 	case DUMP_BLOCK_INODE:
 		fprintf(out, "Inode\n");
+		ocfs2_swap_inode_to_cpu((struct ocfs2_dinode *)buf);
 		dump_inode (out, (struct ocfs2_dinode *)buf);
 		fprintf (out, "\n");
 		break;
 	case DUMP_BLOCK_EXTENT_BLOCK:
 		fprintf(out, "Extent\n");
+		ocfs2_swap_extent_block_to_cpu((struct ocfs2_extent_block *)buf);
 		dump_extent_block (out, (struct ocfs2_extent_block *)buf);
 		fprintf (out, "\n");
 		break;
 	case DUMP_BLOCK_GROUP_DESCRIPTOR:
 		fprintf(out, "Group\n");
+		ocfs2_swap_group_desc((struct ocfs2_group_desc *)buf);
 		dump_group_descriptor (out, (struct ocfs2_group_desc *)buf, 0);
 		fprintf (out, "\n");
 		break;

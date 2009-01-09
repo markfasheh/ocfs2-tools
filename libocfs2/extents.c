@@ -85,7 +85,7 @@ static void ocfs2_swap_extent_block_header(struct ocfs2_extent_block *eb)
 	eb->h_next_leaf_blk = bswap_64(eb->h_next_leaf_blk);
 }
 
-static void ocfs2_swap_extent_block_from_cpu(struct ocfs2_extent_block *eb)
+void ocfs2_swap_extent_block_from_cpu(struct ocfs2_extent_block *eb)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -93,7 +93,8 @@ static void ocfs2_swap_extent_block_from_cpu(struct ocfs2_extent_block *eb)
 	ocfs2_swap_extent_block_header(eb);
 	ocfs2_swap_extent_list_from_cpu(&eb->h_list);
 }
-static void ocfs2_swap_extent_block_to_cpu(struct ocfs2_extent_block *eb)
+
+void ocfs2_swap_extent_block_to_cpu(struct ocfs2_extent_block *eb)
 {
 	if (cpu_is_little_endian)
 		return;
