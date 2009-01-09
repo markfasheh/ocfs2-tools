@@ -297,6 +297,8 @@ extern size_t ocfs2_journal_tag_bytes(journal_superblock_t *jsb);
 extern uint64_t ocfs2_journal_tag_block(journal_block_tag_t *tag,
 					size_t tag_bytes);
 
+void ocfs2_swap_extent_block_to_cpu(struct ocfs2_extent_block *eb);
+void ocfs2_swap_extent_block_from_cpu(struct ocfs2_extent_block *eb);
 errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				  char *eb_buf);
 errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
