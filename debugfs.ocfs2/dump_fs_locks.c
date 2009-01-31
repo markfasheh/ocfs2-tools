@@ -243,7 +243,7 @@ static int dump_version_two(FILE *file, FILE *out)
 		     "%llu\t"
 		     "%u\t"
 		     "%u\t"
-		     "%u\t",
+		     "%u",
 		     &num_prmode,
 		     &num_exmode,
 		     &num_prmode_failed,
@@ -275,7 +275,8 @@ out:
 
 /* 0 = eof, > 0 = success, < 0 = error */
 static int dump_version_one(FILE *file, FILE *out, int lvbs, int only_busy,
-			    struct list_head *locklist, int *skipped)
+			    struct list_head *locklist, int *skipped,
+			    unsigned int version)
 {
 	char id[OCFS2_LOCK_ID_MAX_LEN + 1];	
 	char lvb[DLM_LVB_LEN];
@@ -315,7 +316,7 @@ static int dump_version_one(FILE *file, FILE *out, int lvbs, int only_busy,
 		 * include the field delimiting '\t' then fscanf will
 		 * also catch the record delimiting '\n' character,
 		 * which we want to save for the caller to find. */
-		if (i == (DLM_LVB_LEN - 1))
+		if ((i == (DLM_LVB_LEN - 1)) && (version < 2))
 			format = "0x%x";
 
 		ret = fscanf(file, format, &dummy);
@@ -394,20 +395,19 @@ static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy,
 		return 0;
 	}
 
-	ret = dump_version_one(file, out, lvbs, only_busy, locklist, &skipped);
+	ret = dump_version_one(file, out, lvbs, only_busy, locklist, &skipped, version);
 	if (ret <= 0)
 		return 0;
 
 	if (!skipped) {
-		if (version >= 2) {
+		if (version == CURRENT_PROTO) {
 			ret = dump_version_two(file, out);
 			if (ret <= 0)
 				return 0;
 		}
-	}
 
-	if (!skipped)
 		fprintf(out, "\n");
+	}
 
 	/* Read to the end of the record here. Any new fields tagged
 	 * onto the current format will be silently ignored. */
