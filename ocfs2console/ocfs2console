@@ -3,13 +3,28 @@
 from ocfs2interface.about import process_args
 nodeconf = process_args()
 
+#
+# Current pygtk treats no DISPLAY as a WARNING.  This means that
+# pygtk initialization tries to continue even after gtk_init() has failed.
+# All sorts of fun ensues.  To prevent this, we turn the warning into an
+# error for the duration of gtk initialization.
+#
+# Originally reported as Novell bugzilla #448523.
+#
+import warnings
+warnings.filterwarnings("error")
 try:
     import gtk
-except RuntimeError:
+except Exception, e:
     import sys
-    print >>sys.stderr, '''ERROR: ocfs2console needs an X11 display.
+    if str(e).lower().find('display') == -1:
+        print >>sys.stderr, '''ERROR: Unable to initialize the windowing
+system: %s\n''' % e
+    else:
+        print >>sys.stderr, '''ERROR: ocfs2console needs an X11 display.
 Make sure a proper setup for your display environment exists.\n'''
     sys.exit(1)
+warnings.resetwarnings()
 
 if nodeconf:
     from ocfs2interface.nodeconfig import node_config
