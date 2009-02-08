@@ -1785,8 +1785,6 @@ static errcode_t o2cb_list_dir(char *path, char ***objs)
 	if (!*objs)
 		goto out_free_list;
 
-	tmp = list;
-	count = 0;
 	for (tmp = list, count = 0; tmp; tmp = tmp->next, count++) {
 		(*objs)[count] = tmp->name;
 		tmp->name = NULL;
