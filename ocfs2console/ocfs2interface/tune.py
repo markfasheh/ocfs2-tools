@@ -24,7 +24,7 @@ from process import Process
 
 from fswidgets import NumSlots, VolumeLabel
 
-base_command = ('tunefs.ocfs2', '-x')
+base_command = ('tunefs.ocfs2',)
 
 class TuneVolumeLabel(VolumeLabel):
     def __init__(self, device=None):
