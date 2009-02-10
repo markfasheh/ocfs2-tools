@@ -966,6 +966,7 @@ static int dirdata_iterate(ocfs2_filesys *fs, struct ocfs2_extent_rec *rec,
 	if (tree_depth) {
 		verbosef(VL_DEBUG, "Reading extent block at %"PRIu64"\n",
 			 rec->e_blkno);
+		eb = (struct ocfs2_extent_block *)buf;
 		ret = ocfs2_read_extent_block(fs, rec->e_blkno, (char *)eb);
 		if (ret)
 			goto out;
