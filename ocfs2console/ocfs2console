@@ -24,7 +24,7 @@ system: %s\n''' % e
         print >>sys.stderr, '''ERROR: ocfs2console needs an X11 display.
 Make sure a proper setup for your display environment exists.\n'''
     sys.exit(1)
-warnings.resetwarnings()
+warnings.filters.pop(0)
 
 if nodeconf:
     from ocfs2interface.nodeconfig import node_config
