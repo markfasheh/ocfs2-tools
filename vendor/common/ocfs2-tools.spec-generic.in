@@ -28,7 +28,7 @@ Distribution: Oracle
 Vendor: Oracle
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: bash, coreutils, net-tools, modutils, e2fsprogs, @@CHKCONFIG_DEP@@, glib2 >= 2.2.3
+Requires: bash, which, coreutils, net-tools, modutils, e2fsprogs, @@CHKCONFIG_DEP@@, glib2 >= 2.2.3
 BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, @@PYGTK_NAME@@ >= 1.99.16, python-devel >= @@PYVERSION@@
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
