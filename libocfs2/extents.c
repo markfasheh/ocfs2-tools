@@ -291,6 +291,44 @@ errcode_t ocfs2_read_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
 	return ret;
 }
 
+errcode_t ocfs2_write_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
+				     char *rb_buf)
+{
+	errcode_t ret;
+	char *blk;
+	struct ocfs2_refcount_block *rb;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ret)
+		return ret;
+
+	memcpy(blk, rb_buf, fs->fs_blocksize);
+
+	rb = (struct ocfs2_refcount_block *)blk;
+	ocfs2_swap_refcount_block_from_cpu(rb);
+
+	ocfs2_compute_meta_ecc(fs, blk, &rb->rf_check);
+	ret = io_write_block(fs->fs_io, blkno, 1, blk);
+	if (ret)
+		goto out;
+
+	fs->fs_flags |= OCFS2_FLAG_CHANGED;
+	ret = 0;
+
+out:
+	ocfs2_free(&blk);
+
+	return ret;
+}
+
+
 struct extent_context {
 	ocfs2_filesys *fs;
 	int (*func)(ocfs2_filesys *fs,
