@@ -240,6 +240,8 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 		g_string_append(dyn_features, "InlineXattr ");
 	if (in->i_dyn_features & OCFS2_INDEXED_DIR_FL)
 		g_string_append(dyn_features, "IndexedDir ");
+	if (in->i_dyn_features & OCFS2_HAS_REFCOUNT_FL)
+		g_string_append(dyn_features, "Refcounted ");
 
 	fprintf(out, "\tInode: %"PRIu64"   Mode: 0%0o   Generation: %u (0x%x)\n",
 		(uint64_t)in->i_blkno, mode, in->i_generation, in->i_generation);
@@ -284,6 +286,9 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 		in->i_atime_nsec, in->i_atime_nsec);
 	fprintf(out, "\tmtime_nsec: 0x%08"PRIx32" -- %u\n",
 		in->i_mtime_nsec, in->i_mtime_nsec);
+
+	fprintf(out, "\tRefcount Block: %"PRIu64"\n",
+		(uint64_t)in->i_refcount_loc);
 
 	fprintf(out, "\tLast Extblk: %"PRIu64"\n", (uint64_t)in->i_last_eb_blk);
 	if (in->i_suballoc_slot == (uint16_t)OCFS2_INVALID_SLOT)
@@ -368,6 +373,10 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 	if (ext->l_tree_depth)
 		fprintf(out, "\t## %-11s   %-12s   %-s\n", "Offset",
 			"Clusters", "Block#");
+	else if (ext->l_next_free_rec &&
+		 (ext->l_recs[0].e_flags & OCFS2_EXT_REFCOUNT_RECORD))
+		fprintf(out, "\t## %-11s   %-12s   %-13s   %s\n", "Offset",
+			"Clusters", "Refcount", "Flags");
 	else
 		fprintf(out, "\t## %-11s   %-12s   %-13s   %s\n", "Offset",
 			"Clusters", "Block#", "Flags");
@@ -386,10 +395,20 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 						       rec->e_flags))
 				flags[0] = '\0';
 
-			fprintf(out,
-				"\t%-2d %-11u   %-12u   %-13"PRIu64"   0x%x %s\n",
-				i, rec->e_cpos, clusters,
-				(uint64_t)rec->e_blkno,	rec->e_flags, flags);
+			if (rec->e_flags & OCFS2_EXT_REFCOUNT_RECORD)
+				fprintf(out,
+					"\t%-2d %-11u   %-12u   "
+					"%-13"PRIu32"   0x%x %s\n",
+					i, rec->e_cpos, clusters,
+					(uint32_t)rec->e_refcount,
+					rec->e_flags, flags);
+			else
+				fprintf(out,
+					"\t%-2d %-11u   %-12u   "
+					"%-13"PRIu64"   0x%x %s\n",
+					i, rec->e_cpos, clusters,
+					(uint64_t)rec->e_blkno,
+					rec->e_flags, flags);
 		}
 	}
 
@@ -1018,3 +1037,19 @@ uint32_t dump_xattr_ibody(FILE *out, ocfs2_filesys *fs,
 		return 0;
 	}
 }
+
+void dump_refcount_block(FILE *out, struct ocfs2_refcount_block *rb)
+{
+	       fprintf(out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u\n",
+		       rb->rf_suballoc_bit, rb->rf_suballoc_slot);
+
+	       fprintf(out, "\tBlknum: %"PRIu64"   Last Leaf block: %"PRIu64"\n",
+		       (uint64_t)rb->rf_blkno, (uint64_t)rb->rf_last_eb_blk);
+
+	       fprintf(out, "\tReftree Count: %u   Ref clusters: %u\n",
+		       rb->rf_count, rb->rf_clusters);
+
+	       return;
+
+}
+

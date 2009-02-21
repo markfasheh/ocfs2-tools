@@ -75,6 +75,7 @@ static void do_dlm_locks (char **args);
 static void do_controld(char **args);
 static void do_dirblocks(char **args);
 static void do_xattr(char **args);
+static void do_refcount(char **args);
 
 dbgfs_gbls gbls;
 
@@ -112,6 +113,7 @@ static Command commands[] = {
 	{ "encode",	do_encode_lockres },
 	{ "decode",	do_decode_lockres },
 	{ "dirblocks",	do_dirblocks },
+	{ "refcount",	do_refcount },
 };
 
 /*
@@ -854,6 +856,7 @@ static void do_help (char **args)
 	printf ("open <device> [-i] [-s backup#]\t\tOpen a device\n");
 	printf ("quit, q\t\t\t\t\tExit the program\n");
 	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted filesystem\n");
+	printf ("refcount <filespec>\t\t\tDump the refcount tree for the specified inode or refcount block\n");
 	printf ("slotmap\t\t\t\t\tShow slot map\n");
 	printf ("stat <filespec>\t\t\t\tShow inode\n");
 	printf ("stats [-h]\t\t\t\tShow superblock\n");
@@ -1772,6 +1775,7 @@ static void do_icheck(char **args)
 
 	return;
 }
+
 /*
  * do_xattr()
  *
@@ -1840,4 +1844,62 @@ static void do_xattr(char **args)
 	close_pager(out);
 
 	return ;
+}
+
+/* do_refcount() can take an inode or a refcount block address. */
+static void do_refcount(char **args)
+{
+	struct ocfs2_dinode *di;
+	struct ocfs2_refcount_block *rb;
+	uint64_t blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+
+	if (process_inode_args(args, &blkno))
+		return ;
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
+	if (!ret) {
+		di = (struct ocfs2_dinode *)buf;
+		if (!di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL) {
+			fprintf(stderr,
+				"%s: Inode %"PRIu64" does not have a "
+				"refcount tree\n",
+				args[0], blkno);
+			return;
+		}
+
+		blkno = di->i_refcount_loc;
+	} else if ((ret != OCFS2_ET_IO) && (ret != OCFS2_ET_BAD_INODE_MAGIC)) {
+		/*
+		 * If the user passed a refcount block address,
+		 * read_inode() will return ET_IO or ET_BAD_INODE_MAGIC.
+		 * For those cases we proceed treating blkno as a
+		 * refcount block.  All other errors are real errors.
+		 */
+		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
+		return;
+	}
+
+	ret = ocfs2_read_refcount_block(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading refcount block %"PRIu64,
+			blkno);
+		return;
+	}
+
+	out = open_pager(gbls.interactive);
+
+	rb = (struct ocfs2_refcount_block *)buf;
+	dump_refcount_block(out, rb);
+	ret = traverse_extents(gbls.fs, &rb->rf_list, out);
+	if (ret)
+		com_err(args[0], ret,
+			"while traversing the refcount tree of refcount "
+			"block %"PRIu64,
+			blkno);
+
+	close_pager(out);
 }

@@ -76,5 +76,6 @@ errcode_t dump_xattr_block(FILE *out, ocfs2_filesys *fs,
 			   uint32_t *xattrs_block,
 			   uint64_t *xattrs_bucket,
 			   int verbose);
+void dump_refcount_block(FILE *out, struct ocfs2_refcount_block *rb);
 
 #endif		/* __DUMP_H__ */
