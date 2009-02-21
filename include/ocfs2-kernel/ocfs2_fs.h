@@ -66,6 +66,7 @@
 #define OCFS2_GROUP_DESC_SIGNATURE      "GROUP01"
 #define OCFS2_XATTR_BLOCK_SIGNATURE	"XATTR01"
 #define OCFS2_DIR_TRAILER_SIGNATURE	"DIRTRL1"
+#define OCFS2_REFCOUNT_BLOCK_SIGNATURE	"REFCNT1"
 
 /* Compatibility flags */
 #define OCFS2_HAS_COMPAT_FEATURE(sb,mask)			\
@@ -152,6 +153,8 @@
 /* Metadata checksum and error correction */
 #define OCFS2_FEATURE_INCOMPAT_META_ECC		0x0800
 
+#define OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE    0x1000
+
 /*
  * backup superblock flag is used to indicate that this volume
  * has backup superblocks.
@@ -218,6 +221,7 @@
 #define OCFS2_HAS_XATTR_FL	(0x0002)
 #define OCFS2_INLINE_XATTR_FL	(0x0004)
 #define OCFS2_INDEXED_DIR_FL	(0x0008)
+#define OCFS2_HAS_REFCOUNT_FL	(0x0010)
 
 /* Inode attributes, keep in sync with EXT2 */
 #define OCFS2_SECRM_FL		(0x00000001)	/* Secure deletion */
@@ -236,8 +240,14 @@
 /*
  * Extent record flags (e_node.leaf.flags)
  */
-#define OCFS2_EXT_UNWRITTEN	(0x01)	/* Extent is allocated but
-					 * unwritten */
+#define OCFS2_EXT_UNWRITTEN		(0x01)	/* Extent is allocated but
+						 * unwritten */
+#define OCFS2_EXT_REFCOUNTED		(0x02)	/* Extent is reference
+						 * counted in an associated
+						 * refcount tree */
+#define OCFS2_EXT_REFCOUNT_RECORD	(0x04)	/* Extent record is the
+						 * leaf of a refcount
+						 * tree */
 
 /*
  * ioctl commands
@@ -446,6 +456,9 @@ struct ocfs2_block_check {
  *
  * Length fields are divided into interior and leaf node versions.
  * This leaves room for a flags field (OCFS2_EXT_*) in the leaf nodes.
+ *
+ * Refcount trees have leaves using e_refcount instead of e_blkno.  They
+ * are marked with the OCFS2_EXT_REFCOUNT_RECORD flag.
  */
 struct ocfs2_extent_rec {
 /*00*/	__le32 e_cpos;		/* Offset into the file, in clusters */
@@ -458,7 +471,14 @@ struct ocfs2_extent_rec {
 			__u8 e_flags; /* Extent flags */
 		};
 	};
-	__le64 e_blkno;		/* Physical disk offset, in blocks */
+	union {
+		__le64 e_blkno;	/* Physical disk offset, in blocks */
+		struct {
+			__le32 e_refcount; /* Reference count in a
+					      refcount tree leaf */
+			__le32 e_reserved2;
+		};
+	};
 /*10*/
 };
 
@@ -698,7 +718,8 @@ struct ocfs2_dinode {
 	__le16 i_dyn_features;
 	__le64 i_xattr_loc;
 /*80*/	struct ocfs2_block_check i_check;	/* Error checking */
-/*88*/	__le64 i_reserved2[6];
+	__le64 i_refcount_loc;
+/*90*/	__le64 i_reserved2[5];
 /*B8*/	union {
 		__le64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
@@ -1056,6 +1077,24 @@ static inline struct ocfs2_disk_dqtrailer *ocfs2_block_dqtrailer(int blocksize,
 
 	return (struct ocfs2_disk_dqtrailer *)ptr;
 }
+
+struct ocfs2_refcount_block {
+/*00*/	__u8    rf_signature[8];	/* Signature for verification */
+	__le16  rf_suballoc_slot;	/* Slot suballocator this block
+					   belongs to */
+	__le16  rf_suballoc_bit;	/* Bit offset in suballocator
+					   block group */
+	__le32  rf_fs_generation;	/* Must match superblock */
+/*10*/	__le64  rf_blkno;		/* Offset on disk, in blocks */
+	struct ocfs2_block_check rf_check;      /* Error checking */
+/*20*/	__le64  rf_last_eb_blk;		/* Pointer to last extent block */
+	__le32  rf_count;		/* Number of inodes sharing this
+					   refcount tree */
+	__le32  rf_clusters;
+/*30*/	__le64  rf_reserved2[10];
+/*80*/	struct ocfs2_extent_list rf_list;	/* Extent record list */
+/* Actual on-disk size is one block */
+};
 
 #ifdef __KERNEL__
 static inline int ocfs2_fast_symlink_chars(struct super_block *sb)
