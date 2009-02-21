@@ -357,6 +357,7 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 	struct ocfs2_extent_rec *rec;
 	int i;
 	uint32_t clusters;
+	char flags[PATH_MAX];
 
 	fprintf(out, "\tTree Depth: %u   Count: %u   Next Free Rec: %u\n",
 		ext->l_tree_depth, ext->l_count, ext->l_next_free_rec);
@@ -379,11 +380,17 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 			fprintf(out, "\t%-2d %-11u   %-12u   %"PRIu64"\n",
 				i, rec->e_cpos, clusters,
 				(uint64_t)rec->e_blkno);
-		else
+		else {
+			flags[0] = '\0';
+			if (ocfs2_snprint_extent_flags(flags, PATH_MAX,
+						       rec->e_flags))
+				flags[0] = '\0';
+
 			fprintf(out,
-				"\t%-2d %-11u   %-12u   %-13"PRIu64"   0x%x\n",
+				"\t%-2d %-11u   %-12u   %-13"PRIu64"   0x%x %s\n",
 				i, rec->e_cpos, clusters,
-				(uint64_t)rec->e_blkno,	rec->e_flags);
+				(uint64_t)rec->e_blkno,	rec->e_flags, flags);
+		}
 	}
 
 bail:
