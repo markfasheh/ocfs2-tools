@@ -50,11 +50,16 @@ static void ocfs2_swap_extent_list_secondary(struct ocfs2_extent_list *el)
 		struct ocfs2_extent_rec *rec = &el->l_recs[i];
 
 		rec->e_cpos = bswap_32(rec->e_cpos);
-		if (el->l_tree_depth)
+		if (el->l_tree_depth) {
 			rec->e_int_clusters = bswap_32(rec->e_int_clusters);
-		else
+			rec->e_blkno = bswap_64(rec->e_blkno);
+		} else {
 			rec->e_leaf_clusters = bswap_16(rec->e_leaf_clusters);
-		rec->e_blkno = bswap_64(rec->e_blkno);
+			if (rec->e_flags & OCFS2_EXT_REFCOUNT_RECORD)
+				rec->e_refcount = bswap_32(rec->e_refcount);
+			else
+				rec->e_blkno = bswap_64(rec->e_blkno);
+		}
 	}
 }
 
@@ -198,7 +203,93 @@ out:
 	return ret;
 }
 
+static void ocfs2_swap_refcount_block_header(struct ocfs2_refcount_block *rb)
+{
 
+	rb->rf_suballoc_slot = bswap_16(rb->rf_suballoc_slot);
+	rb->rf_suballoc_bit  = bswap_16(rb->rf_suballoc_bit);
+	rb->rf_fs_generation = bswap_32(rb->rf_fs_generation);
+	rb->rf_blkno         = bswap_64(rb->rf_blkno);
+	rb->rf_last_eb_blk = bswap_64(rb->rf_last_eb_blk);
+	rb->rf_count = bswap_32(rb->rf_count);
+	rb->rf_clusters = bswap_32(rb->rf_clusters);
+}
+
+static void ocfs2_swap_refcount_block_from_cpu(struct ocfs2_refcount_block *rb)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_refcount_block_header(rb);
+	ocfs2_swap_extent_list_from_cpu(&rb->rf_list);
+}
+
+static void ocfs2_swap_refcount_block_to_cpu(struct ocfs2_refcount_block *rb)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_refcount_block_header(rb);
+	ocfs2_swap_extent_list_to_cpu(&rb->rf_list);
+}
+
+errcode_t ocfs2_read_refcount_block_nocheck(ocfs2_filesys *fs,
+					    uint64_t blkno,
+					    char *rb_buf)
+{
+	errcode_t ret;
+	char *blk;
+	struct ocfs2_refcount_block *rb;
+
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_blocks(fs, blkno, 1, blk);
+	if (ret)
+		goto out;
+
+	rb = (struct ocfs2_refcount_block *)blk;
+
+	ret = ocfs2_validate_meta_ecc(fs, blk, &rb->rf_check);
+	if (ret)
+		goto out;
+
+	if (memcmp(rb->rf_signature, OCFS2_REFCOUNT_BLOCK_SIGNATURE,
+		   strlen(OCFS2_REFCOUNT_BLOCK_SIGNATURE))) {
+		ret = OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC;
+		goto out;
+	}
+
+	memcpy(rb_buf, blk, fs->fs_blocksize);
+
+	rb = (struct ocfs2_refcount_block *) rb_buf;
+	ocfs2_swap_refcount_block_to_cpu(rb);
+
+out:
+	ocfs2_free(&blk);
+
+	return ret;
+}
+
+errcode_t ocfs2_read_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
+				    char *rb_buf)
+{
+	errcode_t ret;
+	struct ocfs2_refcount_block *rb =
+		(struct ocfs2_refcount_block *)rb_buf;
+
+	ret = ocfs2_read_refcount_block_nocheck(fs, blkno, rb_buf);
+
+	if (ret == 0 && rb->rf_list.l_next_free_rec > rb->rf_list.l_count)
+		ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+
+	return ret;
+}
 
 struct extent_context {
 	ocfs2_filesys *fs;
