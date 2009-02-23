@@ -61,8 +61,7 @@ static void check_link_counts(o2fsck_state *ost,
 	if (refs == 0 &&
 	    prompt(ost, PY, PR_INODE_NOT_CONNECTED,
 		   "Inode %"PRIu64" isn't referenced by any "
-		   "directory entries.  Move it to lost+found?", 
-		   (uint64_t)di->i_blkno)) {
+		   "directory entries.  Move it to lost+found?", blkno)) {
 		o2fsck_reconnect_file(ost, blkno);
 		refs = o2fsck_icount_get(ost->ost_icount_refs, blkno);
 	}
