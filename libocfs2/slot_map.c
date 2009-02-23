@@ -359,8 +359,10 @@ static errcode_t ocfs2_size_slot_map(ocfs2_filesys *fs,
 	struct ocfs2_dinode *di;
 	unsigned int clusters;
 	uint64_t new_size;
+	uint64_t blkno;
 
 	di = sf->ci->ci_inode;
+	blkno = sf->ci->ci_blkno;
 
 	clusters = sf->needed_bytes + fs->fs_clustersize - 1;
 	clusters = clusters >> OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
@@ -381,7 +383,7 @@ static errcode_t ocfs2_size_slot_map(ocfs2_filesys *fs,
 	}
 
 	if (clusters > di->i_clusters) {
-		ret = ocfs2_extend_allocation(fs, sf->ci->ci_blkno,
+		ret = ocfs2_extend_allocation(fs, blkno,
 					      (clusters - di->i_clusters));
 		if (ret)
 			goto out;
@@ -390,8 +392,7 @@ static errcode_t ocfs2_size_slot_map(ocfs2_filesys *fs,
 		 * work done in extend_allocation won't be reflected
 		 * in our now stale copy. */
 		ocfs2_free_cached_inode(fs, sf->ci);
-		ret = ocfs2_read_cached_inode(fs, sf->ci->ci_blkno,
-					      &sf->ci);
+		ret = ocfs2_read_cached_inode(fs, blkno, &sf->ci);
 		if (ret) {
 			sf->ci = NULL;
 			goto out;
@@ -400,13 +401,12 @@ static errcode_t ocfs2_size_slot_map(ocfs2_filesys *fs,
 	} else if (clusters < di->i_clusters) {
 		new_size = clusters <<
 				OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
-		ret = ocfs2_truncate(fs, sf->ci->ci_blkno, new_size);
+		ret = ocfs2_truncate(fs, blkno, new_size);
 		if (ret)
 			goto out;
 
 		ocfs2_free_cached_inode(fs, sf->ci);
-		ret = ocfs2_read_cached_inode(fs, sf->ci->ci_blkno,
-					      &sf->ci);
+		ret = ocfs2_read_cached_inode(fs, blkno, &sf->ci);
 		if (ret) {
 			sf->ci = NULL;
 			goto out;
@@ -423,7 +423,7 @@ static errcode_t ocfs2_size_slot_map(ocfs2_filesys *fs,
 			OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
 	di->i_mtime = time(NULL);
 
-	ret = ocfs2_write_inode(fs, sf->ci->ci_blkno, (char *)di);
+	ret = ocfs2_write_inode(fs, blkno, (char *)di);
 	if (ret)
 		goto out;
 
