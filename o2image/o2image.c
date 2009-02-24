@@ -634,11 +634,7 @@ int main(int argc, char **argv)
 		if (!install_flag && !prompt_image_creation(ofs, raw_flag,
 					dest_file))
 			goto out;
-#ifdef HAVE_OPEN64
 		fd = open64(dest_file, O_CREAT|O_TRUNC|O_WRONLY, 0600);
-#else
-		fd = open(dest_file, O_CREAT|O_TRUNC|O_WRONLY, 0600);
-#endif
 		if (fd < 0) {
 			com_err(program_name, errno,
 				"while trying to open \"%s\"",
