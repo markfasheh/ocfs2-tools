@@ -1129,7 +1129,7 @@ static void do_dump (char **args)
 		return ;
 	}
 
-	fd = open(out_fn, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	fd = open64(out_fn, O_CREAT | O_WRONLY | O_TRUNC, 0666);
 	if (fd < 0) {
 		com_err(args[0], errno, "'%s'", out_fn);
 		return ;

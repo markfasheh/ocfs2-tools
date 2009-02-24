@@ -725,7 +725,7 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 	} else if (S_ISREG(di->i_mode)) {
 		if (verbose)
 			fprintf(stdout, "%s\n", fullname);
-		fd = open(fullname, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+		fd = open64(fullname, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
 		if (fd == -1) {
 			com_err(gbls.cmd, errno, "while opening file %s",
 				fullname);

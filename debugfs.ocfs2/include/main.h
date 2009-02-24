@@ -26,6 +26,7 @@
 #define __MAIN_H__
 
 #define _GNU_SOURCE
+#define _LARGEFILE64_SOURCE
 
 #include <stdio.h>
 #include <stdlib.h>
