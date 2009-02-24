@@ -90,6 +90,14 @@ Verbose mode.
 Show version and exit.
 
 .TP
+\fB\-y, \-\-yes\fR
+Alway answer Yes in interactive command line.
+
+.TP
+\fB\-n, \-\-no\fR
+Always answer No in interactive command line.
+
+.TP
 \fB\-\-backup\-super\fR
 Backs up the superblock to fixed offsets (1G, 4G, 16G, 64G, 256G and 1T)
 on disk. This option is useful for users to backup the superblock on volumes
@@ -100,6 +108,10 @@ facility.
 .TP
 \fB\-\-list-sparse\fR
 Lists the files having holes. This option is useful when disabling the \fIsparse\fR feature.
+
+.TP
+\fB\-\-update-cluster-stack\fR
+Updating on-disk cluster information to match the running cluster.
 
 .TP
 \fIblocks-count\fR
