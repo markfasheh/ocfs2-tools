@@ -865,7 +865,13 @@ size_cluster_check:
 	 * less than the max inline data size.
 	 */
 	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
-		uint16_t max_inline = ocfs2_max_inline_data(fs->fs_blocksize);
+		uint16_t max_inline;
+
+		if (di->i_dyn_features & OCFS2_INLINE_XATTR_FL)
+			max_inline = ocfs2_max_inline_data(fs->fs_blocksize) -
+				     di->i_xattr_inline_size;
+		else
+			max_inline = ocfs2_max_inline_data(fs->fs_blocksize);
 
 		/* id_count is check first. */
 		if (di->id2.i_data.id_count != max_inline &&
