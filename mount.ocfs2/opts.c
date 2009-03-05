@@ -75,19 +75,15 @@ static const struct opt_map opt_map[] = {
   { "quiet",	0, 0, MS_SILENT    },	/* be quiet  */
   { "loud",	0, 1, MS_SILENT    },	/* print out messages. */
 #endif
-#ifdef MS_MANDLOCK
   { "mand",	0, 0, MS_MANDLOCK },	/* Allow mandatory locks on this FS */
   { "nomand",	0, 1, MS_MANDLOCK },	/* Forbid mandatory locks on this FS */
-#endif
   { "loop",	1, 0, MS_LOOP	},	/* use a loop device */
-#ifdef MS_NOATIME
   { "atime",	0, 1, MS_NOATIME },	/* Update access time */
   { "noatime",	0, 0, MS_NOATIME },	/* Do not update access time */
-#endif
-#ifdef MS_NODIRATIME
+  { "relatime",	0, 0, MS_RELATIME },	/* only update atime if previous */
+					/* atime is older than mtime/ctime */
   { "diratime",	0, 1, MS_NODIRATIME },	/* Update dir access times */
   { "nodiratime", 0, 0, MS_NODIRATIME },/* Do not update dir access times */
-#endif
   { "kudzu",	0, 0, MS_COMMENT },	/* Silently remove this option (backwards compat use only) */
   { "managed",	0, 0, MS_COMMENT },	/* Silently remove this option */
   { NULL,	0, 0, 0	}
