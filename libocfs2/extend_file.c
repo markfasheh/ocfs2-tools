@@ -1027,6 +1027,44 @@ out:
 	return ret;
 }
 
+int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
+			  uint32_t cpos, char **leaf_buf)
+{
+	int ret;
+	char *buf = NULL;
+	struct ocfs2_path *path = NULL;
+	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
+
+	assert(el->l_tree_depth > 0);
+
+
+	ret = ocfs2_malloc0(sizeof(*path), &path);
+
+	if (!path) {
+		ret = OCFS2_ET_NO_MEMORY;
+		goto out;
+	} else {
+		path->p_tree_depth = el->l_tree_depth;
+		path->p_node[0].blkno = xb->xb_blkno;
+		path->p_node[0].buf = (char *)xb;
+		path->p_node[0].el = el;
+	}
+
+	ret = ocfs2_find_path(fs, path, cpos);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	memcpy(buf, path_leaf_buf(path), fs->fs_blocksize);
+	*leaf_buf = buf;
+out:
+	ocfs2_free_path(path);
+	return ret;
+}
+
 /*
  * Adjust the adjacent records (left_rec, right_rec) involved in a rotation.
  *

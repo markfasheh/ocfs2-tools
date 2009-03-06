@@ -1086,5 +1086,25 @@ errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
 				    void *priv_data);
 
 uint32_t ocfs2_xattr_uuid_hash(unsigned char *uuid);
+int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
+			  uint32_t cpos, char **leaf_buf);
+uint16_t ocfs2_xattr_buckets_per_cluster(ocfs2_filesys *fs);
+uint16_t ocfs2_blocks_per_xattr_bucket(ocfs2_filesys *fs);
+void ocfs2_swap_xattrs_to_cpu(struct ocfs2_xattr_header *xh);
+void ocfs2_swap_xattrs_from_cpu(struct ocfs2_xattr_header *xh);
+void ocfs2_swap_xattr_block_to_cpu(struct ocfs2_xattr_block *xb);
+void ocfs2_swap_xattr_block_from_cpu(struct ocfs2_xattr_block *xb);
+errcode_t ocfs2_read_xattr_block(ocfs2_filesys *fs,
+				 uint64_t blkno,
+				 char *xb_buf);
+errcode_t ocfs2_write_xattr_block(ocfs2_filesys *fs,
+				  uint64_t blkno,
+				  char *xb_buf);
+errcode_t ocfs2_xattr_get_rec(ocfs2_filesys *fs,
+			      struct ocfs2_xattr_block *xb,
+			      uint32_t name_hash,
+			      uint64_t *p_blkno,
+			      uint32_t *e_cpos,
+			      uint32_t *num_clusters);
 
 #endif  /* _FILESYS_H */
