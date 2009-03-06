@@ -73,7 +73,8 @@ CFILES = 		\
 	lockid.c	\
 	backup_super.c	\
 	feature_string.c\
-	image.c
+	image.c		\
+	xattr.c
 
 HFILES =		\
 	bitmap.h	\

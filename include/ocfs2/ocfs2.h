@@ -1085,4 +1085,6 @@ errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
 						void *priv_data),
 				    void *priv_data);
 
+uint32_t ocfs2_xattr_uuid_hash(unsigned char *uuid);
+
 #endif  /* _FILESYS_H */
