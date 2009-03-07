@@ -901,7 +901,7 @@ static void get_file(char *filename, char **buf, int *size)
 		exit(1);
 	}
 
-	fd = open(filename, O_RDONLY);
+	fd = open64(filename, O_RDONLY);
 	if (fd < 0) {
 		fprintf(stderr, "Unable to open \"%s\": %s\n", filename,
 			strerror(errno));

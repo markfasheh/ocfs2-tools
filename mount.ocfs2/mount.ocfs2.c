@@ -200,7 +200,7 @@ static int check_dev_readonly(const char *dev, int *dev_ro)
 	int fd;
 	int ret;
 
-	fd = open(dev, O_RDONLY);
+	fd = open64(dev, O_RDONLY);
 	if (fd < 0)
 		return errno;
 

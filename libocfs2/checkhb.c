@@ -132,7 +132,7 @@ errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len
 	char buf[512];
 	struct ocfs1_vol_label *v1_lbl;
 
-	fd = open(device, O_RDONLY);
+	fd = open64(device, O_RDONLY);
 	if (fd == -1)
 		goto bail;
 
