@@ -1370,7 +1370,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		if (!memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 			    strlen(OCFS2_INODE_SIGNATURE))) {
 
-			ocfs2_swap_inode_to_cpu(di);
+			ocfs2_swap_inode_to_cpu(di, fs->fs_blocksize);
 
 			 /* We only consider inodes whose generations don't
 			  * match if the user has asked us to */

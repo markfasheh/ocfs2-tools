@@ -137,7 +137,7 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	orig_blocksize = fs->fs_blocksize;
 	fs->fs_super = (struct ocfs2_dinode *)swapblk;
 	fs->fs_blocksize = blocksize;
-	ocfs2_swap_inode_to_cpu(fs->fs_super);
+	ocfs2_swap_inode_to_cpu(fs->fs_super, fs->fs_blocksize);
 
 	ret = ocfs2_validate_meta_ecc(fs, blk, &di->i_check);
 
@@ -148,7 +148,7 @@ errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb)
 	if (ret)
 		goto out_blk;
 
-	ocfs2_swap_inode_to_cpu(di);
+	ocfs2_swap_inode_to_cpu(di, fs->fs_blocksize);
 	if (!sb)
 		fs->fs_super = di;
 	else {

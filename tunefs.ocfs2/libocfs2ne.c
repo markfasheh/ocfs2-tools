@@ -498,7 +498,7 @@ static errcode_t tunefs_validate_inode(ocfs2_filesys *fs,
 		    strlen(OCFS2_INODE_SIGNATURE)))
 		return OCFS2_ET_BAD_INODE_MAGIC;
 
-	ocfs2_swap_inode_to_cpu(di);
+	ocfs2_swap_inode_to_cpu(di, fs->fs_blocksize);
 
 	if (di->i_fs_generation != fs->fs_super->i_fs_generation)
 		return OCFS2_ET_INODE_NOT_VALID;

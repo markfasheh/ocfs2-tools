@@ -672,7 +672,8 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 	switch (type) {
 	case DUMP_BLOCK_INODE:
 		fprintf(out, "Inode\n");
-		ocfs2_swap_inode_to_cpu((struct ocfs2_dinode *)buf);
+		ocfs2_swap_inode_to_cpu((struct ocfs2_dinode *)buf,
+					gbls.fs->fs_blocksize);
 		dump_inode (out, (struct ocfs2_dinode *)buf);
 		fprintf (out, "\n");
 		break;

@@ -251,8 +251,8 @@ errcode_t ocfs2_flush(ocfs2_filesys *fs);
 errcode_t ocfs2_close(ocfs2_filesys *fs);
 void ocfs2_freefs(ocfs2_filesys *fs);
 
-void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di);
-void ocfs2_swap_inode_to_cpu(struct ocfs2_dinode *di);
+void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di, size_t blocksize);
+void ocfs2_swap_inode_to_cpu(struct ocfs2_dinode *di, size_t blocksize);
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf);
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,

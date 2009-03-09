@@ -2018,7 +2018,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	strcpy((char *)di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
 
-	ocfs2_swap_inode_from_cpu(di);
+	ocfs2_swap_inode_from_cpu(di, s->blocksize);
 	mkfs_compute_meta_ecc(s, di, &di->i_check);
 	do_pwrite(s, di, s->blocksize, super_off);
 	free(di);
@@ -2184,7 +2184,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	}
 
 write_out:
-	ocfs2_swap_inode_from_cpu(di);
+	ocfs2_swap_inode_from_cpu(di, s->blocksize);
 	mkfs_compute_meta_ecc(s, di, &di->i_check);
 	do_pwrite(s, di, s->blocksize, rec->fe_off);
 	free(di);
