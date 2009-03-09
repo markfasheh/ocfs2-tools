@@ -74,6 +74,7 @@ static void do_icheck (char **args);
 static void do_dlm_locks (char **args);
 static void do_controld(char **args);
 static void do_dirblocks(char **args);
+static void do_xattr(char **args);
 
 dbgfs_gbls gbls;
 
@@ -107,6 +108,7 @@ static Command commands[] = {
 	{ "slotmap",	do_slotmap },
 	{ "stat",	do_stat },
 	{ "stats",	do_stats },
+	{ "xattr",	do_xattr },
 	{ "encode",	do_encode_lockres },
 	{ "decode",	do_decode_lockres },
 	{ "dirblocks",	do_dirblocks },
@@ -855,6 +857,7 @@ static void do_help (char **args)
 	printf ("slotmap\t\t\t\t\tShow slot map\n");
 	printf ("stat <filespec>\t\t\t\tShow inode\n");
 	printf ("stats [-h]\t\t\t\tShow superblock\n");
+	printf ("xattr [-v] <filespec>\t\t\tShow Extended Attributes\n");
 }
 
 /*
@@ -1768,4 +1771,73 @@ static void do_icheck(char **args)
 	close_pager(out);
 
 	return;
+}
+/*
+ * do_xattr()
+ *
+ */
+static void do_xattr(char **args)
+{
+	struct ocfs2_dinode *inode;
+	char *buf = NULL;
+	FILE *out;
+	char *usage = "usage: xattr [-v] <filespec>";
+	uint64_t blkno, xattrs_bucket = 0;
+	uint32_t xattrs_ibody = 0, xattrs_block = 0;
+	int ind = 1, verbose = 0;
+	errcode_t ret = 0;
+
+	if (check_device_open())
+		return;
+
+	if (!args[1]) {
+		fprintf(stderr, "%s\n", usage);
+		return;
+	}
+
+	if (!strcmp(args[1], "-v")) {
+		++ind;
+		++verbose;
+	}
+
+	if (!args[ind]) {
+		fprintf(stderr, "%s\n", usage);
+		return;
+	}
+
+	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
+			      args[ind], &blkno);
+	if (ret) {
+		com_err(args[0], ret, "while translating %s", args[ind]);
+		return;
+	}
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
+		return;
+	}
+
+	inode = (struct ocfs2_dinode *)buf;
+	if (!inode->i_dyn_features & OCFS2_HAS_XATTR_FL)
+		return;
+
+	out = open_pager(gbls.interactive);
+
+	xattrs_ibody = dump_xattr_ibody(out, gbls.fs, inode, verbose);
+
+	if (inode->i_xattr_loc)
+		ret = dump_xattr_block(out, gbls.fs, inode, &xattrs_block,
+				       &xattrs_bucket, verbose);
+
+	if (ret)
+		com_err(args[0], ret, "while traversing inode at block "
+			"%"PRIu64, blkno);
+	else
+		fprintf(out, "\n\tExtended attributes in total: %"PRIu64"\n",
+			xattrs_ibody + xattrs_block + xattrs_bucket);
+	close_pager(out);
+
+	return ;
 }

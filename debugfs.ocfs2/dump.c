@@ -90,11 +90,16 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 
 	fprintf(out, "\tMax Node Slots: %u\n", sb->s_max_slots);
 
+	fprintf(out, "\tExtended Attributes Inline Size: %u\n",
+		sb->s_xattr_inline_size);
+
 	fprintf(out, "\tLabel: %.*s\n", OCFS2_MAX_VOL_LABEL_LEN, sb->s_label);
 	fprintf(out, "\tUUID: ");
 	for (i = 0; i < 16; i++)
 		fprintf(out, "%02X", sb->s_uuid[i]);
 	fprintf(out, "\n");
+	fprintf(out, "\tUUID_hash: %u (0x%x)\n", sb->s_uuid_hash,
+		sb->s_uuid_hash);
 	if (ocfs2_userspace_stack(sb))
 		fprintf(out,
 			"\tCluster stack: %s\n"
@@ -249,6 +254,11 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 
 	fprintf(out, "\tDynamic Features: (0x%x) %s\n", in->i_dyn_features,
 		dyn_features->str);
+
+	if (in->i_dyn_features & OCFS2_HAS_XATTR_FL)
+		fprintf(out, "\tExtended Attributes Block: %"PRIu64
+			"  Extended Attributes Inline Size: %u\n",
+			(uint64_t)in->i_xattr_loc, in->i_xattr_inline_size);
 
 	pw = getpwuid(in->i_uid);
 	gr = getgrgid(in->i_gid);
@@ -817,4 +827,187 @@ void dump_icheck(FILE *out, int hdr, uint64_t blkno, uint64_t inode,
 	}
 
 	fprintf(out, "\t%-15"PRIu64"   %-15s   %-15s\n", blkno, inostr, offstr);
+}
+
+static void dump_xattr(FILE *out, struct ocfs2_xattr_header *xh)
+{
+	int i;
+
+	fprintf(out, "\t###   %-4s   %-6s  %-13s  %s\n", "Type",
+		"Inline", "Name Length", "Value Length");
+	for (i = 0 ; i < xh->xh_count; i++) {
+		struct ocfs2_xattr_entry *xe = &xh->xh_entries[i];
+
+		fprintf(out,
+			"\t#%-2d   %-4u   %-6u  %-13u  %-13"PRIu64"\n",
+			i, ocfs2_xattr_get_type(xe),
+			ocfs2_xattr_is_local(xe) ? 1 : 0,
+			xe->xe_name_len, (uint64_t)xe->xe_value_size);
+
+		if (!ocfs2_xattr_is_local(xe)) {
+			struct ocfs2_xattr_value_root *xv =
+				(struct ocfs2_xattr_value_root *)
+				((void *)xh + xe->xe_name_offset +
+				OCFS2_XATTR_SIZE(xe->xe_name_len));
+			struct ocfs2_extent_list *el = &xv->xr_list;
+			dump_extent_list(out, el);
+		}
+	}
+	return;
+}
+
+static errcode_t dump_xattr_buckets(FILE *out,
+				    ocfs2_filesys *fs,
+				    uint64_t blkno,
+				    uint32_t clusters,
+				    uint64_t *xattrs_bucket,
+				    int verbose)
+{
+	int i;
+	errcode_t ret = 0;
+	char *bucket = NULL;
+	struct ocfs2_xattr_header *xh;
+	int blk_per_bucket = ocfs2_blocks_per_xattr_bucket(fs);
+	uint32_t bpc = ocfs2_xattr_buckets_per_cluster(fs);
+	uint32_t num_buckets = clusters * bpc;
+
+	ret = ocfs2_malloc_blocks(fs->fs_io, blk_per_bucket, &bucket);
+	if (ret)
+		goto out;
+
+	fprintf(out, "\tExtended Attributes extent record start at #%"PRIu64
+		"  Has clusters: %u", blkno, clusters);
+	for (i = 0; i < num_buckets; i++, blkno += blk_per_bucket) {
+		ret = ocfs2_read_xattr_bucket(fs, blkno, bucket);
+		if (ret)
+			goto out;
+
+		xh = (struct ocfs2_xattr_header *)bucket;
+		/*
+		 * The real bucket num in this series of blocks is stored
+		 * in the 1st bucket.
+		 */
+		if (i == 0) {
+			num_buckets = xh->xh_num_buckets;
+			fprintf(out, "  Has buckets: %d\n", num_buckets);
+		}
+		fprintf(out, "\t\tExtended Attributes in bucket #%d: %u\n",
+			i, xh->xh_count);
+		if (verbose)
+			dump_xattr(out, xh);
+		*xattrs_bucket += xh->xh_count;
+	}
+
+out:
+	if (bucket)
+		ocfs2_free(&bucket);
+
+	return ret;
+}
+
+
+static errcode_t dump_xattr_index_block(FILE *out,
+					ocfs2_filesys *fs,
+					struct ocfs2_dinode *di,
+					struct ocfs2_xattr_block *xb,
+					uint64_t *xattrs_bucket,
+					int verbose)
+{
+	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
+	errcode_t ret = 0;
+	uint32_t name_hash = UINT_MAX, e_cpos = 0, num_clusters = 0;
+	uint64_t p_blkno = 0;
+
+	if (!el->l_next_free_rec)
+		return 0;
+
+	fprintf(out, "\tExtended Attributes extent tree in index block #%"
+		PRIu64"  Depth: %d  Records: %d\n", (uint64_t)di->i_xattr_loc,
+		el->l_tree_depth, el->l_next_free_rec);
+	if (verbose)
+		dump_extent_list(out, el);
+
+	while (name_hash > 0) {
+		ret = ocfs2_xattr_get_rec(fs, xb, name_hash, &p_blkno,
+					  &e_cpos, &num_clusters);
+		if (ret)
+			goto out;
+
+		ret = dump_xattr_buckets(out, fs, p_blkno, num_clusters,
+					 xattrs_bucket, verbose);
+		if (ret)
+			goto out;
+
+		if (e_cpos == 0)
+			break;
+
+		name_hash = e_cpos - 1;
+	}
+
+out:
+	return ret;
+}
+
+/*
+ * dump_xattr_block()
+ *
+ */
+errcode_t dump_xattr_block(FILE *out, ocfs2_filesys *fs,
+			   struct ocfs2_dinode *in,
+			   uint32_t *xattrs_block,
+			   uint64_t *xattrs_bucket,
+			   int verbose)
+{
+	errcode_t ret;
+	char *blk = NULL;
+	struct ocfs2_xattr_block *xb = NULL;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_xattr_block(fs, in->i_xattr_loc, blk);
+	if (ret)
+		goto out;
+
+	xb = (struct ocfs2_xattr_block *)blk;
+
+	if (!(xb->xb_flags & OCFS2_XATTR_INDEXED)) {
+		struct ocfs2_xattr_header *xh = &xb->xb_attrs.xb_header;
+		*xattrs_block = xh->xh_count;
+		fprintf(out, "\tExtended Attributes in block #%"PRIu64": %u\n",
+			(uint64_t)in->i_xattr_loc, *xattrs_block);
+		if (verbose)
+			dump_xattr(out, xh);
+	} else {
+		ret = dump_xattr_index_block(out, fs, in, xb,
+					     xattrs_bucket, verbose);
+	}
+
+out:
+	if (blk)
+		ocfs2_free(&blk);
+	return ret;
+}
+/*
+ * dump_xattr_ibody()
+ *
+ */
+uint32_t dump_xattr_ibody(FILE *out, ocfs2_filesys *fs,
+			  struct ocfs2_dinode *in, int verbose)
+{
+	if (in->i_dyn_features & OCFS2_INLINE_XATTR_FL) {
+		struct ocfs2_xattr_header *xh = (struct ocfs2_xattr_header *)
+						((void *)in + fs->fs_blocksize
+						- in->i_xattr_inline_size);
+
+		fprintf(out, "\tExtended Attributes inline: %u\n",
+			xh->xh_count);
+		if (verbose)
+			dump_xattr(out, xh);
+		return xh->xh_count;
+	} else {
+		fprintf(out, "\tExtended Attributes inline: 0\n");
+		return 0;
+	}
 }
