@@ -35,6 +35,7 @@
 #include <signal.h>
 #include <syslog.h>
 #include <sched.h>
+#include <limits.h>
 
 #include "ocfs2-kernel/kernel-list.h"
 #include "o2cb/o2cb.h"
