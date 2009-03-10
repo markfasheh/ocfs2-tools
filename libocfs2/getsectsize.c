@@ -45,6 +45,7 @@
 errcode_t ocfs2_get_device_sectsize(const char *file, int *sectsize)
 {
 	int	fd;
+	int	ret;
 
 #ifdef HAVE_OPEN64
 	fd = open64(file, O_RDONLY);
@@ -54,15 +55,13 @@ errcode_t ocfs2_get_device_sectsize(const char *file, int *sectsize)
 	if (fd < 0)
 		return errno;
 
+	ret = OCFS2_ET_CANNOT_DETERMINE_SECTOR_SIZE;
 #ifdef BLKSSZGET
-	if (ioctl(fd, BLKSSZGET, sectsize) >= 0) {
-		close(fd);
-		return 0;
-	}
+	if (ioctl(fd, BLKSSZGET, sectsize) >= 0)
+		ret = 0;
 #endif
-	*sectsize = 0;
 	close(fd);
-	return 0;
+	return ret;
 }
 
 #ifdef DEBUG_EXE
