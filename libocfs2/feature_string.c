@@ -74,7 +74,8 @@ static ocfs2_fs_options feature_level_defaults[] = {
 	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
 	 OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP |
 	 OCFS2_FEATURE_INCOMPAT_INLINE_DATA |
-	 OCFS2_FEATURE_INCOMPAT_META_ECC,
+	 OCFS2_FEATURE_INCOMPAT_META_ECC |
+	 OCFS2_FEATURE_INCOMPAT_XATTR,
 	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN}, /* OCFS2_FEATURE_LEVEL_MAX_FEATURES */
 };
 
@@ -115,6 +116,11 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
 		"metaecc",
 		{0, OCFS2_FEATURE_INCOMPAT_META_ECC, 0},
 		{0, OCFS2_FEATURE_INCOMPAT_META_ECC, 0},
+	},
+	{
+		"xattr",
+		{0, OCFS2_FEATURE_INCOMPAT_XATTR, 0},
+		{0, OCFS2_FEATURE_INCOMPAT_XATTR, 0},
 	},
 	{
 		NULL,
@@ -178,6 +184,10 @@ static struct feature_name ocfs2_feature_names[] = {
 	{
 		.fn_name = "MetaECC",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_META_ECC, 0},
+	},
+	{
+		.fn_name = "Xattr",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_XATTR, 0},
 	},
 	{
 		.fn_name = NULL,

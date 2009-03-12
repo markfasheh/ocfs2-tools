@@ -33,6 +33,14 @@ The file system only update atime if the previous atime is older than mtime or c
 The file system will not update access time.
 
 .TP
+\fBacl\fR
+Enables POSIX ACLs(Access Control Lists) support.
+
+.TP
+\fBuser_xattr / nouser_xattr\fR
+Enables / disable Extended User Attributes.
+
+.TP
 \fBcommit=nrsec\fR
 Sync all data and metadata every nrsec seconds. The default value is 5 seconds.
 Zero means default.

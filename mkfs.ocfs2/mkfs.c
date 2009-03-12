@@ -2005,6 +2005,12 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	 */
 	s->feature_flags.opt_compat &= ~OCFS2_FEATURE_COMPAT_BACKUP_SB;
 
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR) {
+		di->id2.i_super.s_xattr_inline_size =
+						OCFS2_MIN_XATTR_INLINE_SIZE;
+		di->id2.i_super.s_uuid_hash = ocfs2_xattr_uuid_hash(s->uuid);
+	}
+
 	di->id2.i_super.s_feature_incompat = s->feature_flags.opt_incompat;
 	di->id2.i_super.s_feature_compat = s->feature_flags.opt_compat;
 	di->id2.i_super.s_feature_ro_compat = s->feature_flags.opt_ro_compat;

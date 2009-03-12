@@ -136,6 +136,11 @@ Enable inline-data support. If this feature is turned on, /fIOCFS2/fR will store
 \fBextended-slotmap\fR
 The slot-map is a hidden file on an \fIOCFS2\fR fs which is used to map mounted nodes to system file resources. The extended slot map allows a larger range of possible node numbers, which is useful for userspace cluster stacks. This feature is automatically turned on when needed, thus users have no need to turn this on manually. Available in the file system bundled with Linux kernels 2.6.27 and later.
 .RE
+.RS 1.2i
+.TP
+\fBxattr\fR
+Enable support for extended attribute. ACLs and security linux based on this feature.
+.RE
 
 .TP
 \fB\-\-fs\-feature\-level=\fR\fR\fIfeature\-level\fR
