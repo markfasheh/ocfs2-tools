@@ -52,8 +52,12 @@ errcode_t ocfs2_get_device_sectsize(const char *file, int *sectsize)
 #else
 	fd = open(file, O_RDONLY);
 #endif
-	if (fd < 0)
-		return errno;
+	if (fd < 0) {
+		if (errno == ENOENT)
+			return OCFS2_ET_NAMED_DEVICE_NOT_FOUND;
+		else
+			return OCFS2_ET_IO;
+        }
 
 	ret = OCFS2_ET_CANNOT_DETERMINE_SECTOR_SIZE;
 #ifdef BLKSSZGET
