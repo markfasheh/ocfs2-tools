@@ -416,6 +416,39 @@ out:
 	return ret;
 }
 
+errcode_t ocfs2_delete_xattr_block(ocfs2_filesys *fs, uint64_t blkno)
+{
+	errcode_t ret;
+	char *buf;
+	int slot;
+	struct ocfs2_xattr_block *xb = NULL;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_xattr_block(fs, blkno, buf);
+	if (ret)
+		goto out;
+
+	xb = (struct ocfs2_xattr_block *)buf;
+	slot = xb->xb_suballoc_slot;
+
+	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE, slot,
+				   &fs->fs_eb_allocs[slot]);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_free_with_io(fs, fs->fs_eb_allocs[slot], blkno);
+	if (ret)
+		goto out;
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
 errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno)
 {
 	errcode_t ret;

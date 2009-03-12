@@ -23,7 +23,8 @@ OCFS2NE_FEATURES =			\
 	feature_local			\
 	feature_metaecc			\
 	feature_sparse_files		\
-	feature_unwritten_extents
+	feature_unwritten_extents	\
+	feature_xattr
 
 OCFS2NE_OPERATIONS =			\
 	op_cloned_volume		\

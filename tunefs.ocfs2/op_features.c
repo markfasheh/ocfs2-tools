@@ -40,6 +40,7 @@ extern struct tunefs_feature local_feature;
 extern struct tunefs_feature metaecc_feature;
 extern struct tunefs_feature sparse_files_feature;
 extern struct tunefs_feature unwritten_extents_feature;
+extern struct tunefs_feature xattr_feature;
 
 /* List of features supported by ocfs2ne */
 static struct tunefs_feature *features[] = {
@@ -50,6 +51,7 @@ static struct tunefs_feature *features[] = {
 	&metaecc_feature,
 	&sparse_files_feature,
 	&unwritten_extents_feature,
+	&xattr_feature,
 	NULL,
 };
 

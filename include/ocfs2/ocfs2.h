@@ -966,6 +966,12 @@ static inline int ocfs2_meta_ecc(struct ocfs2_super_block *osb)
 	return 0;
 }
 
+static inline int ocfs2_support_xattr(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_XATTR)
+		return 1;
+	return 0;
+}
 
 /*
  * shamelessly lifted from the kernel
@@ -1117,5 +1123,23 @@ errcode_t ocfs2_read_xattr_bucket(ocfs2_filesys *fs,
 errcode_t ocfs2_write_xattr_bucket(ocfs2_filesys *fs,
 				   uint64_t blkno,
 				   char *bucket_buf);
+errcode_t ocfs2_xattr_value_truncate(ocfs2_filesys *fs,
+				     struct ocfs2_xattr_value_root *xv);
+errcode_t ocfs2_xattr_tree_truncate(ocfs2_filesys *fs,
+				    struct ocfs2_xattr_tree_root *xt);
+errcode_t ocfs2_extent_iterate_xattr(ocfs2_filesys *fs,
+				     struct ocfs2_extent_list *el,
+				     uint64_t last_eb_blk,
+				     int flags,
+				     int (*func)(ocfs2_filesys *fs,
+						struct ocfs2_extent_rec *rec,
+						int tree_depth,
+						uint32_t ccount,
+						uint64_t ref_blkno,
+						int ref_recno,
+						void *priv_data),
+				     void *priv_data,
+				     int *changed);
+errcode_t ocfs2_delete_xattr_block(ocfs2_filesys *fs, uint64_t blkno);
 
 #endif  /* _FILESYS_H */

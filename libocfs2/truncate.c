@@ -261,6 +261,38 @@ out:
 	return ret;
 }
 
+errcode_t ocfs2_xattr_value_truncate(ocfs2_filesys *fs,
+				     struct ocfs2_xattr_value_root *xv)
+{
+	struct truncate_ctxt ctxt;
+	int changed;
+	struct ocfs2_extent_list *el = &xv->xr_list;
+
+	ctxt.new_i_clusters = xv->xr_clusters;
+	ctxt.new_size_in_clusters = 0;
+
+	return ocfs2_extent_iterate_xattr(fs, el, xv->xr_last_eb_blk,
+					OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE,
+					truncate_iterate,
+					&ctxt, &changed);
+}
+
+errcode_t ocfs2_xattr_tree_truncate(ocfs2_filesys *fs,
+				    struct ocfs2_xattr_tree_root *xt)
+{
+	struct truncate_ctxt ctxt;
+	int changed;
+	struct ocfs2_extent_list *el = &xt->xt_list;
+
+	ctxt.new_i_clusters = xt->xt_clusters;
+	ctxt.new_size_in_clusters = 0;
+
+	return ocfs2_extent_iterate_xattr(fs, el, xt->xt_last_eb_blk,
+					OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE,
+					truncate_iterate,
+					&ctxt, &changed);
+}
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>
