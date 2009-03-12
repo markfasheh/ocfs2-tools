@@ -48,7 +48,8 @@ static char *usage_string =
 "	-d quick detect\n"
 "	-f full detect\n";
 
-static void ocfs2_print_nodes(ocfs2_devices *dev, char **names)
+static void ocfs2_print_nodes(ocfs2_devices *dev, char **names,
+				unsigned int length_of_names)
 {
 	int i, start = 1;
 	unsigned int node_num;
@@ -64,7 +65,10 @@ static void ocfs2_print_nodes(ocfs2_devices *dev, char **names)
 			printf(", ");
 
 		node_num = map->md_slots[i].sd_node_num;
-		if (names && names[node_num] && *(names[node_num]))
+
+		if (node_num >= length_of_names)
+			printf("Unknown");
+		else if (names && names[node_num] && *(names[node_num]))
 			printf("%s", names[node_num]);
 		else
 			printf("%d", node_num);
@@ -116,7 +120,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 			if (dev->hb_dev)
 				printf("Heartbeat device");
 			else if (dev->mount_flags & OCFS2_MF_MOUNTED_CLUSTER)
-				ocfs2_print_nodes(dev, nodes);
+				ocfs2_print_nodes(dev, nodes, i);
 			else
 				printf("Not mounted");
 			printf("\n");
