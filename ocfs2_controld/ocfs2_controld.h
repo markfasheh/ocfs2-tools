@@ -119,4 +119,36 @@ void dead_mounter(int ci, int fd);
 void bail_on_mounts(void);
 int send_mountgroups(int ci, int fd);
 
+
+/*
+ * We need to do some retries in more than one file.
+ * Here's some code that prints an error as we take a long time to do it.
+ * There is a power-of-two backoff on printing the error.
+ */
+static inline void sleep_ms(unsigned int ms)
+{
+	struct timespec ts = {
+		.tv_sec = ms / 1000,
+		.tv_nsec = (ms % 1000) * 1000,
+	};
+
+	nanosleep(&ts, NULL);
+}
+
+/* We use this for our backoff print */
+static inline unsigned int hc_hweight32(unsigned int w)
+{
+	unsigned int res = (w & 0x55555555) + ((w >> 1) & 0x55555555);
+	res = (res & 0x33333333) + ((res >> 2) & 0x33333333);
+	res = (res & 0x0F0F0F0F) + ((res >> 4) & 0x0F0F0F0F);
+	res = (res & 0x00FF00FF) + ((res >> 8) & 0x00FF00FF);
+	return (res & 0x0000FFFF) + ((res >> 16) & 0x0000FFFF);
+}
+
+#define retry_warning(count, fmt, arg...)	do {	\
+	if (hc_hweight32(count) == 1)			\
+		log_error(fmt, ##arg);			\
+	count++;					\
+} while (0)
+
 #endif
