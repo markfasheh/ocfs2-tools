@@ -813,13 +813,16 @@ static int protocol_compatible(struct ocfs2_protocol_version *cluster,
 
 static int read_global_checkpoint(void)
 {
-	int rc;
+	int rc, seen = 0, opened = 0, retrycount = 0;
 	char *buf;
 	size_t len;
 
+retry:
 	rc = ckpt_open_global(0);
 	if (rc)
 		goto out;
+	seen = 1;
+	opened = 1;
 
 	rc = ckpt_global_get(DAEMON_PROTOCOL_SECTION, &buf, &len);
 	if (rc)
@@ -862,6 +865,38 @@ static int read_global_checkpoint(void)
 	}
 
 out:
+	if (rc == -ENOENT) {
+		/*
+		 * -ENOENT means the first daemon hasn't gotten the
+		 * global checkpoint fully installed yet.  Either the
+		 * checkpoint or one of its sections is missing.
+		 *
+		 * If we saw the checkpoint once, but now it's gone, it
+		 * means the first daemon died.  We don't recover from
+		 * that.  But if we haven't seen the checkpoint yet, or if
+		 * it's just a missing section, we can keep trying.
+		 */
+
+		if (opened)
+			ckpt_close_global();
+
+		if (seen && !opened) {
+			log_error("The global checkpoint disappeared out "
+				  "from underneath us.  This shouldn't "
+				  "happen to a daemon that is not the "
+				  "first in the cluster");
+		} else {
+			opened = 0;
+			retry_warning(retrycount,
+				      "Attempted to read the cluster's "
+				      "protocol versions %d times, still "
+				      "trying",
+				      retrycount);
+			sleep_ms(10);
+			goto retry;
+		}
+	}
+
 	return rc;
 }
 
