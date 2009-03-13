@@ -22,18 +22,11 @@
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+#include <assert.h>
 #include <openais/saAis.h>
 #include <openais/saCkpt.h>
 
 #include "ocfs2_controld.h"
-
-
-/*
- * A tentative retry is something we don't want to spend a lot of time on;
- * it works or we error.  A serious retry we really want to complete.
- */
-#define TENTATIVE_RETRY_TRIES	2
-#define SERIOUS_RETRY_TRIES	5
 
 
 
@@ -152,7 +145,7 @@ static void ais_err_to_errno(SaAisErrorT error, int *rc, char **reason)
  */
 static int call_ckpt_open(struct ckpt_handle *handle, int write)
 {
-	int rc, retrycount;
+	int rc, existcount = 0, againcount = 0;
 	char *reason;
 	SaAisErrorT error;
 	int flags = SA_CKPT_CHECKPOINT_READ;
@@ -161,10 +154,10 @@ static int call_ckpt_open(struct ckpt_handle *handle, int write)
 		flags |= (SA_CKPT_CHECKPOINT_WRITE |
 			  SA_CKPT_CHECKPOINT_CREATE);
 
-	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+	while (1) {
 		log_debug("Opening checkpoint \"%.*s\" (try %d)",
 			  handle->ch_name.length, handle->ch_name.value,
-			  retrycount + 1);
+			  existcount + againcount + 1);
 		error = saCkptCheckpointOpen(daemon_handle,
 					     &handle->ch_name,
 					     write ? &ckpt_attributes : NULL,
@@ -185,18 +178,51 @@ static int call_ckpt_open(struct ckpt_handle *handle, int write)
 				  reason);
 			break;
 		}
-		if (write && (rc == -EEXIST))
-			log_debug("Checkpoint \"%.*s\" exists, retrying after delay",
-				  handle->ch_name.length,
-				  handle->ch_name.value);
+		if (write && (rc == -EEXIST)) {
+			/*
+			 * EEXIST means one of two things:
+			 *
+			 * 1) Another daemon is up and running.  This
+			 *    one is just going to sit here printing to
+			 *    the log until it's killed or the other one
+			 *    dies.  This will confuse people; they'll
+			 *    stop the running daemon, but not be able to
+			 *    unload the stack.  We have to do this because
+			 *    of reason (2).
+			 *
+			 * 2) The daemon was stopped and then immediately
+			 *    restarted.  AIS cleans up the checkpoint
+			 *    in a lazy fashion, so there is no guarantee
+			 *    the checkpoint is gone by the time the new
+			 *    daemon starts up.  So we can get an EEXIST
+			 *    for a little while until AIS gets around to
+			 *    the cleanup.  Because scheduling, etc, can
+			 *    take a while, we don't know how long that
+			 *    will be.  So we keep retrying.  Eventually,
+			 *    AIS will clean up the checkpoint from the
+			 *    daemon that exited and let us create our new
+			 *    one.
+			 */
+			retry_warning(existcount,
+				      "Checkpoint exists seen %d times "
+				      "while opening checkpoint  \"%.*s\", "
+				      "still trying",
+				      existcount,
+				      handle->ch_name.length,
+				      handle->ch_name.value);
+		} else if (rc == -EAGAIN) {
+			/* TRY_AGAIN is Ckpt saying it's just busy. */
+			retry_warning(againcount,
+				      "TRY_AGAIN seen %d times while "
+				      "opening checkpoint \"%.*s\", "
+				      "still trying",
+				      againcount,
+				      handle->ch_name.length,
+				      handle->ch_name.value);
+		} else
+			assert(0);
 
-		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
-			sleep(1);
-		else
-			log_error("Unable to open checkpoint \"%.*s\": "
-				  "too many tries",
-				  handle->ch_name.length,
-				  handle->ch_name.value);
+		sleep_ms(10);
 	}
 
 	return rc;
@@ -204,14 +230,14 @@ static int call_ckpt_open(struct ckpt_handle *handle, int write)
 
 static void call_ckpt_close(struct ckpt_handle *handle)
 {
-	int rc, retrycount;
+	int rc, againcount = 0;
 	char *reason;
 	SaAisErrorT error;
 
-	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+	while (1) {
 		log_debug("Closing checkpoint \"%.*s\" (try %d)",
 			  handle->ch_name.length, handle->ch_name.value,
-			  retrycount + 1);
+			  againcount + 1);
 		error = saCkptCheckpointClose(handle->ch_handle);
 		ais_err_to_errno(error, &rc, &reason);
 		if (!rc) {
@@ -227,13 +253,16 @@ static void call_ckpt_close(struct ckpt_handle *handle)
 				  reason);
 			break;
 		}
-		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
-			sleep(1);
-		else
-			log_error("Unable to close checkpoint \"%.*s\": "
-				  "too many tries",
-				  handle->ch_name.length,
-				  handle->ch_name.value);
+
+		retry_warning(againcount,
+			      "TRY_AGAIN seen %d times while "
+			      "closing checkpoint \"%.*s\", "
+			      "still trying",
+			      againcount,
+			      handle->ch_name.length,
+			      handle->ch_name.value);
+
+		sleep_ms(10);
 	}
 }
 
@@ -244,7 +273,7 @@ static void call_ckpt_close(struct ckpt_handle *handle)
 static int call_section_create(struct ckpt_handle *handle, const char *name,
 			       const char *data, size_t data_len)
 {
-	int rc, retrycount;
+	int rc, againcount = 0;
 	char *reason;
 	SaAisErrorT error;
 	SaCkptSectionIdT id = {
@@ -256,11 +285,11 @@ static int call_section_create(struct ckpt_handle *handle, const char *name,
 		.expirationTime = SA_TIME_END,
 	};
 
-	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+	while (1) {
 		log_debug("Creating section \"%s\" on checkpoint "
 			  "\"%.*s\" (try %d)",
 			  name, handle->ch_name.length,
-			  handle->ch_name.value, retrycount + 1);
+			  handle->ch_name.value, againcount + 1);
 		error = saCkptSectionCreate(handle->ch_handle, &attrs,
 					    data, data_len);
 		ais_err_to_errno(error, &rc, &reason);
@@ -279,14 +308,16 @@ static int call_section_create(struct ckpt_handle *handle, const char *name,
 			break;
 		}
 
-		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
-			sleep(1);
-		else
-			log_error("Unable to create section \"%s\" on "
-				  "checkpoint \"%.*s\": too many tries",
-				  name, handle->ch_name.length,
-				  handle->ch_name.value);
-	}
+		retry_warning(againcount,
+			      "TRY_AGAIN seen %d times while "
+			      "creating section \"%s\" on checkpoint "
+			      "\"%.*s\", still trying",
+			      againcount, name,
+			      handle->ch_name.length,
+			      handle->ch_name.value);
+
+		sleep_ms(10);
+}
 
 	return rc;
 }
@@ -294,7 +325,7 @@ static int call_section_create(struct ckpt_handle *handle, const char *name,
 static int call_section_write(struct ckpt_handle *handle, const char *name,
 			      const char *data, size_t data_len)
 {
-	int rc, retrycount;
+	int rc, againcount = 0;
 	char *reason;
 	SaAisErrorT error;
 	SaCkptSectionIdT id = {
@@ -302,11 +333,11 @@ static int call_section_write(struct ckpt_handle *handle, const char *name,
 		.id = (SaUint8T *)name,
 	};
 
-	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+	while (1) {
 		log_debug("Writing to section \"%s\" on checkpoint "
 			  "\"%.*s\" (try %d)",
 			  name, handle->ch_name.length,
-			  handle->ch_name.value, retrycount + 1);
+			  handle->ch_name.value, againcount + 1);
 		error = saCkptSectionOverwrite(handle->ch_handle, &id,
 					       data, data_len);
 		ais_err_to_errno(error, &rc, &reason);
@@ -332,13 +363,15 @@ static int call_section_write(struct ckpt_handle *handle, const char *name,
 			break;
 		}
 
-		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
-			sleep(1);
-		else
-			log_error("Unable to write section \"%s\" on "
-				  "checkpoint \"%.*s\": too many tries",
-				  name, handle->ch_name.length,
-				  handle->ch_name.value);
+		retry_warning(againcount,
+			      "TRY_AGAIN seen %d times while "
+			      "writing section \"%s\" on checkpoint "
+			      "\"%.*s\", still trying",
+			      againcount, name,
+			      handle->ch_name.length,
+			      handle->ch_name.value);
+
+		sleep_ms(10);
 	}
 
 	return rc;
@@ -347,7 +380,7 @@ static int call_section_write(struct ckpt_handle *handle, const char *name,
 static int call_section_read(struct ckpt_handle *handle, const char *name,
 			     char **data, size_t *data_len)
 {
-	int rc, retrycount;
+	int rc, againcount = 0;
 	char *reason, *p;
 	char readbuf[CKPT_MAX_SECTION_SIZE];
 	SaAisErrorT error;
@@ -362,12 +395,11 @@ static int call_section_read(struct ckpt_handle *handle, const char *name,
 		}
 	};
 
-
-	for (retrycount = 0; retrycount < TENTATIVE_RETRY_TRIES; retrycount++) {
+	while (1) {
 		log_debug("Reading from section \"%s\" on checkpoint "
 			  "\"%.*s\" (try %d)",
 			  name, handle->ch_name.length,
-			  handle->ch_name.value, retrycount + 1);
+			  handle->ch_name.value, againcount + 1);
 		error = saCkptCheckpointRead(handle->ch_handle, readvec, 1,
 					     NULL);
 		ais_err_to_errno(error, &rc, &reason);
@@ -396,13 +428,15 @@ static int call_section_read(struct ckpt_handle *handle, const char *name,
 			break;
 		}
 
-		if ((retrycount + 1) < TENTATIVE_RETRY_TRIES)
-			sleep(1);
-		else
-			log_error("Unable to read section \"%s\" from "
-				  "checkpoint \"%.*s\": too many tries",
-				  name, handle->ch_name.length,
-				  handle->ch_name.value);
+		retry_warning(againcount,
+			      "TRY_AGAIN seen %d times while "
+			      "reading section \"%s\" on checkpoint "
+			      "\"%.*s\", still trying",
+			      againcount, name,
+			      handle->ch_name.length,
+			      handle->ch_name.value);
+
+		sleep_ms(10);
 	}
 
 	if (rc)
@@ -566,13 +600,13 @@ void ckpt_close(struct ckpt_handle *handle)
 
 int setup_ckpt(void)
 {
-	int rc, retrycount;
+	int rc, againcount = 0;
 	char *reason;
 	SaAisErrorT error;
 
-	for (retrycount = 0; retrycount < SERIOUS_RETRY_TRIES; retrycount++) {
+	while (1) {
 		log_debug("Initializing CKPT service (try %d)",
-			  retrycount + 1);
+			  againcount + 1);
 		error = saCkptInitialize(&daemon_handle, &callbacks,
 					 &version);
 		ais_err_to_errno(error, &rc, &reason);
@@ -585,10 +619,11 @@ int setup_ckpt(void)
 			log_error("Unable to connect to CKPT: %s", reason);
 			break;
 		}
-		if ((retrycount + 1) < SERIOUS_RETRY_TRIES)
-			sleep(1);
-		else
-			log_error("Unable to connect to CKPT: too many tries");
+		retry_warning(againcount,
+			      "TRY_AGAIN seen %d times while "
+			      "connectiong to CKPT, still trying",
+			      againcount);
+		sleep_ms(10);
 	}
 
 	return rc;
@@ -596,16 +631,16 @@ int setup_ckpt(void)
 
 void exit_ckpt(void)
 {
-	int rc, retrycount;
+	int rc, againcount = 0;
 	char *reason;
 	SaAisErrorT error;
 
 	if (!daemon_handle)
 		return;
 
-	for (retrycount = 0; retrycount < SERIOUS_RETRY_TRIES; retrycount++) {
+	while (1) {
 		log_debug("Disconnecting from CKPT service (try %d)",
-			  retrycount + 1);
+			  againcount + 1);
 		error = saCkptFinalize(daemon_handle);
 		ais_err_to_errno(error, &rc, &reason);
 		if (!rc) {
@@ -617,10 +652,11 @@ void exit_ckpt(void)
 				  reason);
 			break;
 		}
-		if ((retrycount + 1) < SERIOUS_RETRY_TRIES)
-			sleep(1);
-		else
-			log_error("Unable to disconnect from CKPT: too many tries");
+		retry_warning(againcount,
+			      "TRY_AGAIN seen %d times while "
+			      "disconnecting to CKPT, still trying",
+			      againcount);
+		sleep_ms(10);
 	}
 }
 
