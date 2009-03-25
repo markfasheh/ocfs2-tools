@@ -20,6 +20,13 @@
 #include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
 
+struct ocfs2_xattr_def_value_root {
+	struct ocfs2_xattr_value_root   xv;
+	struct ocfs2_extent_rec         er;
+};
+
+#define OCFS2_XATTR_ROOT_SIZE	(sizeof(struct ocfs2_xattr_def_value_root))
+
 uint32_t ocfs2_xattr_uuid_hash(unsigned char *uuid)
 {
 	uint32_t i, hash = 0;
@@ -29,6 +36,24 @@ uint32_t ocfs2_xattr_uuid_hash(unsigned char *uuid)
 			(hash >> (8*sizeof(hash) - OCFS2_HASH_SHIFT)) ^
 			*uuid++;
 	}
+	return hash;
+}
+
+uint32_t ocfs2_xattr_name_hash(uint32_t uuid_hash,
+			 const char *name,
+			 int name_len)
+{
+	/* Get hash value of uuid from super block */
+	uint32_t hash = uuid_hash;
+	int i;
+
+	/* hash extended attribute name */
+	for (i = 0; i < name_len; i++) {
+		hash = (hash << OCFS2_HASH_SHIFT) ^
+		       (hash >> (8*sizeof(hash) - OCFS2_HASH_SHIFT)) ^
+		       *name++;
+	}
+
 	return hash;
 }
 
@@ -297,5 +322,119 @@ errcode_t ocfs2_xattr_get_rec(ocfs2_filesys *fs,
 out:
 	if (eb_buf)
 		ocfs2_free(&eb_buf);
+	return ret;
+}
+
+uint16_t ocfs2_xattr_value_real_size(uint16_t name_len,
+				     uint16_t value_len)
+{
+	uint16_t size = 0;
+
+	if (value_len <= OCFS2_XATTR_INLINE_SIZE)
+		size = OCFS2_XATTR_SIZE(name_len) + OCFS2_XATTR_SIZE(value_len);
+	else
+		size = OCFS2_XATTR_SIZE(name_len) + OCFS2_XATTR_ROOT_SIZE;
+
+	return size;
+}
+
+uint16_t ocfs2_xattr_min_offset(struct ocfs2_xattr_header *xh, uint16_t size)
+{
+	int i;
+	uint16_t min_offs = size;
+
+	for (i = 0 ; i < xh->xh_count; i++) {
+		struct ocfs2_xattr_entry *xe = &xh->xh_entries[i];
+		size_t offs = xe->xe_name_offset;
+
+		if (offs < min_offs)
+			min_offs = offs;
+	}
+	return min_offs;
+}
+
+uint16_t ocfs2_xattr_name_value_len(struct ocfs2_xattr_header *xh)
+{
+	int i;
+	uint16_t total_len = 0;
+
+	for (i = 0 ; i < xh->xh_count; i++) {
+		struct ocfs2_xattr_entry *xe = &xh->xh_entries[i];
+
+		total_len += ocfs2_xattr_value_real_size(xe->xe_name_len,
+							 xe->xe_value_size);
+	}
+	return total_len;
+}
+
+errcode_t ocfs2_read_xattr_bucket(ocfs2_filesys *fs,
+				  uint64_t blkno,
+				  char *bucket_buf)
+{
+	errcode_t ret = 0;
+	char *bucket;
+	struct ocfs2_xattr_header *xh;
+	int blk_per_bucket = ocfs2_blocks_per_xattr_bucket(fs);
+
+	ret = ocfs2_malloc_blocks(fs->fs_io, blk_per_bucket, &bucket);
+	if (ret)
+		return ret;
+
+	ret = io_read_block(fs->fs_io, blkno, blk_per_bucket, bucket);
+	if (ret)
+		goto out;
+
+	xh = (struct ocfs2_xattr_header *)bucket;
+	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super))) {
+		ret = ocfs2_block_check_validate(bucket,
+						 OCFS2_XATTR_BUCKET_SIZE,
+						 &xh->xh_check);
+		if (ret)
+			goto out;
+	}
+
+	memcpy(bucket_buf, bucket, OCFS2_XATTR_BUCKET_SIZE);
+	xh = (struct ocfs2_xattr_header *)bucket_buf;
+	ocfs2_swap_xattrs_to_cpu(xh);
+out:
+	ocfs2_free(&bucket);
+	return ret;
+}
+
+errcode_t ocfs2_write_xattr_bucket(ocfs2_filesys *fs,
+				   uint64_t blkno,
+				   char *bucket_buf)
+{
+
+	errcode_t ret = 0;
+	char *bucket;
+	struct ocfs2_xattr_header *xh;
+	int blk_per_bucket = ocfs2_blocks_per_xattr_bucket(fs);
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_blocks(fs->fs_io, blk_per_bucket, &bucket);
+	if (ret)
+		return ret;
+
+	memcpy(bucket, bucket_buf, OCFS2_XATTR_BUCKET_SIZE);
+
+	xh = (struct ocfs2_xattr_header *)bucket;
+	ocfs2_swap_xattrs_from_cpu(xh);
+
+	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)))
+		ocfs2_block_check_compute(bucket, OCFS2_XATTR_BUCKET_SIZE,
+					  &xh->xh_check);
+
+	ret = io_write_block(fs->fs_io, blkno, blk_per_bucket, bucket);
+	if (!ret)
+		fs->fs_flags |= OCFS2_FLAG_CHANGED;
+
+	ocfs2_free(&bucket);
 	return ret;
 }
