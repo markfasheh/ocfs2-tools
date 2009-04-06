@@ -22,8 +22,21 @@
 
 #include "fsck.h"
 
+struct extent_info {
+	uint64_t	ei_max_size;
+	uint64_t	ei_clusters;
+	uint64_t	ei_last_eb_blk;
+	uint16_t	ei_expected_depth;
+	unsigned	ei_expect_depth:1;
+};
+
 errcode_t o2fsck_check_extents(o2fsck_state *ost,
                                struct ocfs2_dinode *di);
+
+errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
+			  struct ocfs2_dinode *di,
+			  struct ocfs2_extent_list *el,
+			  uint16_t max_recs, int *changed);
 
 #endif /* __O2FSCK_EXTENT_H__ */
 

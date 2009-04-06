@@ -46,19 +46,6 @@
 
 static const char *whoami = "extent.c";
 
-struct extent_info {
-	uint64_t	ei_max_size;
-	uint64_t	ei_clusters;
-	uint64_t	ei_last_eb_blk;
-	uint16_t	ei_expected_depth;
-	unsigned	ei_expect_depth:1;
-};
-
-static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
-			  struct ocfs2_dinode *di,
-			  struct ocfs2_extent_list *el,
-			  uint16_t max_recs, int *changed);
-
 static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 			  struct ocfs2_dinode *di, uint64_t blkno,
 			  int *is_valid)
@@ -233,7 +220,7 @@ out:
 	return ret;
 }
 
-static errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
+errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 			  struct ocfs2_dinode *di,
 			  struct ocfs2_extent_list *el,
 			  uint16_t max_recs, int *changed)
@@ -373,4 +360,4 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 		o2fsck_write_inode(ost, di->i_blkno, di);
 
 	return ret;
-}	
+}

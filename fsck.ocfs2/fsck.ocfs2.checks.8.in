@@ -739,6 +739,57 @@ that this value isn't right.
 
 Answering yes change this value to the right number.
 
+.SS "XATTR_BLOCK_INVALID"
+Extended attributes are stored off an extended attribute block
+referenced by the inode.  This inode references an invalid extended
+attribute block.
+
+Answering yes will remove this block.
+
+.SS "XATTR_COUNT_INVALID"
+The count of extended attributes in an inode, block, or bucket
+does not match the number of entries found by fsck.
+
+Answering yes will change this to the correct count.
+
+.SS "XATTR_OFFSET_INVALID"
+The name_offset field of an extended attribute entry is not correct.
+Without a correct name_offset field, the entry cannot be used.
+
+Answering yes will remove this entry.
+
+.SS "XATTR_LOCATION_INVALID"
+The xe_local field and xe_value_size field of an extended attribute
+entry does not match. So the entry cannot be used.
+
+Answering yes will remove this entry.
+
+.SS "XATTR_HASH_INVALID"
+Extended attributes use a hash of their name for lookup purposes.
+The name_hash of this extended attribute entry is not correct.
+
+Answering yes will change this to the correct hash.
+
+.SS "XATTR_FREE_START_INVALID"
+Extended attributes use free_start to indicate the offset of the
+free space in inode, block, or bucket. The free_start field
+of this object is not correct.
+
+Answering yes will change this to the correct offset.
+
+.SS "XATTR_VALUE_LEN_INVALID"
+Extended attributes use name_value_len to store the total length
+of all entry's name and value in inode, block or bucket.
+the name_value_len filed of this object is not correct.
+
+Answering yes will change this to the correct value.
+
+.SS "XATTR_BUCKET_COUNT_INVALID"
+The count of extended attributes bucket pointed by one extent record
+does not match the number of buckets found by fsck.
+
+Answering yes will change this to the correct count.
+
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)
 

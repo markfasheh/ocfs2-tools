@@ -31,7 +31,8 @@ CFILES =	fsck.c		\
 		problem.c 	\
 		slot_recovery.c \
 		strings.c 	\
-		util.c
+		util.c		\
+		xattr.c
 
 HFILES = 	include/fsck.h		\
 		include/dirblocks.h	\
