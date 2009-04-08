@@ -1878,14 +1878,11 @@ sys_blocks_needed(uint32_t num_slots)
 static uint32_t
 system_dir_blocks_needed(State *s)
 {
-	int bytes_needed = 0;
 	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
 	int entries_per_block = s->blocksize / each;
 
-	bytes_needed = ((sys_blocks_needed(s->initial_slots) +
-			 entries_per_block - 1) / entries_per_block) << s->blocksize_bits;
-
-	return (bytes_needed + s->cluster_size - 1) >> s->cluster_size_bits;
+	return (sys_blocks_needed(s->initial_slots) +
+			entries_per_block - 1) / entries_per_block;
 }
 #if 0
 /* This breaks stuff that depends on volume_size_in_clusters and
