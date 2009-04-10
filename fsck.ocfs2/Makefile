@@ -35,6 +35,7 @@ CFILES =	fsck.c		\
 		xattr.c
 
 HFILES = 	include/fsck.h		\
+		include/xattr.h		\
 		include/dirblocks.h	\
 		include/dirparents.h	\
 		include/extent.h	\
