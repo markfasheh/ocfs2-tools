@@ -525,6 +525,8 @@ errcode_t io_close(io_channel *channel)
 {
 	errcode_t ret = 0;
 
+	io_destroy_cache(channel);
+
 	if (close(channel->io_fd) < 0)
 		ret = errno;
 
