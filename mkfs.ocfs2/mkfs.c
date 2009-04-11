@@ -254,22 +254,25 @@ static void finish_normal_format(State *s)
 		exit(1);
 	}
 
-	ret = io_init_cache(fs->fs_io,
-			    ocfs2_extent_recs_per_eb(fs->fs_blocksize));
-	if (ret)
-		com_err(s->progname, ret,
-			"while initializing the I/O cache.  Continuing "
-			"without a cache (safe, but slower)");
-
 	if (!s->no_backup_super) {
+		ret = io_init_cache(fs->fs_io,
+				    ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+		if (ret)
+			com_err(s->progname, ret,
+				"while initializing the I/O cache.  Continuing "
+				"without a cache (safe, but slower)");
+
 		if (!s->quiet)
 			printf("Writing backup superblock: ");
 
 		num = format_backup_super(s, fs);
 		if (!s->quiet)
 			printf("%d block(s)\n", num);
+
+		io_destroy_cache(fs->fs_io);
 	}
 
+	/* io cache is disabled during journal format for performance reasons */
 	if (!s->quiet)
 		printf("Formatting Journals: ");
 
@@ -277,6 +280,13 @@ static void finish_normal_format(State *s)
 
 	if (!s->quiet)
 		printf("done\n");
+
+	ret = io_init_cache(fs->fs_io,
+			    ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+	if (ret)
+		com_err(s->progname, ret,
+			"while initializing the I/O cache.  Continuing "
+			"without a cache (safe, but slower)");
 
 	if (!s->quiet)
 		printf("Formatting slot map: ");
