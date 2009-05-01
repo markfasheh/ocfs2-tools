@@ -373,10 +373,6 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 	if (ext->l_tree_depth)
 		fprintf(out, "\t## %-11s   %-12s   %-s\n", "Offset",
 			"Clusters", "Block#");
-	else if (ext->l_next_free_rec &&
-		 (ext->l_recs[0].e_flags & OCFS2_EXT_REFCOUNT_RECORD))
-		fprintf(out, "\t## %-11s   %-12s   %-13s   %s\n", "Offset",
-			"Clusters", "Refcount", "Flags");
 	else
 		fprintf(out, "\t## %-11s   %-12s   %-13s   %s\n", "Offset",
 			"Clusters", "Block#", "Flags");
@@ -395,20 +391,11 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
 						       rec->e_flags))
 				flags[0] = '\0';
 
-			if (rec->e_flags & OCFS2_EXT_REFCOUNT_RECORD)
-				fprintf(out,
-					"\t%-2d %-11u   %-12u   "
-					"%-13"PRIu32"   0x%x %s\n",
-					i, rec->e_cpos, clusters,
-					(uint32_t)rec->e_refcount,
-					rec->e_flags, flags);
-			else
-				fprintf(out,
-					"\t%-2d %-11u   %-12u   "
-					"%-13"PRIu64"   0x%x %s\n",
-					i, rec->e_cpos, clusters,
-					(uint64_t)rec->e_blkno,
-					rec->e_flags, flags);
+			fprintf(out,
+				"\t%-2d %-11u   %-12u   "
+				"%-13"PRIu64"   0x%x %s\n",
+				i, rec->e_cpos, clusters,
+				(uint64_t)rec->e_blkno, rec->e_flags, flags);
 		}
 	}
 
