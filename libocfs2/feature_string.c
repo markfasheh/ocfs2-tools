@@ -246,10 +246,6 @@ static struct extent_flag_name ocfs2_extent_flag_names[] = {
 		.efn_flag = OCFS2_EXT_REFCOUNTED,
 	},
 	{
-		.efn_name = "RefcountRecord",
-		.efn_flag = OCFS2_EXT_REFCOUNT_RECORD,
-	},
-	{
 		.efn_name = NULL,
 	},
 };
@@ -732,8 +728,7 @@ static void print_extent_flags(void)
 
 	err = ocfs2_snprint_extent_flags(buf, PATH_MAX,
 					 OCFS2_EXT_UNWRITTEN |
-					 OCFS2_EXT_REFCOUNTED |
-					 OCFS2_EXT_REFCOUNT_RECORD);
+					 OCFS2_EXT_REFCOUNTED);
 	if (err)
 		snprintf(buf, PATH_MAX, "An error occurred: %s",
 			 error_message(err));
