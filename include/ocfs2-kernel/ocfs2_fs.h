@@ -154,7 +154,8 @@
 /* Metadata checksum and error correction */
 #define OCFS2_FEATURE_INCOMPAT_META_ECC		0x0800
 
-#define OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE    0x1000
+/* Refcount tree support */
+#define OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE	0x1000
 
 /*
  * backup superblock flag is used to indicate that this volume
@@ -246,9 +247,6 @@
 #define OCFS2_EXT_REFCOUNTED		(0x02)	/* Extent is reference
 						 * counted in an associated
 						 * refcount tree */
-#define OCFS2_EXT_REFCOUNT_RECORD	(0x04)	/* Extent record is the
-						 * leaf of a refcount
-						 * tree */
 
 /*
  * ioctl commands
@@ -298,12 +296,12 @@ struct ocfs2_new_group_input {
 #define OCFS2_IOC_GROUP_ADD	_IOW('o', 2,struct ocfs2_new_group_input)
 #define OCFS2_IOC_GROUP_ADD64	_IOW('o', 3,struct ocfs2_new_group_input)
 
+/* Used to pass the file names to reflink. */
 struct reflink_arguments {
 /*00*/	__u64 old_path;
 	__u64 new_path;
 /*10*/
 };
-
 #define OCFS2_IOC_REFLINK	_IOW('o', 4, struct reflink_arguments)
 
 
@@ -466,9 +464,6 @@ struct ocfs2_block_check {
  *
  * Length fields are divided into interior and leaf node versions.
  * This leaves room for a flags field (OCFS2_EXT_*) in the leaf nodes.
- *
- * Refcount trees have leaves using e_refcount instead of e_blkno.  They
- * are marked with the OCFS2_EXT_REFCOUNT_RECORD flag.
  */
 struct ocfs2_extent_rec {
 /*00*/	__le32 e_cpos;		/* Offset into the file, in clusters */
@@ -481,14 +476,7 @@ struct ocfs2_extent_rec {
 			__u8 e_flags; /* Extent flags */
 		};
 	};
-	union {
-		__le64 e_blkno;	/* Physical disk offset, in blocks */
-		struct {
-			__le32 e_refcount; /* Reference count in a
-					      refcount tree leaf */
-			__le32 e_reserved2;
-		};
-	};
+	__le64 e_blkno;		/* Physical disk offset, in blocks */
 /*10*/
 };
 
@@ -728,8 +716,9 @@ struct ocfs2_dinode {
 	__le16 i_dyn_features;
 	__le64 i_xattr_loc;
 /*80*/	struct ocfs2_block_check i_check;	/* Error checking */
-	__le64 i_refcount_loc;
-/*90*/	__le64 i_reserved2[5];
+	__le64 i_dx_root;
+/*90*/	__le64 i_refcount_loc;
+	__le64 i_reserved2[4];
 /*B8*/	union {
 		__le64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
@@ -827,6 +816,57 @@ struct ocfs2_group_desc
 /*30*/	struct ocfs2_block_check bg_check;	/* Error checking */
 	__le64   bg_reserved2;
 /*40*/	__u8    bg_bitmap[0];
+};
+
+struct ocfs2_refcount_rec {
+/*00*/	__le64 r_cpos;		/* Physical offset, in clusters */
+	__le32 r_clusters;	/* Clusters covered by this extent */
+	__le32 r_refcount;	/* Reference count of this extent */
+/*10*/
+};
+#define OCFS2_32BIT_POS_MASK		(0xffffffffULL)
+
+#define OCFS2_REFCOUNT_LEAF_FL		(0x00000001)
+#define OCFS2_REFCOUNT_TREE_FL		(0x00000002)
+
+struct ocfs2_refcount_list {
+/*00*/	__le16 rl_count;	/* Maximum number of entries possible
+				  in rl_records */
+	__le16 rl_used;		/* Current number of used records */
+	__le32 rl_reserved2;
+	__le64 rl_reserved1;	/* Pad to sizeof(ocfs2_refcount_record) */
+/*10*/	struct ocfs2_refcount_rec rl_recs[0];	/* Refcount records */
+};
+
+
+struct ocfs2_refcount_block {
+/*00*/	__u8 rf_signature[8];		/* Signature for verification */
+	__le16 rf_suballoc_slot;	/* Slot suballocator this block
+					   belongs to */
+	__le16 rf_suballoc_bit;		/* Bit offset in suballocator
+					   block group */
+	__le32 rf_fs_generation;	/* Must match superblock */
+/*10*/	__le64 rf_blkno;		/* Offset on disk, in blocks */
+	__le64 rf_parent;		/* Parent block, only valid if
+					   OCFS2_REFCOUNT_LEAF_FL is set in
+					   rf_flags */
+/*20*/	struct ocfs2_block_check rf_check;	/* Error checking */
+	__le64 rf_last_eb_blk;		/* Pointer to last extent block */
+/*30*/	__le32 rf_count;		/* Number of inodes sharing this
+					   refcount tree */
+	__le32 rf_flags;		/* See the flags above */
+	__le32 rf_clusters;		/* clusters covered by refcount tree. */
+	__le32 rf_cpos;			/* cluster offset in refcount tree.*/
+/*40*/	__le64 rf_reserved1[8];
+/*80*/	union {
+		struct ocfs2_refcount_list rf_records;	/* List of refcount
+							   records */
+		struct ocfs2_extent_list rf_list;	/* Extent record list,
+							   only valid if
+							   OCFS2_REFCOUNT_TREE_FL
+							   is set in rf_flags */
+	};
+/* Actual on-disk size is one block */
 };
 
 /*
@@ -1088,24 +1128,6 @@ static inline struct ocfs2_disk_dqtrailer *ocfs2_block_dqtrailer(int blocksize,
 	return (struct ocfs2_disk_dqtrailer *)ptr;
 }
 
-struct ocfs2_refcount_block {
-/*00*/	__u8    rf_signature[8];	/* Signature for verification */
-	__le16  rf_suballoc_slot;	/* Slot suballocator this block
-					   belongs to */
-	__le16  rf_suballoc_bit;	/* Bit offset in suballocator
-					   block group */
-	__le32  rf_fs_generation;	/* Must match superblock */
-/*10*/	__le64  rf_blkno;		/* Offset on disk, in blocks */
-	struct ocfs2_block_check rf_check;      /* Error checking */
-/*20*/	__le64  rf_last_eb_blk;		/* Pointer to last extent block */
-	__le32  rf_count;		/* Number of inodes sharing this
-					   refcount tree */
-	__le32  rf_clusters;
-/*30*/	__le64  rf_reserved2[10];
-/*80*/	struct ocfs2_extent_list rf_list;	/* Extent record list */
-/* Actual on-disk size is one block */
-};
-
 #ifdef __KERNEL__
 static inline int ocfs2_fast_symlink_chars(struct super_block *sb)
 {
@@ -1235,6 +1257,33 @@ static inline u16 ocfs2_xattr_recs_per_xb(struct super_block *sb)
 
 	return size / sizeof(struct ocfs2_extent_rec);
 }
+
+static inline u16 ocfs2_extent_recs_per_rb(struct super_block *sb)
+{
+	int size;
+
+	size = sb->s_blocksize -
+		offsetof(struct ocfs2_refcount_block, rf_list.l_recs);
+
+	return size / sizeof(struct ocfs2_extent_rec);
+}
+
+static inline u16 ocfs2_refcount_recs_per_rb(struct super_block *sb)
+{
+	int size;
+
+	size = sb->s_blocksize -
+		offsetof(struct ocfs2_refcount_block, rf_records.rl_recs);
+
+	return size / sizeof(struct ocfs2_refcount_rec);
+}
+
+static inline u32
+ocfs2_get_ref_rec_low_cpos(const struct ocfs2_refcount_rec *rec)
+{
+	return le64_to_cpu(rec->r_cpos) & OCFS2_32BIT_POS_MASK;
+}
+
 #else
 static inline int ocfs2_fast_symlink_chars(int blocksize)
 {
@@ -1329,6 +1378,33 @@ static inline int ocfs2_xattr_recs_per_xb(int blocksize)
 
 	return size / sizeof(struct ocfs2_extent_rec);
 }
+
+static inline int ocfs2_extent_recs_per_rb(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct ocfs2_refcount_block, rf_list.l_recs);
+
+	return size / sizeof(struct ocfs2_extent_rec);
+}
+
+static inline int ocfs2_refcount_recs_per_rb(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct ocfs2_refcount_block, rf_records.rl_recs);
+
+	return size / sizeof(struct ocfs2_refcount_rec);
+}
+
+static inline uint32_t
+ocfs2_get_ref_rec_low_cpos(const struct ocfs2_refcount_rec *rec)
+{
+	return rec->r_cpos & OCFS2_32BIT_POS_MASK;
+}
+
 #endif  /* __KERNEL__ */
 
 
