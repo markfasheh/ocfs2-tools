@@ -1027,16 +1027,26 @@ uint32_t dump_xattr_ibody(FILE *out, ocfs2_filesys *fs,
 
 void dump_refcount_block(FILE *out, struct ocfs2_refcount_block *rb)
 {
-	       fprintf(out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u\n",
-		       rb->rf_suballoc_bit, rb->rf_suballoc_slot);
+	char flags[PATH_MAX];
 
-	       fprintf(out, "\tBlknum: %"PRIu64"   Last Leaf block: %"PRIu64"\n",
-		       (uint64_t)rb->rf_blkno, (uint64_t)rb->rf_last_eb_blk);
+	fprintf(out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u\n",
+		rb->rf_suballoc_bit, rb->rf_suballoc_slot);
 
-	       fprintf(out, "\tReftree Count: %u   Ref clusters: %u\n",
-		       rb->rf_count, rb->rf_clusters);
+	fprintf(out, "\tFS Generation: %u (0x%x)\n", rb->rf_fs_generation,
+		rb->rf_fs_generation);
+	fprintf(out, "\tBlknum: %"PRIu64"   Parent: %"PRIu64"\n",
+		(uint64_t)rb->rf_blkno, (uint64_t)rb->rf_parent);
+	fprintf(out, "\tCpos: %"PRIu64"   Last Leaf block: %"PRIu64"\n",
+		(uint64_t)rb->rf_cpos, (uint64_t)rb->rf_last_eb_blk);
+	fprintf(out, "\tReftree Count: %u   Ref clusters: %u\n",
+		rb->rf_count, rb->rf_clusters);
 
-	       return;
+	flags[0] = '\0';
+	if (ocfs2_snprint_refcount_flags(flags, PATH_MAX, rb->rf_flags))
+		flags[0] = '\0';
+	fprintf(out, "\tFlags: 0x%x %s\n", rb->rf_flags, flags);
+
+	return;
 
 }
 
