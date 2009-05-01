@@ -74,7 +74,8 @@ CFILES = 		\
 	backup_super.c	\
 	feature_string.c\
 	image.c		\
-	xattr.c
+	xattr.c         \
+	refcount.c
 
 HFILES =		\
 	bitmap.h	\
