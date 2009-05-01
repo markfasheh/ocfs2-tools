@@ -681,6 +681,7 @@ errcode_t ocfs2_snprint_feature_flags(char *str, size_t size,
 				      ocfs2_fs_options *flags);
 errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags);
 errcode_t ocfs2_snprint_extent_flags(char *str, size_t size, uint8_t flags);
+errcode_t ocfs2_snprint_refcount_flags(char *str, size_t size, uint8_t flags);
 errcode_t ocfs2_parse_feature(const char *opts,
 			      ocfs2_fs_options *feature_flags,
 			      ocfs2_fs_options *reverse_flags);
