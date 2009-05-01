@@ -198,16 +198,55 @@ out:
 	return ret;
 }
 
+static void ocfs2_swap_refcount_list_primary(struct ocfs2_refcount_list *rl)
+{
+	rl->rl_count	= bswap_16(rl->rl_count);
+	rl->rl_used	= bswap_16(rl->rl_used);
+}
+
+static void ocfs2_swap_refcount_list_secondary(struct ocfs2_refcount_list *rl)
+{
+	int i;
+
+	for (i = 0; i < rl->rl_count; i++) {
+		struct ocfs2_refcount_rec *rec = &rl->rl_recs[i];
+		rec->r_cpos	= bswap_64(rec->r_cpos);
+		rec->r_clusters	= bswap_32(rec->r_clusters);
+		rec->r_refcount	= bswap_32(rec->r_refcount);
+	}
+}
+
+void ocfs2_swap_refcount_list_from_cpu(struct ocfs2_refcount_list *el)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_refcount_list_secondary(el);
+	ocfs2_swap_refcount_list_primary(el);
+}
+
+void ocfs2_swap_refcount_list_to_cpu(struct ocfs2_refcount_list *el)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_refcount_list_primary(el);
+	ocfs2_swap_refcount_list_secondary(el);
+}
+
 static void ocfs2_swap_refcount_block_header(struct ocfs2_refcount_block *rb)
 {
 
-	rb->rf_suballoc_slot = bswap_16(rb->rf_suballoc_slot);
-	rb->rf_suballoc_bit  = bswap_16(rb->rf_suballoc_bit);
-	rb->rf_fs_generation = bswap_32(rb->rf_fs_generation);
-	rb->rf_blkno         = bswap_64(rb->rf_blkno);
-	rb->rf_last_eb_blk = bswap_64(rb->rf_last_eb_blk);
-	rb->rf_count = bswap_32(rb->rf_count);
-	rb->rf_clusters = bswap_32(rb->rf_clusters);
+	rb->rf_suballoc_slot	= bswap_16(rb->rf_suballoc_slot);
+	rb->rf_suballoc_bit	= bswap_16(rb->rf_suballoc_bit);
+	rb->rf_fs_generation	= bswap_32(rb->rf_fs_generation);
+	rb->rf_blkno		= bswap_64(rb->rf_blkno);
+	rb->rf_parent		= bswap_64(rb->rf_parent);
+	rb->rf_last_eb_blk	= bswap_64(rb->rf_last_eb_blk);
+	rb->rf_count		= bswap_32(rb->rf_count);
+	rb->rf_flags		= bswap_32(rb->rf_flags);
+	rb->rf_clusters		= bswap_32(rb->rf_clusters);
+	rb->rf_cpos		= bswap_32(rb->rf_cpos);
 }
 
 static void ocfs2_swap_refcount_block_from_cpu(struct ocfs2_refcount_block *rb)
@@ -215,8 +254,11 @@ static void ocfs2_swap_refcount_block_from_cpu(struct ocfs2_refcount_block *rb)
 	if (cpu_is_little_endian)
 		return;
 
+	if (rb->rf_flags & OCFS2_REFCOUNT_TREE_FL)
+		ocfs2_swap_extent_list_from_cpu(&rb->rf_list);
+	else
+		ocfs2_swap_refcount_list_from_cpu(&rb->rf_records);
 	ocfs2_swap_refcount_block_header(rb);
-	ocfs2_swap_extent_list_from_cpu(&rb->rf_list);
 }
 
 static void ocfs2_swap_refcount_block_to_cpu(struct ocfs2_refcount_block *rb)
@@ -225,7 +267,10 @@ static void ocfs2_swap_refcount_block_to_cpu(struct ocfs2_refcount_block *rb)
 		return;
 
 	ocfs2_swap_refcount_block_header(rb);
-	ocfs2_swap_extent_list_to_cpu(&rb->rf_list);
+	if (rb->rf_flags & OCFS2_REFCOUNT_TREE_FL)
+		ocfs2_swap_extent_list_to_cpu(&rb->rf_list);
+	else
+		ocfs2_swap_refcount_list_to_cpu(&rb->rf_records);
 }
 
 errcode_t ocfs2_read_refcount_block_nocheck(ocfs2_filesys *fs,
