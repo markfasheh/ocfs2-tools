@@ -50,16 +50,11 @@ static void ocfs2_swap_extent_list_secondary(struct ocfs2_extent_list *el)
 		struct ocfs2_extent_rec *rec = &el->l_recs[i];
 
 		rec->e_cpos = bswap_32(rec->e_cpos);
-		if (el->l_tree_depth) {
+		if (el->l_tree_depth)
 			rec->e_int_clusters = bswap_32(rec->e_int_clusters);
-			rec->e_blkno = bswap_64(rec->e_blkno);
-		} else {
+		else
 			rec->e_leaf_clusters = bswap_16(rec->e_leaf_clusters);
-			if (rec->e_flags & OCFS2_EXT_REFCOUNT_RECORD)
-				rec->e_refcount = bswap_32(rec->e_refcount);
-			else
-				rec->e_blkno = bswap_64(rec->e_blkno);
-		}
+		rec->e_blkno = bswap_64(rec->e_blkno);
 	}
 }
 
