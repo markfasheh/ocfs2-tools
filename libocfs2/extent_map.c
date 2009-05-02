@@ -140,6 +140,7 @@ errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
 	struct ocfs2_extent_block *eb;
 	struct ocfs2_extent_list *el;
 	struct ocfs2_extent_rec *rec;
+	struct ocfs2_path *path = NULL;
 	char *eb_buf = NULL;
 	uint32_t coff;
 
@@ -147,7 +148,13 @@ errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
 	el = &di->id2.i_list;
 
 	if (el->l_tree_depth) {
-		ret = ocfs2_find_leaf(fs, di, v_cluster, &eb_buf);
+		path = ocfs2_new_inode_path(fs, di);
+		if (!path) {
+			ret = OCFS2_ET_NO_MEMORY;
+			goto out;
+		}
+
+		ret = ocfs2_find_leaf(fs, path, v_cluster, &eb_buf);
 		if (ret)
 			goto out;
 
@@ -202,6 +209,8 @@ errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
 		*extent_flags = flags;
 
 out:
+	if (path)
+		ocfs2_free_path(path);
 	if (eb_buf)
 		ocfs2_free(&eb_buf);
 	return ret;

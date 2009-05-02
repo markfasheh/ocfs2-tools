@@ -278,7 +278,13 @@ errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
 			     uint32_t *p_cluster,
 			     uint32_t *num_clusters,
 			     uint16_t *extent_flags);
-int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+struct ocfs2_path;
+struct ocfs2_path *ocfs2_new_inode_path(ocfs2_filesys *fs,
+					struct ocfs2_dinode *di);
+struct ocfs2_path *ocfs2_new_xattr_tree_path(ocfs2_filesys *fs,
+					     struct ocfs2_xattr_block *xb);
+void ocfs2_free_path(struct ocfs2_path *path);
+int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_path *path,
 		    uint32_t cpos, char **leaf_buf);
 int ocfs2_search_extent_list(struct ocfs2_extent_list *el, uint32_t v_cluster);
 void ocfs2_swap_journal_superblock(journal_superblock_t *jsb);
@@ -1110,8 +1116,6 @@ errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
 uint32_t ocfs2_xattr_uuid_hash(unsigned char *uuid);
 uint32_t ocfs2_xattr_name_hash(uint32_t uuid_hash, const char *name,
 			       int name_len);
-int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
-			  uint32_t cpos, char **leaf_buf);
 uint16_t ocfs2_xattr_buckets_per_cluster(ocfs2_filesys *fs);
 uint16_t ocfs2_blocks_per_xattr_bucket(ocfs2_filesys *fs);
 void ocfs2_swap_xattrs_to_cpu(struct ocfs2_xattr_header *xh);

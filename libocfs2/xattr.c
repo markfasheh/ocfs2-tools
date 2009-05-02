@@ -281,6 +281,7 @@ errcode_t ocfs2_xattr_get_rec(ocfs2_filesys *fs,
 	char *eb_buf = NULL;
 	struct ocfs2_extent_block *eb;
 	struct ocfs2_extent_rec *rec = NULL;
+	struct ocfs2_path *path = NULL;
 	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
 	uint64_t e_blkno = 0;
 
@@ -288,7 +289,13 @@ errcode_t ocfs2_xattr_get_rec(ocfs2_filesys *fs,
 		return OCFS2_ET_INVALID_ARGUMENT;
 
 	if (el->l_tree_depth) {
-		ret = ocfs2_xattr_find_leaf(fs, xb, name_hash, &eb_buf);
+		path = ocfs2_new_xattr_tree_path(fs, xb);
+		if (!path) {
+			ret = OCFS2_ET_NO_MEMORY;
+			goto out;
+		}
+
+		ret = ocfs2_find_leaf(fs, path, name_hash, &eb_buf);
 		if (ret)
 			goto out;
 
@@ -320,6 +327,8 @@ errcode_t ocfs2_xattr_get_rec(ocfs2_filesys *fs,
 	if (e_cpos)
 		*e_cpos = rec->e_cpos;
 out:
+	if (path)
+		ocfs2_free_path(path);
 	if (eb_buf)
 		ocfs2_free(&eb_buf);
 	return ret;

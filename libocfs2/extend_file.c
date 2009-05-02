@@ -103,7 +103,7 @@ static void ocfs2_reinit_path(struct ocfs2_path *path, int keep_root)
 	path->p_tree_depth = depth;
 }
 
-static void ocfs2_free_path(struct ocfs2_path *path)
+void ocfs2_free_path(struct ocfs2_path *path)
 {
 	/* We don't free the root because often in libocfs2 the root is a
 	 * shared buffer such as the inode.  Caller must be responsible for
@@ -230,8 +230,8 @@ static struct ocfs2_path *ocfs2_new_path_from_path(struct ocfs2_path *path)
 /*
  * Allocate and initialize a new path based on a disk inode tree.
  */
-static struct ocfs2_path *ocfs2_new_inode_path(ocfs2_filesys *fs,
-					       struct ocfs2_dinode *di)
+struct ocfs2_path *ocfs2_new_inode_path(ocfs2_filesys *fs,
+					struct ocfs2_dinode *di)
 {
 	struct ocfs2_extent_list *el = &di->id2.i_list;
 
@@ -239,8 +239,8 @@ static struct ocfs2_path *ocfs2_new_inode_path(ocfs2_filesys *fs,
 }
 
 /* Allocate and initialize a new path based on an xattr block. */
-static struct ocfs2_path *ocfs2_new_xattr_tree_path(ocfs2_filesys *fs,
-						    struct ocfs2_xattr_block *xb)
+struct ocfs2_path *ocfs2_new_xattr_tree_path(ocfs2_filesys *fs,
+					     struct ocfs2_xattr_block *xb)
 {
 	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
 
@@ -1011,21 +1011,13 @@ static int ocfs2_find_path(ocfs2_filesys *fs, struct ocfs2_path *path,
  *
  * This function doesn't handle non btree extent lists.
  */
-int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_path *path,
 		    uint32_t cpos, char **leaf_buf)
 {
 	int ret;
 	char *buf = NULL;
-	struct ocfs2_path *path = NULL;
-	struct ocfs2_extent_list *el = &di->id2.i_list;
 
-	assert(el->l_tree_depth > 0);
-
-	path = ocfs2_new_inode_path(fs, di);
-	if (!path) {
-		ret = OCFS2_ET_NO_MEMORY;
-		goto out;
-	}
+	assert(path_root_el(path)->l_tree_depth > 0);
 
 	ret = ocfs2_find_path(fs, path, cpos);
 	if (ret)
@@ -1037,39 +1029,8 @@ int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 
 	memcpy(buf, path_leaf_buf(path), fs->fs_blocksize);
 	*leaf_buf = buf;
+
 out:
-	ocfs2_free_path(path);
-	return ret;
-}
-
-int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
-			  uint32_t cpos, char **leaf_buf)
-{
-	int ret;
-	char *buf = NULL;
-	struct ocfs2_path *path = NULL;
-	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
-
-	assert(el->l_tree_depth > 0);
-
-	path = ocfs2_new_xattr_tree_path(fs, xb);
-	if (!path) {
-		ret = OCFS2_ET_NO_MEMORY;
-		goto out;
-	}
-
-	ret = ocfs2_find_path(fs, path, cpos);
-	if (ret)
-		goto out;
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		goto out;
-
-	memcpy(buf, path_leaf_buf(path), fs->fs_blocksize);
-	*leaf_buf = buf;
-out:
-	ocfs2_free_path(path);
 	return ret;
 }
 
