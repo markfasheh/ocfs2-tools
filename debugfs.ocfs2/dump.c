@@ -1045,8 +1045,27 @@ void dump_refcount_block(FILE *out, struct ocfs2_refcount_block *rb)
 	if (ocfs2_snprint_refcount_flags(flags, PATH_MAX, rb->rf_flags))
 		flags[0] = '\0';
 	fprintf(out, "\tFlags: 0x%x %s\n", rb->rf_flags, flags);
+	dump_block_check(out, &rb->rf_check);
 
 	return;
 
 }
+
+void dump_refcount_records(FILE *out, struct ocfs2_refcount_block *rb)
+{
+	int i;
+	struct ocfs2_refcount_list *rl = &rb->rf_records;
+
+	fprintf(out, "\tRefcount records: %u   Used: %u\n", rl->rl_count, rl->rl_used);
+	fprintf(out, "\t### %-20s   %-12s   %-12s\n", "Physical cpos",
+			"Clusters", "Reference count");
+
+	for (i = 0; i < rl->rl_used; i++) {
+		fprintf(out,
+			"\t%-3d %-20"PRIu64"   %-12"PRIu32"   %"PRIu32"\n",
+			i, rl->rl_recs[i].r_cpos, rl->rl_recs[i].r_clusters,
+			rl->rl_recs[i].r_refcount);
+	}
+}
+
 
