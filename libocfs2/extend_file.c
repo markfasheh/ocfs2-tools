@@ -201,24 +201,30 @@ static inline void ocfs2_path_insert_eb(struct ocfs2_path *path, int index,
 	path->p_node[index].el = &eb->h_list;
 }
 
-static struct ocfs2_path *ocfs2_new_path(ocfs2_filesys* fs, char *buf,
+static struct ocfs2_path *ocfs2_new_path(char *buf, uint64_t blkno,
 					 struct ocfs2_extent_list *root_el)
 {
 	errcode_t ret = 0;
 	struct ocfs2_path *path = NULL;
-	struct ocfs2_dinode *di = (struct ocfs2_dinode *)buf;
 
 	assert(root_el->l_tree_depth < OCFS2_MAX_PATH_DEPTH);
 
 	ret = ocfs2_malloc0(sizeof(*path), &path);
 	if (path) {
 		path->p_tree_depth = root_el->l_tree_depth;
-		path->p_node[0].blkno = di->i_blkno;
+		path->p_node[0].blkno = blkno;
 		path->p_node[0].buf = buf;
 		path->p_node[0].el = root_el;
 	}
 
 	return path;
+}
+
+static struct ocfs2_path *ocfs2_new_path_from_path(struct ocfs2_path *path)
+{
+	return ocfs2_new_path(path_root_buf(path),
+			      path_root_blkno(path),
+			      path_root_el(path));
 }
 
 /*
@@ -229,7 +235,7 @@ static struct ocfs2_path *ocfs2_new_inode_path(ocfs2_filesys *fs,
 {
 	struct ocfs2_extent_list *el = &di->id2.i_list;
 
-	return ocfs2_new_path(fs, (char *)di, el);
+	return ocfs2_new_path((char *)di, di->i_blkno, el);
 }
 
 /* Write all the extent block information to the disk.
@@ -1438,8 +1444,7 @@ static int ocfs2_rotate_tree_right(ocfs2_filesys *fs,
 
 	*ret_left_path = NULL;
 
-	left_path = ocfs2_new_path(fs, path_root_buf(right_path),
-				   path_root_el(right_path));
+	left_path = ocfs2_new_path_from_path(right_path);
 	if (!left_path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
@@ -1875,8 +1880,7 @@ static int __ocfs2_rotate_tree_left(ocfs2_filesys *fs,
 	if (ret)
 		goto out;
 
-	left_path = ocfs2_new_path(fs, path_root_buf(path),
-				   path_root_el(path));
+	left_path = ocfs2_new_path_from_path(path);
 	if (!left_path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
@@ -1884,8 +1888,7 @@ static int __ocfs2_rotate_tree_left(ocfs2_filesys *fs,
 
 	ocfs2_cp_path(fs, left_path, path);
 
-	right_path = ocfs2_new_path(fs, path_root_buf(path),
-				    path_root_el(path));
+	right_path = ocfs2_new_path_from_path(path);
 	if (!right_path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
@@ -1975,8 +1978,7 @@ static int ocfs2_remove_rightmost_path(ocfs2_filesys *fs,
 		 * We have a path to the left of this one - it needs
 		 * an update too.
 		 */
-		left_path = ocfs2_new_path(fs, path_root_buf(path),
-					   path_root_el(path));
+		left_path = ocfs2_new_path_from_path(path);
 		if (!left_path) {
 			ret = OCFS2_ET_NO_MEMORY;
 			goto out;
@@ -2838,9 +2840,7 @@ static int ocfs2_append_rec_to_path(ocfs2_filesys *fs,
 		 * leftmost leaf.
 		 */
 		if (left_cpos) {
-			left_path = ocfs2_new_path(fs,
-						   path_root_buf(right_path),
-						   path_root_el(right_path));
+			left_path = ocfs2_new_path_from_path(right_path);
 			if (!left_path) {
 				ret = OCFS2_ET_NO_MEMORY;
 				goto out;
