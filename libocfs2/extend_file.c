@@ -247,6 +247,15 @@ struct ocfs2_path *ocfs2_new_xattr_tree_path(ocfs2_filesys *fs,
 	return ocfs2_new_path((char *)xb, xb->xb_blkno, el);
 }
 
+/* Allocate and initialize a new path based on a refcount block. */
+struct ocfs2_path *ocfs2_new_refcount_tree_path(ocfs2_filesys *fs,
+						struct ocfs2_refcount_block *rb)
+{
+	struct ocfs2_extent_list *el = &rb->rf_list;
+
+	return ocfs2_new_path((char *)rb, rb->rf_blkno, el);
+}
+
 /* Write all the extent block information to the disk.
  * We write all paths furthur down than subtree_index.
  * The caller will handle writing the sub_index.
