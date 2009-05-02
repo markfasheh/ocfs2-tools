@@ -238,6 +238,15 @@ static struct ocfs2_path *ocfs2_new_inode_path(ocfs2_filesys *fs,
 	return ocfs2_new_path((char *)di, di->i_blkno, el);
 }
 
+/* Allocate and initialize a new path based on an xattr block. */
+static struct ocfs2_path *ocfs2_new_xattr_tree_path(ocfs2_filesys *fs,
+						    struct ocfs2_xattr_block *xb)
+{
+	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
+
+	return ocfs2_new_path((char *)xb, xb->xb_blkno, el);
+}
+
 /* Write all the extent block information to the disk.
  * We write all paths furthur down than subtree_index.
  * The caller will handle writing the sub_index.
@@ -1043,17 +1052,10 @@ int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
 
 	assert(el->l_tree_depth > 0);
 
-
-	ret = ocfs2_malloc0(sizeof(*path), &path);
-
+	path = ocfs2_new_xattr_tree_path(fs, xb);
 	if (!path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
-	} else {
-		path->p_tree_depth = el->l_tree_depth;
-		path->p_node[0].blkno = xb->xb_blkno;
-		path->p_node[0].buf = (char *)xb;
-		path->p_node[0].el = el;
 	}
 
 	ret = ocfs2_find_path(fs, path, cpos);
@@ -1070,6 +1072,7 @@ out:
 	ocfs2_free_path(path);
 	return ret;
 }
+
 
 /*
  * Adjust the adjacent records (left_rec, right_rec) involved in a rotation.
