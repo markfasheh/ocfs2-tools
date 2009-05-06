@@ -2270,7 +2270,8 @@ static void mkfs_swap_dir(State *s, DirData *dir,
 
 	fill_fake_fs(s, &fake_fs, super_buf);
 	if (!s->inline_data || !dir->record->dir_data)
-		end = ocfs2_dir_trailer_blk_off(&fake_fs);
+		if (ocfs2_supports_dir_trailer(&fake_fs))
+			end = ocfs2_dir_trailer_blk_off(&fake_fs);
 
 	while (offset < dir->record->file_size) {
 		trailer = ocfs2_dir_trailer_from_block(&fake_fs, p);
@@ -2280,7 +2281,7 @@ static void mkfs_swap_dir(State *s, DirData *dir,
 		/* Remember, this does nothing if the feature isn't set */
 		ocfs2_compute_meta_ecc(&fake_fs, p, &trailer->db_check);
 		offset += s->blocksize;
-		p += offset;
+		p += s->blocksize;
 	}
 }
 
