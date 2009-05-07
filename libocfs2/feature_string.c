@@ -138,55 +138,55 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
  */
 static struct feature_name ocfs2_feature_names[] = {
 	{
-		.fn_name = "Heartbeat",
+		.fn_name = "heartbeat-device",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV, 0},
 	},
 	{
-		.fn_name = "AbortedResize",
+		.fn_name = "aborted-resize",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG, 0},
 	},
 	{
-		.fn_name = "Local",
+		.fn_name = "local",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT, 0},
 	},
 	{
-		.fn_name = "Sparse",
+		.fn_name = "sparse",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC, 0},
 	},
 	{
-		.fn_name = "ExtendedSlotMap",
+		.fn_name = "extended-slotmap",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP, 0},
 	},
 	{
-		.fn_name = "AbortedTunefs",
+		.fn_name = "aborted-tunefs",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG, 0},
 	},
 	{
-		.fn_name = "UserspaceStack",
+		.fn_name = "userspace-stack",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK, 0},
 	},
 	{
-		.fn_name = "BackupSuper",
+		.fn_name = "backup-super",
 		.fn_flag = {OCFS2_FEATURE_COMPAT_BACKUP_SB, 0, 0},
 	},
 	{
-		.fn_name = "UnwrittenExtents",
+		.fn_name = "unwritten",
 		.fn_flag = {0, 0, OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},
 	},
 	{
-		.fn_name = "InlineData",
+		.fn_name = "inline-data",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_INLINE_DATA, 0},
 	},
 	{
-		.fn_name = "JBD2SuperBlock",
+		.fn_name = "strict-journal-super",
 		.fn_flag = {OCFS2_FEATURE_COMPAT_JBD2_SB, 0, 0},
 	},
 	{
-		.fn_name = "MetaECC",
+		.fn_name = "metaecc",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_META_ECC, 0},
 	},
 	{
-		.fn_name = "Xattr",
+		.fn_name = "xattr",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_XATTR, 0},
 	},
 	{
@@ -202,11 +202,11 @@ static struct feature_name ocfs2_feature_names[] = {
  */
 static struct tunefs_flag_name ocfs2_tunefs_flag_names[] = {
 	{
-		.tfn_name = "RemoveSlot",
+		.tfn_name = "remove-slot",
 		.tfn_flag = OCFS2_TUNEFS_INPROG_REMOVE_SLOT,
 	},
 	{
-		.tfn_name = "DirTrailer",
+		.tfn_name = "dir-trailer",
 		.tfn_flag = OCFS2_TUNEFS_INPROG_DIR_TRAILER,
 	},
 	{
@@ -304,7 +304,7 @@ errcode_t ocfs2_snprint_feature_flags(char *str, size_t size,
 		if ((found.opt_compat != flags->opt_compat) ||
 		    (found.opt_ro_compat != flags->opt_ro_compat) ||
 		    (found.opt_incompat != flags->opt_incompat)) {
-			printed = snprintf(ptr, remain, "%sUnknown",
+			printed = snprintf(ptr, remain, "%sunknown",
 					   ptr == str ? "" : sep);
 			if (printed < 0)
 				err = OCFS2_ET_INTERNAL_FAILURE;
@@ -346,7 +346,7 @@ errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags)
 
 	if (!err) {
 		if (found != flags) {
-			printed = snprintf(ptr, remain, "%sUnknown",
+			printed = snprintf(ptr, remain, "%sunknown",
 					   ptr == str ? "" : sep);
 			if (printed < 0)
 				err = OCFS2_ET_INTERNAL_FAILURE;
