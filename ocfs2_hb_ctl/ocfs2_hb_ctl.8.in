@@ -1,43 +1,57 @@
-.TH "ocfs2_hb_ctl" "8" "March 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "ocfs2_hb_ctl" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 ocfs2_hb_ctl \- Starts and stops the \fIOCFS2\fR heartbeat on a given device.
 .SH "SYNOPSIS"
-.B ocfs2_hb_ctl 
-\fB-S\fR \fB-d\fR \fI<device>\fR
+
+.B ocfs2_hb_ctl
+\fB-S\fR \fB-d\fR \fIdevice\fR \fIservice\fR
 .br
-.B ocfs2_hb_ctl 
-\fB-K\fR \fB-d\fR \fI<device>\fR
+.B ocfs2_hb_ctl
+\fB-S\fR \fB-u\fR \fIuuid\fR \fIservice\fR
 .br
-.B ocfs2_hb_ctl 
-\fB-K\fR \fB-u\fR \fI<uuid>\fR
+.B ocfs2_hb_ctl
+\fB-K\fR \fB-d\fR \fIdevice\fR \fIservice\fR
 .br
-.B ocfs2_hb_ctl 
-\fB-I\fR \fB-d\fR \fI<device>\fR
+.B ocfs2_hb_ctl
+\fB-K\fR \fB-u\fR \fIuuid\fR \fIservice\fR
 .br
-.B ocfs2_hb_ctl 
-\fB-I\fR \fB-u\fR \fI<uuid>\fR
+.B ocfs2_hb_ctl
+\fB-I\fR \fB-d\fR \fIdevice\fR
 .br
-.B ocfs2_hb_ctl 
-\fB-h\fR
+.B ocfs2_hb_ctl
+\fB-I\fR \fB-u\fR \fIuuid\fR
 .br
+.B ocfs2_hb_ctl
+\fB-P\fR \fB-d\fR \fIdevice\fR [\fB-n\fR \fIio_priority\fR]
+.br
+.B ocfs2_hb_ctl
+\fB-P\fR \fB-u\fR \fIuuid\fR [\fB-n\fR \fIio_priority\fR]
+.br
+.B ocfs2_hb_ctl
+\fB-h\fI
+.br
+
 .SH "DESCRIPTION"
 .PP 
-\fBocfs2_hb_ctl\fR starts and stops the heartbeat on an \fIOCFS2\fR device.
-\fIUsers are strongly urged not to use this tool directly\fR.
-It is invoked by \fImount.ocfs2\fR.
+\fBocfs2_hb_ctl\fR starts and stops the heartbeat on a \fIOCFS2\fR device.
+\fBUsers are strongly urged not to use this tool directly\fR. It is automatically
+invoked by \fImount.ocfs2\fR and other tools that require heartbeat notifications.
+
+The tools accepts devices to be specified by its name or its uuid. Service denotes
+the application that is requesting the heartbeat notification.
 
 .SH "OPTIONS"
 .TP
 \fB\-S\fR
-Starts the heartbeat of a \fIdevice\fR. The device name must be specified.
+Starts the heartbeat.
 
 .TP
 \fB\-K\fR
-Stops the heartbeat of a \fIdevice\fR. One can specify either the device name or the device uuid.
+Stops the heartbeat.
 
 .TP
 \fB\-I\fR
-Prints out the heartbeat reference counts for the region. Once can specify either the device name or the device uuid.
+Prints the heartbeat reference counts for that heartbeat region.
 
 .TP
 \fB\-d\fR
@@ -46,6 +60,12 @@ Specify region by device name.
 .TP
 \fB\-u\fR
 Specify region by device uuid.
+
+.TP
+\fB\-n\fR
+Adjust IO priority for the heartbeat thread. This option calls the \fBionice\fR
+tool to set its IO scheduling class to realtime with scheduling class data as provided.
+This option is usable only with the \fBO2CB\fR cluster stack.
 
 .TP
 \fB\-h\fR
@@ -63,4 +83,4 @@ Displays help and exit.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2008 Oracle. All rights reserved.
+Copyright \(co 2004, 2009 Oracle. All rights reserved.
