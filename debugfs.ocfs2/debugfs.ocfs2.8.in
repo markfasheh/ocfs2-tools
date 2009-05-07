@@ -1,4 +1,4 @@
-.TH "debugfs.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
@@ -8,7 +8,7 @@ debugfs.ocfs2 \- OCFS2 file system debugger.
 .TP
 \fBdebugfs.ocfs2\fR \fB\-d, \-\-decode\fR \fIlockname\fR
 .TP
-\fBdebugfs.ocfs2\fR \fB\-e, \-\-encode\fB \fIlock_type inode_num generation\fR
+\fBdebugfs.ocfs2\fR \fB\-e, \-\-encode\fB \fIlock_type block_num [generation | parent]\fR
 
 .SH "DESCRIPTION"
 .PP 
@@ -19,11 +19,11 @@ in displaying on-disk \fBOCFS2\fR filesystem structures on the specified \fIdevi
 
 .TP
 \fB\-d, \-\-decode\fR \fIlockname\fR
-Display the lock type, inode number and the inode generation number encoded in the \fIlockname\fR.
+Display the information encoded in the \fIlockname\fR.
 
 .TP
-\fB\-e, \-\-encode\fR \fIlock_type inode_num generation\fR
-Display the lockname obtained by encoding the lock type, inode number and the inode generation number.
+\fB\-e, \-\-encode\fR \fIlock_type block_num [generation | parent]\fR
+Display the lockname obtained by encoding the arguments provided.
 
 .TP
 \fB\-f, \-\-file\fR \fIcmdfile\fR
@@ -115,12 +115,29 @@ Change the root directory to be the directory \fIfilespec\fR.
 Close the currently opened filesystem.
 
 .TP
+\fIcontrold dump\fR
+Display information obtained from ocfs2_controld.
+
+.TP
 \fIcurdev\fR
 Show the currently open device.
 
 .TP
 \fIdecode <lockname>\fR
 Display the inode number encoded in the \fIlockname\fR.
+
+.TP
+\fIdirblocks <filespec>\fR
+Display the directory blocks associated with the given \fIfilespec\fR.
+
+.TP
+\fIdlm_locks [\-f <file>] [\-l] [<lockname(s)>]...\fR
+Display the status of all lock resources in the \fIo2dlm\fR domain that the file
+system is a member of. This command expects the debugfs filesystem to be mounted
+as \fImount -t debugfs debugfs /sys/kernel/debug\fR. Use \fIlockname(s)\fR to
+limit the output to the given lock resources, \fI-l\fR to include contents of
+the lock value block and \fI-f <file>\fR to specify a saved copy of
+/sys/kernel/debug/o2dlm/<DOMAIN>/locking_state.
 
 .TP
 \fIdump [\-p] filespec outfile\fR
@@ -143,11 +160,13 @@ Display the pathname for the inode specified by \fIlockname\fR or \fIinode#\fR. 
 command does not display all the hard-linked paths for the inode.
 
 .TP
-\fIfs_locks\fR
-Display the locks and their status as maintained by the filesystem. This command
-expects the debugfs filesystem mounted, \fImount -t debugfs debugfs /path\fR,
-at the appropriate path. If \fI/sys/kernel/debug\fR exists on your distribution,
-mount it at that path. Else, mount it at \fI/debug\fR.
+\fIfs_locks [-f <file>] [-l] [-B] [<lockname(s)>]...\fR
+Display the status of all locks known by the file system. This command expects
+the debugfs filesystem to be mounted as \fImount -t debugfs debugfs /sys/kernel/debug\fR.
+Use \fIlockname(s)\fR to limit the output to the given lock resources,
+\fI-B\fR to limit the output to only the busy locks, \fI-l\fR to include
+contents of the lock value block and \fI-f <file>\fR to specify a
+saved copy of /sys/kernel/debug/ocfs2/<UUID>/locking_state.
 
 .TP
 \fIgroup block#\fR
@@ -216,6 +235,10 @@ Display the contents of the inode structure for the \fIfilespec\fR.
 Display the contents of the superblock. Use \fI\-s\fR to display a
 specific backup superblock. Use \fI\-h\fR to hide the inode.
 
+.TP
+\fIxattr [-v] <filespec>\fR
+Display extended attributes associated with the given \fIfilespec\fR.
+
 .SH "ACKNOWLEDGEMENT"
 This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 
@@ -232,4 +255,4 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2008 Oracle. All rights reserved.
+Copyright \(co 2004, 2009 Oracle. All rights reserved.
