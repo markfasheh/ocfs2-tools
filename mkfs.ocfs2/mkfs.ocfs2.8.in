@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -7,9 +7,9 @@ mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .PP
 \fBmkfs.ocfs2\fR is used to create an \fIOCFS2\fR file system on a \fIdevice\fR,
 usually a partition on a shared disk. In order to prevent data loss,
-\fBmkfs.ocfs2\fR will not format an existing \fIOCFS2\fR volume if that
-volume is mounted on any node in the cluster. This tool requires the \fIO2CB\fR
-cluster service to be up.
+\fBmkfs.ocfs2\fR will not format an existing \fIOCFS2\fR volume if it
+detects that it is mounted on another node in the cluster. This tool
+requires the cluster service to be online.
 
 .SH "OPTIONS"
 .TP
@@ -33,7 +33,7 @@ For others, use 4K.
 \fB\-F, \-\-force\fR
 For existing \fIOCFS2\fR volumes, \fImkfs.ocfs2\fR ensures the volume
 is not mounted on any node in the cluster before formatting. For that to
-work, \fImkfs.ocfs2\fR expects the \fIO2CB\fR cluster service to be running.
+work, \fImkfs.ocfs2\fR expects the cluster service to be online.
 Specify this option to disable this check.
 
 .TP
@@ -45,7 +45,7 @@ options are comma separated, and may take an argument using the equals
 .TP
 \fBsize\fR=\fIjournal\-size\fR
 Create a journal of size \fIjournal\-size\fR. Minimum size is 4M.
-If omitted, a value is heuristically determined by the file system size.
+If omitted, a value is heuristically determined based upon the file system size.
 .RE
 .RS 1.2i
 .TP
@@ -62,8 +62,8 @@ all versions of \fIOCFS2\fR.  Prepending \fBno\fR is equivalent to the
 Use a 64bit journal.  The journal will be able to access up to 2^64-1
 blocks.  This allows large filesystems that can extend to the
 theoretical limits of \fIOCFS2\fR.  It requires a new-enough filesystem
-driver based on JBD2.  Prepending \fBno\fR is equivalent to the
-\fBblock32\fR journal option.
+driver that uses the new journalled block device, \fBJBD2\fR. Prepending
+\fBno\fR is equivalent to the \fBblock32\fR journal option.
 .RE
 
 .TP
@@ -81,11 +81,12 @@ bundled with Linux kernels 2.6.20 or later. Defaults to \fIcluster\fR.
 \fB\-N, \-\-node\-slots\fR \fInumber\-of\-node\-slots\fR
 Valid number ranges from 1 to 255. This number specifies the maximum
 number of nodes that can concurrently mount the partition. If omitted,
-the number defaults to 4. This number can be later increased using \fItunefs.ocfs2\fR.
+the number defaults to 8. The number of slots can be later tuned up or
+down using \fItunefs.ocfs2\fR.
 
 .TP
 \fB\-T\fR \fIfilesystem\-type\fR
-Specify how the filesystem is going to be used, so that mkfs.ocfs2 can
+Specify how the filesystem is going to be used, so that \fImkfs.ocfs2\fR can
 chose optimal filesystem parameters for that use. The supported
 filesystem types are:
 .RS 1.2i
@@ -104,42 +105,46 @@ at least 128K.
 
 .TP
 \fB\-\-fs\-features=\fR\fR\fI[no]sparse...\fR
-Turn specific file system features on or off. A comma separated list of feature flags can be provided, and mkfs.ocfs2 will try to create the file system with those features set according to the list. To turn a feature on, include it in the list. To turn a feature off, prepend \fBno\fR to the name. Choices here will override individual features set via the \fB\-\-fs\-feature\-level\fR option.
-The following flags are supported:
+Turn specific file system features on or off. A comma separated list of feature flags can be provided, and \fImkfs.ocfs2\fR will try to create the file system with those features set according to the list. To turn a feature on, include it in the list. To turn a feature off, prepend \fBno\fR to the name. Choices here will override individual features set via the \fB\-\-fs\-feature\-level\fR option. \fBRefer to the section titled feature compatibility before selecting specific features.\fR The following flags are supported:
 .RS 1.2i
 .TP
 \fBbackup-super\fR
-\fBmkfs.ocfs2\fR, by default, makes up to 6 backup copies of the super block at offsets 1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.  This can be useful in disaster recovery. This feature is fully compatible with all versions of the file system and generally should not be disabled.
+\fImkfs.ocfs2\fR, by default, makes up to 6 backup copies of the super block at offsets 1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.  This can be useful in disaster recovery. This feature is fully compatible with all versions of the file system and generally should not be disabled.
 .RE
 .RS 1.2i
 .TP
 \fBlocal\fR
-Create the file system as a local mount, so that it can be mounted without a cluster stack. Available with the file system bundled with Linux kernels 2.6.20 and later.
+Create the file system as a local mount, so that it can be mounted without a cluster stack.
 .RE
 .RS 1.2i
 .TP
 \fBsparse\fR
-Enable support for sparse files. With this, \fIOCFS2\fR can avoid allocating (and zeroing) data to fill holes. Turn this feature on if you can, otherwise extends and some writes might be less performant. Available with the file system bundled with Linux kernels 2.6.22 and later.
+Enable support for sparse files. With this, \fIOCFS2\fR can avoid allocating (and zeroing) data to fill holes. Turn this feature on if you can, otherwise extends and some writes might be less performant.
 .RE
 .RS 1.2i
 .TP
 \fBunwritten\fR
-Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. \fIOCFS2\fR will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on. Available with the file system bundled with Linux kernels 2.6.23 and later.
+Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. \fIOCFS2\fR will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on.
 .RE
 .RS 1.2i
 .TP
 \fBinline-data\fR
-Enable inline-data support. If this feature is turned on, /fIOCFS2/fR will store small files and directories inside the inode block. Data is transparently moved out to an extent when it no longer fits inside the inode block. In some cases, this can also make a positive impact on cold-cache directory and file operations. Available with the file system bundled with Linux kernels 2.6.24 and later.
+Enable inline-data support. If this feature is turned on, \fIOCFS2\fR will store small files and directories inside the inode block. Data is transparently moved out to an extent when it no longer fits inside the inode block. In some cases, this can also make a positive impact on cold-cache directory and file operations.
 .RE
 .RS 1.2i
 .TP
 \fBextended-slotmap\fR
-The slot-map is a hidden file on an \fIOCFS2\fR fs which is used to map mounted nodes to system file resources. The extended slot map allows a larger range of possible node numbers, which is useful for userspace cluster stacks. This feature is automatically turned on when needed, thus users have no need to turn this on manually. Available in the file system bundled with Linux kernels 2.6.27 and later.
+The slot-map is a hidden file on an \fIOCFS2\fR fs which is used to map mounted nodes to system file resources. The extended slot map allows a larger range of possible node numbers, which is useful for userspace cluster stacks. This feature is automatically turned on when needed, thus users have no need to turn this on manually.
 .RE
 .RS 1.2i
 .TP
 \fBxattr\fR
-Enable support for extended attribute. ACLs and security linux based on this feature.
+Enable extended attributes support. With this enabled, users can attach name:value pairs to objects
+within the file system. In \fIOCFS2\fR, the names can be upto 255 bytes in length, terminated by the first
+NUL byte. While it is not required, printable names (ASCII) are recommended. The values can be upto 64KB of
+arbitrary binary data. Attributes can be attached to all types of inodes: regular files, directories,
+symbolic links, device nodes, etc. This feature is required for users wanting to use extended security
+facilities like POSIX ACLs or SELinux.
 .RE
 
 .TP
@@ -184,6 +189,41 @@ and creates a file system that uses all of the available space on the
 device.  This optional argument specifies that the file system should only
 consume the given number of file system blocks (see \fB-b\fR) on the device.
 
+.SH "FEATURE COMPATIBILITY"
+This section lists the file system features that have been added to the \fIOCFS2\fR
+file system and the version that each appeared in. The table below lists the versions
+of the mainline Linux kernel and that of the file system for the Enterprise Linux
+Distributions. Users should use this information to enable only those features that
+are available in the file system that they are using. 
+
+.TS
+CENTER ALLBOX;
+LI LI LI
+LB C C.
+Feature	Mainline Kernel Version	Enterprise OCFS2 Version
+block64	Linux 2.6.29	Not available as yet
+local	Linux 2.6.20	OCFS2 1.2 and 1.4
+sparse	Linux 2.6.22	OCFS2 1.4
+unwritten	Linux 2.6.23	OCFS2 1.4
+inline-data	Linux 2.6.24	OCFS2 1.4
+extended-slotmap	Linux 2.6.27	Not available as yet
+xattr	Linux 2.6.29	Not available as yet
+.TE
+
+.TS
+;
+L.
+Users can query the features enabled in the file system as follows:
+.TE
+
+.TS
+;
+L.
+[root@node1 ~]# tunefs.ocfs2 -Q "Label: %V\\nFeatures: %H %O\\n" /dev/sdg1
+Label: apache_files_10
+Features: sparse inline-data unwritten
+.TE
+
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
 .BR fsck.ocfs2(8)
@@ -196,4 +236,4 @@ consume the given number of file system blocks (see \fB-b\fR) on the device.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2008 Oracle. All rights reserved.
+Copyright \(co 2004, 2009 Oracle. All rights reserved.
