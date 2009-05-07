@@ -1,18 +1,24 @@
-.TH "tunefs.ocfs2" "8" "July 2008" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
-\fBtunefs.ocfs2\fR [\fB\-J\fR \fIjournal-options\fR] [\fB\-L\fR \fIvolume-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber-of-node-slots\fR] [\fB\-Q\fR \fIquery-format\fR] [\fB\-qSUvV\fR] [\fB\-\-backup-super\fR] \fIdevice\fR  [\fIblocks-count\fR]
+\fBtunefs.ocfs2\fR [\fB\-\-cloned\-volume\fR[=\fInew-label\fR] [\fB\-\-fs\-features=\fR\fIlist\-of\-features\fR] [\fB\-J\fR \fIjournal-options\fR] [\fB\-L\fR \fIvolume-label\fR] [\fB\-N\fR \fInumber-of-node-slots\fR] [\fB\-Q\fR \fIquery-format\fR] [\fB\-ipqnSUvVy\fR] [\fB\-\-backup-super\fR] [\fB\-\-list\-sparse\fR] \fIdevice\fR  [\fIblocks-count\fR]
+
 .SH "DESCRIPTION"
 .PP
 \fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
-In order to prevent data loss, \fBtunefs.ocfs2\fR will not perform any
-action on the specified device if it is mounted on any node in the cluster.
-This tool requires the \fIO2CB\fR cluster to be online.
+The tool expects the cluster to be online as it needs to take the appropriate
+cluster locks to write safely to disk.
 
 .SH "OPTIONS"
 .TP
-\fB\-\-fs\-features=\fR\fR\fI[no]sparse...\fR
+\fB\-\-cloned\-volume\fR[=\fInew-label]\fR
+Change the volume UUID (auto-generated) and the label, if provided, of a cloned \fIOCFS2\fR volume.
+This option does \fBnot\fR perform volume cloning. It only changes the UUID and label on a cloned
+volume so that it can be mounted on the node that has the original volume mounted.
+
+.TP
+\fB\-\-fs\-features=\fR\fI[no]sparse...\fR
 Turn specific file system features on or off. \fItunefs.ocfs2\fR will attempt to enable or disable the feature list provided. To enable a feature, include it in the list. To disable a feature, prepend \fBno\fR to the name. For a list of feature names, see the man page for \fBmkfs.ocfs2\fR.
 
 .TP
@@ -21,25 +27,19 @@ Modify the journal using options specified on the command\-line. Journal options
 
 .TP
 \fB\-L, \-\-label\fR \fIvolume\-label\fR
-Change the volume label of the file system. Limit the label
-to under 64 bytes.
-
-.TP
-\fB\-M, \-\-mount\fR \fImount\-type\fR
-Valid types are \fIlocal\fR and \fIcluster\fR. Local mount allows
-users to mount the volume without the cluster overhead and works
-only with \fIOCFS2\fR bundled with Linux kernels 2.6.20 or later.
+Change the volume label of the file system. Limit the label to under 64 bytes.
 
 .TP
 \fB\-N, \-\-node\-slots\fR \fInumber\-of\-node\-slots\fR
-Use this to increase the number of slots in order to increase the
-number of nodes that can concurrently mount this volume. The maximum
-value is 255.
+Valid number ranges from 1 to 255. This number specifies the maximum number of
+nodes that can concurrently mount the partition. Use this to increase or
+decrease the number of node slots. One reason to decrease could be to release
+the space consumed by the journals for those slots.
 
 .TP
 \fB\-S, \-\-volume\-size\fR
 Grow the size of the \fIOCFS2\fR file system. If \fIblocks-count\fR is not
-specified, \fBtunefs.ocfs2\fR extends the volume to the current size of
+specified, \fItunefs.ocfs2\fR extends the volume to the current size of
 the device.
 
 .TP
@@ -91,7 +91,7 @@ Show version and exit.
 
 .TP
 \fB\-y, \-\-yes\fR
-Alway answer Yes in interactive command line.
+Always answer Yes in interactive command line.
 
 .TP
 \fB\-n, \-\-no\fR
@@ -115,17 +115,17 @@ Updating on-disk cluster information to match the running cluster.
 
 .TP
 \fIblocks-count\fR
-During resize, \fBtunefs.ocfs2\fR automatically determines the size of the given
+During resize, \fItunefs.ocfs2\fR automatically determines the size of the given
 device and grows the file system such that it uses all of the available space on
 the device. This optional argument specifies that the file system should be
 extended to consume only the given number of file system blocks on the device.
 
 .SH "EXAMPLES"
-[root@node1 ~]# tunefs.ocfs2 -q -Q "BS=%5B\\nUUID=%U\\n" /dev/sda1
+[root@node1 ~]# tunefs.ocfs2 -Q "UUID = %U\\nNumSlots = %N\\n" /dev/sda1
 .br
-BS= 2048 
+UUID = CBB8D5E0C169497C8B52A0FD555C7A3E
 .br
-UUID=80d1adf4-3fde-40dd-9b56-d370462ace17
+NumSlots = 4
 .br
 
 .SH "SEE ALSO"
@@ -140,4 +140,4 @@ UUID=80d1adf4-3fde-40dd-9b56-d370462ace17
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2008 Oracle. All rights reserved.
+Copyright \(co 2004, 2009 Oracle. All rights reserved.
