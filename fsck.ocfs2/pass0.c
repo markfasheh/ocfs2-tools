@@ -462,6 +462,7 @@ static errcode_t check_chain(o2fsck_state *ost,
 			     struct ocfs2_chain_rec *chain,
 			     char *buf1,
 			     char *buf2,
+			     char *pre_cache_buf,
 			     int *chain_changed,
 			     ocfs2_bitmap *allowed,
 			     ocfs2_bitmap *forbidden)
@@ -471,6 +472,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 	uint64_t blkno;
 	errcode_t ret = 0;
 	int depth = 0, clear_ref = 0;
+	int blocks_per_group = ocfs2_clusters_to_blocks(ost->ost_fs,
+							cs->cs_cpg);
 
 	verbosef("free %u total %u blkno %"PRIu64"\n", chain->c_free,
 		 chain->c_total, (uint64_t)chain->c_blkno);
@@ -524,6 +527,15 @@ static errcode_t check_chain(o2fsck_state *ost,
 			/* this will just result in a bad blkno from
 			 * the read below.. */
 		}
+
+		/*
+		 * Pre-cache the entire group.  Don't care about failure.
+		 * If it works, the following ocfs2_read_group_desc() will
+		 * get the block out of the cache.
+		 */
+		if (pre_cache_buf)
+			ocfs2_read_blocks(ost->ost_fs, blkno,
+					  blocks_per_group, pre_cache_buf);
 
 		ret = ocfs2_read_group_desc(ost->ost_fs, blkno, (char *)bg2);
 		if (ret == OCFS2_ET_BAD_GROUP_DESC_MAGIC) {
@@ -632,6 +644,7 @@ out:
 static errcode_t verify_chain_alloc(o2fsck_state *ost,
 				    struct ocfs2_dinode *di,
 				    char *buf1, char *buf2,
+				    char *pre_cache_buf,
 				    ocfs2_bitmap *allowed,
 				    ocfs2_bitmap *forbidden)
 {
@@ -736,8 +749,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			.cs_chain_no = i,
 			.cs_cpg = cl->cl_cpg,
 		};
-		ret = check_chain(ost, di, &cs, cr, buf1, buf2, &changed,
-				  allowed, forbidden);
+		ret = check_chain(ost, di, &cs, cr, buf1, buf2, pre_cache_buf,
+				  &changed, allowed, forbidden);
 		/* XXX what?  not checking ret? */
 
 		if (cr->c_blkno != 0) {
@@ -889,7 +902,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 		ocfs2_bitmap_set(allowed, blkno, NULL);
 	}
 
-	ret = verify_chain_alloc(ost, di, buf1, buf2, allowed, forbidden);
+	ret = verify_chain_alloc(ost, di, buf1, buf2, NULL, allowed, forbidden);
 	if (ret) {
 		com_err(whoami, ret, "while looking up chain allocator inode "
 			"%"PRIu64, (uint64_t)di->i_blkno);
@@ -1041,6 +1054,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	errcode_t ret;
 	uint64_t blkno;
 	char *blocks = NULL;
+	char *pre_cache_buf = NULL;
 	struct ocfs2_dinode *di = NULL;
 	ocfs2_filesys *fs = ost->ost_fs;
 	ocfs2_cached_inode **ci;
@@ -1049,12 +1063,41 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 
 	printf("Pass 0a: Checking cluster allocation chains\n");
 
+	/*
+	 * The I/O buffer is 3 blocks. We apportion our I/O buffer
+	 * thusly:
+	 *
+	 * blocks[0] is the allocator inode we're working on.
+	 * blocks[1] & blocks[2] are used to hold group descriptors
+	 *     in functions below this one.
+	 */
 	ret = ocfs2_malloc_blocks(fs->fs_io, 3, &blocks);
 	if (ret) {
 		com_err(whoami, ret, "while allocating block buffers");
 		goto out;
 	}
 	di = (struct ocfs2_dinode *)blocks;
+
+	/*
+	 * We also allocate a pre-cache buffer of 4MB for reading entire
+	 * suballocator groups.  Some blocksizes have smaller groups, but
+	 * none have larger (see
+	 * libocfs2/alloc.c:ocfs2_clusters_per_group()).  This allows
+	 * us to pre-fill the I/O cache; we're already reading the group
+	 * descriptor, so slurping the whole thing shouldn't hurt.
+	 *
+	 * If this allocation fails, we just ignore it.  It's a cache.
+	 */
+	o2fsck_reset_blocks_cached();
+	if (o2fsck_worth_caching(1)) {
+		ret = ocfs2_malloc_blocks(fs->fs_io,
+					  ocfs2_blocks_in_bytes(fs, 4 * 1024 * 1024),
+					  &pre_cache_buf);
+		if (ret)
+			verbosef("Unable to allocate group pre-cache "
+				 "buffer, %s\n",
+				 "ignoring");
+	}
 
 	ret = ocfs2_malloc0(max_slots * sizeof(ocfs2_cached_inode *), 
 			    &ost->ost_inode_allocs);
@@ -1144,7 +1187,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 					 blocks + ost->ost_fs->fs_blocksize,
 					 blocks + 
 					 (ost->ost_fs->fs_blocksize * 2), 
-					 NULL, NULL);
+					 pre_cache_buf, NULL, NULL);
 
 		/* XXX maybe helped by the alternate super block */
 		if (ret)
@@ -1197,7 +1240,7 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 					 blocks + ost->ost_fs->fs_blocksize,
 					 blocks + 
 					 (ost->ost_fs->fs_blocksize * 2), 
-					 NULL, NULL);
+					 pre_cache_buf, NULL, NULL);
 
 		/* XXX maybe helped by the alternate super block */
 		if (ret)
@@ -1205,6 +1248,8 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	}
 
 out:
+	if (pre_cache_buf)
+		ocfs2_free(&pre_cache_buf);
 	if (blocks)
 		ocfs2_free(&blocks);
 	if (ret)
