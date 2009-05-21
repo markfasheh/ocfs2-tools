@@ -41,6 +41,7 @@
 #include <sys/resource.h>
 #include <sys/utsname.h>
 #endif
+#include <sys/mman.h>
 #include <inttypes.h>
 
 #include "ocfs2/kernel-rbtree.h"
@@ -79,7 +80,10 @@ struct io_cache {
 
 	/* Housekeeping */
 	struct io_cache_block *ic_metadata_buffer;
+	unsigned long ic_metadata_buffer_len;
 	char *ic_data_buffer;
+	unsigned long ic_data_buffer_len;
+	int ic_locked;
 };
 
 struct _io_channel {
@@ -456,10 +460,18 @@ static errcode_t io_cache_write_block(io_channel *channel, int64_t blkno,
 static void io_free_cache(struct io_cache *ic)
 {
 	if (ic) {
-		if (ic->ic_data_buffer)
+		if (ic->ic_data_buffer) {
+			if (ic->ic_locked)
+				munlock(ic->ic_data_buffer,
+					ic->ic_data_buffer_len);
 			ocfs2_free(&ic->ic_data_buffer);
-		if (ic->ic_metadata_buffer)
+		}
+		if (ic->ic_metadata_buffer) {
+			if (ic->ic_locked)
+				munlock(ic->ic_metadata_buffer,
+					ic->ic_metadata_buffer_len);
 			ocfs2_free(&ic->ic_metadata_buffer);
+		}
 		ocfs2_free(&ic);
 	}
 }
@@ -470,6 +482,47 @@ void io_destroy_cache(io_channel *channel)
 		io_free_cache(channel->io_cache);
 		channel->io_cache = NULL;
 	}
+}
+
+/*
+ * A cache is kind of pointless if it is swappable, right?  Let's give
+ * applications the ability to pin the cache memory.  This is a separate
+ * call from io_init_cache() because non-privileged users can't do it, and
+ * they still want to create small caches.
+ */
+errcode_t io_mlock_cache(io_channel *channel)
+{
+	int rc;
+	struct io_cache *ic = channel->io_cache;
+	long pages_wanted, avpages;
+
+	if (!ic)
+		return OCFS2_ET_INVALID_ARGUMENT;
+
+	if (ic->ic_locked)
+		return 0;
+
+	/*
+	 * We're going to lock our cache pages.  We don't want to
+	 * request more memory than the system has, though.
+	 */
+	pages_wanted = channel->io_blksize * ic->ic_nr_blocks / getpagesize();
+	avpages = sysconf(_SC_AVPHYS_PAGES);
+	if (pages_wanted > avpages)
+		return OCFS2_ET_NO_MEMORY;
+
+	rc = mlock(ic->ic_data_buffer, ic->ic_data_buffer_len);
+	if (!rc) {
+		rc = mlock(ic->ic_metadata_buffer, ic->ic_metadata_buffer_len);
+		if (rc)
+			munlock(ic->ic_data_buffer, ic->ic_data_buffer_len);
+	}
+
+	if (rc)
+		return OCFS2_ET_NO_MEMORY;
+
+	ic->ic_locked = 1;
+	return 0;
 }
 
 errcode_t io_init_cache(io_channel *channel, size_t nr_blocks)
@@ -491,11 +544,14 @@ errcode_t io_init_cache(io_channel *channel, size_t nr_blocks)
 	ret = ocfs2_malloc_blocks(channel, nr_blocks, &ic->ic_data_buffer);
 	if (ret)
 		goto out;
+	ic->ic_data_buffer_len = (unsigned long)nr_blocks * channel->io_blksize;
 
 	ret = ocfs2_malloc0(sizeof(struct io_cache_block) * nr_blocks,
 			    &ic->ic_metadata_buffer);
 	if (ret)
 		goto out;
+	ic->ic_metadata_buffer_len =
+		(unsigned long)nr_blocks * sizeof(struct io_cache_block);
 
 	icb_list = ic->ic_metadata_buffer;
 	dbuf = ic->ic_data_buffer;
