@@ -48,8 +48,8 @@
  * function. At this point this function returns EIO if image file has any
  * holes
  */
-inline errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
-		int count, char *data)
+errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
+			    int count, char *data)
 {
 	int i;
 
@@ -62,7 +62,7 @@ inline errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
 		 */
 		for (i = 0; i < count; i++)
 			if (!ocfs2_image_test_bit(fs, blkno+i))
-				return -EIO;
+				return OCFS2_ET_IO;
 		/* translate the block number */
 		blkno = ocfs2_image_get_blockno(fs, blkno);
 	}
