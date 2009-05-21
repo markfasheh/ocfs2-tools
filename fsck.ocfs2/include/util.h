@@ -37,6 +37,18 @@
 #define FSCK_CANCELED    32     /* Aborted with a signal or ^C */
 #define FSCK_LIBRARY     128    /* Shared library error */
 
+/* Managing the I/O cache */
+enum o2fsck_cache_hint {
+	O2FSCK_CACHE_MODE_NONE = 0,
+	O2FSCK_CACHE_MODE_JOURNAL,	/* Enough of a cache to replay a
+					   journal */
+	O2FSCK_CACHE_MODE_FULL,		/* Enough of a cache to recover the
+					   filesystem */
+};
+void o2fsck_init_cache(o2fsck_state *ost, enum o2fsck_cache_hint hint);
+int o2fsck_worth_caching(int blocks_to_read);
+void o2fsck_reset_blocks_cached(void);
+
 void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno,
                         struct ocfs2_dinode *di);
 void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster);
