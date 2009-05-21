@@ -27,6 +27,7 @@
  */
 #include <inttypes.h>
 #include <string.h>
+#include <assert.h>
 #include "ocfs2/ocfs2.h"
 
 #include "util.h"
@@ -168,4 +169,109 @@ bail:
 	if (buf)
 		ocfs2_free(&buf);
 	return ret;
+}
+
+/* Number of blocks available in the I/O cache */
+static int cache_blocks;
+/*
+ * Number of blocks we've currently cached.  This is an imperfect guess
+ * designed for pre-caching.  Code can keep slurping blocks until
+ * o2fsck_worth_caching() returns 0.
+ */
+static int blocks_cached;
+
+void o2fsck_init_cache(o2fsck_state *ost, enum o2fsck_cache_hint hint)
+{
+	errcode_t ret;
+	uint64_t blocks_wanted;
+	int leave_room;
+	ocfs2_filesys *fs = ost->ost_fs;
+	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+
+	switch (hint) {
+		case O2FSCK_CACHE_MODE_FULL:
+			leave_room = 1;
+			blocks_wanted = fs->fs_blocks;
+			break;
+		case O2FSCK_CACHE_MODE_JOURNAL:
+			/*
+			 * We need enough blocks for all the journal
+			 * data.  Let's guess at 256M journals.
+			 */
+			leave_room = 0;
+			blocks_wanted = ocfs2_blocks_in_bytes(fs,
+					max_slots * 1024 * 1024 * 256);
+			break;
+		case O2FSCK_CACHE_MODE_NONE:
+			return;
+		default:
+			assert(0);
+	}
+
+	verbosef("Want %"PRIu64" blocks for the I/O cache\n",
+		 blocks_wanted);
+
+	/*
+	 * leave_room means that we don't want our cache to be taking
+	 * all available memory.  So we try to get twice as much as we
+	 * want; if that works, we know that getting exactly as much as
+	 * we want is going to be safe.
+	 */
+	if (leave_room)
+		blocks_wanted <<= 1;
+
+	if (blocks_wanted > INT_MAX)
+		blocks_wanted = INT_MAX;
+
+	while (blocks_wanted > 0) {
+		io_destroy_cache(fs->fs_io);
+		verbosef("Asking for %"PRIu64" blocks of I/O cache\n",
+			 blocks_wanted);
+		ret = io_init_cache(fs->fs_io, blocks_wanted);
+		if (!ret) {
+			/*
+			 * We want to pin our cache; there's no point in
+			 * having a large cache if half of it is in swap.
+			 * However, some callers may not be privileged
+			 * enough, so once we get down to a small enough
+			 * number (512 blocks), we'll stop caring.
+			 */
+			ret = io_mlock_cache(fs->fs_io);
+			if (ret && (blocks_wanted <= 512))
+				ret = 0;
+		}
+		if (!ret) {
+			verbosef("Got %"PRIu64" blocks\n", blocks_wanted);
+			/*
+			 * We've found an allocation that works.  If
+			 * we're not leaving room, we're done.  But if
+			 * we're leaving room, we clear leave_room and go
+			 * around again.  We expect to succeed there.
+			 */
+			if (!leave_room) {
+				cache_blocks = blocks_wanted;
+				break;
+			}
+
+			verbosef("Leaving room for other %s\n",
+				 "allocations");
+			leave_room = 0;
+		}
+
+		blocks_wanted >>= 1;
+	}
+}
+
+int o2fsck_worth_caching(int blocks_to_read)
+{
+	if ((blocks_to_read + blocks_cached) > cache_blocks)
+		return 0;
+
+	blocks_cached += blocks_to_read;
+	return 1;
+}
+
+void o2fsck_reset_blocks_cached(void)
+{
+	blocks_cached = 0;
 }

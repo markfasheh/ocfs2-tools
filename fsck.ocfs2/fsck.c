@@ -837,6 +837,9 @@ int main(int argc, char **argv)
 	printf("  max slots:          %u\n\n", 
 	       OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots);
 
+	/* Let's get enough of a cache to replay the journals */
+	o2fsck_init_cache(ost, O2FSCK_CACHE_MODE_JOURNAL);
+
 	if (open_flags & OCFS2_FLAG_RW) {
 		ret = o2fsck_check_journals(ost);
 		if (ret) {
@@ -853,6 +856,9 @@ int main(int argc, char **argv)
 		fsck_mask |= FSCK_ERROR;
 		goto unlock;
 	}
+
+	/* Grow the cache */
+	o2fsck_init_cache(ost, O2FSCK_CACHE_MODE_FULL);
 
 	/* allocate all this junk after we've replayed the journal and the
 	 * sb should be stable */
