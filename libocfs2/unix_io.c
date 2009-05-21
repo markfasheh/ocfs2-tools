@@ -49,6 +49,14 @@
 
 
 /*
+ * We do cached I/O in 1MB hunks, so we need this constant.
+ */
+#ifndef ONE_MEGABYTE
+# define ONE_MEGABYTE (1024 * 1024)
+#endif
+
+
+/*
  * The cache looks up blocks in two ways:
  *
  * 1) If it needs a new block, it gets one off of ic->ic_lru.  The blocks
@@ -82,6 +90,16 @@ struct _io_channel {
 	int io_fd;
 	struct io_cache *io_cache;
 };
+
+/*
+ * We open code this because we don't have the ocfs2_filesys to call
+ * ocfs2_blocks_in_bytes().
+ */
+static inline int one_meg_of_blocks(io_channel *channel)
+{
+	int count = ONE_MEGABYTE + channel->io_blksize - 1;
+	return count / channel->io_blksize;
+}
 
 static errcode_t unix_io_read_block(io_channel *channel, int64_t blkno,
 				    int count, char *data)
@@ -121,8 +139,9 @@ out:
 	return ret;
 }
 
-static errcode_t unix_io_write_block(io_channel *channel, int64_t blkno,
-				     int count, const char *data)
+static errcode_t unix_io_write_block_full(io_channel *channel, int64_t blkno,
+					  int count, const char *data,
+					  int *completed)
 {
 	int ret;
 	ssize_t size, tot, wr;
@@ -150,13 +169,19 @@ static errcode_t unix_io_write_block(io_channel *channel, int64_t blkno,
 
 	ret = 0;
 out:
+	if (completed)
+		*completed = tot / channel->io_blksize;
 	if (!ret && (tot != size))
 		ret = OCFS2_ET_SHORT_WRITE;
 
 	return ret;
 }
 
-
+static errcode_t unix_io_write_block(io_channel *channel, int64_t blkno,
+				     int count, const char *data)
+{
+	return unix_io_write_block_full(channel, blkno, count, data, NULL);
+}
 
 /*
  * See if the rbtree has a block for the given block number.
@@ -238,34 +263,76 @@ static struct io_cache_block *io_cache_pop_lru(struct io_cache *ic)
 	return icb;
 }
 
-static errcode_t io_cache_read_one_block(io_channel *channel, int64_t blkno,
-					 char *data)
+/*
+ * This relies on the fact that our cache is always up to date.  If a
+ * block is in the cache, the same thing is on disk.  Even if we re-read
+ * the disk block, we don't need to update the cache.  This allows us
+ * to look for optimal I/O sizes; it's better to call one read 1MB of
+ * half-cached blocks than to read every other block.
+ */
+static errcode_t io_cache_read_blocks(io_channel *channel, int64_t blkno,
+				      int count, char *data)
 {
+	int i, good_blocks;
 	errcode_t ret = 0;
 	struct io_cache *ic = channel->io_cache;
 	struct io_cache_block *icb;
 
-	icb = io_cache_lookup(ic, blkno);
-	if (icb)
-		goto found;
-
-	/* Ok, this blkno isn't in the cache.  Steal something. */
-	icb = io_cache_pop_lru(ic);
-
 	/*
-	 * If the read fails, we leave the block at the end of the LRU
-	 * and out of the lookup tree.
+	 * Here we check two things:
+	 *
+	 * 1) Are all the blocks cached?  If so, we can skip I/O.
+	 * 2) If they are not all cached, we want to start our read at the
+	 *    first uncached blkno.
 	 */
-	ret = unix_io_read_block(channel, blkno, 1, icb->icb_buf);
-	if (ret)
-		goto out;
+	for (good_blocks = 0; good_blocks < count; good_blocks++) {
+		icb = io_cache_lookup(ic, blkno + good_blocks);
+		if (!icb)
+			break;
+	}
 
-	icb->icb_blkno = blkno;
-	io_cache_insert(ic, icb);
+	/* Read any blocks not in the cache */
+	if (good_blocks < count) {
+		ret = unix_io_read_block(channel, blkno + good_blocks,
+					 count - good_blocks,
+					 data + (channel->io_blksize *
+						 good_blocks));
+		if (ret)
+			goto out;
+	}
 
-found:
-	memcpy(data, icb->icb_buf, channel->io_blksize);
-	io_cache_seen(ic, icb);
+	/* Now we sync up the cache with the data buffer */
+	for (i = 0; i < count; i++, data += channel->io_blksize) {
+		icb = io_cache_lookup(ic, blkno + i);
+		if (i < good_blocks) {
+			/*
+			 * We skipped reading this because it was in the
+			 * cache.  Copy it to the data buffer.
+			 */
+			assert(icb);
+			memcpy(data, icb->icb_buf, channel->io_blksize);
+		} else if (!icb) {
+			/* Steal the LRU buffer */
+			icb = io_cache_pop_lru(ic);
+			icb->icb_blkno = blkno + i;
+			io_cache_insert(ic, icb);
+
+			/*
+			 * We did I/O into the data buffer, now update
+			 * the cache.
+			 */
+			memcpy(icb->icb_buf, data, channel->io_blksize);
+		}
+		/*
+		 * What about if ((i >= good_blocks) && icb)?  That means
+		 * we had the buffer in the cache, but we read it anyway
+		 * to get a single I/O.  Our cache guarantees that the
+		 * contents will match, so we just skip to marking the
+		 * buffer seen.
+		 */
+
+		io_cache_seen(ic, icb);
+	}
 
 out:
 	return ret;
@@ -275,60 +342,78 @@ static errcode_t io_cache_read_block(io_channel *channel, int64_t blkno,
 				     int count, char *data)
 
 {
-	int i;
+	int todo = one_meg_of_blocks(channel);
 	errcode_t ret = 0;
 
-	for (i = 0; i < count; i++, blkno++, data += channel->io_blksize) {
-		ret = io_cache_read_one_block(channel, blkno, data);
+	/*
+	 * We do this in one meg hunks so that each hunk has an
+	 * opportunity to be in cache, but we get a good throughput.
+	 */
+	while (count) {
+		if (todo > count)
+			todo = count;
+		ret = io_cache_read_blocks(channel, blkno, todo, data);
 		if (ret)
 			break;
+
+		blkno += todo;
+		count -= todo;
+		data += (channel->io_blksize * todo);
 	}
 
 	return ret;
 }
 
-static errcode_t io_cache_write_one_block(io_channel *channel,
-					  int64_t blkno, const char *data)
+/*
+ * This relies on the fact that our cache is always up to date.  If a
+ * block is in the cache, the same thing is on disk.  So here we'll write
+ * a whole stream and update the cache as needed.
+ */
+static errcode_t io_cache_write_blocks(io_channel *channel, int64_t blkno,
+				       int count, const char *data)
 {
+	int i, completed = 0;
 	errcode_t ret;
 	struct io_cache *ic = channel->io_cache;
 	struct io_cache_block *icb;
 
-	icb = io_cache_lookup(ic, blkno);
-	if (icb)
-		goto found;
+	/* Get the write out of the way */
+	ret = unix_io_write_block_full(channel, blkno, count, data,
+				       &completed);
 
-	/* Ok, this blkno isn't in the cache.  Steal something. */
-	icb = io_cache_pop_lru(ic);
+	/*
+	 * Now we sync up the cache with the data buffer.  We have
+	 * to sync up I/O that completed, even if the entire I/O did not.
+	 */
+	for (i = 0; i < completed; i++, data += channel->io_blksize) {
+		icb = io_cache_lookup(ic, blkno + i);
+		if (!icb) {
+			/*
+			 * Steal the LRU buffer.  We can't error here, so
+			 * we can safely insert it before we copy the data.
+			 */
+			icb = io_cache_pop_lru(ic);
+			icb->icb_blkno = blkno + i;
+			io_cache_insert(ic, icb);
+		}
 
-	icb->icb_blkno = blkno;
-	io_cache_insert(ic, icb);
-
-found:
-	memcpy(icb->icb_buf, data, channel->io_blksize);
-	io_cache_seen(ic, icb);
-
-	ret = unix_io_write_block(channel, blkno, 1, icb->icb_buf);
-	if (ret)
-		io_cache_disconnect(ic, icb);
+		memcpy(icb->icb_buf, data, channel->io_blksize);
+		io_cache_seen(ic, icb);
+	}
 
 	return ret;
 }
 
 static errcode_t io_cache_write_block(io_channel *channel, int64_t blkno,
 				      int count, const char *data)
-
 {
-	int i;
-	errcode_t ret = 0;
-
-	for (i = 0; i < count; i++, blkno++, data += channel->io_blksize) {
-		ret = io_cache_write_one_block(channel, blkno, data);
-		if (ret)
-			break;
-	}
-
-	return ret;
+	/*
+	 * Unlike io_read_cache_block(), we're going to do all of the
+	 * I/O no matter what.  We keep the separation of
+	 * io_cache_write_block() and io_cache_write_blocks() for
+	 * consistency.
+	 */
+	return io_cache_write_blocks(channel, blkno, count, data);
 }
 
 static void io_free_cache(struct io_cache *ic)
