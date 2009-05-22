@@ -31,6 +31,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <errno.h>
+#include <stdbool.h>
 
 /* I hate glibc and gcc */
 #ifndef ULLONG_MAX
@@ -48,10 +49,11 @@
  * function. At this point this function returns EIO if image file has any
  * holes
  */
-errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
-			    int count, char *data)
+static errcode_t __ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
+				     int count, char *data, bool nocache)
 {
 	int i;
+	errcode_t err;
 
 	if (fs->fs_flags & OCFS2_FLAG_IMAGE_FILE) {
 		/*
@@ -66,7 +68,25 @@ errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
 		/* translate the block number */
 		blkno = ocfs2_image_get_blockno(fs, blkno);
 	}
-	return io_read_block(fs->fs_io, blkno, count, data);
+
+	if (nocache)
+		err = io_read_block_nocache(fs->fs_io, blkno, count, data);
+	else
+		err = io_read_block(fs->fs_io, blkno, count, data);
+
+	return err;
+}
+
+errcode_t ocfs2_read_blocks_nocache(ocfs2_filesys *fs, int64_t blkno,
+				    int count, char *data)
+{
+	return __ocfs2_read_blocks(fs, blkno, count, data, true);
+}
+
+errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno,
+			    int count, char *data)
+{
+	return __ocfs2_read_blocks(fs, blkno, count, data, false);
 }
 
 static errcode_t ocfs2_validate_ocfs1_header(ocfs2_filesys *fs)
