@@ -888,8 +888,7 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 	if (dp)
 		dp->dp_dirent = ost->ost_fs->fs_sysdir_blkno;
 
-	o2fsck_dir_block_iterate(&ost->ost_dirblocks, pass2_dir_block_iterate, 
-			 	 &dd);
+	o2fsck_dir_block_iterate(ost, pass2_dir_block_iterate, &dd);
 	o2fsck_strings_free(&dd.strings);
 out:
 	if (dd.dirblock_buf)
