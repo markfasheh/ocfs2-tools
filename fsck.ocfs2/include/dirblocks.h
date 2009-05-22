@@ -44,8 +44,9 @@ typedef unsigned (*dirblock_iterator)(o2fsck_dirblock_entry *,
 errcode_t o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino,
 			       uint64_t blkno, uint64_t blkcount);
 
-void o2fsck_dir_block_iterate(o2fsck_dirblocks *db, dirblock_iterator func,
-				void *priv_data);
+struct _o2fsck_state;
+void o2fsck_dir_block_iterate(struct _o2fsck_state *ost, dirblock_iterator func,
+                              void *priv_data);
 		     
 
 #endif /* __O2FSCK_DIRBLOCKS_H__ */
