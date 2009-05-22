@@ -102,11 +102,25 @@ errcode_t ocfs2_malloc_blocks(io_channel *channel, int num_blocks,
 {
 	errcode_t ret;
 	int blksize;
+	size_t bytes;
 	void **pp = (void **)ptr;
+	void *tmp;
 
 	blksize = io_get_blksize(channel);
+	if (((unsigned long long)num_blocks * blksize) > SIZE_MAX)
+		return OCFS2_ET_NO_MEMORY;
+	bytes = num_blocks * blksize;
 
-	ret = posix_memalign(pp, blksize, num_blocks * blksize);
+	/*
+	 * Older glibcs abort when they can't memalign() something.
+	 * Ugh!  Check with malloc() first.
+	 */
+	tmp = malloc(bytes);
+	if (!tmp)
+		return OCFS2_ET_NO_MEMORY;
+	free(tmp);
+
+	ret = posix_memalign(pp, blksize, bytes);
 	if (!ret)
 		return 0;
 	if (errno == ENOMEM)
