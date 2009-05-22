@@ -650,7 +650,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 {
 	struct chain_state cs = {0, };
 	struct ocfs2_chain_list *cl;
-	uint16_t i, max_count;
+	int i, max_count;
 	struct ocfs2_chain_rec *cr;
 	uint32_t free = 0, total = 0;
 	int changed = 0, trust_next_free = 1;
@@ -741,7 +741,13 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	if (trust_next_free)
 		max_count = cl->cl_next_free_rec;
 
-	for (i = 0; i < max_count; i++) {
+	/*
+	 * We walk the chains backwards for caching reasons.  Basically,
+	 * at the end the last blocks we read will be the most recently
+	 * used in the cache.  We want that to be the first chains,
+	 * especially for the inode scan, which will read forwards.
+	 */
+	for (i = max_count - 1; i >= 0; i--) {
 		cr = &cl->cl_recs[i];
 
 		/* reset for each run */
@@ -782,7 +788,6 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 				*cr = cl->cl_recs[cl->cl_next_free_rec - 1];
 				memset(&cl->cl_recs[cl->cl_next_free_rec - 1],
 					0, sizeof(struct ocfs2_chain_rec));
-				i--;
 			}
 
 			cl->cl_next_free_rec--;
