@@ -42,6 +42,7 @@
 #include <sys/utsname.h>
 #endif
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "ocfs2/kernel-rbtree.h"
 
@@ -239,6 +240,17 @@ static void io_cache_seen(struct io_cache *ic, struct io_cache_block *icb)
 	list_add_tail(&icb->icb_list, &ic->ic_lru);
 }
 
+static void io_cache_unsee(struct io_cache *ic, struct io_cache_block *icb)
+{
+	/*
+	 * Move to the end of the LRU.  There's no point in removing an
+	 * "unseen" buffer from the cache.  It's valid, but we want the
+	 * next I/O to steal it.
+	 */
+	list_del(&icb->icb_list);
+	list_add(&icb->icb_list, &ic->ic_lru);
+}
+
 static void io_cache_disconnect(struct io_cache *ic,
 				struct io_cache_block *icb)
 {
@@ -269,9 +281,13 @@ static struct io_cache_block *io_cache_pop_lru(struct io_cache *ic)
  * the disk block, we don't need to update the cache.  This allows us
  * to look for optimal I/O sizes; it's better to call one read 1MB of
  * half-cached blocks than to read every other block.
+ *
+ * If the caller specifies "nocache", we still want to give them anything
+ * we found in the cache, but we want cached blocks moved to the front
+ * of the LRU.  That way they get stolen first.
  */
 static errcode_t io_cache_read_blocks(io_channel *channel, int64_t blkno,
-				      int count, char *data)
+				      int count, char *data, bool nocache)
 {
 	int i, good_blocks;
 	errcode_t ret = 0;
@@ -312,6 +328,9 @@ static errcode_t io_cache_read_blocks(io_channel *channel, int64_t blkno,
 			assert(icb);
 			memcpy(data, icb->icb_buf, channel->io_blksize);
 		} else if (!icb) {
+			if (nocache)
+				continue;
+
 			/* Steal the LRU buffer */
 			icb = io_cache_pop_lru(ic);
 			icb->icb_blkno = blkno + i;
@@ -331,7 +350,10 @@ static errcode_t io_cache_read_blocks(io_channel *channel, int64_t blkno,
 		 * buffer seen.
 		 */
 
-		io_cache_seen(ic, icb);
+		if (nocache)
+			io_cache_unsee(ic, icb);
+		else
+			io_cache_seen(ic, icb);
 	}
 
 out:
@@ -339,7 +361,7 @@ out:
 }
 
 static errcode_t io_cache_read_block(io_channel *channel, int64_t blkno,
-				     int count, char *data)
+				     int count, char *data, bool nocache)
 
 {
 	int todo = one_meg_of_blocks(channel);
@@ -352,7 +374,8 @@ static errcode_t io_cache_read_block(io_channel *channel, int64_t blkno,
 	while (count) {
 		if (todo > count)
 			todo = count;
-		ret = io_cache_read_blocks(channel, blkno, todo, data);
+		ret = io_cache_read_blocks(channel, blkno, todo, data,
+					   nocache);
 		if (ret)
 			break;
 
@@ -370,7 +393,8 @@ static errcode_t io_cache_read_block(io_channel *channel, int64_t blkno,
  * a whole stream and update the cache as needed.
  */
 static errcode_t io_cache_write_blocks(io_channel *channel, int64_t blkno,
-				       int count, const char *data)
+				       int count, const char *data,
+				       bool nocache)
 {
 	int i, completed = 0;
 	errcode_t ret;
@@ -384,10 +408,18 @@ static errcode_t io_cache_write_blocks(io_channel *channel, int64_t blkno,
 	/*
 	 * Now we sync up the cache with the data buffer.  We have
 	 * to sync up I/O that completed, even if the entire I/O did not.
+	 *
+	 * In the nocache case, we want to skip blocks that weren't in the
+	 * cache, but we want to update blocks that where.  Even though
+	 * the caller specified "don't cache this", it's already in the
+	 * cache.  We don't want stale data.
 	 */
 	for (i = 0; i < completed; i++, data += channel->io_blksize) {
 		icb = io_cache_lookup(ic, blkno + i);
 		if (!icb) {
+			if (nocache)
+				continue;
+
 			/*
 			 * Steal the LRU buffer.  We can't error here, so
 			 * we can safely insert it before we copy the data.
@@ -398,14 +430,18 @@ static errcode_t io_cache_write_blocks(io_channel *channel, int64_t blkno,
 		}
 
 		memcpy(icb->icb_buf, data, channel->io_blksize);
-		io_cache_seen(ic, icb);
+		if (nocache)
+			io_cache_unsee(ic, icb);
+		else
+			io_cache_seen(ic, icb);
 	}
 
 	return ret;
 }
 
 static errcode_t io_cache_write_block(io_channel *channel, int64_t blkno,
-				      int count, const char *data)
+				      int count, const char *data,
+				      bool nocache)
 {
 	/*
 	 * Unlike io_read_cache_block(), we're going to do all of the
@@ -413,7 +449,8 @@ static errcode_t io_cache_write_block(io_channel *channel, int64_t blkno,
 	 * io_cache_write_block() and io_cache_write_blocks() for
 	 * consistency.
 	 */
-	return io_cache_write_blocks(channel, blkno, count, data);
+	return io_cache_write_blocks(channel, blkno, count, data,
+				     nocache);
 }
 
 static void io_free_cache(struct io_cache *ic)
@@ -654,7 +691,18 @@ errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 			char *data)
 {
 	if (channel->io_cache)
-		return io_cache_read_block(channel, blkno, count, data);
+		return io_cache_read_block(channel, blkno, count, data,
+					   false);
+	else
+		return unix_io_read_block(channel, blkno, count, data);
+}
+
+errcode_t io_read_block_nocache(io_channel *channel, int64_t blkno, int count,
+				char *data)
+{
+	if (channel->io_cache)
+		return io_cache_read_block(channel, blkno, count, data,
+					   true);
 	else
 		return unix_io_read_block(channel, blkno, count, data);
 }
@@ -663,7 +711,18 @@ errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
 			 const char *data)
 {
 	if (channel->io_cache)
-		return io_cache_write_block(channel, blkno, count, data);
+		return io_cache_write_block(channel, blkno, count, data,
+					    false);
+	else
+		return unix_io_write_block(channel, blkno, count, data);
+}
+
+errcode_t io_write_block_nocache(io_channel *channel, int64_t blkno, int count,
+				 const char *data)
+{
+	if (channel->io_cache)
+		return io_cache_write_block(channel, blkno, count, data,
+					    true);
 	else
 		return unix_io_write_block(channel, blkno, count, data);
 }

@@ -222,10 +222,21 @@ errcode_t io_set_blksize(io_channel *channel, int blksize);
 int io_get_blksize(io_channel *channel);
 int io_get_fd(io_channel *channel);
 
-/* use ocfs2_read_blocks if your application might handle o2image file */
+/*
+ * Raw I/O functions.  They will use the I/O cache if available.  The
+ * _nocache version will not add a block to the cache, but if the block is
+ * already in the cache it will be moved to the end of the LRU and kept
+ * in a good state.
+ *
+ * Use ocfs2_read_blocks() if your application might handle o2image file.
+ */
 errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 			char *data);
+errcode_t io_read_block_nocache(io_channel *channel, int64_t blkno, int count,
+			char *data);
 errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
+			 const char *data);
+errcode_t io_write_block_nocache(io_channel *channel, int64_t blkno, int count,
 			 const char *data);
 errcode_t io_init_cache(io_channel *channel, size_t nr_blocks);
 errcode_t io_init_cache_size(io_channel *channel, size_t bytes);
@@ -238,11 +249,14 @@ errcode_t ocfs2_write_primary_super(ocfs2_filesys *fs);
 errcode_t ocfs2_write_super(ocfs2_filesys *fs);
 
 /*
- * ocfs2_read_blocks is a wraper around io_read_block. If device is an image-
- * file it translates disk offset to image offset
+ * ocfs2_read_blocks() is a wraper around io_read_block. If device is an
+ * image file it translates disk offset to image offset.
+ * ocfs2_read_blocks_nocache() calls io_read_block_nocache().
  */
 errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno, int count,
 			    char *data);
+errcode_t ocfs2_read_blocks_nocache(ocfs2_filesys *fs, int64_t blkno, int count,
+				    char *data);
 int ocfs2_mount_local(ocfs2_filesys *fs);
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int blksize,
