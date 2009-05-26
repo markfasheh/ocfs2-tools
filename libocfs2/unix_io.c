@@ -42,7 +42,6 @@
 #include <sys/utsname.h>
 #endif
 #include <inttypes.h>
-#include <stdbool.h>
 
 #include "ocfs2/kernel-rbtree.h"
 
@@ -89,6 +88,7 @@ struct _io_channel {
 	int io_flags;
 	int io_error;
 	int io_fd;
+	bool io_nocache;
 	struct io_cache *io_cache;
 };
 
@@ -570,6 +570,7 @@ errcode_t io_open(const char *name, int flags, io_channel **channel)
 	strcpy(chan->io_name, name);
 	chan->io_blksize = OCFS2_MIN_BLOCKSIZE;
 	chan->io_flags = (flags & OCFS2_FLAG_RW) ? O_RDWR : O_RDONLY;
+	chan->io_nocache = false;
 	if (!(flags & OCFS2_FLAG_BUFFERED))
 		chan->io_flags |= O_DIRECT;
 	chan->io_error = 0;
@@ -687,12 +688,24 @@ int io_get_fd(io_channel *channel)
 	return channel->io_fd;
 }
 
+/*
+ * If a channel is set to 'nocache', it will use the _nocache() functions
+ * even if called via the regular functions.  This allows control of
+ * naive code that we don't want to have to carry nocache parameters
+ * around.  Smarter code can ignore this function and use the _nocache()
+ * functions directly.
+ */
+void io_set_nocache(io_channel *channel, bool nocache)
+{
+	channel->io_nocache = nocache;
+}
+
 errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 			char *data)
 {
 	if (channel->io_cache)
 		return io_cache_read_block(channel, blkno, count, data,
-					   false);
+					   channel->io_nocache);
 	else
 		return unix_io_read_block(channel, blkno, count, data);
 }
@@ -712,7 +725,7 @@ errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
 {
 	if (channel->io_cache)
 		return io_cache_write_block(channel, blkno, count, data,
-					    false);
+					    channel->io_nocache);
 	else
 		return unix_io_write_block(channel, blkno, count, data);
 }

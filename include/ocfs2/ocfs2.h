@@ -40,6 +40,7 @@
 #include <time.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include <limits.h>
 
@@ -229,6 +230,12 @@ int io_get_fd(io_channel *channel);
  * in a good state.
  *
  * Use ocfs2_read_blocks() if your application might handle o2image file.
+ *
+ * If a channel is set to 'nocache' via io_set_nocache(), it will use
+ * the _nocache() functions even if called via the regular functions.
+ * This allows control of naive code that we don't want to have to carry
+ * nocache parameters around.  Smarter code can ignore this function and
+ * use the _nocache() functions directly.
  */
 errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
 			char *data);
@@ -239,6 +246,7 @@ errcode_t io_write_block(io_channel *channel, int64_t blkno, int count,
 errcode_t io_write_block_nocache(io_channel *channel, int64_t blkno, int count,
 			 const char *data);
 errcode_t io_init_cache(io_channel *channel, size_t nr_blocks);
+void io_set_nocache(io_channel *channel, bool nocache);
 errcode_t io_init_cache_size(io_channel *channel, size_t bytes);
 void io_destroy_cache(io_channel *channel);
 
