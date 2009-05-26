@@ -309,15 +309,19 @@ static errcode_t ocfs2_format_journal(ocfs2_filesys *fs,
 		goto out;
 	memset(buf, 0, BUFLEN);
 
+	io_set_nocache(fs->fs_io, true);
 	count = (uint32_t) ci->ci_inode->i_size;
 	while (count) {
 		ret = ocfs2_file_write(ci, buf, ocfs2_min((uint32_t) BUFLEN, count),
 				       offset, &wrote);
 		if (ret)
-			goto out;
+			break;
 		offset += wrote;
 		count -= wrote;
 	}
+	io_set_nocache(fs->fs_io, false);
+	if (ret)
+		goto out;
 
 	jrnl_blocks = ocfs2_clusters_to_blocks(fs, ci->ci_inode->i_clusters);
 	ret = ocfs2_create_journal_superblock(fs, jrnl_blocks, features,
