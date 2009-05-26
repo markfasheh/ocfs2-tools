@@ -239,11 +239,7 @@ static void finish_normal_format(State *s)
 	int num;
 	ocfs2_filesys *fs;
 
-	/* These routines use libocfs2 to do their work. We
-	 * don't share an ocfs2_filesys context between the
-	 * journal format and the lost+found create so that
-	 * the library can use the journal for the latter in
-	 * future revisions. */
+	/* These routines use libocfs2 to do their work. */
 
 	ret = ocfs2_open(s->device_name, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
@@ -254,53 +250,36 @@ static void finish_normal_format(State *s)
 		exit(1);
 	}
 
-	if (!s->no_backup_super) {
-		ret = io_init_cache(fs->fs_io,
-				    ocfs2_extent_recs_per_eb(fs->fs_blocksize));
-		if (ret)
-			com_err(s->progname, ret,
-				"while initializing the I/O cache.  Continuing "
-				"without a cache (safe, but slower)");
-
-		if (!s->quiet)
-			printf("Writing backup superblock: ");
-
-		num = format_backup_super(s, fs);
-		if (!s->quiet)
-			printf("%d block(s)\n", num);
-
-		io_destroy_cache(fs->fs_io);
-	}
-
-	/* io cache is disabled during journal format for performance reasons */
-	if (!s->quiet)
-		printf("Formatting Journals: ");
-
-	format_journals(s, fs);
-
-	if (!s->quiet)
-		printf("done\n");
-
-	ret = io_init_cache(fs->fs_io,
-			    ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+	/* 8MB should cover an allocator and some other stuff */
+	ret = io_init_cache_size(fs->fs_io, 8 * 1024 * 1024);
 	if (ret)
 		com_err(s->progname, ret,
 			"while initializing the I/O cache.  Continuing "
 			"without a cache (safe, but slower)");
 
+	if (!s->no_backup_super) {
+		if (!s->quiet)
+			printf("Writing backup superblock: ");
+		num = format_backup_super(s, fs);
+		if (!s->quiet)
+			printf("%d block(s)\n", num);
+	}
+
+	if (!s->quiet)
+		printf("Formatting Journals: ");
+	format_journals(s, fs);
+	if (!s->quiet)
+		printf("done\n");
+
 	if (!s->quiet)
 		printf("Formatting slot map: ");
-
 	format_slotmap(s, fs);
-
 	if (!s->quiet)
 		printf("done\n");
 
 	if (!s->quiet)
 		printf("Writing lost+found: ");
-
 	create_lost_found_dir(s, fs);
-
 	if (!s->quiet)
 		printf("done\n");
 
