@@ -2,15 +2,13 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-SBIN_PROGRAMS = fswreck
-
 DEFINES = -DG_DISABLE_DEPRECATED -DLINUX
 DEFINES += -DVERSION=\"$(VERSION)\"
 
 INCLUDES = -I$(TOPDIR)/include -Iinclude
 INCLUDES += $(GLIB_CFLAGS)
 
-UNINST_PROGRAM = fswreck
+UNINST_PROGRAMS = fswreck
 
 CFILES = main.c corrupt.c chain.c extent.c group.c inode.c local_alloc.c truncate_log.c special.c symlink.c dir.c
 

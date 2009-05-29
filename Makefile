@@ -20,7 +20,7 @@ CHKCONFIG_DEP = chkconfig
 COMPILE_PY = 1
 endif
 
-SUBDIRS = include libtools-internal libo2dlm libo2cb libocfs2 fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2_controld o2image listuuid sizetest extras patches
+SUBDIRS = include libtools-internal libo2dlm libo2cb libocfs2 fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2_controld o2image listuuid sizetest extras fswreck patches
 
 ifdef BUILD_OCFS2CONSOLE
 SUBDIRS += ocfs2console

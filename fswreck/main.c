@@ -103,6 +103,8 @@ static void usage (char *progname)
 {
 	int i;
 
+	g_print ("%s is a program to corrupt a filesystem\n", progname);
+        g_print ("THIS WILL DAMAGE YOUR FILESYSTEM.  USE AT YOUR OWN RISK.\n");
 	g_print ("Usage: %s [OPTION]... [DEVICE]\n", progname);
 	g_print ("	-n <node slot number>\n");
 	g_print ("	-c <corrupt code>\n");
