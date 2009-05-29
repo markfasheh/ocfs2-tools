@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * dir.c
  *
  * directory corruptions
@@ -332,14 +334,8 @@ void mess_up_dir_ent(ocfs2_filesys *fs, uint64_t blkno)
 void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno)
 {
 	errcode_t ret;
-	uint64_t contig;
-	uint64_t parent1, parent2, tmp_blkno,extblk;
-	char *buf = NULL;
-	struct ocfs2_dir_entry *de = NULL, *newent = NULL;
-	ocfs2_cached_inode *cinode = NULL;
-	char name[OCFS2_MAX_FILENAME_LEN];
-	int namelen;
-	mode_t mode;
+	uint64_t parent1, parent2, tmp_blkno;
+	char random_name[OCFS2_MAX_FILENAME_LEN];
 
 	/* create 2 direcotories */
 	create_directory(fs, blkno, &parent1);
@@ -348,47 +344,27 @@ void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno)
 	/* create a directory under parent1, tmp_blkno indicates its inode. */
 	create_directory(fs, parent1, &tmp_blkno);
 
-	/* Now we will create another dirent under parent2 which
-	 * which also points to tmp_blkno. So tmp_blkno will have two
-	 * parents: parent1 and parent2.
+	memset(random_name, 0, sizeof(random_name));
+	sprintf(random_name, "testXXXXXX");
+	/* Don't use mkstemp since it will create a file 
+	 * in the working directory which is no use.
+	 * Use mktemp instead Although there is a compiling warning.
+	 * mktemp fails to work in some implementations follow BSD 4.3,
+	 * but currently ocfs2 will only support linux,
+	 * so it will not affect us.
 	 */
-	ret = ocfs2_read_cached_inode(fs, parent2, &cinode);
-	if (ret)
+	if (!mktemp(random_name))
+		FSWRK_COM_FATAL(progname, errno);
+
+	ret = ocfs2_link(fs, parent2, random_name, tmp_blkno, OCFS2_FT_DIR);
+        if (ret)
 		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &extblk, &contig, NULL);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_read_blocks(fs, extblk, 1, buf);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	de = (struct ocfs2_dir_entry *)buf;
-	sprintf(name, "test");
-	namelen = strlen(name);
-	mode = S_IFDIR | 0755;
-
-	add_dir_ent(fs, de,
-		 tmp_blkno, name, namelen, mode,
-		 &newent);
 	fprintf(stdout, "DIR_PARENT_DUP: "
+
 		"Create a directory #%"PRIu64
 		" which has two parents: #%"PRIu64" and #%"PRIu64".\n",
 		tmp_blkno, parent1, parent2);
 
-	ret = io_write_block(fs->fs_io, extblk, 1, buf);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	if (buf)
-		ocfs2_free(&buf);
-	if (cinode)
-		ocfs2_free_cached_inode(fs, cinode);
 	return;
 }
 
