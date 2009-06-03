@@ -106,9 +106,26 @@ static void ocfs2_swap_xattr_header(struct ocfs2_xattr_header *xh)
 	xh->xh_num_buckets	= bswap_16(xh->xh_num_buckets);
 }
 
-static void ocfs2_swap_xattr_entries_to_cpu(struct ocfs2_xattr_header *xh)
+/*
+ * The swap barriers for xattrs are the hardest.  The ocfs2_xattr_header
+ * can be at the start of a bucket, inside an xattr block, or at the end
+ * of an inode.  Thus, we need to pass obj for the containing object.
+ * On top of that, buckets are always 4K, regardless of blocksize.  Thus,
+ * we take objsize as an argument and fake the ocfs2_filesys we pass to
+ * ocfs2_swap_barrier().
+ *
+ * Much of this is internal to xattr.c, thankfully.  The callers of the
+ * pubic ocfs2_swap_xattr*() APIs don't have to worry about objsize!
+ */
+static void ocfs2_swap_xattr_entries_to_cpu(ocfs2_filesys *fs, void *obj,
+					    size_t objsize,
+					    struct ocfs2_xattr_header *xh)
 {
 	uint16_t i;
+	char *value;
+	ocfs2_filesys fake_fs = {
+		.fs_blocksize = objsize,
+	};
 
 	if (cpu_is_little_endian)
 		return;
@@ -116,23 +133,41 @@ static void ocfs2_swap_xattr_entries_to_cpu(struct ocfs2_xattr_header *xh)
 	for (i = 0; i < xh->xh_count; i++) {
 		struct ocfs2_xattr_entry *xe = &xh->xh_entries[i];
 
+		if (ocfs2_swap_barrier(&fake_fs, obj, xe,
+				       sizeof(struct ocfs2_xattr_entry)))
+			break;
+
 		ocfs2_swap_xattr_entry(xe);
+
+		value = (char *)xh + xe->xe_name_offset +
+			OCFS2_XATTR_SIZE(xe->xe_name_len);
 
 		if (!ocfs2_xattr_is_local(xe)) {
 			struct ocfs2_xattr_value_root *xr =
-				(struct ocfs2_xattr_value_root *)
-				((char *)xh + xe->xe_name_offset +
-				OCFS2_XATTR_SIZE(xe->xe_name_len));
+				(struct ocfs2_xattr_value_root *)value;
+
+			if (ocfs2_swap_barrier(&fake_fs, obj, xr,
+					       OCFS2_XATTR_ROOT_SIZE))
+				break;
 
 			ocfs2_swap_xattr_value_root(xr);
-			ocfs2_swap_extent_list_to_cpu(&xr->xr_list);
-		}
+			ocfs2_swap_extent_list_to_cpu(&fake_fs, xh,
+						      &xr->xr_list);
+		} else if (ocfs2_swap_barrier(&fake_fs, obj, value,
+					      OCFS2_XATTR_SIZE(xe->xe_value_size)))
+			break;
 	}
 }
 
-static void ocfs2_swap_xattr_entries_from_cpu(struct ocfs2_xattr_header *xh)
+static void ocfs2_swap_xattr_entries_from_cpu(ocfs2_filesys *fs, void *obj,
+					      size_t objsize,
+					      struct ocfs2_xattr_header *xh)
 {
 	uint16_t i;
+	char *value;
+	ocfs2_filesys fake_fs = {
+		.fs_blocksize = objsize,
+	};
 
 	if (cpu_is_little_endian)
 		return;
@@ -140,56 +175,87 @@ static void ocfs2_swap_xattr_entries_from_cpu(struct ocfs2_xattr_header *xh)
 	for (i = 0; i < xh->xh_count; i++) {
 		struct ocfs2_xattr_entry *xe = &xh->xh_entries[i];
 
+		if (ocfs2_swap_barrier(&fake_fs, obj, xe,
+				       sizeof(struct ocfs2_xattr_entry)))
+			break;
+
+		value = (char *)xh + xe->xe_name_offset +
+			OCFS2_XATTR_SIZE(xe->xe_name_len);
+
 		if (!ocfs2_xattr_is_local(xe)) {
 			struct ocfs2_xattr_value_root *xr =
-				(struct ocfs2_xattr_value_root *)
-				((char *)xh + xe->xe_name_offset +
-				OCFS2_XATTR_SIZE(xe->xe_name_len));
+				(struct ocfs2_xattr_value_root *)value;
 
-			ocfs2_swap_extent_list_from_cpu(&xr->xr_list);
+			if (ocfs2_swap_barrier(&fake_fs, obj, xr,
+					       OCFS2_XATTR_ROOT_SIZE))
+				break;
+
+			ocfs2_swap_extent_list_from_cpu(&fake_fs, xh,
+							&xr->xr_list);
 			ocfs2_swap_xattr_value_root(xr);
-		}
+		} else if (ocfs2_swap_barrier(&fake_fs, obj, value,
+					      OCFS2_XATTR_SIZE(xe->xe_value_size)))
+			break;
+
 		ocfs2_swap_xattr_entry(xe);
 	}
 }
 
-void ocfs2_swap_xattrs_to_cpu(struct ocfs2_xattr_header *xh)
+static void __ocfs2_swap_xattrs_to_cpu(ocfs2_filesys *fs, void *obj,
+				       size_t objsize,
+				       struct ocfs2_xattr_header *xh)
 {
 	ocfs2_swap_xattr_header(xh);
-	ocfs2_swap_xattr_entries_to_cpu(xh);
+	ocfs2_swap_xattr_entries_to_cpu(fs, obj, objsize, xh);
 }
 
-void ocfs2_swap_xattrs_from_cpu(struct ocfs2_xattr_header *xh)
+void ocfs2_swap_xattrs_to_cpu(ocfs2_filesys *fs, void *obj,
+			      struct ocfs2_xattr_header *xh)
 {
-	ocfs2_swap_xattr_entries_from_cpu(xh);
+	return __ocfs2_swap_xattrs_to_cpu(fs, obj, fs->fs_blocksize, xh);
+}
+
+static void __ocfs2_swap_xattrs_from_cpu(ocfs2_filesys *fs, void *obj,
+					 size_t objsize,
+					 struct ocfs2_xattr_header *xh)
+{
+	ocfs2_swap_xattr_entries_from_cpu(fs, obj, objsize, xh);
 	ocfs2_swap_xattr_header(xh);
 }
 
-void ocfs2_swap_xattr_block_to_cpu(struct ocfs2_xattr_block *xb)
+void ocfs2_swap_xattrs_from_cpu(ocfs2_filesys *fs, void *obj,
+				struct ocfs2_xattr_header *xh)
+{
+	return __ocfs2_swap_xattrs_from_cpu(fs, obj, fs->fs_blocksize, xh);
+}
+
+void ocfs2_swap_xattr_block_to_cpu(ocfs2_filesys *fs,
+				   struct ocfs2_xattr_block *xb)
 {
 	if (cpu_is_little_endian)
 		return;
 
 	ocfs2_swap_xattr_block_header(xb);
-	if (!(xb->xb_flags & OCFS2_XATTR_INDEXED)) {
-		ocfs2_swap_xattr_header(&xb->xb_attrs.xb_header);
-		ocfs2_swap_xattr_entries_to_cpu(&xb->xb_attrs.xb_header);
-	} else {
+	if (!(xb->xb_flags & OCFS2_XATTR_INDEXED))
+		ocfs2_swap_xattrs_to_cpu(fs, xb, &xb->xb_attrs.xb_header);
+	else {
 		ocfs2_swap_xattr_tree_root(&xb->xb_attrs.xb_root);
-		ocfs2_swap_extent_list_to_cpu(&xb->xb_attrs.xb_root.xt_list);
+		ocfs2_swap_extent_list_to_cpu(fs, xb,
+					      &xb->xb_attrs.xb_root.xt_list);
 	}
 }
 
-void ocfs2_swap_xattr_block_from_cpu(struct ocfs2_xattr_block *xb)
+void ocfs2_swap_xattr_block_from_cpu(ocfs2_filesys *fs,
+				     struct ocfs2_xattr_block *xb)
 {
 	if (cpu_is_little_endian)
 		return;
 
-	if (!(xb->xb_flags & OCFS2_XATTR_INDEXED)) {
-		ocfs2_swap_xattr_entries_from_cpu(&xb->xb_attrs.xb_header);
-		ocfs2_swap_xattr_header(&xb->xb_attrs.xb_header);
-	} else {
-		ocfs2_swap_extent_list_from_cpu(&xb->xb_attrs.xb_root.xt_list);
+	if (!(xb->xb_flags & OCFS2_XATTR_INDEXED))
+		ocfs2_swap_xattrs_from_cpu(fs, xb, &xb->xb_attrs.xb_header);
+	else {
+		ocfs2_swap_extent_list_from_cpu(fs, xb,
+						&xb->xb_attrs.xb_root.xt_list);
 		ocfs2_swap_xattr_tree_root(&xb->xb_attrs.xb_root);
 	}
 
@@ -230,7 +296,7 @@ errcode_t ocfs2_read_xattr_block(ocfs2_filesys *fs,
 
 	memcpy(xb_buf, blk, fs->fs_blocksize);
 	xb = (struct ocfs2_xattr_block *)xb_buf;
-	ocfs2_swap_xattr_block_to_cpu(xb);
+	ocfs2_swap_xattr_block_to_cpu(fs, xb);
 out:
 	ocfs2_free(&blk);
 	return ret;
@@ -258,7 +324,7 @@ errcode_t ocfs2_write_xattr_block(ocfs2_filesys *fs,
 	memcpy(blk, xb_buf, fs->fs_blocksize);
 
 	xb = (struct ocfs2_xattr_block *)blk;
-	ocfs2_swap_xattr_block_from_cpu(xb);
+	ocfs2_swap_xattr_block_from_cpu(fs, xb);
 
 	ocfs2_compute_meta_ecc(fs, blk, &xb->xb_check);
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
@@ -395,7 +461,7 @@ errcode_t ocfs2_read_xattr_bucket(ocfs2_filesys *fs,
 
 	memcpy(bucket_buf, bucket, OCFS2_XATTR_BUCKET_SIZE);
 	xh = (struct ocfs2_xattr_header *)bucket_buf;
-	ocfs2_swap_xattrs_to_cpu(xh);
+	__ocfs2_swap_xattrs_to_cpu(fs, xh, OCFS2_XATTR_BUCKET_SIZE, xh);
 out:
 	ocfs2_free(&bucket);
 	return ret;
@@ -425,7 +491,7 @@ errcode_t ocfs2_write_xattr_bucket(ocfs2_filesys *fs,
 	memcpy(bucket, bucket_buf, OCFS2_XATTR_BUCKET_SIZE);
 
 	xh = (struct ocfs2_xattr_header *)bucket;
-	ocfs2_swap_xattrs_from_cpu(xh);
+	__ocfs2_swap_xattrs_from_cpu(fs, xh, OCFS2_XATTR_BUCKET_SIZE, xh);
 
 	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)))
 		ocfs2_block_check_compute(bucket, OCFS2_XATTR_BUCKET_SIZE,

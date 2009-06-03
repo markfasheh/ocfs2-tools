@@ -682,14 +682,14 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 	switch (type) {
 	case DUMP_BLOCK_INODE:
 		fprintf(out, "Inode\n");
-		ocfs2_swap_inode_to_cpu((struct ocfs2_dinode *)buf,
-					gbls.fs->fs_blocksize);
+		ocfs2_swap_inode_to_cpu(gbls.fs, (struct ocfs2_dinode *)buf);
 		dump_inode (out, (struct ocfs2_dinode *)buf);
 		fprintf (out, "\n");
 		break;
 	case DUMP_BLOCK_EXTENT_BLOCK:
 		fprintf(out, "Extent\n");
-		ocfs2_swap_extent_block_to_cpu((struct ocfs2_extent_block *)buf);
+		ocfs2_swap_extent_block_to_cpu(gbls.fs,
+					       (struct ocfs2_extent_block *)buf);
 		dump_extent_block (out, (struct ocfs2_extent_block *)buf);
 		fprintf (out, "\n");
 		break;

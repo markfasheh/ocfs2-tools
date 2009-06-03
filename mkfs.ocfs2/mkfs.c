@@ -1930,6 +1930,15 @@ check_32bit_blocks(State *s)
 	exit(1);
 }
 
+static void mkfs_swap_inode_from_cpu(State *s, struct ocfs2_dinode *di)
+{
+	ocfs2_filesys fake_fs;
+	char super_buf[OCFS2_MAX_BLOCKSIZE];
+
+	fill_fake_fs(s, &fake_fs, super_buf);
+	ocfs2_swap_inode_from_cpu(&fake_fs, di);
+}
+
 static void
 format_superblock(State *s, SystemFileDiskRecord *rec,
 		  SystemFileDiskRecord *root_rec, SystemFileDiskRecord *sys_rec)
@@ -2010,7 +2019,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	strcpy((char *)di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
 
-	ocfs2_swap_inode_from_cpu(di, s->blocksize);
+	mkfs_swap_inode_from_cpu(s, di);
 	mkfs_compute_meta_ecc(s, di, &di->i_check);
 	do_pwrite(s, di, s->blocksize, super_off);
 	free(di);
@@ -2176,7 +2185,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 	}
 
 write_out:
-	ocfs2_swap_inode_from_cpu(di, s->blocksize);
+	mkfs_swap_inode_from_cpu(s, di);
 	mkfs_compute_meta_ecc(s, di, &di->i_check);
 	do_pwrite(s, di, s->blocksize, rec->fe_off);
 	free(di);

@@ -274,8 +274,8 @@ errcode_t ocfs2_flush(ocfs2_filesys *fs);
 errcode_t ocfs2_close(ocfs2_filesys *fs);
 void ocfs2_freefs(ocfs2_filesys *fs);
 
-void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di, size_t blocksize);
-void ocfs2_swap_inode_to_cpu(struct ocfs2_dinode *di, size_t blocksize);
+void ocfs2_swap_inode_from_cpu(ocfs2_filesys *fs, struct ocfs2_dinode *di);
+void ocfs2_swap_inode_to_cpu(ocfs2_filesys *fs, struct ocfs2_dinode *di);
 errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf);
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
@@ -289,8 +289,17 @@ errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
 errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode);
 
-void ocfs2_swap_extent_list_from_cpu(struct ocfs2_extent_list *el);
-void ocfs2_swap_extent_list_to_cpu(struct ocfs2_extent_list *el);
+/*
+ * obj is the object containing the extent list.  eg, if you are swapping
+ * an inode's extent list, you're passing 'di' for the obj and
+ * '&di->id2.i_list' for the el.  obj is needed to make sure the
+ * byte swapping code doesn't walk off the end of the buffer in the
+ * presence of corruption.
+ */
+void ocfs2_swap_extent_list_from_cpu(ocfs2_filesys *fs, void *obj,
+				     struct ocfs2_extent_list *el);
+void ocfs2_swap_extent_list_to_cpu(ocfs2_filesys *fs, void *obj,
+				   struct ocfs2_extent_list *el);
 errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
 				      uint64_t *p_blkno,
@@ -321,8 +330,10 @@ extern size_t ocfs2_journal_tag_bytes(journal_superblock_t *jsb);
 extern uint64_t ocfs2_journal_tag_block(journal_block_tag_t *tag,
 					size_t tag_bytes);
 
-void ocfs2_swap_extent_block_to_cpu(struct ocfs2_extent_block *eb);
-void ocfs2_swap_extent_block_from_cpu(struct ocfs2_extent_block *eb);
+void ocfs2_swap_extent_block_to_cpu(ocfs2_filesys *fs,
+				    struct ocfs2_extent_block *eb);
+void ocfs2_swap_extent_block_from_cpu(ocfs2_filesys *fs,
+				      struct ocfs2_extent_block *eb);
 errcode_t ocfs2_read_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				  char *eb_buf);
 errcode_t ocfs2_read_extent_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
@@ -997,6 +1008,27 @@ static inline int ocfs2_support_xattr(struct ocfs2_super_block *osb)
 }
 
 /*
+ * When we're swapping some of our disk structures, a garbage count
+ * can send us past the edge of a block buffer.  This function guards
+ * against that.  It returns true if the element would walk off then end
+ * of the block buffer.
+ */
+static inline int ocfs2_swap_barrier(ocfs2_filesys *fs, void *block_buffer,
+				     void *element, size_t element_size)
+{
+	char *limit, *end;
+
+	limit = block_buffer;
+	limit += fs->fs_blocksize;
+
+	end = element;
+	end += element_size;
+
+	return end > limit;
+}
+
+
+/*
  * shamelessly lifted from the kernel
  *
  * min()/max() macros that also do
@@ -1121,10 +1153,15 @@ int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
 			  uint32_t cpos, char **leaf_buf);
 uint16_t ocfs2_xattr_buckets_per_cluster(ocfs2_filesys *fs);
 uint16_t ocfs2_blocks_per_xattr_bucket(ocfs2_filesys *fs);
-void ocfs2_swap_xattrs_to_cpu(struct ocfs2_xattr_header *xh);
-void ocfs2_swap_xattrs_from_cpu(struct ocfs2_xattr_header *xh);
-void ocfs2_swap_xattr_block_to_cpu(struct ocfs2_xattr_block *xb);
-void ocfs2_swap_xattr_block_from_cpu(struct ocfs2_xattr_block *xb);
+/* See ocfs2_swap_extent_list() for a discussion of obj */
+void ocfs2_swap_xattrs_to_cpu(ocfs2_filesys *fs, void *obj,
+			      struct ocfs2_xattr_header *xh);
+void ocfs2_swap_xattrs_from_cpu(ocfs2_filesys *fs, void *obj,
+				struct ocfs2_xattr_header *xh);
+void ocfs2_swap_xattr_block_to_cpu(ocfs2_filesys *fs,
+				   struct ocfs2_xattr_block *xb);
+void ocfs2_swap_xattr_block_from_cpu(ocfs2_filesys *fs,
+				     struct ocfs2_xattr_block *xb);
 errcode_t ocfs2_read_xattr_block(ocfs2_filesys *fs,
 				 uint64_t blkno,
 				 char *xb_buf);

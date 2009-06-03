@@ -184,7 +184,7 @@ static errcode_t run_scan(struct walk_extents *we, int test)
 				   strlen(OCFS2_INODE_SIGNATURE)))
 				continue;
 
-			ocfs2_swap_inode_to_cpu(di, we->fs->fs_blocksize);
+			ocfs2_swap_inode_to_cpu(we->fs, di);
 
 			if (!(di->i_flags & OCFS2_VALID_FL))
 				continue;

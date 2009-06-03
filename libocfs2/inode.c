@@ -63,7 +63,7 @@ out_buf:
 	return ret;
 }
 
-static void ocfs2_swap_inode_third(struct ocfs2_dinode *di)
+static void ocfs2_swap_inode_third(ocfs2_filesys *fs, struct ocfs2_dinode *di)
 {
 
 	if (di->i_flags & OCFS2_CHAIN_FL) {
@@ -72,6 +72,10 @@ static void ocfs2_swap_inode_third(struct ocfs2_dinode *di)
 
 		for (i = 0; i < cl->cl_next_free_rec; i++) {
 			struct ocfs2_chain_rec *rec = &cl->cl_recs[i];
+
+			if (ocfs2_swap_barrier(fs, di, rec,
+					       sizeof(struct ocfs2_chain_rec)))
+				break;
 
 			rec->c_free  = bswap_32(rec->c_free);
 			rec->c_total = bswap_32(rec->c_total);
@@ -85,6 +89,10 @@ static void ocfs2_swap_inode_third(struct ocfs2_dinode *di)
 		for(i = 0; i < tl->tl_count; i++) {
 			struct ocfs2_truncate_rec *rec =
 				&tl->tl_recs[i];
+
+			if (ocfs2_swap_barrier(fs, di, rec,
+					     sizeof(struct ocfs2_truncate_rec)))
+				break;
 
 			rec->t_start    = bswap_32(rec->t_start);
 			rec->t_clusters = bswap_32(rec->t_clusters);
@@ -202,11 +210,22 @@ static int has_extents(struct ocfs2_dinode *di)
 	return 1;
 }
 
-static inline void ocfs2_swap_inline_dir(struct ocfs2_dinode *di,
-					 int to_cpu)
+static inline void ocfs2_swap_inline_dir(ocfs2_filesys *fs,
+					 struct ocfs2_dinode *di, int to_cpu)
 {
 	void *de_buf = di->id2.i_data.id_data;
 	uint64_t bytes = di->id2.i_data.id_count;
+	int max_inline = ocfs2_max_inline_data(fs->fs_blocksize);
+
+	if (di->i_dyn_features & OCFS2_INLINE_XATTR_FL)
+		max_inline -= di->i_xattr_inline_size;
+
+	/* Just in case i_xattr_inline_size is garbage */
+	if (max_inline < 0)
+		max_inline = 0;
+
+	if (bytes > max_inline)
+	    bytes = max_inline;
 
 	if (to_cpu)
 		ocfs2_swap_dir_entries_to_cpu(de_buf, bytes);
@@ -214,41 +233,43 @@ static inline void ocfs2_swap_inline_dir(struct ocfs2_dinode *di,
 		ocfs2_swap_dir_entries_from_cpu(de_buf, bytes);
 }
 
-void ocfs2_swap_inode_from_cpu(struct ocfs2_dinode *di, size_t blocksize)
+void ocfs2_swap_inode_from_cpu(ocfs2_filesys *fs, struct ocfs2_dinode *di)
 {
 	if (cpu_is_little_endian)
 		return;
 
 	if (di->i_dyn_features & OCFS2_INLINE_XATTR_FL) {
 		struct ocfs2_xattr_header *xh = (struct ocfs2_xattr_header *)
-			((void *)di + blocksize - di->i_xattr_inline_size);
-		ocfs2_swap_xattrs_from_cpu(xh);
+			((void *)di + fs->fs_blocksize -
+			 di->i_xattr_inline_size);
+		ocfs2_swap_xattrs_from_cpu(fs, di, xh);
 	}
 	if (has_extents(di))
-		ocfs2_swap_extent_list_from_cpu(&di->id2.i_list);
+		ocfs2_swap_extent_list_from_cpu(fs, di, &di->id2.i_list);
 	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL && S_ISDIR(di->i_mode))
-		ocfs2_swap_inline_dir(di, 0);
-	ocfs2_swap_inode_third(di);
+		ocfs2_swap_inline_dir(fs, di, 0);
+	ocfs2_swap_inode_third(fs, di);
 	ocfs2_swap_inode_second(di);
 	ocfs2_swap_inode_first(di);
 }
 
-void ocfs2_swap_inode_to_cpu(struct ocfs2_dinode *di, size_t blocksize)
+void ocfs2_swap_inode_to_cpu(ocfs2_filesys *fs, struct ocfs2_dinode *di)
 {
 	if (cpu_is_little_endian)
 		return;
 
 	ocfs2_swap_inode_first(di);
 	ocfs2_swap_inode_second(di);
-	ocfs2_swap_inode_third(di);
+	ocfs2_swap_inode_third(fs, di);
 	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL && S_ISDIR(di->i_mode))
-		ocfs2_swap_inline_dir(di, 1);
+		ocfs2_swap_inline_dir(fs, di, 1);
 	if (has_extents(di))
-		ocfs2_swap_extent_list_to_cpu(&di->id2.i_list);
+		ocfs2_swap_extent_list_to_cpu(fs, di, &di->id2.i_list);
 	if (di->i_dyn_features & OCFS2_INLINE_XATTR_FL) {
 		struct ocfs2_xattr_header *xh = (struct ocfs2_xattr_header *)
-			((void *)di + blocksize - di->i_xattr_inline_size);
-		ocfs2_swap_xattrs_to_cpu(xh);
+			((void *)di + fs->fs_blocksize -
+			 di->i_xattr_inline_size);
+		ocfs2_swap_xattrs_to_cpu(fs, di, xh);
 	}
 }
 
@@ -284,7 +305,7 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 	memcpy(inode_buf, blk, fs->fs_blocksize);
 
 	di = (struct ocfs2_dinode *) inode_buf;
-	ocfs2_swap_inode_to_cpu(di, fs->fs_blocksize);
+	ocfs2_swap_inode_to_cpu(fs, di);
 
 	ret = 0;
 out:
@@ -314,7 +335,7 @@ errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 	memcpy(blk, inode_buf, fs->fs_blocksize);
 
 	di = (struct ocfs2_dinode *)blk;
-	ocfs2_swap_inode_from_cpu(di, fs->fs_blocksize);
+	ocfs2_swap_inode_from_cpu(fs, di);
 
 	ocfs2_compute_meta_ecc(fs, blk, &di->i_check);
 	ret = io_write_block(fs->fs_io, blkno, 1, blk);
