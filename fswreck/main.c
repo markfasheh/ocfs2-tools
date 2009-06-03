@@ -91,6 +91,7 @@ static struct corrupt_funcs cf[MAX_CORRUPT] = {
 	{ &corrupt_group_desc,	"Create an error of GROUP_FREE_BITS and CLUSTER_ALLOC_BITS, simulate bug841 in oss.oracle.com/bugzilla"},
 	{ &corrupt_file,        "Inline file dyn_features flag error: INLINE_DATA_FLAG_INVALID"},
 	{ &corrupt_file,        "Inline file id_count,i_clusters and i_size error: INLINE_DATA_COUNT_INVALID"},
+	{ &corrupt_file,        "Allocate the same cluster to two different files"},
 
 };
 

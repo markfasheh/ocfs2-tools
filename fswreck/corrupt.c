@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * corrupt.c
  *
  * corruption routines
@@ -153,6 +155,9 @@ void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
 		break;
 	case CORRUPT_INLINE_DATA_COUNT:
 		func = mess_up_inline_count;
+		break;
+	case CORRUPT_DUPLICATE_CLUSTERS:
+		func = mess_up_dup_clusters;
 		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", code);

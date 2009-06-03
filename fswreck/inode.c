@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * inode.c
  *
  * inode fields corruptions
@@ -333,3 +335,75 @@ void mess_up_inline_count(ocfs2_filesys *fs, uint64_t blkno)
 
 	return;
 }
+
+void mess_up_dup_clusters(ocfs2_filesys *fs, uint64_t blkno)
+{
+	errcode_t err;
+	char *buf = NULL;
+	uint64_t inode1_blkno, inode2_blkno;
+	struct ocfs2_dinode *di1, *di2;
+	struct ocfs2_extent_list *el1, *el2;
+
+	err = ocfs2_malloc_blocks(fs->fs_io, 2, &buf);
+	if (err)
+		FSWRK_COM_FATAL(progname, err);
+
+	create_file(fs, blkno, &inode1_blkno);
+	create_file(fs, blkno, &inode2_blkno);
+
+	di1 = (struct ocfs2_dinode *)buf;
+	err = ocfs2_read_inode(fs, inode1_blkno, (char *)di1);
+	if (err)
+		FSWRK_COM_FATAL(progname, err);
+
+	di2 = (struct ocfs2_dinode *)(buf + fs->fs_blocksize);
+	err = ocfs2_read_inode(fs, inode2_blkno, (char *)di2);
+	if (err)
+		FSWRK_COM_FATAL(progname, err);
+
+	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super))) {
+		if (di1->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+			di1->i_dyn_features &= ~OCFS2_INLINE_DATA_FL;
+			err = ocfs2_write_inode(fs, inode1_blkno, (char *)di1);
+			if (err)
+				FSWRK_COM_FATAL(progname, err);
+		}
+		if (di2->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+			di2->i_dyn_features &= ~OCFS2_INLINE_DATA_FL;
+			err = ocfs2_write_inode(fs, inode1_blkno, (char *)di2);
+			if (err)
+				FSWRK_COM_FATAL(progname, err);
+		}
+	}
+
+	err = ocfs2_extend_allocation(fs, inode1_blkno, 1);
+	if (err)
+		FSWRK_COM_FATAL(progname, err);
+
+	/* Re-read the inode with the allocation */
+	err = ocfs2_read_inode(fs, inode1_blkno, (char *)di1);
+	if (err)
+		FSWRK_COM_FATAL(progname, err);
+
+	/* Set i_size to non-zero so that the allocation is valid */
+	di1->i_size = fs->fs_clustersize;
+	err = ocfs2_write_inode(fs, inode1_blkno, (char *)di1);
+	if (err)
+		FSWRK_COM_FATAL(progname, err);
+
+	el1 = &(di1->id2.i_list);
+	el2 = &(di2->id2.i_list);
+
+	el2->l_next_free_rec = el1->l_next_free_rec;
+	el2->l_recs[0] = el1->l_recs[0];
+
+	di2->i_size = di1->i_size;
+	di2->i_clusters = di1->i_clusters;
+
+	err = ocfs2_write_inode(fs, inode2_blkno, (char *)di2);
+	if (err)
+		FSWRK_COM_FATAL(progname, err);
+
+	ocfs2_free(&buf);
+}
+
