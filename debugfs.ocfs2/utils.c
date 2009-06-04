@@ -423,6 +423,9 @@ bail:
  * dump_file()
  *
  */
+static errcode_t dump_symlink(ocfs2_filesys *fs, uint64_t blkno, char *name,
+			      struct ocfs2_dinode *inode);
+
 errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 		    int preserve)
 {
@@ -437,6 +440,16 @@ errcode_t dump_file(ocfs2_filesys *fs, uint64_t ino, int fd, char *out_file,
 	ret = ocfs2_read_cached_inode(fs, ino, &ci);
 	if (ret) {
 		com_err(gbls.cmd, ret, "while reading inode %"PRIu64, ino);
+		goto bail;
+	}
+
+	if (S_ISLNK(ci->ci_inode->i_mode)) {
+
+		ret = unlink(out_file);
+		if (ret)
+			goto bail;
+
+		ret = dump_symlink(fs, ino, out_file, ci->ci_inode);
 		goto bail;
 	}
 
@@ -618,24 +631,32 @@ void inode_time_to_str(uint64_t timeval, char *str, int len)
 
 
 /*
- * rdump_symlink()
+ * dump_symlink()
  *
  * Code based on similar function in e2fsprogs-1.32/debugfs/dump.c
  *
  * Copyright (C) 1994 Theodore Ts'o.  This file may be redistributed
  * under the terms of the GNU Public License.
  */
-static errcode_t rdump_symlink(ocfs2_filesys *fs, uint64_t blkno, char *name)
+static errcode_t dump_symlink(ocfs2_filesys *fs, uint64_t blkno, char *name,
+			      struct ocfs2_dinode *inode)
 {
 	char *buf = NULL;
 	uint32_t len = 0;
-	errcode_t ret;
+	errcode_t ret = 0;
 
-	ret = read_whole_file(fs, blkno, &buf, &len);
-	if (ret)
-		goto bail;
+	char *link = NULL;
 
-	if (symlink(buf, name) == -1)
+	if (!inode->i_clusters)
+		link = (char *)inode->id2.i_symlink;
+	else {
+		ret = read_whole_file(fs, blkno, &buf, &len);
+		if (ret)
+			goto bail;
+		link = buf;
+	}
+
+	if (symlink(link, name) == -1)
 		ret = errno;
 
 bail:
@@ -719,7 +740,7 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 	di = (struct ocfs2_dinode *)buf;
 
 	if (S_ISLNK(di->i_mode)) {
-		ret = rdump_symlink(fs, blkno, fullname);
+		ret = dump_symlink(fs, blkno, fullname, di);
 		if (ret)
 			goto bail;
 	} else if (S_ISREG(di->i_mode)) {
