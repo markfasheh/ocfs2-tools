@@ -25,6 +25,6 @@
 #ifndef __SPECIAL_H
 #define __SPECIAL_H
 
-void mess_up_root(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_root(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
 
 #endif		/* __SPECIAL_H */

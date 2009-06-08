@@ -228,18 +228,13 @@ static void corrupt_symlink_file(ocfs2_filesys *fs, uint64_t blkno,
 	return;
 }
 
-void mess_up_symlink(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_symlink(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	uint64_t tmp_blkno;
-	int i;
-	enum fsck_type types[] = { 	LINK_FAST_DATA, LINK_NULLTERM,
-					LINK_SIZE, LINK_BLOCKS };
 
-	for (i = 0; i < ARRAY_ELEMENTS(types); i++) {
-		create_symlink(fs, blkno, &tmp_blkno);
+	create_symlink(fs, blkno, &tmp_blkno);
 
-		corrupt_symlink_file(fs, tmp_blkno, types[i]);
-	}
+	corrupt_symlink_file(fs, tmp_blkno, type);
 
 	return ;
 }

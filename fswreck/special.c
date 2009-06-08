@@ -32,7 +32,7 @@ extern char *progname;
  * Special files error: ROOT_NOTDIR, ROOT_DIR_MISSING, LOSTFOUND_MISSING
  * 
  */
-void mess_up_root(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_root(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	errcode_t ret;
 	char *inobuf = NULL;

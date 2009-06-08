@@ -25,6 +25,6 @@
 #ifndef __SYMLINK_H
 #define __SYMLINK_H
 
-void mess_up_symlink(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_symlink(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
 
 #endif		/* __SYMLINK_H */
