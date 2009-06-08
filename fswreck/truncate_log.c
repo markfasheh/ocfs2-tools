@@ -222,33 +222,54 @@ static void get_truncate_log(ocfs2_filesys *fs,
 	return;
 }
 
-void mess_up_truncate_log_list(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_truncate_log_list(ocfs2_filesys *fs, enum fsck_type type,
+			       uint16_t slotnum)
 {
 	uint64_t blkno;
 	int i;
- 	enum fsck_type types[] = { DEALLOC_COUNT, DEALLOC_USED };
 
 	get_truncate_log(fs, slotnum, &blkno);
 
-	for ( i = 0; i < ARRAY_ELEMENTS(types); i++) 
-		damage_truncate_log(fs, blkno, types[i], i);
+	switch (type) {
+	case DEALLOC_COUNT:
+		i = 0;
+		break;
+	case DEALLOC_USED:
+		i = 1;
+		break;
+	default:
+		break;
+	}
+
+	damage_truncate_log(fs, blkno, type, i);
 		
 	return;
 }
 
-void mess_up_truncate_log_rec(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_truncate_log_rec(ocfs2_filesys *fs, enum fsck_type type,
+			      uint16_t slotnum)
 {
 	uint64_t blkno;
 	int i;
- 	enum fsck_type types[] = {	TRUNCATE_REC_START_RANGE,
-	 				TRUNCATE_REC_WRAP,
-					TRUNCATE_REC_RANGE };
+
+	switch (type) {
+	case TRUNCATE_REC_START_RANGE:
+		i = 0;
+		break;
+	case TRUNCATE_REC_WRAP:
+		i = 1;
+		break;
+	case TRUNCATE_REC_RANGE:
+		i = 2;
+		break;
+	default:
+		break;
+	}
 
 	get_truncate_log(fs, slotnum, &blkno);
 
 	create_truncate_log(fs, blkno, 10, 10);
-	for ( i = 0; i < ARRAY_ELEMENTS(types); i++) 
-		damage_truncate_log(fs, blkno, types[i], i);
+	damage_truncate_log(fs, blkno, type, i);
 		
 	return;
 }

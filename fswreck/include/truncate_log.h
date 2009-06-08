@@ -25,7 +25,9 @@
 #ifndef __TRUNCATE_LOG_H
 #define __TRUNCATE_LOG_H
 
-void mess_up_truncate_log_list(ocfs2_filesys *fs, uint16_t slotnum);
-void mess_up_truncate_log_rec(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_truncate_log_list(ocfs2_filesys *fs, enum fsck_type type,
+			       uint16_t slotnum);
+void mess_up_truncate_log_rec(ocfs2_filesys *fs, enum fsck_type type,
+			      uint16_t slotnum);
 
 #endif		/* __TRUNCATE_LOG_H */
