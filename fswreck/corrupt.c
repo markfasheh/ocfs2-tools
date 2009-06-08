@@ -108,182 +108,326 @@ static void create_named_directory(ocfs2_filesys *fs, char *dirname,
 	return;
 }
 
-void corrupt_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
+void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 {
-	void (*func)(ocfs2_filesys *fs, uint64_t blkno) = NULL;
+	void (*func)(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno) = NULL;
 	uint64_t blkno;
 
-	switch (code) {
-	case CORRUPT_EXTENT_BLOCK:
+	switch (type) {
+	case EB_BLKNO:
 		func = mess_up_extent_block;
 		break;
-	case CORRUPT_EXTENT_LIST:
-		func = mess_up_extent_list;
+	case EB_GEN:
+		func = mess_up_extent_block;
 		break;
-	case CORRUPT_EXTENT_REC:
+	case EB_GEN_FIX:
+		func = mess_up_extent_block;
+		break;
+	case EXTENT_EB_INVALID:
+		func = mess_up_extent_block;
+		break;
+	case EXTENT_BLKNO_UNALIGNED:
 		func = mess_up_extent_record;
 		break;
-	case CORRUPT_INODE_FIELD:
+	case EXTENT_CLUSTERS_OVERRUN:
+		func = mess_up_extent_record;
+		break;
+	case EXTENT_BLKNO_RANGE:
+		func = mess_up_extent_record;
+		break;
+	case EXTENT_LIST_DEPTH:
+		func = mess_up_extent_list;
+		break;
+	case EXTENT_LIST_COUNT:
+		func = mess_up_extent_list;
+		break;
+	case EXTENT_LIST_FREE:
+		func = mess_up_extent_list;
+		break;
+	case INODE_SUBALLOC:
 		func = mess_up_inode_field;
-		break; 
-	case CORRUPT_INODE_NOT_CONNECTED:
+		break;
+	case INODE_GEN:
+		func = mess_up_inode_field;
+		break;
+	case INODE_GEN_FIX:
+		func = mess_up_inode_field;
+		break;
+	case INODE_BLKNO:
+		func = mess_up_inode_field;
+		break;
+	case INODE_NZ_DTIME:
+		func = mess_up_inode_field;
+		break;
+	case INODE_SIZE:
+		func = mess_up_inode_field;
+		break;
+	case INODE_CLUSTERS:
+		func = mess_up_inode_field;
+		break;
+	case INODE_COUNT:
+		func = mess_up_inode_field;
+		break;
+	case INODE_LINK_NOT_CONNECTED:
 		func = mess_up_inode_not_connected;
 		break;
-	case CORRUPT_SYMLINK:
+	case LINK_FAST_DATA:
 		func = mess_up_symlink;
 		break;
-	case CORRUPT_SPECIAL_FILE:
+	case LINK_NULLTERM:
+		func = mess_up_symlink;
+		break;
+	case LINK_SIZE:
+		func = mess_up_symlink;
+		break;
+	case LINK_BLOCKS:
+		func = mess_up_symlink;
+		break;
+	case ROOT_NOTDIR:
 		func = mess_up_root;
 		break;
-	case CORRUPT_DIR_INODE:
+	case ROOT_DIR_MISSING:
+		func = mess_up_root;
+		break;
+	case LOSTFOUND_MISSING:
+		func = mess_up_root;
+		break;
+	case DIR_ZERO:
 		func = mess_up_dir_inode;
 		break;
-	case CORRUPT_DIR_DOT:
+	case DIRENT_DOTTY_DUP:
 		func = mess_up_dir_dot;
 		break;
-	case CORRUPT_DIR_ENT:
+	case DIRENT_NOT_DOTTY:
+		func = mess_up_dir_dot;
+		break;
+	case DIRENT_DOT_INODE:
+		func = mess_up_dir_dot;
+		break;
+	case DIRENT_DOT_EXCESS:
+		func = mess_up_dir_dot;
+		break;
+	case DIRENT_ZERO:
 		func = mess_up_dir_ent;
 		break;
-	case CORRUPT_DIR_PARENT_DUP:
+	case DIRENT_NAME_CHARS:
+		func = mess_up_dir_ent;
+		break;
+	case DIRENT_INODE_RANGE:
+		func = mess_up_dir_ent;
+		break;
+	case DIRENT_INODE_FREE:
+		func = mess_up_dir_ent;
+		break;
+	case DIRENT_TYPE:
+		func = mess_up_dir_ent;
+		break;
+	case DIRENT_DUPLICATE:
+		func = mess_up_dir_ent;
+		break;
+	case DIRENT_LENGTH:
+		func = mess_up_dir_ent;
+		break;
+	case DIR_PARENT_DUP:
 		func = mess_up_dir_parent_dup;
 		break;
-	case CORRUPT_DIR_NOT_CONNECTED:
+	case DIR_NOT_CONNECTED:
 		func = mess_up_dir_not_connected;
 		break;
-	case CORRUPT_INLINE_DATA_FLAG:
+	case INLINE_DATA_FLAG_INVALID:
 		func = mess_up_inline_flag;
 		break;
-	case CORRUPT_INLINE_DATA_COUNT:
+	case INLINE_DATA_COUNT_INVALID:
 		func = mess_up_inline_count;
 		break;
-	case CORRUPT_DUPLICATE_CLUSTERS:
+	case DUPLICATE_CLUSTERS:
 		func = mess_up_dup_clusters;
 		break;
 	default:
-		FSWRK_FATAL("Invalid code=%d", code);
+		FSWRK_FATAL("Invalid code=%d", type);
 	}
 
 	create_named_directory(fs, "tmp", &blkno);
 
 	if (func)
-		func(fs, blkno);
+		func(fs, type, blkno);
 
 	return;
 }
 
-void corrupt_sys_file(ocfs2_filesys *fs, int code, uint16_t slotnum)
+void corrupt_sys_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 {
-	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+	void (*func)(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum) = NULL;
 
-	switch (code) {
-	case CORRUPT_CHAIN_LIST:
+	switch (type) {
+	case CHAIN_COUNT:
 		func = mess_up_chains_list;
 		break;
-	case CORRUPT_CHAIN_REC:
+	case CHAIN_NEXT_FREE:
+		func = mess_up_chains_list;
+		break;
+	case CHAIN_EMPTY:
 		func = mess_up_chains_rec;
 		break;
-	case CORRUPT_CHAIN_INODE:
+	case CHAIN_HEAD_LINK_RANGE:
+		func = mess_up_chains_rec;
+		break;
+	case CHAIN_BITS:
+		func = mess_up_chains_rec;
+		break;
+	case CLUSTER_ALLOC_BIT:
+		func = mess_up_chains_rec;
+		break;
+	case CHAIN_I_CLUSTERS:
 		func = mess_up_chains_inode;
 		break;
-	case CORRUPT_CHAIN_GROUP:
+	case CHAIN_I_SIZE:
+		func = mess_up_chains_inode;
+		break;
+	case CHAIN_GROUP_BITS:
+		func = mess_up_chains_inode;
+		break;
+	case CHAIN_LINK_GEN:
 		func = mess_up_chains_group;
 		break;
-	case CORRUPT_CHAIN_GROUP_MAGIC:
+	case CHAIN_LINK_RANGE:
+		func = mess_up_chains_group;
+		break;
+	case CHAIN_LINK_MAGIC:
 		func = mess_up_chains_group_magic;
 		break;
-	case CORRUPT_CHAIN_CPG:
+	case CHAIN_CPG:
 		func = mess_up_chains_cpg;
 		break;
-	case CORRUPT_SUPERBLOCK_CLUSTERS_EXCESS:
+	case SUPERBLOCK_CLUSTERS_EXCESS:
 		func = mess_up_superblock_clusters_excess;
 		break;
-	case CORRUPT_SUPERBLOCK_CLUSTERS_LACK:
+	case SUPERBLOCK_CLUSTERS_LACK:
 		func = mess_up_superblock_clusters_lack;
 		break;
-	case CORRUPT_INODE_ORPHANED:
+	case INODE_ORPHANED:
 		func = mess_up_inode_orphaned;
 		break;
-	case CORRUPT_INODE_ALLOC_REPAIR:
+	case INODE_ALLOC_REPAIR:
 		func = mess_up_inode_alloc;
 		break;
 	default:
-		FSWRK_FATAL("Invalid code=%d", code);
+		FSWRK_FATAL("Invalid code=%d", type);
 	}
 
 	if (func)
-		func(fs, slotnum);
+		func(fs, type, slotnum);
 
 	return;
 }
 
-void corrupt_group_desc(ocfs2_filesys *fs, int code, uint16_t slotnum)
+void corrupt_group_desc(ocfs2_filesys *fs, enum fsck_type type,
+			uint16_t slotnum)
 {
-	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+	void (*func)(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum) = NULL;
 
-	switch (code) {
-	case CORRUPT_GROUP_MINOR:
+	switch (type) {
+	case GROUP_PARENT:
 		func = mess_up_group_minor;
 		break;
-	case CORRUPT_GROUP_GENERATION:
+	case GROUP_BLKNO:
+		func = mess_up_group_minor;
+		break;
+	case GROUP_CHAIN:
+		func = mess_up_group_minor;
+		break;
+	case GROUP_FREE_BITS:
+		func = mess_up_group_minor;
+		break;
+	case GROUP_GEN:
 		func = mess_up_group_gen;
 		break;
-	case CORRUPT_GROUP_LIST:
+	case GROUP_UNEXPECTED_DESC:
 		func = mess_up_group_list;
 		break;
-	case CORRUPT_CLUSTER_AND_GROUP_DESC:
+	case GROUP_EXPECTED_DESC:
+		func = mess_up_group_list;
+		break;
+	case CLUSTER_GROUP_DESC:
 		func = mess_up_cluster_group_desc;
 		break;
 	default:
-		FSWRK_FATAL("Invalid code=%d", code);
+		FSWRK_FATAL("Invalid code=%d", type);
 	}
 
 	if (func)
-		func(fs, slotnum);
+		func(fs, type, slotnum);
 
 	return;
 }
 
-void corrupt_local_alloc(ocfs2_filesys *fs, int code, uint16_t slotnum)
+void corrupt_local_alloc(ocfs2_filesys *fs, enum fsck_type type,
+			 uint16_t slotnum)
 {
-	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+	void (*func)(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum) = NULL;
 
-	switch (code) {
-	case CORRUPT_LOCAL_ALLOC_EMPTY:
+	switch (type) {
+	case LALLOC_SIZE:
 		func = mess_up_local_alloc_empty;
 		break;
-	case CORRUPT_LOCAL_ALLOC_BITMAP: 
+	case LALLOC_NZ_USED:
+		func = mess_up_local_alloc_empty;
+		break;
+	case LALLOC_NZ_BM:
+		func = mess_up_local_alloc_empty;
+		break;
+	case LALLOC_BM_OVERRUN:
 		func = mess_up_local_alloc_bitmap;
 		break;
-	case CORRUPT_LOCAL_ALLOC_USED: 
+	case LALLOC_BM_STRADDLE:
+		func = mess_up_local_alloc_bitmap;
+		break;
+	case LALLOC_BM_SIZE:
+		func = mess_up_local_alloc_bitmap;
+		break;
+	case LALLOC_USED_OVERRUN:
+		func = mess_up_local_alloc_used;
+		break;
+	case LALLOC_CLEAR:
 		func = mess_up_local_alloc_used;
 		break;
 	default:
-		FSWRK_FATAL("Invalid code = %d", code);
+		FSWRK_FATAL("Invalid code = %d", type);
 	}
 
 	if (func)
-		func(fs, slotnum);
+		func(fs, type, slotnum);
 
 	return;
 }
 
-void corrupt_truncate_log(ocfs2_filesys *fs, int code, uint16_t slotnum)
+void corrupt_truncate_log(ocfs2_filesys *fs, enum fsck_type type,
+			  uint16_t slotnum)
 {
-	void (*func)(ocfs2_filesys *fs, uint16_t slotnum) = NULL;
+	void (*func)(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum) = NULL;
 
-	switch (code) {
-	case CORRUPT_TRUNCATE_LOG_LIST:
+	switch (type) {
+	case DEALLOC_COUNT:
 		func = mess_up_truncate_log_list;
 		break;
-	case CORRUPT_TRUNCATE_LOG_REC:
+	case DEALLOC_USED:
+		func = mess_up_truncate_log_list;
+		break;
+	case TRUNCATE_REC_START_RANGE:
+		func = mess_up_truncate_log_rec;
+		break;
+	case TRUNCATE_REC_WRAP:
+		func = mess_up_truncate_log_rec;
+		break;
+	case TRUNCATE_REC_RANGE:
 		func = mess_up_truncate_log_rec;
 		break;
 	default:
-		FSWRK_FATAL("Invalid code = %d", code);
+		FSWRK_FATAL("Invalid code = %d", type);
 	}
 
 	if (func)
-		func(fs, slotnum);
+		func(fs, type, slotnum);
 
 	return;
 }
