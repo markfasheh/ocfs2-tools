@@ -337,16 +337,12 @@ bail:
 }
 
 static void mess_up_sys_chains(ocfs2_filesys *fs, uint16_t slotnum,
-			enum fsck_type *types, int num)
+			       enum fsck_type type)
 {
 	errcode_t ret;
 	char sysfile[OCFS2_MAX_FILENAME_LEN];
 	uint64_t blkno;
-	int i;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
-	
-	if (num <= 0)
-		FSWRK_FATAL("Invalid num = %d\n", num);
 	
 	if (slotnum == UINT16_MAX)
 		snprintf(sysfile, sizeof(sysfile),
@@ -361,61 +357,44 @@ static void mess_up_sys_chains(ocfs2_filesys *fs, uint16_t slotnum,
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 	
-	for(i = 0; i < num; i++) 
-		mess_up_sys_file(fs, blkno, types[i]);
+	mess_up_sys_file(fs, blkno, type);
 
 	return ;
 }
 
-void mess_up_chains_list(ocfs2_filesys *fs,  uint16_t slotnum)
+void mess_up_chains_list(ocfs2_filesys *fs, enum fsck_type type,
+			 uint16_t slotnum)
+{
+	mess_up_sys_chains(fs, slotnum, type);
+}
+
+void mess_up_chains_rec(ocfs2_filesys *fs, enum fsck_type type,
+			uint16_t slotnum)
 {
 	
-	enum fsck_type types[] = { 	CHAIN_COUNT,
-					CHAIN_NEXT_FREE };
-	int numtypes = sizeof(types) / sizeof(enum fsck_type);
-
-	mess_up_sys_chains(fs, slotnum, types, numtypes);
+	mess_up_sys_chains(fs, slotnum, type);
 }
 
-void mess_up_chains_rec(ocfs2_filesys *fs,   uint16_t slotnum)
+void mess_up_chains_inode(ocfs2_filesys *fs, enum fsck_type type,
+			  uint16_t slotnum)
 {
-	
-	enum fsck_type types[] = { 	CHAIN_EMPTY,
-					CHAIN_HEAD_LINK_RANGE,
-					CHAIN_BITS };
-	int numtypes = sizeof(types) / sizeof(enum fsck_type);
-
-	mess_up_sys_chains(fs, slotnum, types, numtypes);
+	mess_up_sys_chains(fs, slotnum, type);
 }
 
-void mess_up_chains_inode(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_chains_group(ocfs2_filesys *fs, enum fsck_type type,
+			  uint16_t slotnum)
 {
-	enum fsck_type types[] = { 	CHAIN_I_CLUSTERS, 
-					CHAIN_I_SIZE,
-					CHAIN_GROUP_BITS };
-	int numtypes = sizeof(types) / sizeof(enum fsck_type);
-
-	mess_up_sys_chains(fs, slotnum, types, numtypes);
+	mess_up_sys_chains(fs, slotnum, type);
 }
 
-void mess_up_chains_group(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_chains_group_magic(ocfs2_filesys *fs, enum fsck_type type,
+				uint16_t slotnum)
 {
-	enum fsck_type types[] = { 	CHAIN_LINK_GEN,
-					CHAIN_LINK_RANGE };
-	int numtypes = sizeof(types) / sizeof(enum fsck_type);
-
-	mess_up_sys_chains(fs, slotnum, types, numtypes);
+	mess_up_sys_chains(fs, slotnum, type);
 }
 
-void mess_up_chains_group_magic(ocfs2_filesys *fs, uint16_t slotnum)
-{
-	enum fsck_type types[] = { CHAIN_LINK_MAGIC };
-	int numtypes = sizeof(types) / sizeof(enum fsck_type);
-
-	mess_up_sys_chains(fs, slotnum, types, numtypes);
-}
-
-void mess_up_chains_cpg(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_chains_cpg(ocfs2_filesys *fs, enum fsck_type type,
+			uint16_t slotnum)
 {
 	errcode_t ret;
 	char sysfile[OCFS2_MAX_FILENAME_LEN];
@@ -477,12 +456,14 @@ static void mess_up_superblock_clusters(ocfs2_filesys *fs, int excess)
 	return;
 }
 
-void mess_up_superblock_clusters_excess(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_superblock_clusters_excess(ocfs2_filesys *fs, enum fsck_type type,
+					uint16_t slotnum)
 {
 	mess_up_superblock_clusters(fs, 1);
 }
 
-void mess_up_superblock_clusters_lack(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_superblock_clusters_lack(ocfs2_filesys *fs, enum fsck_type type,
+				      uint16_t slotnum)
 {
 	mess_up_superblock_clusters(fs, 0);
 }
