@@ -225,52 +225,37 @@ static void damage_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 	return;
 }
 
-static void damage_extent_block_multi_types(ocfs2_filesys *fs, uint64_t blkno,
-					    enum fsck_type* types, int num)
+static void damage_extent_block_by_type(ocfs2_filesys *fs, uint64_t blkno,
+					enum fsck_type type)
 {
 	uint64_t tmpblkno;
-	volatile int i;
 	uint32_t clusters;
 
-	if (num <= 0)
-		FSWRK_FATAL("Invalid num %d", num);
-
 	/* Extend enough clusters to assure that we end up with a file
-	 * with atleast an extent block */
+	* with atleast an extent block */
 	clusters = 2 * ocfs2_extent_recs_per_inode(fs->fs_blocksize);
 
-	for (i = 0; i < num; ++i) {
-		create_file(fs, blkno, &tmpblkno);
+	create_file(fs, blkno, &tmpblkno);
 
-		custom_extend_allocation(fs, tmpblkno, clusters);
+	custom_extend_allocation(fs, tmpblkno, clusters);
 
-		damage_extent_block(fs, tmpblkno, types[i]);
-	}
+	damage_extent_block(fs, tmpblkno, type);
 
 	return;
 }
 
-void mess_up_extent_list(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_extent_list(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
-	enum fsck_type types[] = { EXTENT_LIST_DEPTH,
-				   EXTENT_LIST_COUNT,
-				   EXTENT_LIST_FREE };
-	int numtypes = sizeof(types) / sizeof(enum fsck_type);
 
-	damage_extent_block_multi_types(fs, blkno, types, numtypes);
+	damage_extent_block_by_type(fs, blkno, type);
 
 	return;
 }
 
-void mess_up_extent_block(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_extent_block(ocfs2_filesys *fs, enum fsck_type type,
+			  uint64_t blkno)
 {
-	enum fsck_type types[] = { EB_BLKNO,
-				   EB_GEN,
-				   EB_GEN_FIX,
-				   EXTENT_EB_INVALID };
-	int numtypes = sizeof(types) / sizeof(enum fsck_type);
-
-	damage_extent_block_multi_types(fs, blkno, types, numtypes);
+	damage_extent_block_by_type(fs, blkno, type);
 
 	return;
 }
@@ -346,24 +331,19 @@ bail:
 	return;
 }
 
-void mess_up_extent_record(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_extent_record(ocfs2_filesys *fs, enum fsck_type type,
+			   uint64_t blkno)
 {
 	uint64_t tmpblkno;
 	errcode_t ret;
-	int i;
-	enum fsck_type types[] = { EXTENT_BLKNO_UNALIGNED,
-				   EXTENT_BLKNO_RANGE,
-				   EXTENT_CLUSTERS_OVERRUN };
 
-	for (i = 0; i < sizeof(types) / sizeof(enum fsck_type); ++i) {
-		create_file(fs, blkno, &tmpblkno);
+	create_file(fs, blkno, &tmpblkno);
 
-		ret = ocfs2_extend_allocation(fs, tmpblkno, 1);
-		if (ret)
-			FSWRK_COM_FATAL(progname, ret);
+	ret = ocfs2_extend_allocation(fs, tmpblkno, 1);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
 
-		mess_up_record(fs, tmpblkno, types[i]);
-	}
+	mess_up_record(fs, tmpblkno, type);
 
 	return;
 }

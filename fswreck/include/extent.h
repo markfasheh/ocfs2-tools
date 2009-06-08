@@ -25,9 +25,12 @@
 #ifndef __EXTENT_H
 #define __EXTENT_H
 
-void mess_up_extent_list(ocfs2_filesys *fs, uint64_t blkno);
-void mess_up_extent_block(ocfs2_filesys *fs, uint64_t blkno);
-void mess_up_extent_record(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_extent_list(ocfs2_filesys *fs, enum fsck_type type,
+			 uint64_t blkno);
+void mess_up_extent_block(ocfs2_filesys *fs, enum fsck_type type,
+			  uint64_t blkno);
+void mess_up_extent_record(ocfs2_filesys *fs, enum fsck_type type,
+			   uint64_t blkno);
 
 void create_file(ocfs2_filesys *fs, uint64_t blkno, uint64_t *retblkno);
 
