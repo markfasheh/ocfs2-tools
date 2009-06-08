@@ -1,4 +1,6 @@
-/*
+/* -*- mode: c; c-basic-offset: 8; -*-
+ * vim: noexpandtab sw=8 ts=8 sts=0:
+ *
  * fsck.h
  *
  * Copyright (C) 2002 Oracle Corporation.  All rights reserved.
@@ -37,6 +39,7 @@ typedef struct _o2fsck_state {
 	ocfs2_bitmap	*ost_reg_inodes;
 
 	ocfs2_bitmap	*ost_allocated_clusters;
+	ocfs2_bitmap    *ost_duplicate_clusters;
 
 	/* This is no more than a cache of what we know the i_link_count
 	 * in each inode to currently be.  If an inode is marked in used_inodes
