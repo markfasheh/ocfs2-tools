@@ -206,17 +206,13 @@ bail:
 }
 
 static void mess_up_group_desc(ocfs2_filesys *fs, uint16_t slotnum,
-			enum fsck_type *types, int num)
+			enum fsck_type type)
 {
 	errcode_t ret;
 	char sysfile[OCFS2_MAX_FILENAME_LEN];
 	uint64_t blkno;
-	int i;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 	
-	if (num <= 0)
-		FSWRK_FATAL("Invalid num %d", num);
-
 	if (slotnum == UINT16_MAX)
 		snprintf(sysfile, sizeof(sysfile),
 		ocfs2_system_inodes[GLOBAL_BITMAP_SYSTEM_INODE].si_name);
@@ -230,39 +226,34 @@ static void mess_up_group_desc(ocfs2_filesys *fs, uint16_t slotnum,
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 	
-	for(i = 0; i < num; i++)
-		damage_group_desc(fs, blkno, types[i]);
+	damage_group_desc(fs, blkno, type);
 
 	return ;
 }
 
-void mess_up_group_minor(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_group_minor(ocfs2_filesys *fs, enum fsck_type type,
+			 uint16_t slotnum)
 {
-	enum fsck_type types[] = { 	GROUP_PARENT, GROUP_BLKNO,
-					GROUP_CHAIN, GROUP_FREE_BITS };
-
-	mess_up_group_desc(fs, slotnum, types, ARRAY_ELEMENTS(types));
+	mess_up_group_desc(fs, slotnum, type);
 }
 
-void mess_up_group_gen(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_group_gen(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 {
 
-	enum fsck_type types[] = { GROUP_GEN };
-
-	mess_up_group_desc(fs, slotnum, types, ARRAY_ELEMENTS(types));
+	mess_up_group_desc(fs, slotnum, type);
 }
 
-void mess_up_group_list(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_group_list(ocfs2_filesys *fs, enum fsck_type type,
+			uint16_t slotnum)
 {
-	enum fsck_type types[] = { GROUP_EXPECTED_DESC, GROUP_UNEXPECTED_DESC };
-
-	mess_up_group_desc(fs, slotnum, types, ARRAY_ELEMENTS(types));
+	mess_up_group_desc(fs, slotnum, type);
 }
 
 /* We will allocate some clusters and corrupt the group descriptor
  * which stores the clusters and makes fsck run into error.
  */
-void mess_up_cluster_group_desc(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_cluster_group_desc(ocfs2_filesys *fs, enum fsck_type type,
+				uint16_t slotnum)
 {
 	errcode_t ret;
 	uint32_t found, start_cluster, old_free_bits, request = 100;
