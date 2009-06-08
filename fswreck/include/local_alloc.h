@@ -25,8 +25,11 @@
 #ifndef __LOCAL_ALLOC_H
 #define __LOCAL_ALLOC_H
 
-void mess_up_local_alloc_empty(ocfs2_filesys *fs, uint16_t slotnum);
-void mess_up_local_alloc_bitmap(ocfs2_filesys *fs, uint16_t slotnum);
-void mess_up_local_alloc_used(ocfs2_filesys *fs, uint16_t slotnum);
+void mess_up_local_alloc_empty(ocfs2_filesys *fs, enum fsck_type type,
+			       uint16_t slotnum);
+void mess_up_local_alloc_bitmap(ocfs2_filesys *fs, enum fsck_type type,
+				uint16_t slotnum);
+void mess_up_local_alloc_used(ocfs2_filesys *fs, enum fsck_type type,
+			      uint16_t slotnum);
 
 #endif		/* __LOCAL_ALLOC_H */

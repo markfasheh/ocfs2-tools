@@ -207,14 +207,13 @@ bail:
 }
 
 
-void mess_up_local_alloc_empty(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_local_alloc_empty(ocfs2_filesys *fs, enum fsck_type type,
+			       uint16_t slotnum)
 {
 	errcode_t ret;
 	uint64_t blkno;
-	int i;
 	char alloc_inode[OCFS2_MAX_FILENAME_LEN];
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
- 	enum fsck_type types[] = { LALLOC_SIZE, LALLOC_NZ_USED, LALLOC_NZ_BM};
   
 	if (slotnum == UINT16_MAX)
 		slotnum = 0;
@@ -227,22 +226,18 @@ void mess_up_local_alloc_empty(ocfs2_filesys *fs, uint16_t slotnum)
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
-	for ( i = 0; i < ARRAY_ELEMENTS(types); i++) 
-		damage_local_alloc(fs, blkno, types[i]);
+	damage_local_alloc(fs, blkno, type);
 		
 	return;
 }
 
-void mess_up_local_alloc_bitmap(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_local_alloc_bitmap(ocfs2_filesys *fs, enum fsck_type type,
+				uint16_t slotnum)
 {
 	errcode_t ret;
 	uint64_t blkno;
-	int i;
 	char alloc_inode[OCFS2_MAX_FILENAME_LEN];
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
- 	enum fsck_type types[] = { 	LALLOC_BM_OVERRUN,
-					LALLOC_BM_STRADDLE,
-					LALLOC_BM_SIZE};
   
 	if (slotnum == UINT16_MAX)
 		slotnum = 0;
@@ -257,20 +252,18 @@ void mess_up_local_alloc_bitmap(ocfs2_filesys *fs, uint16_t slotnum)
 
 	create_local_alloc(fs, blkno);
 
-	for ( i = 0; i < ARRAY_ELEMENTS(types); i++) 
-		damage_local_alloc(fs, blkno, types[i]);
+	damage_local_alloc(fs, blkno, type);
 		
 	return;
 }
 
-void mess_up_local_alloc_used(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_local_alloc_used(ocfs2_filesys *fs, enum fsck_type type,
+			      uint16_t slotnum)
 {
 	errcode_t ret;
 	uint64_t blkno;
-	int i;
 	char alloc_inode[OCFS2_MAX_FILENAME_LEN];
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
- 	enum fsck_type types[] = { LALLOC_USED_OVERRUN, LALLOC_CLEAR };
   
 	if (slotnum == UINT16_MAX)
 		slotnum = 0;
@@ -285,8 +278,7 @@ void mess_up_local_alloc_used(ocfs2_filesys *fs, uint16_t slotnum)
 
 	create_local_alloc(fs, blkno);
 
-	for ( i = 0; i < ARRAY_ELEMENTS(types); i++) 
-		damage_local_alloc(fs, blkno, types[i]);
+	damage_local_alloc(fs, blkno, type);
 		
 	return;
 }
