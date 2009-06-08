@@ -301,37 +301,28 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 	return;
 }
 
-void mess_up_dir_dot(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_dir_dot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
-	int i;
 	uint64_t tmp_blkno;
-	enum fsck_type types[] ={ DIRENT_DOTTY_DUP, DIRENT_NOT_DOTTY,
-				  DIRENT_DOT_INODE, DIRENT_DOT_EXCESS };
 
-	for (i = 0; i < ARRAY_ELEMENTS(types); i++) {
-		create_directory(fs, blkno, &tmp_blkno);
-		damage_dir_content(fs, tmp_blkno, types[i]);
-	}
+	create_directory(fs, blkno, &tmp_blkno);
+	damage_dir_content(fs, tmp_blkno, type);
+
 	return;
 }
 
-void mess_up_dir_ent(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_dir_ent(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
-	int i;
 	uint64_t tmp_blkno;
-	enum fsck_type types[] = { DIRENT_ZERO, DIRENT_NAME_CHARS,
-				   DIRENT_INODE_RANGE, DIRENT_INODE_FREE,
-				   DIRENT_TYPE,	DIRENT_DUPLICATE,
-				   DIRENT_LENGTH };
 
-	for (i = 0; i < ARRAY_ELEMENTS(types); i++) {
-		create_directory(fs, blkno, &tmp_blkno);
-		damage_dir_content(fs, tmp_blkno, types[i]);
-	}
+	create_directory(fs, blkno, &tmp_blkno);
+	damage_dir_content(fs, tmp_blkno, type);
+
 	return;
 }
 
-void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_dir_parent_dup(ocfs2_filesys *fs, enum fsck_type type,
+			    uint64_t blkno)
 {
 	errcode_t ret;
 	uint64_t parent1, parent2, tmp_blkno;
@@ -368,7 +359,7 @@ void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno)
 	return;
 }
 
-void mess_up_dir_inode(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_dir_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	errcode_t ret;
 	char *buf = NULL;
@@ -409,7 +400,8 @@ void mess_up_dir_inode(ocfs2_filesys *fs, uint64_t blkno)
 	return;
 }
 
-void mess_up_dir_not_connected(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_dir_not_connected(ocfs2_filesys *fs, enum fsck_type type,
+			       uint64_t blkno)
 {
 	errcode_t ret;
 	uint64_t tmp_blkno;

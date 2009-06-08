@@ -25,11 +25,13 @@
 #ifndef __DIR_H
 #define __DIR_H
 
-void mess_up_dir_inode(ocfs2_filesys *fs, uint64_t blkno);
-void mess_up_dir_dot(ocfs2_filesys *fs, uint64_t blkno);
-void mess_up_dir_ent(ocfs2_filesys *fs, uint64_t blkno);
-void mess_up_dir_parent_dup(ocfs2_filesys *fs, uint64_t blkno);
-void mess_up_dir_not_connected(ocfs2_filesys *fs, uint64_t blkno);
+void mess_up_dir_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
+void mess_up_dir_dot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
+void mess_up_dir_ent(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
+void mess_up_dir_parent_dup(ocfs2_filesys *fs, enum fsck_type type,
+			    uint64_t blkno);
+void mess_up_dir_not_connected(ocfs2_filesys *fs, enum fsck_type type,
+			       uint64_t blkno);
 
 void create_directory(ocfs2_filesys *fs, uint64_t parentblk, uint64_t *blkno);
 
