@@ -204,6 +204,11 @@ errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost)
 	ocfs2_bitmap_free(ost->ost_allocated_clusters);
 	ost->ost_allocated_clusters = NULL;
 
+	if (ost->ost_duplicate_clusters) {
+		ocfs2_bitmap_free(ost->ost_duplicate_clusters);
+		ost->ost_duplicate_clusters = NULL;
+	}
+
 	o2fsck_icount_free(ost->ost_icount_in_inodes);
 	ost->ost_icount_in_inodes = NULL;
 

@@ -58,13 +58,32 @@ void o2fsck_write_inode(o2fsck_state *ost, uint64_t blkno,
 
 void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster)
 {
-	int was_set;
+	int was_set = 0;
+	errcode_t ret;
+	const char *whoami = __FUNCTION__;
 
 	o2fsck_bitmap_set(ost->ost_allocated_clusters, cluster, &was_set);
 
-	if (was_set) /* XX can go away one all callers handle this */
-		com_err(__FUNCTION__, OCFS2_ET_INTERNAL_FAILURE,
-			"!! duplicate cluster %"PRIu32, cluster);
+	if (!was_set)
+		return;
+
+	if (!ost->ost_duplicate_clusters) {
+		fprintf(stderr,
+			"Duplicate clusters detected.  Pass 1b will be run\n");
+
+		ret = ocfs2_cluster_bitmap_new(ost->ost_fs,
+					       "duplicate clusters",
+					       &ost->ost_duplicate_clusters);
+		if (ret) {
+			com_err(whoami, ret,
+				"while allocating duplicate cluster bitmap");
+			return;
+		}
+	}
+
+	verbosef("Cluster %"PRIu32" is allocated to more than one object\n",
+		 cluster);
+	ocfs2_bitmap_set(ost->ost_duplicate_clusters, cluster, NULL);
 }
 
 void o2fsck_mark_clusters_allocated(o2fsck_state *ost, uint32_t cluster,

@@ -38,6 +38,10 @@
  *  - bitmap of which inodes are directories or regular files
  *  - directory blocks that it finds off of directory inodes
  *
+ * Pass 1 also compiles a bitmap of all clusters used by the filesystem.
+ * If any clusters are shared by more than one inode, a bitmap of
+ * duplicate clusters is also created.
+ *
  * The end of Pass 1 is when the found block bitmap should contain all the
  * blocks in the system that are in use.  This is used to derive the set of
  * clusters that should be allocated.  The cluster chain allocator is loaded
