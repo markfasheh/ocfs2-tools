@@ -128,32 +128,27 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 	return;
 }
 
-void mess_up_inode_field(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_inode_field(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	int i;
 	errcode_t ret;
 	uint64_t tmpblkno;
 	uint32_t clusters = 10;
-	enum fsck_type types[] = {	INODE_GEN, INODE_GEN_FIX, INODE_BLKNO,
-					INODE_NZ_DTIME, INODE_SUBALLOC,
-					INODE_SIZE, INODE_CLUSTERS,
-					INODE_COUNT};
 
-	for (i = 0; i < ARRAY_ELEMENTS(types); i++) {
-		create_file(fs, blkno, &tmpblkno);
+	create_file(fs, blkno, &tmpblkno);
 
-		if (types[i] == INODE_CLUSTERS) {
-			ret = ocfs2_extend_allocation(fs, tmpblkno, clusters);
-			if (ret)
-				FSWRK_COM_FATAL(progname, ret);
-		}
-
-		damage_inode(fs, tmpblkno, types[i]);
+	if (type == INODE_CLUSTERS) {
+		ret = ocfs2_extend_allocation(fs, tmpblkno, clusters);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
 	}
+
+	damage_inode(fs, tmpblkno, type);
 	return;
 }
 
-void mess_up_inode_not_connected(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_inode_not_connected(ocfs2_filesys *fs, enum fsck_type type,
+				 uint64_t blkno)
 {
 	errcode_t ret;
 	uint64_t tmpblkno;
@@ -167,7 +162,8 @@ void mess_up_inode_not_connected(ocfs2_filesys *fs, uint64_t blkno)
 	return ;
 }
 
-void mess_up_inode_orphaned(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_inode_orphaned(ocfs2_filesys *fs, enum fsck_type type,
+			    uint16_t slotnum)
 {
 	errcode_t ret;
 	uint64_t blkno, tmpblkno;
@@ -192,7 +188,8 @@ void mess_up_inode_orphaned(ocfs2_filesys *fs, uint16_t slotnum)
 	return;
 }
 
-void mess_up_inode_alloc(ocfs2_filesys *fs, uint16_t slotnum)
+void mess_up_inode_alloc(ocfs2_filesys *fs, enum fsck_type type,
+			 uint16_t slotnum)
 {
 	errcode_t ret;
 	uint64_t tmpblkno;
@@ -227,7 +224,7 @@ void mess_up_inode_alloc(ocfs2_filesys *fs, uint16_t slotnum)
 	return;
 }
 
-void mess_up_inline_flag(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_inline_flag(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 
 	int i;
@@ -278,7 +275,7 @@ void mess_up_inline_flag(ocfs2_filesys *fs, uint64_t blkno)
 	return;
 }
 
-void mess_up_inline_count(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_inline_count(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	int i;
 	errcode_t ret;
@@ -336,7 +333,8 @@ void mess_up_inline_count(ocfs2_filesys *fs, uint64_t blkno)
 	return;
 }
 
-void mess_up_dup_clusters(ocfs2_filesys *fs, uint64_t blkno)
+void mess_up_dup_clusters(ocfs2_filesys *fs, enum fsck_type type,
+			  uint64_t blkno)
 {
 	errcode_t err;
 	char *buf = NULL;
