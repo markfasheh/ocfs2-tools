@@ -30,72 +30,207 @@ char *progname = NULL;
 static char *device = NULL;
 static uint16_t slotnum = UINT16_MAX;
 
-struct corrupt_funcs {
-	void (*func) (ocfs2_filesys *fs, int code, uint16_t slotnum);
+static int corrupt[NUM_FSCK_TYPE];
+
+struct prompt_code {
+
+	enum fsck_type type;
+	char *str;
+	void (*func)(ocfs2_filesys *fs, enum fsck_type code, uint16_t slotnum);
 	char *desc;
 };
 
-static struct corrupt_funcs cf[MAX_CORRUPT] = {
-	{ NULL, 		"Not applicable"},
-	{ NULL, 		"Not applicable"},
-	{ NULL, 		"Not applicable"},
-				/* Following relates to the Global bitmap: */
-	{ &corrupt_chains, 	"Delink the last chain from the inode"},
-	{ &corrupt_chains, 	"Corrupt cl_count"},
-	{ &corrupt_chains,	"Corrupt cl_next_free_rec"},
-	{ NULL,			"Not applicable"},
-	{ &corrupt_chains,	"Corrupt id1.bitmap1.i_total/i_used"},
-	{ &corrupt_chains,	"Corrupt c_blkno of the first record with a number larger than volume size"},
-	{ NULL,			"Not applicable"},
-	{ &corrupt_chains,	"Corrupt c_blkno of the first record with an unaligned number"},
-	{ &corrupt_chains,	"Corrupt c_blkno of the first record with 0"},
-	{ &corrupt_chains,	"Corrupt c_total/c_free of the first record"},
-	{ &corrupt_file,	"Extent block error: EB_BLKNO, EB_GEN, EB_GEN_FIX, EXTENT_EB_INVALID"},
-	{ &corrupt_file,	"Extent list error: EXTENT_LIST_DEPTH, EXTENT_LIST_COUNT, EXTENT_LIST_FREE"},
-	{ &corrupt_file,	"Extent record error: EXTENT_BLKNO_UNALIGNED, EXTENT_CLUSTERS_OVERRUN, EXTENT_BLKNO_RANGE"},
-	{ &corrupt_sys_file,	"Chain list error:	CHAIN_COUNT, CHAIN_NEXT_FREE"},
-	{ &corrupt_sys_file,	"Chain record error: CHAIN_EMPTY, CHAIN_HEAD_LINK_RANGE, CHAIN_BITS, CLUSTER_ALLOC_BIT"},
-	{ &corrupt_sys_file,	"Chain inode error: CHAIN_I_CLUSTERS, CHAIN_I_SIZE, CHAIN_GROUP_BITS"},
-	{ &corrupt_sys_file,	"Chain group error: CHAIN_LINK_GEN, CHAIN_LINK_RANGE"},
-	{ &corrupt_sys_file,	"Group magic error: CHAIN_LINK_MAGIC"},
-	{ &corrupt_sys_file,	"Chain resize error: CHAIN_CPG"},
-	{ &corrupt_sys_file,	"Superblock error: SUPERBLOCK_CLUSTERS_EXCESS, excess error"},
-	{ &corrupt_sys_file,	"Superblock error: SUPERBLOCK_CLUSTERS_LACK, lack error"},
-				/* Following relates to corrupting group descriptor */
-	{ &corrupt_group_desc,	"Group minor field error: GROUP_PARENT, GROUP_BLKNO, GROUP_CHAIN, GROUP_FREE_BITS"},
-	{ &corrupt_group_desc,	"Group generation error: GROUP_GEN"},
-	{ &corrupt_group_desc,	"Group list error: GROUP_UNEXPECTED_DESC, GROUP_EXPECTED_DESC"},
-				/* Following relates to corrupting inode information */
-	{ &corrupt_file,	"Inode field error: INODE_SUBALLOC, INODE_GEN, INODE_GEN_FIX,INODE_BLKNO,"
-				"INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT"},
-	{ &corrupt_file,	"Inode link not connected error: INODE_LINK_NOT_CONNECTED "},
-	{ &corrupt_sys_file,	"Inode orphaned error:	INODE_ORPHANED"},
-	{ &corrupt_sys_file,	"Inode alloc error:	INODE_ALLOC_REPAIR"},
-				/* Following relates to corrupting local alloc file */
-	{ &corrupt_local_alloc,	"Empty local alloc  error:	LALLOC_SIZE, LALLOC_NZ_USED, LALLOC_NZ_BM"},
-	{ &corrupt_local_alloc,	"Local alloc bitmap error: 	LALLOC_BM_OVERRUN, LALLOC_BM_STRADDLE,LALLOC_BM_SIZE"},
-	{ &corrupt_local_alloc,	"Local alloc used info error:	LALLOC_USED_OVERRUN, LALLOC_CLEAR"},
-				/* Following relates to corrupting truncate log file */
- 	{ &corrupt_truncate_log,"Truncate log list error: 	DEALLOC_COUNT, DEALLOC_USED"},
- 	{ &corrupt_truncate_log,"Truncate log rec error: 	TRUNCATE_REC_START_RANGE, TRUNCATE_REC_WRAP, TRUNCATE_REC_RANGE"},
-				/* Following relates to corrupting symlink file */
- 	{ &corrupt_file,	"Link file error: LINK_FAST_DATA, LINK_NULLTERM, LINK_SIZE, LINK_BLOCKS"},
-				/* Following relates to corrupting root and lost+found */
- 	{ &corrupt_file,	"Special files error: ROOT_NOTDIR, ROOT_DIR_MISSING, LOSTFOUND_MISSING"},
-				/* Following relates to corrupting directory */
- 	{ &corrupt_file,	"Directory inode error: DIR_ZERO"},
- 	{ &corrupt_file,	"Dirent dot error: DIRENT_DOTTY_DUP, DIRENT_NOT_DOTTY, DIRENT_DOT_INODE, DIRENT_DOT_EXCESS"},
-	{ &corrupt_file,	"Dirent field error: DIRENT_ZERO, DIRENT_NAME_CHARS,DIRENT_INODE_RANGE, DIRENT_INODE_FREE, DIRENT_TYPE, DIRENT_DUPLICATE, DIRENT_LENGTH"}, 
-	{ &corrupt_file,	"Directory parent duplicate error: DIR_PARENT_DUP"},
-	{ &corrupt_file,	"Directory not connected error: DIR_NOT_CONNECTED"},
-	{ &corrupt_group_desc,	"Create an error of GROUP_FREE_BITS and CLUSTER_ALLOC_BITS, simulate bug841 in oss.oracle.com/bugzilla"},
-	{ &corrupt_file,        "Inline file dyn_features flag error: INLINE_DATA_FLAG_INVALID"},
-	{ &corrupt_file,        "Inline file id_count,i_clusters and i_size error: INLINE_DATA_COUNT_INVALID"},
-	{ &corrupt_file,        "Allocate the same cluster to two different files"},
+#define define_prompt_code(_type, _func, _desc) \
+		[_type] = {			\
+				.type = _type,  \
+				.str = #_type,  \
+				.func = _func,  \
+				.desc = _desc,  \
+		}
 
+static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
+
+	define_prompt_code(EB_BLKNO, corrupt_file,
+			   "Corrupt an extent block's eb_blkno field"),
+	define_prompt_code(EB_GEN, corrupt_file,
+			   "Corrupt an extent block's generation number"),
+	define_prompt_code(EB_GEN_FIX, corrupt_file,
+			   "Corrupt an extent block's generation number "
+			   "so that fsck.ocfs2 can fix it"),
+	define_prompt_code(EXTENT_EB_INVALID, corrupt_file,
+			   "Corrupt an extent block's generation number"),
+	define_prompt_code(EXTENT_BLKNO_UNALIGNED, corrupt_file,
+			   "Corrupt extent record's e_blkno"),
+	define_prompt_code(EXTENT_CLUSTERS_OVERRUN, corrupt_file,
+			   "Corrupt extent record's e_leaf_clusters"),
+	define_prompt_code(EXTENT_BLKNO_RANGE, corrupt_file,
+			   "Corrupt extent record's e_blkno to 1"),
+	define_prompt_code(EXTENT_LIST_DEPTH, corrupt_file,
+			   "Corrupt first extent block's list depth of an inode"),
+	define_prompt_code(EXTENT_LIST_COUNT, corrupt_file,
+			   "Corrupt extent block's clusters"),
+	define_prompt_code(EXTENT_LIST_FREE, corrupt_file,
+			   "Corrupt extent block's l_next_free_rec"),
+	define_prompt_code(INODE_SUBALLOC, corrupt_file,
+			   "Corrupt inode's i_suballoc_slot field"),
+	define_prompt_code(INODE_GEN, corrupt_file,
+			   "Corrupt inode's i_generation field"),
+	define_prompt_code(INODE_GEN_FIX, corrupt_file,
+			   "Corrupt inode's i_generation field"),
+	define_prompt_code(INODE_BLKNO, corrupt_file,
+			   "Corrupt inode's i_blkno field"),
+	define_prompt_code(INODE_NZ_DTIME, corrupt_file,
+			   "Corrupt inode's i_dtime field"),
+	define_prompt_code(INODE_SIZE, corrupt_file,
+			   "Corrupt inode's i_size field"),
+	define_prompt_code(INODE_CLUSTERS, corrupt_file,
+			   "Corrupt inode's i_clusters field"),
+	define_prompt_code(INODE_COUNT, corrupt_file,
+			   "Corrupt inode's i_links_count field"),
+	define_prompt_code(INODE_LINK_NOT_CONNECTED, corrupt_file,
+			   "Create an inode which has no links"),
+	define_prompt_code(INODE_NOT_CONNECTED, NULL,
+			   "Unimplemented corrupt code"),
+	define_prompt_code(LINK_FAST_DATA, corrupt_file,
+			   "Corrupt symlink's i_clusters to 0"),
+	define_prompt_code(LINK_NULLTERM, corrupt_file,
+			   "Corrupt symlink's all blocks with dummy texts"),
+	define_prompt_code(LINK_SIZE, corrupt_file,
+			   "Corrupt symlink's i_size field"),
+	define_prompt_code(LINK_BLOCKS, corrupt_file,
+			   "Corrupt symlink's e_leaf_clusters field"),
+	define_prompt_code(ROOT_NOTDIR, corrupt_file,
+			   "Corrupt root inode, change its i_mode to 0"),
+	define_prompt_code(ROOT_DIR_MISSING, corrupt_file,
+			   "Corrupt root inode, change its i_mode to 0"),
+	define_prompt_code(LOSTFOUND_MISSING, corrupt_file,
+			   "Corrupt root inode, change its i_mode to 0"),
+	define_prompt_code(DIR_DOTDOT, NULL,
+			   "Unimplemented corrupt code"),
+	define_prompt_code(DIR_ZERO, corrupt_file,
+			   "Corrupt directory, empty its content"),
+	define_prompt_code(DIRENT_DOTTY_DUP, corrupt_file,
+			   "Duplicate '.' dirent to a directory"),
+	define_prompt_code(DIRENT_NOT_DOTTY, corrupt_file,
+			   "Corrupt directory's '.' dirent to a dummy one"),
+	define_prompt_code(DIRENT_DOT_INODE, corrupt_file,
+			   "Corrupt dot's inode no"),
+	define_prompt_code(DIRENT_DOT_EXCESS, corrupt_file,
+			   "Corrupt dot's dirent length"),
+	define_prompt_code(DIRENT_ZERO, corrupt_file,
+			   "Corrupt directory, add a zero dirent"),
+	define_prompt_code(DIRENT_NAME_CHARS, corrupt_file,
+			   "Corrupt directory, add a invalid dirent"),
+	define_prompt_code(DIRENT_INODE_RANGE, corrupt_file,
+			   "Corrupt directory, add an entry whose inode "
+			   "exceeds the limits"),
+	define_prompt_code(DIRENT_INODE_FREE, corrupt_file,
+			   "Corrupt directory, add an entry whose inode "
+			   "isn't used"),
+	define_prompt_code(DIRENT_TYPE, corrupt_file,
+			   "Corrupt dirent's mode"),
+	define_prompt_code(DIRENT_DUPLICATE, corrupt_file,
+			   "Add two duplicated dirents to dir"),
+	define_prompt_code(DIRENT_LENGTH, corrupt_file,
+			   "Corrupt dirent's length"),
+	define_prompt_code(DIR_PARENT_DUP, corrupt_file,
+			   "Create a dir with two '..' dirent"),
+	define_prompt_code(DIR_NOT_CONNECTED, corrupt_file,
+			   "Create a dir which has no connections"),
+	define_prompt_code(INLINE_DATA_FLAG_INVALID, corrupt_file,
+			   "Create an inlined inode on a unsupported volume"),
+	define_prompt_code(INLINE_DATA_COUNT_INVALID, corrupt_file,
+			   "Corrupt inlined inode's id_count, "
+			   "i_size and i_clusters"),
+	define_prompt_code(DUPLICATE_CLUSTERS, corrupt_file,
+			   "Allocate same cluster to different files"),
+	define_prompt_code(CHAIN_COUNT, corrupt_sys_file,
+			   "Corrupt chain list's cl_count"),
+	define_prompt_code(CHAIN_NEXT_FREE, corrupt_sys_file,
+			   "Corrupt chain list's cl_next_free_rec"),
+	define_prompt_code(CHAIN_EMPTY, corrupt_sys_file,
+			   "Corrupt chain list's cl_recs into zero"),
+	define_prompt_code(CHAIN_HEAD_LINK_RANGE, corrupt_sys_file,
+			   "Corrupt chain list's header blkno"),
+	define_prompt_code(CHAIN_BITS, corrupt_sys_file,
+			   "Corrupt chain's total bits"),
+	define_prompt_code(CLUSTER_ALLOC_BIT, NULL,
+			   "Unimplemented corrupt code"),
+	define_prompt_code(CHAIN_I_CLUSTERS, corrupt_sys_file,
+			   "Corrupt chain allocator's i_clusters"),
+	define_prompt_code(CHAIN_I_SIZE, corrupt_sys_file,
+			   "Corrupt chain allocator's i_size"),
+	define_prompt_code(CHAIN_GROUP_BITS, corrupt_sys_file,
+			   "Corrupt chain allocator's i_used of bitmap"),
+	define_prompt_code(CHAIN_LINK_GEN, corrupt_sys_file,
+			   "Corrupt allocation group descriptor's "
+			   "bg_generation field"),
+	define_prompt_code(CHAIN_LINK_RANGE, corrupt_sys_file,
+			   "Corrupt allocation group descriptor's "
+			   "bg_next_group field"),
+	define_prompt_code(CHAIN_LINK_MAGIC, corrupt_sys_file,
+			   "Corrupt allocation group descriptor's "
+			   "bg_signature field"),
+	define_prompt_code(CHAIN_CPG, corrupt_sys_file,
+			   "Corrupt chain list's cl_cpg of global_bitmap"),
+	define_prompt_code(SUPERBLOCK_CLUSTERS_EXCESS, corrupt_sys_file,
+			   "Corrupt sb's i_clusters by wrong increment"),
+	define_prompt_code(SUPERBLOCK_CLUSTERS_LACK, corrupt_sys_file,
+			   "Corrupt sb's i_clusters by wrong decrement"),
+	define_prompt_code(INODE_ORPHANED, corrupt_sys_file,
+			   "Create an inode under orphan dir"),
+	define_prompt_code(INODE_ALLOC_REPAIR, corrupt_sys_file,
+			   "Create an invalid inode"),
+	define_prompt_code(GROUP_PARENT, corrupt_group_desc,
+			   "Corrupt chain group's group parent"),
+	define_prompt_code(GROUP_BLKNO, corrupt_group_desc,
+			   "Corrupt chain group's blkno"),
+	define_prompt_code(GROUP_CHAIN, corrupt_group_desc,
+			   "Corrupt chain group's chain where it was in"),
+	define_prompt_code(GROUP_FREE_BITS, corrupt_group_desc,
+			   "Corrupt chain group's free bits"),
+	define_prompt_code(GROUP_GEN, corrupt_group_desc,
+			   "Corrupt chain group's generation"),
+	define_prompt_code(GROUP_UNEXPECTED_DESC, corrupt_group_desc,
+			   "Add a fake description to chain"),
+	define_prompt_code(GROUP_EXPECTED_DESC, corrupt_group_desc,
+			   "Delete the right description from chain"),
+	define_prompt_code(CLUSTER_GROUP_DESC, corrupt_group_desc,
+			   "Corrupt chain group's clusters and free bits"),
+	define_prompt_code(LALLOC_SIZE, corrupt_local_alloc,
+			   "Corrupt local alloc's size"),
+	define_prompt_code(LALLOC_NZ_USED, corrupt_local_alloc,
+			   "Corrupt local alloc's used and total clusters"),
+	define_prompt_code(LALLOC_NZ_BM, corrupt_local_alloc,
+			   "Corrupt local alloc's starting bit offset"),
+	define_prompt_code(LALLOC_BM_OVERRUN, corrupt_local_alloc,
+			   "Overrun local alloc's starting bit offset"),
+	define_prompt_code(LALLOC_BM_STRADDLE, corrupt_local_alloc,
+			   "Straddle local alloc's starting bit offset"),
+	define_prompt_code(LALLOC_BM_SIZE, corrupt_local_alloc,
+			   "Corrupt local alloc bitmap's i_total"),
+	define_prompt_code(LALLOC_USED_OVERRUN, corrupt_local_alloc,
+			   "Corrupt local alloc bitmap's i_used"),
+	define_prompt_code(LALLOC_CLEAR, corrupt_local_alloc,
+			   "Corrupt local alloc's size"),
+	define_prompt_code(LALLOC_REPAIR, NULL,
+			   "Unimplemented corrupt code"),
+	define_prompt_code(LALLOC_USED, NULL,
+			   "Unimplemented corrupt code"),
+	define_prompt_code(DEALLOC_COUNT, corrupt_truncate_log,
+			   "Corrupt truncate log's tl_count"),
+	define_prompt_code(DEALLOC_USED, corrupt_truncate_log,
+			   "Corrupt truncate log's tl_used"),
+	define_prompt_code(TRUNCATE_REC_START_RANGE, corrupt_truncate_log,
+			   "Corrupt truncate log's t_start"),
+	define_prompt_code(TRUNCATE_REC_WRAP, corrupt_truncate_log,
+			   "Corrupt truncate log's tl_recs"),
+	define_prompt_code(TRUNCATE_REC_RANGE, corrupt_truncate_log,
+			   "Corrupt truncate log's t_clusters"),
 };
 
-static int corrupt[MAX_CORRUPT];
+#undef define_prompt_code
+
 /*
  * usage()
  *
@@ -110,8 +245,9 @@ static void usage (char *progname)
 	g_print ("	-n <node slot number>\n");
 	g_print ("	-c <corrupt code>\n");
 	g_print ("	corrupt code description:\n");
-	for (i = 0; i < MAX_CORRUPT; i++)
-		g_print ("	%02d - %s\n", i, cf[i].desc);
+	for (i = 0; i < NUM_FSCK_TYPE; i++)
+		fprintf(stdout, "	%s - %s\n", prompt_codes[i].str,
+			 prompt_codes[i].desc);
 
 	exit (0);
 }					/* usage */
@@ -141,6 +277,63 @@ static void handle_signal (int sig)
 	return ;
 }					/* handle_signal */
 
+static int corrupt_code_match(const char *corrupt_code)
+{
+	int i;
+
+	for (i = 0; i < NUM_FSCK_TYPE; i++)
+		if (strcmp(corrupt_code, prompt_codes[i].str) == 0)
+			return i;
+
+	return -1;
+}
+
+static int parse_corrupt_codes(const char *corrupt_codes)
+{
+	int ret = 0, i = -2;
+	char *p;
+	char *token = NULL;
+
+	p = corrupt_codes;
+
+	while (p) {
+
+		token = p;
+		p = strchr(p, ',');
+
+		if (p)
+			*p = 0;
+
+		if (strcmp(token, "") != 0) {
+
+			i = corrupt_code_match(token);
+
+			if (i >= 0)
+				corrupt[i] = 1;
+			else {
+
+				fprintf(stderr, "Corrupt code \"%s\" was not "
+					"supported.\n", token);
+				ret = -1;
+				break;
+			}
+
+		}
+
+		if (!p)
+			continue;
+		p++;
+
+	}
+
+	if (i == -2) {
+		fprintf(stderr, "At least one corrupt code needed.\n");
+		ret = -1;
+	}
+
+	return ret;
+}
+
 
 /*
  * read_options()
@@ -149,7 +342,7 @@ static void handle_signal (int sig)
 static int read_options(int argc, char **argv)
 {
 	int c;
-	int ind;
+	int ret = 0;
 
 	progname = basename(argv[0]);
 
@@ -165,13 +358,7 @@ static int read_options(int argc, char **argv)
 
 		switch (c) {
 		case 'c':	/* corrupt */
-			ind = strtoul(optarg, NULL, 0);
-			if (ind < MAX_CORRUPT)
-				corrupt[ind] = 1;
-			else {
-				fprintf(stderr, "Invalid corrupt code:%d\n", ind);
-				return -1;
-			}
+			ret = parse_corrupt_codes(optarg);
 			break;
 
 		case 'n':	/* slotnum */
@@ -186,7 +373,10 @@ static int read_options(int argc, char **argv)
 	if (optind < argc && argv[optind])
 		device = argv[optind];
 
-	return 0;
+	if (ret < 0)
+		usage(progname);
+
+	return ret;
 }
 
 /*
@@ -230,12 +420,14 @@ int main (int argc, char **argv)
 		goto bail;
 	}
 
-	for (i = 1; i < MAX_CORRUPT; ++i) {
+	for (i = 1; i < NUM_FSCK_TYPE; ++i) {
 		if (corrupt[i]) {
-			if (cf[i].func)
-				cf[i].func(fs, i, slotnum);
+			if (prompt_codes[i].func)
+				prompt_codes[i].func(fs, prompt_codes[i].type,
+						     slotnum);
 			else
-				fprintf(stderr, "Unimplemented corrupt code = %d\n", i);
+				fprintf(stderr, "Unimplemented corrupt code "
+					"= %s\n", prompt_codes[i].str);
 		}
 	}
 

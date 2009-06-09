@@ -74,57 +74,19 @@
 #undef min
 #define min(a,b)	((a) < (b) ? (a) : (b))
 
-enum{
-	CORRUPT_EXTENT_BLOCK = 13,
-	CORRUPT_EXTENT_LIST,
-	CORRUPT_EXTENT_REC,
-	CORRUPT_CHAIN_LIST,
-	CORRUPT_CHAIN_REC,
-	CORRUPT_CHAIN_INODE,
-	CORRUPT_CHAIN_GROUP,
-	CORRUPT_CHAIN_GROUP_MAGIC,
-	CORRUPT_CHAIN_CPG,
-	CORRUPT_SUPERBLOCK_CLUSTERS_EXCESS,
-	CORRUPT_SUPERBLOCK_CLUSTERS_LACK,
-	CORRUPT_GROUP_MINOR,
-	CORRUPT_GROUP_GENERATION,
-	CORRUPT_GROUP_LIST,
-	CORRUPT_INODE_FIELD,
-	CORRUPT_INODE_NOT_CONNECTED,
-	CORRUPT_INODE_ORPHANED,
-	CORRUPT_INODE_ALLOC_REPAIR,
-	CORRUPT_LOCAL_ALLOC_EMPTY,
-	CORRUPT_LOCAL_ALLOC_BITMAP,
-	CORRUPT_LOCAL_ALLOC_USED,
-	CORRUPT_TRUNCATE_LOG_LIST,
-	CORRUPT_TRUNCATE_LOG_REC,
-	CORRUPT_SYMLINK,
-	CORRUPT_SPECIAL_FILE,
-	CORRUPT_DIR_INODE,
-	CORRUPT_DIR_DOT,
-	CORRUPT_DIR_ENT,
-	CORRUPT_DIR_PARENT_DUP,
-	CORRUPT_DIR_NOT_CONNECTED,
-	CORRUPT_CLUSTER_AND_GROUP_DESC,
-	CORRUPT_INLINE_DATA_FLAG,
-	CORRUPT_INLINE_DATA_COUNT,
-        CORRUPT_DUPLICATE_CLUSTERS,
-	MAX_CORRUPT
-};
-
 #define ARRAY_ELEMENTS(arr) (sizeof(arr) / sizeof(arr[0]))
 
 /* remaining headers */
-#include <corrupt.h>
-#include <chain.h>
-#include <extent.h>
-#include <group.h>
-#include <inode.h>
-#include <local_alloc.h>
-#include <truncate_log.h>
-#include <symlink.h>
-#include <special.h>
-#include <dir.h>
-#include <fsck_type.h>
+#include "fsck_type.h"
+#include "corrupt.h"
+#include "chain.h"
+#include "extent.h"
+#include "group.h"
+#include "inode.h"
+#include "local_alloc.h"
+#include "truncate_log.h"
+#include "symlink.h"
+#include "special.h"
+#include "dir.h"
 
 #endif		/* __MAIN_H__ */
