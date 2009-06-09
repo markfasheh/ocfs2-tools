@@ -186,8 +186,8 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, o2fsck_state *ost)
 		return ret;
 	}
 
-	ret = ocfs2_block_bitmap_new(fs, "allocated clusters",
-				     &ost->ost_allocated_clusters);
+	ret = ocfs2_cluster_bitmap_new(fs, "allocated clusters",
+				       &ost->ost_allocated_clusters);
 	if (ret) {
 		com_err(whoami, ret, "while allocating a bitmap to track "
 			"allocated clusters");
