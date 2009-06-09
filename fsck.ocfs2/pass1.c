@@ -67,6 +67,7 @@
 #include "icount.h"
 #include "fsck.h"
 #include "pass1.h"
+#include "pass1b.h"
 #include "problem.h"
 #include "util.h"
 #include "xattr.h"
@@ -1417,6 +1418,9 @@ out_close_scan:
 	ocfs2_close_inode_scan(scan);
 out_free:
 	ocfs2_free(&buf);
+
+	if (!ret && ost->ost_duplicate_clusters)
+		ret = ocfs2_pass1_dups(ost);
 
 out:
 	return ret;

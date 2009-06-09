@@ -27,6 +27,7 @@ CFILES =	fsck.c		\
 		journal.c 	\
 		pass0.c 	\
 		pass1.c 	\
+		pass1b.c 	\
 		pass2.c 	\
 		pass3.c 	\
 		pass4.c 	\
@@ -45,6 +46,7 @@ HFILES = 	include/fsck.h		\
 		include/journal.h	\
 		include/pass0.h		\
 		include/pass1.h		\
+		include/pass1b.h	\
 		include/pass2.h		\
 		include/pass3.h		\
 		include/pass4.h		\
