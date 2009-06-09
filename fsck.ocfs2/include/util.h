@@ -66,6 +66,9 @@ errcode_t handle_slots_system_file(ocfs2_filesys *fs,
 						     struct ocfs2_dinode *di,
 						     int slot));
 
+/* How to abort but clean up the cluster state */
+void o2fsck_abort(void);
+
 /*
  * Wrap the ocfs2 bitmap functions to abort when errors are found.  They're
  * not supposed to fail, so we want to handle it.
