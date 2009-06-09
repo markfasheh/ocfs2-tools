@@ -77,7 +77,7 @@ void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster)
 		if (ret) {
 			com_err(whoami, ret,
 				"while allocating duplicate cluster bitmap");
-			return;
+			o2fsck_abort();
 		}
 	}
 
@@ -305,14 +305,9 @@ void __o2fsck_bitmap_set(ocfs2_bitmap *bitmap, uint64_t bitno, int *oldval,
 
 	ret = ocfs2_bitmap_set(bitmap, bitno, oldval);
 	if (ret) {
-		com_err(where, ret,
-			"while trying to set bit %"PRIu64", aborting\n",
+		com_err(where, ret, "while trying to set bit %"PRIu64,
 			bitno);
-		/*
-		 * We abort with SIGTERM so that the signal handler can
-		 * clean up the cluster stack.
-		 */
-		kill(getpid(), SIGTERM);
+		o2fsck_abort();
 	}
 }
 
@@ -323,13 +318,19 @@ void __o2fsck_bitmap_clear(ocfs2_bitmap *bitmap, uint64_t bitno, int *oldval,
 
 	ret = ocfs2_bitmap_clear(bitmap, bitno, oldval);
 	if (ret) {
-		com_err(where, ret,
-			"while trying to clear bit %"PRIu64", aborting\n",
+		com_err(where, ret, "while trying to clear bit %"PRIu64,
 			bitno);
-		/*
-		 * We abort with SIGTERM so that the signal handler can
-		 * clean up the cluster stack.
-		 */
-		kill(getpid(), SIGTERM);
+		o2fsck_abort();
 	}
+}
+
+/*
+ * What if we're somewhere we can't set an error and we need to abort fsck?
+ * We don't want to just exit(1), as we may have some cluster locks, etc.
+ * If we SIGTERM ourselves, our signal handler should do the right thing.
+ */
+void o2fsck_abort(void)
+{
+	fprintf(stderr, "Aborting\n");
+	kill(getpid(), SIGTERM);
 }
