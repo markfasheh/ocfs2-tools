@@ -118,6 +118,13 @@ bitmap. This is only possible due to a failed volume resize operation.
 Answering yes updates the total clusters in the super block to the value
 specified in the global bitmap.
 
+.SS "FIXED_CHAIN_CLUSTERS"
+The global bitmap inode was repaired, resulting in a change to the total
+cluster count of the filesystem.
+
+Answering yes updates the total clusters in the super block to the value
+specified in the global bitmap.
+
 \" pass0.c
 
 .SS "GROUP_UNEXPECTED_DESC"

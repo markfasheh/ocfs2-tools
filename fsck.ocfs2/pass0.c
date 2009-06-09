@@ -1060,13 +1060,14 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 {
 	errcode_t ret;
 	uint64_t blkno;
+	uint32_t pre_repair_clusters;
 	char *blocks = NULL;
 	char *pre_cache_buf = NULL;
 	struct ocfs2_dinode *di = NULL;
 	ocfs2_filesys *fs = ost->ost_fs;
 	ocfs2_cached_inode **ci;
 	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
-	int i, type;
+	int i, type, bitmap_retried = 0;
 
 	printf("Pass 0a: Checking cluster allocation chains\n");
 
@@ -1159,11 +1160,50 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		}
 	}
 
+retry_bitmap:
+	pre_repair_clusters = di->i_clusters;
 	ret = verify_bitmap_descs(ost, di, blocks + ost->ost_fs->fs_blocksize,
 				  blocks + (ost->ost_fs->fs_blocksize * 2));
 
 	if (ret)
 		goto out;
+
+	if (pre_repair_clusters != di->i_clusters) {
+		if (prompt(ost, PY, PR_FIXED_CHAIN_CLUSTERS,
+			   "Repair of global_bitmap changed the filesystem "
+			   "from %u clusters to %u clusters.  Trust "
+			   "global_bitmap?",
+			   pre_repair_clusters, di->i_clusters)) {
+			ost->ost_num_clusters = di->i_clusters;
+			fs->fs_clusters = di->i_clusters;
+			fs->fs_blocks = ocfs2_clusters_to_blocks(fs,
+							 fs->fs_clusters);
+			ret = o2fsck_state_reinit(fs, ost);
+			if (ret) {
+				com_err(whoami, ret, "while reinit "
+					"o2fsck_state.");
+				goto out;
+			}
+
+			/*
+			 * The reinit clears the bits found during the
+			 * scan of the global bitmap.  We need to go over
+			 * them again.  They really should come out clean
+			 * this time.  If they don't, we probably have
+			 * a serious problem.
+			 *
+			 * In an interactive run, the user can keep
+			 * retrying and abort when they give up.  In a
+			 * non-interactive mode, we can't loop forever.
+			 */
+			if (ost->ost_ask || !bitmap_retried) {
+				bitmap_retried = 1;
+				verbosef("Restarting global_bitmap %s\n",
+					 "scan");
+				goto retry_bitmap;
+			}
+		}
+	}
 
 	printf("Pass 0b: Checking inode allocation chains\n");
 
