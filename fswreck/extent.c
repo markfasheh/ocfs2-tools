@@ -164,7 +164,6 @@ static void damage_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 			break;
 		case EB_GEN:
 		case EB_GEN_FIX:
-		case EXTENT_EB_INVALID:
 			oldno = eb->h_fs_generation;
 			eb->h_fs_generation = 0x1234;
 			if (type == EB_GEN)
@@ -176,6 +175,12 @@ static void damage_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 			fprintf(stdout, "Corrupt inode#%"PRIu64", change "
 				"generation number from 0x%x to 0x%x\n",
 				blkno, oldno, eb->h_fs_generation);
+			break;
+		case EXTENT_EB_INVALID:
+			memset(eb->h_signature, 'a', sizeof(eb->h_signature));
+			fprintf(stdout, "Corrupt the signature of extent block "
+				"%"PRIu64"\n",
+				eb->h_blkno);
 			break;
 		case EXTENT_LIST_DEPTH: 
 			oldno = eb->h_list.l_tree_depth;
