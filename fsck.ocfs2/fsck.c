@@ -166,13 +166,6 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, o2fsck_state *ost)
 		return ret;
 	}
 
-	ret = ocfs2_block_bitmap_new(fs, "inodes with bad fields", 
-				     &ost->ost_bad_inodes);
-	if (ret) {
-		com_err(whoami, ret, "while allocating bad inodes bitmap");
-		return ret;
-	}
-
 	ret = ocfs2_block_bitmap_new(fs, "directory inodes", 
 				     &ost->ost_dir_inodes);
 	if (ret) {
@@ -201,9 +194,6 @@ static errcode_t o2fsck_state_init(ocfs2_filesys *fs, o2fsck_state *ost)
 errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost)
 {
 	errcode_t ret;
-
-	ocfs2_bitmap_free(ost->ost_bad_inodes);
-	ost->ost_bad_inodes = NULL;
 
 	ocfs2_bitmap_free(ost->ost_dir_inodes);
 	ost->ost_dir_inodes = NULL;
