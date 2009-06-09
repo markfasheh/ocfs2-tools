@@ -460,14 +460,6 @@ static errcode_t fix_dirent_filetype(o2fsck_state *ost,
 		goto check;
 	}
 
-	ret = ocfs2_bitmap_test(ost->ost_bad_inodes, dirent->inode, &was_set);
-	if (ret)
-		goto out;
-	if (was_set) {
-		expected_type = OCFS2_FT_UNKNOWN;
-		goto check;
-	}
-
 	ret = o2fsck_type_from_dinode(ost, dirent->inode, &expected_type);
 	if (ret)
 		goto out;

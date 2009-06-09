@@ -33,7 +33,6 @@ typedef struct _o2fsck_state {
 	ocfs2_cached_inode	*ost_global_inode_alloc;
 	ocfs2_cached_inode	**ost_inode_allocs;
 
-	ocfs2_bitmap	*ost_bad_inodes;
 	ocfs2_bitmap	*ost_dir_inodes;
 	ocfs2_bitmap	*ost_reg_inodes;
 
