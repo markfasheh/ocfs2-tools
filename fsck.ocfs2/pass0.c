@@ -494,13 +494,13 @@ static errcode_t check_chain(o2fsck_state *ost,
 				int was_set;
 				ocfs2_bitmap_test(allowed, blkno, &was_set);
 				if (was_set) {
-					ocfs2_bitmap_clear(allowed, blkno,
-							   &was_set);
+					o2fsck_bitmap_clear(allowed, blkno,
+							    &was_set);
 					mark_group_used(ost, cs, bg1->bg_blkno,
 							allowed != NULL);
 				} else if (forbidden)
-					ocfs2_bitmap_set(forbidden, blkno,
-							 &was_set);
+					o2fsck_bitmap_set(forbidden, blkno,
+							  &was_set);
 			} else
 				mark_group_used(ost, cs, bg1->bg_blkno,
 						allowed != NULL);
@@ -906,7 +906,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 	     i < cgs.cgs_cluster_groups; 
 	     i++, blkno = i * ocfs2_clusters_to_blocks(ost->ost_fs,
 						       cgs.cgs_cpg)) {
-		ocfs2_bitmap_set(allowed, blkno, NULL);
+		o2fsck_bitmap_set(allowed, blkno, NULL);
 	}
 
 	ret = verify_chain_alloc(ost, di, buf1, buf2, NULL, allowed, forbidden);

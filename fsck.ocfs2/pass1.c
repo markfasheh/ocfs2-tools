@@ -509,11 +509,11 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
 	}
 
 	if (S_ISDIR(di->i_mode)) {
-		ocfs2_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
+		o2fsck_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
 		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0,
 				      di->i_flags & OCFS2_ORPHANED_FL);
 	} else if (S_ISREG(di->i_mode)) {
-		ocfs2_bitmap_set(ost->ost_reg_inodes, blkno, NULL);
+		o2fsck_bitmap_set(ost->ost_reg_inodes, blkno, NULL);
 	} else if (S_ISLNK(di->i_mode)) {
 		/* we only make sure a link's i_size matches
 		 * the link names length in the file data later when

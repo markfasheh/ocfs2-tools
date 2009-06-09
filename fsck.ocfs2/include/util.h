@@ -65,4 +65,19 @@ errcode_t handle_slots_system_file(ocfs2_filesys *fs,
 				   errcode_t (*func)(ocfs2_filesys *fs,
 						     struct ocfs2_dinode *di,
 						     int slot));
+
+/*
+ * Wrap the ocfs2 bitmap functions to abort when errors are found.  They're
+ * not supposed to fail, so we want to handle it.
+ */
+void __o2fsck_bitmap_set(ocfs2_bitmap *bitmap, uint64_t bitno, int *oldval,
+			 const char *where);
+void __o2fsck_bitmap_clear(ocfs2_bitmap *bitmap, uint64_t bitno, int *oldval,
+			   const char *where);
+
+/* These wrappers pass the caller into __o2fsck_bitmap_*() */
+#define o2fsck_bitmap_set(_map, _bit, _old)     			\
+	__o2fsck_bitmap_set((_map), (_bit), (_old), __FUNCTION__)
+#define o2fsck_bitmap_clear(_map, _bit, _old)				\
+	__o2fsck_bitmap_clear((_map), (_bit), (_old), __FUNCTION__);
 #endif /* __O2FSCK_UTIL_H__ */

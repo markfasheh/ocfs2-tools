@@ -28,6 +28,9 @@
 #include <inttypes.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <signal.h>
+#include <unistd.h>
 #include "ocfs2/ocfs2.h"
 
 #include "util.h"
@@ -57,7 +60,7 @@ void o2fsck_mark_cluster_allocated(o2fsck_state *ost, uint32_t cluster)
 {
 	int was_set;
 
-	ocfs2_bitmap_set(ost->ost_allocated_clusters, cluster, &was_set);
+	o2fsck_bitmap_set(ost->ost_allocated_clusters, cluster, &was_set);
 
 	if (was_set) /* XX can go away one all callers handle this */
 		com_err(__FUNCTION__, OCFS2_ET_INTERNAL_FAILURE,
@@ -75,7 +78,7 @@ void o2fsck_mark_cluster_unallocated(o2fsck_state *ost, uint32_t cluster)
 {
 	int was_set;
 
-	ocfs2_bitmap_clear(ost->ost_allocated_clusters, cluster, &was_set);
+	o2fsck_bitmap_clear(ost->ost_allocated_clusters, cluster, &was_set);
 }
 
 errcode_t o2fsck_type_from_dinode(o2fsck_state *ost, uint64_t ino,
@@ -274,4 +277,40 @@ int o2fsck_worth_caching(int blocks_to_read)
 void o2fsck_reset_blocks_cached(void)
 {
 	blocks_cached = 0;
+}
+
+void __o2fsck_bitmap_set(ocfs2_bitmap *bitmap, uint64_t bitno, int *oldval,
+			 const char *where)
+{
+	errcode_t ret;
+
+	ret = ocfs2_bitmap_set(bitmap, bitno, oldval);
+	if (ret) {
+		com_err(where, ret,
+			"while trying to set bit %"PRIu64", aborting\n",
+			bitno);
+		/*
+		 * We abort with SIGTERM so that the signal handler can
+		 * clean up the cluster stack.
+		 */
+		kill(getpid(), SIGTERM);
+	}
+}
+
+void __o2fsck_bitmap_clear(ocfs2_bitmap *bitmap, uint64_t bitno, int *oldval,
+			   const char *where)
+{
+	errcode_t ret;
+
+	ret = ocfs2_bitmap_clear(bitmap, bitno, oldval);
+	if (ret) {
+		com_err(where, ret,
+			"while trying to clear bit %"PRIu64", aborting\n",
+			bitno);
+		/*
+		 * We abort with SIGTERM so that the signal handler can
+		 * clean up the cluster stack.
+		 */
+		kill(getpid(), SIGTERM);
+	}
 }

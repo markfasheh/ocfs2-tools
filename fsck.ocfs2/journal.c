@@ -247,7 +247,7 @@ static errcode_t lookup_journal_block(ocfs2_filesys *fs,
 	}
 
 	if (check_dup) {
-		ocfs2_bitmap_set(ji->ji_used_blocks, *blkno, &was_set);
+		o2fsck_bitmap_set(ji->ji_used_blocks, *blkno, &was_set);
 		if (was_set)  {
 			printf("Logical block %"PRIu64" in slot %d's journal "
 			       "maps to block %"PRIu64" which has already "

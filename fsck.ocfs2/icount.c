@@ -95,9 +95,9 @@ errcode_t o2fsck_icount_set(o2fsck_icount *icount, uint64_t blkno,
 	errcode_t ret = 0;
 
 	if (count == 1)
-		ocfs2_bitmap_set(icount->ic_single_bm, blkno, NULL);
+		o2fsck_bitmap_set(icount->ic_single_bm, blkno, NULL);
 	else
-		ocfs2_bitmap_clear(icount->ic_single_bm, blkno, NULL);
+		o2fsck_bitmap_clear(icount->ic_single_bm, blkno, NULL);
 
 	in = icount_search(icount, blkno, NULL);
 	if (in) {
