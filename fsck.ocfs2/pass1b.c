@@ -32,7 +32,12 @@
  * this inode for each addition cluster it used to share.
  *
  * Pass 1C walks the directory tree and gives names to each inode.  This
- * is so the user can see the name of the file they are fixing.
+ * is so the user can see the name of the file they are fixing.  The pass
+ * does a depth-first traversal of the tree.  For every inode in the
+ * rbtree of duplicates it finds, it stores the path for it.  It will
+ * ignore errors in the directory tree, because we haven't fixed it yet.
+ * When reporting to the user, inodes without names will just get their
+ * inode number printed.
  *
  * Pass 1D does the actual fixing.  Each inode with duplicate clusters can
  * cloned to an entirely new file or deleted.  Regardless of the choice,
@@ -70,6 +75,9 @@ struct dup_inode {
 
 	/* The block number of this inode */
 	uint64_t	di_ino;
+
+	/* The path to this inode */
+	char		*di_path;
 
 	/*
 	 * i_flags from the inode.  We need to refuse deletion of
@@ -111,6 +119,8 @@ struct dup_context {
 
 	/* Inodes that own them */
 	struct rb_root	dup_inodes;
+	/* How many there are */
+	uint64_t	dup_inode_count;
 };
 
 /* See if the cluster rbtree has the given cluster.  */
@@ -200,6 +210,7 @@ static void dup_inode_insert(struct dup_context *dct,
 
 	rb_link_node(&insert_di->di_node, parent, p);
 	rb_insert_color(&insert_di->di_node, &dct->dup_inodes);
+	dct->dup_inode_count++;
 }
 
 /*
@@ -281,6 +292,40 @@ out:
 
 	return ret;
 }
+
+static void o2fsck_empty_dup_context(struct dup_context *dct)
+{
+	struct dup_cluster *dc;
+	struct dup_inode *di;
+	struct dup_cluster_owner *dco;
+	struct rb_node *node;
+	struct list_head *p, *next;
+
+	while ((node = rb_first(&dct->dup_clusters)) != NULL) {
+		dc = rb_entry(node, struct dup_cluster, dc_node);
+
+		list_for_each_safe(p, next, &dc->dc_owners) {
+			dco = list_entry(p, struct dup_cluster_owner,
+					 dco_list);
+			list_del(&dco->dco_list);
+			ocfs2_free(&dco);
+		}
+
+		rb_erase(&dc->dc_node, &dct->dup_clusters);
+		ocfs2_free(&dc);
+	}
+
+	while ((node = rb_first(&dct->dup_inodes)) != NULL) {
+		di = rb_entry(node, struct dup_inode, di_node);
+		rb_erase(&di->di_node, &dct->dup_inodes);
+		ocfs2_free(&di);
+	}
+}
+
+
+/*
+ * Pass 1B
+ */
 
 struct process_extents_context {
 	o2fsck_state *ost;
@@ -694,35 +739,227 @@ out:
 	return ret;
 }
 
-static void o2fsck_empty_dup_context(struct dup_context *dct)
+
+/*
+ * Pass 1C
+ */
+
+struct dir_to_scan {
+	struct list_head ts_list;
+	uint64_t ts_ino;
+	char *ts_path;
+};
+
+struct dir_scan_context {
+	o2fsck_state *ds_ost;
+	struct dup_context *ds_dct;
+
+	/* Inodes we still have to find */
+	int64_t ds_inodes_left;
+
+	/* Subdirs that are pending */
+	struct list_head ds_paths;
+
+	/* The cwd's path and ino */
+	uint64_t ds_ino;
+	char *ds_cwd;
+	int ds_cwdlen;
+};
+
+static void pass1c_warn(errcode_t ret)
 {
-	struct dup_cluster *dc;
-	struct dup_inode *di;
-	struct dup_cluster_owner *dco;
-	struct rb_node *node;
-	struct list_head *p, *next;
+	static int warned = 0;
 
-	while ((node = rb_first(&dct->dup_clusters)) != NULL) {
-		dc = rb_entry(node, struct dup_cluster, dc_node);
+	if (warned)
+		return;
 
-		list_for_each_safe(p, next, &dc->dc_owners) {
-			dco = list_entry(p, struct dup_cluster_owner,
-					 dco_list);
-			list_del(&dco->dco_list);
-			ocfs2_free(&dco);
-		}
-
-		rb_erase(&dc->dc_node, &dct->dup_clusters);
-		ocfs2_free(&dc);
-	}
-
-	while ((node = rb_first(&dct->dup_inodes)) != NULL) {
-		di = rb_entry(node, struct dup_inode, di_node);
-		rb_erase(&di->di_node, &dct->dup_inodes);
-		ocfs2_free(&di);
-	}
+	warned = 1;
+	com_err(whoami, ret,
+		"while finding path names in Pass 1c.  The pass will "
+		"continue, but some inodes may be described by "
+		"inode number instead of name.");
 }
 
+static char *de_to_path(struct dir_scan_context *scan,
+			struct ocfs2_dir_entry *de)
+{
+	/* The 2 is for the path separator and the null */
+	int copied, pathlen = scan->ds_cwdlen + de->name_len + 2;
+	char *path = NULL;
+	/* We start with an empty cwd as we add '/' or '//' */
+	const char *cwdstr = scan->ds_cwdlen ? scan->ds_cwd : "";
+	const char *sep = "/";
+
+	/* Don't repeat '/' */
+	if (scan->ds_cwdlen &&
+	    (scan->ds_cwd[scan->ds_cwdlen - 1] == '/'))
+		sep = "";
+	if (de->name_len && (de->name[0] == '/'))
+		sep = "";
+
+	if (!ocfs2_malloc0(sizeof(char) * pathlen, &path)) {
+		copied = snprintf(path, pathlen, "%s%s%.*s",
+				  cwdstr, sep, de->name_len, de->name);
+		assert(copied < pathlen);
+	}
+
+	return path;
+}
+
+static void push_dir(struct dir_scan_context *scan,
+		     struct ocfs2_dir_entry *de)
+{
+	errcode_t ret;
+	struct dir_to_scan *ts = NULL;
+
+	ret = ocfs2_malloc0(sizeof(struct dir_to_scan), &ts);
+	if (ret)
+		goto warn;
+
+	ts->ts_ino = de->inode;
+	ts->ts_path = de_to_path(scan, de);
+	if (!ts->ts_path) {
+		ret = OCFS2_ET_NO_MEMORY;
+		goto warn;
+	}
+
+	list_add(&ts->ts_list, &scan->ds_paths);
+	return;
+
+warn:
+	if (ts)
+		ocfs2_free(&ts);
+	pass1c_warn(ret);
+}
+
+static void set_next_cwd(struct dir_scan_context *scan)
+{
+	struct dir_to_scan *ts;
+
+	if (scan->ds_cwd)
+		ocfs2_free(&scan->ds_cwd);
+
+	ts = list_entry(scan->ds_paths.next, struct dir_to_scan, ts_list);
+	list_del(&ts->ts_list);
+
+	/* Steal the string from ts */
+	scan->ds_cwd = ts->ts_path;
+	scan->ds_cwdlen = strlen(scan->ds_cwd);
+	scan->ds_ino = ts->ts_ino;
+
+	ocfs2_free(&ts);
+}
+
+static void name_inode(struct dir_scan_context *scan,
+		       struct ocfs2_dir_entry *de)
+{
+	struct dup_inode *di = dup_inode_lookup(scan->ds_dct, de->inode);
+
+	if (!di || di->di_path)
+		return;
+
+	scan->ds_inodes_left--;
+
+	di->di_path = de_to_path(scan, de);
+	if (!di->di_path)
+		pass1c_warn(OCFS2_ET_NO_MEMORY);
+}
+
+static int walk_iterate(struct ocfs2_dir_entry *de, int offset,
+			int blocksize, char *buf, void *priv_data)
+{
+	struct dir_scan_context *scan = priv_data;
+
+	/* Directories are checked when they're traversed */
+	if (de->file_type == OCFS2_FT_DIR)
+		push_dir(scan, de);
+	else
+		name_inode(scan, de);
+
+	return scan->ds_inodes_left ? 0 : OCFS2_DIRENT_ABORT;
+}
+
+static void walk_cwd(struct dir_scan_context *scan)
+{
+	errcode_t ret;
+	struct ocfs2_dir_entry de;
+
+	memcpy(de.name, scan->ds_cwd, scan->ds_cwdlen);
+	de.name_len = scan->ds_cwdlen;
+	name_inode(scan, &de);
+
+	ret = ocfs2_dir_iterate(scan->ds_ost->ost_fs, scan->ds_ino,
+				OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,
+				walk_iterate, scan);
+	if (ret)
+		pass1c_warn(ret);
+}
+
+static errcode_t o2fsck_pass1c(o2fsck_state *ost, struct dup_context *dct)
+{
+	errcode_t ret;
+	struct dir_scan_context scan = {
+		.ds_ost = ost,
+		.ds_dct = dct,
+		.ds_inodes_left = dct->dup_inode_count,
+	};
+
+	whoami = "pass1c";
+	printf("Pass 1c: Scanning directories to name the inode owning "
+	       "multiply-claimed clusters\n");
+
+	INIT_LIST_HEAD(&scan.ds_paths);
+	push_dir(&scan, &(struct ocfs2_dir_entry){
+		 .name = "/",
+		 .name_len = 1,
+		 .file_type = OCFS2_FT_DIR,
+		 .inode = ost->ost_fs->fs_root_blkno,
+		 });
+	push_dir(&scan, &(struct ocfs2_dir_entry){
+		 .name = "//",
+		 .name_len = 2,
+		 .file_type = OCFS2_FT_DIR,
+		 .inode = ost->ost_fs->fs_sysdir_blkno,
+		 });
+
+	while (scan.ds_inodes_left && !list_empty(&scan.ds_paths)) {
+		set_next_cwd(&scan);
+		walk_cwd(&scan);
+	}
+
+	return ret;
+}
+
+
+/*
+ * Pass 1D
+ */
+
+static void print_inode_path(struct dup_inode *di)
+{
+	if (di->di_path)
+		fprintf(stdout, "%s\n", di->di_path);
+	else
+		fprintf(stdout, "<%"PRIu64">\n", di->di_ino);
+}
+
+static errcode_t o2fsck_pass1d(o2fsck_state *ost, struct dup_context *dct)
+{
+	struct dup_inode *di;
+	struct rb_node *node = rb_first(&dct->dup_inodes);
+
+	for (node = rb_first(&dct->dup_inodes); node; node = rb_next(node)) {
+		di = rb_entry(node, struct dup_inode, di_node);
+		print_inode_path(di);
+	}
+
+	return 0;
+}
+
+
+/*
+ * Exported call
+ */
 errcode_t ocfs2_pass1_dups(o2fsck_state *ost)
 {
 	errcode_t ret;
@@ -732,12 +969,10 @@ errcode_t ocfs2_pass1_dups(o2fsck_state *ost)
 	};
 
 	ret = o2fsck_pass1b(ost, &dct);
-#if 0
 	if (!ret)
 		ret = o2fsck_pass1c(ost, &dct);
 	if (!ret)
 		ret = o2fsck_pass1d(ost, &dct);
-#endif
 
 	o2fsck_empty_dup_context(&dct);
 	return ret;
