@@ -196,7 +196,8 @@ out:
 
 DEFINE_TUNEFS_FEATURE_RO_COMPAT(unwritten_extents,
 				OCFS2_FEATURE_RO_COMPAT_UNWRITTEN,
-				TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
+				TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION |
+				TUNEFS_FLAG_LARGECACHE,
 				enable_unwritten_extents,
 				disable_unwritten_extents);
 

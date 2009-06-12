@@ -277,7 +277,8 @@ out:
 
 DEFINE_TUNEFS_FEATURE_INCOMPAT(inline_data,
 			       OCFS2_FEATURE_INCOMPAT_INLINE_DATA,
-			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
+			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION |
+			       TUNEFS_FLAG_LARGECACHE,
 			       enable_inline_data,
 			       disable_inline_data);
 

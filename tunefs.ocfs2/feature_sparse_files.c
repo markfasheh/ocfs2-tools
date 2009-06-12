@@ -559,7 +559,8 @@ out:
 
 DEFINE_TUNEFS_FEATURE_INCOMPAT(sparse_files,
 			       OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC,
-			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
+			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION |
+			       TUNEFS_FLAG_LARGECACHE,
 			       enable_sparse_files,
 			       disable_sparse_files);
 

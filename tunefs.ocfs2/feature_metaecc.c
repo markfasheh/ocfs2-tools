@@ -1436,7 +1436,8 @@ out:
 
 DEFINE_TUNEFS_FEATURE_INCOMPAT(metaecc,
 			       OCFS2_FEATURE_INCOMPAT_META_ECC,
-			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
+			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION |
+			       TUNEFS_FLAG_LARGECACHE,
 			       enable_metaecc,
 			       disable_metaecc);
 

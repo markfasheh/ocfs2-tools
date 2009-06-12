@@ -73,6 +73,8 @@
 					   allocator */
 #define TUNEFS_FLAG_SKIPCLUSTER	0x10	/* Operation cannot start the
 					   cluster stack */
+#define TUNEFS_FLAG_LARGECACHE	0x20	/* Operation needs a large I/O
+					   cache */
 
 
 /* What to do with a feature */

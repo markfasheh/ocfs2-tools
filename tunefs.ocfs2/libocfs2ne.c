@@ -447,7 +447,8 @@ errcode_t tunefs_empty_clusters(ocfs2_filesys *fs, uint64_t start_blk,
 	memset(buf, 0, io_blocks * fs->fs_blocksize);
 
 	while (total_blocks) {
-		ret = io_write_block(fs->fs_io, start_blk, io_blocks, buf);
+		ret = io_write_block_nocache(fs->fs_io, start_blk,
+					     io_blocks, buf);
 		if (ret)
 			goto bail;
 
@@ -1250,6 +1251,69 @@ static void tunefs_close_online_descriptor(ocfs2_filesys *fs)
 	}
 }
 
+/*
+ * If io_init_cache fails, we will go do the work without the
+ * io_cache, so there is no check for failure here.
+ */
+static void tunefs_init_cache(ocfs2_filesys *fs)
+{
+	errcode_t err;
+	struct tunefs_private *tp = to_private(fs);
+	uint64_t blocks_wanted;
+	int scale_down;
+
+	/*
+	 * Operations needing a large cache really want enough to
+	 * hold the whole filesystem in memory.  The rest of the
+	 * operations don't need much at all.  A cache big enough to
+	 * hold a chain allocator group should be enough.  Our largest
+	 * chain allocator is 4MB, so let's do 8MB and allow for
+	 * incidental blocks.
+	 */
+	if (tp->tp_open_flags & TUNEFS_FLAG_LARGECACHE)
+		blocks_wanted = fs->fs_blocks;
+	else
+		blocks_wanted = ocfs2_blocks_in_bytes(fs, 8 * 1024 * 1024);
+
+	/*
+	 * We don't want to exhaust memory, so we start with twice our
+	 * actual need.  When we find out how much we can get, we actually
+	 * get half that.
+	 */
+	blocks_wanted <<= 1;
+	scale_down = 1;
+
+	while (blocks_wanted > 0) {
+		io_destroy_cache(fs->fs_io);
+		verbosef(VL_LIB,
+			 "Asking for %"PRIu64" blocks of I/O cache\n",
+			 blocks_wanted);
+		err = io_init_cache(fs->fs_io, blocks_wanted);
+		if (!err) {
+			/*
+			 * We want to pin our cache; there's no point in
+			 * having a large cache if half of it is in swap.
+			 * However, some callers may not be privileged
+			 * enough, so once we get down to a small enough
+			 * number (512 blocks), we'll stop caring.
+			 */
+			err = io_mlock_cache(fs->fs_io);
+			if (err && (blocks_wanted <= 512))
+				err = 0;
+		}
+		if (!err) {
+			verbosef(VL_LIB, "Got %"PRIu64" blocks\n",
+				 blocks_wanted);
+			/* If we've already scaled down, we're done. */
+			if (!scale_down)
+				break;
+			scale_down = 0;
+		}
+
+		blocks_wanted >>= 1;
+	}
+}
+
 static errcode_t tunefs_add_fs(ocfs2_filesys *fs, int flags)
 {
 	errcode_t err;
@@ -1375,13 +1439,9 @@ errcode_t tunefs_open(const char *device, int flags,
 	 * If this tunefs run has both special and regular operations,
 	 * ocfs2ne will retry with the regular arguments and will get
 	 * the cache for the regular operations.
-	 *
-	 * If io_init_cache failed, we will go do the work without the
-	 * io_cache, so there is no check for failure here.
 	 */
 	if (!err)
-		io_init_cache(fs->fs_io,
-			      ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+		tunefs_init_cache(fs);
 
 	/*
 	 * SKIPCLUSTER operations don't check the journals - they couldn't

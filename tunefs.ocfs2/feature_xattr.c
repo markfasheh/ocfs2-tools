@@ -446,7 +446,8 @@ out:
 
 DEFINE_TUNEFS_FEATURE_INCOMPAT(xattr,
 			       OCFS2_FEATURE_INCOMPAT_XATTR,
-			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION,
+			       TUNEFS_FLAG_RW | TUNEFS_FLAG_ALLOCATION |
+			       TUNEFS_FLAG_LARGECACHE,
 			       enable_xattr,
 			       disable_xattr);
 
