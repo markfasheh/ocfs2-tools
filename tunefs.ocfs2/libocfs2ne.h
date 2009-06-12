@@ -229,6 +229,9 @@ errcode_t tunefs_get_free_clusters(ocfs2_filesys *fs, uint32_t *clusters);
 errcode_t tunefs_empty_clusters(ocfs2_filesys *fs, uint64_t start_blk,
 				uint32_t num_clusters);
 
+/* Tell tunefs that you updated the filesystem size */
+void tunefs_update_fs_clusters(ocfs2_filesys *fs);
+
 /*
  * Send an ioctl() to a live filesystem for online operation.  If the
  * filesystem is mounted and an operation needs to be performed online,

@@ -274,6 +274,7 @@ static errcode_t init_new_gd(ocfs2_filesys *fs,
 					 gd_blkno);
 				goto bail;
 			}
+			tunefs_update_fs_clusters(fs);
 		} else {
 			/* write a new group descriptor */
 			ret = ocfs2_write_group_desc(fs, gd_blkno, gd_buf);
@@ -322,6 +323,8 @@ static errcode_t update_global_bitmap(ocfs2_filesys *fs,
 			 "while writing the global bitmap inode to block "
 			 "%"PRIu64,
 			 (uint64_t)di->i_blkno);
+	else
+		tunefs_update_fs_clusters(fs);
 
 bail:
 	tunefs_unblock_signals();
@@ -452,6 +455,7 @@ static errcode_t run_resize(ocfs2_filesys *fs, uint32_t total_clusters,
 					 cluster_chunk);
 				goto bail;
 			}
+			tunefs_update_fs_clusters(fs);
 		}
 	}
 

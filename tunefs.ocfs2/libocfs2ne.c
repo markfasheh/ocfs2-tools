@@ -75,6 +75,13 @@ struct tunefs_filesystem_state {
 	/* Non-zero if we've ever mucked with the allocator */
 	int		ts_allocation;
 
+	/*
+	 * Number of clusters in the filesystem.  If changed by a
+	 * resized filesystem, it is tracked here and used at final
+	 * close.
+	 */
+	uint32_t	ts_fs_clusters;
+
 	/* Size of the largest journal seen in tunefs_journal_check() */
 	uint32_t	ts_journal_clusters;
 
@@ -146,6 +153,7 @@ static errcode_t tunefs_set_state(ocfs2_filesys *fs)
 			s->ts_local_fd = -1;
 			s->ts_online_fd = -1;
 			s->ts_master = fs;
+			s->ts_fs_clusters = fs->fs_clusters;
 		} else
 			s = NULL;
 	}
@@ -1088,8 +1096,25 @@ static errcode_t tunefs_open_bitmap_check(ocfs2_filesys *fs)
 	return tunefs_global_bitmap_check(fs);
 }
 
+void tunefs_update_fs_clusters(ocfs2_filesys *fs)
+{
+	struct tunefs_private *tp = to_private(fs);
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+
+	if (!(tp->tp_open_flags & TUNEFS_FLAG_ALLOCATION)) {
+		verbosef(VL_LIB,
+			 "Operation that claimed it would do no allocation "
+			 "just attempted to update the filesystem size\n");
+		return;
+	}
+
+	state->ts_fs_clusters = fs->fs_clusters;
+}
+
 static errcode_t tunefs_close_bitmap_check(ocfs2_filesys *fs)
 {
+	errcode_t ret;
+	uint32_t old_clusters;
 	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
 
 	if (!state->ts_allocation)
@@ -1098,7 +1123,19 @@ static errcode_t tunefs_close_bitmap_check(ocfs2_filesys *fs)
 	if (state->ts_master != fs)
 		return 0;
 
-	return tunefs_global_bitmap_check(fs);
+	/*
+	 * An operation that resized the filesystem will have called
+	 * tunefs_update_fs_clusters().  The bitmap check needs this
+	 * new value, so we swap it in for the call.
+	 */
+	old_clusters = fs->fs_clusters;
+	fs->fs_clusters = state->ts_fs_clusters;
+	fs->fs_blocks = ocfs2_clusters_to_blocks(fs, fs->fs_clusters);
+	ret = tunefs_global_bitmap_check(fs);
+	fs->fs_clusters = old_clusters;
+	fs->fs_blocks = ocfs2_clusters_to_blocks(fs, fs->fs_clusters);
+
+	return ret;
 }
 
 static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
