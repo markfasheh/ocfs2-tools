@@ -1370,10 +1370,18 @@ errcode_t tunefs_open(const char *device, int flags,
 	/*
 	 * We will use block cache in io.  Now, whether the cluster is
 	 * locked or the volume is mount local, in both situation we can
-	 * safely use cache.  If io_init_cache failed, we will go on the
-	 * tunefs work without the io_cache, so there is no check here.
+	 * safely use cache.  If we're not locked
+	 * (tunefs_special_errorp(err) != 0), we can't safely use it.
+	 * If this tunefs run has both special and regular operations,
+	 * ocfs2ne will retry with the regular arguments and will get
+	 * the cache for the regular operations.
+	 *
+	 * If io_init_cache failed, we will go do the work without the
+	 * io_cache, so there is no check for failure here.
 	 */
-	io_init_cache(fs->fs_io, ocfs2_extent_recs_per_eb(fs->fs_blocksize));
+	if (!err)
+		io_init_cache(fs->fs_io,
+			      ocfs2_extent_recs_per_eb(fs->fs_blocksize));
 
 	/*
 	 * SKIPCLUSTER operations don't check the journals - they couldn't
