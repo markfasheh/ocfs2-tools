@@ -956,6 +956,10 @@ static void print_inode_path(struct dup_inode *di)
 		fprintf(stdout, "<%"PRIu64">\n", di->di_ino);
 }
 
+/*
+ * Walk the owning inodes of a dup_cluster, calling func().  func() may
+ * return non-zero to abort the walk.
+ */
 static void for_each_owner(struct dup_context *dct, struct dup_cluster *dc,
 			   int (*func)(struct dup_cluster *dc,
 				       struct dup_inode *di,
@@ -996,11 +1000,77 @@ static int print_func(struct dup_cluster *dc, struct dup_inode *di,
 	return 0;
 }
 
+/* Context for fix_dups_func() */
+struct fix_dup_context {
+	o2fsck_state *fd_ost;
+	struct dup_context *fd_dct;
+	errcode_t fd_err;
+};
+
+static void print_chain_warning(void)
+{
+	static int chain_warning = 0;
+
+	if (chain_warning)
+		return;
+
+	printf("The filesystem is safe to read.  You may wish to mount "
+	       "it read-only and copy data to a new filesystem.\n");
+	chain_warning = 1;
+}
+
+static int fix_dups_func(struct dup_cluster *dc, struct dup_inode *di,
+			 void *priv_data)
+{
+	struct fix_dup_context *fd = priv_data;
+
+	if (di->di_flags & OCFS2_CHAIN_FL) {
+		printf("Inode \"%s\" is a chain allocator and cannot "
+		       "be cloned or deleted.\n",
+		       di->di_path);
+		print_chain_warning();
+		return 0;
+	}
+
+	if (di->di_flags & OCFS2_SYSTEM_FL) {
+		if (prompt(fd->fd_ost, PY, PR_DUP_CLUSTERS_SYSFILE_CLONE,
+			   "Inode \"%s\" is a system file. It may be "
+			   "cloned but not deleted. Clone inode \"%s\" to "
+			   "break claims on clusters it shares with other "
+			   "inodes?",
+			   di->di_path, di->di_path)) {
+			return 0;
+		}
+	} else {
+		if (prompt(fd->fd_ost, PY, PR_DUP_CLUSTERS_CLONE,
+			   "Inode \"%s\" may be cloned or deleted to "
+			   "break the claim it has on its clusters. "
+			   "Clone inode \"%s\" to break claims on "
+			   "clusters it shares with other inodes?",
+			   di->di_path, di->di_path)) {
+			return 0;
+		}
+		if (prompt(fd->fd_ost, PN, PR_DUP_CLUSTERS_DELETE,
+			   "Delete inode \"%s\" to break claims on "
+			   "clusters it shares with other inodes?",
+			   di->di_path)) {
+			return 0;
+		}
+	}
+
+	return 0;
+}
+
 static errcode_t o2fsck_pass1d(o2fsck_state *ost, struct dup_context *dct)
 {
+	errcode_t ret = 0;
 	struct dup_cluster *dc;
 	struct rb_node *node = rb_first(&dct->dup_clusters);
 	uint64_t dups;
+	struct fix_dup_context fd = {
+		.fd_ost = ost,
+		.fd_dct = dct,
+	};
 
 	whoami = "pass1d";
 	printf("Pass 1d: Reconciling multiply-claimed clusters\n");
@@ -1016,9 +1086,14 @@ static errcode_t o2fsck_pass1d(o2fsck_state *ost, struct dup_context *dct)
 		       "inodes:\n",
 		       dc->dc_cluster);
 		for_each_owner(dct, dc, print_func, NULL);
+		for_each_owner(dct, dc, fix_dups_func, &fd);
+		if (fd.fd_err) {
+			ret = fd.fd_err;
+			break;
+		}
 	}
 
-	return 0;
+	return ret;
 }
 
 

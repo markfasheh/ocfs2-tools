@@ -541,6 +541,30 @@ allocator.
 Answering yes will invert the bit in the allocator to match the use of the
 cluster -- either allocated and in use or free.
 
+\" pass1b.c
+
+.SS "DUP_CLUSTERS_SYSFILE_CLONE"
+A system file inode claims clusters that are also claimed by another inode.
+ocfs2 does not allow this.  System files may be cloned but may not be
+deleted.  Allocation system files may not be cloned or deleted.
+
+Answering yes will copy the data of this inode to newly allocated extents.
+This will break the claim on the overcommitted clusters.
+
+.SS "DUP_CLUSTERS_CLONE"
+An inode claims clusters that are also claimed by another inode.  ocfs2
+does not allow this.
+
+Answering yes will copy the data of this inode to newly allocated extents.
+This will break the claim on the overcommitted clusters.
+
+.SS "DUP_CLUSTERS_DELETE"
+An inode claims clusters that are also claimed by another inode.  ocfs2
+does not allow this.
+
+Answering yes will remove this inode, thus breaking its claim on the
+overcommitted clusters.
+
 \" pass2.c
 
 .SS "DIRENT_DOTTY_DUP"
