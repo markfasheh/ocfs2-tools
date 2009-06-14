@@ -1,7 +1,6 @@
 /* -*- mode: c; c-basic-offset: 8; -*-
  * vim: noexpandtab sw=8 ts=8 sts=0:
  *
- * Copyright (C) 1993, 1994, 1995, 1996, 1997 Theodore Ts'o.
  * Copyright (C) 2009 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -12,6 +11,9 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
+ *
+ *   The scheme of the passes is based on e2fsck pass1b.c,
+ *   Copyright (C) 1993, 1994, 1995, 1996, 1997 Theodore Ts'o.
  *
  * --
  *
@@ -67,6 +69,14 @@
 
 static const char *whoami = "UNSET!";
 
+
+/* states for dup_inode.di_state */
+#define	DUP_INODE_CLONED	0x01
+#define DUP_INODE_REMOVED	0x02
+
+/* A simple test to see if we should care about this dup inode anymore */
+#define DUP_INODE_HANDLED	(DUP_INODE_CLONED | DUP_INODE_REMOVED)
+
 /*
  * Keep track of an inode that claims clusters shared by other objects.
  */
@@ -84,6 +94,9 @@ struct dup_inode {
 	 * system files, and chain allocators are even worse.
 	 */
 	uint32_t	di_flags;
+
+	/* What we've done to it. */
+	unsigned int	di_state;
 };
 
 /*
@@ -905,7 +918,7 @@ static errcode_t o2fsck_pass1c(o2fsck_state *ost, struct dup_context *dct)
 	};
 
 	whoami = "pass1c";
-	printf("Pass 1c: Scanning directories to name the inode owning "
+	printf("Pass 1c: Determining the names of inodes owning "
 	       "multiply-claimed clusters\n");
 
 	INIT_LIST_HEAD(&scan.ds_paths);
@@ -943,14 +956,66 @@ static void print_inode_path(struct dup_inode *di)
 		fprintf(stdout, "<%"PRIu64">\n", di->di_ino);
 }
 
+static void for_each_owner(struct dup_context *dct, struct dup_cluster *dc,
+			   int (*func)(struct dup_cluster *dc,
+				       struct dup_inode *di,
+				       void *priv_data),
+			   void *priv_data)
+{
+	struct list_head *p, *next;
+	struct dup_cluster_owner *dco;
+	struct dup_inode *di;
+
+	assert(!list_empty(&dc->dc_owners));
+	list_for_each_safe(p, next, &dc->dc_owners) {
+		dco = list_entry(p, struct dup_cluster_owner, dco_list);
+		di = dup_inode_lookup(dct, dco->dco_ino);
+		assert(di);
+		if (func(dc, di, priv_data))
+			break;
+	}
+}
+
+static int count_func(struct dup_cluster *dc, struct dup_inode *di,
+		      void *priv_data)
+{
+	uint64_t *count = priv_data;
+
+	if (!(di->di_state & DUP_INODE_HANDLED))
+		(*count)++;
+
+	return 0;
+}
+
+static int print_func(struct dup_cluster *dc, struct dup_inode *di,
+		      void *priv_data)
+{
+	printf("  ");
+	print_inode_path(di);
+
+	return 0;
+}
+
 static errcode_t o2fsck_pass1d(o2fsck_state *ost, struct dup_context *dct)
 {
-	struct dup_inode *di;
-	struct rb_node *node = rb_first(&dct->dup_inodes);
+	struct dup_cluster *dc;
+	struct rb_node *node = rb_first(&dct->dup_clusters);
+	uint64_t dups;
 
-	for (node = rb_first(&dct->dup_inodes); node; node = rb_next(node)) {
-		di = rb_entry(node, struct dup_inode, di_node);
-		print_inode_path(di);
+	whoami = "pass1d";
+	printf("Pass 1d: Reconciling multiply-claimed clusters\n");
+
+	for (node = rb_first(&dct->dup_clusters); node; node = rb_next(node)) {
+		dc = rb_entry(node, struct dup_cluster, dc_node);
+		dups = 0;
+		for_each_owner(dct, dc, count_func, &dups);
+		if (dups < 2)
+			continue;
+
+		printf("Cluster %"PRIu32" is claimed by the following "
+		       "inodes:\n",
+		       dc->dc_cluster);
+		for_each_owner(dct, dc, print_func, NULL);
 	}
 
 	return 0;
