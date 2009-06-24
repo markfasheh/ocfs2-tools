@@ -887,7 +887,7 @@ size_cluster_check:
 
 		/* i_size is checked for symlinks elsewhere */
 		if (di->i_size > max_inline &&
-		    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64
+		    prompt(ost, PY, PR_INODE_INLINE_SIZE, "Inode %"PRIu64
 			   "has a size of %"PRIu64" which exceeds the max "
 			   "inline data size %u. "
 			   "Correct the file size?",
@@ -898,7 +898,7 @@ size_cluster_check:
 		}
 
 		if (di->i_clusters > 0 &&
-		    prompt(ost, PY, PR_INODE_CLUSTERS,
+		    prompt(ost, PY, PR_INODE_INLINE_CLUSTERS,
 			   "Inode %"PRIu64" has %"PRIu32" clusters but it has "
 			   "inline data flag set. "
 			   "Correct the number of clusters?",
@@ -916,7 +916,7 @@ size_cluster_check:
 
 			/* i_size is checked for symlinks elsewhere */
 			if (!S_ISLNK(di->i_mode) && di->i_size <= unexpected &&
-			    prompt(ost, PY, PR_INODE_SIZE, "Inode %"PRIu64
+			    prompt(ost, PY, PR_INODE_SPARSE_SIZE, "Inode %"PRIu64
 				   " has a size of %"PRIu64" but has %"PRIu64
 				   " blocks of actual data. "
 				   "Correct the file size?",
@@ -931,7 +931,7 @@ size_cluster_check:
 			expected = ocfs2_clusters_in_blocks(fs, vb.vb_num_blocks);
 
 		if (di->i_clusters != expected &&
-		    prompt(ost, PY, PR_INODE_CLUSTERS,
+		    prompt(ost, PY, PR_INODE_SPARSE_CLUSTERS,
 			   "Inode %"PRIu64" has %"PRIu32" clusters but its "
 			   "blocks fit in %"PRIu64" clusters. "
 			   "Correct the number of clusters?",

@@ -833,7 +833,7 @@ static errcode_t fix_journals_func(o2fsck_state *ost,
 
 	if ((ji->i_error == OCFS2_ET_UNSUPP_FEATURE) ||
 	    (ji->i_error == OCFS2_ET_RO_UNSUPP_FEATURE)) {
-		if (prompt(ost, PN, PR_JOURNAL_FILE_INVALID,
+		if (prompt(ost, PN, PR_JOURNAL_UNKNOWN_FEATURE,
 			   "journal file %s has unknown features.  "
 			   "However, other journals have only known "
 			   "features, so this is likely a corruption.  "
@@ -863,7 +863,7 @@ static errcode_t fix_journals_func(o2fsck_state *ost,
 		    jc->jc_max_features.opt_ro_compat) ||
 		   (ji->i_features.opt_incompat !=
 		    jc->jc_max_features.opt_incompat)) {
-		if (prompt(ost, PY, PR_JOURNAL_FILE_INVALID,
+		if (prompt(ost, PY, PR_JOURNAL_MISS_FEATURE,
 			   "journal file %s is missing features that "
 			   "are set on other journal files.  Set these "
 			   "features?",
@@ -885,7 +885,7 @@ static errcode_t fix_journals_func(o2fsck_state *ost,
 	}
 
 	if (ji->i_clusters != jc->jc_max_clusters) {
-		if (prompt(ost, PY, PR_JOURNAL_FILE_INVALID,
+		if (prompt(ost, PY, PR_JOURNAL_TOO_SMALL,
 			   "journal file %s is too small, extend it?",
 			   fname)) {
 			err = ocfs2_make_journal(fs, ci->ci_blkno,

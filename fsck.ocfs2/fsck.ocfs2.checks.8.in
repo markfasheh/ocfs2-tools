@@ -473,6 +473,24 @@ Answering yes to this question updates the inode's i_size to match the amount
 of data referenced by the extent lists.  It is vitally important that i_size
 matches the extent lists and so answering yes is strongly encouraged.
 
+.SS "INODE_SPARSE_SIZE"
+Certain inodes record the size of the data they reference in an i_size field.
+This can be the number of bytes in a file, directory, or symlink target
+which are stored in data mapped by extents of clusters.  This error occurs
+when the extent lists are walked and the amount of data found does not match
+what is stored in i_size.
+
+Answering yes to this question updates the inode's i_size to match the amount
+of data referenced by the extent lists.  It is vitally important that i_size
+matches the extent lists and so answering yes is strongly encouraged.
+
+.SS "INODE_INLINE_SIZE"
+Inlined inodes store the max inline data size in i_size, this error occurs
+when the file size of an inlined inode exceeds the max inline data size.
+
+Answering yes to this question updates the inode's i_size to max inline data
+size.
+
 .SS "INODE_CLUSTERS"
 Inodes contain a record of how many clusters are allocated to them.  An inode
 was found whose recorded number of clusters doesn't match the number of blocks
@@ -480,6 +498,20 @@ that were found associated with the inode.
 
 Answering yes resets the inode's number of clusters to reflect the number
 of blocks that were associated with the file.
+
+.SS "INODE_SPARSE_CLUSTERS"
+Inodes contain a record of how many clusters are allocated to them.  An inode
+was found whose recorded number of clusters doesn't match the number of blocks
+that were found associated with the inode.
+
+Answering yes resets the inode's number of clusters to reflect the number
+of blocks that were associated with the file.
+
+.SS "INODE_INLINE_CLUSTERS"
+Inlined inode should not have allocated clusters.  An inode who has inline data
+flag set was found with clusters allocated.
+
+Answering yes resets the inode's number of clusters to zero.
 
 .SS "LALLOC_REPAIR"
 An active local allocator did not accurately reflect the set of clusters that
@@ -710,10 +742,28 @@ Answering yes creates the orphan directory in the system directory.
 
 .SS "JOURNAL_FILE_INVALID"
 OCFS2 uses JDB for journalling and some journal files exist in the
-system directory. Fsck has found some journal file is whether empty or has
-bad journal superblock and would like to fix it for future use.
+system directory. Fsck has found some journal files are invalid.
 
-Answering yes reformats the journal file in the system directory.
+Answering yes to regenerate the journal file.
+
+.SS "JOURNAL_UNKNOWN_FEATURE"
+Fsck has found some journal files have unknown features, however, other
+journals have only known features, so this is likely a corruption.
+If you think your filesystem may be newer than this version of fsck.ocfs2,
+say N here and grab the latest version of fsck.ocfs2.
+
+Answering yes resets the journal features to math other journals.
+
+.SS "JOURNAL_MISS_FEATURE"
+Fsck has found some journal files are missing features that are set on
+other journal files.
+
+Answering yes sets these missing features.
+
+.SS "JOURNAL_TOO_SMALL"
+Fsck has found some journal files are too small.
+
+Answering yes extends these journals.
 
 .SS "RECOVER_CLUSTER_INFO"
 The currently active cluster stack is different than the one the filesystem
@@ -752,9 +802,19 @@ does not match the number of entries found by fsck.
 
 Answering yes will change this to the correct count.
 
-.SS "XATTR_OFFSET_INVALID"
+.SS "XATTR_ENTRY_INVALID"
+Extended attribute entry refers to a used area.
+
+Answering yes will remove this entry.
+
+.SS "XATTR_NAME_OFFSET_INVALID"
 The name_offset field of an extended attribute entry is not correct.
 Without a correct name_offset field, the entry cannot be used.
+
+Answering yes will remove this entry.
+
+.SS "XATTR_VALUE_INVALID"
+Extended attribute entry's value/name pair refers to a used area.
 
 Answering yes will remove this entry.
 

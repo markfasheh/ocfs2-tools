@@ -247,7 +247,7 @@ static errcode_t check_xattr_entry(o2fsck_state *ost,
 		uint32_t hash;
 
 		if (check_area_fits(umap, XE_OFFSET(xh, xe), ENTRY_SIZE)) {
-			if (!prompt(ost, PY, PR_XATTR_OFFSET_INVALID,
+			if (!prompt(ost, PY, PR_XATTR_ENTRY_INVALID,
 				    "Extended attribute entry in %s #%"
 				    PRIu64" refers to a used area at %u,"
 				    " clear this entry?",
@@ -261,7 +261,7 @@ static errcode_t check_xattr_entry(o2fsck_state *ost,
 
 		/* check and fix name_offset */
 		if (xe->xe_name_offset >= xi->max_offset) {
-			if (!prompt(ost, PY, PR_XATTR_OFFSET_INVALID,
+			if (!prompt(ost, PY, PR_XATTR_NAME_OFFSET_INVALID,
 				    "Extended attribute entry in %s #%"PRIu64
 				    " refers to an invalid name offset %u,"
 				    " clear this entry?",
@@ -303,7 +303,7 @@ static errcode_t check_xattr_entry(o2fsck_state *ost,
 		value_len = ocfs2_xattr_value_real_size(xe->xe_name_len,
 							xe->xe_value_size);
 		if (check_area_fits(umap, xe->xe_name_offset, value_len)) {
-			if (!prompt(ost, PY, PR_XATTR_OFFSET_INVALID,
+			if (!prompt(ost, PY, PR_XATTR_VALUE_INVALID,
 				    "Extended attribute entry in %s #%"PRIu64
 				    " refers to a used area at %u,"
 				    " clear this entry?",
@@ -317,6 +317,7 @@ static errcode_t check_xattr_entry(o2fsck_state *ost,
 				goto wipe_entry;
 			}
 		}
+
 		/* mark the value area as used */
 		set_used_area(umap, xe->xe_name_offset, value_len, NULL);
 
