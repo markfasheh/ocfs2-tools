@@ -87,10 +87,10 @@ static void create_local_alloc(ocfs2_filesys *fs, uint64_t blkno)
 
 	la = &(di->id2.i_lab);
 
-	la->la_bm_off = cpu_to_le32(la_off);
-	di->id1.bitmap1.i_total = cpu_to_le32(la_size);
+	la->la_bm_off = la_off;
+	di->id1.bitmap1.i_total = la_size;
 	di->id1.bitmap1.i_used = 0;
-	memset(la->la_bitmap, 0, le16_to_cpu(la->la_size));
+	memset(la->la_bitmap, 0, la->la_size);
 	
 	ret = ocfs2_write_inode(fs, blkno, buf);
 	if (ret)
