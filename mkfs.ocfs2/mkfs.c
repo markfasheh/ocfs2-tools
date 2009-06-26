@@ -1532,6 +1532,7 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 
 	c_to_b_bits = s->cluster_size_bits - s->blocksize_bits;
 
+	/* to the next aligned cluster */
 	s->first_cluster_group = (OCFS2_SUPER_BLOCK_BLKNO + 1);
 	s->first_cluster_group += ((1 << c_to_b_bits) - 1);
 	s->first_cluster_group >>= c_to_b_bits;
@@ -1577,13 +1578,14 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 		blkno += (uint64_t) s->global_cpg << (s->cluster_size_bits - s->blocksize_bits);
 		chain++;
 		if (chain >= recs_per_inode) {
-			bitmap->num_chains = recs_per_inode;
 			chain = 0;
 			wrapped = 1;
 		}
 	}
 	if (!wrapped)
 		bitmap->num_chains = chain;
+	else
+		bitmap->num_chains = recs_per_inode;
 
 	/* by now, this should be accurate. */
 	if (bm_record->bi.total_bits != s->volume_size_in_clusters) {
