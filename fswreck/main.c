@@ -420,7 +420,7 @@ int main (int argc, char **argv)
 		goto bail;
 	}
 
-	for (i = 1; i < NUM_FSCK_TYPE; ++i) {
+	for (i = 0; i < NUM_FSCK_TYPE; ++i) {
 		if (corrupt[i]) {
 			if (prompt_codes[i].func)
 				prompt_codes[i].func(fs, prompt_codes[i].type,

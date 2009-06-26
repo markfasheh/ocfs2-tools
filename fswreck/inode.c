@@ -402,6 +402,11 @@ void mess_up_dup_clusters(ocfs2_filesys *fs, enum fsck_type type,
 	if (err)
 		FSWRK_COM_FATAL(progname, err);
 
+	fprintf(stdout, "DUPLICATE_CLUSTERS: "
+		"Create two inodes #%"PRIu64" and #%"PRIu64
+		" by allocating same cluster to them.",
+		inode1_blkno, inode2_blkno);
+
 	ocfs2_free(&buf);
 }
 
