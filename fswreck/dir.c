@@ -86,93 +86,176 @@ void create_directory(ocfs2_filesys *fs,
 	return;
 }
 
-/* Add an entry in the directory.
- * Currently this is only a simple function, and we don't consider
- * the situation that this block is not enough for the entry.
- * The mechanism is copied from ocfs2 kernel code.
- */
-static void add_dir_ent(ocfs2_filesys *fs,
-			struct ocfs2_dir_entry *de,
-			uint64_t blkno,	char *name, int namelen, umode_t mode,
-			struct ocfs2_dir_entry **retent)
+struct dirent_corrupt_struct  {
+
+	const char	*oldname;
+	const char      *name;
+	int             namelen;
+	int             done;
+	int		reserved;
+};
+
+static int corrupt_match_dirent(struct dirent_corrupt_struct *dcs,
+				struct ocfs2_dir_entry *dirent)
 {
-	struct ocfs2_dir_entry *de1 = NULL;
-	uint32_t offset = 0;
-	uint16_t rec_len = OCFS2_DIR_REC_LEN(namelen);
+	if (!dcs->oldname)
+		return 1;
 
-	while (1) {
-		if ((de->inode == 0 && de->rec_len >= rec_len) ||
-		    (de->rec_len >= 
-			(OCFS2_DIR_REC_LEN(de->name_len) + rec_len))) {
-			offset += de->rec_len;
-			if (de->inode) {
-			de1 = (struct ocfs2_dir_entry *)((char *) de +
-				OCFS2_DIR_REC_LEN(de->name_len));
-			de1->rec_len = de->rec_len -
-				OCFS2_DIR_REC_LEN(de->name_len);
-			de->rec_len = OCFS2_DIR_REC_LEN(de->name_len);
-			de = de1;
-			}
-			de->file_type = OCFS2_FT_UNKNOWN;
-			de->inode = blkno;
-			ocfs2_set_de_type(de, mode);
-			de->name_len = namelen;
-			memcpy(de->name, name, namelen);
-			break;
-		}
-		offset += de->rec_len;
-		de = (struct ocfs2_dir_entry *) ((char *) de + de->rec_len);
-		if (offset >= fs->fs_blocksize)
-			FSWRK_FATAL("no space for the new dirent");
-	}
+	if (((dirent->name_len & 0xFF) != dcs->namelen))
+		return 0;
 
-	*retent = de;
-	return;
+	if (strncmp(dcs->oldname, dirent->name, dirent->name_len & 0xFF))
+		return 0;
+
+	return 1;
+}
+
+static int rename_dirent_proc(struct ocfs2_dir_entry *dirent,
+			      int        offset,
+			      int        blocksize,
+			      char       *buf,
+			      void       *priv_data)
+{
+	struct  dirent_corrupt_struct *dcs = (struct dirent_corrupt_struct *) priv_data;
+
+	if (!corrupt_match_dirent(dcs, dirent))
+		return 0;
+	
+	strcpy(dirent->name, dcs->name);
+
+	dcs->done++;
+
+	return OCFS2_DIRENT_ABORT|OCFS2_DIRENT_CHANGED;
+}
+
+static int rename_dirent(ocfs2_filesys *fs, uint64_t dir,
+			 const char *name, const char *oldname)
+{
+	errcode_t       rc;
+	struct dirent_corrupt_struct dcs;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	dcs.name = name;
+	dcs.oldname = oldname;
+	dcs.namelen = oldname ? strlen(oldname) : 0;
+	dcs.done = 0;
+
+	rc = ocfs2_dir_iterate(fs, dir, 0, 0, rename_dirent_proc, &dcs);
+	if (rc)
+		return rc;
+
+	return (dcs.done) ? 0 : OCFS2_ET_DIR_NO_SPACE;
+}
+
+static int corrupt_dirent_ino_proc(struct ocfs2_dir_entry *dirent,
+				   int        offset,
+				   int        blocksize,
+				   char       *buf,
+				   void       *priv_data)
+{
+	struct  dirent_corrupt_struct *dcs = (struct dirent_corrupt_struct*) priv_data;
+
+	if (!corrupt_match_dirent(dcs, dirent))
+		return 0;
+
+	dirent->inode += dcs->reserved;
+
+	dcs->reserved = dirent->inode;
+
+	dcs->done++;
+
+	return OCFS2_DIRENT_ABORT|OCFS2_DIRENT_CHANGED;
+}
+
+static int corrupt_dirent_ino(ocfs2_filesys *fs, uint64_t dir,
+			      const char *name, uint64_t *new_ino, int inc)
+{
+	errcode_t       rc;
+	struct dirent_corrupt_struct dcs;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	dcs.oldname = name;
+	dcs.namelen = name ? strlen(name) : 0;
+	dcs.done = 0;
+	dcs.reserved = inc;
+
+	rc = ocfs2_dir_iterate(fs, dir, 0, 0, corrupt_dirent_ino_proc, &dcs);
+	if (rc)
+		return rc;
+
+	*new_ino = dcs.reserved;
+
+	return (dcs.done) ? 0 : OCFS2_ET_DIR_NO_SPACE;
+}
+
+static int corrupt_dirent_reclen_proc(struct ocfs2_dir_entry *dirent,
+				      int        offset,
+				      int        blocksize,
+				      char       *buf,
+				      void       *priv_data)
+{
+	struct  dirent_corrupt_struct *dcs = (struct dirent_corrupt_struct*) priv_data;
+
+	if (!corrupt_match_dirent(dcs, dirent))
+		return 0;
+
+	dirent->rec_len += dcs->reserved;
+
+	dcs->done++;
+
+	dcs->reserved = dirent->rec_len;
+
+	return OCFS2_DIRENT_ABORT|OCFS2_DIRENT_CHANGED;
+}
+
+static int corrupt_dirent_reclen(ocfs2_filesys *fs, uint64_t dir,
+				 const char *name, uint64_t *new_reclen,
+				 int inc)
+{
+	errcode_t       rc;
+	struct dirent_corrupt_struct dcs;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	dcs.oldname = name;
+	dcs.namelen = name ? strlen(name) : 0;
+	dcs.done = 0;
+	dcs.reserved = inc;
+
+	rc = ocfs2_dir_iterate(fs, dir, 0, 0, corrupt_dirent_reclen_proc, &dcs);
+	if (rc)
+		return rc;
+
+	*new_reclen = dcs.reserved;
+
+	return (dcs.done) ? 0 : OCFS2_ET_DIR_NO_SPACE;
 }
 
 static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 				enum fsck_type type)
 {
 	errcode_t ret;
-	char *buf = NULL;
-	uint64_t blkno, tmp_blkno;
-	uint64_t contig;
-	ocfs2_cached_inode *cinode = NULL;
-	struct ocfs2_dir_entry *de = NULL, *newent = NULL;
+	uint64_t tmp_blkno, tmp_no;
 	char name[OCFS2_MAX_FILENAME_LEN];
-	int namelen;
 	mode_t mode;
 
-	ret = ocfs2_read_cached_inode(fs, dir, &cinode);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	/* get first blockno */
-	ret = ocfs2_extent_map_get_blocks(cinode, 0, 1, &blkno, &contig, NULL);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	ret = ocfs2_read_blocks(fs, blkno, 1, buf);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	de = (struct ocfs2_dir_entry *)buf;
-
-	sprintf(name, "test");
-	namelen = strlen(name);
+	memset(name, 0, sizeof(name));
+	sprintf(name, "testXXXXXX");
+	if (!mktemp(name))
+		FSWRK_COM_FATAL(progname, errno);
 
 	switch (type) {
 	case DIRENT_DOTTY_DUP:
 		/* add another "." at the end of the directory */
 		sprintf(name, ".");
-		namelen = strlen(name);
-		add_dir_ent(fs, de,
-			 blkno, name, namelen, cinode->ci_inode->i_mode,
-			 &newent);
+		ret = ocfs2_link(fs, dir, name, dir, OCFS2_FT_DIR);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
 		fprintf(stdout, "DIRENT_DOTTY_DUP: "
 			"Corrupt directory#%"PRIu64
 			", add another '.' to it.\n", dir);
@@ -180,8 +263,7 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 	case DIRENT_NOT_DOTTY:
 		/* rename the first ent from "." to "a". */
 		sprintf(name, "a");
-		namelen = strlen(name);
-		memcpy(de->name, name, namelen);
+		rename_dirent(fs, dir, name, ".");
 		fprintf(stdout, "DIRENT_NOT_DOTTY: "
 			"Corrupt directory#%"PRIu64
 			", change '.' to %s.\n", dir, name);
@@ -190,21 +272,20 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		fprintf(stdout, "DIRENT_DOT_INODE: "
 			"Corrupt directory#%"PRIu64
 			", change dot inode to #%"PRIu64".\n", dir, (dir+10));
-		de->inode += 10;
+		corrupt_dirent_ino(fs, dir, ".", &tmp_no, 10);
 		break;
 	case DIRENT_DOT_EXCESS:
+		corrupt_dirent_reclen(fs, dir, ".", &tmp_no, OCFS2_DIR_PAD);
 		fprintf(stdout, "DIR_DOT_EXCESS: "
 			"Corrupt directory#%"PRIu64","
-			"change dot's dirent length from %u to %u\n",
-			dir, de->rec_len, (de->rec_len + OCFS2_DIR_PAD));
-		de->rec_len += OCFS2_DIR_PAD;
+			"change dot's dirent length from %lu to %lu\n",
+			dir, tmp_no - OCFS2_DIR_PAD, tmp_no);
 		break;
 	case DIRENT_ZERO:
-		name[0] = '\0';
-		namelen = strlen(name);
-		add_dir_ent(fs, de,
-			 dir + 100, name, namelen, S_IFREG | 0755,
-			 &newent);
+		memset(name, 0, 1);
+		ret = ocfs2_link(fs, dir, name, dir + 100, OCFS2_FT_DIR);
+                if (ret)
+                        FSWRK_COM_FATAL(progname, ret);
 		fprintf(stdout, "DIRENT_ZERO: "
 			"Corrupt directory#%"PRIu64
 			", add an zero entry to it.\n", dir);
@@ -215,29 +296,29 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		ret = ocfs2_new_inode(fs, &tmp_blkno, mode);
 		if (ret)
 			FSWRK_COM_FATAL(progname, ret);
-		add_dir_ent(fs, de,
-			 tmp_blkno, name, namelen, mode,
-			 &newent);
+		ret = ocfs2_link(fs, dir, name, tmp_blkno, OCFS2_FT_REG_FILE);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
 		fprintf(stdout, "DIRENT_NAME_CHARS: "
 			"Corrupt directory#%"PRIu64
 			", add an invalid entry to it.\n", dir);
 		break;
 	case DIRENT_INODE_RANGE:
-		tmp_blkno =  fs->fs_blocks + 1;
-		add_dir_ent(fs, de,
-			 tmp_blkno, name, namelen, S_IFREG | 0755,
-			 &newent);
+		tmp_blkno = fs->fs_blocks;
+		ret = ocfs2_link(fs, dir, name, tmp_blkno, OCFS2_FT_REG_FILE);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+		corrupt_dirent_ino(fs, dir, name, &tmp_no, 1);
 		fprintf(stdout, "DIRENT_INODE_RANGE: "
 			"Corrupt directory#%"PRIu64
 			", add an entry whose inode exceeds"
 			" the limits.\n", dir);
 		break;
 	case DIRENT_INODE_FREE:
-		mode = S_IFREG | 0755;
 		tmp_blkno = dir + 1000;
-		add_dir_ent(fs, de,
-			 tmp_blkno, name, namelen, mode,
-			 &newent);
+		ret = ocfs2_link(fs, dir, name, tmp_blkno, OCFS2_FT_REG_FILE);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
 		fprintf(stdout, "DIRENT_INODE_FREE: "
 			"Corrupt directory#%"PRIu64
 			", add an entry's inode#%"PRIu64
@@ -248,9 +329,9 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		ret = ocfs2_new_inode(fs, &tmp_blkno, mode);
 		if (ret)
 			FSWRK_COM_FATAL(progname, ret);
-		add_dir_ent(fs, de,
-			 tmp_blkno, name, namelen,S_IFLNK | 0755,
-			 &newent);
+		ret = ocfs2_link(fs, dir, name, tmp_blkno, OCFS2_FT_SYMLINK);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
 		fprintf(stdout, "DIRENT_TYPE: "
 			"Corrupt directory#%"PRIu64
 			", change an entry's mode from %u to %u.\n",
@@ -261,12 +342,12 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		ret = ocfs2_new_inode(fs, &tmp_blkno, mode);
 		if (ret)
 			FSWRK_COM_FATAL(progname, ret);
-		add_dir_ent(fs, de,
-			 tmp_blkno, name, namelen, mode,
-			 &newent);
-		add_dir_ent(fs, de,
-			 tmp_blkno, name, namelen, mode,
-			 &newent);
+		ret = ocfs2_link(fs, dir, name, tmp_blkno, OCFS2_FT_REG_FILE);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+		ret = ocfs2_link(fs, dir, name, tmp_blkno, OCFS2_FT_REG_FILE);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
 		fprintf(stdout, "DIRENT_DUPLICATE: "
 			"Corrupt directory#%"PRIu64
 			", add two entries with the same name '%s'.\n",
@@ -277,27 +358,19 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		ret = ocfs2_new_inode(fs, &tmp_blkno, mode);
 		if (ret)
 			FSWRK_COM_FATAL(progname, ret);
-		add_dir_ent(fs, de,
-			 tmp_blkno, name, namelen, mode,
-			 &newent);
+		ret = ocfs2_link(fs, dir, name, tmp_blkno, OCFS2_FT_REG_FILE);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+		corrupt_dirent_reclen(fs, dir, name, &tmp_no, 1);
 		fprintf(stdout, "DIRENT_LENGTH: "
 			"Corrupt directory#%"PRIu64
-			", modify entry#%"PRIu64" from %u to %u.\n",
-			dir, tmp_blkno, newent->rec_len, (newent->rec_len+1));
-		newent->rec_len += 1;
+			", modify entry#%"PRIu64" from %lu to %lu.\n",
+			dir, tmp_blkno, tmp_no - 1, tmp_no);
 		break;
 	default:
 		FSWRK_FATAL("Invalid type = %d\n", type);	
 	}
 
-	ret = io_write_block(fs->fs_io, blkno, 1, buf);
-	if (ret)
-		FSWRK_COM_FATAL(progname, ret);
-
-	if (buf)
-		ocfs2_free(&buf);
-	if (cinode)
-		ocfs2_free_cached_inode(fs, cinode);
 	return;
 }
 
@@ -382,11 +455,19 @@ void mess_up_dir_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 	if (!(di->i_flags & OCFS2_VALID_FL))
 		FSWRK_FATAL("not a valid file");
 
-	el = &(di->id2.i_list);
-	if (el->l_next_free_rec == 0)
-		FSWRK_FATAL("directory empty");
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
 
-	el->l_next_free_rec = 0;
+		FSWRK_FATAL("Inlined directory");
+
+	} else {
+
+		el = &(di->id2.i_list);
+		if (el->l_next_free_rec == 0)
+			FSWRK_FATAL("directory empty");
+
+		el->l_next_free_rec = 0;
+	}
+
 	fprintf(stdout, "DIR_ZERO: "
 		"Corrupt directory#%"PRIu64", empty its content.\n", 
 		tmp_blkno);
