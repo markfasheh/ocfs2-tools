@@ -82,7 +82,6 @@ HFILES =		\
 	crc32table.h	\
 	dir_iterate.h	\
 	dir_util.h	\
-	dlm.h		\
 	extent_map.h
 
 HFILES_GEN = ocfs2_err.h
