@@ -35,7 +35,7 @@ void mess_up_inode_alloc(ocfs2_filesys *fs, enum fsck_type type,
 			 uint16_t slotnum);
 void mess_up_inline_flag(ocfs2_filesys *fs, enum fsck_type type,
 			 uint64_t blkno);
-void mess_up_inline_count(ocfs2_filesys *fs, enum fsck_type type,
+void mess_up_inline_inode(ocfs2_filesys *fs, enum fsck_type type,
 			  uint64_t blkno);
 void mess_up_dup_clusters(ocfs2_filesys *fs, enum fsck_type type,
 			  uint64_t blkno);

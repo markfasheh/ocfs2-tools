@@ -140,8 +140,11 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 	define_prompt_code(INLINE_DATA_FLAG_INVALID, corrupt_file,
 			   "Create an inlined inode on a unsupported volume"),
 	define_prompt_code(INLINE_DATA_COUNT_INVALID, corrupt_file,
-			   "Corrupt inlined inode's id_count, "
-			   "i_size and i_clusters"),
+			   "Corrupt inlined inode's id_count"),
+	define_prompt_code(INODE_INLINE_SIZE, corrupt_file,
+			   "Corrupt inlined inode's i_size"),
+	define_prompt_code(INODE_INLINE_CLUSTERS, corrupt_file,
+			   "Corrupt inlined inode's i_clusters"),
 	define_prompt_code(DUPLICATE_CLUSTERS, corrupt_file,
 			   "Allocate same cluster to different files"),
 	define_prompt_code(CHAIN_COUNT, corrupt_sys_file,

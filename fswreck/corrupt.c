@@ -238,7 +238,13 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 		func = mess_up_inline_flag;
 		break;
 	case INLINE_DATA_COUNT_INVALID:
-		func = mess_up_inline_count;
+		func = mess_up_inline_inode;
+		break;
+	case INODE_INLINE_SIZE:
+		func = mess_up_inline_inode;
+		break;
+	case INODE_INLINE_CLUSTERS:
+		func = mess_up_inline_inode;
 		break;
 	case DUPLICATE_CLUSTERS:
 		func = mess_up_dup_clusters;

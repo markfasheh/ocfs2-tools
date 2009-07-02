@@ -275,7 +275,7 @@ void mess_up_inline_flag(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 	return;
 }
 
-void mess_up_inline_count(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
+void mess_up_inline_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	int i;
 	errcode_t ret;
@@ -313,18 +313,36 @@ void mess_up_inline_count(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno
 		if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL))
 			di->i_dyn_features |= OCFS2_INLINE_DATA_FL;
 
-		di->id2.i_data.id_count = 0;
-		di->i_size = max_inline_sz + 1;
-		di->i_clusters = 1;
+		switch (type) {
+		case INLINE_DATA_COUNT_INVALID:
+			di->id2.i_data.id_count = 0;
+			fprintf(stdout, "INLINE_DATA_COUNT_INVALID: "
+				"Create an inlined inode#%"PRIu64"(%s),"
+				"whose id_count has been messed up.\n",
+				inline_blkno, file_type);
+			break;
+		case INODE_INLINE_SIZE:
+			di->i_size = max_inline_sz + 1;
+			fprintf(stdout, "INODE_INLINE_SIZE: "
+				"Create an inlined inode#%"PRIu64"(%s),"
+				"whose i_size has been messed up.\n",
+				inline_blkno, file_type);
+			break;
+		case INODE_INLINE_CLUSTERS:
+			di->i_clusters = 1;
+			fprintf(stdout, "INODE_INLINE_CLUSTERS: "
+				"Create an inlined inode#%"PRIu64"(%s),"
+				"whose i_clusters has been messed up.\n",
+				inline_blkno, file_type);
+			break;
+
+		default:
+			FSWRK_FATAL("Invalid type[%d]\n", type);
+		}
 
 		ret = ocfs2_write_inode(fs, inline_blkno, buf);
 		if (ret)
 			FSWRK_COM_FATAL(progname, ret);
-
-		fprintf(stdout, "INLINE_DATA_COUNT_INVALID: "
-			"Create an inlined inode#%"PRIu64"(%s),"
-			"whose id_count, i_size and i_clusters "
-			"been messed up\n", inline_blkno, file_type);
 	}
 
 	if (buf)
