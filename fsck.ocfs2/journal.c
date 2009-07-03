@@ -863,7 +863,7 @@ static errcode_t fix_journals_func(o2fsck_state *ost,
 		    jc->jc_max_features.opt_ro_compat) ||
 		   (ji->i_features.opt_incompat !=
 		    jc->jc_max_features.opt_incompat)) {
-		if (prompt(ost, PY, PR_JOURNAL_MISS_FEATURE,
+		if (prompt(ost, PY, PR_JOURNAL_MISSING_FEATURE,
 			   "journal file %s is missing features that "
 			   "are set on other journal files.  Set these "
 			   "features?",

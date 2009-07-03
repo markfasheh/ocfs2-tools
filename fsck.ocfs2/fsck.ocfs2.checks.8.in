@@ -476,20 +476,19 @@ matches the extent lists and so answering yes is strongly encouraged.
 .SS "INODE_SPARSE_SIZE"
 Certain inodes record the size of the data they reference in an i_size field.
 This can be the number of bytes in a file, directory, or symlink target
-which are stored in data mapped by extents of clusters.  This error occurs
-when the extent lists are walked and the amount of data found does not match
-what is stored in i_size.
+which are stored in data mapped by extents of clusters. This error occurs when
+a sparse inode was found that had data allocated past its i_size.
 
-Answering yes to this question updates the inode's i_size to match the amount
-of data referenced by the extent lists.  It is vitally important that i_size
-matches the extent lists and so answering yes is strongly encouraged.
+Answering yes to this question will update the inode's i_size to cover all of
+its allocated storage.  It is vitally important that i_size matches the extent
+lists and so answering yes is strongly encouraged.
 
 .SS "INODE_INLINE_SIZE"
-Inlined inodes store the max inline data size in i_size, this error occurs
-when the file size of an inlined inode exceeds the max inline data size.
+Inodes can only fit a certain amount of inline data.  This inode has its data
+inline but claims an i_size larger than will actually fit.
 
-Answering yes to this question updates the inode's i_size to max inline data
-size.
+Answering yes to this question updates the inode's i_size to the maximum available
+inline space.
 
 .SS "INODE_CLUSTERS"
 Inodes contain a record of how many clusters are allocated to them.  An inode
@@ -500,9 +499,9 @@ Answering yes resets the inode's number of clusters to reflect the number
 of blocks that were associated with the file.
 
 .SS "INODE_SPARSE_CLUSTERS"
-Inodes contain a record of how many clusters are allocated to them.  An inode
-was found whose recorded number of clusters doesn't match the number of blocks
-that were found associated with the inode.
+Inodes contain a record of how many clusters are allocated to them.  An sparse
+inode was found whose recorded number of clusters doesn't match the number of
+blocks that were found associated with the inode.
 
 Answering yes resets the inode's number of clusters to reflect the number
 of blocks that were associated with the file.
@@ -742,23 +741,24 @@ Answering yes creates the orphan directory in the system directory.
 
 .SS "JOURNAL_FILE_INVALID"
 OCFS2 uses JDB for journalling and some journal files exist in the
-system directory. Fsck has found some journal files are invalid.
+system directory. Fsck has found some journal files that are invalid.
 
-Answering yes to regenerate the journal file.
+Answering yes to this question will regenerate the invalid journal files.
 
 .SS "JOURNAL_UNKNOWN_FEATURE"
-Fsck has found some journal files have unknown features, however, other
-journals have only known features, so this is likely a corruption.
+Fsck has found some journal files with unknown features.  Other journals
+on the filesystem have only known features, so this is likely a corruption.
 If you think your filesystem may be newer than this version of fsck.ocfs2,
 say N here and grab the latest version of fsck.ocfs2.
 
-Answering yes resets the journal features to math other journals.
+Answering yes resets the journal features to match other journals.
 
-.SS "JOURNAL_MISS_FEATURE"
-Fsck has found some journal files are missing features that are set on
-other journal files.
+.SS "JOURNAL_MISSING_FEATURE"
+Fsck has found some journal files have features that are not set on all
+journal files. All journals on filesystem should have the same set of
+features.
 
-Answering yes sets these missing features.
+Answering yes will set all journals to the union of set features.
 
 .SS "JOURNAL_TOO_SMALL"
 Fsck has found some journal files are too small.
@@ -803,7 +803,7 @@ does not match the number of entries found by fsck.
 Answering yes will change this to the correct count.
 
 .SS "XATTR_ENTRY_INVALID"
-Extended attribute entry refers to a used area.
+An extended attribute entry points to already used space.
 
 Answering yes will remove this entry.
 
@@ -814,7 +814,8 @@ Without a correct name_offset field, the entry cannot be used.
 Answering yes will remove this entry.
 
 .SS "XATTR_VALUE_INVALID"
-Extended attribute entry's value/name pair refers to a used area.
+The value region of an extended attribute points to already
+used space.
 
 Answering yes will remove this entry.
 
