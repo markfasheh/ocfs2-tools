@@ -162,7 +162,13 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case INODE_SIZE:
 		func = mess_up_inode_field;
 		break;
+	case INODE_SPARSE_SIZE:
+		func = mess_up_inode_field;
+		break;
 	case INODE_CLUSTERS:
+		func = mess_up_inode_field;
+		break;
+	case INODE_SPARSE_CLUSTERS:
 		func = mess_up_inode_field;
 		break;
 	case INODE_COUNT:

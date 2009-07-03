@@ -80,7 +80,7 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "INODE_BLKNO: "
 			"Corrupt inode#%"PRIu64", change i_blkno from %"PRIu64
 			" to %"PRIu64"\n",
-			blkno, di->i_blkno, (di->i_blkno + 10));
+			blkno, di->i_blkno, (di->i_blkno + 100));
 		di->i_blkno += 100;
 		break;
 	case INODE_NZ_DTIME:
@@ -103,8 +103,21 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 			 blkno, di->i_size, (di->i_size + 100));
 		di->i_size += 100;
 		break;
+	case INODE_SPARSE_SIZE:
+		fprintf(stdout, "INODE_SPARSE_SIZE: "
+			"Corrupt inode#%"PRIu64", change i_size "
+			"from %u to %u\n",
+			 blkno, di->i_size, fs->fs_clustersize);
+		di->i_size = fs->fs_clustersize;
+		break;
 	case INODE_CLUSTERS:
-		fprintf(stdout, "INODE_CLUSTER: "
+		fprintf(stdout, "INODE_CLUSTERS: "
+			"Corrupt inode#%"PRIu64", change i_clusters"
+			" from %u to 0\n", blkno, di->i_clusters);
+		di->i_clusters = 0;
+		break;
+	case INODE_SPARSE_CLUSTERS:
+		fprintf(stdout, "INODE_SPARSE_CLUSTERS: "
 			"Corrupt inode#%"PRIu64", change i_clusters"
 			" from %u to 0\n", blkno, di->i_clusters);
 		di->i_clusters = 0;
@@ -130,14 +143,43 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 
 void mess_up_inode_field(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
-	int i;
 	errcode_t ret;
 	uint64_t tmpblkno;
 	uint32_t clusters = 10;
 
+	char *buf = NULL;
+	struct ocfs2_dinode *di;
+
 	create_file(fs, blkno, &tmpblkno);
 
-	if (type == INODE_CLUSTERS) {
+	if ((type == INODE_SPARSE_SIZE) || (type == INODE_SPARSE_CLUSTERS)) {
+
+		if (!ocfs2_sparse_alloc(OCFS2_RAW_SB(fs->fs_super)))
+			FSWRK_FATAL("should specfiy a sparse file supported "
+				    "volume to do this corruption\n");
+
+		ret = ocfs2_malloc_block(fs->fs_io, &buf);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+
+		ret = ocfs2_read_inode(fs, tmpblkno, buf);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+
+		di = (struct ocfs2_dinode *)buf;
+
+		di->i_size = fs->fs_clustersize * 2;
+
+		ret = ocfs2_write_inode(fs, tmpblkno, buf);
+		if (ret)
+			FSWRK_COM_FATAL(progname, ret);
+
+		if (buf)
+			ocfs2_free(&buf);
+	}
+
+	if ((type == INODE_CLUSTERS) || (type == INODE_SPARSE_CLUSTERS) ||
+	    (type == INODE_SPARSE_SIZE)) {
 		ret = ocfs2_extend_allocation(fs, tmpblkno, clusters);
 		if (ret)
 			FSWRK_COM_FATAL(progname, ret);
