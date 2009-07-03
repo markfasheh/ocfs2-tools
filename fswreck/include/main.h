@@ -88,5 +88,6 @@
 #include "symlink.h"
 #include "special.h"
 #include "dir.h"
+#include "journal.h"
 
 #endif		/* __MAIN_H__ */

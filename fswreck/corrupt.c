@@ -323,6 +323,12 @@ void corrupt_sys_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case INODE_ALLOC_REPAIR:
 		func = mess_up_inode_alloc;
 		break;
+	case JOURNAL_FILE_INVALID:
+	case JOURNAL_UNKNOWN_FEATURE:
+	case JOURNAL_MISSING_FEATURE:
+	case JOURNAL_TOO_SMALL:
+		func = mess_up_journal;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", type);
 	}

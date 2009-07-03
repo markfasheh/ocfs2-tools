@@ -10,12 +10,11 @@ INCLUDES += $(GLIB_CFLAGS)
 
 UNINST_PROGRAMS = fswreck
 
-CFILES = main.c corrupt.c chain.c extent.c group.c inode.c local_alloc.c truncate_log.c special.c symlink.c dir.c
+CFILES = main.c corrupt.c chain.c extent.c group.c inode.c local_alloc.c truncate_log.c special.c symlink.c dir.c journal.c
 
 HFILES = 			\
 	include/main.h		\
 	include/corrupt.h	\
-	include/chain.c
 
 OBJS = $(subst .c,.o,$(CFILES))
 

@@ -234,6 +234,14 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "Corrupt truncate log's tl_recs"),
 	define_prompt_code(TRUNCATE_REC_RANGE, corrupt_truncate_log,
 			   "Corrupt truncate log's t_clusters"),
+	define_prompt_code(JOURNAL_FILE_INVALID, corrupt_sys_file,
+			   "Corrupt journal file as an invalid one."),
+	define_prompt_code(JOURNAL_UNKNOWN_FEATURE, corrupt_sys_file,
+			   "Corrupt journal file with unknown feature ."),
+	define_prompt_code(JOURNAL_MISSING_FEATURE, corrupt_sys_file,
+			   "Corrupt journal file by missing features."),
+	define_prompt_code(JOURNAL_TOO_SMALL, corrupt_sys_file,
+			   "Corrupt journal file as a too small one."),
 };
 
 #undef define_prompt_code
