@@ -91,6 +91,7 @@ struct dirent_corrupt_struct  {
 	const char	*oldname;
 	const char      *name;
 	int             namelen;
+	int		oldnamelen;
 	int             done;
 	int		reserved;
 };
@@ -101,7 +102,7 @@ static int corrupt_match_dirent(struct dirent_corrupt_struct *dcs,
 	if (!dcs->oldname)
 		return 1;
 
-	if (((dirent->name_len & 0xFF) != dcs->namelen))
+	if (((dirent->name_len & 0xFF) != dcs->oldnamelen))
 		return 0;
 
 	if (strncmp(dcs->oldname, dirent->name, dirent->name_len & 0xFF))
@@ -121,8 +122,13 @@ static int rename_dirent_proc(struct ocfs2_dir_entry *dirent,
 	if (!corrupt_match_dirent(dcs, dirent))
 		return 0;
 	
-	strcpy(dirent->name, dcs->name);
-
+	if (dcs->namelen <= (dirent->rec_len -
+			     offsetof(struct ocfs2_dir_entry, name))) {
+		strcpy(dirent->name, dcs->name);
+		dirent->name_len = dcs->namelen;
+	} else
+		FSWRK_FATAL("The lenght of new name for target dirent you"
+			    "want to rename didn't fit the old one.\n");
 	dcs->done++;
 
 	return OCFS2_DIRENT_ABORT|OCFS2_DIRENT_CHANGED;
@@ -139,7 +145,8 @@ static int rename_dirent(ocfs2_filesys *fs, uint64_t dir,
 
 	dcs.name = name;
 	dcs.oldname = oldname;
-	dcs.namelen = oldname ? strlen(oldname) : 0;
+	dcs.namelen = name ? strlen(name) : 0;
+	dcs.oldnamelen = oldname ? strlen(oldname) : 0;
 	dcs.done = 0;
 
 	rc = ocfs2_dir_iterate(fs, dir, 0, 0, rename_dirent_proc, &dcs);
@@ -179,7 +186,7 @@ static int corrupt_dirent_ino(ocfs2_filesys *fs, uint64_t dir,
 		return OCFS2_ET_RO_FILESYS;
 
 	dcs.oldname = name;
-	dcs.namelen = name ? strlen(name) : 0;
+	dcs.oldnamelen = name ? strlen(name) : 0;
 	dcs.done = 0;
 	dcs.reserved = inc;
 
@@ -223,7 +230,7 @@ static int corrupt_dirent_reclen(ocfs2_filesys *fs, uint64_t dir,
 		return OCFS2_ET_RO_FILESYS;
 
 	dcs.oldname = name;
-	dcs.namelen = name ? strlen(name) : 0;
+	dcs.oldnamelen = name ? strlen(name) : 0;
 	dcs.done = 0;
 	dcs.reserved = inc;
 
