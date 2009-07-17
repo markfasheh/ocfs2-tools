@@ -98,12 +98,16 @@ static SystemFileInfo system_files[] = {
 	{ "slot_map", SFI_OTHER, 1, S_IFREG | 0644 },
 	{ "heartbeat", SFI_HEARTBEAT, 1, S_IFREG | 0644 },
 	{ "global_bitmap", SFI_CLUSTER, 1, S_IFREG | 0644 },
+	{ "aquota.user", SFI_QUOTA, 1, S_IFREG | 0644 },
+	{ "aquota.group", SFI_QUOTA, 1, S_IFREG | 0644 },
 	{ "orphan_dir:%04d", SFI_OTHER, 0, S_IFDIR | 0755 },
 	{ "extent_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
 	{ "inode_alloc:%04d", SFI_CHAIN, 0, S_IFREG | 0644 },
 	{ "journal:%04d", SFI_JOURNAL, 0, S_IFREG | 0644 },
 	{ "local_alloc:%04d", SFI_LOCAL_ALLOC, 0, S_IFREG | 0644 },
-	{ "truncate_log:%04d", SFI_TRUNCATE_LOG, 0, S_IFREG | 0644 }
+	{ "truncate_log:%04d", SFI_TRUNCATE_LOG, 0, S_IFREG | 0644 },
+	{ "aquota.user:%04d", SFI_QUOTA, 0, S_IFREG | 0644 },
+	{ "aquota.group:%04d", SFI_QUOTA, 0, S_IFREG | 0644 },
 };
 
 struct fs_type_translation {
@@ -226,11 +230,136 @@ static void mkfs_init_dir_trailer(State *s, DirData *dir, void *buf)
 	}
 }
 
+/* Should we skip this inode because of features enabled / disabled? */
+static int feature_skip(State *s, int system_inode)
+{
+	switch (system_inode) {
+		case USER_QUOTA_SYSTEM_INODE:
+		case LOCAL_USER_QUOTA_SYSTEM_INODE:
+			return !(s->feature_flags.opt_ro_compat &
+					OCFS2_FEATURE_RO_COMPAT_USRQUOTA);
+		case GROUP_QUOTA_SYSTEM_INODE:
+		case LOCAL_GROUP_QUOTA_SYSTEM_INODE:
+			return !(s->feature_flags.opt_ro_compat &
+					OCFS2_FEATURE_RO_COMPAT_GRPQUOTA);
+		default:
+			return 0;
+	}
+}
+
 static inline uint32_t system_dir_bytes_needed(State *s)
 {
 	int each = OCFS2_DIR_REC_LEN(SYSTEM_FILE_NAME_MAX);
 
 	return each * sys_blocks_needed(s->initial_slots);
+}
+
+static void format_quota_files(State *s, ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	ocfs2_quota_hash *usr_hash = NULL, *grp_hash = NULL;
+
+	/* Write correct data into quota files */
+	if (!feature_skip(s, USER_QUOTA_SYSTEM_INODE)) {
+		ret = ocfs2_init_fs_quota_info(fs, USRQUOTA);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while looking up global user quota file");
+			goto error;
+		}
+		fs->qinfo[USRQUOTA].flags = 0;
+		fs->qinfo[USRQUOTA].qi_info.dqi_syncms = OCFS2_DEF_QUOTA_SYNC;
+		fs->qinfo[USRQUOTA].qi_info.dqi_bgrace = OCFS2_DEF_BLOCK_GRACE;
+		fs->qinfo[USRQUOTA].qi_info.dqi_igrace = OCFS2_DEF_INODE_GRACE;
+
+		ret = ocfs2_new_quota_hash(&usr_hash);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while creating user quota hash.");
+			goto error;
+		}
+		ret = ocfs2_init_global_quota_file(fs, USRQUOTA);
+		if (ret) {
+			com_err(s->progname, ret, "while creating global user "
+				"quota file");
+			goto error;
+		}
+		ret = ocfs2_init_local_quota_files(fs, USRQUOTA);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while initializing local user quota files");
+			goto error;
+		}
+	}
+	if (!feature_skip(s, GROUP_QUOTA_SYSTEM_INODE)) {
+		ret = ocfs2_init_fs_quota_info(fs, GRPQUOTA);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while looking up global group quota file");
+			goto error;
+		}
+		fs->qinfo[GRPQUOTA].flags = 0;
+		fs->qinfo[GRPQUOTA].qi_info.dqi_syncms = OCFS2_DEF_QUOTA_SYNC;
+		fs->qinfo[GRPQUOTA].qi_info.dqi_bgrace = OCFS2_DEF_BLOCK_GRACE;
+		fs->qinfo[GRPQUOTA].qi_info.dqi_igrace = OCFS2_DEF_INODE_GRACE;
+		ret = ocfs2_new_quota_hash(&usr_hash);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while creating group quota hash.");
+			goto error;
+		}
+		ret = ocfs2_init_global_quota_file(fs, GRPQUOTA);
+		if (ret) {
+			com_err(s->progname, ret, "while creating global group "
+				"quota file");
+			goto error;
+		}
+
+		ret = ocfs2_init_local_quota_files(fs, GRPQUOTA);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while initializing local group quota files");
+			goto error;
+		}
+	}
+
+	ret = ocfs2_compute_quota_usage(fs, usr_hash, grp_hash);
+	if (ret) {
+		com_err(s->progname, ret, "while computing quota usage");
+		goto error;
+	}
+	if (usr_hash) {
+		ret = ocfs2_write_release_dquots(fs, USRQUOTA, usr_hash);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while writing user quota usage");
+			goto error;
+		}
+		ret = ocfs2_free_quota_hash(usr_hash);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while releasing user quota hash");
+			goto error;
+		}
+	}
+	if (grp_hash) {
+		ret = ocfs2_write_release_dquots(fs, GRPQUOTA, grp_hash);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while writing group quota usage");
+			goto error;
+		}
+		ret = ocfs2_free_quota_hash(grp_hash);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while releasing group quota hash");
+			goto error;
+		}
+	}
+	return;
+error:
+	clear_both_ends(s);
+	exit(1);
 }
 
 static void finish_normal_format(State *s)
@@ -300,6 +429,14 @@ static void finish_normal_format(State *s)
 		printf("Writing lost+found: ");
 
 	create_lost_found_dir(s, fs);
+
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Formatting quota files: ");
+
+	format_quota_files(s, fs);
 
 	if (!s->quiet)
 		printf("done\n");
@@ -471,6 +608,8 @@ main(int argc, char **argv)
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		if (hb_dev_skip(s, i))
 			continue;
+		if (feature_skip(s, i))
+			continue;
 
 		num = (system_files[i].global) ? 1 : s->initial_slots;
 		for (j = 0; j < num; j++) {
@@ -528,6 +667,8 @@ main(int argc, char **argv)
 
 	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
 		if (hb_dev_skip(s, i))
+			continue;
+		if (feature_skip(s, i))
 			continue;
 
 		num = system_files[i].global ? 1 : s->initial_slots;
@@ -2431,6 +2572,9 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int mode)
 		break;
 	case SFI_TRUNCATE_LOG:
 		rec->flags |= OCFS2_DEALLOC_FL;
+		break;
+	case SFI_QUOTA:
+		rec->flags |= OCFS2_QUOTA_FL;
 		break;
 	case SFI_OTHER:
 		break;

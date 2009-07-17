@@ -32,6 +32,6 @@ OBJS = $(subst .c,.o,$(CFILES))
 DIST_FILES = $(CFILES) $(HFILES) o2image.8.in
 
 o2image: $(OBJS) $(LIBOCFS2_DEPS)
-	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+	$(LINK) -static $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
 
 include $(TOPDIR)/Postamble.make

@@ -39,12 +39,24 @@ errcode_t ocfs2_flush(ocfs2_filesys *fs)
 errcode_t ocfs2_close(ocfs2_filesys *fs)
 {
 	errcode_t ret;
+	int type;
 
 	if (fs->fs_flags & OCFS2_FLAG_DIRTY) {
 		ret = ocfs2_flush(fs);
 		if (ret)
 			return ret;
 	}
+
+	for (type = 0; type < MAXQUOTAS; type++)
+		if (fs->qinfo[type].flags & OCFS2_QF_INFO_DIRTY) {
+			ret = ocfs2_write_global_quota_info(fs, type);
+			if (ret)
+				return ret;
+			ret = ocfs2_write_cached_inode(fs,
+						fs->qinfo[type].qi_inode);
+			if (ret)
+				return ret;
+		}
 
 	ocfs2_freefs(fs);
 	return 0;

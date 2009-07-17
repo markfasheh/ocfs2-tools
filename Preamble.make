@@ -28,7 +28,7 @@ DIST_RULES =
 INCLUDES =
 DEFINES = 
 
-CFLAGS += -pipe
+CFLAGS += -pipe -ggdb -static
 # protect with configure?
 CDEPFLAGS = -MD -MP -MF $(@D)/.$(basename $(@F)).d
 

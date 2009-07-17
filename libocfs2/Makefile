@@ -73,6 +73,7 @@ CFILES = 		\
 	lockid.c	\
 	backup_super.c	\
 	feature_string.c\
+	quota.c		\
 	image.c		\
 	xattr.c
 
