@@ -43,7 +43,18 @@
  *
  * Pass 1D does the actual fixing.  Each inode with duplicate clusters can
  * cloned to an entirely new file or deleted.  Regardless of the choice,
- * and inode that is fixed no longer has duplicate clusters.
+ * an inode that is fixed no longer has duplicate clusters.  Cloning is
+ * done by creating a new inode and copying the data to it.  Then the
+ * extent trees are swapped between the original and clone inode.  This
+ * leaves the original inode with a good extent tree.  Finally, the clone
+ * inode is removed and its extent tree released.  If deletion is chosen
+ * instead of cloning, the original inode is removed.  Either way, we end
+ * up over-freeing the clusters in the main bitmap.  At the end, we run
+ * the list of multi-claimed clusters again.  If the cluster still has
+ * claimers, it is forced on in the bitmap.  If it does not, it is forced
+ * clear in the bitmap.  If we crash in the middle, we're still safe.  A
+ * re-run of fsck will determine whether the over-freed clusters are
+ * actually in use.
  *
  * Once Pass1D is complete, the ost_duplicate_clusters bitmap can be
  * freed.
@@ -1019,9 +1030,283 @@ static void print_chain_warning(void)
 	chain_warning = 1;
 }
 
+static errcode_t new_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
+			   ocfs2_cached_inode **clone_ci)
+{
+	errcode_t ret, ret2;
+	uint64_t clone_blkno = 0;
+	uint64_t bytes = orig_ci->ci_inode->i_size;
+	uint32_t clusters = ocfs2_clusters_in_bytes(fs, bytes);
+
+	ret = ocfs2_new_inode(fs, &clone_blkno, orig_ci->ci_inode->i_mode);
+	if (ret) {
+		com_err(whoami, ret, "while allocating a clone inode");
+		return ret;
+	}
+
+	/*
+	 * Let's get the clusters in the best way we can.  We make sure
+	 * i_size is updated so that ocfs2_file_write() is happy.
+	 */
+	if (ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)) &&
+	    !(orig_ci->ci_inode->i_flags & OCFS2_SYSTEM_FL))
+		ret = ocfs2_allocate_unwritten_extents(fs, clone_blkno, 0,
+						       bytes);
+	else {
+		ret = ocfs2_extend_allocation(fs, clone_blkno, clusters);
+		if (!ret)
+			ret = ocfs2_extend_file(fs, clone_blkno, bytes);
+	}
+	if (ret) {
+		com_err(whoami, ret,
+			"while allocating data clusters for a clone inode");
+		goto out;
+	}
+
+	ret = ocfs2_read_cached_inode(fs, clone_blkno, clone_ci);
+	if (ret)
+		com_err(whoami, ret, "while reading temporary clone inode");
+
+	/*
+	 * It is so tempting to link the temporary clone inode into
+	 * the orphan directory here.  But we can't, because later in
+	 * the clone process it will point to multiply-claimed clusters.
+	 * Orphan cleanup would free them, which is even worse than
+	 * leaving the temporary clone inode around.
+	 */
+
+out:
+	if (ret && clone_blkno) {
+		ret2 = ocfs2_delete_inode(fs, clone_blkno);
+		if (ret2)
+			com_err(whoami, ret2,
+				"while removing temporary clone inode");
+	}
+	return ret;
+}
+
+static errcode_t copy_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
+			    ocfs2_cached_inode *clone_ci)
+{
+	char *buf;
+	errcode_t ret;
+	uint64_t offset = 0;
+	uint64_t filesize = orig_ci->ci_inode->i_size;
+	unsigned int iosize = 1024 * 1024;  /* Let's read in 1MB hunks */
+	unsigned int got, wrote;
+
+	ret = ocfs2_malloc_blocks(fs->fs_io, iosize / fs->fs_blocksize,
+				  &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating clone buffer");
+		return ret;
+	}
+
+	while (offset < filesize) {
+		if ((filesize - offset) < iosize)
+			iosize = filesize - offset;
+		ret = ocfs2_file_read(orig_ci, buf, iosize, offset, &got);
+		if (ret) {
+			com_err(whoami, ret, "while reading inode to clone");
+			break;
+		}
+
+		ret = ocfs2_file_write(clone_ci, buf, iosize, offset, &wrote);
+		if (ret) {
+			com_err(whoami, ret, "while writing clone data");
+			break;
+		}
+		assert(got == wrote);
+		offset += wrote;
+	}
+
+	ocfs2_free(&buf);
+	return ret;
+}
+
+static errcode_t swap_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
+			    ocfs2_cached_inode *clone_ci)
+{
+	errcode_t ret;
+	struct ocfs2_extent_list *tmp_el = NULL;
+	struct ocfs2_extent_list *orig_el = &orig_ci->ci_inode->id2.i_list;
+	struct ocfs2_extent_list *clone_el = &clone_ci->ci_inode->id2.i_list;
+	int el_size = offsetof(struct ocfs2_extent_list, l_recs) +
+		sizeof(struct ocfs2_extent_rec) * orig_el->l_count;
+
+	ret = ocfs2_malloc0(el_size, &tmp_el);
+	if (ret) {
+		com_err(whoami, ret,
+			"while allocating temporary memory to swap a "
+			"cloned inode");
+		goto out;
+	}
+
+	memcpy(tmp_el, orig_el, el_size);
+	memcpy(orig_el, clone_el, el_size);
+	memcpy(clone_el, tmp_el, el_size);
+
+	/*
+	 * We write the cloned inode with the original extent list first.
+	 * If we crash between writing the cloned inode and the original
+	 * one, the cloned inode will appear to share the same extents
+	 * as the original and the extents we just allocated to the clone
+	 * will look unused to a subsequent fsck run.  They'll be reusable
+	 * for recovery.
+	 */
+	ret = ocfs2_write_cached_inode(fs, clone_ci);
+	if (ret) {
+		com_err(whoami, ret,
+			"while writing out clone inode %"PRIu64,
+			clone_ci->ci_blkno);
+		goto out;
+	}
+
+	ret = ocfs2_write_cached_inode(fs, orig_ci);
+	if (ret)
+		com_err(whoami, ret, "while writing out inode %"PRIu64,
+			orig_ci->ci_blkno);
+
+out:
+	if (tmp_el)
+		ocfs2_free(&tmp_el);
+	return ret;
+}
+
+static int can_free(struct dup_context *dct, uint32_t cpos)
+{
+	struct dup_cluster *dc;
+	int unhandled = 0;
+
+	dc = dup_cluster_lookup(dct, cpos);
+	/* We don't call can_free unless it's in the dup bitmap */
+	assert(dc);
+
+	/*
+	 * See how many inodes still point to it.  It can't be zero,
+	 * because we're working on an inode that points to it RIGHT
+	 * NOW.
+	 */
+	for_each_owner(dct, dc, count_func, &unhandled);
+	assert(unhandled > 0);
+	if (unhandled > 1)
+		return 0;
+	return 1;
+}
+
+static errcode_t pass1d_free_clusters(ocfs2_filesys *fs, uint32_t len,
+				      uint64_t start, void *free_data)
+{
+	errcode_t ret = 0;
+	int was_set;
+	struct fix_dup_context *fd = free_data;
+	uint32_t p_cpos, p_start = ocfs2_blocks_to_clusters(fs, start);
+
+	for (p_cpos = p_start; p_cpos < (p_start + len); p_cpos++) {
+		verbosef("checking cpos %"PRIu32"\n", p_cpos);
+		ret = ocfs2_bitmap_test(fd->fd_ost->ost_duplicate_clusters,
+					p_cpos, &was_set);
+		if (ret) {
+			com_err(whoami, ret,
+				"while testing cluster %"PRIu32" in "
+				"the duplicate cluster map",
+				p_cpos);
+			break;
+		}
+
+		verbosef("cpos %"PRIu32" was_set == %d\n", p_cpos, was_set);
+		if (was_set) {
+			if (can_free(fd->fd_dct, p_cpos))
+				verbosef("Freeing multiply-claimed cluster "
+					 "%"PRIu32", as it is no longer used\n",
+					 p_cpos);
+			else
+				continue;
+		}
+
+		verbosef("Freeing cluster %"PRIu32"\n", p_cpos);
+		ret = ocfs2_free_clusters(fd->fd_ost->ost_fs, 1,
+					  ocfs2_clusters_to_blocks(fs, p_cpos));
+		if (ret) {
+			com_err(whoami, ret,
+				"while freeing duplicate cluster "
+				"%"PRIu32,
+				p_cpos);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int delete_one_inode(struct fix_dup_context *fd, uint64_t ino)
+{
+	errcode_t ret;
+	o2fsck_state *ost = fd->fd_ost;
+
+	verbosef("Truncating inode %"PRIu64"\n", ino);
+	ret = ocfs2_truncate_full(ost->ost_fs, ino, 0,
+				  pass1d_free_clusters, fd);
+	if (ret) {
+		com_err(whoami, ret,
+			"while truncating inode %"PRIu64" to remove it",
+			ino);
+		goto out;
+	}
+
+	verbosef("Deleting inode %"PRIu64"\n", ino);
+	ret = ocfs2_delete_inode(ost->ost_fs, ino);
+	if (ret)
+		com_err(whoami, ret, "while removing inode %"PRIu64, ino);
+	else
+		o2fsck_icount_set(ost->ost_icount_in_inodes, ino, 0);
+
+out:
+	return ret ? 1 : 0;
+}
+
+static int clone_one_inode(struct fix_dup_context *fd, struct dup_inode *di)
+{
+	errcode_t ret, tmpret;
+	ocfs2_filesys *fs = fd->fd_ost->ost_fs;
+	ocfs2_cached_inode *orig_ci = NULL, *clone_ci = NULL;
+
+	ret = ocfs2_read_cached_inode(fs, di->di_ino, &orig_ci);
+	if (ret) {
+		com_err(whoami, ret,
+			"while reading inode \"%s\" to clone it",
+			di->di_path);
+		goto out;
+	}
+
+	ret = new_clone(fs, orig_ci, &clone_ci);
+	if (ret)
+		goto out;
+
+	verbosef("Copying inode \"%s\" to clone %"PRIu64"\n", di->di_path,
+		 clone_ci->ci_blkno);
+	ret = copy_clone(fs, orig_ci, clone_ci);
+	if (ret)
+		goto out;
+
+	ret = swap_clone(fs, orig_ci, clone_ci);
+
+out:
+	if (orig_ci)
+		ocfs2_free_cached_inode(fs, orig_ci);
+	if (clone_ci) {
+		tmpret = delete_one_inode(fd, clone_ci->ci_blkno);
+		if (!ret)
+			ret = tmpret;
+		ocfs2_free_cached_inode(fs, clone_ci);
+	}
+	return ret ? 1 : 0;
+}
+
 static int fix_dups_func(struct dup_cluster *dc, struct dup_inode *di,
 			 void *priv_data)
 {
+	int ret = 0;
 	struct fix_dup_context *fd = priv_data;
 
 	if (di->di_flags & OCFS2_CHAIN_FL) {
@@ -1039,7 +1324,9 @@ static int fix_dups_func(struct dup_cluster *dc, struct dup_inode *di,
 			   "break claims on clusters it shares with other "
 			   "inodes?",
 			   di->di_path, di->di_path)) {
-			return 0;
+			ret = clone_one_inode(fd, di);
+			if (!ret)
+				di->di_state |= DUP_INODE_CLONED;
 		}
 	} else {
 		if (prompt(fd->fd_ost, PY, PR_DUP_CLUSTERS_CLONE,
@@ -1048,17 +1335,20 @@ static int fix_dups_func(struct dup_cluster *dc, struct dup_inode *di,
 			   "Clone inode \"%s\" to break claims on "
 			   "clusters it shares with other inodes?",
 			   di->di_path, di->di_path)) {
-			return 0;
-		}
-		if (prompt(fd->fd_ost, PN, PR_DUP_CLUSTERS_DELETE,
-			   "Delete inode \"%s\" to break claims on "
-			   "clusters it shares with other inodes?",
-			   di->di_path)) {
-			return 0;
+			ret = clone_one_inode(fd, di);
+			if (!ret)
+				di->di_state |= DUP_INODE_CLONED;
+		} else if (prompt(fd->fd_ost, PN, PR_DUP_CLUSTERS_DELETE,
+				  "Delete inode \"%s\" to break claims on "
+				  "clusters it shares with other inodes?",
+				  di->di_path)) {
+			ret = delete_one_inode(fd, di->di_ino);
+			if (!ret)
+				di->di_state |= DUP_INODE_REMOVED;
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 static errcode_t o2fsck_pass1d(o2fsck_state *ost, struct dup_context *dct)
