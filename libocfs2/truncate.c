@@ -35,6 +35,11 @@
 struct truncate_ctxt {
 	uint64_t new_size_in_clusters;
 	uint32_t new_i_clusters;
+	errcode_t (*free_clusters)(ocfs2_filesys *fs,
+				   uint32_t len,
+				   uint64_t start_blkno,
+				   void *free_data);
+	void *free_data;
 };
 
 /*
@@ -120,7 +125,11 @@ static int truncate_iterate(ocfs2_filesys *fs,
 	}
 
 	if (start) {
-		ret = ocfs2_free_clusters(fs, len, start);
+		if (ctxt->free_clusters)
+			ret = ctxt->free_clusters(fs, len, start,
+						  ctxt->free_data);
+		else
+			ret = ocfs2_free_clusters(fs, len, start);
 		if (ret)
 			goto bail;
 		ctxt->new_i_clusters -= len;
@@ -184,9 +193,67 @@ out:
 	return ret;
 }
 
+/*
+ * This function will truncate the file's cluster which exceeds
+ * the cluster where new_size resides in and empty all the
+ * bytes in the same cluster which exceeds new_size.
+ */
+static errcode_t ocfs2_zero_tail_and_truncate_full(ocfs2_filesys *fs,
+						   ocfs2_cached_inode *ci,
+						   uint64_t new_i_size,
+						   uint32_t *new_clusters,
+			      errcode_t (*free_clusters)(ocfs2_filesys *fs,
+							 uint32_t len,
+							 uint64_t start,
+							 void *free_data),
+						   void *free_data)
+{
+	errcode_t ret;
+	uint64_t new_size_in_blocks;
+	struct truncate_ctxt ctxt;
+
+	new_size_in_blocks = ocfs2_blocks_in_bytes(fs, new_i_size);
+	ctxt.new_i_clusters = ci->ci_inode->i_clusters;
+	ctxt.new_size_in_clusters =
+			ocfs2_clusters_in_blocks(fs, new_size_in_blocks);
+	ctxt.free_clusters = free_clusters;
+	ctxt.free_data = free_data;
+
+	ret = ocfs2_extent_iterate_inode(fs, ci->ci_inode,
+					 OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE,
+					 NULL, truncate_iterate,
+					 &ctxt);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_zero_tail_for_truncate(ci, new_i_size);
+	if (ret)
+		goto out;
+
+	if (new_clusters)
+		*new_clusters = ctxt.new_i_clusters;
+out:
+	return ret;
+}
+
+errcode_t ocfs2_zero_tail_and_truncate(ocfs2_filesys *fs,
+				       ocfs2_cached_inode *ci,
+				       uint64_t new_i_size,
+				       uint32_t *new_clusters)
+{
+	return ocfs2_zero_tail_and_truncate_full(fs, ci, new_i_size,
+						 new_clusters, NULL, NULL);
+}
+
 /* XXX care about zeroing new clusters and final partially truncated 
  * clusters */
-errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
+errcode_t ocfs2_truncate_full(ocfs2_filesys *fs, uint64_t ino,
+			      uint64_t new_i_size,
+			      errcode_t (*free_clusters)(ocfs2_filesys *fs,
+							 uint32_t len,
+							 uint64_t start,
+							 void *free_data),
+			      void *free_data)
 {
 	errcode_t ret;
 	uint32_t new_clusters;
@@ -202,8 +269,10 @@ errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 	if (ci->ci_inode->i_size < new_i_size)
 		ret = ocfs2_extend_file(fs, ino, new_i_size);
 	else {
-		ret = ocfs2_zero_tail_and_truncate(fs, ci, new_i_size,
-						   &new_clusters);
+		ret = ocfs2_zero_tail_and_truncate_full(fs, ci, new_i_size,
+							&new_clusters,
+							free_clusters,
+							free_data);
 		if (ret)
 			goto out;
 
@@ -225,40 +294,9 @@ out:
 	return ret;
 }
 
-/*
- * This fucntion will truncate the file's cluster which exceeds
- * the cluster where new_size resides in and empty all the
- * bytes in the same cluster which exceeds new_size.
- */
-errcode_t ocfs2_zero_tail_and_truncate(ocfs2_filesys *fs,
-				       ocfs2_cached_inode *ci,
-				       uint64_t new_i_size,
-				       uint32_t *new_clusters)
+errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 {
-	errcode_t ret;
-	uint64_t new_size_in_blocks;
-	struct truncate_ctxt ctxt;
-
-	new_size_in_blocks = ocfs2_blocks_in_bytes(fs, new_i_size);
-	ctxt.new_i_clusters = ci->ci_inode->i_clusters;
-	ctxt.new_size_in_clusters =
-			ocfs2_clusters_in_blocks(fs, new_size_in_blocks);
-
-	ret = ocfs2_extent_iterate_inode(fs, ci->ci_inode,
-					 OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE,
-					 NULL, truncate_iterate,
-					 &ctxt);
-	if (ret)
-		goto out;
-
-	ret = ocfs2_zero_tail_for_truncate(ci, new_i_size);
-	if (ret)
-		goto out;
-
-	if (new_clusters)
-		*new_clusters = ctxt.new_i_clusters;
-out:
-	return ret;
+	return ocfs2_truncate_full(fs, ino, new_i_size, NULL, NULL);
 }
 
 errcode_t ocfs2_xattr_value_truncate(ocfs2_filesys *fs,
