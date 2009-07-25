@@ -5,6 +5,8 @@ include $(TOPDIR)/Preamble.make
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = fsck.ocfs2
 
+DEFINES += -DVERSION=\"$(VERSION)\"
+
 INCLUDES = -I$(TOPDIR)/include -Iinclude
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a

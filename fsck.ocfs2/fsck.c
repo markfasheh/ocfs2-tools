@@ -53,6 +53,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <signal.h>
+#include <libgen.h>
 
 #include "ocfs2/ocfs2.h"
 
@@ -402,25 +403,9 @@ static void mark_magical_clusters(o2fsck_state *ost)
 		o2fsck_mark_clusters_allocated(ost, 0, cluster);
 }
 
-static void version(void)
+static void print_version(void)
 {
-	char url[] = "$URL$";
-       	char rev[] = "$Rev$";
-	char noise[] = "fsck.ocfs2/fsck.c";
-	char *found;
-
-	/* url =~ s/noise// :P */
-	found = strstr(url, noise);
-	if (found) {
-		char *rest = found + strlen(noise);
-		memcpy(found, rest, sizeof(url) - (found - url));
-	}
-
-	printf("fsck.ocfs2 version information from Subversion:\n"
-	       " %s\n"
-	       " %s\n", url, rev);
-
-	exit(FSCK_USAGE);
+	fprintf(stderr, "%s %s\n", whoami, VERSION);
 }
 
 static errcode_t open_and_check(o2fsck_state *ost, char *filename,
@@ -727,7 +712,8 @@ int main(int argc, char **argv)
 				break;
 
 			case 'V':
-				version();
+				print_version();
+				exit(FSCK_USAGE);
 				break;
 
 			case 'r':
@@ -757,6 +743,8 @@ int main(int argc, char **argv)
 	}
 
 	filename = argv[optind];
+
+	print_version();
 
 	if (ost->ost_skip_o2cb) {
 		fprintf(stdout, "\nWARNING: YOU HAVE DISABLED THE CLUSTER CHECK. "
