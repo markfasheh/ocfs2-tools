@@ -1011,3 +1011,17 @@ uint32_t dump_xattr_ibody(FILE *out, ocfs2_filesys *fs,
 		return 0;
 	}
 }
+
+void dump_frag(FILE *out, uint64_t ino, uint32_t clusters,
+	       uint32_t extents)
+{
+	float frag_level = 0;
+
+	if (clusters > 1 && extents) {
+		float e = extents, c = clusters;
+		frag_level = 100 * (e / c);
+	}
+
+	fprintf(out, "Inode: %"PRIu64"\t%% fragmented: %.2f\tclusters:"
+		" %u\textents: %u\n", ino, frag_level, clusters, extents);
+}

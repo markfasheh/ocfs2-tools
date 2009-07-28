@@ -76,5 +76,7 @@ errcode_t dump_xattr_block(FILE *out, ocfs2_filesys *fs,
 			   uint32_t *xattrs_block,
 			   uint64_t *xattrs_bucket,
 			   int verbose);
+void dump_frag(FILE *out, uint64_t ino, uint32_t clusters,
+	       uint32_t extents);
 
 #endif		/* __DUMP_H__ */

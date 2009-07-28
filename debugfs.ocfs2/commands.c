@@ -75,6 +75,7 @@ static void do_dlm_locks (char **args);
 static void do_controld(char **args);
 static void do_dirblocks(char **args);
 static void do_xattr(char **args);
+static void do_frag(char **args);
 
 dbgfs_gbls gbls;
 
@@ -112,6 +113,7 @@ static Command commands[] = {
 	{ "encode",	do_encode_lockres },
 	{ "decode",	do_decode_lockres },
 	{ "dirblocks",	do_dirblocks },
+	{ "frag",	do_frag },
 };
 
 /*
@@ -858,6 +860,7 @@ static void do_help (char **args)
 	printf ("stat <filespec>\t\t\t\tShow inode\n");
 	printf ("stats [-h]\t\t\t\tShow superblock\n");
 	printf ("xattr [-v] <filespec>\t\t\tShow Extended Attributes\n");
+	printf ("frag <filespec>\t\t\tShow inode extents / clusters ratio\n");
 }
 
 /*
@@ -1837,6 +1840,101 @@ static void do_xattr(char **args)
 	else
 		fprintf(out, "\n\tExtended attributes in total: %"PRIu64"\n",
 			xattrs_ibody + xattrs_block + xattrs_bucket);
+	close_pager(out);
+
+	return ;
+}
+
+static errcode_t calc_num_extents(ocfs2_filesys *fs,
+				  struct ocfs2_extent_list *el,
+				  uint32_t *ne)
+{
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
+	errcode_t ret = 0;
+	char *buf = NULL;
+	int i;
+	uint32_t clusters;
+	uint32_t extents = 0;
+
+	*ne = 0;
+
+	for (i = 0; i < el->l_next_free_rec; ++i) {
+		rec = &(el->l_recs[i]);
+		clusters = ocfs2_rec_clusters(el->l_tree_depth, rec);
+
+		/*
+		 * In a unsuccessful insertion, we may shift a tree
+		 * add a new branch for it and do no insertion. So we
+		 * may meet a extent block which have
+		 * clusters == 0, this should only be happen
+		 * in the last extent rec. */
+		if (!clusters && i == el->l_next_free_rec - 1)
+			break;
+
+		extents = 1;
+
+		if (el->l_tree_depth) {
+			ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
+			if (ret)
+				goto bail;
+
+			ret = ocfs2_read_extent_block(fs, rec->e_blkno, buf);
+			if (ret)
+				goto bail;
+
+			eb = (struct ocfs2_extent_block *)buf;
+
+			ret = calc_num_extents(fs, &(eb->h_list), &extents);
+			if (ret)
+				goto bail;
+
+		}		
+
+		*ne = *ne + extents;
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
+static void do_frag(char **args)
+{
+	struct ocfs2_dinode *inode;
+	uint64_t blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+	uint32_t clusters;
+	uint32_t extents = 0;
+
+	if (process_inode_args(args, &blkno))
+		return;
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
+		return ;
+	}
+
+	inode = (struct ocfs2_dinode *)buf;
+
+	out = open_pager(gbls.interactive);
+
+	clusters = inode->i_clusters;
+	if (!(inode->i_dyn_features & OCFS2_INLINE_DATA_FL))
+		ret = calc_num_extents(gbls.fs, &(inode->id2.i_list), &extents);
+
+	if (ret)
+		com_err(args[0], ret, "while traversing inode at block "
+			"%"PRIu64, blkno);
+	else
+		dump_frag(out, inode->i_blkno, clusters, extents);
+
+
 	close_pager(out);
 
 	return ;
