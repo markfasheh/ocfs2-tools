@@ -637,6 +637,8 @@ int main(int argc, char **argv)
 	int fsck_mask = FSCK_OK;
 	int slot_recover_err = 0;
 	errcode_t ret;
+	int mount_flags;
+	int proceed = 1;
 
 	memset(ost, 0, sizeof(o2fsck_state));
 	ost->ost_ask = 1;
@@ -746,12 +748,36 @@ int main(int argc, char **argv)
 
 	print_version();
 
-	if (ost->ost_skip_o2cb) {
-		fprintf(stdout, "\nWARNING: YOU HAVE DISABLED THE CLUSTER CHECK. "
-			"CONTINUE ONLY IF YOU\nARE ABSOLUTELY SURE THAT NO "
-			"NODE HAS THIS FILESYSTEM MOUNTED OR IS\nOTHERWISE "
-			"ACCESSING IT. IF UNSURE, DO NOT PROCEED.\n\n");
-		fprintf(stdout, "Proceed (y/N): ");
+	ret = ocfs2_check_if_mounted(filename, &mount_flags);
+	if (ret) {
+		com_err(whoami, ret, "while determining whether %s is mounted.",
+			filename);
+		fsck_mask |= FSCK_ERROR;
+		goto out;
+	}
+
+	if (mount_flags & (OCFS2_MF_MOUNTED | OCFS2_MF_BUSY)) {
+		if (!(open_flags & OCFS2_FLAG_RW))
+			fprintf(stdout, "\nWARNING!!! Running fsck.ocfs2 (read-"
+				"only) on a mounted filesystem may detect "
+				"invalid errors.\n\n");
+		else
+			fprintf(stdout, "\nWARNING!!! Running fsck.ocfs2 on a "
+				"mounted filesystem may cause SEVERE "
+				"filesystem damage.\n\n");
+		proceed = 0;
+	}
+
+	if (proceed && ost->ost_skip_o2cb) {
+		fprintf(stdout, "\nWARNING!!! You have disabled the cluster check. "
+			"Continue only if you\nare absolutely sure that NO "
+			"node has this filesystem mounted or is\notherwise "
+			"accessing it. If unsure, do NOT continue.\n\n");
+		proceed = 0;
+	}
+
+	if (!proceed) {
+		fprintf(stdout, "Do you really want to continue (y/N): ");
 		if (toupper(getchar()) != 'Y') {
 			printf("Aborting operation.\n");
 			fsck_mask |= FSCK_CANCELED;
