@@ -742,9 +742,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (ost->ost_skip_o2cb)
-		printf("-F given, *not* checking with the cluster DLM.\n");
-
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {
 		fprintf(stderr, "Invalid blocksize: %"PRId64"\n", blksize);
 		fsck_mask |= FSCK_USAGE;
@@ -760,6 +757,19 @@ int main(int argc, char **argv)
 	}
 
 	filename = argv[optind];
+
+	if (ost->ost_skip_o2cb) {
+		fprintf(stdout, "\nWARNING: YOU HAVE DISABLED THE CLUSTER CHECK. "
+			"CONTINUE ONLY IF YOU\nARE ABSOLUTELY SURE THAT NO "
+			"NODE HAS THIS FILESYSTEM MOUNTED OR IS\nOTHERWISE "
+			"ACCESSING IT. IF UNSURE, DO NOT PROCEED.\n\n");
+		fprintf(stdout, "Proceed (y/N): ");
+		if (toupper(getchar()) != 'Y') {
+			printf("Aborting operation.\n");
+			fsck_mask |= FSCK_CANCELED;
+			goto out;
+		}
+	}
 
 	if (signal(SIGTERM, handle_signal) == SIG_ERR) {
 		com_err(whoami, 0, "Could not set SIGTERM");

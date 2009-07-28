@@ -28,11 +28,12 @@ Force checking even if the file system is clean.
 
 .TP
 \fB\-F\fR
-Usually \fBfsck.ocfs2\fR will check with cluster services and the DLM to
-make sure that no one else in the cluster is actively using the device
-before proceeding.  \fB-F\fR skips this check and should only be used
-when it can be guaranteed that there can be no other users of the
-device while \fBfsck.ocfs2\fR is running.
+By default \fBfsck.ocfs2\fR will check with the cluster services to ensure that
+the volume is not in-use (mounted) on any node in the cluster before proceeding.
+\fB-F\fR skips this check and should only be used when it can be guaranteed that
+the volume is not mounted on any node in the cluster. \fBWARNING: If the cluster
+check is disabled and the volume is mounted on one or more nodes, file system
+corruption is very likely. If unsure, do not use this option.\fR
 
 .TP
 \fB\-G\fR
