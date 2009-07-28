@@ -1205,10 +1205,14 @@ fill_defaults(State *s)
 
 	err = ocfs2_get_device_sectsize(s->device_name, &sectsize);
 	if (err) {
-		com_err(s->progname, err,
-			"while getting hardware sector size of device %s",
-			s->device_name);
-		exit(1);
+		if (err == OCFS2_ET_CANNOT_DETERMINE_SECTOR_SIZE)
+			sectsize = 0;
+		else {
+			com_err(s->progname, err,
+				"while getting hardware sector size of "
+				"device %s", s->device_name);
+			exit(1);
+		}
 	}
 	if (!sectsize)
 		sectsize = OCFS2_MIN_BLOCKSIZE;
