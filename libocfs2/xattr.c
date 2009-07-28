@@ -212,7 +212,7 @@ errcode_t ocfs2_read_xattr_block(ocfs2_filesys *fs,
 	if (ret)
 		return ret;
 
-	ret = ocfs2_read_blocks(fs->fs_io, blkno, 1, blk);
+	ret = ocfs2_read_blocks(fs, blkno, 1, blk);
 	if (ret)
 		goto out;
 
@@ -380,7 +380,7 @@ errcode_t ocfs2_read_xattr_bucket(ocfs2_filesys *fs,
 	if (ret)
 		return ret;
 
-	ret = ocfs2_read_blocks(fs->fs_io, blkno, blk_per_bucket, bucket);
+	ret = ocfs2_read_blocks(fs, blkno, blk_per_bucket, bucket);
 	if (ret)
 		goto out;
 
