@@ -54,8 +54,12 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	struct ocfs2_extent_rec *rec;
 
 	ret = ocfs2_get_device_sectsize(fs->fs_devname, &sectsize);
-	if (ret)
-		goto leave;
+	if (ret) {
+		if (ret == OCFS2_ET_CANNOT_DETERMINE_SECTOR_SIZE)
+			sectsize = OCFS2_MIN_BLOCKSIZE;
+		else
+			goto leave;
+	}
 
 	sectsize_bits = ffs(sectsize) - 1;
 
