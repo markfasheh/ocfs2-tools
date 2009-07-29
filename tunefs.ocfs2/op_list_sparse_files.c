@@ -256,6 +256,9 @@ static errcode_t list_sparse_file(ocfs2_filesys *fs,
 
 	ctxt->file_hole_len = 0;
 
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		return 0;
+
 	if (di->i_links_count > 1) {
 		file = multi_link_file_lookup(ctxt, di->i_blkno);
 

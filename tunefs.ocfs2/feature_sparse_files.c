@@ -83,6 +83,9 @@ static errcode_t truncate_to_i_size(ocfs2_filesys *fs,
 	if (di->i_flags & OCFS2_SYSTEM_FL)
 		goto out;
 
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		goto out;
+
 	ret = ocfs2_read_cached_inode(fs, di->i_blkno, &ci);
 	if (ret)
 		goto out;
@@ -287,6 +290,9 @@ static errcode_t hole_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		goto bail;
 
 	if (di->i_flags & OCFS2_SYSTEM_FL)
+		goto bail;
+
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
 		goto bail;
 
 	ret = ocfs2_malloc0(sizeof(struct sparse_file), &file);

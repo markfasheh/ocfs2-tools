@@ -95,6 +95,9 @@ static errcode_t unwritten_iterate(ocfs2_filesys *fs,
 	if (di->i_flags & OCFS2_SYSTEM_FL)
 		goto bail;
 
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		goto bail;
+
 	clusters = (di->i_size + fs->fs_clustersize -1 ) /
 			fs->fs_clustersize;
 
