@@ -919,9 +919,8 @@ static void walk_cwd(struct dir_scan_context *scan)
 		pass1c_warn(ret);
 }
 
-static errcode_t o2fsck_pass1c(o2fsck_state *ost, struct dup_context *dct)
+static void o2fsck_pass1c(o2fsck_state *ost, struct dup_context *dct)
 {
-	errcode_t ret;
 	struct dir_scan_context scan = {
 		.ds_ost = ost,
 		.ds_dct = dct,
@@ -950,8 +949,6 @@ static errcode_t o2fsck_pass1c(o2fsck_state *ost, struct dup_context *dct)
 		set_next_cwd(&scan);
 		walk_cwd(&scan);
 	}
-
-	return ret;
 }
 
 
@@ -1399,10 +1396,10 @@ errcode_t ocfs2_pass1_dups(o2fsck_state *ost)
 	};
 
 	ret = o2fsck_pass1b(ost, &dct);
-	if (!ret)
-		ret = o2fsck_pass1c(ost, &dct);
-	if (!ret)
+	if (!ret) {
+		o2fsck_pass1c(ost, &dct);
 		ret = o2fsck_pass1d(ost, &dct);
+	}
 
 	o2fsck_empty_dup_context(&dct);
 	return ret;
