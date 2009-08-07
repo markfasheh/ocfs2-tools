@@ -1016,6 +1016,8 @@ void dump_frag(FILE *out, uint64_t ino, uint32_t clusters,
 	       uint32_t extents)
 {
 	float frag_level = 0;
+	int clusters_per_mb =
+		ocfs2_clusters_in_bytes(gbls.fs, OCFS2_MAX_CLUSTERSIZE);
 
 	if (clusters > 1 && extents) {
 		float e = extents, c = clusters;
@@ -1023,5 +1025,6 @@ void dump_frag(FILE *out, uint64_t ino, uint32_t clusters,
 	}
 
 	fprintf(out, "Inode: %"PRIu64"\t%% fragmented: %.2f\tclusters:"
-		" %u\textents: %u\n", ino, frag_level, clusters, extents);
+		" %u\textents: %u\tscore: %.0f\n", ino,
+		frag_level, clusters, extents, frag_level * clusters_per_mb);
 }
