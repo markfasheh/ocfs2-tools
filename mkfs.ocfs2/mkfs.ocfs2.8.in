@@ -146,6 +146,22 @@ arbitrary binary data. Attributes can be attached to all types of inodes: regula
 symbolic links, device nodes, etc. This feature is required for users wanting to use extended security
 facilities like POSIX ACLs or SELinux.
 .RE
+.RS 1.2i
+.TP
+\fBusrquota\fR
+Enable user quota support. With this feature enabled, filesystem will track amount of space
+and number of inodes (files, directories, symbolic links) each user owns. It is then possible
+to limit the maximum amount of space or inodes user can have. See a documentation of
+quota-tools package for more details.
+.RE
+.RS 1.2i
+.TP
+\fBgrpquota\fR
+Enable group quota support. With this feature enabled, filesystem will track amount of space
+and number of inodes (files, directories, symbolic links) each group owns. It is then possible
+to limit the maximum amount of space or inodes user can have. See a documentation of
+quota-tools package for more details.
+.RE
 
 .TP
 \fB\-\-fs\-feature\-level=\fR\fR\fIfeature\-level\fR
