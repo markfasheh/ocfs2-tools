@@ -1306,7 +1306,7 @@ static void tunefs_init_cache(ocfs2_filesys *fs)
 	 * allocates it, child filesyses just use it.
 	 */
 	if (state->ts_master != fs) {
-		fs->fs_io = state->ts_master->fs_io;
+		io_share_cache(state->ts_master->fs_io, fs->fs_io);
 		return;
 	}
 
@@ -1360,21 +1360,6 @@ static void tunefs_init_cache(ocfs2_filesys *fs)
 
 		blocks_wanted >>= 1;
 	}
-}
-
-static void tunefs_drop_cache(ocfs2_filesys *fs)
-{
-	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
-
-	/*
-	 * The master filesys created our cache.  We don't want
-	 * ocfs2_close() to kill it if we're closing a non-master,
-	 * so kill the pointer for those.
-	 */
-	if (state->ts_master == fs)
-		io_destroy_cache(fs->fs_io);
-	else
-		fs->fs_io = NULL;
 }
 
 static errcode_t tunefs_add_fs(ocfs2_filesys *fs, int flags)
@@ -1533,7 +1518,6 @@ errcode_t tunefs_open(const char *device, int flags,
 out:
 	if (err && !tunefs_special_errorp(err)) {
 		if (fs) {
-			tunefs_drop_cache(fs);
 			tunefs_remove_fs(fs);
 			ocfs2_close(fs);
 			fs = NULL;
@@ -1563,7 +1547,6 @@ errcode_t tunefs_close(ocfs2_filesys *fs)
 		if (!err)
 			err = tmp;
 
-		tunefs_drop_cache(fs);
 		tunefs_remove_fs(fs);
 		tmp = ocfs2_close(fs);
 		if (!err)
