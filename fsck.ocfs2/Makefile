@@ -31,6 +31,7 @@ CFILES =	fsck.c		\
 		pass2.c 	\
 		pass3.c 	\
 		pass4.c 	\
+		pass5.c		\
 		problem.c 	\
 		slot_recovery.c \
 		strings.c 	\
@@ -50,6 +51,7 @@ HFILES = 	include/fsck.h		\
 		include/pass2.h		\
 		include/pass3.h		\
 		include/pass4.h		\
+		include/pass5.h		\
 		include/problem.h	\
 		include/slot_recovery.h	\
 		include/strings.h	\

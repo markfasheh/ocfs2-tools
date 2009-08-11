@@ -889,6 +889,36 @@ does not match the number of buckets found by fsck.
 
 Answering yes will change this to the correct count.
 
+\" pass5.c
+
+.SS "QMAGIC_INVALID"
+The magic number in the header of quota file does not match the proper
+number.
+
+Answering yes will make fsck use values in the quota file header anyway.
+
+.SS "QTREE_BLK_INVALID"
+Block with references to other blocks with quota data is corrupted.
+
+Answering yes will make fsck use references in the block.
+
+.SS "DQBLK_INVALID"
+The structure with quota limits was found in a corrupted block.
+
+Answering yes will use the values of limits for the user / group.
+
+.SS "DUP_DQBLK_INVALID"
+The structure with quota limits was found in a corrupted block
+and fsck has already found quota limits for this user / group.
+
+Answering yes will use new values of limits for the user / group.
+
+.SS "DUP_DQBLK_VALID"
+The structure with quota limits was found in a correct block
+but fsck has already found quota limits for this user / group.
+
+Answering yes will use new values of limits for the user / group.
+
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)
 

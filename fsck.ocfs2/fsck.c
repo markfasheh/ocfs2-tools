@@ -30,6 +30,8 @@
  * pass2.c: verify directory entries, record some linkage metadata
  * pass3.c: make sure all dirs are reachable
  * pass4.c: resolve inode's link counts, move disconnected inodes to lost+found
+ * pass5.c: load global quota file, merge node-local quota files to global
+ *          quota file, recompute quota usage and recreate quota files
  *
  * When hacking on this keep the following in mind:
  *
@@ -65,6 +67,7 @@
 #include "pass2.h"
 #include "pass3.h"
 #include "pass4.h"
+#include "pass5.h"
 #include "problem.h"
 #include "util.h"
 #include "slot_recovery.h"
@@ -939,6 +942,12 @@ int main(int argc, char **argv)
 	ret = o2fsck_pass4(ost);
 	if (ret) {
 		com_err(whoami, ret, "while performing pass 4");
+		goto done;
+	}
+
+	ret = o2fsck_pass5(ost);
+	if (ret) {
+		com_err(whoami, ret, "while performing pass 5");
 		goto done;
 	}
 
