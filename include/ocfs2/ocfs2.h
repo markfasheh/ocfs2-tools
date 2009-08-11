@@ -51,6 +51,7 @@
 #include <ocfs2-kernel/kernel-list.h>
 #include <ocfs2-kernel/sparse_endian_types.h>
 #include <ocfs2-kernel/ocfs2_fs.h>
+#include <ocfs2-kernel/quota_tree.h>
 #include <o2dlm/o2dlm.h>
 #include <o2cb/o2cb.h>
 #include <ocfs2/ocfs2_err.h>
@@ -126,15 +127,35 @@
 #define OCFS2_CHB_WAITING	2
 #define OCFS2_CHB_COMPLETE	3
 
+/* Flags for global quotafile info */
+#define OCFS2_QF_INFO_DIRTY 1
+
 typedef void (*ocfs2_chb_notify)(int state, char *progress, void *data);
 
 typedef struct _ocfs2_filesys ocfs2_filesys;
 typedef struct _ocfs2_cached_inode ocfs2_cached_inode;
+typedef struct _ocfs2_cached_dquot ocfs2_cached_dquot;
 typedef struct _io_channel io_channel;
 typedef struct _ocfs2_inode_scan ocfs2_inode_scan;
 typedef struct _ocfs2_dir_scan ocfs2_dir_scan;
 typedef struct _ocfs2_bitmap ocfs2_bitmap;
 typedef struct _ocfs2_devices ocfs2_devices;
+
+#define MAXQUOTAS 2
+#define USRQUOTA 0
+#define GRPQUOTA 1
+
+#define OCFS2_DEF_BLOCK_GRACE 604800 /* 1 week */
+#define OCFS2_DEF_INODE_GRACE 604800 /* 1 week */
+#define OCFS2_DEF_QUOTA_SYNC 10000   /* 10 seconds */
+
+struct _ocfs2_quota_info {
+	ocfs2_cached_inode *qi_inode;
+	int flags;
+	struct ocfs2_global_disk_dqinfo qi_info;
+};
+
+typedef struct _ocfs2_quota_info ocfs2_quota_info;
 
 struct _ocfs2_filesys {
 	char *fs_devname;
@@ -162,6 +183,8 @@ struct _ocfs2_filesys {
 	struct o2dlm_ctxt *fs_dlm_ctxt;
 	struct ocfs2_image_state *ost;
 
+	ocfs2_quota_info qinfo[MAXQUOTAS];
+
 	/* Reserved for the use of the calling application. */
 	void *fs_private;
 };
@@ -171,6 +194,15 @@ struct _ocfs2_cached_inode {
 	uint64_t ci_blkno;
 	struct ocfs2_dinode *ci_inode;
 	ocfs2_bitmap *ci_chains;
+};
+
+typedef unsigned int qid_t;
+
+struct _ocfs2_cached_dquot {
+	loff_t d_off;	/* Offset of structure in the file */
+	struct _ocfs2_cached_dquot *d_next;	/* Next entry in hashchain */
+	struct _ocfs2_cached_dquot **d_pprev;	/* Previous pointer in hashchain */
+	struct ocfs2_global_disk_dqblk d_ddquot;	/* Quota entry */
 };
 
 struct ocfs2_slot_data {
@@ -205,6 +237,14 @@ struct _ocfs2_fs_options {
 	uint32_t opt_incompat;
 	uint32_t opt_ro_compat;
 };
+
+struct _ocfs2_quota_hash {
+	int alloc_entries;
+	int used_entries;
+	ocfs2_cached_dquot **hash;
+};
+
+typedef struct _ocfs2_quota_hash ocfs2_quota_hash;
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);
 errcode_t ocfs2_malloc0(unsigned long size, void *ptr);
@@ -622,6 +662,53 @@ errcode_t ocfs2_meta_lock(ocfs2_filesys *fs, ocfs2_cached_inode *inode,
 			  enum o2dlm_lock_level level, int flags);
 
 errcode_t ocfs2_meta_unlock(ocfs2_filesys *fs, ocfs2_cached_inode *ci);
+
+/* Quota operations */
+static inline int ocfs2_global_dqstr_in_blk(int blocksize)
+{
+	return (blocksize - OCFS2_QBLK_RESERVED_SPACE -
+		sizeof(struct qt_disk_dqdbheader)) /
+		sizeof(struct ocfs2_global_disk_dqblk);
+}
+void ocfs2_swap_quota_header(struct ocfs2_disk_dqheader *header);
+void ocfs2_swap_quota_local_info(struct ocfs2_local_disk_dqinfo *info);
+void ocfs2_swap_quota_chunk_header(struct ocfs2_local_disk_chunk *chunk);
+void ocfs2_swap_quota_global_info(struct ocfs2_global_disk_dqinfo *info);
+void ocfs2_swap_quota_global_dqblk(struct ocfs2_global_disk_dqblk *dqblk);
+void ocfs2_swap_quota_leaf_block_header(struct qt_disk_dqdbheader *bheader);
+errcode_t ocfs2_init_local_quota_file(ocfs2_filesys *fs, int type,
+				      uint64_t blkno);
+errcode_t ocfs2_init_local_quota_files(ocfs2_filesys *fs, int type);
+int ocfs2_qtree_depth(int blocksize);
+int ocfs2_qtree_entry_unused(struct ocfs2_global_disk_dqblk *ddquot);
+errcode_t ocfs2_init_global_quota_file(ocfs2_filesys *fs, int type);
+errcode_t ocfs2_init_fs_quota_info(ocfs2_filesys *fs, int type);
+errcode_t ocfs2_read_global_quota_info(ocfs2_filesys *fs, int type);
+errcode_t ocfs2_write_global_quota_info(ocfs2_filesys *fs, int type);
+errcode_t ocfs2_write_dquot(ocfs2_filesys *fs, int type,
+			    ocfs2_cached_dquot *dquot);
+errcode_t ocfs2_delete_dquot(ocfs2_filesys *fs, int type,
+			     ocfs2_cached_dquot *dquot);
+errcode_t ocfs2_read_dquot(ocfs2_filesys *fs, int type, qid_t id,
+			   ocfs2_cached_dquot **ret_dquot);
+errcode_t ocfs2_new_quota_hash(ocfs2_quota_hash **hashp);
+errcode_t ocfs2_free_quota_hash(ocfs2_quota_hash *hash);
+errcode_t ocfs2_insert_quota_hash(ocfs2_quota_hash *hash,
+				  ocfs2_cached_dquot *dquot);
+errcode_t ocfs2_remove_quota_hash(ocfs2_quota_hash *hash,
+				  ocfs2_cached_dquot *dquot);
+errcode_t ocfs2_find_quota_hash(ocfs2_quota_hash *hash, qid_t id,
+				ocfs2_cached_dquot **dquotp);
+errcode_t ocfs2_find_create_quota_hash(ocfs2_quota_hash *hash, qid_t id,
+				       ocfs2_cached_dquot **dquotp);
+errcode_t ocfs2_compute_quota_usage(ocfs2_filesys *fs,
+				    ocfs2_quota_hash *usr_hash,
+				    ocfs2_quota_hash *grp_hash);
+errcode_t ocfs2_iterate_quota_hash(ocfs2_quota_hash *hash,
+				   errcode_t (*f)(ocfs2_cached_dquot *, void *),
+				   void *data);
+errcode_t ocfs2_write_release_dquots(ocfs2_filesys *fs, int type,
+				     ocfs2_quota_hash *hash);
 
 /* Low level */
 void ocfs2_swap_slot_map(struct ocfs2_slot_map *sm, int num_slots);

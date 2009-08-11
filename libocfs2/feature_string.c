@@ -123,6 +123,16 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
 		{0, OCFS2_FEATURE_INCOMPAT_XATTR, 0},
 	},
 	{
+		"usrquota",
+		{0, 0, OCFS2_FEATURE_RO_COMPAT_USRQUOTA},
+		{0, 0, OCFS2_FEATURE_RO_COMPAT_USRQUOTA},
+	},
+	{
+		"grpquota",
+		{0, 0, OCFS2_FEATURE_RO_COMPAT_GRPQUOTA},
+		{0, 0, OCFS2_FEATURE_RO_COMPAT_GRPQUOTA},
+	},
+	{
 		NULL,
 		{0, 0, 0},
 		{0, 0, 0}
@@ -188,6 +198,14 @@ static struct feature_name ocfs2_feature_names[] = {
 	{
 		.fn_name = "xattr",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_XATTR, 0},
+	},
+	{
+		.fn_name = "usrquota",
+		.fn_flag = {0, 0, OCFS2_FEATURE_RO_COMPAT_USRQUOTA},
+	},
+	{
+		.fn_name = "grpquota",
+		.fn_flag = {0, 0, OCFS2_FEATURE_RO_COMPAT_GRPQUOTA},
 	},
 	{
 		.fn_name = NULL,
