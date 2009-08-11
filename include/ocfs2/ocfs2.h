@@ -248,6 +248,7 @@ errcode_t io_write_block_nocache(io_channel *channel, int64_t blkno, int count,
 errcode_t io_init_cache(io_channel *channel, size_t nr_blocks);
 void io_set_nocache(io_channel *channel, bool nocache);
 errcode_t io_init_cache_size(io_channel *channel, size_t bytes);
+errcode_t io_share_cache(io_channel *from, io_channel *to);
 errcode_t io_mlock_cache(io_channel *channel);
 void io_destroy_cache(io_channel *channel);
 

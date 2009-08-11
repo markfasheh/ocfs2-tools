@@ -84,6 +84,7 @@ struct io_cache {
 	char *ic_data_buffer;
 	unsigned long ic_data_buffer_len;
 	int ic_locked;
+	int ic_use_count;
 };
 
 struct _io_channel {
@@ -479,7 +480,8 @@ static void io_free_cache(struct io_cache *ic)
 void io_destroy_cache(io_channel *channel)
 {
 	if (channel->io_cache) {
-		io_free_cache(channel->io_cache);
+		if (!--channel->io_cache->ic_use_count)
+			io_free_cache(channel->io_cache);
 		channel->io_cache = NULL;
 	}
 }
@@ -562,6 +564,7 @@ errcode_t io_init_cache(io_channel *channel, size_t nr_blocks)
 		list_add_tail(&icb_list[i].icb_list, &ic->ic_lru);
 	}
 
+	ic->ic_use_count = 1;
 	channel->io_cache = ic;
 
 out:
@@ -580,6 +583,17 @@ errcode_t io_init_cache_size(io_channel *channel, size_t bytes)
 	return io_init_cache(channel, blocks);
 }
 
+
+errcode_t io_share_cache(io_channel *from, io_channel *to)
+{
+	if (!from->io_cache)
+		return OCFS2_ET_INTERNAL_FAILURE;
+	if (to->io_cache)
+		return OCFS2_ET_INTERNAL_FAILURE;
+	to->io_cache = from->io_cache;
+	from->io_cache->ic_use_count++;
+	return 0;
+}
 
 static errcode_t io_validate_o_direct(io_channel *channel)
 {
