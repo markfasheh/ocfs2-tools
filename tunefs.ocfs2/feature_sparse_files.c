@@ -327,6 +327,7 @@ static errcode_t hole_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 
 	list_add_tail(&file->list, &ctxt->files);
 	ctxt->holecount += file->holes_num;
+	ctxt->more_clusters += file->hole_clusters;
 
 	tools_progress_step(ctxt->prog, 1);
 
