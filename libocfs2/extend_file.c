@@ -3764,29 +3764,15 @@ out:
 	return ret;
 }
 
-errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
-				  uint32_t new_clusters)
+errcode_t ocfs2_cached_inode_extend_allocation(ocfs2_cached_inode *ci,
+					       uint32_t new_clusters)
 {
 	errcode_t ret = 0;
 	uint32_t n_clusters = 0, cpos;
 	uint64_t blkno, file_size;
-	char *buf = NULL;
-	struct ocfs2_dinode* di = NULL;
+	ocfs2_filesys *fs = ci->ci_fs;
 
-	if (!(fs->fs_flags & OCFS2_FLAG_RW))
-		return OCFS2_ET_RO_FILESYS;
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		goto out_free_buf;
-
-	ret = ocfs2_read_inode(fs, ino, buf);
-	if (ret)
-		goto out_free_buf;
-
-	di = (struct ocfs2_dinode *)buf;
-
-	file_size = di->i_size;
+	file_size = ci->ci_inode->i_size;
 	cpos = (file_size + fs->fs_clustersize - 1) / fs->fs_clustersize;
 	while (new_clusters) {
 		n_clusters = 1;
@@ -3795,23 +3781,41 @@ errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 		if (ret)
 			break;
 
-		ret = ocfs2_insert_extent(fs, ino, cpos, blkno, n_clusters,
-					  0);
+		ret = ocfs2_cached_inode_insert_extent(ci, cpos, blkno,
+						       n_clusters, 0);
 		if (ret) {
 			/* XXX: We don't wan't to overwrite the error
 			 * from insert_extent().  But we probably need
 			 * to BE LOUDLY UPSET. */
 			ocfs2_free_clusters(fs, n_clusters, blkno);
-			goto out_free_buf;
+			break;
 		}
 
 	 	new_clusters -= n_clusters;
 		cpos += n_clusters;
 	}
+	return ret;
+}
 
-out_free_buf:
-	if (buf)
-		ocfs2_free(&buf);
+errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
+				  uint32_t new_clusters)
+{
+	errcode_t ret;
+	ocfs2_cached_inode *ci = NULL;
+
+	ret = ocfs2_read_cached_inode(fs, ino, &ci);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_cached_inode_extend_allocation(ci, new_clusters);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_write_cached_inode(fs, ci);
+bail:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+
 	return ret;
 }
 

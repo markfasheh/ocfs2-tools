@@ -540,6 +540,9 @@ errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno);
  */
 errcode_t ocfs2_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 				  uint32_t new_clusters);
+/* Ditto for cached inode */
+errcode_t ocfs2_cached_inode_extend_allocation(ocfs2_cached_inode *ci,
+					       uint32_t new_clusters);
 /* Extend the file to the new size. No clusters will be allocated. */
 errcode_t ocfs2_extend_file(ocfs2_filesys *fs, uint64_t ino, uint64_t new_size);
 
