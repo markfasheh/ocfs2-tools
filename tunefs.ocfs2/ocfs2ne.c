@@ -98,6 +98,8 @@ extern struct tunefs_operation set_label_op;
 extern struct tunefs_operation set_slot_count_op;
 extern struct tunefs_operation update_cluster_stack_op;
 extern struct tunefs_operation cloned_volume_op;
+extern struct tunefs_operation set_usrquota_sync_interval_op;
+extern struct tunefs_operation set_grpquota_sync_interval_op;
 
 /* List of operations we're going to run */
 static LIST_HEAD(tunefs_run_list);
@@ -583,6 +585,28 @@ static struct tunefs_option journal_option = {
 	.opt_handle	= handle_journal_arg,
 };
 
+static struct tunefs_option set_usrquota_sync_interval_option = {
+	.opt_option	= {
+		.name		= "usrquota-sync-interval",
+		.val		= 256,
+		.has_arg	= 1,
+	},
+	.opt_help	= "   --usrquota-sync-interval <interval>",
+	.opt_handle	= generic_handle_arg,
+	.opt_op		= &set_usrquota_sync_interval_op,
+};
+
+static struct tunefs_option set_grpquota_sync_interval_option = {
+	.opt_option	= {
+		.name		= "grpquota-sync-interval",
+		.val		= 257,
+		.has_arg	= 1,
+	},
+	.opt_help	= "   --grpquota-sync-interval <interval>",
+	.opt_handle	= generic_handle_arg,
+	.opt_op		= &set_grpquota_sync_interval_op,
+};
+
 /* The order here creates the order in print_usage() */
 static struct tunefs_option *options[] = {
 	&help_option,
@@ -603,6 +627,8 @@ static struct tunefs_option *options[] = {
 	&features_option,
 	&update_cluster_stack_option,
 	&cloned_volume_option,
+	&set_usrquota_sync_interval_option,
+	&set_grpquota_sync_interval_option,
 	&yes_option,
 	&no_option,
 	NULL,

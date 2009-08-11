@@ -53,6 +53,7 @@ struct sparse_file {
 	uint32_t holes_num;
 	uint32_t hole_clusters;
 	int truncate;
+	uint32_t old_clusters;
 };
 
 struct fill_hole_context {
@@ -301,6 +302,7 @@ static errcode_t hole_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 
 	file->blkno = di->i_blkno;
 	INIT_LIST_HEAD(&file->holes);
+	file->old_clusters = di->i_clusters;
 	ret = find_holes_in_file(fs, di, file);
 	if (ret)
 		goto bail;
@@ -439,18 +441,48 @@ static errcode_t fill_one_file(ocfs2_filesys *fs, struct sparse_file *file,
 static errcode_t fill_sparse_files(ocfs2_filesys *fs,
 				   struct fill_hole_context *ctxt)
 {
-	errcode_t ret = 0;
+	errcode_t ret = 0, err;
 	char *buf = NULL;
 	struct ocfs2_dinode *di = NULL;
 	struct list_head *pos;
 	struct sparse_file *file;
 	struct tools_progress *prog;
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	int has_usrquota, has_grpquota;
+	ocfs2_quota_hash *usrhash = NULL, *grphash = NULL;
 
 	prog = tools_progress_start("Filling holes", "filling",
 				    ctxt->holecount);
 	if (!prog) {
 		ret = TUNEFS_ET_NO_MEMORY;
 		goto out;
+	}
+
+	has_usrquota = OCFS2_HAS_RO_COMPAT_FEATURE(super,
+					OCFS2_FEATURE_RO_COMPAT_USRQUOTA);
+	has_grpquota = OCFS2_HAS_RO_COMPAT_FEATURE(super,
+					OCFS2_FEATURE_RO_COMPAT_GRPQUOTA);
+	if (has_usrquota) {
+		ret = ocfs2_init_fs_quota_info(fs, USRQUOTA);
+		if (ret)
+			goto out;
+		ret = ocfs2_read_global_quota_info(fs, USRQUOTA);
+		if (ret)
+			goto out;
+		ret = ocfs2_new_quota_hash(&usrhash);
+		if (ret)
+			goto out;
+	}
+	if (has_grpquota) {
+		ret = ocfs2_init_fs_quota_info(fs, GRPQUOTA);
+		if (ret)
+			goto out;
+		ret = ocfs2_read_global_quota_info(fs, GRPQUOTA);
+		if (ret)
+			goto out;
+		ret = ocfs2_new_quota_hash(&grphash);
+		if (ret)
+			goto out;
 	}
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
@@ -464,21 +496,88 @@ static errcode_t fill_sparse_files(ocfs2_filesys *fs,
 		if (ret)
 			break;
 
-		if (!file->truncate)
+		if (!file->truncate && !has_usrquota && !has_grpquota)
 			continue;
 
 		ret = ocfs2_read_inode(fs, file->blkno, buf);
 		if (ret)
 			break;
 		di = (struct ocfs2_dinode *)buf;
-		ret = truncate_to_i_size(fs, di, NULL);
-		if (ret)
-			break;
+		if (file->truncate) {
+			ret = truncate_to_i_size(fs, di, NULL);
+			if (ret)
+				break;
+		}
+		if (di->i_clusters != file->old_clusters) {
+			long long change;
+			ocfs2_cached_dquot *udquot = NULL, *gdquot = NULL;
+
+			if (di->i_clusters > file->old_clusters) {
+				change = ocfs2_clusters_to_bytes(fs,
+					di->i_clusters - file->old_clusters);
+			} else {
+				change = -ocfs2_clusters_to_bytes(fs,
+					file->old_clusters - di->i_clusters);
+			}
+
+			if (has_usrquota) {
+				ret = ocfs2_find_quota_hash(usrhash, di->i_uid,
+							    &udquot);
+				if (ret)
+					break;
+				if (!udquot) {
+					ret = ocfs2_read_dquot(fs, USRQUOTA,
+							       di->i_uid,
+							       &udquot);
+					if (ret)
+						break;
+					ret = ocfs2_insert_quota_hash(usrhash,
+								      udquot);
+					if (ret)
+						break;
+				}
+				udquot->d_ddquot.dqb_curspace += change;
+			}
+			if (has_grpquota) {
+				ret = ocfs2_find_quota_hash(grphash, di->i_gid,
+							    &gdquot);
+				if (ret)
+					break;
+				if (!gdquot) {
+					ret = ocfs2_read_dquot(fs, GRPQUOTA,
+							       di->i_gid,
+							       &gdquot);
+					if (ret)
+						break;
+					ret = ocfs2_insert_quota_hash(grphash,
+								      gdquot);
+					if (ret)
+						break;
+				}
+				gdquot->d_ddquot.dqb_curspace += change;
+			}
+		}
 	}
 
 	ocfs2_free(&buf);
 
 out:
+	if (usrhash) {
+		err = ocfs2_write_release_dquots(fs, USRQUOTA, usrhash);
+		if (!ret)
+			ret = err;
+		err = ocfs2_free_quota_hash(usrhash);
+		if (!ret)
+			ret = err;
+	}
+	if (grphash) {
+		err = ocfs2_write_release_dquots(fs, GRPQUOTA, grphash);
+		if (!ret)
+			ret = err;
+		err = ocfs2_free_quota_hash(grphash);
+		if (!ret)
+			ret = err;
+	}
 	if (prog)
 		tools_progress_stop(prog);
 

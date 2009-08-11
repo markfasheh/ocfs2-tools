@@ -56,6 +56,7 @@ static errcode_t add_slots(ocfs2_filesys *fs, int num_slots)
 {
 	errcode_t ret;
 	uint16_t old_num = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 	char fname[OCFS2_MAX_FILENAME_LEN];
 	uint64_t blkno;
 	int i, j, max_slots;
@@ -83,6 +84,14 @@ static errcode_t add_slots(ocfs2_filesys *fs, int num_slots)
 
 	ret = 0;
 	for (i = OCFS2_LAST_GLOBAL_SYSTEM_INODE + 1; i < NUM_SYSTEM_INODES; ++i) {
+		if (i == LOCAL_USER_QUOTA_SYSTEM_INODE &&
+		    !OCFS2_HAS_RO_COMPAT_FEATURE(super,
+					OCFS2_FEATURE_RO_COMPAT_USRQUOTA))
+			continue;
+		if (i == LOCAL_GROUP_QUOTA_SYSTEM_INODE &&
+		    !OCFS2_HAS_RO_COMPAT_FEATURE(super,
+					OCFS2_FEATURE_RO_COMPAT_GRPQUOTA))
+			continue;
 		for (j = old_num; j < num_slots; ++j) {
 			ocfs2_sprintf_system_inode_name(fname,
 							OCFS2_MAX_FILENAME_LEN,
@@ -140,6 +149,32 @@ static errcode_t add_slots(ocfs2_filesys *fs, int num_slots)
 					"directory\n",
 					error_message(ret), blkno, fname);
 				goto bail;
+			}
+			/* Initialize quota files */
+			if (i == LOCAL_USER_QUOTA_SYSTEM_INODE) {
+				verbosef(VL_APP, "Initializing local user "
+					 "quota file\n");
+				ret = ocfs2_init_local_quota_file(fs, USRQUOTA,
+								  blkno);
+				if (ret) {
+					verbosef(VL_APP,
+						 "%s while initializing user "
+						 "quota file %s\n",
+						 error_message(ret), fname);
+					goto bail;
+				}
+			} else if (i == LOCAL_GROUP_QUOTA_SYSTEM_INODE) {
+				verbosef(VL_APP, "Initializing local group "
+					 "quota file\n");
+				ret = ocfs2_init_local_quota_file(fs, GRPQUOTA,
+								  blkno);
+				if (ret) {
+					verbosef(VL_APP,
+						 "%s while initializing group "
+						 "quota file %s\n",
+						 error_message(ret), fname);
+					goto bail;
+				}
 			}
 			verbosef(VL_APP, "System file \"%s\" created\n",
 				 fname);
@@ -585,6 +620,54 @@ bail:
 	return ret;
 }
 
+static errcode_t truncate_quota_file(ocfs2_filesys *fs,
+				     uint16_t removed_slot,
+				     int type)
+{
+	errcode_t ret;
+	uint64_t blkno;
+	char fname[OCFS2_MAX_FILENAME_LEN];
+	int local_type = (type == USRQUOTA) ? LOCAL_USER_QUOTA_SYSTEM_INODE :
+					      LOCAL_GROUP_QUOTA_SYSTEM_INODE;
+
+	ocfs2_sprintf_system_inode_name(fname, OCFS2_MAX_FILENAME_LEN,
+					local_type, removed_slot);
+	verbosef(VL_APP, "Truncating quota file \"%s\"\n", fname);
+
+	ret = ocfs2_lookup_system_inode(fs, local_type, removed_slot, &blkno);
+	if (!ret) {
+		ret = ocfs2_truncate(fs, blkno, 0);
+		if (!ret)
+			verbosef(VL_APP, "Quota file \"%s\" truncated\n",
+				 fname);
+		else
+			verbosef(VL_APP,
+				 "%s while truncating quota file \"%s\"\n",
+				 error_message(ret), fname);
+	} else
+		verbosef(VL_APP,
+			 "%s while looking up quota file \"%s\"\n",
+			 error_message(ret), fname);
+
+	return ret;
+}
+
+static errcode_t truncate_quota_files(ocfs2_filesys *fs,
+				      uint16_t removed_slot)
+{
+	errcode_t ret = 0;
+
+	if (OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_RO_COMPAT_USRQUOTA))
+		ret = truncate_quota_file(fs, removed_slot, USRQUOTA);
+	if (ret)
+		return ret;
+	if (OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_RO_COMPAT_GRPQUOTA))
+		ret = truncate_quota_file(fs, removed_slot, GRPQUOTA);
+	return ret;
+}
+
 static errcode_t truncate_orphan_dir(ocfs2_filesys *fs,
 				     uint16_t removed_slot)
 {
@@ -887,7 +970,7 @@ static errcode_t remove_slots(ocfs2_filesys *fs, int num_slots)
 
 	/* We have seven steps in removing each slot */
 	prog = tools_progress_start("Removing slots", "rmslots",
-				    (old_num - num_slots) * 7);
+				    (old_num - num_slots) * 8);
 	if (!prog) {
 		ret = TUNEFS_ET_NO_MEMORY;
 		goto bail;
@@ -926,6 +1009,12 @@ static errcode_t remove_slots(ocfs2_filesys *fs, int num_slots)
 
 		/* empty the content of journal and truncate its clusters. */
 		ret = empty_and_truncate_journal(fs, removed_slot);
+		if (ret)
+			goto bail;
+		tools_progress_step(prog, 1);
+
+		/* truncate local quota files */
+		ret = truncate_quota_files(fs, removed_slot);
 		if (ret)
 			goto bail;
 		tools_progress_step(prog, 1);
