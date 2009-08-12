@@ -252,7 +252,9 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case INODE_INLINE_CLUSTERS:
 		func = mess_up_inline_inode;
 		break;
-	case DUPLICATE_CLUSTERS:
+	case DUP_CLUSTERS_CLONE:
+	case DUP_CLUSTERS_DELETE:
+	case DUP_CLUSTERS_SYSFILE_CLONE:
 		func = mess_up_dup_clusters;
 		break;
 	default:
