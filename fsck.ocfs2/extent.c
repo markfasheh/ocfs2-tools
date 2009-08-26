@@ -176,6 +176,17 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		goto out;
 	}
 
+	if (!ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(ost->ost_fs->fs_super)) &&
+	    (er->e_flags & OCFS2_EXT_UNWRITTEN) &&
+	    prompt(ost, PY, PR_EXTENT_MARKED_UNWRITTEN,
+		   "The extent record for cluster offset %"PRIu32" "
+		   "in inode %"PRIu64" has the UNWRITTEN flag set, but "
+		   "this filesystem does not support unwritten extents.  "
+		   "Clear the UNWRITTEN flag?", er->e_cpos,
+		   (uint64_t)di->i_blkno)) {
+		er->e_flags &= ~OCFS2_EXT_UNWRITTEN;
+	}
+
 	first_block = ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno);
 	first_block = ocfs2_clusters_to_blocks(ost->ost_fs, first_block);
 

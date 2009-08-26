@@ -47,6 +47,13 @@ Answering yes implies that the generation number in the extent block is
 incorrect and that the extent block is valid.  The generation number in the
 block is updated to match the generation number in the volume.
 
+.SS "EXTENT_MARKED_UNWRITTEN"
+An extent record has the UNWRITTEN flag set, but the filesystem
+feature set does not include unwritten extents.
+
+Answering yes clears the UNWRITTEN flag.  This is safe to do; as the
+feature is disabled anyway.
+
 .SS "EXTENT_BLKNO_UNALIGNED"
 The block that marks the start of an extent should always fall on the start
 of a cluster.  An extent was found that starts part-way into a cluster.
