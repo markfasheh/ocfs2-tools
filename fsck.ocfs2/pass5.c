@@ -201,7 +201,7 @@ static errcode_t o2fsck_check_data_blk(o2fsck_state *ost, int type,
 	struct ocfs2_global_disk_dqblk *ddquot;
 	ocfs2_cached_dquot *dquot;
 	uint32_t blocks = fs->qinfo[type].qi_info.dqi_blocks;
-	int valid;
+	int valid = 1;
 
 	ocfs2_set_bit(blk, qbmp[type]);
 	ret = o2fsck_read_blk(fs, type, buf, blk);
