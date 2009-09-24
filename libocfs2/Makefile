@@ -75,7 +75,8 @@ CFILES = 		\
 	feature_string.c\
 	quota.c		\
 	image.c		\
-	xattr.c
+	xattr.c		\
+	extent_tree.c
 
 HFILES =		\
 	bitmap.h	\
