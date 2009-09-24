@@ -15,9 +15,15 @@
  * General Public License for more details.
  */
 
+/* Useful typedef for passing around writing functions for extent tree root. */
+typedef errcode_t (*ocfs2_root_write_func)(ocfs2_filesys *fs,
+					   uint64_t blkno,
+					   char *root_buf);
 struct ocfs2_extent_tree {
 	struct ocfs2_extent_tree_operations	*et_ops;
 	char					*et_root_buf;
+	uint64_t				et_root_blkno;
+	ocfs2_root_write_func			et_root_write;
 	struct ocfs2_extent_list		*et_root_el;
 	void					*et_object;
 	uint32_t				et_max_leaf_clusters;
@@ -90,4 +96,4 @@ struct ocfs2_extent_tree_operations {
 
 void ocfs2_init_dinode_extent_tree(struct ocfs2_extent_tree *et,
 				   ocfs2_filesys *fs,
-				   char *buf);
+				   char *buf, uint64_t blkno);

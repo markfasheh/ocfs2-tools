@@ -61,11 +61,15 @@ static struct ocfs2_extent_tree_operations ocfs2_dinode_et_ops = {
 static void __ocfs2_init_extent_tree(struct ocfs2_extent_tree *et,
 				     ocfs2_filesys *fs,
 				     char *buf,
+				     uint64_t blkno,
+				     ocfs2_root_write_func write,
 				     void *obj,
 				     struct ocfs2_extent_tree_operations *ops)
 {
 	et->et_ops = ops;
 	et->et_root_buf = buf;
+	et->et_root_blkno = blkno;
+	et->et_root_write = write;
 	et->et_object = obj;
 
 	et->et_ops->eo_fill_root_el(et);
@@ -77,8 +81,9 @@ static void __ocfs2_init_extent_tree(struct ocfs2_extent_tree *et,
 
 void ocfs2_init_dinode_extent_tree(struct ocfs2_extent_tree *et,
 				   ocfs2_filesys *fs,
-				   char *buf)
+				   char *buf, uint64_t blkno)
 {
-	__ocfs2_init_extent_tree(et, fs, buf,
+	__ocfs2_init_extent_tree(et, fs, buf, blkno,
+				 ocfs2_write_inode,
 				 buf, &ocfs2_dinode_et_ops);
 }
