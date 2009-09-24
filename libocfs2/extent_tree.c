@@ -3651,9 +3651,17 @@ static int ocfs2_split_extent(struct insert_ctxt *insert_ctxt,
 	merge_ctxt.c_has_empty_extent = ocfs2_is_empty_extent(&el->l_recs[0]);
 
 	if (merge_ctxt.c_contig_type == CONTIG_NONE) {
-		if (merge_ctxt.c_split_covers_rec)
+		if (merge_ctxt.c_split_covers_rec) {
 			el->l_recs[split_index] = split_rec;
-		else
+			/*
+			 * We only write the leaf block, and leave
+			 * the write of the root to the caller.
+			 */
+			if (path->p_tree_depth)
+				ret = ocfs2_write_extent_block(fs,
+							path_leaf_blkno(path),
+							path_leaf_buf(path));
+		} else
 			ret = ocfs2_split_and_insert(insert_ctxt, path,
 						     &last_eb_buf, split_index,
 						     &split_rec);
