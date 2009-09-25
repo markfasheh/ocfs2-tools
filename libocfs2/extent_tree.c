@@ -2988,7 +2988,7 @@ static void ocfs2_split_record(ocfs2_filesys *fs,
  * in. left_path should only be passed in if we need to update that
  * portion of the tree after an edge insert.
  */
-static int ocfs2_insert_path(struct insert_ctxt* ctxt,
+static int ocfs2_insert_path(ocfs2_filesys *fs,
 			     struct ocfs2_path *left_path,
 			     struct ocfs2_path *right_path,
 			     struct ocfs2_extent_rec *insert_rec,
@@ -3002,10 +3002,10 @@ static int ocfs2_insert_path(struct insert_ctxt* ctxt,
 		 * of splits, but it's easier to just let one seperate
 		 * function sort it all out.
 		 */
-		ocfs2_split_record(ctxt->fs, left_path, right_path,
+		ocfs2_split_record(fs, left_path, right_path,
 				   insert_rec, insert->ins_split);
 	} else
-		ocfs2_insert_at_leaf(ctxt->fs, insert_rec, path_leaf_el(right_path),
+		ocfs2_insert_at_leaf(fs, insert_rec, path_leaf_el(right_path),
 				     insert);
 
 	if (left_path) {
@@ -3014,12 +3014,12 @@ static int ocfs2_insert_path(struct insert_ctxt* ctxt,
 		 * up portions of the tree after the insert.
 		 */
 		subtree_index = ocfs2_find_subtree_root(left_path, right_path);
-		ocfs2_complete_edge_insert(ctxt->fs, left_path,
+		ocfs2_complete_edge_insert(fs, left_path,
 				        right_path, subtree_index);
 	} else
 		subtree_index = 0;
 
-	ret = ocfs2_sync_path_to_disk(ctxt->fs, left_path,
+	ret = ocfs2_sync_path_to_disk(fs, left_path,
 				      right_path, subtree_index);
 	if (ret)
 		goto out;
@@ -3094,7 +3094,7 @@ static int ocfs2_do_insert_extent(struct insert_ctxt* ctxt,
 			goto out;
  	}
 
-	ret = ocfs2_insert_path(ctxt, left_path, right_path, insert_rec, type);
+	ret = ocfs2_insert_path(fs, left_path, right_path, insert_rec, type);
 	if (ret)
 		goto out;
 
