@@ -3800,3 +3800,275 @@ out:
 	ocfs2_free_path(left_path);
 	return ret;
 }
+
+static int ocfs2_split_tree(ocfs2_filesys *fs,
+			    struct ocfs2_extent_tree *et,
+			    struct ocfs2_path *path,
+			    int index, uint32_t new_range)
+{
+	errcode_t ret;
+	int depth;
+	char *last_eb_buf = NULL;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_list *rightmost_el, *el;
+	struct ocfs2_extent_rec split_rec;
+	struct ocfs2_extent_rec *rec;
+	struct ocfs2_insert_type insert;
+	struct insert_ctxt ctxt;
+
+	ctxt.fs = fs;
+	ctxt.et = et;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &last_eb_buf);
+	if (ret)
+		return ret;
+	/*
+	 * Setup the record to split before we grow the tree.
+	 */
+	el = path_leaf_el(path);
+	rec = &el->l_recs[index];
+	ocfs2_make_right_split_rec(fs, &ctxt.rec, new_range, rec);
+
+	depth = path->p_tree_depth;
+	if (depth > 0) {
+		ret = ocfs2_read_extent_block(fs,
+					      ocfs2_et_get_last_eb_blk(et),
+					      last_eb_buf);
+		if (ret)
+			goto out;
+
+		eb = (struct ocfs2_extent_block *)last_eb_buf;
+		rightmost_el = &eb->h_list;
+	} else
+		rightmost_el = path_leaf_el(path);
+
+	if (rightmost_el->l_next_free_rec == rightmost_el->l_count) {
+		ret = ocfs2_grow_tree(fs, et, &depth, &last_eb_buf);
+		if (ret)
+			goto out;
+	}
+
+	memset(&insert, 0, sizeof(struct ocfs2_insert_type));
+	insert.ins_appending = APPEND_NONE;
+	insert.ins_contig = CONTIG_NONE;
+	insert.ins_split = SPLIT_RIGHT;
+	insert.ins_tree_depth = depth;
+	ctxt.rec = split_rec;
+
+	ret = ocfs2_do_insert_extent(&ctxt, &insert);
+
+out:
+	if (last_eb_buf)
+		ocfs2_free(&last_eb_buf);
+	return ret;
+}
+
+static int ocfs2_truncate_rec(ocfs2_filesys *fs,
+			      struct ocfs2_extent_tree *et,
+			      struct ocfs2_path *path, int index,
+			      uint32_t cpos, uint32_t len)
+{
+	errcode_t ret;
+	uint32_t left_cpos, rec_range, trunc_range;
+	int wants_rotate = 0, is_rightmost_tree_rec = 0;
+	struct ocfs2_path *left_path = NULL;
+	struct ocfs2_extent_list *el = path_leaf_el(path);
+	struct ocfs2_extent_rec *rec;
+	struct ocfs2_extent_block *eb;
+
+	if (ocfs2_is_empty_extent(&el->l_recs[0]) && index > 0) {
+		ret = ocfs2_rotate_tree_left(fs, et, path);
+		if (ret)
+			goto out;
+
+		index--;
+	}
+
+	if (index == el->l_next_free_rec - 1 && path->p_tree_depth) {
+		/*
+		 * Check whether this is the rightmost tree record. If
+		 * we remove all of this record or part of its right
+		 * edge then an update of the record lengths above it
+		 * will be required.
+		 */
+		eb = (struct ocfs2_extent_block *)path_leaf_buf(path);
+		if (eb->h_next_leaf_blk == 0)
+			is_rightmost_tree_rec = 1;
+	}
+
+	rec = &el->l_recs[index];
+	if (index == 0 && path->p_tree_depth && rec->e_cpos == cpos) {
+		/*
+		 * Changing the leftmost offset (via partial or whole
+		 * record truncate) of an interior (or rightmost) path
+		 * means we have to update the subtree that is formed
+		 * by this leaf and the one to it's left.
+		 *
+		 * There are two cases we can skip:
+		 *   1) Path is the leftmost one in our btree.
+		 *   2) The leaf is rightmost and will be empty after
+		 *      we remove the extent record - the rotate code
+		 *      knows how to update the newly formed edge.
+		 */
+
+		ret = ocfs2_find_cpos_for_left_leaf(path, &left_cpos);
+		if (ret)
+			goto out;
+
+		if (left_cpos && el->l_next_free_rec > 1) {
+			left_path = ocfs2_new_path_from_path(path);
+			if (!left_path) {
+				ret = OCFS2_ET_NO_MEMORY;
+				goto out;
+			}
+
+			ret = ocfs2_find_path(fs, left_path, left_cpos);
+			if (ret)
+				goto out;
+		}
+	}
+
+	rec_range = rec->e_cpos + ocfs2_rec_clusters(el->l_tree_depth, rec);
+	trunc_range = cpos + len;
+
+	if (rec->e_cpos == cpos && rec_range == trunc_range) {
+		int next_free;
+
+		memset(rec, 0, sizeof(*rec));
+		ocfs2_cleanup_merge(el, index);
+		wants_rotate = 1;
+
+		next_free = el->l_next_free_rec;
+		if (is_rightmost_tree_rec && next_free > 1) {
+			/*
+			 * We skip the edge update if this path will
+			 * be deleted by the rotate code.
+			 */
+			rec = &el->l_recs[next_free - 1];
+			ocfs2_adjust_rightmost_records(fs, path, rec);
+		}
+	} else if (rec->e_cpos == cpos) {
+		/* Remove leftmost portion of the record. */
+		rec->e_cpos += len;
+		rec->e_blkno += ocfs2_clusters_to_blocks(fs, len);
+		rec->e_leaf_clusters -= len;
+	} else if (rec_range == trunc_range) {
+		/* Remove rightmost portion of the record */
+		rec->e_leaf_clusters -= len;
+		if (is_rightmost_tree_rec)
+			ocfs2_adjust_rightmost_records(fs, path, rec);
+	} else {
+		/* Caller should have trapped this. */
+		assert(0);
+	}
+
+	if (left_path) {
+		int subtree_index;
+
+		subtree_index = ocfs2_find_subtree_root(left_path, path);
+		ocfs2_complete_edge_insert(fs, left_path, path,
+					   subtree_index);
+	}
+
+	ret = ocfs2_rotate_tree_left(fs, et, path);
+out:
+	ocfs2_free_path(left_path);
+	return ret;
+}
+
+int ocfs2_remove_extent(ocfs2_filesys *fs,
+			struct ocfs2_extent_tree *et,
+			uint32_t cpos, uint32_t len)
+{
+	int ret, index;
+	uint32_t rec_range, trunc_range;
+	struct ocfs2_extent_rec *rec;
+	struct ocfs2_extent_list *el;
+	struct ocfs2_path *path = NULL;
+
+	path = ocfs2_new_path_from_et(et);
+	if (!path) {
+		ret = OCFS2_ET_NO_MEMORY;
+		goto out;
+	}
+
+	ret = ocfs2_find_path(fs, path, cpos);
+	if (ret)
+		goto out;
+
+	el = path_leaf_el(path);
+	index = ocfs2_search_extent_list(el, cpos);
+	if (index == -1 || index >= el->l_next_free_rec) {
+		ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+		goto out;
+	}
+
+	/*
+	 * We have 3 cases of extent removal:
+	 *   1) Range covers the entire extent rec
+	 *   2) Range begins or ends on one edge of the extent rec
+	 *   3) Range is in the middle of the extent rec (no shared edges)
+	 *
+	 * For case 1 we remove the extent rec and left rotate to
+	 * fill the hole.
+	 *
+	 * For case 2 we just shrink the existing extent rec, with a
+	 * tree update if the shrinking edge is also the edge of an
+	 * extent block.
+	 *
+	 * For case 3 we do a right split to turn the extent rec into
+	 * something case 2 can handle.
+	 */
+	rec = &el->l_recs[index];
+	rec_range = rec->e_cpos + ocfs2_rec_clusters(el->l_tree_depth, rec);
+	trunc_range = cpos + len;
+
+	assert(cpos >= rec->e_cpos && trunc_range <= rec_range);
+
+	if (rec->e_cpos == cpos || rec_range == trunc_range) {
+		ret = ocfs2_truncate_rec(fs, et, path, index, cpos, len);
+		if (ret)
+			goto out;
+	} else {
+		ret = ocfs2_split_tree(fs, et, path, index, trunc_range);
+		if (ret)
+			goto out;
+
+		/*
+		 * The split could have manipulated the tree enough to
+		 * move the record location, so we have to look for it again.
+		 */
+		ocfs2_reinit_path(path, 1);
+
+		ret = ocfs2_find_path(fs, path, cpos);
+		if (ret)
+			goto out;
+
+		el = path_leaf_el(path);
+		index = ocfs2_search_extent_list(el, cpos);
+		if (index == -1 || index >= el->l_next_free_rec) {
+			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+			goto out;
+		}
+
+		/*
+		 * Double check our values here. If anything is fishy,
+		 * it's easier to catch it at the top level.
+		 */
+		rec = &el->l_recs[index];
+		rec_range = rec->e_cpos +
+				ocfs2_rec_clusters(el->l_tree_depth, rec);
+		if (rec_range != trunc_range) {
+			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+			goto out;
+		}
+
+		ret = ocfs2_truncate_rec(fs, et, path, index, cpos, len);
+		if (ret)
+			goto out;
+	}
+
+out:
+	ocfs2_free_path(path);
+	return ret;
+}
