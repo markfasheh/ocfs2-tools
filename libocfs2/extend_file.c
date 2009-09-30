@@ -34,7 +34,48 @@
 #include <errno.h>
 #include <assert.h>
 #include "ocfs2/ocfs2.h"
+#include "extent_tree.h"
 
+/*
+ * Insert an extent into an inode btree.
+ */
+errcode_t ocfs2_inode_insert_extent(ocfs2_filesys *fs, uint64_t ino,
+				    uint32_t cpos, uint64_t c_blkno,
+				    uint32_t clusters, uint16_t flag)
+{
+	errcode_t ret;
+	ocfs2_cached_inode *ci = NULL;
+
+	ret = ocfs2_read_cached_inode(fs, ino, &ci);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_cached_inode_insert_extent(ci, cpos, c_blkno,
+					       clusters, flag);
+	if (ret)
+		goto bail;
+
+	ret = ocfs2_write_cached_inode(fs, ci);
+
+bail:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+
+	return ret;
+}
+
+errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
+					   uint32_t cpos, uint64_t c_blkno,
+					   uint32_t clusters, uint16_t flag)
+{
+	struct ocfs2_extent_tree et;
+
+	ocfs2_init_dinode_extent_tree(&et, ci->ci_fs, (char *)ci->ci_inode,
+				      ci->ci_inode->i_blkno);
+
+	return ocfs2_tree_insert_extent(ci->ci_fs, &et, cpos, c_blkno,
+					clusters, flag);
+}
 
 errcode_t ocfs2_cached_inode_extend_allocation(ocfs2_cached_inode *ci,
 					       uint32_t new_clusters)

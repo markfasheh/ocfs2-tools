@@ -715,7 +715,7 @@ bail:
  * return status < 0 indicates an error.
  */
 static errcode_t ocfs2_find_branch_target(ocfs2_filesys *fs,
-					  struct ocfs2_extent_list *el,
+					  struct ocfs2_extent_tree *et,
 					  char **target_buf)
 {
 	errcode_t ret = 0;
@@ -723,6 +723,7 @@ static errcode_t ocfs2_find_branch_target(ocfs2_filesys *fs,
 	uint64_t blkno;
 	struct ocfs2_extent_block *eb;
 	char *buf = NULL, *lowest_buf = NULL;
+	struct ocfs2_extent_list *el = et->et_root_el;
 
 	*target_buf = NULL;
 
@@ -753,6 +754,7 @@ static errcode_t ocfs2_find_branch_target(ocfs2_filesys *fs,
 			lowest_buf = buf;
 	}
 
+	el = et->et_root_el;
 	/* If we didn't find one and the fe doesn't have any room,
 	 * then return '1' */
 	if (!lowest_buf && el->l_next_free_rec == el->l_count)
@@ -3109,7 +3111,7 @@ out:
 }
 
 struct duplicate_ctxt {
-	struct ocfs2_dinode *di;
+	struct ocfs2_extent_tree *et;
 	uint64_t next_leaf_blk;
 };
 
@@ -3210,8 +3212,8 @@ static errcode_t duplicate_extent_block(ocfs2_filesys *fs,
 
 		eb = (struct ocfs2_extent_block *)new_eb_buf;
 		/* set the new i_last_eb_blk in the new dinode. */
-		if (ctxt->di->i_last_eb_blk == blkno)
-			ctxt->di->i_last_eb_blk = new_blkno;
+		if (ocfs2_et_get_last_eb_blk(ctxt->et) == blkno)
+			ocfs2_et_set_last_eb_blk(ctxt->et, new_blkno);
 	}
 
 	new_el->l_next_free_rec = old_el->l_next_free_rec;
@@ -3234,18 +3236,23 @@ bail:
 	return ret;
 }
 
-static errcode_t duplicate_extent_block_dinode(ocfs2_filesys *fs,
-					       char *old_buf, char *new_buf)
+static errcode_t duplicate_extent_block_et(ocfs2_filesys *fs,
+					   struct ocfs2_extent_tree *et)
 {
 	errcode_t ret = 0;
-	struct ocfs2_dinode *old_di = NULL, *new_di = NULL;
 	struct ocfs2_extent_list *old_el = NULL, *new_el = NULL;
+	char *old_buf, *new_buf;
 	struct duplicate_ctxt ctxt;
 
-	old_di = (struct ocfs2_dinode *)old_buf;
-	old_el = &old_di->id2.i_list;
-	new_di = (struct ocfs2_dinode *)new_buf;
-	new_el = &new_di->id2.i_list;
+	ret = ocfs2_malloc_block(fs->fs_io, &old_buf);
+	if (ret)
+		return ret;
+
+	memcpy(old_buf, et->et_root_buf, fs->fs_blocksize);
+	new_buf = et->et_root_buf;
+	new_el = et->et_root_el;
+	old_el = (struct ocfs2_extent_list *)
+			(old_buf + ((char *)new_el - new_buf));
 
 	assert(old_el->l_tree_depth > 0);
 
@@ -3256,10 +3263,11 @@ static errcode_t duplicate_extent_block_dinode(ocfs2_filesys *fs,
 	new_el->l_next_free_rec = 0;
 
 	memset(&ctxt, 0, sizeof(ctxt));
-	ctxt.di = new_di;
+	ctxt.et = et;
 	ctxt.next_leaf_blk = 0;
 	ret = duplicate_extent_block(fs, old_el, new_el, &ctxt);
 
+	ocfs2_free(&old_buf);
 	return ret;
 }
 
@@ -3301,20 +3309,6 @@ static void free_duplicated_extent_block(ocfs2_filesys *fs,
 		ocfs2_free(&buf);
 }
 
-static void free_duplicated_extent_block_dinode(ocfs2_filesys *fs,
-						char *di_buf)
-{
-	struct ocfs2_dinode *di = NULL;
-	struct ocfs2_extent_list *el = NULL;
-
-	di = (struct ocfs2_dinode *)di_buf;
-	el = &di->id2.i_list;
-
-	assert(el->l_tree_depth > 0);
-
-	free_duplicated_extent_block(fs, el);
-}
-
 /*
  * Grow a b-tree so that it has more records.
  *
@@ -3335,7 +3329,7 @@ static int ocfs2_grow_tree(ocfs2_filesys *fs,
 	struct ocfs2_extent_list *el = et->et_root_el;
 	int depth = el->l_tree_depth;
 
-	shift = ocfs2_find_branch_target(fs, el, &eb_buf);
+	shift = ocfs2_find_branch_target(fs, et, &eb_buf);
 	if (shift < 0) {
 		ret = shift;
 		goto out;
@@ -3378,76 +3372,44 @@ out:
 	return ret;
 }
 
-/*
- * Insert an extent into an inode btree.
- */
-errcode_t ocfs2_inode_insert_extent(ocfs2_filesys *fs, uint64_t ino,
-				    uint32_t cpos, uint64_t c_blkno,
-				    uint32_t clusters, uint16_t flag)
-{
-	errcode_t ret;
-	ocfs2_cached_inode *ci = NULL;
-
-	ret = ocfs2_read_cached_inode(fs, ino, &ci);
-	if (ret)
-		goto bail;
-
-	ret = ocfs2_cached_inode_insert_extent(ci, cpos, c_blkno,
-					       clusters, flag);
-	if (ret)
-		goto bail;
-
-	ret = ocfs2_write_cached_inode(fs, ci);
-
-bail:
-	if (ci)
-		ocfs2_free_cached_inode(fs, ci);
-
-	return ret;
-}
-
-errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
-					   uint32_t cpos, uint64_t c_blkno,
-					   uint32_t clusters, uint16_t flag)
+errcode_t ocfs2_tree_insert_extent(ocfs2_filesys *fs,
+				   struct ocfs2_extent_tree *et,
+				   uint32_t cpos, uint64_t c_blkno,
+				   uint32_t clusters, uint16_t flag)
 {
 	errcode_t ret;
 	struct insert_ctxt ctxt;
 	struct ocfs2_insert_type insert = {0, };
 	char *last_eb = NULL;
 	char *backup_buf = NULL;
-	char *di_buf = NULL;
+	char *root_buf = et->et_root_buf;
 	int free_records = 0;
-	ocfs2_filesys *fs = ci->ci_fs;
-	struct ocfs2_extent_tree et;
 
-	ocfs2_init_dinode_extent_tree(&et, fs, (char *)ci->ci_inode,
-				      ci->ci_inode->i_blkno);
 	ctxt.fs = fs;
-	ctxt.et = &et;
-	di_buf = (char *)ci->ci_inode;
+	ctxt.et = et;
 
 	/* In order to orderize the written block sequence and avoid
-	 * the corruption for the inode, we duplicate the extent block
+	 * the corruption for the b-tree, we duplicate the extent block
 	 * here and do the insertion in the duplicated ones.
 	 *
-	 * Note: we only do this in case the file has extent blocks.
+	 * Note: we only do this in case the b-tree has extent blocks.
 	 * And if the duplicate process fails, we should go on the normal
 	 * insert process.
 	 */
-	if (ci->ci_inode->id2.i_list.l_tree_depth) {
+	if (et->et_root_el->l_tree_depth) {
 		ret = ocfs2_malloc_block(fs->fs_io, &backup_buf);
 		if (ret)
 			goto bail;
 
-		memcpy(backup_buf, di_buf, fs->fs_blocksize);
+		memcpy(backup_buf, root_buf, fs->fs_blocksize);
 
 		/* duplicate the extent block. If it succeeds, di_buf
 		 * will point to the new allocated extent blocks, and
 		 * the following insertion will happens to the new ones.
 		 */
-		ret = duplicate_extent_block_dinode(fs, backup_buf, di_buf);
+		ret = duplicate_extent_block_et(fs, et);
 		if (ret) {
-			memcpy(di_buf, backup_buf,fs->fs_blocksize);
+			memcpy(root_buf, backup_buf, fs->fs_blocksize);
 			ocfs2_free(&backup_buf);
 			backup_buf = NULL;
 		}
@@ -3481,19 +3443,34 @@ errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
 
 bail:
 	if (backup_buf) {
+		struct ocfs2_extent_list *free_el;
+		int offset = (char *)et->et_root_el - et->et_root_buf;
 		/* we have duplicated the extent block during the insertion.
 		 * so if it succeeds, we should free the old ones, and if fails,
 		 * the duplicate ones should be freed.
 		 */
+
 		if (ret)
-			free_duplicated_extent_block_dinode(fs, di_buf);
+			free_el = (struct ocfs2_extent_list *)
+						(et->et_root_buf + offset);
 		else
-			free_duplicated_extent_block_dinode(fs, backup_buf);
+			free_el = (struct ocfs2_extent_list *)
+						(backup_buf + offset);
+
+		free_duplicated_extent_block(fs, free_el);
 		ocfs2_free(&backup_buf);
 	}
 
 	if (last_eb)
 		ocfs2_free(&last_eb);
+
+	/*
+	 * Write the root buffer here.
+	 * If the caller don't initialize the write function, it should
+	 * be responsible for write the root buffer.
+	 */
+	if (!ret && et->et_root_write)
+		ret = et->et_root_write(fs, et->et_root_blkno, root_buf);
 
 	return ret;
 }
@@ -3727,6 +3704,8 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	if (!ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)))
 		return OCFS2_ET_UNSUPP_FEATURE;
 
+	ocfs2_init_dinode_extent_tree(&et, fs, (char *)di, di->i_blkno);
+
 	/* In order to orderize the written block sequence and avoid
 	 * the corruption for the inode, we duplicate the extent block
 	 * here and do the insertion in the duplicated ones.
@@ -3747,7 +3726,7 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		 * will point to the new allocated extent blocks, and
 		 * the following insertion will happens to the new ones.
 		 */
-		ret = duplicate_extent_block_dinode(fs, backup_buf, di_buf);
+		ret = duplicate_extent_block_et(fs, &et);
 		if (ret) {
 			memcpy(di_buf, backup_buf,fs->fs_blocksize);
 			ocfs2_free(&backup_buf);
@@ -3774,7 +3753,6 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	}
 
 	ctxt.fs = fs;
-	ocfs2_init_dinode_extent_tree(&et, fs, (char *)di, di->i_blkno);
 	ctxt.et = &et;
 
 	memset(&ctxt.rec, 0, sizeof(struct ocfs2_extent_rec));
@@ -3792,14 +3770,21 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 
 out:
 	if (backup_buf) {
+		struct ocfs2_extent_list *free_el;
+		int offset = (char *)et.et_root_el - et.et_root_buf;
 		/* we have duplicated the extent block during the insertion.
 		 * so if it succeeds, we should free the old ones, and if fails,
 		 * the duplicate ones should be freed.
 		 */
+
 		if (ret)
-			free_duplicated_extent_block_dinode(fs, di_buf);
+			free_el = (struct ocfs2_extent_list *)
+						(di_buf + offset);
 		else
-			free_duplicated_extent_block_dinode(fs, backup_buf);
+			free_el = (struct ocfs2_extent_list *)
+						(backup_buf + offset);
+
+		free_duplicated_extent_block(fs, free_el);
 		ocfs2_free(&backup_buf);
 	}
 	ocfs2_free_path(left_path);
