@@ -248,6 +248,28 @@ out:
 	return ret;
 }
 
+/*
+ * Mark the already-existing extent at cpos as written for len clusters.
+ *
+ * If the existing extent is larger than the request, initiate a
+ * split. An attempt will be made at merging with adjacent extents.
+ *
+ */
+int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+			      uint32_t cpos, uint32_t len,
+			      uint64_t p_blkno)
+{
+	struct ocfs2_extent_tree et;
+
+	if (!ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)))
+		return OCFS2_ET_UNSUPP_FEATURE;
+
+	ocfs2_init_dinode_extent_tree(&et, fs, (char *)di, di->i_blkno);
+
+	return ocfs2_change_extent_flag(fs, &et, cpos, len, p_blkno,
+					0, OCFS2_EXT_UNWRITTEN);
+}
+
 #ifdef DEBUG_EXE
 #include <stdio.h>
 #include <stdlib.h>

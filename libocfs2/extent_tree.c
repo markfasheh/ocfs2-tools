@@ -293,14 +293,6 @@ static struct ocfs2_path *ocfs2_new_path(char *buf,
 	return path;
 }
 
-/*
- * Allocate and initialize a new path based on a disk inode tree.
- */
-static struct ocfs2_path *ocfs2_new_inode_path(struct ocfs2_dinode *di)
-{
-	return ocfs2_new_path((char *)di, &di->id2.i_list, di->i_blkno);
-}
-
 static struct ocfs2_path *ocfs2_new_path_from_path(struct ocfs2_path *path)
 {
 	return ocfs2_new_path(path_root_buf(path), path_root_el(path),
@@ -3587,9 +3579,8 @@ out:
 }
 
 /*
- * Mark part or all of the extent record at split_index in the leaf
- * pointed to by path as written. This removes the unwritten
- * extent flag.
+ * Split part or all of the extent record at split_index in the leaf
+ * pointed to by path. Merge with the contiguous extent record if needed.
  *
  * Care is taken to handle contiguousness so as to not grow the tree.
  *
@@ -3600,9 +3591,9 @@ out:
  * This code is optimized for readability - several passes might be
  * made over certain portions of the tree.
  */
-static int __ocfs2_mark_extent_written(struct insert_ctxt *insert_ctxt,
-				       struct ocfs2_path *path,
-				       int split_index)
+static int ocfs2_split_extent(struct insert_ctxt *insert_ctxt,
+			      struct ocfs2_path *path,
+			      int split_index)
 {
 	int ret = 0;
 	struct ocfs2_extent_rec split_rec = insert_ctxt->rec;
@@ -3612,11 +3603,6 @@ static int __ocfs2_mark_extent_written(struct insert_ctxt *insert_ctxt,
 	struct ocfs2_merge_ctxt merge_ctxt;
 	struct ocfs2_extent_list *rightmost_el;
 	ocfs2_filesys *fs = insert_ctxt->fs;
-
-	if (!rec->e_flags & OCFS2_EXT_UNWRITTEN) {
-		ret = OCFS2_ET_INVALID_ARGUMENT;
-		goto out;
-	}
 
 	if (rec->e_cpos > split_rec.e_cpos ||
 	    ((rec->e_cpos + rec->e_leaf_clusters) <
@@ -3684,27 +3670,27 @@ out:
 }
 
 /*
- * Mark the already-existing extent at cpos as written for len clusters.
+ * Change the flags of the already-existing extent at cpos for len clusters.
+ *
+ * new_flags: the flags we want to set.
+ * clear_flags: the flags we want to clear.
+ * p_blkno: the new physical offset we want this new extent starts from.
  *
  * If the existing extent is larger than the request, initiate a
  * split. An attempt will be made at merging with adjacent extents.
- *
  */
-int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
-			      uint32_t cpos, uint32_t len,
-			      uint64_t p_blkno)
+int ocfs2_change_extent_flag(ocfs2_filesys *fs,
+			     struct ocfs2_extent_tree *et,
+			     uint32_t cpos, uint32_t len,
+			     uint64_t p_blkno,
+			     int new_flags, int clear_flags)
 {
 	int ret, index;
 	struct ocfs2_path *left_path = NULL;
 	struct ocfs2_extent_list *el;
 	struct insert_ctxt ctxt;
-	struct ocfs2_extent_tree et;
-	char *backup_buf = NULL, *di_buf = NULL;
-
-	if (!ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)))
-		return OCFS2_ET_UNSUPP_FEATURE;
-
-	ocfs2_init_dinode_extent_tree(&et, fs, (char *)di, di->i_blkno);
+	struct ocfs2_extent_rec *rec;
+	char *backup_buf = NULL;
 
 	/* In order to orderize the written block sequence and avoid
 	 * the corruption for the inode, we duplicate the extent block
@@ -3714,27 +3700,26 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	 * And if the duplicate process fails, we should go on the normal
 	 * insert process.
 	 */
-	di_buf = (char *)di;
-	if (di->id2.i_list.l_tree_depth) {
+	if (et->et_root_el->l_tree_depth) {
 		ret = ocfs2_malloc_block(fs->fs_io, &backup_buf);
 		if (ret)
 			goto out;
 
-		memcpy(backup_buf, di_buf, fs->fs_blocksize);
+		memcpy(backup_buf, et->et_root_buf, fs->fs_blocksize);
 
 		/* duplicate the extent block. If it succeeds, di_buf
 		 * will point to the new allocated extent blocks, and
 		 * the following insertion will happens to the new ones.
 		 */
-		ret = duplicate_extent_block_et(fs, &et);
+		ret = duplicate_extent_block_et(fs, et);
 		if (ret) {
-			memcpy(di_buf, backup_buf,fs->fs_blocksize);
+			memcpy(et->et_root_buf, backup_buf, fs->fs_blocksize);
 			ocfs2_free(&backup_buf);
 			backup_buf = NULL;
 		}
 	}
 
-	left_path = ocfs2_new_inode_path(di);
+	left_path = ocfs2_new_path_from_et(et);
 	if (!left_path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
@@ -3753,25 +3738,42 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	}
 
 	ctxt.fs = fs;
-	ctxt.et = &et;
+	ctxt.et = et;
+
+	ret = OCFS2_ET_IO;
+	rec = &el->l_recs[index];
+	if (new_flags && (rec->e_flags & new_flags))
+		goto out;
+
+	if (clear_flags && !(rec->e_flags & clear_flags))
+		goto out;
 
 	memset(&ctxt.rec, 0, sizeof(struct ocfs2_extent_rec));
 	ctxt.rec.e_cpos = cpos;
 	ctxt.rec.e_leaf_clusters = len;
 	ctxt.rec.e_blkno = p_blkno;
-	ctxt.rec.e_flags = path_leaf_el(left_path)->l_recs[index].e_flags;
-	ctxt.rec.e_flags &= ~OCFS2_EXT_UNWRITTEN;
+	ctxt.rec.e_flags = rec->e_flags;
+	if (new_flags)
+		ctxt.rec.e_flags |= new_flags;
+	if (clear_flags)
+		ctxt.rec.e_flags &= ~clear_flags;
 
-	ret = __ocfs2_mark_extent_written(&ctxt, left_path, index);
+	ret = ocfs2_split_extent(&ctxt, left_path, index);
 	if (ret)
 		goto out;
 
-	ret = ocfs2_write_inode(fs, di->i_blkno, di_buf);
+	/*
+	 * Write the root buffer here.
+	 * If the caller don't initialize the write function, it should
+	 * be responsible for write the root buffer.
+	 */
+	if (!ret && et->et_root_write)
+		ret = et->et_root_write(fs, et->et_root_blkno, et->et_root_buf);
 
 out:
 	if (backup_buf) {
 		struct ocfs2_extent_list *free_el;
-		int offset = (char *)et.et_root_el - et.et_root_buf;
+		int offset = (char *)et->et_root_el - et->et_root_buf;
 		/* we have duplicated the extent block during the insertion.
 		 * so if it succeeds, we should free the old ones, and if fails,
 		 * the duplicate ones should be freed.
@@ -3779,7 +3781,7 @@ out:
 
 		if (ret)
 			free_el = (struct ocfs2_extent_list *)
-						(di_buf + offset);
+					(et->et_root_buf + offset);
 		else
 			free_el = (struct ocfs2_extent_list *)
 						(backup_buf + offset);

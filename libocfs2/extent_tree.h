@@ -101,3 +101,8 @@ errcode_t ocfs2_tree_insert_extent(ocfs2_filesys *fs,
 				   struct ocfs2_extent_tree *et,
 				   uint32_t cpos, uint64_t c_blkno,
 				   uint32_t clusters, uint16_t flag);
+int ocfs2_change_extent_flag(ocfs2_filesys *fs,
+			     struct ocfs2_extent_tree *et,
+			     uint32_t cpos, uint32_t len,
+			     uint64_t p_blkno,
+			     int new_flags, int clear_flags);
