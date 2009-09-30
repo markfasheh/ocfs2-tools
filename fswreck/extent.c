@@ -103,8 +103,8 @@ static void custom_extend_allocation(ocfs2_filesys *fs, uint64_t ino,
 		 * we insert each cluster in reverse. */
 		for(i = n_clusters; i; --i) {
 			tmpblk = blkno + ocfs2_clusters_to_blocks(fs, i - 1);
-		 	ret = ocfs2_insert_extent(fs, ino, offset++,
-						  tmpblk, 1, 0);
+			ret = ocfs2_inode_insert_extent(fs, ino, offset++,
+							tmpblk, 1, 0);
 			if (ret) 
 				FSWRK_COM_FATAL(progname, ret);	
 		}

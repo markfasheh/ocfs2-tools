@@ -404,7 +404,7 @@ static errcode_t fill_one_hole(ocfs2_filesys *fs, struct sparse_file *file,
 		if (ret)
 			break;
 
-		ret = ocfs2_insert_extent(fs, file->blkno,
+		ret = ocfs2_inode_insert_extent(fs, file->blkno,
 					  start, p_start,
 					  n_clusters, 0);
 		if (ret)

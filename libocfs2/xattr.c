@@ -354,7 +354,8 @@ errcode_t ocfs2_xattr_get_rec(ocfs2_filesys *fs,
 		return OCFS2_ET_INVALID_ARGUMENT;
 
 	if (el->l_tree_depth) {
-		ret = ocfs2_xattr_find_leaf(fs, xb, name_hash, &eb_buf);
+		ret = ocfs2_tree_find_leaf(fs, el, xb->xb_blkno, (char *)xb,
+					   name_hash, &eb_buf);
 		if (ret)
 			goto out;
 

@@ -561,9 +561,9 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs,
 errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 			      uint64_t parent_ino, char **block);
 
-errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
-			      uint64_t c_blkno, uint32_t clusters,
-			      uint16_t flag);
+errcode_t ocfs2_inode_insert_extent(ocfs2_filesys *fs, uint64_t ino,
+				    uint32_t cpos, uint64_t c_blkno,
+				    uint32_t clusters, uint16_t flag);
 errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
 					   uint32_t cpos, uint64_t c_blkno,
 					   uint32_t clusters, uint16_t flag);
@@ -1267,8 +1267,9 @@ errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
 uint32_t ocfs2_xattr_uuid_hash(unsigned char *uuid);
 uint32_t ocfs2_xattr_name_hash(uint32_t uuid_hash, const char *name,
 			       int name_len);
-int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
-			  uint32_t cpos, char **leaf_buf);
+int ocfs2_tree_find_leaf(ocfs2_filesys *fs, struct ocfs2_extent_list *el,
+			 uint64_t el_blkno, char *el_blk,
+			 uint32_t cpos, char **leaf_buf);
 uint16_t ocfs2_xattr_buckets_per_cluster(ocfs2_filesys *fs);
 uint16_t ocfs2_blocks_per_xattr_bucket(ocfs2_filesys *fs);
 /* See ocfs2_swap_extent_list() for a discussion of obj */

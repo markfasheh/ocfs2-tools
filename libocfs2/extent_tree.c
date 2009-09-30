@@ -90,6 +90,23 @@ void ocfs2_init_dinode_extent_tree(struct ocfs2_extent_tree *et,
 				 buf, &ocfs2_dinode_et_ops);
 }
 
+static inline void ocfs2_et_set_last_eb_blk(struct ocfs2_extent_tree *et,
+					    uint64_t new_last_eb_blk)
+{
+	et->et_ops->eo_set_last_eb_blk(et, new_last_eb_blk);
+}
+
+static inline uint64_t ocfs2_et_get_last_eb_blk(struct ocfs2_extent_tree *et)
+{
+	return et->et_ops->eo_get_last_eb_blk(et);
+}
+
+static inline void ocfs2_et_update_clusters(struct ocfs2_extent_tree *et,
+					    uint32_t clusters)
+{
+	return et->et_ops->eo_update_clusters(et, clusters);
+}
+
 /*
  * Structures which describe a path through a btree, and functions to
  * manipulate them.
@@ -120,7 +137,7 @@ struct ocfs2_path {
 
 struct insert_ctxt {
 	ocfs2_filesys *fs;
-	struct ocfs2_dinode *di;
+	struct ocfs2_extent_tree *et;
 	struct ocfs2_extent_rec rec;
 };
 /*
@@ -515,7 +532,7 @@ static inline uint32_t ocfs2_sum_rightmost_rec(struct ocfs2_extent_list  *el)
  * contain a single record with e_clusters == 0.
  */
 static int ocfs2_add_branch(ocfs2_filesys *fs,
-			    struct ocfs2_dinode *fe,
+			    struct ocfs2_extent_tree *et,
 			    char *eb_buf,
 			    char **last_eb_buf)
 {
@@ -536,7 +553,7 @@ static int ocfs2_add_branch(ocfs2_filesys *fs,
 		eb = (struct ocfs2_extent_block *) eb_buf;
 		el = &eb->h_list;
 	} else
-		el = &fe->id2.i_list;
+		el = et->et_root_el;
 
 	/* we never add a branch to a leaf. */
 	assert(el->l_tree_depth);
@@ -623,7 +640,7 @@ static int ocfs2_add_branch(ocfs2_filesys *fs,
 	/* fe needs a new last extent block pointer, as does the
 	 * next_leaf on the previously last-extent-block.
 	 */
-	fe->i_last_eb_blk = new_last_eb_blk;
+	ocfs2_et_set_last_eb_blk(et, new_last_eb_blk);
 
 	/* here all the extent block and the new inode information should be
 	 * written back to the disk.
@@ -698,19 +715,16 @@ bail:
  * return status < 0 indicates an error.
  */
 static errcode_t ocfs2_find_branch_target(ocfs2_filesys *fs,
-					  struct ocfs2_dinode *fe,
+					  struct ocfs2_extent_list *el,
 					  char **target_buf)
 {
 	errcode_t ret = 0;
 	int i;
 	uint64_t blkno;
 	struct ocfs2_extent_block *eb;
-	struct ocfs2_extent_list  *el;
 	char *buf = NULL, *lowest_buf = NULL;
 
 	*target_buf = NULL;
-
-	el = &fe->id2.i_list;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
@@ -741,8 +755,7 @@ static errcode_t ocfs2_find_branch_target(ocfs2_filesys *fs,
 
 	/* If we didn't find one and the fe doesn't have any room,
 	 * then return '1' */
-	if (!lowest_buf
-	    && (fe->id2.i_list.l_next_free_rec == fe->id2.i_list.l_count))
+	if (!lowest_buf && el->l_next_free_rec == el->l_count)
 		ret = 1;
 
 	*target_buf = lowest_buf;
@@ -1059,17 +1072,17 @@ static int ocfs2_find_path(ocfs2_filesys *fs, struct ocfs2_path *path,
  *
  * This function doesn't handle non btree extent lists.
  */
-int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
-		    uint32_t cpos, char **leaf_buf)
+int ocfs2_tree_find_leaf(ocfs2_filesys *fs, struct ocfs2_extent_list *el,
+			 uint64_t el_blkno, char *el_blk,
+			 uint32_t cpos, char **leaf_buf)
 {
 	int ret;
 	char *buf = NULL;
 	struct ocfs2_path *path = NULL;
-	struct ocfs2_extent_list *el = &di->id2.i_list;
 
 	assert(el->l_tree_depth > 0);
 
-	path = ocfs2_new_inode_path(di);
+	path = ocfs2_new_path(el_blk, el, el_blkno);
 	if (!path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
@@ -1090,42 +1103,11 @@ out:
 	return ret;
 }
 
-int ocfs2_xattr_find_leaf(ocfs2_filesys *fs, struct ocfs2_xattr_block *xb,
-			  uint32_t cpos, char **leaf_buf)
+int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+		    uint32_t cpos, char **leaf_buf)
 {
-	int ret;
-	char *buf = NULL;
-	struct ocfs2_path *path = NULL;
-	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
-
-	assert(el->l_tree_depth > 0);
-
-
-	ret = ocfs2_malloc0(sizeof(*path), &path);
-
-	if (!path) {
-		ret = OCFS2_ET_NO_MEMORY;
-		goto out;
-	} else {
-		path->p_tree_depth = el->l_tree_depth;
-		path->p_node[0].blkno = xb->xb_blkno;
-		path->p_node[0].buf = (char *)xb;
-		path->p_node[0].el = el;
-	}
-
-	ret = ocfs2_find_path(fs, path, cpos);
-	if (ret)
-		goto out;
-
-	ret = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (ret)
-		goto out;
-
-	memcpy(buf, path_leaf_buf(path), fs->fs_blocksize);
-	*leaf_buf = buf;
-out:
-	ocfs2_free_path(path);
-	return ret;
+	return ocfs2_tree_find_leaf(fs, &di->id2.i_list, di->i_blkno,
+				    (char *)di, cpos, leaf_buf);
 }
 
 /*
@@ -1705,6 +1687,7 @@ static errcode_t ocfs2_unlink_subtree(ocfs2_filesys *fs,
 }
 
 static int ocfs2_rotate_subtree_left(ocfs2_filesys *fs,
+				     struct ocfs2_extent_tree *et,
 				     struct ocfs2_path *left_path,
 				     struct ocfs2_path *right_path,
 				     int subtree_index,
@@ -1712,8 +1695,7 @@ static int ocfs2_rotate_subtree_left(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	int i, del_right_subtree = 0, right_has_empty = 0;
-	char *root_buf, *di_buf = path_root_buf(right_path);
-	struct ocfs2_dinode *di = (struct ocfs2_dinode *)di_buf;
+	char *root_buf;
 	struct ocfs2_extent_list *right_leaf_el, *left_leaf_el;
 	struct ocfs2_extent_block *eb;
 
@@ -1802,7 +1784,7 @@ static int ocfs2_rotate_subtree_left(ocfs2_filesys *fs,
 			       fs->fs_blocksize);
 
 		eb = (struct ocfs2_extent_block *)path_leaf_buf(left_path);
-		di->i_last_eb_blk = eb->h_blkno;
+		ocfs2_et_set_last_eb_blk(et, eb->h_blkno);
 
 		/*
 		 * Removal of the extent in the left leaf was skipped
@@ -1921,6 +1903,7 @@ static void ocfs2_rotate_rightmost_leaf_left(ocfs2_filesys *fs,
 }
 
 static int __ocfs2_rotate_tree_left(ocfs2_filesys *fs,
+				    struct ocfs2_extent_tree *et,
 				    struct ocfs2_path *path,
 				    struct ocfs2_path **empty_extent_path)
 {
@@ -1959,7 +1942,7 @@ static int __ocfs2_rotate_tree_left(ocfs2_filesys *fs,
 		subtree_root = ocfs2_find_subtree_root(left_path,
 						       right_path);
 
-		ret = ocfs2_rotate_subtree_left(fs, left_path,
+		ret = ocfs2_rotate_subtree_left(fs, et, left_path,
 						right_path, subtree_root,
 						&deleted);
 		if (ret == EAGAIN) {
@@ -2011,20 +1994,14 @@ out:
 }
 
 static int ocfs2_remove_rightmost_path(ocfs2_filesys *fs,
+				       struct ocfs2_extent_tree *et,
 				       struct ocfs2_path *path)
 {
 	int ret, subtree_index, i;
 	uint32_t cpos;
 	struct ocfs2_path *left_path = NULL;
-	struct ocfs2_dinode *di;
 	struct ocfs2_extent_block *eb;
 	struct ocfs2_extent_list *el;
-
-	/*
-	 * XXX: This code assumes that the root is an inode, which is
-	 * true for now but may change as tree code gets generic.
-	 */
-	di = (struct ocfs2_dinode *)path_root_buf(path);
 
 	ret = ocfs2_find_cpos_for_left_leaf(path, &cpos);
 	if (ret)
@@ -2065,7 +2042,7 @@ static int ocfs2_remove_rightmost_path(ocfs2_filesys *fs,
 			goto out;
 
 		eb = (struct ocfs2_extent_block *)path_leaf_buf(left_path);
-		di->i_last_eb_blk = eb->h_blkno;
+		ocfs2_et_set_last_eb_blk(et, eb->h_blkno);
 	} else {
 		/*
 		 * 'path' is also the leftmost path which
@@ -2076,12 +2053,12 @@ static int ocfs2_remove_rightmost_path(ocfs2_filesys *fs,
 		 */
 		ocfs2_unlink_path(fs, path, 1);
 
-		el = &di->id2.i_list;
+		el = et->et_root_el;
 		el->l_tree_depth = 0;
 		el->l_next_free_rec = 0;
 		memset(&el->l_recs[0], 0, sizeof(struct ocfs2_extent_rec));
 
-		di->i_last_eb_blk = 0;
+		ocfs2_et_set_last_eb_blk(et, 0);
 	}
 
 out:
@@ -2105,7 +2082,9 @@ out:
  * the rightmost tree leaf record is removed so the caller is
  * responsible for detecting and correcting that.
  */
-static int ocfs2_rotate_tree_left(ocfs2_filesys *fs, struct ocfs2_path *path)
+static int ocfs2_rotate_tree_left(ocfs2_filesys *fs,
+				  struct ocfs2_extent_tree *et,
+				  struct ocfs2_path *path)
 {
 	int ret = 0;
 	struct ocfs2_path *tmp_path = NULL, *restart_path = NULL;
@@ -2173,7 +2152,7 @@ rightmost_no_delete:
 		 * nonempty list.
 		 */
 
-		ret = ocfs2_remove_rightmost_path(fs, path);
+		ret = ocfs2_remove_rightmost_path(fs, et, path);
 		goto out;
 	}
 
@@ -2182,7 +2161,7 @@ rightmost_no_delete:
 	 * and restarting from there.
 	 */
 try_rotate:
-	ret = __ocfs2_rotate_tree_left(fs, path, &restart_path);
+	ret = __ocfs2_rotate_tree_left(fs, et, path, &restart_path);
 	if (ret && ret != EAGAIN) {
 		goto out;
 	}
@@ -2191,7 +2170,7 @@ try_rotate:
 		tmp_path = restart_path;
 		restart_path = NULL;
 
-		ret = __ocfs2_rotate_tree_left(fs, tmp_path, &restart_path);
+		ret = __ocfs2_rotate_tree_left(fs, et, tmp_path, &restart_path);
 		if (ret && ret != EAGAIN) {
 			goto out;
 		}
@@ -2312,6 +2291,7 @@ static int ocfs2_merge_rec_left(ocfs2_filesys *fs,
 }
 
 static int ocfs2_try_to_merge_extent(ocfs2_filesys *fs,
+				     struct ocfs2_extent_tree *et,
 				     struct ocfs2_path *left_path,
 				     int split_index,
 				     struct ocfs2_extent_rec *split_rec,
@@ -2332,7 +2312,7 @@ static int ocfs2_try_to_merge_extent(ocfs2_filesys *fs,
 		 * extents - having more than one in a leaf is
 		 * illegal.
 		 */
-		ret = ocfs2_rotate_tree_left(fs, left_path);
+		ret = ocfs2_rotate_tree_left(fs, et, left_path);
 		if (ret)
 			goto out;
 
@@ -2370,7 +2350,7 @@ static int ocfs2_try_to_merge_extent(ocfs2_filesys *fs,
 		 * The left merge left us with an empty extent, remove
 		 * it.
 		 */
-		ret = ocfs2_rotate_tree_left(fs, left_path);
+		ret = ocfs2_rotate_tree_left(fs, et, left_path);
 		if (ret)
 			goto out;
 
@@ -2387,7 +2367,7 @@ static int ocfs2_try_to_merge_extent(ocfs2_filesys *fs,
 
 		assert(ocfs2_is_empty_extent(&el->l_recs[0]));
 
-		ret = ocfs2_rotate_tree_left(fs, left_path);
+		ret = ocfs2_rotate_tree_left(fs, et, left_path);
 		/*
 		 * Error from this last rotate is not critical, so
 		 * don't bubble it up.
@@ -2429,7 +2409,7 @@ static int ocfs2_try_to_merge_extent(ocfs2_filesys *fs,
 			 * The merge may have left an empty extent in
 			 * our leaf. Try to rotate it away.
 			 */
-			ret = ocfs2_rotate_tree_left(fs,left_path);
+			ret = ocfs2_rotate_tree_left(fs, et, left_path);
 			ret = 0;
 		}
 	}
@@ -2470,17 +2450,16 @@ static void ocfs2_subtract_from_rec(ocfs2_filesys *fs,
  * and then pointing the dinode to the new extent_block.
  */
 static errcode_t shift_tree_depth(ocfs2_filesys *fs,
-				  struct ocfs2_dinode *di,
+				  struct ocfs2_extent_tree *et,
 				  char **new_eb)
 {
 	errcode_t ret;
 	char *buf = NULL;
 	uint64_t blkno;
+	struct ocfs2_extent_list *el = et->et_root_el;
 	struct ocfs2_extent_block *eb;
-	struct ocfs2_extent_list *el;
 	uint32_t new_clusters;
 
-	el = &di->id2.i_list;
 	if (el->l_next_free_rec != el->l_count)
 		return OCFS2_ET_INTERNAL_FAILURE;
 
@@ -2513,7 +2492,7 @@ static errcode_t shift_tree_depth(ocfs2_filesys *fs,
 	el->l_next_free_rec = 1;
 
 	if (el->l_tree_depth == 1)
-		di->i_last_eb_blk = blkno;
+		ocfs2_et_set_last_eb_blk(et, blkno);
 
 	ret = ocfs2_write_extent_block(fs, blkno, buf);
 	if (!ret)
@@ -2648,15 +2627,16 @@ static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
 	int ret;
 	struct ocfs2_extent_block *eb;
 	struct ocfs2_extent_list *el;
-	struct ocfs2_dinode *di = ctxt->di;
 	struct ocfs2_extent_rec *insert_rec = &ctxt->rec;
 	ocfs2_filesys *fs = ctxt->fs;
+	struct ocfs2_extent_tree *et = ctxt->et;
 	struct ocfs2_path *path = NULL;
 	char *buf = *last_eb_buf;
+	uint64_t last_eb_blk = ocfs2_et_get_last_eb_blk(et);
 
 	insert->ins_split = SPLIT_NONE;
 
-	el = &di->id2.i_list;
+	el = et->et_root_el;
 	insert->ins_tree_depth = el->l_tree_depth;
 
 	if (el->l_tree_depth) {
@@ -2667,7 +2647,7 @@ static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
 		 * may want it later.
 		 */
 		assert(buf);
-		ret = ocfs2_read_extent_block(fs, di->i_last_eb_blk, buf);
+		ret = ocfs2_read_extent_block(fs, last_eb_blk, buf);
 		if (ret)
 			goto out;
 
@@ -2690,7 +2670,7 @@ static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
 		return 0;
 	}
 
-	path = ocfs2_new_inode_path(di);
+	path = ocfs2_new_path_from_et(et);
 	if (!path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
@@ -2736,7 +2716,7 @@ static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
 	 * the case that we're doing a tail append, so maybe we can
 	 * take advantage of that information somehow.
 	 */
-	if (di->i_last_eb_blk == path_leaf_blkno(path)) {
+	if (last_eb_blk == path_leaf_blkno(path)) {
 		/*
 		 * Ok, ocfs2_find_path() returned us the rightmost
 		 * tree path. This might be an appending insert. There are
@@ -3056,15 +3036,14 @@ static int ocfs2_do_insert_extent(struct insert_ctxt* ctxt,
 	struct ocfs2_path *left_path = NULL;
 	struct ocfs2_extent_rec *insert_rec = &ctxt->rec;
 	ocfs2_filesys *fs = ctxt->fs;
-	struct ocfs2_dinode *di = ctxt->di;
-	struct ocfs2_extent_list *el = &di->id2.i_list;
+	struct ocfs2_extent_list *el = ctxt->et->et_root_el;
 
 	if (el->l_tree_depth == 0) {
 		ocfs2_insert_at_leaf(fs, insert_rec, el, type);
 		goto out_update_clusters;
 	}
 
-	right_path = ocfs2_new_inode_path(di);
+	right_path = ocfs2_new_path_from_et(ctxt->et);
 	if (!right_path) {
 		ret = OCFS2_ET_NO_MEMORY;
 		goto out;
@@ -3119,7 +3098,7 @@ static int ocfs2_do_insert_extent(struct insert_ctxt* ctxt,
 
 out_update_clusters:
 	if (type->ins_split == SPLIT_NONE)
-		di->i_clusters += insert_rec->e_leaf_clusters;
+		ocfs2_et_update_clusters(ctxt->et, insert_rec->e_leaf_clusters);
 	ret = 0;
 
 out:
@@ -3346,15 +3325,17 @@ static void free_duplicated_extent_block_dinode(ocfs2_filesys *fs,
  *
  * *last_eb will be updated by ocfs2_add_branch().
  */
-static int ocfs2_grow_tree(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+static int ocfs2_grow_tree(ocfs2_filesys *fs,
+			   struct ocfs2_extent_tree *et,
 			   int *final_depth, char **last_eb)
 {
 	errcode_t ret;
 	char *eb_buf = NULL;
 	int shift;
-	int depth = di->id2.i_list.l_tree_depth;
+	struct ocfs2_extent_list *el = et->et_root_el;
+	int depth = el->l_tree_depth;
 
-	shift = ocfs2_find_branch_target(fs, di, &eb_buf);
+	shift = ocfs2_find_branch_target(fs, el, &eb_buf);
 	if (shift < 0) {
 		ret = shift;
 		goto out;
@@ -3368,7 +3349,7 @@ static int ocfs2_grow_tree(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		/* shift_tree_depth will return us a buffer with
 		 * the new extent block (so we can pass that to
 		 * ocfs2_add_branch). */
-		ret = shift_tree_depth(fs, di, &eb_buf);
+		ret = shift_tree_depth(fs, et, &eb_buf);
 		if (ret)
 			goto out;
 
@@ -3389,7 +3370,7 @@ static int ocfs2_grow_tree(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 
 	/* call ocfs2_add_branch to add the final part of the tree with
 	 * the new data. */
-	ret = ocfs2_add_branch(fs, di, eb_buf, last_eb);
+	ret = ocfs2_add_branch(fs, et, eb_buf, last_eb);
 
 out:
 	if (final_depth)
@@ -3400,9 +3381,9 @@ out:
 /*
  * Insert an extent into an inode btree.
  */
-errcode_t ocfs2_insert_extent(ocfs2_filesys *fs, uint64_t ino, uint32_t cpos,
-			      uint64_t c_blkno, uint32_t clusters,
-			      uint16_t flag)
+errcode_t ocfs2_inode_insert_extent(ocfs2_filesys *fs, uint64_t ino,
+				    uint32_t cpos, uint64_t c_blkno,
+				    uint32_t clusters, uint16_t flag)
 {
 	errcode_t ret;
 	ocfs2_cached_inode *ci = NULL;
@@ -3437,10 +3418,13 @@ errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
 	char *di_buf = NULL;
 	int free_records = 0;
 	ocfs2_filesys *fs = ci->ci_fs;
+	struct ocfs2_extent_tree et;
 
+	ocfs2_init_dinode_extent_tree(&et, fs, (char *)ci->ci_inode,
+				      ci->ci_inode->i_blkno);
 	ctxt.fs = fs;
-	ctxt.di = ci->ci_inode;
-	di_buf = (char *)ctxt.di;
+	ctxt.et = &et;
+	di_buf = (char *)ci->ci_inode;
 
 	/* In order to orderize the written block sequence and avoid
 	 * the corruption for the inode, we duplicate the extent block
@@ -3450,7 +3434,7 @@ errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
 	 * And if the duplicate process fails, we should go on the normal
 	 * insert process.
 	 */
-	if (ctxt.di->id2.i_list.l_tree_depth) {
+	if (ci->ci_inode->id2.i_list.l_tree_depth) {
 		ret = ocfs2_malloc_block(fs->fs_io, &backup_buf);
 		if (ret)
 			goto bail;
@@ -3484,7 +3468,7 @@ errcode_t ocfs2_cached_inode_insert_extent(ocfs2_cached_inode *ci,
 		goto bail;
 
 	if (insert.ins_contig == CONTIG_NONE && free_records == 0) {
-		ret = ocfs2_grow_tree(fs, ctxt.di,
+		ret = ocfs2_grow_tree(fs, ctxt.et,
 				      &insert.ins_tree_depth, &last_eb);
 		if (ret)
 			goto bail;
@@ -3554,7 +3538,7 @@ leftright:
 	 */
 	rec = path_leaf_el(path)->l_recs[split_index];
 
-	rightmost_el = &ctxt->di->id2.i_list;
+	rightmost_el = ctxt->et->et_root_el;
 
 	depth = rightmost_el->l_tree_depth;
 	if (depth) {
@@ -3564,7 +3548,8 @@ leftright:
 	}
 
 	if (rightmost_el->l_next_free_rec == rightmost_el->l_count) {
-		ret = ocfs2_grow_tree(ctxt->fs, ctxt->di, &depth, last_eb_buf);
+		ret = ocfs2_grow_tree(ctxt->fs, ctxt->et,
+				      &depth, last_eb_buf);
 		if (ret)
 			goto out;
 	}
@@ -3682,11 +3667,9 @@ static int __ocfs2_mark_extent_written(struct insert_ctxt *insert_ctxt,
 	 */
 	if (path->p_tree_depth) {
 		struct ocfs2_extent_block *eb;
-		struct ocfs2_dinode *di = insert_ctxt->di;
-
 		ret = ocfs2_read_extent_block(fs,
-					      di->i_last_eb_blk,
-					      last_eb_buf);
+				ocfs2_et_get_last_eb_blk(insert_ctxt->et),
+				last_eb_buf);
 		if (ret)
 			goto out;
 
@@ -3712,7 +3695,7 @@ static int __ocfs2_mark_extent_written(struct insert_ctxt *insert_ctxt,
 						     &last_eb_buf, split_index,
 						     &split_rec);
 	} else {
-		ret = ocfs2_try_to_merge_extent(fs, path,
+		ret = ocfs2_try_to_merge_extent(fs, insert_ctxt->et, path,
 						split_index, &split_rec,
 						&merge_ctxt);
 	}
@@ -3738,6 +3721,7 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	struct ocfs2_path *left_path = NULL;
 	struct ocfs2_extent_list *el;
 	struct insert_ctxt ctxt;
+	struct ocfs2_extent_tree et;
 	char *backup_buf = NULL, *di_buf = NULL;
 
 	if (!ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)))
@@ -3790,7 +3774,8 @@ int ocfs2_mark_extent_written(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	}
 
 	ctxt.fs = fs;
-	ctxt.di = di;
+	ocfs2_init_dinode_extent_tree(&et, fs, (char *)di, di->i_blkno);
+	ctxt.et = &et;
 
 	memset(&ctxt.rec, 0, sizeof(struct ocfs2_extent_rec));
 	ctxt.rec.e_cpos = cpos;
