@@ -89,5 +89,6 @@
 #include "special.h"
 #include "dir.h"
 #include "journal.h"
+#include "quota.h"
 
 #endif		/* __MAIN_H__ */

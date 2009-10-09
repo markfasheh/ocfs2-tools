@@ -332,6 +332,13 @@ void corrupt_sys_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case JOURNAL_TOO_SMALL:
 		func = mess_up_journal;
 		break;
+	case QMAGIC_INVALID:
+	case QTREE_BLK_INVALID:
+	case DQBLK_INVALID:
+	case DUP_DQBLK_INVALID:
+	case DUP_DQBLK_VALID:
+		func = mess_up_quota;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", type);
 	}
