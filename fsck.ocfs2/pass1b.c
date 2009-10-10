@@ -1124,6 +1124,7 @@ static errcode_t copy_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
 static errcode_t swap_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
 			    ocfs2_cached_inode *clone_ci)
 {
+	uint32_t clusters;
 	errcode_t ret;
 	struct ocfs2_extent_list *tmp_el = NULL;
 	struct ocfs2_extent_list *orig_el = &orig_ci->ci_inode->id2.i_list;
@@ -1142,6 +1143,14 @@ static errcode_t swap_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
 	memcpy(tmp_el, orig_el, el_size);
 	memcpy(orig_el, clone_el, el_size);
 	memcpy(clone_el, tmp_el, el_size);
+
+	/*
+	 * In new_clone, we allocate all the clusters disregard whether
+	 * there are holes. So here we need to update the i_clusters also.
+	 */
+	clusters = orig_ci->ci_inode->i_clusters;
+	orig_ci->ci_inode->i_clusters = clone_ci->ci_inode->i_clusters;
+	clone_ci->ci_inode->i_clusters = clusters;
 
 	/*
 	 * We write the cloned inode with the original extent list first.
