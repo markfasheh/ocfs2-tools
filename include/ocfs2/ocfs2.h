@@ -967,6 +967,24 @@ static inline uint64_t ocfs2_blocks_in_bytes(ocfs2_filesys *fs,
 	return ret >> OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
 }
 
+static inline uint64_t ocfs2_align_bytes_to_clusters(ocfs2_filesys *fs,
+						     uint64_t bytes)
+{
+	uint32_t clusters;
+
+	clusters = ocfs2_clusters_in_bytes(fs, bytes);
+	return (uint64_t)clusters <<
+			OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits;
+}
+
+static inline uint64_t ocfs2_align_bytes_to_blocks(ocfs2_filesys *fs,
+						   uint64_t bytes)
+{
+	uint64_t blocks;
+
+	blocks = ocfs2_blocks_in_bytes(fs, bytes);
+	return blocks << OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+}
 
 /* given a cluster offset, calculate which block group it belongs to
  * and return that block offset. */

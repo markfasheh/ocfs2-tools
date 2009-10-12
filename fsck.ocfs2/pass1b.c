@@ -1090,7 +1090,7 @@ static errcode_t copy_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
 	uint64_t offset = 0;
 	uint64_t filesize = orig_ci->ci_inode->i_size;
 	unsigned int iosize = 1024 * 1024;  /* Let's read in 1MB hunks */
-	unsigned int got, wrote;
+	unsigned int got, wrote, write_len;
 
 	ret = ocfs2_malloc_blocks(fs->fs_io, iosize / fs->fs_blocksize,
 				  &buf);
@@ -1100,15 +1100,15 @@ static errcode_t copy_clone(ocfs2_filesys *fs, ocfs2_cached_inode *orig_ci,
 	}
 
 	while (offset < filesize) {
-		if ((filesize - offset) < iosize)
-			iosize = filesize - offset;
 		ret = ocfs2_file_read(orig_ci, buf, iosize, offset, &got);
 		if (ret) {
 			com_err(whoami, ret, "while reading inode to clone");
 			break;
 		}
 
-		ret = ocfs2_file_write(clone_ci, buf, iosize, offset, &wrote);
+		write_len = ocfs2_align_bytes_to_blocks(fs, got);
+		ret = ocfs2_file_write(clone_ci, buf, write_len,
+				       offset, &wrote);
 		if (ret) {
 			com_err(whoami, ret, "while writing clone data");
 			break;
