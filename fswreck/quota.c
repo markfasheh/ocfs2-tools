@@ -127,6 +127,13 @@ void mess_up_quota(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	struct ocfs2_global_disk_dqblk *ddquot;
 	struct qt_disk_dqdbheader *dh;
 
+	if ((!OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+	      OCFS2_FEATURE_RO_COMPAT_USRQUOTA)) ||
+	    (!OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+	      OCFS2_FEATURE_RO_COMPAT_GRPQUOTA)))
+		FSWRK_FATAL("Should specify a volume with both usrquota and "
+			    "grpquota enabled to do this corruption.\n");
+
 	ret = ocfs2_init_fs_quota_info(fs, USRQUOTA);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
@@ -212,7 +219,7 @@ void mess_up_quota(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 		ocfs2_swap_quota_leaf_block_header(dh);
 		dh->dqdh_next_free = 0xFFFFFFFF;
 		dh->dqdh_prev_free = 0xFFFFFFFF;
-		dh->dqdh_entries = 0xFFFFFFFF;
+		dh->dqdh_entries = 0xFFFF;
 		ocfs2_swap_quota_leaf_block_header(dh);
 
 		ret = o2fswreck_write_blk(fs, qtype,
@@ -248,7 +255,7 @@ void mess_up_quota(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 		ocfs2_swap_quota_leaf_block_header(dh);
 		dh->dqdh_next_free = 0xFFFFFFFF;
 		dh->dqdh_prev_free = 0xFFFFFFFF;
-		dh->dqdh_entries = 0xFFFFFFFF;
+		dh->dqdh_entries = 0xFFFF;
 		ocfs2_swap_quota_leaf_block_header(dh);
 
 		ret = o2fswreck_write_blk(fs, qtype,
