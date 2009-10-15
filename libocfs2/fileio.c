@@ -302,7 +302,6 @@ static errcode_t ocfs2_file_block_write(ocfs2_cached_inode *ci,
 	uint32_t	tmp;
 	uint64_t	num_blocks;
 	int		bs_bits = OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
-	uint64_t	ino = ci->ci_blkno;
 	uint32_t	n_clusters, cluster_begin, cluster_end;
 	uint64_t	bpc = fs->fs_clustersize/fs->fs_blocksize;
 	int		insert = 0;
@@ -438,8 +437,14 @@ static errcode_t ocfs2_file_block_write(ocfs2_cached_inode *ci,
 					p_blkno & ~(bpc - 1));
 			if (ret)
 				return ret;
-			ocfs2_free_cached_inode(fs, ci);
-			ocfs2_read_cached_inode(fs,ino, &ci);
+			/*
+			 * We don't cache in the library right now, so any
+			 * work done in mark_extent_written won't be reflected
+			 * in our now stale copy. So refresh it.
+			 */
+			ret = ocfs2_refresh_cached_inode(fs, ci);
+			if (ret)
+				return ret;
 		}
 
 		*wrote += (contig_blocks << bs_bits);

@@ -101,3 +101,15 @@ errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
 
 	return ret;
 }
+
+errcode_t ocfs2_refresh_cached_inode(ocfs2_filesys *fs,
+				     ocfs2_cached_inode *cinode)
+{
+	if (cinode->ci_chains) {
+		ocfs2_bitmap_free(cinode->ci_chains);
+		cinode->ci_chains = NULL;
+	}
+
+	return ocfs2_read_inode(fs, cinode->ci_blkno,
+				(char *)cinode->ci_inode);
+}

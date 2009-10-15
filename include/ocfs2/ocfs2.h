@@ -329,6 +329,8 @@ errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
 				   ocfs2_cached_inode *cinode);
 errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 				  ocfs2_cached_inode *cinode);
+errcode_t ocfs2_refresh_cached_inode(ocfs2_filesys *fs,
+				     ocfs2_cached_inode *cinode);
 
 /*
  * obj is the object containing the extent list.  eg, if you are swapping
