@@ -653,7 +653,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:fFGnuvVyr:")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:DfFGnuvVyr:")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -677,6 +677,9 @@ int main(int argc, char **argv)
 					print_usage();
 					goto out;
 				}
+				break;
+			case 'D':
+				ost->ost_compress_dirs = 1;
 				break;
 
 			case 'F':
@@ -726,6 +729,13 @@ int main(int argc, char **argv)
 				goto out;
 				break;
 		}
+	}
+
+	if (!(open_flags & OCFS2_FLAG_RW) && ost->ost_compress_dirs) {
+		fprintf(stderr, "Compress directories (-D) incompatible with read-only mode\n");
+		fsck_mask |= FSCK_USAGE;
+		print_usage();
+		goto out;
 	}
 
 	if (blksize % OCFS2_MIN_BLOCKSIZE) {

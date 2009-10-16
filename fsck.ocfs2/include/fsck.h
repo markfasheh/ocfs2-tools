@@ -73,7 +73,8 @@ typedef struct _o2fsck_state {
  			ost_stale_mounts:1, /* set when reading publish blocks
  					     * that still indicated mounted */
 			ost_fix_fs_gen:1,
-			ost_has_journal_dirty:1;
+			ost_has_journal_dirty:1,
+			ost_compress_dirs:1;
 	errcode_t ost_err;
 } o2fsck_state;
 

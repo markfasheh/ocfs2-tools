@@ -49,4 +49,11 @@ extern int ocfs2_process_dir_block(ocfs2_filesys *fs,
 				   uint16_t	ext_flags,
 				   void		*priv_data);
 
+#define OCFS2_DIR_PAD                   4
+#define OCFS2_DIR_ROUND                 (OCFS2_DIR_PAD - 1)
+#define OCFS2_DIR_MEMBER_LEN            offsetof(struct ocfs2_dir_entry, name)
+#define OCFS2_DIR_REC_LEN(name_len)     (((name_len) + OCFS2_DIR_MEMBER_LEN + \
+                                          OCFS2_DIR_ROUND) & \
+                                         ~OCFS2_DIR_ROUND)
+
 #endif  /* _DIR_ITERATE_H */

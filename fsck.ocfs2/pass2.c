@@ -668,6 +668,7 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	struct dirblock_data *dd = priv_data;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
 	unsigned int offset = 0, ret_flags = 0, end = dd->fs->fs_blocksize;
+	unsigned int write_off, saved_reclen;
 	struct ocfs2_dinode *di = (struct ocfs2_dinode *)dd->inoblock_buf; 
 	errcode_t ret = 0;
 
@@ -722,6 +723,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		if (ocfs2_dir_has_trailer(dd->fs, di))
 			end = ocfs2_dir_trailer_blk_off(dd->fs);
 	}
+
+	write_off = offset;
 
 	while (offset < end) {
 		dirent = (struct ocfs2_dir_entry *)(dd->dirblock_buf + offset);
@@ -804,8 +807,29 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 				dirent->name, (uint64_t)dirent->inode);
 		o2fsck_icount_delta(dd->ost->ost_icount_refs, dirent->inode, 1);
 next:
-		offset += dirent->rec_len;
+		saved_reclen = dirent->rec_len;
+		if (dd->ost->ost_compress_dirs) {
+			if (prev && prev->inode) {
+				/*Bring previous rec_len to required space */
+				prev->rec_len = OCFS2_DIR_REC_LEN(prev->name_len);
+				write_off += prev->rec_len;
+			}
+			if (write_off < offset) {
+				verbosef("ino: %llu woff: %u off: %u\n",
+					dirent->inode, write_off, offset);
+				memmove(dd->dirblock_buf + write_off,
+					dd->dirblock_buf + offset,
+					OCFS2_DIR_REC_LEN(dirent->name_len));
+				dirent = (struct ocfs2_dir_entry *)(dd->dirblock_buf + write_off);
+				/* Cover space from our new location to
+				* the next dirent */
+				dirent->rec_len = saved_reclen + offset - write_off;
+
+				ret_flags |= OCFS2_DIRENT_CHANGED;
+			}
+		}
 		prev = dirent;
+		offset += saved_reclen;
 	}
 
 	if (ocfs2_dir_has_trailer(dd->fs, di))
