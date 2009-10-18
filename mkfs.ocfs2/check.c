@@ -90,24 +90,18 @@ static int pick_one(State *s, const char *what_is_it,
 	 * First, compare o2cb and disk values.  If we get past this
 	 * block (via match or override), the o2cb value takes precedence.
 	 */
-	if (disk_value) {
-		if (o2cb_value) {
-			if (strcmp(o2cb_value, disk_value)) {
-				fprintf(stderr,
-					"%s is configured to use %s \"%s\", but \"%s\" is currently running.\n"
-					"%s will not be able to determine if the filesystem is in use.\n",
-					s->device_name, what_is_it,
-					disk_value, o2cb_value,
-					s->progname);
-				if (!s->force) {
-					fprintf(stderr,
-						"To skip this check, use --force or -F\n");
-					goto out;
-				}
-				fprintf(stdout,
-					"Overwrite of disk information forced\n");
-			}
+	if (disk_value && o2cb_value && strcmp(o2cb_value, disk_value)) {
+		fprintf(stderr,
+			"%s is configured to use %s \"%s\", but \"%s\" is currently running.\n"
+			"%s will not be able to determine if the filesystem is in use.\n",
+			s->device_name, what_is_it,
+			disk_value, o2cb_value,
+			s->progname);
+		if (!s->force) {
+			fprintf(stderr, "To skip this check, use --force or -F\n");
+			goto out;
 		}
+		fprintf(stdout, "Overwrite of disk information forced\n");
 	}
 
 	if (user_value) {
