@@ -101,7 +101,7 @@ static errcode_t create_quota_files(ocfs2_filesys *fs, int type,
 			 type2name(type));
 		return ret;
 	}
-	fs->qinfo[type].flags = 0;
+	fs->qinfo[type].flags = OCFS2_QF_INFO_LOADED;
 	fs->qinfo[type].qi_info.dqi_syncms = OCFS2_DEF_QUOTA_SYNC;
 	fs->qinfo[type].qi_info.dqi_bgrace = OCFS2_DEF_BLOCK_GRACE;
 	fs->qinfo[type].qi_info.dqi_igrace = OCFS2_DEF_INODE_GRACE;

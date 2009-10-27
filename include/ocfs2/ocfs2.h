@@ -129,6 +129,7 @@
 
 /* Flags for global quotafile info */
 #define OCFS2_QF_INFO_DIRTY 1
+#define OCFS2_QF_INFO_LOADED 2
 
 typedef void (*ocfs2_chb_notify)(int state, char *progress, void *data);
 

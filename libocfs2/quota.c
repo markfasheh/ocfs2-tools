@@ -508,6 +508,9 @@ errcode_t ocfs2_init_fs_quota_info(ocfs2_filesys *fs, int type)
 	char fname[OCFS2_MAX_FILENAME_LEN];
 	errcode_t ret;
 
+	if (fs->qinfo[type].qi_inode)
+		return 0;
+
 	ocfs2_sprintf_system_inode_name(fname, sizeof(fname),
 		global_type, 0);
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, fname, strlen(fname),
@@ -563,6 +566,9 @@ errcode_t ocfs2_read_global_quota_info(ocfs2_filesys *fs, int type)
 	errcode_t ret;
 	struct ocfs2_global_disk_dqinfo *info;
 
+	if (fs->qinfo[type].flags & OCFS2_QF_INFO_LOADED)
+		return 0;
+
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret)
 		return ret;
@@ -574,6 +580,8 @@ errcode_t ocfs2_read_global_quota_info(ocfs2_filesys *fs, int type)
 	ocfs2_swap_quota_global_info(info);
 	memcpy(&(fs->qinfo[type].qi_info), info,
 	       sizeof(struct ocfs2_global_disk_dqinfo));
+	fs->qinfo[type].flags |= OCFS2_QF_INFO_LOADED;
+
 	return 0;
 }
 
