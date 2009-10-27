@@ -170,31 +170,63 @@ static void empty_inline_data_context(struct inline_data_context *ctxt)
 static errcode_t expand_inline_data(ocfs2_filesys *fs,
 				    struct inline_data_context *ctxt)
 {
-	errcode_t ret = 0;
+	errcode_t ret = 0, err;
 	struct list_head *pos;
 	struct inline_data_inode *idi;
 	ocfs2_cached_inode *ci = NULL;
 	struct tools_progress *prog;
+	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
+	ocfs2_quota_hash *usrhash = NULL, *grphash = NULL;
+	uint32_t uid, gid;
+	long long change;
 
 	prog = tools_progress_start("Expanding inline files", "expanding",
 				    ctxt->more_clusters);
 	if (!ctxt->prog)
 		return TUNEFS_ET_NO_MEMORY;
 
+	ret = ocfs2_load_fs_quota_info(fs);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_init_quota_change(fs, &usrhash, &grphash);
+	if (ret)
+		goto out;
+
 	list_for_each(pos, &ctxt->inodes) {
 		idi = list_entry(pos, struct inline_data_inode, list);
 
 		ret = ocfs2_read_cached_inode(fs, idi->blkno, &ci);
-		if (!ret) {
-			ret = ocfs2_convert_inline_data_to_extents(ci);
-			ocfs2_free_cached_inode(fs, ci);
-		}
-
 		if (ret)
 			break;
 
+		ret = ocfs2_convert_inline_data_to_extents(ci);
+		if (ret) {
+			ocfs2_free_cached_inode(fs, ci);
+			break;
+		}
+		if (ci->ci_inode->i_flags & OCFS2_SYSTEM_FL &&
+		    idi->blkno != super->s_root_blkno) {
+			ocfs2_free_cached_inode(fs, ci);
+			goto next;
+		}
+		change = ocfs2_clusters_to_bytes(fs,
+						 ci->ci_inode->i_clusters);
+		uid = ci->ci_inode->i_uid;
+		gid = ci->ci_inode->i_gid;
+		ocfs2_free_cached_inode(fs, ci);
+
+		ret = ocfs2_apply_quota_change(fs, usrhash, grphash, uid, gid,
+					       change, 0);
+		if (ret)
+			break;
+next:
 		tools_progress_step(prog, 1);
 	}
+out:
+	err = ocfs2_finish_quota_change(fs, usrhash, grphash);
+	if (!ret)
+		ret = err;
 
 	tools_progress_stop(prog);
 
