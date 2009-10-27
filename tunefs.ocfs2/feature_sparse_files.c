@@ -490,7 +490,9 @@ static errcode_t fill_sparse_files(ocfs2_filesys *fs,
 			if (ret)
 				break;
 		}
-		if (di->i_clusters != file->old_clusters) {
+		if (di->i_clusters != file->old_clusters &&
+		    (!(di->i_flags & OCFS2_SYSTEM_FL) ||
+		    file->blkno == super->s_root_blkno)) {
 			long long change;
 
 			if (di->i_clusters > file->old_clusters) {
