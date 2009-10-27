@@ -687,6 +687,7 @@ int ocfs2_qtree_entry_unused(struct ocfs2_global_disk_dqblk *ddquot);
 errcode_t ocfs2_init_global_quota_file(ocfs2_filesys *fs, int type);
 errcode_t ocfs2_init_fs_quota_info(ocfs2_filesys *fs, int type);
 errcode_t ocfs2_read_global_quota_info(ocfs2_filesys *fs, int type);
+errcode_t ocfs2_load_fs_quota_info(ocfs2_filesys *fs);
 errcode_t ocfs2_write_global_quota_info(ocfs2_filesys *fs, int type);
 errcode_t ocfs2_write_dquot(ocfs2_filesys *fs, int type,
 			    ocfs2_cached_dquot *dquot);
@@ -704,9 +705,24 @@ errcode_t ocfs2_find_quota_hash(ocfs2_quota_hash *hash, qid_t id,
 				ocfs2_cached_dquot **dquotp);
 errcode_t ocfs2_find_create_quota_hash(ocfs2_quota_hash *hash, qid_t id,
 				       ocfs2_cached_dquot **dquotp);
+errcode_t ocfs2_find_read_quota_hash(ocfs2_filesys *fs, ocfs2_quota_hash *hash,
+				     int type, qid_t id,
+				     ocfs2_cached_dquot **dquotp);
 errcode_t ocfs2_compute_quota_usage(ocfs2_filesys *fs,
 				    ocfs2_quota_hash *usr_hash,
 				    ocfs2_quota_hash *grp_hash);
+errcode_t ocfs2_init_quota_change(ocfs2_filesys *fs,
+				  ocfs2_quota_hash **usrhash,
+				  ocfs2_quota_hash **grphash);
+errcode_t ocfs2_finish_quota_change(ocfs2_filesys *fs,
+				    ocfs2_quota_hash *usrhash,
+				    ocfs2_quota_hash *grphash);
+errcode_t ocfs2_apply_quota_change(ocfs2_filesys *fs,
+				   ocfs2_quota_hash *usrhash,
+				   ocfs2_quota_hash *grphash,
+				   uid_t uid, gid_t gid,
+				   int64_t space_change,
+				   int64_t inode_change);
 errcode_t ocfs2_iterate_quota_hash(ocfs2_quota_hash *hash,
 				   errcode_t (*f)(ocfs2_cached_dquot *, void *),
 				   void *data);

@@ -229,6 +229,30 @@ errcode_t ocfs2_find_create_quota_hash(ocfs2_quota_hash *hash, qid_t id,
 	return 0;
 }
 
+errcode_t ocfs2_find_read_quota_hash(ocfs2_filesys *fs, ocfs2_quota_hash *hash,
+				     int type, qid_t id,
+				     ocfs2_cached_dquot **dquotp)
+{
+	errcode_t err;
+
+	err = ocfs2_find_quota_hash(hash, id, dquotp);
+	if (err)
+		return err;
+	if (*dquotp)
+		return 0;
+
+	err = ocfs2_read_dquot(fs, type, id, dquotp);
+	if (err)
+		return err;
+
+	err = ocfs2_insert_quota_hash(hash, *dquotp);
+	if (err) {
+		ocfs2_free(dquotp);
+		return err;
+	}
+	return 0;
+}
+
 errcode_t ocfs2_compute_quota_usage(ocfs2_filesys *fs,
 				    ocfs2_quota_hash *usr_hash,
 				    ocfs2_quota_hash *grp_hash)
@@ -294,6 +318,87 @@ out:
 		ocfs2_close_inode_scan(scan);
 	ocfs2_free(&buf);
 	return err;
+}
+
+errcode_t ocfs2_init_quota_change(ocfs2_filesys *fs,
+				  ocfs2_quota_hash **usrhash,
+				  ocfs2_quota_hash **grphash)
+{
+	errcode_t err;
+
+	*usrhash = NULL;
+	*grphash = NULL;
+	if (OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_RO_COMPAT_USRQUOTA)) {
+		err = ocfs2_new_quota_hash(usrhash);
+		if (err)
+			return err;
+	}
+	if (OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_RO_COMPAT_GRPQUOTA)) {
+		err = ocfs2_new_quota_hash(grphash);
+		if (err) {
+			if (*usrhash)
+				ocfs2_free_quota_hash(*usrhash);
+			return err;
+		}
+	}
+	return 0;
+}
+
+errcode_t ocfs2_finish_quota_change(ocfs2_filesys *fs,
+				    ocfs2_quota_hash *usrhash,
+				    ocfs2_quota_hash *grphash)
+{
+	errcode_t ret = 0, err;
+
+	if (usrhash) {
+		err = ocfs2_write_release_dquots(fs, USRQUOTA, usrhash);
+		if (!ret)
+			ret = err;
+		err = ocfs2_free_quota_hash(usrhash);
+		if (!ret)
+			ret = err;
+	}
+	if (grphash) {
+		err = ocfs2_write_release_dquots(fs, GRPQUOTA, grphash);
+		if (!ret)
+			ret = err;
+		err = ocfs2_free_quota_hash(grphash);
+		if (!ret)
+			ret = err;
+	}
+
+	return ret;
+}
+
+errcode_t ocfs2_apply_quota_change(ocfs2_filesys *fs,
+				   ocfs2_quota_hash *usrhash,
+				   ocfs2_quota_hash *grphash,
+				   uid_t uid, gid_t gid,
+				   int64_t space_change,
+				   int64_t inode_change)
+{
+	ocfs2_cached_dquot *dquot;
+	errcode_t err;
+
+	if (usrhash) {
+		err = ocfs2_find_read_quota_hash(fs, usrhash, USRQUOTA, uid,
+						 &dquot);
+		if (err)
+			return err;
+		dquot->d_ddquot.dqb_curspace += space_change;
+		dquot->d_ddquot.dqb_curinodes += inode_change;
+	}
+	if (grphash) {
+		err = ocfs2_find_read_quota_hash(fs, grphash, GRPQUOTA, gid,
+						 &dquot);
+		if (err)
+			return err;
+		dquot->d_ddquot.dqb_curspace += space_change;
+		dquot->d_ddquot.dqb_curinodes += inode_change;
+	}
+	return 0;
 }
 
 errcode_t ocfs2_iterate_quota_hash(ocfs2_quota_hash *hash,
@@ -612,6 +717,31 @@ errcode_t ocfs2_write_global_quota_info(ocfs2_filesys *fs, int type)
 bail:
 	ocfs2_free(&buf);
 	return ret;
+}
+
+errcode_t ocfs2_load_fs_quota_info(ocfs2_filesys *fs)
+{
+	errcode_t err;
+
+	if (OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_RO_COMPAT_USRQUOTA)) {
+		err = ocfs2_init_fs_quota_info(fs, USRQUOTA);
+		if (err)
+			return err;
+		err = ocfs2_read_global_quota_info(fs, USRQUOTA);
+		if (err)
+			return err;
+	}
+	if (OCFS2_HAS_RO_COMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_RO_COMPAT_GRPQUOTA)) {
+		err = ocfs2_init_fs_quota_info(fs, GRPQUOTA);
+		if (err)
+			return err;
+		err = ocfs2_read_global_quota_info(fs, GRPQUOTA);
+		if (err)
+			return err;
+	}
+	return 0;
 }
 
 #define OCFS2_GLOBAL_QF_INIT_BLOCKS 2
