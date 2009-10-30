@@ -2,3 +2,4 @@
 *.d
 test_client
 ocfs2_controld.cman
+ocfs2_controld.pcmk
