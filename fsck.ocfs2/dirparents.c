@@ -80,6 +80,9 @@ errcode_t o2fsck_add_dir_parent(struct rb_root *root,
 	rb_link_node(&dp->dp_node, parent, p);
 	rb_insert_color(&dp->dp_node, root);
 out:
+	if (ret && dp)
+		free(dp);
+
 	return ret;
 }
 
