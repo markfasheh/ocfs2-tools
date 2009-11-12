@@ -185,6 +185,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		   "Clear the UNWRITTEN flag?", er->e_cpos,
 		   (uint64_t)di->i_blkno)) {
 		er->e_flags &= ~OCFS2_EXT_UNWRITTEN;
+		*changed = 1;
 	}
 
 	first_block = ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno);
