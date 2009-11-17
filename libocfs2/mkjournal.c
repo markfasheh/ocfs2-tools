@@ -62,6 +62,19 @@ static int ocfs2_journal_check_available_features(journal_superblock_t *jsb,
 	    features->opt_compat)
 		return 0;
 
+	/*
+	 * ocfs2 will never use jbd2 checksums.  If a jbd2 checksum fails,
+	 * the transaction is not replayed.  This means that some parts of
+	 * the transaction may have checkpointed while other parts have not.
+	 * This inconsistent state requires fsck to repair.  ocfs2, being
+	 * clustered, can't tolerate that situation.  Instead, ocfs2
+	 * prefers to replay the journal.  This allows the cluster to
+	 * remain running.  Using the METAECC feature allows ocfs2 to
+	 * detect and isolate any corrupted blocks.
+	 */
+	if (features->opt_compat & JBD2_FEATURE_COMPAT_CHECKSUM)
+		return 0;
+
 	if ((features->opt_ro_compat & JBD2_KNOWN_ROCOMPAT_FEATURES) !=
 	    features->opt_ro_compat)
 		return 0;
