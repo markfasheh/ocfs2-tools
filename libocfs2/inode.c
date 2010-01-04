@@ -215,10 +215,7 @@ static inline void ocfs2_swap_inline_dir(ocfs2_filesys *fs,
 {
 	void *de_buf = di->id2.i_data.id_data;
 	uint64_t bytes = di->id2.i_data.id_count;
-	int max_inline = ocfs2_max_inline_data(fs->fs_blocksize);
-
-	if (di->i_dyn_features & OCFS2_INLINE_XATTR_FL)
-		max_inline -= di->i_xattr_inline_size;
+	int max_inline = ocfs2_max_inline_data_with_xattr(fs->fs_blocksize, di);
 
 	/* Just in case i_xattr_inline_size is garbage */
 	if (max_inline < 0)
