@@ -409,6 +409,12 @@ errcode_t ocfs2_decrease_refcount(ocfs2_filesys *fs,
 errcode_t ocfs2_refcount_cow(ocfs2_cached_inode *cinode,
 			     uint32_t cpos, uint32_t write_len,
 			     uint32_t max_cpos);
+errcode_t ocfs2_refcount_tree_get_rec(ocfs2_filesys *fs,
+				      struct ocfs2_refcount_block *rb,
+				      uint32_t phys_cpos,
+				      uint64_t *p_blkno,
+				      uint32_t *e_cpos,
+				      uint32_t *num_clusters);
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
 void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer);
@@ -850,6 +856,8 @@ enum ocfs2_feature_levels {
 errcode_t ocfs2_snprint_feature_flags(char *str, size_t size,
 				      ocfs2_fs_options *flags);
 errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags);
+errcode_t ocfs2_snprint_extent_flags(char *str, size_t size, uint8_t flags);
+errcode_t ocfs2_snprint_refcount_flags(char *str, size_t size, uint8_t flags);
 errcode_t ocfs2_parse_feature(const char *opts,
 			      ocfs2_fs_options *feature_flags,
 			      ocfs2_fs_options *reverse_flags);

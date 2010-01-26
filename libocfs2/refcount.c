@@ -1839,3 +1839,58 @@ errcode_t ocfs2_refcount_cow(ocfs2_cached_inode *cinode,
 
 	return ret;
 }
+
+errcode_t ocfs2_refcount_tree_get_rec(ocfs2_filesys *fs,
+				      struct ocfs2_refcount_block *rb,
+				      uint32_t phys_cpos,
+				      uint64_t *p_blkno,
+				      uint32_t *e_cpos,
+				      uint32_t *num_clusters)
+{
+	int i;
+	errcode_t ret = 0;
+	char *eb_buf = NULL;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec = NULL;
+	struct ocfs2_extent_list *el = &rb->rf_list;
+	uint64_t e_blkno = 0;
+
+	if (el->l_tree_depth) {
+		ret = ocfs2_tree_find_leaf(fs, el, rb->rf_blkno,
+					   (char *)rb, phys_cpos,
+					   &eb_buf);
+		if (ret)
+			goto out;
+
+		eb = (struct ocfs2_extent_block *)eb_buf;
+		el = &eb->h_list;
+
+		if (el->l_tree_depth) {
+			ret = OCFS2_ET_INVALID_ARGUMENT;
+			goto out;
+		}
+	}
+
+	for (i = el->l_next_free_rec - 1; i >= 0; i--) {
+		rec = &el->l_recs[i];
+
+		if (rec->e_cpos <= phys_cpos) {
+			e_blkno = rec->e_blkno;
+			break;
+		}
+	}
+
+	if (!e_blkno) {
+		ret = OCFS2_ET_INVALID_ARGUMENT;
+		goto out;
+	}
+
+	*p_blkno = rec->e_blkno;
+	*num_clusters = rec->e_leaf_clusters;
+	if (e_cpos)
+		*e_cpos = rec->e_cpos;
+out:
+	if (eb_buf)
+		ocfs2_free(&eb_buf);
+	return ret;
+}
