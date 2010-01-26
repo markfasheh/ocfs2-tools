@@ -109,3 +109,35 @@ int ocfs2_change_extent_flag(ocfs2_filesys *fs,
 int ocfs2_remove_extent(ocfs2_filesys *fs,
 			struct ocfs2_extent_tree *et,
 			uint32_t cpos, uint32_t len);
+/*
+ * Structures which describe a path through a btree, and functions to
+ * manipulate them.
+ *
+ * The idea here is to be as generic as possible with the tree
+ * manipulation code.
+ */
+struct ocfs2_path_item {
+	uint64_t			blkno;
+	char				*buf;
+	struct ocfs2_extent_list	*el;
+};
+
+#define OCFS2_MAX_PATH_DEPTH	5
+
+struct ocfs2_path {
+	int			p_tree_depth;
+	struct ocfs2_path_item	p_node[OCFS2_MAX_PATH_DEPTH];
+};
+
+#define path_root_blkno(_path) ((_path)->p_node[0].blkno)
+#define path_root_buf(_path) ((_path)->p_node[0].buf)
+#define path_root_el(_path) ((_path)->p_node[0].el)
+#define path_leaf_blkno(_path) ((_path)->p_node[(_path)->p_tree_depth].blkno)
+#define path_leaf_buf(_path) ((_path)->p_node[(_path)->p_tree_depth].buf)
+#define path_leaf_el(_path) ((_path)->p_node[(_path)->p_tree_depth].el)
+#define path_num_items(_path) ((_path)->p_tree_depth + 1)
+
+struct ocfs2_path *ocfs2_new_path_from_et(struct ocfs2_extent_tree *et);
+int ocfs2_find_path(ocfs2_filesys *fs, struct ocfs2_path *path,
+		    uint32_t cpos);
+void ocfs2_free_path(struct ocfs2_path *path);

@@ -107,34 +107,6 @@ static inline void ocfs2_et_update_clusters(struct ocfs2_extent_tree *et,
 	return et->et_ops->eo_update_clusters(et, clusters);
 }
 
-/*
- * Structures which describe a path through a btree, and functions to
- * manipulate them.
- *
- * The idea here is to be as generic as possible with the tree
- * manipulation code.
- */
-struct ocfs2_path_item {
-	uint64_t			blkno;
-	char				*buf;
-	struct ocfs2_extent_list	*el;
-};
-
-#define OCFS2_MAX_PATH_DEPTH	5
-
-struct ocfs2_path {
-	int			p_tree_depth;
-	struct ocfs2_path_item	p_node[OCFS2_MAX_PATH_DEPTH];
-};
-
-#define path_root_blkno(_path) ((_path)->p_node[0].blkno)
-#define path_root_buf(_path) ((_path)->p_node[0].buf)
-#define path_root_el(_path) ((_path)->p_node[0].el)
-#define path_leaf_blkno(_path) ((_path)->p_node[(_path)->p_tree_depth].blkno)
-#define path_leaf_buf(_path) ((_path)->p_node[(_path)->p_tree_depth].buf)
-#define path_leaf_el(_path) ((_path)->p_node[(_path)->p_tree_depth].el)
-#define path_num_items(_path) ((_path)->p_tree_depth + 1)
-
 struct insert_ctxt {
 	ocfs2_filesys *fs;
 	struct ocfs2_extent_tree *et;
@@ -175,7 +147,7 @@ static void ocfs2_reinit_path(struct ocfs2_path *path, int keep_root)
 	path->p_tree_depth = depth;
 }
 
-static void ocfs2_free_path(struct ocfs2_path *path)
+void ocfs2_free_path(struct ocfs2_path *path)
 {
 	/* We don't free the root because often in libocfs2 the root is a
 	 * shared buffer such as the inode.  Caller must be responsible for
@@ -299,7 +271,7 @@ static struct ocfs2_path *ocfs2_new_path_from_path(struct ocfs2_path *path)
 			      path_root_blkno(path));
 }
 
-static struct ocfs2_path *ocfs2_new_path_from_et(struct ocfs2_extent_tree *et)
+struct ocfs2_path *ocfs2_new_path_from_et(struct ocfs2_extent_tree *et)
 {
 	return ocfs2_new_path(et->et_root_buf, et->et_root_el,
 			      et->et_root_blkno);
@@ -1049,8 +1021,8 @@ static errcode_t find_path_ins(void *data, char *eb)
 	return 0;
 }
 
-static int ocfs2_find_path(ocfs2_filesys *fs, struct ocfs2_path *path,
-			   uint32_t cpos)
+int ocfs2_find_path(ocfs2_filesys *fs, struct ocfs2_path *path,
+		    uint32_t cpos)
 {
 	struct find_path_data data;
 
