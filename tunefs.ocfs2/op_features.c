@@ -43,6 +43,7 @@ extern struct tunefs_feature unwritten_extents_feature;
 extern struct tunefs_feature xattr_feature;
 extern struct tunefs_feature usrquota_feature;
 extern struct tunefs_feature grpquota_feature;
+extern struct tunefs_feature refcount_feature;
 
 /* List of features supported by ocfs2ne */
 static struct tunefs_feature *features[] = {
@@ -56,6 +57,7 @@ static struct tunefs_feature *features[] = {
 	&xattr_feature,
 	&usrquota_feature,
 	&grpquota_feature,
+	&refcount_feature,
 	NULL,
 };
 

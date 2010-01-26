@@ -22,6 +22,7 @@ OCFS2NE_FEATURES =			\
 	feature_inline_data		\
 	feature_local			\
 	feature_metaecc			\
+	feature_refcount		\
 	feature_sparse_files		\
 	feature_unwritten_extents	\
 	feature_xattr			\
