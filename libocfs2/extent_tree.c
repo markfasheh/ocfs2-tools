@@ -108,6 +108,51 @@ static struct ocfs2_extent_tree_operations ocfs2_refcount_tree_et_ops = {
 	.eo_extent_contig	= ocfs2_refcount_tree_extent_contig,
 };
 
+static void ocfs2_xattr_value_fill_root_el(struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_xattr_value_root *xv = et->et_object;
+
+	et->et_root_el = &xv->xr_list;
+}
+
+static void ocfs2_xattr_value_set_last_eb_blk(struct ocfs2_extent_tree *et,
+					      uint64_t blkno)
+{
+	struct ocfs2_xattr_value_root *xv = et->et_object;
+
+	xv->xr_last_eb_blk = blkno;
+}
+
+static uint64_t ocfs2_xattr_value_get_last_eb_blk(struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_xattr_value_root *xv = et->et_object;
+
+	return xv->xr_last_eb_blk;
+}
+
+static void ocfs2_xattr_value_update_clusters(struct ocfs2_extent_tree *et,
+					      uint32_t clusters)
+{
+	struct ocfs2_xattr_value_root *xv = et->et_object;
+
+	xv->xr_clusters += clusters;
+}
+
+static uint32_t ocfs2_xattr_value_get_clusters(struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_xattr_value_root *xv = et->et_object;
+
+	return xv->xr_clusters;
+}
+
+static struct ocfs2_extent_tree_operations ocfs2_xattr_value_et_ops = {
+	.eo_set_last_eb_blk	= ocfs2_xattr_value_set_last_eb_blk,
+	.eo_get_last_eb_blk	= ocfs2_xattr_value_get_last_eb_blk,
+	.eo_update_clusters	= ocfs2_xattr_value_update_clusters,
+	.eo_get_clusters	= ocfs2_xattr_value_get_clusters,
+	.eo_fill_root_el	= ocfs2_xattr_value_fill_root_el,
+};
+
 static void __ocfs2_init_extent_tree(struct ocfs2_extent_tree *et,
 				     ocfs2_filesys *fs,
 				     char *buf,
@@ -146,6 +191,17 @@ void ocfs2_init_refcount_extent_tree(struct ocfs2_extent_tree *et,
 				 ocfs2_write_refcount_block,
 				 buf, &ocfs2_refcount_tree_et_ops);
 }
+
+void ocfs2_init_xattr_value_extent_tree(struct ocfs2_extent_tree *et,
+					ocfs2_filesys *fs,
+					char *buf, uint64_t blkno,
+					ocfs2_root_write_func write,
+					struct ocfs2_xattr_value_root *xv)
+{
+	__ocfs2_init_extent_tree(et, fs, buf, blkno, write,
+				 xv, &ocfs2_xattr_value_et_ops);
+}
+
 static inline void ocfs2_et_set_last_eb_blk(struct ocfs2_extent_tree *et,
 					    uint64_t new_last_eb_blk)
 {
