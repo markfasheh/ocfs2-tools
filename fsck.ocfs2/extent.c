@@ -141,8 +141,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 			  struct ocfs2_extent_rec *er, int *changed)
 {
 	errcode_t ret = 0;
-	uint64_t first_block;
-	uint32_t last_cluster, clusters;
+	uint32_t clusters;
 
 	clusters = ocfs2_rec_clusters(el->l_tree_depth, er);
 	verbosef("cpos %u clusters %u blkno %"PRIu64"\n", er->e_cpos,
@@ -174,51 +173,8 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		goto out;
 	}
 
-	if (!ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(ost->ost_fs->fs_super)) &&
-	    (er->e_flags & OCFS2_EXT_UNWRITTEN) &&
-	    prompt(ost, PY, PR_EXTENT_MARKED_UNWRITTEN,
-		   "The extent record for cluster offset %"PRIu32" "
-		   "in owner %"PRIu64" has the UNWRITTEN flag set, but "
-		   "this filesystem does not support unwritten extents.  "
-		   "Clear the UNWRITTEN flag?", er->e_cpos, owner)) {
-		er->e_flags &= ~OCFS2_EXT_UNWRITTEN;
-		*changed = 1;
-	}
-
-	first_block = ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno);
-	first_block = ocfs2_clusters_to_blocks(ost->ost_fs, first_block);
-
-	if (first_block != er->e_blkno &&
-	    prompt(ost, PY, PR_EXTENT_BLKNO_UNALIGNED,
-		   "The extent record for cluster offset %"PRIu32" "
-		   "in owner %"PRIu64" refers to block %"PRIu64" which isn't "
-		   "aligned with the start of a cluster.  Point the extent "
-		   "record at block %"PRIu64" which starts this cluster?",
-		   er->e_cpos, owner,
-		   (uint64_t)er->e_blkno, first_block)) {
-
-		er->e_blkno = first_block;
-		*changed = 1;
-	}
-
-	/* imagine blkno 0, 1 er_clusters.  last_cluster is 1 and 
-	 * fs_clusters is 1, which is ok.. */
-	last_cluster = ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno) +
-		       clusters;
-
-	if (last_cluster > ost->ost_fs->fs_clusters &&
-	    prompt(ost, PY, PR_EXTENT_CLUSTERS_OVERRUN,
-		   "The extent record for cluster offset %"PRIu32" "
-		   "in inode %"PRIu64" refers to an extent that goes beyond "
-		   "the end of the volume.  Truncate the extent by %"PRIu32" "
-		   "clusters to fit it in the volume?", er->e_cpos, owner,
-		   last_cluster - ost->ost_fs->fs_clusters)) {
-
-		clusters -= last_cluster - ost->ost_fs->fs_clusters;
-		ocfs2_set_rec_clusters(el->l_tree_depth, er, clusters);
-		*changed = 1;
-	}
-	
+	if (ei->chk_rec_func)
+		ret = ei->chk_rec_func(ost, owner, el, er, changed, ei->para);
 	/* XXX offer to remove leaf records with er_clusters set to 0? */
 
 	/* XXX check that the blocks that are referenced aren't already 
@@ -352,13 +308,77 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 	return 0;
 }
 
+errcode_t o2fsck_check_extent_rec(o2fsck_state *ost,
+				  uint64_t owner,
+				  struct ocfs2_extent_list *el,
+				  struct ocfs2_extent_rec *er,
+				  int *changed,
+				  void *para)
+{
+	uint32_t clusters, last_cluster;
+	uint64_t first_block;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(ost->ost_fs->fs_super);
+	struct ocfs2_dinode *di = para;
+
+	clusters = ocfs2_rec_clusters(el->l_tree_depth, er);
+	first_block = ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno);
+	first_block = ocfs2_clusters_to_blocks(ost->ost_fs, first_block);
+
+	if (first_block != er->e_blkno &&
+	    prompt(ost, PY, PR_EXTENT_BLKNO_UNALIGNED,
+		   "The extent record for cluster offset %"PRIu32" "
+		   "in owner %"PRIu64" refers to block %"PRIu64" which isn't "
+		   "aligned with the start of a cluster.  Point the extent "
+		   "record at block %"PRIu64" which starts this cluster?",
+		   er->e_cpos, owner,
+		   (uint64_t)er->e_blkno, first_block)) {
+
+		er->e_blkno = first_block;
+		*changed = 1;
+	}
+
+	/* imagine blkno 0, 1 er_clusters.  last_cluster is 1 and
+	 * fs_clusters is 1, which is ok.. */
+	last_cluster = ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno) +
+		       clusters;
+
+	if (last_cluster > ost->ost_fs->fs_clusters &&
+	    prompt(ost, PY, PR_EXTENT_CLUSTERS_OVERRUN,
+		   "The extent record for cluster offset %"PRIu32" "
+		   "in inode %"PRIu64" refers to an extent that goes beyond "
+		   "the end of the volume.  Truncate the extent by %"PRIu32" "
+		   "clusters to fit it in the volume?", er->e_cpos, owner,
+		   last_cluster - ost->ost_fs->fs_clusters)) {
+
+		clusters -= last_cluster - ost->ost_fs->fs_clusters;
+		ocfs2_set_rec_clusters(el->l_tree_depth, er, clusters);
+		*changed = 1;
+	}
+
+	if (!ocfs2_writes_unwritten_extents(sb) &&
+	    (er->e_flags & OCFS2_EXT_UNWRITTEN) &&
+	    prompt(ost, PY, PR_EXTENT_MARKED_UNWRITTEN,
+		   "The extent record for cluster offset %"PRIu32" "
+		   "in owner %"PRIu64" has the UNWRITTEN flag set, but "
+		   "this filesystem does not support unwritten extents.  "
+		   "Clear the UNWRITTEN flag?", er->e_cpos,
+		   (uint64_t)di->i_blkno)) {
+		er->e_flags &= ~OCFS2_EXT_UNWRITTEN;
+		*changed = 1;
+	}
+
+	return 0;
+}
+
 errcode_t o2fsck_check_extents(o2fsck_state *ost,
 			       struct ocfs2_dinode *di)
 {
 	errcode_t ret;
 	struct extent_info ei = {0, };
 	int changed = 0;
-	
+
+	ei.chk_rec_func = o2fsck_check_extent_rec;
+	ei.para = di;
 	ret = check_el(ost, &ei, di->i_blkno, &di->id2.i_list,
 	         ocfs2_extent_recs_per_inode(ost->ost_fs->fs_blocksize),
 		 &changed);

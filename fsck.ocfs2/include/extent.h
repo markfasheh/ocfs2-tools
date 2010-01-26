@@ -22,12 +22,21 @@
 
 #include "fsck.h"
 
+typedef errcode_t (check_leaf_er_func)(o2fsck_state *ost,
+				       uint64_t owner,
+				       struct ocfs2_extent_list *el,
+				       struct ocfs2_extent_rec *er,
+				       int *changed,
+				       void *para);
+
 struct extent_info {
-	uint64_t	ei_max_size;
-	uint64_t	ei_clusters;
-	uint64_t	ei_last_eb_blk;
-	uint16_t	ei_expected_depth;
-	unsigned	ei_expect_depth:1;
+	uint64_t		ei_max_size;
+	uint64_t		ei_clusters;
+	uint64_t		ei_last_eb_blk;
+	uint16_t		ei_expected_depth;
+	unsigned		ei_expect_depth:1;
+	check_leaf_er_func	*chk_rec_func;
+	void			*para;
 };
 
 errcode_t o2fsck_check_extents(o2fsck_state *ost,
@@ -37,6 +46,12 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		   uint64_t owner,
 		   struct ocfs2_extent_list *el,
 		   uint16_t max_recs, int *changed);
+errcode_t o2fsck_check_extent_rec(o2fsck_state *ost,
+				  uint64_t owner,
+				  struct ocfs2_extent_list *el,
+				  struct ocfs2_extent_rec *er,
+				  int *changed,
+				  void *para);
 
 #endif /* __O2FSCK_EXTENT_H__ */
 

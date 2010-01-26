@@ -380,6 +380,8 @@ static errcode_t check_xattr_value(o2fsck_state *ost,
 	errcode_t ret = 0;
 	uint64_t owner;
 
+	ei.chk_rec_func = o2fsck_check_extent_rec;
+	ei.para = di;
 	for (i = 0 ; i < xh->xh_count; i++) {
 		int change = 0;
 		struct ocfs2_xattr_entry *xe = &xh->xh_entries[i];
@@ -605,6 +607,8 @@ static errcode_t o2fsck_check_xattr_index_block(o2fsck_state *ost,
 	if (!el->l_next_free_rec)
 		return 0;
 
+	ei.chk_rec_func = o2fsck_check_extent_rec;
+	ei.para = di;
 	ret = check_el(ost, &ei, xb->xb_blkno, el,
 		ocfs2_xattr_recs_per_xb(ost->ost_fs->fs_blocksize),
 		changed);
