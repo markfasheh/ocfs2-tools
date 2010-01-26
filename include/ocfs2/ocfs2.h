@@ -436,6 +436,9 @@ errcode_t ocfs2_refcount_tree_get_rec(ocfs2_filesys *fs,
 				      uint32_t *num_clusters);
 errcode_t ocfs2_refcount_punch_hole(ocfs2_filesys *fs, uint64_t rf_blkno,
 				    uint64_t p_start, uint32_t len);
+errcode_t ocfs2_change_refcount(ocfs2_filesys *fs, uint64_t rf_blkno,
+				uint64_t p_start, uint32_t len,
+				uint32_t refcount);
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
 void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer);

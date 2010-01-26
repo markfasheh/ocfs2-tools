@@ -1018,7 +1018,8 @@ out:
 
 static int __ocfs2_increase_refcount(ocfs2_filesys *fs,
 				     char *ref_root_buf,
-				     uint64_t cpos, uint32_t len, int merge)
+				     uint64_t cpos, uint32_t len, int merge,
+				     int value)
 {
 	int ret = 0, index;
 	char *ref_leaf_buf = NULL;
@@ -1053,11 +1054,11 @@ static int __ocfs2_increase_refcount(ocfs2_filesys *fs,
 		 */
 		if (rec.r_refcount && rec.r_cpos == cpos && set_len <= len) {
 			ret = ocfs2_change_refcount_rec(fs, ref_leaf_buf, index,
-							merge, 1);
+							merge, value);
 			if (ret)
 				goto out;
 		} else if (!rec.r_refcount) {
-			rec.r_refcount = 1;
+			rec.r_refcount = value;
 
 			ret = ocfs2_insert_refcount_rec(fs, ref_root_buf,
 							ref_leaf_buf,
@@ -1069,7 +1070,7 @@ static int __ocfs2_increase_refcount(ocfs2_filesys *fs,
 				      (uint64_t)(rec.r_cpos + set_len)) - cpos;
 			rec.r_cpos = cpos;
 			rec.r_clusters = set_len;
-			rec.r_refcount += 1;
+			rec.r_refcount += value;
 
 			ret = ocfs2_split_refcount_rec(fs, ref_root_buf,
 						       ref_leaf_buf,
@@ -1120,7 +1121,7 @@ errcode_t ocfs2_increase_refcount(ocfs2_filesys *fs, uint64_t ino,
 		goto out;
 
 	ret =  __ocfs2_increase_refcount(fs, ref_root_buf,
-					 cpos, len, 1);
+					 cpos, len, 1, 1);
 out:
 	if (ref_root_buf)
 		ocfs2_free(&ref_root_buf);
@@ -1938,6 +1939,45 @@ errcode_t ocfs2_refcount_punch_hole(ocfs2_filesys *fs, uint64_t rf_blkno,
 		len -= dec_len;
 		p_start += dec_len;
 	}
+out:
+	if (root_buf)
+		ocfs2_free(&root_buf);
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
+errcode_t ocfs2_change_refcount(ocfs2_filesys *fs, uint64_t rf_blkno,
+				uint64_t p_start, uint32_t len,
+				uint32_t refcount)
+{
+	errcode_t ret;
+	char *root_buf = NULL, *buf = NULL;
+	struct ocfs2_refcount_rec rec;
+	int index, value;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &root_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_refcount_block(fs, rf_blkno, root_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_get_refcount_rec(fs, root_buf, p_start,
+				     len, &rec, &index, buf);
+	assert(rec.r_refcount != refcount &&
+	       rec.r_cpos <= p_start &&
+	       rec.r_cpos + rec.r_clusters >= p_start + len);
+
+	value = refcount;
+	value -= rec.r_refcount;
+	ret = __ocfs2_increase_refcount(fs, root_buf, p_start, len,
+					1, value);
 out:
 	if (root_buf)
 		ocfs2_free(&root_buf);
