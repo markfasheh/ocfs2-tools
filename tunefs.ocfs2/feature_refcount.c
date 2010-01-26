@@ -115,6 +115,52 @@ static void empty_refcount_file_context(struct disable_refcount_ctxt *ctxt)
 	}
 }
 
+static int ocfs2_xattr_get_refcount_clusters(ocfs2_cached_inode *ci,
+					     char *xe_buf,
+					     uint64_t xe_blkno,
+					     struct ocfs2_xattr_entry *xe,
+					     char *value_buf,
+					     uint64_t value_blkno,
+					     void *value,
+					     int in_bucket,
+					     void *priv_data)
+{
+	errcode_t ret;
+	uint32_t *clusters = priv_data;
+	uint32_t cpos = 0, len, p_cluster, num_clusters;
+	uint16_t ext_flags;
+	struct ocfs2_xattr_value_root *xv;
+
+	if (ocfs2_xattr_is_local(xe))
+		return 0;
+
+	xv = (struct ocfs2_xattr_value_root *)value;
+	len = xv->xr_clusters;
+	while (len) {
+		ret = ocfs2_xattr_get_clusters(ci->ci_fs,
+					       &xv->xr_list,
+					       value_blkno,
+					       value_buf,
+					       cpos,
+					       &p_cluster,
+					       &num_clusters,
+					       &ext_flags);
+		if (ret)
+			break;
+
+		if (ext_flags & OCFS2_EXT_REFCOUNTED)
+			*clusters += num_clusters;
+
+		len -= num_clusters;
+		cpos += num_clusters;
+	}
+
+	if (ret)
+		return OCFS2_XATTR_ERROR;
+
+	return 0;
+}
+
 static errcode_t ocfs2_find_refcounted_clusters(ocfs2_filesys *fs,
 						uint64_t blkno,
 						uint32_t *clusters)
@@ -130,19 +176,26 @@ static errcode_t ocfs2_find_refcounted_clusters(ocfs2_filesys *fs,
 
 	*clusters = 0;
 	cpos = 0;
-	len = ocfs2_clusters_in_bytes(fs, ci->ci_inode->i_size);
-	while (len) {
-		ret = ocfs2_get_clusters(ci, cpos, &p_cluster,
-					 &num_clusters, &ext_flags);
-		if (ret)
-			break;
+	if (!(ci->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
+		len = ocfs2_clusters_in_bytes(fs, ci->ci_inode->i_size);
+		while (len) {
+			ret = ocfs2_get_clusters(ci, cpos, &p_cluster,
+						 &num_clusters, &ext_flags);
+			if (ret)
+				break;
 
-		if (ext_flags & OCFS2_EXT_REFCOUNTED)
-			*clusters += num_clusters;
+			if (ext_flags & OCFS2_EXT_REFCOUNTED)
+				*clusters += num_clusters;
 
-		len -= num_clusters;
-		cpos += num_clusters;
+			len -= num_clusters;
+			cpos += num_clusters;
+		}
 	}
+
+	if (ci->ci_inode->i_dyn_features & OCFS2_HAS_XATTR_FL)
+		ret = ocfs2_xattr_iterate(ci,
+					  ocfs2_xattr_get_refcount_clusters,
+					  clusters);
 out:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
@@ -167,13 +220,11 @@ static errcode_t refcount_iterate(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	if (di->i_flags & OCFS2_SYSTEM_FL)
 		goto bail;
 
-	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
-		goto bail;
-
 	if (!(di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL))
 		goto bail;
 
-	ret = ocfs2_find_refcounted_clusters(fs, di->i_blkno, &clusters);
+	ret = ocfs2_find_refcounted_clusters(fs, di->i_blkno,
+					     &clusters);
 	if (ret)
 		goto bail;
 
@@ -252,6 +303,55 @@ bail:
 	return ret;
 }
 
+static int ocfs2_xattr_cow_refcount_clusters(ocfs2_cached_inode *ci,
+					     char *xe_buf,
+					     uint64_t xe_blkno,
+					     struct ocfs2_xattr_entry *xe,
+					     char *value_buf,
+					     uint64_t value_blkno,
+					     void *value,
+					     int in_bucket,
+					     void *priv_data)
+{
+	errcode_t ret;
+	uint32_t cpos = 0, len, p_cluster, num_clusters;
+	uint16_t ext_flags;
+	struct ocfs2_xattr_value_root *xv;
+
+	if (ocfs2_xattr_is_local(xe))
+		return 0;
+
+	xv = (struct ocfs2_xattr_value_root *)value;
+	len = xv->xr_clusters;
+	while (len) {
+		ret = ocfs2_xattr_get_clusters(ci->ci_fs,
+					       &xv->xr_list,
+					       value_blkno,
+					       value_buf,
+					       cpos,
+					       &p_cluster,
+					       &num_clusters,
+					       &ext_flags);
+		if (ret)
+			break;
+
+		if (ext_flags & OCFS2_EXT_REFCOUNTED) {
+			ret = ocfs2_refcount_cow_xattr(ci, xe_buf, xe_blkno,
+						       value_buf, value_blkno,
+						       xv, 0, xv->xr_clusters);
+			break;
+		}
+
+		len -= num_clusters;
+		cpos += num_clusters;
+	}
+
+	if (ret)
+		return OCFS2_XATTR_ERROR;
+
+	return 0;
+}
+
 static errcode_t refcount_one_file(ocfs2_filesys *fs,
 				   struct refcount_file *file)
 {
@@ -263,11 +363,20 @@ static errcode_t refcount_one_file(ocfs2_filesys *fs,
 	if (ret)
 		goto out;
 
-	len = ocfs2_clusters_in_bytes(fs, ci->ci_inode->i_size);
+	if (!(ci->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
+		len = ocfs2_clusters_in_bytes(fs, ci->ci_inode->i_size);
+		ret = ocfs2_refcount_cow(ci, 0, len, UINT_MAX);
+		if (ret)
+			goto out;
+	}
 
-	ret = ocfs2_refcount_cow(ci, 0, len, UINT_MAX);
-	if (ret)
-		goto out;
+	if (ci->ci_inode->i_dyn_features & OCFS2_HAS_XATTR_FL) {
+		ret = ocfs2_xattr_iterate(ci,
+					  ocfs2_xattr_cow_refcount_clusters,
+					  NULL);
+		if (ret)
+			goto out;
+	}
 
 	ci->ci_inode->i_dyn_features &= ~OCFS2_HAS_REFCOUNT_FL;
 	ci->ci_inode->i_refcount_loc = 0;
