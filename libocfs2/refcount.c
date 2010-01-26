@@ -1894,3 +1894,122 @@ out:
 		ocfs2_free(&eb_buf);
 	return ret;
 }
+
+struct xattr_value_cow_object {
+	struct ocfs2_xattr_value_root *xv;
+	uint64_t xe_blkno;
+	uint64_t value_blkno;
+	char *xe_buf;
+	char *value_buf;
+};
+
+static int ocfs2_xattr_value_get_clusters(struct ocfs2_cow_context *context,
+					  uint32_t v_cluster,
+					  uint32_t *p_cluster,
+					  uint32_t *num_clusters,
+					  uint16_t *extent_flags)
+{
+	struct xattr_value_cow_object *obj = context->cow_object;
+
+	return ocfs2_xattr_get_clusters(context->fs,
+					&obj->xv->xr_list,
+					obj->value_blkno,
+					obj->value_buf,
+					v_cluster, p_cluster, num_clusters,
+					extent_flags);
+}
+
+static errcode_t ocfs2_write_xattr_bucket_in_cow(ocfs2_filesys *fs,
+						 void *para)
+{
+	struct xattr_value_cow_object *obj = para;
+
+	return ocfs2_write_xattr_bucket(fs, obj->xe_blkno, obj->xe_buf);
+}
+
+/*
+ * Do CoW for xattr.
+ */
+errcode_t ocfs2_refcount_cow_xattr(ocfs2_cached_inode *ci,
+				   char *xe_buf,
+				   uint64_t xe_blkno,
+				   char *value_buf,
+				   uint64_t value_blkno,
+				   struct ocfs2_xattr_value_root *xv,
+				   uint32_t cpos, uint32_t write_len)
+{
+	int ret;
+	uint32_t cow_start, cow_len;
+	struct ocfs2_cow_context context;
+	struct ocfs2_post_refcount post_refcount;
+	ocfs2_root_write_func write_func = NULL;
+	struct xattr_value_cow_object value_obj;
+
+	assert(ci->ci_inode->i_dyn_features & OCFS2_HAS_REFCOUNT_FL);
+
+	memset(&context, 0, sizeof(struct ocfs2_cow_context));
+
+	value_obj.xv = xv;
+	value_obj.xe_blkno = xe_blkno;
+	value_obj.value_blkno = value_blkno;
+	value_obj.xe_buf = xe_buf;
+	value_obj.value_buf = value_buf;
+	/*
+	 * Set the corresponding root write function.
+	 * If we are in the bucket, write the whole bucket by ourselves.
+	 */
+	if (xe_blkno == ci->ci_inode->i_blkno)
+		write_func = ocfs2_write_inode;
+	else if (xe_blkno == ci->ci_inode->i_xattr_loc)
+		write_func = ocfs2_write_xattr_block;
+	else {
+		/*
+		 * We are in a bucket and we can't write the extent tree
+		 * root by ourself. Set post_refcount so that the whole
+		 * bucket can be written after the CoW succeeds.
+		 */
+		post_refcount.para = &value_obj;
+		post_refcount.func = ocfs2_write_xattr_bucket_in_cow;
+		context.post_refcount = &post_refcount;
+	}
+	ocfs2_init_xattr_value_extent_tree(&context.data_et, ci->ci_fs,
+					   value_buf, value_blkno,
+					   write_func, xv);
+
+	ret = ocfs2_refcount_cal_cow_clusters(ci->ci_fs, &context.data_et,
+					      cpos, write_len, UINT_MAX,
+					      &cow_start, &cow_len);
+	if (ret)
+		goto out;
+
+	assert(cow_len > 0);
+
+	context.cow_start = cow_start;
+	context.cow_len = cow_len;
+	context.fs = ci->ci_fs;
+	context.get_clusters = ocfs2_xattr_value_get_clusters;
+	context.cow_object = &value_obj;
+
+	ret = ocfs2_malloc_block(ci->ci_fs->fs_io, &context.ref_root_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_refcount_block(ci->ci_fs,
+					ci->ci_inode->i_refcount_loc,
+					context.ref_root_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_replace_cow(&context);
+	if (ret)
+		goto out;
+
+	if (!write_func)
+		ret = ocfs2_write_xattr_bucket(ci->ci_fs,
+					       xe_blkno, xe_buf);
+
+out:
+	if (&context.ref_root_buf)
+		ocfs2_free(&context.ref_root_buf);
+	return ret;
+}

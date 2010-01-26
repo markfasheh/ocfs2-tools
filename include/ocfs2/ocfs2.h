@@ -417,6 +417,13 @@ errcode_t ocfs2_decrease_refcount(ocfs2_filesys *fs,
 errcode_t ocfs2_refcount_cow(ocfs2_cached_inode *cinode,
 			     uint32_t cpos, uint32_t write_len,
 			     uint32_t max_cpos);
+errcode_t ocfs2_refcount_cow_xattr(ocfs2_cached_inode *ci,
+				   char *xe_buf,
+				   uint64_t xe_blkno,
+				   char *value_buf,
+				   uint64_t value_blkno,
+				   struct ocfs2_xattr_value_root *xv,
+				   uint32_t cpos, uint32_t write_len);
 errcode_t ocfs2_refcount_tree_get_rec(ocfs2_filesys *fs,
 				      struct ocfs2_refcount_block *rb,
 				      uint32_t phys_cpos,
