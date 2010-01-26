@@ -34,9 +34,9 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
                                struct ocfs2_dinode *di);
 
 errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
-			  struct ocfs2_dinode *di,
-			  struct ocfs2_extent_list *el,
-			  uint16_t max_recs, int *changed);
+		   uint64_t owner,
+		   struct ocfs2_extent_list *el,
+		   uint16_t max_recs, int *changed);
 
 #endif /* __O2FSCK_EXTENT_H__ */
 

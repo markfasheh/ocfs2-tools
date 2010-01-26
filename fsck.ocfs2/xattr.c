@@ -372,23 +372,27 @@ wipe_entry:
 static errcode_t check_xattr_value(o2fsck_state *ost,
 				   struct ocfs2_dinode *di,
 				   struct ocfs2_xattr_header *xh,
+				   uint64_t start,
 				   int *changed)
 {
 	int i;
 	struct extent_info ei = {0, };
 	errcode_t ret = 0;
+	uint64_t owner;
 
 	for (i = 0 ; i < xh->xh_count; i++) {
 		int change = 0;
 		struct ocfs2_xattr_entry *xe = &xh->xh_entries[i];
 
 		if (!ocfs2_xattr_is_local(xe)) {
+			int offset = xe->xe_name_offset +
+					OCFS2_XATTR_SIZE(xe->xe_name_len);
 			struct ocfs2_xattr_value_root *xv =
 				(struct ocfs2_xattr_value_root *)
-				((void *)xh + xe->xe_name_offset +
-				OCFS2_XATTR_SIZE(xe->xe_name_len));
+				((void *)xh + offset);
 			struct ocfs2_extent_list *el = &xv->xr_list;
-			ret = check_el(ost, &ei, di, el, 1, &change);
+			owner = start + offset / ost->ost_fs->fs_blocksize;
+			ret = check_el(ost, &ei, owner, el, 1, &change);
 			if (ret)
 				return ret;
 			if (change)
@@ -415,7 +419,7 @@ static errcode_t check_xattr(o2fsck_state *ost,
 	if (check_xattr_entry(ost, di, xh, changed, xi))
 		return 0;
 
-	ret = check_xattr_value(ost, di, xh, changed);
+	ret = check_xattr_value(ost, di, xh, xi->blkno, changed);
 	if (ret)
 		return ret;
 
@@ -601,7 +605,7 @@ static errcode_t o2fsck_check_xattr_index_block(o2fsck_state *ost,
 	if (!el->l_next_free_rec)
 		return 0;
 
-	ret = check_el(ost, &ei, di, el,
+	ret = check_el(ost, &ei, xb->xb_blkno, el,
 		ocfs2_xattr_recs_per_xb(ost->ost_fs->fs_blocksize),
 		changed);
 	if (ret)

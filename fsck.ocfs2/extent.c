@@ -47,7 +47,7 @@
 static const char *whoami = "extent.c";
 
 static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
-			  struct ocfs2_dinode *di, uint64_t blkno,
+			  uint64_t owner, uint64_t blkno,
 			  int *is_valid)
 {
 	int changed = 0;
@@ -71,8 +71,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 	ret = ocfs2_read_extent_block_nocheck(ost->ost_fs, blkno, buf);
 	if (ret) {
 		com_err(whoami, ret, "reading extent block at %"PRIu64" in "
-			"inode %"PRIu64" for verification", blkno, 
-			(uint64_t)di->i_blkno);
+			"owner %"PRIu64" for verification", blkno, owner);
 		if (ret == OCFS2_ET_BAD_EXTENT_BLOCK_MAGIC)
 			*is_valid = 0;
 		goto out;
@@ -82,9 +81,9 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 
 	if (eb->h_blkno != blkno &&
 	    prompt(ost, PY, PR_EB_BLKNO,
-		   "An extent block at %"PRIu64" in inode %"PRIu64" "
+		   "An extent block at %"PRIu64" in owner %"PRIu64" "
 		   "claims to be located at block %"PRIu64".  Update the "
-		   "extent block's location?", blkno, (uint64_t)di->i_blkno,
+		   "extent block's location?", blkno, owner,
 		   (uint64_t)eb->h_blkno)) {
 		eb->h_blkno = blkno;
 		changed = 1;
@@ -92,11 +91,10 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 
 	if (eb->h_fs_generation != ost->ost_fs_generation) {
 		if (prompt(ost, PY, PR_EB_GEN,
-			   "An extent block at %"PRIu64" in inode "
+			   "An extent block at %"PRIu64" in owner "
 			   "%"PRIu64" has a generation of %x which doesn't "
 			   "match the volume's generation of %x.  Consider "
-			   "this extent block invalid?", blkno,
-			   (uint64_t)di->i_blkno,
+			   "this extent block invalid?", blkno, owner,
 			   eb->h_fs_generation,
 			   ost->ost_fs_generation)) {
 
@@ -115,7 +113,7 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 	/* XXX worry about suballoc node/bit */
 	/* XXX worry about next_leaf_blk */
 
-	check_el(ost, ei, di, &eb->h_list,
+	check_el(ost, ei, owner, &eb->h_list,
 		 ocfs2_extent_recs_per_eb(ost->ost_fs->fs_blocksize), 
 		 &changed);
 
@@ -123,8 +121,8 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 		ret = ocfs2_write_extent_block(ost->ost_fs, blkno, buf);
 		if (ret) {
 			com_err(whoami, ret, "while writing an updated extent "
-				"block at %"PRIu64" for inode %"PRIu64,
-				blkno, (uint64_t)di->i_blkno);
+				"block at %"PRIu64" for owner %"PRIu64,
+				blkno, owner);
 			goto out;
 		}
 	}
@@ -138,7 +136,7 @@ out:
 /* the caller will check if er->e_blkno is out of range to determine if it
  * should try removing the record */
 static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
-			  struct ocfs2_dinode *di,
+			  uint64_t owner,
 			  struct ocfs2_extent_list *el,
 			  struct ocfs2_extent_rec *er, int *changed)
 {
@@ -160,14 +158,14 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		 * is checked */
 		ei->ei_expect_depth = 1;
 		ei->ei_expected_depth = el->l_tree_depth - 1;
-		check_eb(ost, ei, di, er->e_blkno, &is_valid);
+		check_eb(ost, ei, owner, er->e_blkno, &is_valid);
 		if (!is_valid && 
 		    prompt(ost, PY, PR_EXTENT_EB_INVALID,
 			   "The extent record for cluster offset "
-			   "%"PRIu32" in inode %"PRIu64" refers to an invalid "
+			   "%"PRIu32" in owner %"PRIu64" refers to an invalid "
 			   "extent block at %"PRIu64".  Clear the reference "
-			   "to this invalid block?", er->e_cpos,
-			   (uint64_t)di->i_blkno, (uint64_t)er->e_blkno)) {
+			   "to this invalid block?", er->e_cpos, owner,
+			   (uint64_t)er->e_blkno)) {
 
 			er->e_blkno = 0;
 			*changed = 1;
@@ -180,10 +178,9 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 	    (er->e_flags & OCFS2_EXT_UNWRITTEN) &&
 	    prompt(ost, PY, PR_EXTENT_MARKED_UNWRITTEN,
 		   "The extent record for cluster offset %"PRIu32" "
-		   "in inode %"PRIu64" has the UNWRITTEN flag set, but "
+		   "in owner %"PRIu64" has the UNWRITTEN flag set, but "
 		   "this filesystem does not support unwritten extents.  "
-		   "Clear the UNWRITTEN flag?", er->e_cpos,
-		   (uint64_t)di->i_blkno)) {
+		   "Clear the UNWRITTEN flag?", er->e_cpos, owner)) {
 		er->e_flags &= ~OCFS2_EXT_UNWRITTEN;
 		*changed = 1;
 	}
@@ -194,10 +191,10 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 	if (first_block != er->e_blkno &&
 	    prompt(ost, PY, PR_EXTENT_BLKNO_UNALIGNED,
 		   "The extent record for cluster offset %"PRIu32" "
-		   "in inode %"PRIu64" refers to block %"PRIu64" which isn't "
+		   "in owner %"PRIu64" refers to block %"PRIu64" which isn't "
 		   "aligned with the start of a cluster.  Point the extent "
 		   "record at block %"PRIu64" which starts this cluster?",
-		   er->e_cpos, (uint64_t)di->i_blkno,
+		   er->e_cpos, owner,
 		   (uint64_t)er->e_blkno, first_block)) {
 
 		er->e_blkno = first_block;
@@ -214,8 +211,7 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		   "The extent record for cluster offset %"PRIu32" "
 		   "in inode %"PRIu64" refers to an extent that goes beyond "
 		   "the end of the volume.  Truncate the extent by %"PRIu32" "
-		   "clusters to fit it in the volume?", er->e_cpos,
-		   (uint64_t)di->i_blkno,
+		   "clusters to fit it in the volume?", er->e_cpos, owner,
 		   last_cluster - ost->ost_fs->fs_clusters)) {
 
 		clusters -= last_cluster - ost->ost_fs->fs_clusters;
@@ -233,9 +229,9 @@ out:
 }
 
 errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
-			  struct ocfs2_dinode *di,
-			  struct ocfs2_extent_list *el,
-			  uint16_t max_recs, int *changed)
+		   uint64_t owner,
+		   struct ocfs2_extent_list *el,
+		   uint16_t max_recs, int *changed)
 {
 	int trust_next_free = 1;
 	struct ocfs2_extent_rec *er;
@@ -250,9 +246,9 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 	if (ei->ei_expect_depth && 
 	    el->l_tree_depth != ei->ei_expected_depth &&
 	    prompt(ost, PY, PR_EXTENT_LIST_DEPTH,
-		   "Extent list in inode %"PRIu64" is recorded as "
+		   "Extent list in owner %"PRIu64" is recorded as "
 		   "being at depth %u but we expect it to be at depth %u. "
-		   "update the list?", (uint64_t)di->i_blkno, el->l_tree_depth,
+		   "update the list?", owner, el->l_tree_depth,
 		   ei->ei_expected_depth)) {
 
 		el->l_tree_depth = ei->ei_expected_depth;
@@ -261,9 +257,9 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 
 	if (el->l_count > max_recs &&
 	    prompt(ost, PY, PR_EXTENT_LIST_COUNT,
-		   "Extent list in inode %"PRIu64" claims to have %u "
+		   "Extent list in owner %"PRIu64" claims to have %u "
 		   "records, but the maximum is %u. Fix the list's count?",
-		   (uint64_t)di->i_blkno, el->l_count, max_recs)) {
+		   owner, el->l_count, max_recs)) {
 
 		el->l_count = max_recs;
 		*changed = 1;
@@ -274,10 +270,10 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 
 	if (el->l_next_free_rec > max_recs) {
 		if (prompt(ost, PY, PR_EXTENT_LIST_FREE,
-		  	   "Extent list in inode %"PRIu64" claims %u "
+			   "Extent list in owner %"PRIu64" claims %u "
 			   "as the next free chain record, but fsck believes "
 			   "the largest valid value is %u.  Clamp the next "
-			   "record value?", (uint64_t)di->i_blkno,
+			   "record value?", owner,
 			   el->l_next_free_rec, max_recs)) {
 
 			el->l_next_free_rec = el->l_count;
@@ -306,15 +302,14 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		/* returns immediately if blkno is out of range.
 		 * descends into eb.  checks that data er doesn't
 		 * reference past the volume or anything crazy. */
-		check_er(ost, ei, di, el, er, changed);
+		check_er(ost, ei, owner, el, er, changed);
 
 		/* offer to remove records that point to nowhere */
 		if (ocfs2_block_out_of_range(ost->ost_fs, er->e_blkno) && 
 		    prompt(ost, PY, PR_EXTENT_BLKNO_RANGE,
-			   "Extent record %u in inode %"PRIu64" "
+			   "Extent record %u in owner %"PRIu64" "
 			   "refers to a block that is out of range.  Remove "
-			   "this record from the extent list?", i,
-			   (uint64_t)di->i_blkno)) {
+			   "this record from the extent list?", i, owner)) {
 
 			if (!trust_next_free) {
 				printf("Can't remove the record becuase "
@@ -364,7 +359,7 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 	struct extent_info ei = {0, };
 	int changed = 0;
 	
-	ret = check_el(ost, &ei, di, &di->id2.i_list, 
+	ret = check_el(ost, &ei, di->i_blkno, &di->id2.i_list,
 	         ocfs2_extent_recs_per_inode(ost->ost_fs->fs_blocksize),
 		 &changed);
 
