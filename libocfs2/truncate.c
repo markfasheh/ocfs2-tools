@@ -175,6 +175,7 @@ static errcode_t ocfs2_zero_tail_for_truncate(ocfs2_cached_inode *ci,
 	ocfs2_filesys *fs = ci->ci_fs;
 	uint64_t start_blk, p_blkno, contig_blocks, start_off;
 	int count, byte_counts, bpc = fs->fs_clustersize /fs->fs_blocksize;
+	uint16_t ext_flags;
 
 	if (new_size == 0)
 		return 0;
@@ -182,13 +183,29 @@ static errcode_t ocfs2_zero_tail_for_truncate(ocfs2_cached_inode *ci,
 	start_blk = new_size / fs->fs_blocksize;
 
 	ret = ocfs2_extent_map_get_blocks(ci, start_blk, 1,
-					  &p_blkno, &contig_blocks, NULL);
+					  &p_blkno, &contig_blocks, &ext_flags);
 	if (ret)
 		goto out;
 
 	/* Tail is a hole. */
 	if (!p_blkno)
 		goto out;
+
+	if (ext_flags & OCFS2_EXT_REFCOUNTED) {
+		uint32_t cpos = ocfs2_blocks_to_clusters(fs, start_blk);
+		ret = ocfs2_refcount_cow(ci, cpos, 1, cpos + 1);
+		if (ret)
+			goto out;
+
+		ret = ocfs2_extent_map_get_blocks(ci, start_blk, 1,
+						  &p_blkno, &contig_blocks,
+						  &ext_flags);
+		if (ret)
+			goto out;
+
+		assert(!(ext_flags & OCFS2_EXT_REFCOUNTED) && p_blkno);
+
+	}
 
 	/* calculate the total blocks we need to empty. */
 	count = bpc - (p_blkno & (bpc - 1));
