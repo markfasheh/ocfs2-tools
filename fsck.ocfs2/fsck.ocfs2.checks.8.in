@@ -554,6 +554,12 @@ found that a file in a non-refcount volume has refcount flag set.
 
 Answering yes remove this flag from the file.
 
+.SS "REFCOUNT_LOC_INVALID"
+Refcount loc can only be valid if the file has refcount flag set. Fsck has
+found that a file has refcount loc while it does't have refcount flag set.
+
+Answering yes reset refcount loc to zero for the file.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"
