@@ -159,6 +159,22 @@ void ocfs2_free_path(struct ocfs2_path *path)
 	}
 }
 
+static enum ocfs2_contig_type
+	ocfs2_extent_rec_contig(ocfs2_filesys *fs,
+				struct ocfs2_extent_rec *ext,
+				struct ocfs2_extent_rec *insert_rec);
+static inline enum ocfs2_contig_type
+	ocfs2_et_extent_contig(ocfs2_filesys *fs,
+			       struct ocfs2_extent_tree *et,
+			       struct ocfs2_extent_rec *rec,
+			       struct ocfs2_extent_rec *insert_rec)
+{
+	if (et->et_ops->eo_extent_contig)
+		return et->et_ops->eo_extent_contig(fs, et, rec, insert_rec);
+
+	return ocfs2_extent_rec_contig(fs, rec, insert_rec);
+}
+
 /*
  * All the elements of src into dest. After this call, src could be freed
  * without affecting dest.
@@ -372,16 +388,9 @@ int ocfs2_search_extent_list(struct ocfs2_extent_list *el, uint32_t v_cluster)
 	return ret;
 }
 
-enum ocfs2_contig_type {
-	CONTIG_NONE = 0,
-	CONTIG_LEFT,
-	CONTIG_RIGHT,
-	CONTIG_LEFTRIGHT,
-};
-
 /*
  * NOTE: ocfs2_block_extent_contig(), ocfs2_extents_adjacent() and
- * ocfs2_extent_contig only work properly against leaf nodes!
+ * ocfs2_extent_rec_contig only work properly against leaf nodes!
  */
 static inline int ocfs2_block_extent_contig(ocfs2_filesys *fs,
 					    struct ocfs2_extent_rec *ext,
@@ -405,9 +414,9 @@ static inline int ocfs2_extents_adjacent(struct ocfs2_extent_rec *left,
 }
 
 static enum ocfs2_contig_type
-	ocfs2_extent_contig(ocfs2_filesys *fs,
-			    struct ocfs2_extent_rec *ext,
-			    struct ocfs2_extent_rec *insert_rec)
+	ocfs2_extent_rec_contig(ocfs2_filesys *fs,
+				struct ocfs2_extent_rec *ext,
+				struct ocfs2_extent_rec *insert_rec)
 {
 	uint64_t blkno = insert_rec->e_blkno;
 
@@ -2472,6 +2481,7 @@ out:
 
 static enum ocfs2_contig_type
 ocfs2_figure_merge_contig_type(ocfs2_filesys *fs,
+			       struct ocfs2_extent_tree *et,
 			       struct ocfs2_extent_list *el, int index,
 			       struct ocfs2_extent_rec *split_rec)
 {
@@ -2489,7 +2499,7 @@ ocfs2_figure_merge_contig_type(ocfs2_filesys *fs,
 			if (split_rec->e_cpos == el->l_recs[index].e_cpos)
 				ret = CONTIG_RIGHT;
 		} else {
-			ret = ocfs2_extent_contig(fs, rec, split_rec);
+			ret = ocfs2_et_extent_contig(fs, et, rec, split_rec);
 		}
 	}
 
@@ -2497,7 +2507,7 @@ ocfs2_figure_merge_contig_type(ocfs2_filesys *fs,
 		enum ocfs2_contig_type contig_type;
 
 		rec = &el->l_recs[index + 1];
-		contig_type = ocfs2_extent_contig(fs, rec, split_rec);
+		contig_type = ocfs2_et_extent_contig(fs, et, rec, split_rec);
 
 		if (contig_type == CONTIG_LEFT && ret == CONTIG_RIGHT)
 			ret = CONTIG_LEFTRIGHT;
@@ -2509,6 +2519,7 @@ ocfs2_figure_merge_contig_type(ocfs2_filesys *fs,
 }
 
 static void ocfs2_figure_contig_type(ocfs2_filesys *fs,
+				     struct ocfs2_extent_tree *et,
 				     struct ocfs2_insert_type *insert,
 				     struct ocfs2_extent_list *el,
 				     struct ocfs2_extent_rec *insert_rec)
@@ -2519,8 +2530,8 @@ static void ocfs2_figure_contig_type(ocfs2_filesys *fs,
 	assert(el->l_tree_depth == 0);
 
 	for(i = 0; i < el->l_next_free_rec; i++) {
-		contig_type = ocfs2_extent_contig(fs, &el->l_recs[i],
-						  insert_rec);
+		contig_type = ocfs2_et_extent_contig(fs, et, &el->l_recs[i],
+						     insert_rec);
 		if (contig_type != CONTIG_NONE) {
 			insert->ins_contig_index = i;
 			break;
@@ -2631,7 +2642,7 @@ static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
 	*free_records = el->l_count - el->l_next_free_rec;
 
 	if (!insert->ins_tree_depth) {
-		ocfs2_figure_contig_type(fs, insert, el, insert_rec);
+		ocfs2_figure_contig_type(fs, et, insert, el, insert_rec);
 		ocfs2_figure_appending_type(insert, el, insert_rec);
 		return 0;
 	}
@@ -2661,7 +2672,7 @@ static int ocfs2_figure_insert_type(struct insert_ctxt *ctxt,
          *     into two types of appends: simple record append, or a
          *     rotate inside the tail leaf.
 	 */
-	ocfs2_figure_contig_type(fs, insert, el, insert_rec);
+	ocfs2_figure_contig_type(fs, et, insert, el, insert_rec);
 
 	/*
 	 * The insert code isn't quite ready to deal with all cases of
@@ -3598,9 +3609,9 @@ static int ocfs2_split_extent(struct insert_ctxt *insert_ctxt,
 		goto out;
 	}
 
-	merge_ctxt.c_contig_type = ocfs2_figure_merge_contig_type(fs, el,
-								  split_index,
-								  &split_rec);
+	merge_ctxt.c_contig_type =
+		ocfs2_figure_merge_contig_type(fs, insert_ctxt->et, el,
+					       split_index, &split_rec);
 
 	/*
 	 * We have to allocate the last_eb_buf no matter the current tree

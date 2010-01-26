@@ -29,6 +29,13 @@ struct ocfs2_extent_tree {
 	uint32_t				et_max_leaf_clusters;
 };
 
+enum ocfs2_contig_type {
+	CONTIG_NONE = 0,
+	CONTIG_LEFT,
+	CONTIG_RIGHT,
+	CONTIG_LEFTRIGHT,
+};
+
 /*
  * Operations for a specific extent tree type.
  *
@@ -91,7 +98,18 @@ struct ocfs2_extent_tree_operations {
 	 * to 0 (unlimited).  Optional.
 	 */
 	void (*eo_fill_max_leaf_clusters)(ocfs2_filesys *fs,
-					  struct ocfs2_extent_tree *et);
+				  struct ocfs2_extent_tree *et);
+
+	/*
+	 * ->eo_extent_contig test whether the 2 ocfs2_extent_rec
+	 * are contiguous or not. Optional. Don't need to set it if use
+	 * ocfs2_extent_rec as the tree leaf.
+	 */
+	enum ocfs2_contig_type
+		(*eo_extent_contig)(ocfs2_filesys *fs,
+				    struct ocfs2_extent_tree *et,
+				    struct ocfs2_extent_rec *ext,
+				    struct ocfs2_extent_rec *insert_rec);
 };
 
 void ocfs2_init_dinode_extent_tree(struct ocfs2_extent_tree *et,
