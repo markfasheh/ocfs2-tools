@@ -33,6 +33,7 @@ CFILES =	fsck.c		\
 		pass4.c 	\
 		pass5.c		\
 		problem.c 	\
+		refcount.c	\
 		slot_recovery.c \
 		strings.c 	\
 		util.c		\

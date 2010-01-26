@@ -566,6 +566,39 @@ found that a file has refcount loc while it does't have refcount flag set.
 
 Answering yes reset refcount loc to zero for the file.
 
+.SS "RB_BLKNO"
+refcount blocks contain a record of the disk block where they are located.
+An refcount block was found at a block that didn't match its recorded location.
+
+Answering yes will update the data structure in the refcount block to reflect
+its real location on disk.
+
+.SS "RB_GEN"
+Refcount blocks are created with a generation number to match the generation
+number of the volume at the time of creation.  An refcount block was found which
+contains a generation number that doesn't match.
+
+Answering yes implies that the generation number is correct and that the
+refcount block is from a previous file system.  The refcount block will be
+removed and the file that uses it will lose the refcounted information, but
+it may be regenerated later.
+
+.SS "RB_GEN_FIX"
+Refcount blocks are created with a generation number to match the generation
+number of the volume at the time of creation.  An refcount block was found which
+contains a generation number that doesn't match.
+
+Answering yes implies that the generation number in the refcount block is
+incorrect and that the refcount block is valid.  The generation number in the
+block is updated to match the generation number in the volume.
+
+.SS "RB_PARENT"
+refcount blocks contain a record of the parent this disk block belongs to.
+An refcount block was found storing a wrong parent location.
+
+Answering yes will update the data structure in the refcount block to reflect
+its parent's real location on disk.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"
