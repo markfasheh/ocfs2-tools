@@ -1163,6 +1163,14 @@ static inline int ocfs2_swap_barrier(ocfs2_filesys *fs, void *block_buffer,
 }
 
 
+static inline int ocfs2_refcount_tree(struct ocfs2_super_block *osb)
+{
+	if (OCFS2_HAS_INCOMPAT_FEATURE(osb,
+				       OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE))
+		return 1;
+	return 0;
+}
+
 /*
  * shamelessly lifted from the kernel
  *
