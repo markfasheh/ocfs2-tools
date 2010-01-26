@@ -1946,6 +1946,146 @@ out:
 	return ret;
 }
 
+struct xattr_value_obj {
+	errcode_t errcode;
+	uint64_t p_cpos;
+	uint32_t v_cpos;
+	uint32_t clusters;
+	int new_flags;
+	int clear_flags;
+};
+
+static int change_xattr_refcount(ocfs2_cached_inode *ci,
+				 char *xe_buf,
+				 uint64_t xe_blkno,
+				 struct ocfs2_xattr_entry *xe,
+				 char *value_buf,
+				 uint64_t value_blkno,
+				 void *value,
+				 int in_bucket,
+				 void *priv_data)
+{
+	uint32_t p_cluster, num_clusters;
+	uint16_t ext_flags;
+	struct xattr_value_obj *obj = priv_data;
+	struct ocfs2_extent_tree et;
+	ocfs2_root_write_func write_func = NULL;
+	struct ocfs2_xattr_value_root *xv;
+
+	if (ocfs2_xattr_is_local(xe))
+		return 0;
+
+	xv = (struct ocfs2_xattr_value_root *)value;
+	obj->errcode = ocfs2_xattr_get_clusters(ci->ci_fs, &xv->xr_list,
+						value_blkno, value_buf,
+						obj->v_cpos, &p_cluster,
+						&num_clusters, &ext_flags);
+	if (obj->errcode)
+		return OCFS2_XATTR_ERROR;
+
+	if (p_cluster != obj->p_cpos)
+		return 0;
+
+	assert(num_clusters >= obj->clusters);
+
+	if (xe_blkno == ci->ci_inode->i_blkno)
+		write_func = ocfs2_write_inode;
+	else if (xe_blkno == ci->ci_inode->i_xattr_loc)
+		write_func = ocfs2_write_xattr_block;
+
+	ocfs2_init_xattr_value_extent_tree(&et, ci->ci_fs, value_buf,
+					   value_blkno, write_func, xv);
+	obj->errcode = ocfs2_change_extent_flag(ci->ci_fs, &et,
+					obj->v_cpos, obj->clusters,
+					ocfs2_clusters_to_blocks(ci->ci_fs,
+								 obj->p_cpos),
+					obj->new_flags, obj->clear_flags);
+	if (obj->errcode)
+		goto out;
+
+	if (!write_func) {
+		assert(in_bucket);
+		obj->errcode = ocfs2_write_xattr_bucket(ci->ci_fs,
+							xe_blkno, xe_buf);
+		if (obj->errcode)
+			goto out;
+	}
+
+	return OCFS2_XATTR_ABORT;
+
+out:
+	return 	OCFS2_XATTR_ERROR;
+}
+
+static errcode_t ocfs2_xattr_change_ext_refcount(ocfs2_filesys *fs,
+						 ocfs2_cached_inode *ci,
+						 uint32_t v_cpos,
+						 uint32_t clusters,
+						 uint64_t p_cpos,
+						 int new_flags,
+						 int clear_flags)
+{
+	int iret;
+	errcode_t ret = 0;
+	struct xattr_value_obj obj = {
+		.v_cpos = v_cpos,
+		.p_cpos = p_cpos,
+		.clusters = clusters,
+		.new_flags = new_flags,
+		.clear_flags = clear_flags,
+	};
+
+	iret = ocfs2_xattr_iterate(ci, change_xattr_refcount, &obj);
+	if (iret & OCFS2_XATTR_ERROR)
+		ret = obj.errcode;
+
+	return ret;
+}
+
+/*
+ * Clear the refcount flag for an extent rec (v_cpos, clusters) of the file.
+ * This extent rec can be found either in dinode or xattr.
+ */
+errcode_t ocfs2_change_refcount_flag(ocfs2_filesys *fs, uint64_t i_blkno,
+				     uint32_t v_cpos, uint32_t clusters,
+				     uint64_t p_cpos,
+				     int new_flags, int clear_flags)
+{
+	errcode_t ret;
+	ocfs2_cached_inode *ci = NULL;
+	struct ocfs2_extent_tree et;
+	uint32_t p_cluster, num_clusters;
+	uint16_t ext_flags;
+
+	ret = ocfs2_read_cached_inode(fs, i_blkno, &ci);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_get_clusters(ci, v_cpos, &p_cluster,
+				 &num_clusters, &ext_flags);
+	if (ret)
+		goto out;
+
+	if (p_cluster == p_cpos) {
+		/* OK, the p_cpos is in the dinode. */
+		assert(num_clusters >= clusters);
+		ocfs2_init_dinode_extent_tree(&et, fs,
+					      (char *)ci->ci_inode, i_blkno);
+		ret = ocfs2_change_extent_flag(fs, &et, v_cpos, clusters,
+					ocfs2_clusters_to_blocks(fs, p_cpos),
+					new_flags, clear_flags);
+		goto out;
+	}
+
+	ret = ocfs2_xattr_change_ext_refcount(fs, ci, v_cpos, clusters, p_cpos,
+					      new_flags, clear_flags);
+
+out:
+	if (ci)
+		ocfs2_free_cached_inode(fs, ci);
+	return ret;
+}
+
 struct xattr_value_cow_object {
 	struct ocfs2_xattr_value_root *xv;
 	uint64_t xe_blkno;
