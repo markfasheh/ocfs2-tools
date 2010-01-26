@@ -30,9 +30,11 @@
 #include <unistd.h>
 #endif
 
+#include <assert.h>
 #include "ocfs2/ocfs2.h"
 
 struct truncate_ctxt {
+	uint64_t ino;
 	uint64_t new_size_in_clusters;
 	uint32_t new_i_clusters;
 	errcode_t (*free_clusters)(ocfs2_filesys *fs,
@@ -41,6 +43,23 @@ struct truncate_ctxt {
 				   void *free_data);
 	void *free_data;
 };
+
+static int ocfs2_truncate_clusters(ocfs2_filesys *fs,
+				   struct ocfs2_extent_rec *rec,
+				   uint64_t ino,
+				   uint32_t len,
+				   uint64_t start)
+{
+	if (!ocfs2_refcount_tree(OCFS2_RAW_SB(fs->fs_super)) ||
+	    !(rec->e_flags & OCFS2_EXT_REFCOUNTED))
+		return ocfs2_free_clusters(fs, len, start);
+
+	assert(ino);
+
+	return ocfs2_decrease_refcount(fs, ino,
+				ocfs2_blocks_to_clusters(fs, start),
+				len, 1);
+}
 
 /*
  * Delete and free clusters if needed.  This only works with DEPTH_TRAVERSE.
@@ -129,7 +148,8 @@ static int truncate_iterate(ocfs2_filesys *fs,
 			ret = ctxt->free_clusters(fs, len, start,
 						  ctxt->free_data);
 		else
-			ret = ocfs2_free_clusters(fs, len, start);
+			ret = ocfs2_truncate_clusters(fs, rec, ctxt->ino,
+						      len, start);
 		if (ret)
 			goto bail;
 		ctxt->new_i_clusters -= len;
@@ -213,6 +233,7 @@ static errcode_t ocfs2_zero_tail_and_truncate_full(ocfs2_filesys *fs,
 	struct truncate_ctxt ctxt;
 
 	new_size_in_blocks = ocfs2_blocks_in_bytes(fs, new_i_size);
+	ctxt.ino = ci->ci_blkno;
 	ctxt.new_i_clusters = ci->ci_inode->i_clusters;
 	ctxt.new_size_in_clusters =
 			ocfs2_clusters_in_blocks(fs, new_size_in_blocks);
@@ -299,13 +320,14 @@ errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size)
 	return ocfs2_truncate_full(fs, ino, new_i_size, NULL, NULL);
 }
 
-errcode_t ocfs2_xattr_value_truncate(ocfs2_filesys *fs,
+errcode_t ocfs2_xattr_value_truncate(ocfs2_filesys *fs, uint64_t ino,
 				     struct ocfs2_xattr_value_root *xv)
 {
 	struct truncate_ctxt ctxt;
 	int changed;
 	struct ocfs2_extent_list *el = &xv->xr_list;
 
+	ctxt.ino = ino;
 	ctxt.new_i_clusters = xv->xr_clusters;
 	ctxt.new_size_in_clusters = 0;
 
@@ -322,6 +344,11 @@ errcode_t ocfs2_xattr_tree_truncate(ocfs2_filesys *fs,
 	int changed;
 	struct ocfs2_extent_list *el = &xt->xt_list;
 
+	/*
+	 * ino is used to find refcount tree, as we never use refcount
+	 * in xattr tree, so set it to 0.
+	 */
+	ctxt.ino = 0;
 	ctxt.new_i_clusters = xt->xt_clusters;
 	ctxt.new_size_in_clusters = 0;
 

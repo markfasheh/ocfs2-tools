@@ -1349,7 +1349,7 @@ errcode_t ocfs2_read_xattr_bucket(ocfs2_filesys *fs,
 errcode_t ocfs2_write_xattr_bucket(ocfs2_filesys *fs,
 				   uint64_t blkno,
 				   char *bucket_buf);
-errcode_t ocfs2_xattr_value_truncate(ocfs2_filesys *fs,
+errcode_t ocfs2_xattr_value_truncate(ocfs2_filesys *fs, uint64_t ino,
 				     struct ocfs2_xattr_value_root *xv);
 errcode_t ocfs2_xattr_tree_truncate(ocfs2_filesys *fs,
 				    struct ocfs2_xattr_tree_root *xt);
