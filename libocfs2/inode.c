@@ -193,6 +193,7 @@ static void ocfs2_swap_inode_first(struct ocfs2_dinode *di)
 	di->i_orphaned_slot = bswap_16(di->i_orphaned_slot);
 	di->i_dyn_features  = bswap_16(di->i_dyn_features);
 	di->i_xattr_loc     = bswap_64(di->i_xattr_loc);
+	di->i_refcount_loc     = bswap_64(di->i_refcount_loc);
 }
 
 static int has_extents(struct ocfs2_dinode *di)
