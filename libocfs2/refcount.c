@@ -1112,3 +1112,181 @@ out:
 		ocfs2_free(&di_buf);
 	return ret;
 }
+
+static int ocfs2_remove_refcount_extent(ocfs2_filesys *fs,
+					char *ref_root_buf,
+					char *ref_leaf_buf)
+{
+	int ret;
+	struct ocfs2_refcount_block *rb =
+			(struct ocfs2_refcount_block *)ref_leaf_buf;
+	struct ocfs2_refcount_block *root_rb =
+			(struct ocfs2_refcount_block *)ref_root_buf;
+	struct ocfs2_extent_tree et;
+
+	assert(rb->rf_records.rl_used == 0);
+
+	ocfs2_init_refcount_extent_tree(&et, fs,
+					ref_root_buf, root_rb->rf_blkno);
+	ret = ocfs2_remove_extent(fs, &et, rb->rf_cpos, 1);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_delete_refcount_block(fs, rb->rf_blkno);
+
+	root_rb->rf_clusters -= 1;
+
+	/*
+	 * check whether we need to restore the root refcount block if
+	 * there is no leaf extent block at atll.
+	 */
+	if (!root_rb->rf_list.l_next_free_rec) {
+		assert(root_rb->rf_clusters == 0);
+
+		root_rb->rf_flags = 0;
+		root_rb->rf_parent = 0;
+		root_rb->rf_cpos = 0;
+		memset(&root_rb->rf_records, 0, fs->fs_blocksize -
+		       offsetof(struct ocfs2_refcount_block, rf_records));
+		root_rb->rf_records.rl_count =
+				ocfs2_refcount_recs_per_rb(fs->fs_blocksize);
+	}
+
+	ret = ocfs2_write_refcount_block(fs, root_rb->rf_blkno, ref_root_buf);
+out:
+	return ret;
+}
+
+static int ocfs2_decrease_refcount_rec(ocfs2_filesys *fs,
+				char *ref_root_buf,
+				char *ref_leaf_buf,
+				int index, uint64_t cpos, unsigned int len)
+{
+	int ret;
+	struct ocfs2_refcount_block *rb =
+			(struct ocfs2_refcount_block *)ref_leaf_buf;
+	struct ocfs2_refcount_block *root_rb =
+			(struct ocfs2_refcount_block *)ref_root_buf;
+	struct ocfs2_refcount_rec *rec = &rb->rf_records.rl_recs[index];
+
+	assert(cpos >= rec->r_cpos);
+	assert(cpos + len <= rec->r_cpos + rec->r_clusters);
+
+	if (cpos == rec->r_cpos && len == rec->r_clusters)
+		ret = ocfs2_change_refcount_rec(fs, ref_leaf_buf, index, 1, -1);
+	else {
+		struct ocfs2_refcount_rec split = *rec;
+		split.r_cpos = cpos;
+		split.r_clusters = len;
+
+		split.r_refcount -= 1;
+
+		ret = ocfs2_split_refcount_rec(fs, ref_root_buf, ref_leaf_buf,
+					       &split, index, 1);
+	}
+	if (ret)
+		goto out;
+
+	/* In user space, we have to sync the buf by ourselves. */
+	if (rb->rf_blkno == root_rb->rf_blkno)
+		memcpy(ref_root_buf, ref_leaf_buf, fs->fs_blocksize);
+
+	/* Remove the leaf refcount block if it contains no refcount record. */
+	if (!rb->rf_records.rl_used &&
+	    rb->rf_blkno != root_rb->rf_blkno) {
+		ret = ocfs2_remove_refcount_extent(fs, ref_root_buf,
+						   ref_leaf_buf);
+	}
+
+out:
+	return ret;
+}
+
+static int __ocfs2_decrease_refcount(ocfs2_filesys *fs, char *ref_root_buf,
+				     uint64_t cpos, uint32_t len,
+				     int delete)
+{
+	int ret = 0, index = 0;
+	struct ocfs2_refcount_rec rec;
+	unsigned int r_count = 0, r_len;
+	char *ref_leaf_buf = NULL;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &ref_leaf_buf);
+	if (ret)
+		return ret;
+
+	while (len) {
+		ret = ocfs2_get_refcount_rec(fs, ref_root_buf,
+					     cpos, len, &rec, &index,
+					     ref_leaf_buf);
+		if (ret)
+			goto out;
+
+		r_count = rec.r_refcount;
+		assert(r_count > 0);
+		if (!delete)
+			assert(r_count == 1);
+
+		r_len = ocfs2_min((uint64_t)(cpos + len),
+				(uint64_t)(rec.r_cpos + rec.r_clusters)) - cpos;
+
+		ret = ocfs2_decrease_refcount_rec(fs, ref_root_buf,
+						  ref_leaf_buf, index,
+						  cpos, r_len);
+		if (ret)
+			goto out;
+
+		if (rec.r_refcount == 1 && delete) {
+			ret = ocfs2_free_clusters(fs, r_len,
+					  ocfs2_clusters_to_blocks(fs, cpos));
+			if (ret)
+				goto out;
+		}
+
+		cpos += r_len;
+		len -= r_len;
+	}
+
+out:
+	ocfs2_free(&ref_leaf_buf);
+	return ret;
+}
+
+errcode_t ocfs2_decrease_refcount(ocfs2_filesys *fs,
+				  uint64_t ino, uint32_t cpos,
+				  uint32_t len, int delete)
+{
+	errcode_t ret;
+	char *ref_root_buf = NULL;
+	char *di_buf = NULL;
+	struct ocfs2_dinode *di;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &di_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_inode(fs, ino, di_buf);
+	if (ret)
+		goto out;
+
+	di = (struct ocfs2_dinode *)di_buf;
+
+	assert(di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL);
+	assert(di->i_refcount_loc);
+
+	ret = ocfs2_malloc_block(fs->fs_io, &ref_root_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_refcount_block(fs, di->i_refcount_loc, ref_root_buf);
+	if (ret)
+		goto out;
+
+	ret = __ocfs2_decrease_refcount(fs, ref_root_buf, cpos, len, delete);
+out:
+	if (ref_root_buf)
+		ocfs2_free(&ref_root_buf);
+	if (di_buf)
+		ocfs2_free(&di_buf);
+	return ret;
+}
