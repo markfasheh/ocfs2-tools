@@ -513,6 +513,16 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
 		o2fsck_write_inode(ost, blkno, di);
 	}
 
+	if ((di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL) &&
+	    !ocfs2_refcount_tree(OCFS2_RAW_SB(fs->fs_super)) &&
+	    prompt(ost, PY, PR_REFCOUNT_FLAG_INVALID,
+		   "Inode %"PRIu64" has refcount flag set but the volume "
+		   "doesn't support it. Clear it?", (uint64_t)di->i_blkno)) {
+
+		di->i_dyn_features &= ~OCFS2_HAS_REFCOUNT_FL;
+		o2fsck_write_inode(ost, blkno, di);
+	}
+
 	if (S_ISDIR(di->i_mode)) {
 		o2fsck_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
 		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0,

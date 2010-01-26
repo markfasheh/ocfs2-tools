@@ -548,6 +548,12 @@ allocator.
 Answering yes will invert the bit in the allocator to match the use of the
 cluster -- either allocated and in use or free.
 
+.SS "REFCOUNT_FLAG_INVALID"
+Refcount file can only exist in a volume with refcount supported, Fsck has
+found that a file in a non-refcount volume has refcount flag set.
+
+Answering yes remove this flag from the file.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"
