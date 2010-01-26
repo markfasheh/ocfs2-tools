@@ -399,6 +399,8 @@ errcode_t ocfs2_read_refcount_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
 errcode_t ocfs2_write_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
 				     char *rb_buf);
 errcode_t ocfs2_delete_refcount_block(ocfs2_filesys *fs, uint64_t blkno);
+errcode_t ocfs2_new_refcount_block(ocfs2_filesys *fs, uint64_t *blkno,
+				   uint64_t root_blkno, uint32_t rf_generation);
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
 void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer);

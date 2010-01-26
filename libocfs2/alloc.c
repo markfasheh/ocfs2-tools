@@ -522,6 +522,66 @@ out:
 	return ret;
 }
 
+static void ocfs2_init_rb(ocfs2_filesys *fs,
+			  struct ocfs2_refcount_block *rb,
+			  uint64_t gd_blkno, uint64_t blkno,
+			  uint64_t root_blkno, uint32_t rf_generation)
+{
+	strcpy((void *)rb, OCFS2_REFCOUNT_BLOCK_SIGNATURE);
+	rb->rf_fs_generation = fs->fs_super->i_fs_generation;
+	rb->rf_blkno = blkno;
+	rb->rf_suballoc_slot = 0;
+	rb->rf_suballoc_bit = (uint16_t)(blkno - gd_blkno);
+	rb->rf_parent = root_blkno;
+	if (root_blkno)
+		rb->rf_flags = OCFS2_REFCOUNT_LEAF_FL;
+	rb->rf_records.rl_count = ocfs2_refcount_recs_per_rb(fs->fs_blocksize);
+	rb->rf_generation = rf_generation;
+}
+
+errcode_t ocfs2_new_refcount_block(ocfs2_filesys *fs, uint64_t *blkno,
+				   uint64_t root_blkno, uint32_t rf_generation)
+{
+	errcode_t ret;
+	char *buf;
+	uint64_t gd_blkno;
+	struct ocfs2_refcount_block *rb;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE,
+				   0, &fs->fs_eb_allocs[0]);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_eb_allocs[0],
+					&gd_blkno, blkno);
+	if (ret == OCFS2_ET_BIT_NOT_FOUND) {
+		ret = ocfs2_chain_add_group(fs, fs->fs_eb_allocs[0]);
+		if (ret)
+			goto out;
+		ret = ocfs2_chain_alloc_with_io(fs, fs->fs_eb_allocs[0],
+						&gd_blkno, blkno);
+		if (ret)
+			goto out;
+	} else if (ret)
+		goto out;
+
+	memset(buf, 0, fs->fs_blocksize);
+	rb = (struct ocfs2_refcount_block *)buf;
+
+	ocfs2_init_rb(fs, rb, gd_blkno, *blkno, root_blkno, rf_generation);
+
+	ret = ocfs2_write_refcount_block(fs, *blkno, buf);
+
+out:
+	ocfs2_free(&buf);
+
+	return ret;
+}
+
 /* XXX what to do about local allocs?
  * XXX Well, we shouldn't use local allocs to allocate, as we are
  *     userspace and we have the entire bitmap in memory.  However, this
