@@ -52,6 +52,16 @@ static void ocfs2_swap_refcount_list_secondary(ocfs2_filesys *fs, void *obj,
 	}
 }
 
+void ocfs2_swap_refcount_list_from_cpu(ocfs2_filesys *fs, void *obj,
+				       struct ocfs2_refcount_list *rl)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	ocfs2_swap_refcount_list_secondary(fs, obj, rl);
+	ocfs2_swap_refcount_list_primary(rl);
+}
+
 void ocfs2_swap_refcount_list_to_cpu(ocfs2_filesys *fs, void *obj,
 				     struct ocfs2_refcount_list *rl)
 {
@@ -75,6 +85,19 @@ static void ocfs2_swap_refcount_block_header(struct ocfs2_refcount_block *rb)
 	rb->rf_flags		= bswap_32(rb->rf_flags);
 	rb->rf_clusters		= bswap_32(rb->rf_clusters);
 	rb->rf_cpos		= bswap_32(rb->rf_cpos);
+}
+
+void ocfs2_swap_refcount_block_from_cpu(ocfs2_filesys *fs,
+					struct ocfs2_refcount_block *rb)
+{
+	if (cpu_is_little_endian)
+		return;
+
+	if (rb->rf_flags & OCFS2_REFCOUNT_TREE_FL)
+		ocfs2_swap_extent_list_from_cpu(fs, rb, &rb->rf_list);
+	else
+		ocfs2_swap_refcount_list_from_cpu(fs, rb, &rb->rf_records);
+	ocfs2_swap_refcount_block_header(rb);
 }
 
 void ocfs2_swap_refcount_block_to_cpu(ocfs2_filesys *fs,
@@ -153,6 +176,43 @@ errcode_t ocfs2_read_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
 	     (!(rb->rf_flags & OCFS2_REFCOUNT_TREE_FL) &&
 	     rb->rf_records.rl_used > rb->rf_records.rl_count)))
 		ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+
+	return ret;
+}
+
+errcode_t ocfs2_write_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
+				     char *rb_buf)
+{
+	errcode_t ret;
+	char *blk;
+	struct ocfs2_refcount_block *rb;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ret)
+		return ret;
+
+	memcpy(blk, rb_buf, fs->fs_blocksize);
+
+	rb = (struct ocfs2_refcount_block *)blk;
+	ocfs2_swap_refcount_block_from_cpu(fs, rb);
+
+	ocfs2_compute_meta_ecc(fs, blk, &rb->rf_check);
+	ret = io_write_block(fs->fs_io, blkno, 1, blk);
+	if (ret)
+		goto out;
+
+	fs->fs_flags |= OCFS2_FLAG_CHANGED;
+	ret = 0;
+
+out:
+	ocfs2_free(&blk);
 
 	return ret;
 }

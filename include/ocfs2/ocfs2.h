@@ -386,12 +386,18 @@ errcode_t ocfs2_write_extent_block(ocfs2_filesys *fs, uint64_t blkno,
        				   char *eb_buf);
 void ocfs2_swap_refcount_list_to_cpu(ocfs2_filesys *fs, void *obj,
 				     struct ocfs2_refcount_list *rl);
+void ocfs2_swap_refcount_list_from_cpu(ocfs2_filesys *fs, void *obj,
+				       struct ocfs2_refcount_list *rl);
 void ocfs2_swap_refcount_block_to_cpu(ocfs2_filesys *fs,
 				      struct ocfs2_refcount_block *rb);
+void ocfs2_swap_refcount_block_from_cpu(ocfs2_filesys *fs,
+					struct ocfs2_refcount_block *rb);
 errcode_t ocfs2_read_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
 				    char *eb_buf);
 errcode_t ocfs2_read_refcount_block_nocheck(ocfs2_filesys *fs, uint64_t blkno,
 					    char *eb_buf);
+errcode_t ocfs2_write_refcount_block(ocfs2_filesys *fs, uint64_t blkno,
+				     char *rb_buf);
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
 void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer);
