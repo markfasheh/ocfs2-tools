@@ -354,6 +354,14 @@ errcode_t ocfs2_get_clusters(ocfs2_cached_inode *cinode,
 			     uint32_t *p_cluster,
 			     uint32_t *num_clusters,
 			     uint16_t *extent_flags);
+errcode_t ocfs2_xattr_get_clusters(ocfs2_filesys *fs,
+				   struct ocfs2_extent_list *el,
+				   uint64_t el_blkno,
+				   char *el_blk,
+				   uint32_t v_cluster,
+				   uint32_t *p_cluster,
+				   uint32_t *num_clusters,
+				   uint16_t *extent_flags);
 int ocfs2_find_leaf(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		    uint32_t cpos, char **leaf_buf);
 int ocfs2_search_extent_list(struct ocfs2_extent_list *el, uint32_t v_cluster);

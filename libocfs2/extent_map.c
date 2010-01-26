@@ -207,6 +207,68 @@ out:
 	return ret;
 }
 
+errcode_t ocfs2_xattr_get_clusters(ocfs2_filesys *fs,
+				   struct ocfs2_extent_list *el,
+				   uint64_t el_blkno,
+				   char *el_blk,
+				   uint32_t v_cluster,
+				   uint32_t *p_cluster,
+				   uint32_t *num_clusters,
+				   uint16_t *extent_flags)
+{
+	int i;
+	errcode_t ret =  0;
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
+	char *eb_buf = NULL;
+	uint32_t coff;
+
+	if (el->l_tree_depth) {
+		ret = ocfs2_tree_find_leaf(fs, el, el_blkno, el_blk,
+					   v_cluster, &eb_buf);
+		if (ret)
+			goto out;
+
+		eb = (struct ocfs2_extent_block *)eb_buf;
+		el = &eb->h_list;
+
+		if (el->l_tree_depth) {
+			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+			goto out;
+		}
+	}
+
+	i = ocfs2_search_extent_list(el, v_cluster);
+	if (i == -1) {
+		ret = -1;
+		goto out;
+	} else {
+		rec = &el->l_recs[i];
+
+		assert(v_cluster >= rec->e_cpos);
+
+		if (!rec->e_blkno) {
+			ret = OCFS2_ET_BAD_BLKNO;
+			goto out;
+		}
+
+		coff = v_cluster - rec->e_cpos;
+
+		*p_cluster = ocfs2_blocks_to_clusters(fs, rec->e_blkno);
+		*p_cluster = *p_cluster + coff;
+
+		if (num_clusters)
+			*num_clusters = ocfs2_rec_clusters(el->l_tree_depth,
+							   rec) - coff;
+		if (extent_flags)
+			*extent_flags = rec->e_flags;
+	}
+out:
+	if (eb_buf)
+		ocfs2_free(&eb_buf);
+	return ret;
+}
+
 errcode_t ocfs2_extent_map_get_blocks(ocfs2_cached_inode *cinode,
 				      uint64_t v_blkno, int count,
 				      uint64_t *p_blkno, uint64_t *ret_count,
