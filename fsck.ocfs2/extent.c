@@ -367,6 +367,19 @@ errcode_t o2fsck_check_extent_rec(o2fsck_state *ost,
 		*changed = 1;
 	}
 
+	if (((!ocfs2_refcount_tree(sb)) ||
+	     !(di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL)) &&
+	    (er->e_flags & OCFS2_EXT_REFCOUNTED) &&
+	    prompt(ost, PY, PR_EXTENT_MARKED_REFCOUNTED,
+		   "The extent record for cluster offset %"PRIu32" at block "
+		   "%"PRIu64" in inode %"PRIu64" has the REFCOUNTED flag set, "
+		   "while it shouldn't have that flag. "
+		   "Clear the REFCOUNTED flag?", er->e_cpos, er->e_blkno,
+		   (uint64_t)di->i_blkno)) {
+		er->e_flags &= ~OCFS2_EXT_REFCOUNTED;
+		*changed = 1;
+	}
+
 	return 0;
 }
 

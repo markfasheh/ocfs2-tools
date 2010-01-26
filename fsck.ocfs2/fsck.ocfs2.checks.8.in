@@ -54,6 +54,12 @@ feature set does not include unwritten extents.
 Answering yes clears the UNWRITTEN flag.  This is safe to do; as the
 feature is disabled anyway.
 
+.SS "EXTENT_MARKED_REFCOUNTED"
+An extent record has the REFCOUNTED flag set, but neither the filesystem
+nor the file has the REFCOUNTED flag set.
+
+Answering yes clears the REFCOUNTED flag.
+
 .SS "EXTENT_BLKNO_UNALIGNED"
 The block that marks the start of an extent should always fall on the start
 of a cluster.  An extent was found that starts part-way into a cluster.
