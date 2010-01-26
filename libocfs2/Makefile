@@ -76,7 +76,8 @@ CFILES = 		\
 	quota.c		\
 	image.c		\
 	xattr.c		\
-	extent_tree.c
+	extent_tree.c	\
+	refcount.c
 
 HFILES =		\
 	bitmap.h	\
