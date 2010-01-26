@@ -28,6 +28,22 @@
 #include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
 #include "extent_tree.h"
+#include "refcount.h"
+
+struct ocfs2_cow_context {
+	ocfs2_filesys *fs;
+	uint32_t cow_start;
+	uint32_t cow_len;
+	struct ocfs2_extent_tree data_et;
+	char *ref_root_buf;
+	uint64_t ref_root_blkno;
+	void *cow_object;
+	struct ocfs2_post_refcount *post_refcount;
+	int (*get_clusters)(struct ocfs2_cow_context *context,
+			    uint32_t v_cluster, uint32_t *p_cluster,
+			    uint32_t *num_clusters,
+			    uint16_t *extent_flags);
+};
 
 
 static void ocfs2_swap_refcount_list_primary(struct ocfs2_refcount_list *rl)
@@ -1288,5 +1304,538 @@ out:
 		ocfs2_free(&ref_root_buf);
 	if (di_buf)
 		ocfs2_free(&di_buf);
+	return ret;
+}
+
+#define	MAX_CONTIG_BYTES	1048576
+
+static inline unsigned int ocfs2_cow_contig_clusters(ocfs2_filesys *fs)
+{
+	return ocfs2_clusters_in_bytes(fs, MAX_CONTIG_BYTES);
+}
+
+static inline unsigned int ocfs2_cow_contig_mask(ocfs2_filesys *fs)
+{
+	return ~(ocfs2_cow_contig_clusters(fs) - 1);
+}
+
+/*
+ * Given an extent that starts at 'start' and an I/O that starts at 'cpos',
+ * find an offset (start + (n * contig_clusters)) that is closest to cpos
+ * while still being less than or equal to it.
+ *
+ * The goal is to break the extent at a multiple of contig_clusters.
+ */
+static inline unsigned int ocfs2_cow_align_start(ocfs2_filesys *fs,
+						 unsigned int start,
+						 unsigned int cpos)
+{
+	assert(start <= cpos);
+
+	return start + ((cpos - start) & ocfs2_cow_contig_mask(fs));
+}
+
+/*
+ * Given a cluster count of len, pad it out so that it is a multiple
+ * of contig_clusters.
+ */
+static inline unsigned int ocfs2_cow_align_length(ocfs2_filesys *fs,
+						  unsigned int len)
+{
+	unsigned int padded =
+		(len + (ocfs2_cow_contig_clusters(fs) - 1)) &
+		ocfs2_cow_contig_mask(fs);
+
+	/* Did we wrap? */
+	if (padded < len)
+		padded = UINT_MAX;
+
+	return padded;
+}
+
+/*
+ * Calculate out the start and number of virtual clusters we need to to CoW.
+ *
+ * cpos is vitual start cluster position we want to do CoW in a
+ * file and write_len is the cluster length.
+ * max_cpos is the place where we want to stop CoW intentionally.
+ *
+ * Normal we will start CoW from the beginning of extent record cotaining cpos.
+ * We try to break up extents on boundaries of MAX_CONTIG_BYTES so that we
+ * get good I/O from the resulting extent tree.
+ */
+static int ocfs2_refcount_cal_cow_clusters(ocfs2_filesys *fs,
+					   struct ocfs2_extent_tree *et,
+					   uint32_t cpos,
+					   uint32_t write_len,
+					   uint32_t max_cpos,
+					   uint32_t *cow_start,
+					   uint32_t *cow_len)
+{
+	int ret = 0;
+	struct ocfs2_extent_list *el = et->et_root_el;
+	int tree_height = el->l_tree_depth, i;
+	char *eb_buf = NULL;
+	struct ocfs2_extent_block *eb = NULL;
+	struct ocfs2_extent_rec *rec;
+	unsigned int want_clusters, rec_end = 0;
+	int contig_clusters = ocfs2_cow_contig_clusters(fs);
+	int leaf_clusters;
+
+	assert(cpos + write_len <= max_cpos);
+
+	ret = ocfs2_malloc_block(fs->fs_io, &eb_buf);
+	if (ret)
+		return ret;
+
+	if (tree_height > 0) {
+		ret = ocfs2_tree_find_leaf(fs, el,
+					   et->et_root_blkno,
+					   et->et_root_buf,
+					   cpos, &eb_buf);
+		if (ret)
+			goto out;
+
+		eb = (struct ocfs2_extent_block *) eb_buf;
+		el = &eb->h_list;
+
+		if (el->l_tree_depth) {
+			ret = OCFS2_ET_CORRUPT_EXTENT_BLOCK;
+			goto out;
+		}
+	} else
+		el = et->et_root_el;
+
+	*cow_len = 0;
+	for (i = 0; i < el->l_next_free_rec; i++) {
+		rec = &el->l_recs[i];
+
+		if (ocfs2_is_empty_extent(rec)) {
+			assert(i == 0);
+			continue;
+		}
+
+		if (rec->e_cpos + rec->e_leaf_clusters <= cpos)
+			continue;
+
+		if (*cow_len == 0) {
+			/*
+			 * We should find a refcounted record in the
+			 * first pass.
+			 */
+			assert(rec->e_flags & OCFS2_EXT_REFCOUNTED);
+			*cow_start = rec->e_cpos;
+		}
+
+		/*
+		 * If we encounter a hole, a non-refcounted record or
+		 * pass the max_cpos, stop the search.
+		 */
+		if ((!(rec->e_flags & OCFS2_EXT_REFCOUNTED)) ||
+		    (*cow_len && rec_end != rec->e_cpos) ||
+		    (max_cpos <= rec->e_cpos))
+			break;
+
+		leaf_clusters = rec->e_leaf_clusters;
+		rec_end = rec->e_cpos + leaf_clusters;
+		if (rec_end > max_cpos) {
+			rec_end = max_cpos;
+			leaf_clusters = rec_end - rec->e_cpos;
+		}
+
+		/*
+		 * How many clusters do we actually need from
+		 * this extent?  First we see how many we actually
+		 * need to complete the write.  If that's smaller
+		 * than contig_clusters, we try for contig_clusters.
+		 */
+		if (!*cow_len)
+			want_clusters = write_len;
+		else
+			want_clusters = (cpos + write_len) -
+				(*cow_start + *cow_len);
+		if (want_clusters < contig_clusters)
+			want_clusters = contig_clusters;
+
+		/*
+		 * If the write does not cover the whole extent, we
+		 * need to calculate how we're going to split the extent.
+		 * We try to do it on contig_clusters boundaries.
+		 *
+		 * Any extent smaller than contig_clusters will be
+		 * CoWed in its entirety.
+		 */
+		if (leaf_clusters <= contig_clusters)
+			*cow_len += leaf_clusters;
+		else if (*cow_len || (*cow_start == cpos)) {
+			/*
+			 * This extent needs to be CoW'd from its
+			 * beginning, so all we have to do is compute
+			 * how many clusters to grab.  We align
+			 * want_clusters to the edge of contig_clusters
+			 * to get better I/O.
+			 */
+			want_clusters = ocfs2_cow_align_length(fs,
+							       want_clusters);
+
+			if (leaf_clusters < want_clusters)
+				*cow_len += leaf_clusters;
+			else
+				*cow_len += want_clusters;
+		} else if ((*cow_start + contig_clusters) >=
+			   (cpos + write_len)) {
+			/*
+			 * Breaking off contig_clusters at the front
+			 * of the extent will cover our write.  That's
+			 * easy.
+			 */
+			*cow_len = contig_clusters;
+		} else if ((rec_end - cpos) <= contig_clusters) {
+			/*
+			 * Breaking off contig_clusters at the tail of
+			 * this extent will cover cpos.
+			 */
+			*cow_start = rec_end - contig_clusters;
+			*cow_len = contig_clusters;
+		} else if ((rec_end - cpos) <= want_clusters) {
+			/*
+			 * While we can't fit the entire write in this
+			 * extent, we know that the write goes from cpos
+			 * to the end of the extent.  Break that off.
+			 * We try to break it at some multiple of
+			 * contig_clusters from the front of the extent.
+			 * Failing that (ie, cpos is within
+			 * contig_clusters of the front), we'll CoW the
+			 * entire extent.
+			 */
+			*cow_start = ocfs2_cow_align_start(fs,
+							   *cow_start, cpos);
+			*cow_len = rec_end - *cow_start;
+		} else {
+			/*
+			 * Ok, the entire write lives in the middle of
+			 * this extent.  Let's try to slice the extent up
+			 * nicely.  Optimally, our CoW region starts at
+			 * m*contig_clusters from the beginning of the
+			 * extent and goes for n*contig_clusters,
+			 * covering the entire write.
+			 */
+			*cow_start = ocfs2_cow_align_start(fs,
+							   *cow_start, cpos);
+
+			want_clusters = (cpos + write_len) - *cow_start;
+			want_clusters = ocfs2_cow_align_length(fs,
+							       want_clusters);
+			if (*cow_start + want_clusters <= rec_end)
+				*cow_len = want_clusters;
+			else
+				*cow_len = rec_end - *cow_start;
+		}
+
+		/* Have we covered our entire write yet? */
+		if ((*cow_start + *cow_len) >= (cpos + write_len))
+			break;
+
+		/*
+		 * If we reach the end of the extent block and don't get enough
+		 * clusters, continue with the next extent block if possible.
+		 */
+		if (i + 1 == el->l_next_free_rec && eb && eb->h_next_leaf_blk) {
+			ret = ocfs2_read_extent_block(fs, eb->h_next_leaf_blk,
+						      eb_buf);
+			if (ret)
+				goto out;
+
+			eb = (struct ocfs2_extent_block *)eb_buf;
+			el = &eb->h_list;
+			i = -1;
+		}
+	}
+
+out:
+	if (eb_buf)
+		ocfs2_free(&eb_buf);
+	return ret;
+}
+
+static int ocfs2_duplicate_clusters(struct ocfs2_cow_context *context,
+				    uint32_t cpos, uint32_t old_cluster,
+				    uint32_t new_cluster, uint32_t new_len)
+{
+	int ret;
+	int i, bpc = context->fs->fs_clustersize / context->fs->fs_blocksize;
+	uint64_t old_block = ocfs2_clusters_to_blocks(context->fs, old_cluster);
+	uint64_t new_block = ocfs2_clusters_to_blocks(context->fs, new_cluster);
+	char *buf = NULL;
+
+	ret = ocfs2_malloc_blocks(context->fs->fs_io, bpc, &buf);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < new_len; i++, old_block += bpc, new_block += bpc) {
+		ret = ocfs2_read_blocks(context->fs, old_block, bpc, buf);
+		if (ret)
+			break;
+
+		ret = io_write_block(context->fs->fs_io, new_block, bpc, buf);
+		if (ret)
+			break;
+	}
+
+	ocfs2_free(&buf);
+	return ret;
+}
+
+static int __ocfs2_clear_ext_refcount(ocfs2_filesys *fs,
+				      struct ocfs2_extent_tree *et,
+				      uint32_t cpos, uint32_t p_cluster,
+				      uint32_t len, unsigned int ext_flags)
+{
+	return ocfs2_change_extent_flag(fs, et, cpos, len,
+				ocfs2_clusters_to_blocks(fs, p_cluster),
+				0, OCFS2_EXT_REFCOUNTED);
+}
+
+static int ocfs2_replace_clusters(struct ocfs2_cow_context *context,
+				  uint32_t cpos, uint32_t old,
+				  uint32_t new, uint32_t len,
+				  unsigned int ext_flags)
+{
+	int ret;
+
+	/*If the old clusters is unwritten, no need to duplicate. */
+	if (!(ext_flags & OCFS2_EXT_UNWRITTEN)) {
+		ret = ocfs2_duplicate_clusters(context, cpos,
+					       old, new, len);
+		if (ret)
+			goto out;
+	}
+
+	ret = __ocfs2_clear_ext_refcount(context->fs, &context->data_et,
+					 cpos, new, len, ext_flags);
+out:
+	return ret;
+}
+
+static int ocfs2_di_get_clusters(struct ocfs2_cow_context *context,
+				 uint32_t v_cluster, uint32_t *p_cluster,
+				 uint32_t *num_clusters,
+				 uint16_t *extent_flags)
+{
+	ocfs2_cached_inode *cinode = context->cow_object;
+
+	return ocfs2_get_clusters(cinode, v_cluster, p_cluster,
+				  num_clusters, extent_flags);
+}
+
+static int ocfs2_make_clusters_writable(struct ocfs2_cow_context *context,
+					uint32_t cpos, uint32_t p_cluster,
+					uint32_t num_clusters,
+					unsigned int e_flags)
+{
+	int ret, delete, index;
+	uint32_t new_len;
+	uint64_t start;
+	unsigned int set_len;
+	char *ref_leaf_buf = NULL;
+	struct ocfs2_refcount_rec rec;
+
+	ret = ocfs2_malloc_block(context->fs->fs_io, &ref_leaf_buf);
+	if (ret)
+		return ret;
+
+	while (num_clusters) {
+		ret = ocfs2_get_refcount_rec(context->fs,
+					     context->ref_root_buf,
+					     p_cluster, num_clusters,
+					     &rec, &index, ref_leaf_buf);
+		if (ret)
+			goto out;
+
+		assert(rec.r_refcount);
+		set_len = ocfs2_min((uint64_t)p_cluster + num_clusters,
+			     (uint64_t)rec.r_cpos + rec.r_clusters) - p_cluster;
+
+		/*
+		 * There are many different situation here.
+		 * 1. If refcount == 1, remove the flag and don't COW.
+		 * 2. If refcount > 1, allocate clusters.
+		 *    Here we may not allocate r_len once at a time, so continue
+		 *    until we reach num_clusters.
+		 */
+		if (rec.r_refcount == 1) {
+			delete = 0;
+			ret = __ocfs2_clear_ext_refcount(context->fs,
+							 &context->data_et,
+							 cpos, p_cluster,
+							 set_len, e_flags);
+			if (ret)
+				goto out;
+		} else {
+			delete = 1;
+
+			ret = ocfs2_new_clusters(context->fs,
+						 1, set_len,
+						 &start, &new_len);
+			if (ret)
+				goto out;
+
+			ret = ocfs2_replace_clusters(context, cpos, p_cluster,
+				ocfs2_blocks_to_clusters(context->fs, start),
+				new_len, e_flags);
+			if (ret)
+				goto out;
+			set_len = new_len;
+		}
+
+		ret = __ocfs2_decrease_refcount(context->fs,
+						context->ref_root_buf,
+						p_cluster, set_len,
+						delete);
+		if (ret)
+			goto out;
+
+		cpos += set_len;
+		p_cluster += set_len;
+		num_clusters -= set_len;
+	}
+
+	/* handle any post_cow action. */
+	if (context->post_refcount && context->post_refcount->func) {
+		ret = context->post_refcount->func(context->fs,
+						context->post_refcount->para);
+		if (ret)
+			goto out;
+	}
+
+out:
+	if (ref_leaf_buf)
+		ocfs2_free(&ref_leaf_buf);
+
+	return ret;
+}
+
+static int ocfs2_replace_cow(struct ocfs2_cow_context *context)
+{
+	int ret = 0;
+	uint32_t cow_start = context->cow_start, cow_len = context->cow_len;
+	uint32_t p_cluster, num_clusters;
+	uint16_t ext_flags;
+
+	if (!ocfs2_refcount_tree(OCFS2_RAW_SB(context->fs->fs_super)))
+		return OCFS2_ET_RO_FILESYS;
+
+	while (cow_len) {
+		ret = context->get_clusters(context, cow_start, &p_cluster,
+					    &num_clusters, &ext_flags);
+		if (ret)
+			break;
+
+		assert(ext_flags & OCFS2_EXT_REFCOUNTED);
+
+		if (cow_len < num_clusters)
+			num_clusters = cow_len;
+
+		ret = ocfs2_make_clusters_writable(context,
+						   cow_start, p_cluster,
+						   num_clusters, ext_flags);
+		if (ret)
+			break;
+
+		cow_len -= num_clusters;
+		cow_start += num_clusters;
+	}
+
+	return ret;
+}
+
+/*
+ * Starting at cpos, try to CoW write_len clusters.  Don't CoW
+ * past max_cpos.  This will stop when it runs into a hole or an
+ * unrefcounted extent.
+ */
+static int ocfs2_refcount_cow_hunk(ocfs2_cached_inode *cinode,
+				   uint32_t cpos, uint32_t write_len,
+				   uint32_t max_cpos)
+{
+	int ret;
+	uint32_t cow_start = 0, cow_len = 0;
+	struct ocfs2_cow_context context;
+
+	assert(cinode->ci_inode->i_dyn_features & OCFS2_HAS_REFCOUNT_FL);
+
+	memset(&context, 0, sizeof(struct ocfs2_cow_context));
+
+	ocfs2_init_dinode_extent_tree(&context.data_et, cinode->ci_fs,
+				      (char *)cinode->ci_inode,
+				      cinode->ci_blkno);
+
+	ret = ocfs2_refcount_cal_cow_clusters(cinode->ci_fs, &context.data_et,
+					      cpos, write_len, max_cpos,
+					      &cow_start, &cow_len);
+	if (ret)
+		goto out;
+
+	assert(cow_len > 0);
+
+	context.cow_start = cow_start;
+	context.cow_len = cow_len;
+	context.fs = cinode->ci_fs;
+	context.get_clusters = ocfs2_di_get_clusters;
+	context.cow_object = cinode;
+
+	ret = ocfs2_malloc_block(cinode->ci_fs->fs_io, &context.ref_root_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_refcount_block(cinode->ci_fs,
+					cinode->ci_inode->i_refcount_loc,
+					context.ref_root_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_replace_cow(&context);
+
+	ocfs2_free(&context.ref_root_buf);
+out:
+	return ret;
+}
+
+/*
+ * CoW any and all clusters between cpos and cpos+write_len.
+ * Don't CoW past max_cpos.  If this returns successfully, all
+ * clusters between cpos and cpos+write_len are safe to modify.
+ */
+errcode_t ocfs2_refcount_cow(ocfs2_cached_inode *cinode,
+			     uint32_t cpos, uint32_t write_len,
+			     uint32_t max_cpos)
+{
+	int ret = 0;
+	uint32_t p_cluster, num_clusters;
+	uint16_t ext_flags;
+
+	while (write_len) {
+		ret = ocfs2_get_clusters(cinode, cpos, &p_cluster,
+					 &num_clusters, &ext_flags);
+		if (ret)
+			break;
+
+		if (write_len < num_clusters)
+			num_clusters = write_len;
+
+		if (ext_flags & OCFS2_EXT_REFCOUNTED) {
+			ret = ocfs2_refcount_cow_hunk(cinode, cpos,
+						      num_clusters, max_cpos);
+			if (ret)
+				break;
+		}
+
+		write_len -= num_clusters;
+		cpos += num_clusters;
+	}
+
+	if (!ret)
+		ret = ocfs2_write_cached_inode(cinode->ci_fs, cinode);
+
 	return ret;
 }
