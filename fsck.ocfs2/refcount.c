@@ -35,9 +35,19 @@ struct check_refcount_rec {
 	uint64_t c_end;
 };
 
+/* every REFCOUNTED ocfs2_extent_rec will become one. */
+struct refcount_extent {
+	struct rb_node ext_node;
+	uint32_t v_cpos;
+	uint32_t clusters;
+	uint64_t p_cpos;
+};
+
 struct refcount_file {
 	struct list_head list;
 	uint64_t i_blkno;
+	struct rb_root ref_extents; /* store every refcounted extent rec
+				     * in this file. */
 };
 
 struct refcount_tree {
@@ -259,6 +269,11 @@ static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
 
 		ei.para = &check;
 		ei.chk_rec_func = refcount_check_leaf_extent_rec;
+		/*
+		 * leaf extent rec for a refcount tree is allocated from
+		 * extent_alloc, so we don't need to set mark_rec_alloc_func
+		 * here.
+		 */
 		check_el(ost, &ei, rb->rf_blkno, &rb->rf_list,
 			 max_recs, &changed);
 		*c_end = check.c_end;
@@ -403,4 +418,68 @@ check_valid:
 	}
 
 	return ret;
+}
+
+static void refcount_extent_insert(struct refcount_file *file,
+				   struct refcount_extent *insert)
+{
+	struct rb_node **p = &file->ref_extents.rb_node;
+	struct rb_node *parent = NULL;
+	struct refcount_extent *extent = NULL;
+
+	while (*p) {
+		parent = *p;
+		extent = rb_entry(parent, struct refcount_extent, ext_node);
+		if (insert->p_cpos < extent->p_cpos)
+			p = &(*p)->rb_left;
+		else if (insert->p_cpos > extent->p_cpos)
+			p = &(*p)->rb_right;
+		else
+			assert(0);  /* Caller checked */
+	}
+
+	rb_link_node(&insert->ext_node, parent, p);
+	rb_insert_color(&insert->ext_node, &file->ref_extents);
+}
+
+errcode_t o2fsck_mark_clusters_refcounted(o2fsck_state *ost,
+					  uint64_t rf_blkno,
+					  uint64_t i_blkno,
+					  uint64_t p_cpos,
+					  uint32_t clusters,
+					  uint32_t v_cpos)
+{
+	errcode_t ret;
+	struct refcount_tree *tree;
+	struct refcount_file *file = ost->ost_latest_file;
+	struct list_head *p, *next;
+	struct refcount_extent *extent;
+
+	if (file && file->i_blkno == i_blkno)
+		goto add_clusters;
+
+	tree = refcount_tree_lookup(ost, rf_blkno);
+	/* We should already insert the tree during refcount tree check. */
+	assert(tree);
+
+	list_for_each_safe(p, next, &tree->files_list) {
+		file = list_entry(p, struct refcount_file, list);
+		if (file->i_blkno == i_blkno)
+			goto add_clusters;
+	}
+	/* We should already insert the file during refcount tree check. */
+	assert(0);
+
+add_clusters:
+	ost->ost_latest_file = file;
+	ret = ocfs2_malloc0(sizeof(struct refcount_extent), &extent);
+	if (ret)
+		return ret;
+
+	extent->v_cpos = v_cpos;
+	extent->clusters = clusters;
+	extent->p_cpos = p_cpos;
+
+	refcount_extent_insert(file, extent);
+	return 0;
 }

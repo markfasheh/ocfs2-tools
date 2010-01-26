@@ -22,5 +22,11 @@
 
 errcode_t o2fsck_check_refcount_tree(o2fsck_state *ost,
 				     struct ocfs2_dinode *di);
+errcode_t o2fsck_mark_clusters_refcounted(o2fsck_state *ost,
+					  uint64_t rf_blkno,
+					  uint64_t i_blkno,
+					  uint64_t p_cpos,
+					  uint32_t clusters,
+					  uint32_t v_cpos);
 #endif /* __O2FSCK_REFCOUNT_H__ */
 

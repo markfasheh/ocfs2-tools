@@ -43,6 +43,7 @@
 #include "fsck.h"
 #include "problem.h"
 #include "util.h"
+#include "refcount.h"
 
 static const char *whoami = "extent.c";
 
@@ -293,9 +294,8 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 			continue;
 
 		/* mark the data clusters as used */
-		o2fsck_mark_clusters_allocated(ost,
-			ocfs2_blocks_to_clusters(ost->ost_fs, er->e_blkno),
-			clusters);
+		if (ei->mark_rec_alloc_func)
+			ei->mark_rec_alloc_func(ost, er, clusters, ei->para);
 
 		ei->ei_clusters += clusters;
 
@@ -383,6 +383,28 @@ errcode_t o2fsck_check_extent_rec(o2fsck_state *ost,
 	return 0;
 }
 
+errcode_t o2fsck_mark_tree_clusters_allocated(o2fsck_state *ost,
+					      struct ocfs2_extent_rec *rec,
+					      uint32_t clusters,
+					      void *para)
+{
+	struct ocfs2_dinode *di = para;
+	errcode_t ret = 0;
+
+	if (rec->e_flags & OCFS2_EXT_REFCOUNTED)
+		ret = o2fsck_mark_clusters_refcounted(ost,
+						      di->i_refcount_loc,
+						      di->i_blkno,
+			ocfs2_blocks_to_clusters(ost->ost_fs, rec->e_blkno),
+			clusters, rec->e_cpos);
+	else
+		o2fsck_mark_clusters_allocated(ost,
+			ocfs2_blocks_to_clusters(ost->ost_fs, rec->e_blkno),
+			clusters);
+
+	return ret;
+}
+
 errcode_t o2fsck_check_extents(o2fsck_state *ost,
 			       struct ocfs2_dinode *di)
 {
@@ -391,6 +413,7 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 	int changed = 0;
 
 	ei.chk_rec_func = o2fsck_check_extent_rec;
+	ei.mark_rec_alloc_func = o2fsck_mark_tree_clusters_allocated;
 	ei.para = di;
 	ret = check_el(ost, &ei, di->i_blkno, &di->id2.i_list,
 	         ocfs2_extent_recs_per_inode(ost->ost_fs->fs_blocksize),

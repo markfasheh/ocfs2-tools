@@ -28,6 +28,10 @@ typedef errcode_t (check_leaf_er_func)(o2fsck_state *ost,
 				       struct ocfs2_extent_rec *er,
 				       int *changed,
 				       void *para);
+typedef errcode_t (mark_leaf_er_alloc_func)(o2fsck_state *ost,
+					    struct ocfs2_extent_rec *er,
+					    uint32_t clusters,
+					    void *para);
 
 struct extent_info {
 	uint64_t		ei_max_size;
@@ -36,6 +40,7 @@ struct extent_info {
 	uint16_t		ei_expected_depth;
 	unsigned		ei_expect_depth:1;
 	check_leaf_er_func	*chk_rec_func;
+	mark_leaf_er_alloc_func	*mark_rec_alloc_func;
 	void			*para;
 };
 
@@ -53,5 +58,9 @@ errcode_t o2fsck_check_extent_rec(o2fsck_state *ost,
 				  int *changed,
 				  void *para);
 
+errcode_t o2fsck_mark_tree_clusters_allocated(o2fsck_state *ost,
+					      struct ocfs2_extent_rec *rec,
+					      uint32_t clusters,
+					      void *para);
 #endif /* __O2FSCK_EXTENT_H__ */
 

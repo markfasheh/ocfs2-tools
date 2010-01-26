@@ -29,6 +29,8 @@
 #include "icount.h"
 #include "dirblocks.h"
 
+struct refcount_file;
+
 typedef struct _o2fsck_state {
 	ocfs2_filesys 	*ost_fs;
 
@@ -59,6 +61,7 @@ typedef struct _o2fsck_state {
 	struct rb_root	ost_dir_parents;
 
 	struct rb_root	ost_refcount_trees;
+	struct refcount_file *ost_latest_file;
 
 	unsigned	ost_ask:1,	/* confirm with the user */
 			ost_answer:1,	/* answer if we don't ask the user */
