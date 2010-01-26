@@ -505,3 +505,222 @@ errcode_t ocfs2_write_xattr_bucket(ocfs2_filesys *fs,
 	ocfs2_free(&bucket);
 	return ret;
 }
+
+struct xattr_iterate_ctxt {
+	ocfs2_cached_inode *ci;
+	int (*func)(ocfs2_cached_inode *ci,
+		    char *xe_buf,
+		    uint64_t xe_blkno,
+		    struct ocfs2_xattr_entry *xe,
+		    char *value_buf,
+		    uint64_t value_blkno,
+		    void *value,
+		    int  in_bucket,
+		    void *priv_data);
+	errcode_t errcode;
+	void *priv_data;
+};
+
+static int ocfs2_xattr_iterate_entries(struct xattr_iterate_ctxt *ctxt,
+				       char *xattr_buf, uint64_t xe_blkno,
+				       struct ocfs2_xattr_header *xh,
+				       int is_bucket)
+{
+	int i, value_offset, block_offset;
+	struct ocfs2_xattr_entry *xe = NULL;
+	int iret = 0;
+	char *value_buf;
+	void *value;
+
+	for (i = 0 ; i < xh->xh_count; i++) {
+		xe = &xh->xh_entries[i];
+		value_offset = xe->xe_name_offset +
+				OCFS2_XATTR_SIZE(xe->xe_name_len);
+		block_offset = value_offset / ctxt->ci->ci_fs->fs_blocksize;
+		value_buf = xattr_buf +
+				block_offset * ctxt->ci->ci_fs->fs_blocksize;
+		value = (char *)xh + value_offset;
+
+		if (ctxt->func) {
+			iret = ctxt->func(ctxt->ci, xattr_buf, xe_blkno, xe,
+					  value_buf, xe_blkno + block_offset,
+					  value, is_bucket,
+					  ctxt->priv_data);
+			if (iret & (OCFS2_XATTR_ABORT | OCFS2_XATTR_ERROR))
+				break;
+		}
+	}
+
+	return iret;
+}
+
+static int ocfs2_xattr_iterate_ibody(struct xattr_iterate_ctxt *ctxt)
+{
+	struct ocfs2_xattr_header *xh = NULL;
+	struct ocfs2_dinode *di = ctxt->ci->ci_inode;
+
+	if (!(di->i_dyn_features & OCFS2_INLINE_XATTR_FL))
+		return 0;
+
+	xh = (struct ocfs2_xattr_header *)((char *)di +
+		ctxt->ci->ci_fs->fs_blocksize - di->i_xattr_inline_size);
+
+	return ocfs2_xattr_iterate_entries(ctxt, (char *)di, di->i_blkno,
+					   xh, 0);
+}
+
+static int ocfs2_xattr_iterate_bucket(struct xattr_iterate_ctxt *ctxt,
+				      uint64_t blkno, uint32_t clusters)
+{
+	int i, iret = 0 ;
+	char *bucket = NULL;
+	struct ocfs2_xattr_header *xh;
+	ocfs2_filesys *fs = ctxt->ci->ci_fs;
+	int blk_per_bucket = ocfs2_blocks_per_xattr_bucket(fs);
+	uint32_t bpc = ocfs2_xattr_buckets_per_cluster(fs);
+	uint32_t num_buckets = clusters * bpc;
+
+	ctxt->errcode = ocfs2_malloc_blocks(fs->fs_io, blk_per_bucket, &bucket);
+	if (ctxt->errcode)
+		goto out;
+
+	for (i = 0; i < num_buckets; i++, blkno += blk_per_bucket) {
+		ctxt->errcode = ocfs2_read_xattr_bucket(fs, blkno, bucket);
+		if (ctxt->errcode)
+			goto out;
+
+		xh = (struct ocfs2_xattr_header *)bucket;
+		/*
+		 * The real bucket num in this series of blocks is stored
+		 * in the 1st bucket.
+		 */
+		if (i == 0)
+			num_buckets = xh->xh_num_buckets;
+		iret = ocfs2_xattr_iterate_entries(ctxt, bucket, blkno, xh, 1);
+	}
+
+out:
+	if (bucket)
+		ocfs2_free(&bucket);
+
+	if (ctxt->errcode)
+		iret |= OCFS2_XATTR_ERROR;
+
+	return iret;
+}
+
+static int ocfs2_xattr_iterate_index_block(struct xattr_iterate_ctxt *ctxt,
+					   struct ocfs2_xattr_block *xb)
+{
+	ocfs2_filesys *fs = ctxt->ci->ci_fs;
+	struct ocfs2_extent_list *el = &xb->xb_attrs.xb_root.xt_list;
+	uint32_t name_hash = UINT_MAX, e_cpos = 0, num_clusters = 0;
+	uint64_t p_blkno = 0;
+	int iret = 0;
+
+	if (!el->l_next_free_rec)
+		return 0;
+
+	while (name_hash > 0) {
+		ctxt->errcode = ocfs2_xattr_get_rec(fs, xb,
+						    name_hash, &p_blkno,
+						    &e_cpos, &num_clusters);
+		if (ctxt->errcode)
+			break;
+
+		iret = ocfs2_xattr_iterate_bucket(ctxt, p_blkno, num_clusters);
+		if (iret & (OCFS2_XATTR_ERROR | OCFS2_XATTR_ABORT))
+			break;
+
+		if (e_cpos == 0)
+			break;
+
+		name_hash = e_cpos - 1;
+	}
+
+	if (ctxt->errcode)
+		iret |= OCFS2_XATTR_ERROR;
+	return iret;
+}
+
+static int ocfs2_xattr_iterate_block(struct xattr_iterate_ctxt *ctxt)
+{
+	char *blk = NULL;
+	ocfs2_filesys *fs = ctxt->ci->ci_fs;
+	struct ocfs2_dinode *di = ctxt->ci->ci_inode;
+	struct ocfs2_xattr_block *xb;
+	int iret = 0;
+
+	if (!di->i_xattr_loc)
+		return 0;
+
+	ctxt->errcode = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ctxt->errcode)
+		goto out;
+
+	ctxt->errcode = ocfs2_read_xattr_block(fs, di->i_xattr_loc, blk);
+	if (ctxt->errcode)
+		goto out;
+
+	xb = (struct ocfs2_xattr_block *)blk;
+	if (xb->xb_flags & OCFS2_XATTR_INDEXED)
+		iret = ocfs2_xattr_iterate_index_block(ctxt, xb);
+	else {
+		struct ocfs2_xattr_header *header = &xb->xb_attrs.xb_header;
+		iret = ocfs2_xattr_iterate_entries(ctxt, blk,
+						   di->i_xattr_loc, header, 0);
+	}
+
+out:
+	if (blk)
+		ocfs2_free(&blk);
+
+	if (ctxt->errcode)
+		iret |= OCFS2_XATTR_ERROR;
+
+	return iret;
+}
+
+
+/*
+ * Iterate the xattr entries on inode 'ci'.  If 'func' returns
+ * OCFS2_XATTR_ABORT or OCFS2_XATTR_ERROR, stop iteration.
+ * If OCFS2_XATTR_ERROR, return an error from ocfs2_xattr_iterate.
+ *
+ * If you modify an xattr, you must restart your iteration - there is
+ * no guarantee it is in a consistent state.
+ */
+errcode_t ocfs2_xattr_iterate(ocfs2_cached_inode *ci,
+			      int (*func)(ocfs2_cached_inode *ci,
+					  char *xe_buf,
+					  uint64_t xe_blkno,
+					  struct ocfs2_xattr_entry *xe,
+					  char *value_buf,
+					  uint64_t value_blkno,
+					  void *value,
+					  int in_bucket,
+					  void *priv_data),
+			      void *priv_data)
+{
+	errcode_t ret = 0;
+	int iret = 0;
+	struct xattr_iterate_ctxt ctxt;
+
+	if (!ocfs2_support_xattr(OCFS2_RAW_SB(ci->ci_fs->fs_super)) ||
+	    (!(ci->ci_inode->i_dyn_features & OCFS2_HAS_XATTR_FL)))
+		return 0;
+
+	ctxt.ci = ci;
+	ctxt.func = func;
+	ctxt.priv_data = priv_data;
+	ctxt.errcode = 0;
+
+	iret = ocfs2_xattr_iterate_ibody(&ctxt);
+	if (!(iret & (OCFS2_XATTR_ABORT | OCFS2_XATTR_ERROR)))
+		iret = ocfs2_xattr_iterate_block(&ctxt);
+
+	if (iret & OCFS2_XATTR_ERROR)
+		ret = ctxt.errcode;
+
+	return ret;
+}

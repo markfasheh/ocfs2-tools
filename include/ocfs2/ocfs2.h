@@ -1322,6 +1322,20 @@ errcode_t ocfs2_block_iterate_inode(ocfs2_filesys *fs,
 						void *priv_data),
 				    void *priv_data);
 
+#define OCFS2_XATTR_ABORT	0x01
+#define OCFS2_XATTR_ERROR	0x02
+errcode_t ocfs2_xattr_iterate(ocfs2_cached_inode *ci,
+			      int (*func)(ocfs2_cached_inode *ci,
+					  char *xe_buf,
+					  uint64_t xe_blkno,
+					  struct ocfs2_xattr_entry *xe,
+					  char *value_buf,
+					  uint64_t value_blkno,
+					  void *value,
+					  int in_bucket,
+					  void *priv_data),
+			      void *priv_data);
+
 uint32_t ocfs2_xattr_uuid_hash(unsigned char *uuid);
 uint32_t ocfs2_xattr_name_hash(uint32_t uuid_hash, const char *name,
 			       int name_len);
