@@ -701,6 +701,13 @@ does not allow this.
 Answering yes will remove this inode, thus breaking its claim on the
 overcommitted clusters.
 
+.SS "DUP_CLUSTERS_ADD_REFCOUNT"
+An inode claims clusters that are also claimed by another inode.  ocfs2
+does not allow this.
+
+Answering yes will try to add a refcount record for all these inodes, so
+that they will share the cluster.
+
 \" pass2.c
 
 .SS "DIRENT_DOTTY_DUP"
