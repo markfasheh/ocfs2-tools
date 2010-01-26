@@ -480,6 +480,11 @@ void corrupt_refcount(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case RB_PARENT:
 	case REFCOUNT_BLOCK_INVALID:
 	case REFCOUNT_ROOT_BLOCK_INVALID:
+	case REFCOUNT_LIST_COUNT:
+	case REFCOUNT_LIST_USED:
+	case REFCOUNT_CLUSTER_RANGE:
+	case REFCOUNT_CLUSTER_COLLISION:
+	case REFCOUNT_LIST_EMPTY:
 		func = mess_up_refcount_tree_block;
 		break;
 	default:

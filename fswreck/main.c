@@ -278,6 +278,16 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "Corrupt a refcount block's rf_parent"),
 	define_prompt_code(REFCOUNT_ROOT_BLOCK_INVALID, corrupt_refcount,
 			   "Corrupt a refcount block's rf_parent"),
+	define_prompt_code(REFCOUNT_LIST_COUNT, corrupt_refcount,
+			   "corrupt the refcount list in a refcount block"),
+	define_prompt_code(REFCOUNT_LIST_USED, corrupt_refcount,
+			   "corrupt the refcount list in a refcount block"),
+	define_prompt_code(REFCOUNT_CLUSTER_RANGE, corrupt_refcount,
+			   "corrupt the refcount list in a refcount block"),
+	define_prompt_code(REFCOUNT_CLUSTER_COLLISION, corrupt_refcount,
+			   "corrupt the refcount list in a refcount block"),
+	define_prompt_code(REFCOUNT_LIST_EMPTY, corrupt_refcount,
+			   "corrupt the refcount list in a refcount block"),
 };
 
 #undef define_prompt_code
