@@ -25,6 +25,14 @@
 
 static const char *whoami = "refcount.c";
 
+struct check_refcount_rec {
+	uint64_t root_blkno;
+	uint64_t c_end;
+};
+
+static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
+			  uint64_t root_blkno, uint64_t *c_end, int *is_valid);
+
 static void check_rl(o2fsck_state *ost,
 		     uint64_t rb_blkno, uint64_t root_blkno,
 		     struct ocfs2_refcount_list *rl,
@@ -122,6 +130,32 @@ remove_rec:
 	}
 }
 
+static errcode_t refcount_check_leaf_extent_rec(o2fsck_state *ost,
+						uint64_t owner,
+						struct ocfs2_extent_list *el,
+						struct ocfs2_extent_rec *er,
+						int *changed,
+						void *para)
+{
+	errcode_t ret;
+	int is_valid = 1;
+	struct check_refcount_rec *check = para;
+
+	ret = check_rb(ost, er->e_blkno,
+		       check->root_blkno, &check->c_end, &is_valid);
+
+	if (!is_valid &&
+	    prompt(ost, PY, PR_REFCOUNT_BLOCK_INVALID,
+		   "Refcount block %"PRIu64 " for tree %"PRIu64" is invalid. "
+		   "Remove it from the tree?",
+		   (uint64_t)er->e_blkno, check->root_blkno)) {
+		er->e_blkno = 0;
+		*changed = 1;
+	}
+
+	return ret;
+}
+
 static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
 			  uint64_t root_blkno, uint64_t *c_end, int *is_valid)
 {
@@ -199,12 +233,16 @@ static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
 	/* XXX worry about suballoc node/bit */
 
 	if (rb->rf_flags & OCFS2_REFCOUNT_TREE_FL) {
+		struct check_refcount_rec check = {root_blkno, *c_end};
 		struct extent_info ei = {0, };
 		uint16_t max_recs =
 			ocfs2_extent_recs_per_rb(ost->ost_fs->fs_blocksize);
 
+		ei.para = &check;
+		ei.chk_rec_func = refcount_check_leaf_extent_rec;
 		check_el(ost, &ei, rb->rf_blkno, &rb->rf_list,
 			 max_recs, &changed);
+		*c_end = check.c_end;
 	} else {
 		assert(c_end);
 		check_rl(ost, root_blkno, blkno,

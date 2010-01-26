@@ -637,6 +637,12 @@ Answering yes removes this refcount block from the tree. It will be
 re-generated in refcounted extent records handler if all the other
 information is sane.
 
+.SS "REFCOUNT_BLOCK_INVALID"
+Refcount block stores the refcount record for physical clusters of a file.
+It is found refering an invalid refcount block.
+
+Answering yes remove this refcount block.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"
