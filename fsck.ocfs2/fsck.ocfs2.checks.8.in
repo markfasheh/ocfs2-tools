@@ -651,6 +651,12 @@ of blocks that were found associated with it.
 Answering yes resets the number of clusters to reflect the real number
 of clusters that were associated with the tree.
 
+.SS "REFCOUNT_ROOT_BLOCK_INVALID"
+Root refcount block is the root of the refcount record for a file. It is found
+refering an invalid refcount block.
+
+Answering yes remove this refcount block and clear refcount flag from this file.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"

@@ -22,6 +22,8 @@
 #include "problem.h"
 #include "fsck.h"
 #include "extent.h"
+#include "util.h"
+#include "refcount.h"
 
 static const char *whoami = "refcount.c";
 
@@ -284,4 +286,30 @@ out:
 	if (buf)
 		ocfs2_free(&buf);
 	return 0;
+}
+
+errcode_t o2fsck_check_refcount_tree(o2fsck_state *ost,
+				     struct ocfs2_dinode *di)
+{
+	errcode_t ret;
+	uint64_t c_end = 0;
+	int is_valid = 1;
+
+	if (!(di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL))
+		return 0;
+
+	ret = check_rb(ost, di->i_refcount_loc, di->i_refcount_loc,
+		       &c_end, &is_valid);
+
+	if (!is_valid &&
+	    prompt(ost, PY, PR_REFCOUNT_ROOT_BLOCK_INVALID,
+		   "Refcount tree %"PRIu64 " for inode %"PRIu64" is invalid. "
+		   "Remove it and clear the flag for the inode?",
+		   (uint64_t)di->i_refcount_loc, (uint64_t)di->i_blkno)) {
+		di->i_refcount_loc = 0;
+		di->i_dyn_features &= ~OCFS2_HAS_REFCOUNT_FL;
+
+		o2fsck_write_inode(ost, di->i_blkno, di);
+	}
+	return ret;
 }

@@ -71,6 +71,7 @@
 #include "problem.h"
 #include "util.h"
 #include "xattr.h"
+#include "refcount.h"
 
 static const char *whoami = "pass1";
 
@@ -1408,6 +1409,10 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 					o2fsck_verify_inode_fields(fs, ost,
 								   blkno, di);
 				if (di->i_flags & OCFS2_VALID_FL) {
+					ret = o2fsck_check_refcount_tree(ost,
+									 di);
+					if (ret)
+						goto out;
 					ret = o2fsck_check_blocks(fs, ost,
 								  blkno, di);
 					if (ret)
