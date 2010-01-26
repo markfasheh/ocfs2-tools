@@ -115,6 +115,9 @@ struct ocfs2_extent_tree_operations {
 void ocfs2_init_dinode_extent_tree(struct ocfs2_extent_tree *et,
 				   ocfs2_filesys *fs,
 				   char *buf, uint64_t blkno);
+void ocfs2_init_refcount_extent_tree(struct ocfs2_extent_tree *et,
+				     ocfs2_filesys *fs,
+				     char *buf, uint64_t blkno);
 errcode_t ocfs2_tree_insert_extent(ocfs2_filesys *fs,
 				   struct ocfs2_extent_tree *et,
 				   uint32_t cpos, uint64_t c_blkno,

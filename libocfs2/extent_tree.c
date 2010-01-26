@@ -60,6 +60,54 @@ static struct ocfs2_extent_tree_operations ocfs2_dinode_et_ops = {
 	.eo_fill_root_el	= ocfs2_dinode_fill_root_el,
 };
 
+static void ocfs2_refcount_tree_fill_root_el(struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_refcount_block *rb = et->et_object;
+
+	et->et_root_el = &rb->rf_list;
+}
+
+static void ocfs2_refcount_tree_set_last_eb_blk(struct ocfs2_extent_tree *et,
+						uint64_t blkno)
+{
+	struct ocfs2_refcount_block *rb = et->et_object;
+
+	rb->rf_last_eb_blk = blkno;
+}
+
+static uint64_t
+ocfs2_refcount_tree_get_last_eb_blk(struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_refcount_block *rb = et->et_object;
+
+	return rb->rf_last_eb_blk;
+}
+
+static void ocfs2_refcount_tree_update_clusters(struct ocfs2_extent_tree *et,
+						uint32_t clusters)
+{
+	struct ocfs2_refcount_block *rb = et->et_object;
+
+	rb->rf_clusters += clusters;
+}
+
+static enum ocfs2_contig_type
+ocfs2_refcount_tree_extent_contig(ocfs2_filesys *fs,
+				  struct ocfs2_extent_tree *et,
+				  struct ocfs2_extent_rec *ext,
+				  struct ocfs2_extent_rec *insert_rec)
+{
+	return CONTIG_NONE;
+}
+
+static struct ocfs2_extent_tree_operations ocfs2_refcount_tree_et_ops = {
+	.eo_set_last_eb_blk	= ocfs2_refcount_tree_set_last_eb_blk,
+	.eo_get_last_eb_blk	= ocfs2_refcount_tree_get_last_eb_blk,
+	.eo_update_clusters	= ocfs2_refcount_tree_update_clusters,
+	.eo_fill_root_el	= ocfs2_refcount_tree_fill_root_el,
+	.eo_extent_contig	= ocfs2_refcount_tree_extent_contig,
+};
+
 static void __ocfs2_init_extent_tree(struct ocfs2_extent_tree *et,
 				     ocfs2_filesys *fs,
 				     char *buf,
@@ -90,6 +138,14 @@ void ocfs2_init_dinode_extent_tree(struct ocfs2_extent_tree *et,
 				 buf, &ocfs2_dinode_et_ops);
 }
 
+void ocfs2_init_refcount_extent_tree(struct ocfs2_extent_tree *et,
+				     ocfs2_filesys *fs,
+				     char *buf, uint64_t blkno)
+{
+	__ocfs2_init_extent_tree(et, fs, buf, blkno,
+				 ocfs2_write_refcount_block,
+				 buf, &ocfs2_refcount_tree_et_ops);
+}
 static inline void ocfs2_et_set_last_eb_blk(struct ocfs2_extent_tree *et,
 					    uint64_t new_last_eb_blk)
 {
