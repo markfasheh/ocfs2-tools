@@ -971,6 +971,7 @@ static void print_inode_path(struct dup_inode *di)
 static void for_each_owner(struct dup_context *dct, struct dup_cluster *dc,
 			   int (*func)(struct dup_cluster *dc,
 				       struct dup_inode *di,
+				       struct dup_cluster_owner *dco,
 				       void *priv_data),
 			   void *priv_data)
 {
@@ -983,13 +984,13 @@ static void for_each_owner(struct dup_context *dct, struct dup_cluster *dc,
 		dco = list_entry(p, struct dup_cluster_owner, dco_list);
 		di = dup_inode_lookup(dct, dco->dco_ino);
 		assert(di);
-		if (func(dc, di, priv_data))
+		if (func(dc, di, dco, priv_data))
 			break;
 	}
 }
 
 static int count_func(struct dup_cluster *dc, struct dup_inode *di,
-		      void *priv_data)
+		      struct dup_cluster_owner *dco, void *priv_data)
 {
 	uint64_t *count = priv_data;
 
@@ -1000,7 +1001,7 @@ static int count_func(struct dup_cluster *dc, struct dup_inode *di,
 }
 
 static int print_func(struct dup_cluster *dc, struct dup_inode *di,
-		      void *priv_data)
+		      struct dup_cluster_owner *dco, void *priv_data)
 {
 	printf("  ");
 	print_inode_path(di);
@@ -1310,7 +1311,7 @@ out:
 }
 
 static int fix_dups_func(struct dup_cluster *dc, struct dup_inode *di,
-			 void *priv_data)
+			 struct dup_cluster_owner *dco, void *priv_data)
 {
 	int ret = 0;
 	struct fix_dup_context *fd = priv_data;
