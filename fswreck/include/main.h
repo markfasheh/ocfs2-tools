@@ -90,5 +90,6 @@
 #include "dir.h"
 #include "journal.h"
 #include "quota.h"
+#include "refcount.h"
 
 #endif		/* __MAIN_H__ */

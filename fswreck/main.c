@@ -266,6 +266,18 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "Create a refcounted inode on a unsupported volume"),
 	define_prompt_code(REFCOUNT_LOC_INVALID, corrupt_file,
 			   "Corrupt a refcounted file's refcount location"),
+	define_prompt_code(RB_BLKNO, corrupt_refcount,
+			   "Corrupt a refcount block's rf_blkno"),
+	define_prompt_code(RB_GEN, corrupt_refcount,
+			   "Corrupt a refcount block's generation"),
+	define_prompt_code(RB_GEN_FIX, corrupt_refcount,
+			   "Corrupt a refcount block's generation"),
+	define_prompt_code(RB_PARENT, corrupt_refcount,
+			   "Corrupt a refcount block's rf_parent"),
+	define_prompt_code(REFCOUNT_BLOCK_INVALID, corrupt_refcount,
+			   "Corrupt a refcount block's rf_parent"),
+	define_prompt_code(REFCOUNT_ROOT_BLOCK_INVALID, corrupt_refcount,
+			   "Corrupt a refcount block's rf_parent"),
 };
 
 #undef define_prompt_code

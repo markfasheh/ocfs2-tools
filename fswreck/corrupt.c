@@ -466,3 +466,30 @@ void corrupt_truncate_log(ocfs2_filesys *fs, enum fsck_type type,
 
 	return;
 }
+
+void corrupt_refcount(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
+{
+	uint64_t blkno;
+	void (*func)(ocfs2_filesys *fs,
+		     enum fsck_type type, uint64_t blkno) = NULL;
+
+	switch (type) {
+	case RB_BLKNO:
+	case RB_GEN:
+	case RB_GEN_FIX:
+	case RB_PARENT:
+	case REFCOUNT_BLOCK_INVALID:
+	case REFCOUNT_ROOT_BLOCK_INVALID:
+		func = mess_up_refcount_tree_block;
+		break;
+	default:
+		FSWRK_FATAL("Invalid code = %d", type);
+	}
+
+	create_named_directory(fs, "tmp", &blkno);
+
+	if (func)
+		func(fs, type, blkno);
+
+	return;
+}
