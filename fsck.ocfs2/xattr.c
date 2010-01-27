@@ -607,6 +607,21 @@ static errcode_t o2fsck_check_xattr_index_block(o2fsck_state *ost,
 	if (ret)
 		return ret;
 
+	/*
+	 * We need to write the changed xattr tree first so that the following
+	 * ocfs2_xattr_get_rec can get the updated information.
+	 */
+	if (*changed) {
+		ret = ocfs2_write_xattr_block(ost->ost_fs,
+					      di->i_xattr_loc, (char *)xb);
+		if (ret) {
+			com_err(whoami, ret, "while writing root block of"
+				" extended attributes ");
+			return ret;
+		}
+	}
+
+
 	while (name_hash > 0) {
 		ret = ocfs2_xattr_get_rec(ost->ost_fs, xb, name_hash, &p_blkno,
 					  &e_cpos, &num_clusters);

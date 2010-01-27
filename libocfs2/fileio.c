@@ -583,7 +583,8 @@ static errcode_t ocfs2_try_to_write_inline_data(ocfs2_cached_inode *ci,
 		goto out;
 	}
 
-	if (di->i_clusters > 0 || end > ocfs2_max_inline_data(fs->fs_blocksize))
+	if (di->i_clusters > 0 ||
+	    end > ocfs2_max_inline_data_with_xattr(fs->fs_blocksize, di))
 		return OCFS2_ET_CANNOT_INLINE_DATA;
 
 	ocfs2_set_inode_data_inline(fs, ci->ci_inode);

@@ -120,16 +120,24 @@ static int ocfs2_clusters_per_group(int block_size, int cluster_size_bits)
 	return (megabytes << ONE_MB_SHIFT) >> cluster_size_bits;
 }
 
-static inline void ocfs2_zero_dinode_id2(int blocksize,
-					 struct ocfs2_dinode *di)
+static void ocfs2_zero_dinode_id2_with_xattr(int blocksize,
+					     struct ocfs2_dinode *di)
 {
-	memset(&di->id2, 0, blocksize - offsetof(struct ocfs2_dinode, id2));
+	unsigned int xattrsize = di->i_xattr_inline_size;
+
+	if (di->i_dyn_features & OCFS2_INLINE_XATTR_FL)
+		memset(&di->id2, 0, blocksize -
+				    offsetof(struct ocfs2_dinode, id2) -
+				    xattrsize);
+	else
+		memset(&di->id2, 0, blocksize -
+				    offsetof(struct ocfs2_dinode, id2));
 }
 
 void ocfs2_dinode_new_extent_list(ocfs2_filesys *fs,
 				  struct ocfs2_dinode *di)
 {
-	ocfs2_zero_dinode_id2(fs->fs_blocksize, di);
+	ocfs2_zero_dinode_id2_with_xattr(fs->fs_blocksize, di);
 
 	di->id2.i_list.l_tree_depth = 0;
 	di->id2.i_list.l_next_free_rec = 0;
@@ -140,9 +148,10 @@ void ocfs2_set_inode_data_inline(ocfs2_filesys *fs, struct ocfs2_dinode *di)
 {
 	struct ocfs2_inline_data *idata = &di->id2.i_data;
 
-	ocfs2_zero_dinode_id2(fs->fs_blocksize, di);
+	ocfs2_zero_dinode_id2_with_xattr(fs->fs_blocksize, di);
 
-	idata->id_count = ocfs2_max_inline_data(fs->fs_blocksize);
+	idata->id_count =
+		ocfs2_max_inline_data_with_xattr(fs->fs_blocksize, di);
 
 	di->i_dyn_features |= OCFS2_INLINE_DATA_FL;
 }

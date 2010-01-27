@@ -350,7 +350,8 @@ void mess_up_inline_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno
 			FSWRK_COM_FATAL(progname, ret);
 
 		di = (struct ocfs2_dinode *)buf;
-		max_inline_sz = ocfs2_max_inline_data(fs->fs_blocksize);
+		max_inline_sz =
+			ocfs2_max_inline_data_with_xattr(fs->fs_blocksize, di);
 
 		if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL))
 			di->i_dyn_features |= OCFS2_INLINE_DATA_FL;

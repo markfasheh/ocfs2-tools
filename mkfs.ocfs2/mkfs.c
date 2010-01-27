@@ -570,7 +570,8 @@ main(int argc, char **argv)
 	add_entry_to_directory(s, root_dir, "..", root_dir_rec.fe_off, OCFS2_FT_DIR);
 
 	need = system_dir_bytes_needed(s);
-	if (!s->inline_data || need > ocfs2_max_inline_data(s->blocksize)) {
+	if (!s->inline_data ||
+	    need > ocfs2_max_inline_data_with_xattr(s->blocksize, NULL)) {
 		need = system_dir_blocks_needed(s) << s->blocksize_bits;
 		alloc_bytes_from_bitmap(s, need, s->global_bm,
 					&system_dir_rec.extent_off,
@@ -2308,21 +2309,25 @@ format_file(State *s, SystemFileDiskRecord *rec)
 			(struct ocfs2_dir_entry *)(dir->buf + dir->last_off);
 		int dir_len = dir->last_off + OCFS2_DIR_REC_LEN(de->name_len);
 
-		if (dir_len > ocfs2_max_inline_data(s->blocksize)) {
+		if (dir_len >
+		    ocfs2_max_inline_data_with_xattr(s->blocksize, di)) {
 			com_err(s->progname, 0,
 				"Inline a dir which shouldn't be inline.\n");
 			clear_both_ends(s);
 			exit(1);
 		}
 		de->rec_len -= s->blocksize -
-			       ocfs2_max_inline_data(s->blocksize);
+			       ocfs2_max_inline_data_with_xattr(s->blocksize,
+								di);
 		memset(&di->id2, 0,
 		       s->blocksize - offsetof(struct ocfs2_dinode, id2));
 
-		di->id2.i_data.id_count = ocfs2_max_inline_data(s->blocksize);
+		di->id2.i_data.id_count =
+			ocfs2_max_inline_data_with_xattr(s->blocksize, di);
 		memcpy(di->id2.i_data.id_data, dir->buf, dir_len);
 		di->i_dyn_features |= OCFS2_INLINE_DATA_FL;
-		di->i_size = ocfs2_max_inline_data(s->blocksize);
+		di->i_size = ocfs2_max_inline_data_with_xattr(s->blocksize,
+							      di);
 	}
 
 write_out:

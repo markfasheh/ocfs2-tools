@@ -2839,7 +2839,7 @@ static int ocfs2_append_rec_to_path(ocfs2_filesys *fs,
 				    struct ocfs2_path *right_path,
 				    struct ocfs2_path **ret_left_path)
 {
-	int ret, next_free;
+	int ret, next_free, i;
 	struct ocfs2_extent_list *el;
 	struct ocfs2_path *left_path = NULL;
 
@@ -2886,6 +2886,21 @@ static int ocfs2_append_rec_to_path(ocfs2_filesys *fs,
 	ret = ocfs2_adjust_rightmost_records(fs, right_path, insert_rec);
 	if (ret)
 		goto out;
+
+	if (left_path) {
+		/*
+		 * Userspace sepcially.
+		 * In case we have changed some blocks that is also in
+		 * right_path, we have to update them in the left_path.
+		 */
+		i = 0;
+		while (i++ < left_path->p_tree_depth)
+			if (left_path->p_node[i].blkno ==
+			    right_path->p_node[i].blkno)
+				memcpy(left_path->p_node[i].buf,
+				       right_path->p_node[i].buf,
+				       fs->fs_blocksize);
+	}
 
 	*ret_left_path = left_path;
 	ret = 0;
