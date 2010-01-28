@@ -46,6 +46,13 @@
 
 #define USER_DLMFS_MAGIC	0x76a9f425
 
+struct o2dlm_lock_bast
+{
+	struct list_head	b_bucket; /* to hang us off of the bast list */
+	int			b_fd;     /* the fd of the lock file */
+	void			(*b_bast)(void *);
+	void			*b_arg;   /* Argument to ->b_bast() */
+};
 
 struct o2dlm_lock_res
 {
@@ -66,7 +73,9 @@ struct o2dlm_lock_res
 struct o2dlm_ctxt
 {
 	int		ct_classic;
+	int		ct_supports_bast;
 	struct list_head *ct_hash;
+	struct list_head *ct_bast_hash;
 	unsigned int     ct_hash_size;
 	char             ct_domain_path[O2DLM_MAX_FULL_DOMAIN_PATH]; /* domain
 								      * dir */
@@ -105,6 +114,8 @@ static void o2dlm_free_ctxt(struct o2dlm_ctxt *ctxt)
 {
 	if (ctxt->ct_hash)
 		free(ctxt->ct_hash);
+	if (ctxt->ct_bast_hash)
+		free(ctxt->ct_bast_hash);
 	free(ctxt);
 }
 
@@ -128,16 +139,21 @@ static errcode_t o2dlm_alloc_ctxt(const char *mnt_path,
 		return O2DLM_ET_NO_MEMORY;
 
 	memset(ctxt, 0, sizeof(*ctxt));
+	ctxt->ct_supports_bast = -1;
 	ctxt->ct_hash_size = O2DLM_DEFAULT_HASH_SIZE;
 
 	ctxt->ct_hash = calloc(ctxt->ct_hash_size, sizeof(struct list_head));
-	if (!ctxt->ct_hash) {
+	ctxt->ct_bast_hash = calloc(ctxt->ct_hash_size,
+				    sizeof(struct list_head));
+	if (!ctxt->ct_hash || !ctxt->ct_bast_hash) {
 		err = O2DLM_ET_NO_MEMORY;
 		goto exit_and_free;
 	}
 
-	for(i = 0; i < ctxt->ct_hash_size; i++)
+	for(i = 0; i < ctxt->ct_hash_size; i++) {
 		INIT_LIST_HEAD(&ctxt->ct_hash[i]);
+		INIT_LIST_HEAD(&ctxt->ct_bast_hash[i]);
+	}
 
 	len = snprintf(ctxt->ct_ctxt_lock_name, O2DLM_LOCK_ID_MAX_LEN,
 		       ".%016"PRIx64, rand);
@@ -378,6 +394,63 @@ static struct o2dlm_lock_res *o2dlm_new_lock_res(const char *id,
 	return lockres;
 }
 
+
+static inline unsigned int o2dlm_hash_bast(struct o2dlm_ctxt *ctxt, int fd)
+{
+	return fd % ctxt->ct_hash_size;
+}
+
+static struct o2dlm_lock_bast *o2dlm_find_bast(struct o2dlm_ctxt *ctxt, int fd)
+{
+	struct o2dlm_lock_bast *bast;
+	struct list_head *p;
+	unsigned int bucket;
+
+	bucket = o2dlm_hash_bast(ctxt, fd);
+
+	list_for_each(p, &ctxt->ct_bast_hash[bucket]) {
+		bast = list_entry(p, struct o2dlm_lock_bast, b_bucket);
+		if (fd == bast->b_fd)
+			return bast;
+	}
+	return NULL;
+}
+
+static void o2dlm_insert_bast(struct o2dlm_ctxt *ctxt,
+			      struct o2dlm_lock_bast *bast)
+{
+	unsigned int bucket;
+
+	bucket = o2dlm_hash_bast(ctxt, bast->b_fd);
+
+	list_add_tail(&bast->b_bucket, &ctxt->ct_bast_hash[bucket]);
+}
+
+static inline void o2dlm_remove_bast(struct o2dlm_lock_bast *bast)
+{
+	list_del(&bast->b_bucket);
+	INIT_LIST_HEAD(&bast->b_bucket);
+}
+
+static struct o2dlm_lock_bast *o2dlm_new_bast(int fd,
+					      void (*bast_func)(void *),
+					      void *bastarg)
+{
+	struct o2dlm_lock_bast *bast;
+
+	bast = malloc(sizeof(*bast));
+	if (bast) {
+		memset(bast, 0, sizeof(*bast));
+
+		INIT_LIST_HEAD(&bast->b_bucket);
+
+		bast->b_bast = bast_func;
+		bast->b_arg = bastarg;
+		bast->b_fd = fd;
+	}
+	return bast;
+}
+
 #define O2DLM_OPEN_MODE         0664
 
 
@@ -584,11 +657,19 @@ static errcode_t o2dlm_destroy_classic(struct o2dlm_ctxt *ctxt)
 	int ret, i;
 	int error = 0;
 	struct o2dlm_lock_res *lockres;
+	struct o2dlm_lock_bast *bast;
         struct list_head *p, *n, *bucket;
 
 	for(i = 0; i < ctxt->ct_hash_size; i++) {
-		bucket = &ctxt->ct_hash[i];
+		bucket = &ctxt->ct_bast_hash[i];
+		list_for_each_safe(p, n, bucket) {
+			bast = list_entry(p, struct o2dlm_lock_bast,
+					  b_bucket);
+			o2dlm_remove_bast(bast);
+			free(bast);
+		}
 
+		bucket = &ctxt->ct_hash[i];
 		list_for_each_safe(p, n, bucket) {
 			lockres = list_entry(p, struct o2dlm_lock_res,
 					     l_bucket);
@@ -1109,6 +1190,65 @@ errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
 	return o2dlm_lock_nochecks(ctxt, lockid, lockflags, level);
 }
 
+static errcode_t o2dlm_ctxt_supports_bast(struct o2dlm_ctxt *ctxt)
+{
+	int support;
+	errcode_t ret = 0;
+
+	if (ctxt->ct_supports_bast == -1) {
+		ret = o2dlm_supports_bast(&support);
+		if (!ret) {
+			ctxt->ct_supports_bast = support;
+		}
+	}
+
+	if (!ret && !ctxt->ct_supports_bast)
+		ret = O2DLM_ET_BAST_UNSUPPORTED;
+	return ret;
+}
+
+errcode_t o2dlm_lock_with_bast(struct o2dlm_ctxt *ctxt,
+			       const char *lockid,
+			       int lockflags,
+			       enum o2dlm_lock_level level,
+			       void (*bast_func)(void *bast_arg),
+			       void *bast_arg,
+			       int *poll_fd)
+{
+	errcode_t ret;
+	struct o2dlm_lock_res *lockres;
+	struct o2dlm_lock_bast *bast;
+
+	if (!ctxt->ct_classic)
+		return O2DLM_ET_BAST_UNSUPPORTED;
+	if (!bast_func || !poll_fd)
+		return O2DLM_ET_INVALID_ARGS;
+
+	ret = o2dlm_ctxt_supports_bast(ctxt);
+	if (ret)
+		return ret;
+
+	ret = o2dlm_lock(ctxt, lockid, lockflags, level);
+	if (ret)
+		return ret;
+
+	lockres = o2dlm_find_lock_res(ctxt, lockid);
+	if (!lockres) {
+		o2dlm_unlock(ctxt, lockid);
+		return O2DLM_ET_INTERNAL_FAILURE;
+	}
+
+	bast = o2dlm_new_bast(lockres->l_fd, bast_func, bast_arg);
+	if (!bast) {
+		o2dlm_unlock(ctxt, lockid);
+		return O2DLM_ET_NO_MEMORY;
+	}
+
+	o2dlm_insert_bast(ctxt, bast);
+	*poll_fd = lockres->l_fd;
+	return 0;
+}
+
 static errcode_t o2dlm_unlock_lock_res(struct o2dlm_ctxt *ctxt,
 				       struct o2dlm_lock_res *lockres)
 {
@@ -1119,10 +1259,11 @@ static errcode_t o2dlm_unlock_lock_res(struct o2dlm_ctxt *ctxt,
 }
 
 errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
-		       char *lockid)
+		       const char *lockid)
 {
 	int ret;
 	struct o2dlm_lock_res *lockres;
+	struct o2dlm_lock_bast *bast;
 
 	if (!ctxt || !lockid)
 		return O2DLM_ET_INVALID_ARGS;
@@ -1130,6 +1271,10 @@ errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
 	lockres = o2dlm_find_lock_res(ctxt, lockid);
 	if (!lockres)
 		return O2DLM_ET_UNKNOWN_LOCK;
+
+	bast = o2dlm_find_bast(ctxt, lockres->l_fd);
+	if (bast)
+		o2dlm_remove_bast(bast);
 
 	o2dlm_remove_lock_res(lockres);
 
@@ -1174,6 +1319,15 @@ errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
 	else
 		return o2dlm_write_lvb_fsdlm(ctxt, lockid, lvb, len,
 					     bytes_written);
+}
+
+void o2dlm_process_bast(struct o2dlm_ctxt *ctxt, int poll_fd)
+{
+	struct o2dlm_lock_bast *bast;
+
+	bast = o2dlm_find_bast(ctxt, poll_fd);
+	if (bast)
+		bast->b_bast(bast->b_arg);
 }
 
 /* NULL dlmfs_path means fsdlm */
