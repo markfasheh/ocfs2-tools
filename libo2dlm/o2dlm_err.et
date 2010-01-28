@@ -111,4 +111,7 @@ ec      O2DLM_ET_SEEK,
 ec	O2DLM_ET_DOMAIN_BUSY,
 	"The domain is busy and cannot be accessed"
 
+ec	O2DLM_ET_BAST_UNSUPPORTED,
+	"This environment does not support BASTs"
+
 	end

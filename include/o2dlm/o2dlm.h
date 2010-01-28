@@ -74,12 +74,25 @@ errcode_t o2dlm_initialize(const char *dlmfs_path,
  */
 errcode_t o2dlm_lock(struct o2dlm_ctxt *ctxt,
 		     const char *lockid,
-		     int flags,
+		     int lockflags,
 		     enum o2dlm_lock_level level);
+
+/*
+ * Like o2dlm_lock, but also registers a BAST function for this lock.  This
+ * returns a file descriptor in poll_fd that can be fed to select(2) or
+ * poll(2).  When there is POLLIN on the descriptor, call o2dlm_process_bast().
+ */
+errcode_t o2dlm_lock_with_bast(struct o2dlm_ctxt *ctxt,
+			       const char *lockid,
+			       int lockflags,
+			       enum o2dlm_lock_level level,
+			       void (*bast_func)(void *bast_arg),
+			       void *bast_arg,
+			       int *poll_fd);
 
 /* returns 0 on success */
 errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
-		       char *lockid);
+		       const char *lockid);
 
 /* Read the LVB out of a lock.
  * 'len' is the amount to read into 'lvb'
@@ -101,6 +114,14 @@ errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
 			  const char *lvb,
 			  unsigned int len,
 			  unsigned int *bytes_written);
+
+
+/*
+ * Call this when select(2) or poll(2) says there is data on poll_fd.  It
+ * will fire off the BAST associated with poll_fd.
+ */
+void o2dlm_process_bast(struct o2dlm_ctxt *ctxt, int poll_fd);
+
 
 /*
  * Unlocks all pending locks and frees the lock context.
