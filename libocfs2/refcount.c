@@ -24,6 +24,8 @@
 #include <string.h>
 #include <inttypes.h>
 #include <assert.h>
+#include <errno.h>
+#include <unistd.h>
 
 #include "ocfs2/byteorder.h"
 #include "ocfs2/ocfs2.h"
@@ -2123,6 +2125,82 @@ errcode_t ocfs2_change_refcount_flag(ocfs2_filesys *fs, uint64_t i_blkno,
 out:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
+	return ret;
+}
+
+static errcode_t create_generation(uint32_t *value)
+{
+	int randfd = 0;
+	int readlen = sizeof(*value);
+
+	randfd = open("/dev/urandom", O_RDONLY);
+	if (randfd < 0)
+		return errno;
+
+	if (read(randfd, value, readlen) != readlen)
+		return errno;
+
+	close(randfd);
+
+	return 0;
+}
+
+errcode_t ocfs2_create_refcount_tree(ocfs2_filesys *fs, uint64_t *refcount_loc)
+{
+	errcode_t ret;
+	uint32_t generation;
+
+	ret = create_generation(&generation);
+	if (ret)
+		return ret;
+
+	return ocfs2_new_refcount_block(fs, refcount_loc, 0, generation);
+}
+
+errcode_t ocfs2_attach_refcount_tree(ocfs2_filesys *fs,
+				     uint64_t ino, uint64_t refcount_loc)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	struct ocfs2_dinode *di;
+	struct ocfs2_refcount_block *rb;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	/*
+	 * We add the rf_count for the tree first so that
+	 * if their is any corruption before we attaching
+	 * the tree to the inode, we can check it out
+	 * easily by RF_COUNT_INVALID.
+	 */
+	ret = ocfs2_read_refcount_block(fs, refcount_loc, buf);
+	if (ret)
+		goto out;
+
+	rb = (struct ocfs2_refcount_block *)buf;
+	rb->rf_count += 1;
+
+	ret = ocfs2_write_refcount_block(fs, refcount_loc, buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_inode(fs, ino, buf);
+	if (ret)
+		goto out;
+
+	di = (struct ocfs2_dinode *)buf;
+
+	assert(!(di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL));
+	assert(!di->i_refcount_loc);
+
+	di->i_refcount_loc = refcount_loc;
+	di->i_dyn_features |= OCFS2_HAS_REFCOUNT_FL;
+
+	ret = ocfs2_write_inode(fs, ino, buf);
+out:
+	ocfs2_free(&buf);
 	return ret;
 }
 
