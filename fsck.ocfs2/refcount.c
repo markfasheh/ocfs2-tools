@@ -243,6 +243,16 @@ static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
 		check_el(ost, &ei, rb->rf_blkno, &rb->rf_list,
 			 max_recs, &changed);
 		*c_end = check.c_end;
+
+		if (ei.ei_clusters != rb->rf_clusters &&
+		    prompt(ost, PY, PR_REFCOUNT_CLUSTERS,
+			   "Refcount tree %"PRIu64" claims to have %u "
+			   "clusters, but we only found %u. "
+			   "Fix it?", root_blkno,
+			   rb->rf_clusters, (uint32_t)ei.ei_clusters)) {
+			rb->rf_clusters = ei.ei_clusters;
+			changed = 1;
+		}
 	} else {
 		assert(c_end);
 		check_rl(ost, root_blkno, blkno,

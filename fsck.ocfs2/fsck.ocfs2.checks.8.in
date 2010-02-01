@@ -643,6 +643,14 @@ It is found refering an invalid refcount block.
 
 Answering yes remove this refcount block.
 
+.SS "REFCOUNT_CLUSTERS"
+Refcount tree contains a record of how many clusters are allocated to them.
+A tree was found whose recorded number of clusters doesn't match the number
+of blocks that were found associated with it.
+
+Answering yes resets the number of clusters to reflect the real number
+of clusters that were associated with the tree.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"
