@@ -127,6 +127,7 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 		func = mess_up_extent_block;
 		break;
 	case EXTENT_MARKED_UNWRITTEN:
+	case EXTENT_MARKED_REFCOUNTED:
 	case EXTENT_BLKNO_UNALIGNED:
 		func = mess_up_extent_record;
 		break;
@@ -257,6 +258,12 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case DUP_CLUSTERS_DELETE:
 	case DUP_CLUSTERS_SYSFILE_CLONE:
 		func = mess_up_dup_clusters;
+		break;
+	case REFCOUNT_FLAG_INVALID:
+		func = mess_up_inode_field;
+		break;
+	case REFCOUNT_LOC_INVALID:
+		func = mess_up_inode_field;
 		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", type);

@@ -62,6 +62,9 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 	define_prompt_code(EXTENT_MARKED_UNWRITTEN, corrupt_file,
 			   "Mark an extent unwritten when the filesystem "
 			   "does not support it"),
+	define_prompt_code(EXTENT_MARKED_REFCOUNTED, corrupt_file,
+			   "Mark an extent refcounted when the filesystem "
+			   "does not support it"),
 	define_prompt_code(EXTENT_BLKNO_UNALIGNED, corrupt_file,
 			   "Corrupt extent record's e_blkno"),
 	define_prompt_code(EXTENT_CLUSTERS_OVERRUN, corrupt_file,
@@ -259,6 +262,10 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "Duplicate a invalid quota limits."),
 	define_prompt_code(DUP_DQBLK_VALID, corrupt_sys_file,
 			   "Duplicate a valid quota limits."),
+	define_prompt_code(REFCOUNT_FLAG_INVALID, corrupt_file,
+			   "Create a refcounted inode on a unsupported volume"),
+	define_prompt_code(REFCOUNT_LOC_INVALID, corrupt_file,
+			   "Corrupt a refcounted file's refcount location"),
 };
 
 #undef define_prompt_code

@@ -310,6 +310,18 @@ static void mess_up_record(ocfs2_filesys *fs, uint64_t blkno,
 				"at cpos %"PRIu32" unwritten\n",
 				blkno, er->e_cpos);
 			break;
+		case EXTENT_MARKED_REFCOUNTED:
+			if (ocfs2_refcount_tree(OCFS2_RAW_SB(fs->fs_super)))
+				FSWRK_FATAL("Cannot exercise "
+					    "EXTENT_MARKED_REFCOUNTED on a "
+					    "filesystem with refcounted "
+					    "extents supported (obviously)");
+			er->e_flags |= OCFS2_EXT_REFCOUNTED;
+			fprintf(stdout, "EXTENT_MARKED_REFCOUNTED: "
+				"Corrupt inode#%"PRIu64", mark extent "
+				"at cpos %"PRIu32" refcounted\n",
+				blkno, er->e_cpos);
+			break;
 		case EXTENT_BLKNO_UNALIGNED: 
 			er->e_blkno += 1;
 			fprintf(stdout, "EXTENT_BLKNO_UNALIGNED: "

@@ -128,6 +128,19 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 			"Corrupte inode#%"PRIu64", set link count to 0\n",
 			blkno);
 		break;
+	case REFCOUNT_FLAG_INVALID:
+		di->i_dyn_features |= OCFS2_HAS_REFCOUNT_FL;
+		fprintf(stdout, "REFCOUNT_FLAG_INVALD: "
+			"Corrupt inode#%"PRIu64", add refcount feature\n",
+			blkno);
+		break;
+	case REFCOUNT_LOC_INVALID:
+		di->i_refcount_loc = 100;
+		fprintf(stdout, "REFCOUNT_LOC_INVALID: "
+			"Create an inode#%"PRIu64","
+			"whose i_refcount_loc has been messed up.\n",
+			blkno);
+		break;
 	default:
 		FSWRK_FATAL("Invalid type[%d]\n", type);
 	}
@@ -184,6 +197,13 @@ void mess_up_inode_field(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 		if (ret)
 			FSWRK_COM_FATAL(progname, ret);
 	}
+
+	if (type == REFCOUNT_FLAG_INVALID &&
+	    ocfs2_refcount_tree(OCFS2_RAW_SB(fs->fs_super)))
+		FSWRK_FATAL("should specfiy a norefcount volume\n");
+	if (type == REFCOUNT_LOC_INVALID &&
+	    !ocfs2_refcount_tree(OCFS2_RAW_SB(fs->fs_super)))
+		FSWRK_FATAL("Should specify a refcount supported volume\n");
 
 	damage_inode(fs, tmpblkno, type);
 	return;
@@ -506,4 +526,3 @@ void mess_up_dup_clusters(ocfs2_filesys *fs, enum fsck_type type,
 
 	ocfs2_free(&buf);
 }
-
