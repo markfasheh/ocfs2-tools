@@ -985,6 +985,7 @@ static errcode_t o2fsck_check_refcount(o2fsck_state *ost,
 	errcode_t ret;
 	uint64_t p_cpos = 0;
 	uint32_t clusters = 0, refcount = 0;
+	struct ocfs2_refcount_block *root_rb;
 
 	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &tree->root_buf);
 	if (ret) {
@@ -1006,6 +1007,24 @@ static errcode_t o2fsck_check_refcount(o2fsck_state *ost,
 		com_err(whoami, ret, "while reading root refcount block at"
 			" %"PRIu64, tree->rf_blkno);
 		goto out;
+	}
+
+	root_rb = (struct ocfs2_refcount_block *)tree->root_buf;
+	if (tree->files_count != root_rb->rf_count &&
+	    prompt(ost, PY, PR_REFCOUNT_COUNT,
+		   "Refcount tree at %"PRIu64" claims to have %u "
+		   "files associated with it, but we only found %u."
+		   "Update the count number?", tree->rf_blkno,
+		   root_rb->rf_count, tree->files_count)) {
+		root_rb->rf_count = tree->files_count;
+
+		ret = ocfs2_write_refcount_block(ost->ost_fs, tree->rf_blkno,
+						 tree->root_buf);
+		if (ret) {
+			com_err(whoami, ret, "while updati rb_count for tree "
+				"%"PRIu64, tree->rf_blkno);
+			goto out;
+		}
 	}
 
 	while (get_refcounted_extent(tree, &p_cpos,

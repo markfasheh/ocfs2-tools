@@ -669,6 +669,14 @@ record is found whichs claims the wrong refcount for some physical clusters.
 
 Answering yes update the corresponding refcount record.
 
+.SS "REFCOUNT_COUNT"
+Refcount tree contains a record of how many files refering to this tree.
+A tree was found whose recorded number of files doesn't match the real
+files refering to the tree.
+
+Answering yes resets the number of files to reflect the real number
+of files that were associated with the tree.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"
