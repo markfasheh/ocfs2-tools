@@ -222,6 +222,40 @@ static void damage_refcount_list(ocfs2_filesys *fs, enum fsck_type type,
 		FSWRK_FATAL("Invalid type=%d", type);
 	}
 }
+
+static void damage_refcount_record(ocfs2_filesys *fs, enum fsck_type type,
+				   struct ocfs2_refcount_block *rb)
+{
+	uint32_t oldno;
+	uint64_t oldblkno;
+
+	switch (type) {
+	case REFCOUNT_REC_REDUNDANT:
+		oldblkno = rb->rf_records.rl_recs[0].r_cpos;
+		rb->rf_records.rl_recs[0].r_cpos = 1;
+		rb->rf_records.rl_recs[1].r_clusters += 1;
+		rb->rf_records.rl_recs[3].r_cpos -= 1;
+		rb->rf_records.rl_recs[3].r_clusters += 10;
+		fprintf(stdout, "REFCOUNT_REC_REDUNDANT: Corrupt refcount "
+			"record in block %"PRIu64", change recs[0].r_cpos "
+			"from %"PRIu64" to 1, add recs[1].r_clusters by 1,"
+			"decrease recs[3].r_cpos by 1 and "
+			"increase r_clusters by 100\n",
+			(uint64_t)rb->rf_blkno, oldblkno);
+		break;
+	case REFCOUNT_COUNT_INVALID:
+		oldno = rb->rf_records.rl_recs[0].r_refcount;
+		rb->rf_records.rl_recs[0].r_refcount = 100;
+		fprintf(stdout, "REFCOUNT_COUNT_INVALID: Corrupt refcount "
+			"record in block %"PRIu64", change recs[0].r_count "
+			"from %u to 100\n",
+			(uint64_t)rb->rf_blkno, oldno);
+		break;
+	default:
+		FSWRK_FATAL("Invalid type=%d", type);
+	}
+}
+
 void mess_up_refcount_tree_block(ocfs2_filesys *fs, enum fsck_type type,
 				 uint64_t blkno)
 {
@@ -293,6 +327,11 @@ void mess_up_refcount_tree_block(ocfs2_filesys *fs, enum fsck_type type,
 	case REFCOUNT_LIST_EMPTY:
 		damage_refcount_list(fs, type, rb1);
 		damage_refcount_list(fs, type, rb2_leaf);
+		break;
+	case REFCOUNT_REC_REDUNDANT:
+	case REFCOUNT_COUNT_INVALID:
+		damage_refcount_record(fs, type, rb1);
+		damage_refcount_record(fs, type, rb2_leaf);
 		break;
 	default:
 		FSWRK_FATAL("Invalid type[%d]\n", type);

@@ -485,6 +485,8 @@ void corrupt_refcount(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case REFCOUNT_CLUSTER_RANGE:
 	case REFCOUNT_CLUSTER_COLLISION:
 	case REFCOUNT_LIST_EMPTY:
+	case REFCOUNT_REC_REDUNDANT:
+	case REFCOUNT_COUNT_INVALID:
 		func = mess_up_refcount_tree_block;
 		break;
 	case REFCOUNT_CLUSTERS:

@@ -292,6 +292,10 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "corrupt the rf_clusters for a refcount tree"),
 	define_prompt_code(REFCOUNT_COUNT, corrupt_refcount,
 			   "corrupt the rf_count for a refcount tree"),
+	define_prompt_code(REFCOUNT_REC_REDUNDANT, corrupt_refcount,
+			   "corrupt the refcount record in a refcount block"),
+	define_prompt_code(REFCOUNT_COUNT_INVALID, corrupt_refcount,
+			   "corrupt the refcount record in a refcount block"),
 };
 
 #undef define_prompt_code
