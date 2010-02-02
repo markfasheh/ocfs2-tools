@@ -146,6 +146,7 @@ static void damage_refcount_block(ocfs2_filesys *fs, enum fsck_type type,
 		break;
 	case RB_GEN:
 	case RB_GEN_FIX:
+	case DUP_CLUSTERS_ADD_REFCOUNT:
 		oldno = rb->rf_fs_generation;
 		rb->rf_fs_generation = 0x1234;
 		if (type == RB_GEN)
@@ -307,6 +308,7 @@ void mess_up_refcount_tree_block(ocfs2_filesys *fs, enum fsck_type type,
 	case RB_BLKNO:
 	case RB_GEN:
 	case RB_GEN_FIX:
+	case DUP_CLUSTERS_ADD_REFCOUNT:
 		damage_refcount_block(fs, type, rb1);
 		damage_refcount_block(fs, type, rb2_leaf);
 		break;
