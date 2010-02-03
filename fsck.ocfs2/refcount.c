@@ -16,13 +16,114 @@
  */
 
 #include <inttypes.h>
+#include <assert.h>
+
 #include "ocfs2/ocfs2.h"
 #include "problem.h"
+#include "fsck.h"
+#include "extent.h"
 
 static const char *whoami = "refcount.c";
 
+static void check_rl(o2fsck_state *ost,
+		     uint64_t rb_blkno, uint64_t root_blkno,
+		     struct ocfs2_refcount_list *rl,
+		     uint64_t *c_end, int *changed)
+{
+	struct ocfs2_refcount_rec *rec;
+	uint16_t i;
+	size_t cpy;
+	int trust_used = 1;
+	int max_recs = ocfs2_refcount_recs_per_rb(ost->ost_fs->fs_blocksize);
+
+	verbosef("count %u used %u\n", rl->rl_count, rl->rl_used);
+
+	if (rl->rl_count > max_recs &&
+	    prompt(ost, PY, PR_REFCOUNT_LIST_COUNT,
+		   "Refcount list in refcount tree %"PRIu64" claims to have %u "
+		   "records, but the maximum is %u. Fix the list's count?",
+		   root_blkno, rl->rl_count, max_recs)) {
+
+		rl->rl_count = max_recs;
+		*changed = 1;
+	}
+
+	if (max_recs > rl->rl_count)
+		max_recs = rl->rl_count;
+
+	if (rl->rl_used > max_recs) {
+		if (prompt(ost, PY, PR_REFCOUNT_LIST_USED,
+			   "Refcount list in refcount tree %"PRIu64" claims %u "
+			   "as the used record, but fsck believes "
+			   "the largest valid value is %u.  Clamp the used "
+			   "record value?", root_blkno,
+			   rl->rl_used, max_recs)) {
+
+			rl->rl_used = rl->rl_count;
+			*changed = 1;
+		} else
+			trust_used = 0;
+	}
+
+	if (trust_used)
+		max_recs = rl->rl_used;
+
+	for (i = 0; i < max_recs; i++) {
+		rec = &rl->rl_recs[i];
+
+		/* offer to remove records that point to nowhere */
+		if (ocfs2_block_out_of_range(ost->ost_fs,
+			ocfs2_clusters_to_blocks(ost->ost_fs,
+					rec->r_cpos + rec->r_clusters - 1)) &&
+		    prompt(ost, PY, PR_REFCOUNT_CLUSTER_RANGE,
+			   "Refcount record %u in refcount block %"PRIu64" "
+			   "of refcount tree %"PRIu64" refers to a cluster "
+			   "that is out of range.  Remove "
+			   "this record from the refcount list?",
+			   i, rb_blkno, root_blkno)) {
+			if (!trust_used) {
+				printf("Can't remove the record becuase "
+				       "rl_used hasn't been fixed\n");
+				continue;
+			}
+			goto remove_rec;
+		}
+
+		if (rec->r_cpos < *c_end &&
+		    prompt(ost, PY, PR_REFCOUNT_CLUSTER_COLLISION,
+			   "Refcount record %u in refcount block %"PRIu64" "
+			   "of refcount tree %"PRIu64" refers to a cluster "
+			   "that is collided with the previous record.  Remove "
+			   "this record from the refcount list?",
+			   i, rb_blkno, root_blkno)) {
+			if (!trust_used) {
+				printf("Can't remove the record becuase "
+				       "rl_used hasn't been fixed\n");
+				continue;
+			}
+			goto remove_rec;
+		}
+
+		*c_end = rec->r_cpos + rec->r_clusters;
+		continue;
+remove_rec:
+		cpy = (max_recs - i - 1) * sizeof(*rec);
+		/* shift the remaining recs into this ones place */
+		if (cpy != 0) {
+			memcpy(rec, rec + 1, cpy);
+			memset(&rl->rl_recs[max_recs - 1], 0,
+			       sizeof(*rec));
+			i--;
+		}
+		rl->rl_used--;
+		max_recs--;
+		*changed = 1;
+		continue;
+	}
+}
+
 static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
-			  uint64_t root_blkno, int *is_valid)
+			  uint64_t root_blkno, uint64_t *c_end, int *is_valid)
 {
 	int changed = 0;
 	char *buf = NULL;
@@ -96,6 +197,30 @@ static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
 	}
 
 	/* XXX worry about suballoc node/bit */
+
+	if (rb->rf_flags & OCFS2_REFCOUNT_TREE_FL) {
+		struct extent_info ei = {0, };
+		uint16_t max_recs =
+			ocfs2_extent_recs_per_rb(ost->ost_fs->fs_blocksize);
+
+		check_el(ost, &ei, rb->rf_blkno, &rb->rf_list,
+			 max_recs, &changed);
+	} else {
+		assert(c_end);
+		check_rl(ost, root_blkno, blkno,
+			 &rb->rf_records, c_end, &changed);
+
+		/* We allow the root block to be empty. */
+		if (root_blkno != blkno && !rb->rf_records.rl_used &&
+		    prompt(ost, PY, PR_REFCOUNT_LIST_EMPTY,
+			   "Refcount block %"PRIu64" claims to have no "
+			   "refcount record in it. Consider it as invalid "
+			   "and Remove from tree?",
+			   (uint64_t)rb->rf_blkno)) {
+			*is_valid = 0;
+			changed = 1;
+		}
+	}
 
 	if (changed) {
 		ret = ocfs2_write_refcount_block(ost->ost_fs, blkno, buf);

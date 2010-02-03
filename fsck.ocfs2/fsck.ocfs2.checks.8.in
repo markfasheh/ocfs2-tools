@@ -599,6 +599,44 @@ An refcount block was found storing a wrong parent location.
 Answering yes will update the data structure in the refcount block to reflect
 its parent's real location on disk.
 
+.SS "REFCOUNT_LIST_COUNT"
+The number of entries in a refcount list is bounded by the size of the block
+which contains it.  An refcount list was found which claims to have more
+entries than would fit in its container.
+
+Answering yes updates the count field in the refcount list to match the
+container. Answering no to this question may stop further fixes from being
+done because the count value can not be trusted.
+
+.SS "REFCOUNT_LIST_USED"
+The number of free entries in a refcount list must be less than the total
+number of entries in the list.   A list was found which claims to have more
+free entries than possible entries.
+
+Answering yes sets the number of free entries in the list equal to the total
+possible entries.
+
+.SS "REFCOUNT_CLUSTER_RANGE"
+A refcount record was found which references a cluster which can not be
+referenced by a refcount.  The referenced cluster is either very early in the
+volume, and thus reserved, or beyond the end of the volume.
+
+Answering yes removes this refcount record from the tree.
+
+.SS "REFCOUNT_CLUSTER_COLLISION"
+A refcount record was found which references a cluster which has a collision
+with the previous valid refcount record.
+
+Answering yes removes this refcount record from the tree.
+
+.SS "REFCOUNT_LIST_EMPTY"
+A refcount list was found which has no refcount record in it. It is normally
+caused by a corrupted refcount record.
+
+Answering yes removes this refcount block from the tree. It will be
+re-generated in refcounted extent records handler if all the other
+information is sane.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"
