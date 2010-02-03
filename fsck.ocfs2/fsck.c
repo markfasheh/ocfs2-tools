@@ -642,6 +642,7 @@ int main(int argc, char **argv)
 	ost->ost_ask = 1;
 	ost->ost_dirblocks.db_root = RB_ROOT;
 	ost->ost_dir_parents = RB_ROOT;
+	ost->ost_refcount_trees = RB_ROOT;
 
 	/* These mean "autodetect" */
 	blksize = 0;

@@ -18,6 +18,9 @@
 #include <inttypes.h>
 #include <assert.h>
 
+#include "ocfs2/kernel-rbtree.h"
+#include "ocfs2-kernel/kernel-list.h"
+
 #include "ocfs2/ocfs2.h"
 #include "problem.h"
 #include "fsck.h"
@@ -30,6 +33,20 @@ static const char *whoami = "refcount.c";
 struct check_refcount_rec {
 	uint64_t root_blkno;
 	uint64_t c_end;
+};
+
+struct refcount_file {
+	struct list_head list;
+	uint64_t i_blkno;
+};
+
+struct refcount_tree {
+	struct rb_node ref_node;
+	uint64_t rf_blkno;
+	uint64_t rf_end;
+	struct list_head files_list;
+	int files_count;
+	int is_valid;
 };
 
 static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
@@ -288,20 +305,84 @@ out:
 	return 0;
 }
 
+/* See if the recount_tree rbtree has the given ref_blkno.  */
+static struct refcount_tree*
+refcount_tree_lookup(o2fsck_state *ost, uint64_t ref_blkno)
+{
+	struct rb_node *p = ost->ost_refcount_trees.rb_node;
+	struct refcount_tree *ref_tree;
+
+	while (p) {
+		ref_tree = rb_entry(p, struct refcount_tree, ref_node);
+		if (ref_blkno < ref_tree->rf_blkno)
+			p = p->rb_left;
+		else if (ref_blkno > ref_tree->rf_blkno)
+			p = p->rb_right;
+		else
+			return ref_tree;
+	}
+
+	return NULL;
+}
+
+static void refcount_tree_insert(o2fsck_state *ost,
+				 struct refcount_tree *insert_rb)
+{
+	struct rb_node **p = &ost->ost_refcount_trees.rb_node;
+	struct rb_node *parent = NULL;
+	struct refcount_tree *ref_tree = NULL;
+
+	while (*p) {
+		parent = *p;
+		ref_tree = rb_entry(parent, struct refcount_tree, ref_node);
+		if (insert_rb->rf_blkno < ref_tree->rf_blkno)
+			p = &(*p)->rb_left;
+		else if (insert_rb->rf_blkno > ref_tree->rf_blkno)
+			p = &(*p)->rb_right;
+		else
+			assert(0);  /* Caller checked */
+	}
+
+	rb_link_node(&insert_rb->ref_node, parent, p);
+	rb_insert_color(&insert_rb->ref_node, &ost->ost_refcount_trees);
+}
+
 errcode_t o2fsck_check_refcount_tree(o2fsck_state *ost,
 				     struct ocfs2_dinode *di)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	uint64_t c_end = 0;
 	int is_valid = 1;
+	struct refcount_tree *tree;
+	struct refcount_file *file;
 
 	if (!(di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL))
 		return 0;
 
+	tree = refcount_tree_lookup(ost, di->i_refcount_loc);
+	if (tree)
+		goto check_valid;
+
+	ret = ocfs2_malloc0(sizeof(struct refcount_tree), &tree);
+	if (ret)
+		return ret;
+
 	ret = check_rb(ost, di->i_refcount_loc, di->i_refcount_loc,
 		       &c_end, &is_valid);
 
-	if (!is_valid &&
+	/*
+	 * Add refcount tree to the rb-tree.
+	 * rf_end records the end of the refcount record we have.
+	 * It will be used later.
+	 */
+	tree->rf_blkno = di->i_refcount_loc;
+	tree->is_valid = is_valid;
+	tree->rf_end = c_end;
+	INIT_LIST_HEAD(&tree->files_list);
+	refcount_tree_insert(ost, tree);
+
+check_valid:
+	if (!tree->is_valid &&
 	    prompt(ost, PY, PR_REFCOUNT_ROOT_BLOCK_INVALID,
 		   "Refcount tree %"PRIu64 " for inode %"PRIu64" is invalid. "
 		   "Remove it and clear the flag for the inode?",
@@ -310,6 +391,16 @@ errcode_t o2fsck_check_refcount_tree(o2fsck_state *ost,
 		di->i_dyn_features &= ~OCFS2_HAS_REFCOUNT_FL;
 
 		o2fsck_write_inode(ost, di->i_blkno, di);
+	} else {
+		ret = ocfs2_malloc0(sizeof(struct refcount_file), &file);
+		if (!ret) {
+			file->i_blkno = di->i_blkno;
+			INIT_LIST_HEAD(&file->list);
+
+			list_add_tail(&file->list, &tree->files_list);
+			tree->files_count++;
+		}
 	}
+
 	return ret;
 }

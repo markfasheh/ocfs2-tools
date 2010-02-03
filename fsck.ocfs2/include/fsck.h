@@ -58,6 +58,8 @@ typedef struct _o2fsck_state {
 
 	struct rb_root	ost_dir_parents;
 
+	struct rb_root	ost_refcount_trees;
+
 	unsigned	ost_ask:1,	/* confirm with the user */
 			ost_answer:1,	/* answer if we don't ask the user */
 			ost_force:1,	/* -f supplied; force check */
