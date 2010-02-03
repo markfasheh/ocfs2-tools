@@ -20,4 +20,6 @@
 
 void mess_up_refcount_tree_block(ocfs2_filesys *fs, enum fsck_type type,
 				 uint64_t blkno);
+void mess_up_refcount_tree(ocfs2_filesys *fs, enum fsck_type type,
+			   uint64_t blkno);
 #endif		/* _FSWRECK_REFCOUNT_H_ */

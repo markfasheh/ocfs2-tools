@@ -313,3 +313,54 @@ void mess_up_refcount_tree_block(ocfs2_filesys *fs, enum fsck_type type,
 
 	return;
 }
+
+void mess_up_refcount_tree(ocfs2_filesys *fs, enum fsck_type type,
+			   uint64_t blkno)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	uint64_t rf_blkno;
+	uint32_t oldno;
+	struct ocfs2_refcount_block *rb;
+
+	if (!ocfs2_refcount_tree(OCFS2_RAW_SB(fs->fs_super)))
+		FSWRK_FATAL("Should specify a refcount supported "
+			    "volume to do this corruption\n");
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	create_refcount_tree(fs, blkno, &rf_blkno, 2);
+
+	ret = ocfs2_read_refcount_block(fs, rf_blkno, buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+	rb = (struct ocfs2_refcount_block *)buf;
+
+	switch (type) {
+	case REFCOUNT_CLUSTERS:
+		oldno = rb->rf_clusters;
+		rb->rf_clusters = 1;
+		fprintf(stdout, "REFCOUNT_CLUSTERS: Corrupt refcount block #"
+			"%"PRIu64", change rf_clusters from %u to %u\n",
+			(uint64_t)rb->rf_blkno, oldno, rb->rf_clusters);
+		break;
+	case REFCOUNT_COUNT:
+		oldno = rb->rf_count;
+		rb->rf_count = 0;
+		fprintf(stdout, "REFCOUNT_COUNT: Corrupt refcount block #"
+			"%"PRIu64", change rf_count from %u to %u\n",
+			(uint64_t)rb->rf_blkno, oldno, rb->rf_count);
+		break;
+	default:
+		FSWRK_FATAL("Invalid type[%d]\n", type);
+	}
+
+	ret = ocfs2_write_refcount_block(fs, rf_blkno, buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+	ocfs2_free(&buf);
+
+	return;
+}

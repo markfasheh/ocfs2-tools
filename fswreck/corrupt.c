@@ -487,6 +487,10 @@ void corrupt_refcount(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case REFCOUNT_LIST_EMPTY:
 		func = mess_up_refcount_tree_block;
 		break;
+	case REFCOUNT_CLUSTERS:
+	case REFCOUNT_COUNT:
+		func = mess_up_refcount_tree;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code = %d", type);
 	}
