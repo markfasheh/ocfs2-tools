@@ -4,3 +4,4 @@ o2dlm_err.*
 *.d
 o2dlm_test
 libdlm.h
+debug_*

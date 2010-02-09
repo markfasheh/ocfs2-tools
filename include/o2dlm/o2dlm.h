@@ -106,4 +106,11 @@ errcode_t o2dlm_write_lvb(struct o2dlm_ctxt *ctxt,
  * Unlocks all pending locks and frees the lock context.
  */
 errcode_t o2dlm_destroy(struct o2dlm_ctxt *ctxt);
+
+/*
+ * Optional features that libo2dlm and dlmfs can support.
+ */
+errcode_t o2dlm_supports_bast(int *supports);
+errcode_t o2dlm_supports_stackglue(int *supports);
+
 #endif /* _O2DLM_H_ */
