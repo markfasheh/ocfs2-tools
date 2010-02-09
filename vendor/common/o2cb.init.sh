@@ -31,6 +31,7 @@ CLUSTERCONF=/etc/ocfs2/cluster.conf
 OCFS2_SYS_DIR="/sys/fs/ocfs2"
 LOADED_PLUGINS_FILE="${OCFS2_SYS_DIR}/loaded_cluster_plugins"
 CLUSTER_STACK_FILE="${OCFS2_SYS_DIR}/cluster_stack"
+DLMFS_CAPABILITIES_FILE='/sys/module/ocfs2_dlmfs/parameters/capabilities'
 
 if [ -f /etc/sysconfig/o2cb ]
 then
@@ -900,6 +901,27 @@ load_stack_o2cb()
 }
 
 #
+# dlmfs_user_capable()
+# Check if dlmfs supports user stacks.
+#
+# 0 is yes, 1 is no.
+#
+dlmfs_user_capable()
+{
+    if [ -e "$DLMFS_CAPABILITIES_FILE" ]
+    then
+        CAP_LINE="$(awk '/\ystackglue\y/{print}' "$DLMFS_CAPABILITIES_FILE" 2>/dev/null)"
+    else
+        CAP_LINE="$(modinfo ocfs2_dlmfs 2>/dev/null |
+                        awk '/parm:[ \t]*capabilities:.*\ystackglue\y/{
+                                print
+                            }')"
+    fi
+
+    test x"$CAP_LINE" != x
+}
+
+#
 # load_stack_user()
 # Load the userspace stack plugin.
 #
@@ -937,6 +959,14 @@ load_stack_user()
         [ "$?" != 0 ] && if_fail 1 "Unable to load module \"$PLUGIN_MODULE\""
         if_fail 0
     fi
+
+    if dlmfs_user_capable
+    then
+        mount_filesystem "ocfs2_dlmfs" "/dlm"
+        if_fail $?
+    fi
+
+    return 0
 }
 
 #
@@ -1011,6 +1041,9 @@ unload_stack_user()
         echo "Unable to unload modules as the cluster is still online" >&2
         exit 1
     fi
+
+    unmount_filesystem "ocfs2_dlmfs" "/dlm"
+    if_fail $?
 
     unload_stack_plugins
 }
