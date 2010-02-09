@@ -1431,6 +1431,9 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 
 	mark_local_allocs(ost);
 	mark_truncate_logs(ost);
+	ret = o2fsck_check_mark_refcounted_clusters(ost);
+	if (ret)
+		com_err(whoami, ret, "while checking refcounted clusters");
 	write_cluster_alloc(ost);
 	write_inode_alloc(ost);
 

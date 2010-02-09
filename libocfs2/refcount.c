@@ -280,12 +280,12 @@ out:
  *    and end at a small value between cpos+len and start of the next record.
  *    This fake record has r_refcount = 0.
  */
-static int ocfs2_get_refcount_rec(ocfs2_filesys *fs,
-				  char *ref_root_buf,
-				  uint64_t cpos, unsigned int len,
-				  struct ocfs2_refcount_rec *ret_rec,
-				  int *index,
-				  char *ret_buf)
+int ocfs2_get_refcount_rec(ocfs2_filesys *fs,
+			   char *ref_root_buf,
+			   uint64_t cpos, unsigned int len,
+			   struct ocfs2_refcount_rec *ret_rec,
+			   int *index,
+			   char *ret_buf)
 {
 	int ret = 0, i, found;
 	uint32_t low_cpos;

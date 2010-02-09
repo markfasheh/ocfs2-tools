@@ -657,6 +657,18 @@ refering an invalid refcount block.
 
 Answering yes remove this refcount block and clear refcount flag from this file.
 
+.SS "REFCOUNT_REC_REDUNDANT"
+Refcount record is used to store the refcount for physical clusters. Some
+refcount record is found to have no physical clusters corresponding to it.
+
+Answering yes remove the refcount record.
+
+.SS "REFCOUNT_COUNT_INVALID"
+Refcount record is used to store the refcount for physical clusters. A record
+record is found whichs claims the wrong refcount for some physical clusters.
+
+Answering yes update the corresponding refcount record.
+
 \" pass1b.c
 
 .SS "DUP_CLUSTERS_SYSFILE_CLONE"

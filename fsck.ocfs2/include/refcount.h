@@ -28,5 +28,6 @@ errcode_t o2fsck_mark_clusters_refcounted(o2fsck_state *ost,
 					  uint64_t p_cpos,
 					  uint32_t clusters,
 					  uint32_t v_cpos);
+errcode_t o2fsck_check_mark_refcounted_clusters(o2fsck_state *ost);
 #endif /* __O2FSCK_REFCOUNT_H__ */
 
