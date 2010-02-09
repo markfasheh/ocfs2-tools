@@ -30,7 +30,7 @@ debug_%: debug_%.o libo2dlm.a
 
 endif
 
-CFILES = o2dlm.c
+CFILES = o2dlm.c capabilities.c
 HFILES = libdlm-compat.h
 
 TESTING_CFILES = o2dlm_test.c
