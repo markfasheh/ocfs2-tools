@@ -509,24 +509,23 @@ static errcode_t o2dlm_lock_classic(struct o2dlm_ctxt *ctxt,
 	return 0;
 }
 
-static errcode_t o2dlm_unlock_lock_res_classic(struct o2dlm_ctxt *ctxt,
-					       struct o2dlm_lock_res *lockres)
+static errcode_t o2dlm_drop_lock_classic(struct o2dlm_ctxt *ctxt,
+					 const char *lockid)
 {
 	int ret, len = PATH_MAX + 1;
 	char *path;
 
-	/* This does the actual unlock. */
-	close(lockres->l_fd);
-
-	/* From here on down, we're trying to unlink the lockres file
-	 * from the dlm file system. Note that EBUSY from unlink is
-	 * not a fatal error here -- it simply means that the lock is
-	 * in use by some other process. */
+	/*
+	 * We're trying to unlink the lockres file from the dlm file
+	 * system. Note that EBUSY from unlink is not a fatal error here
+	 * -- it simply means that the lock is in use by some other
+	 * process.
+	 * */
 	path = malloc(len);
 	if (!path)
 		return O2DLM_ET_NO_MEMORY;
 
-	ret = o2dlm_full_path(path, ctxt, lockres->l_id);
+	ret = o2dlm_full_path(path, ctxt, lockid);
 	if (ret) {
 		free(path);
 		return ret;
@@ -539,6 +538,13 @@ static errcode_t o2dlm_unlock_lock_res_classic(struct o2dlm_ctxt *ctxt,
 			return O2DLM_ET_BUSY_LOCK;
 		return O2DLM_ET_UNLINK;
 	}
+	return 0;
+}
+
+static errcode_t o2dlm_unlock_lock_res_classic(struct o2dlm_ctxt *ctxt,
+					       struct o2dlm_lock_res *lockres)
+{
+	close(lockres->l_fd);
 	return 0;
 }
 
@@ -1258,6 +1264,24 @@ static errcode_t o2dlm_unlock_lock_res(struct o2dlm_ctxt *ctxt,
 		return o2dlm_unlock_lock_res_classic(ctxt, lockres);
 	else
 		return o2dlm_unlock_lock_res_fsdlm(ctxt, lockres);
+}
+
+/*
+ * Dropping locks is only available on dlmfs.  No one should be using
+ * libdlm if they can help it.
+ */
+errcode_t o2dlm_drop_lock(struct o2dlm_ctxt *ctxt, const char *lockid)
+{
+	if (!ctxt || !lockid)
+		return O2DLM_ET_INVALID_ARGS;
+
+	if (o2dlm_find_lock_res(ctxt, lockid))
+		return O2DLM_ET_BUSY_LOCK;
+
+	if (ctxt->ct_classic)
+		return o2dlm_drop_lock_classic(ctxt, lockid);
+	else
+		return O2DLM_ET_SERVICE_UNAVAILABLE;
 }
 
 errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
