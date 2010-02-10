@@ -172,6 +172,7 @@ errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 {
 	struct o2dlm_ctxt *dlm_ctxt = NULL;
 	errcode_t ret = 0;
+	int stackglue_support;
 	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
 	char *stack_path;
@@ -184,6 +185,10 @@ errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 	if (ret)
 		goto bail;
 
+	ret = o2dlm_supports_stackglue(&stackglue_support);
+	if (ret)
+		goto bail;
+
 	desc.r_service = (char *)service;
 	desc.r_persist = 0;
 	ret = o2cb_begin_group_join(&cluster, &desc);
@@ -191,13 +196,18 @@ errcode_t ocfs2_initialize_dlm(ocfs2_filesys *fs, const char *service)
 		goto bail;
 
 	/*
-	 * NULL c_stack means o2cb, means use DLMFS, means
-	 * pass DLMFS_PATH.  If we're using a userspace stack, pass NULL.
+	 * We want to use dlmfs if we can, as it provides the full feature
+	 * set of libo2dlm.  Any dlmfs with the 'stackglue' capability will
+	 * support all cluster stacks.  An empty cluster.c_stack means
+	 * o2cb, which always supports dlmfs.
+	 *
+	 * If we're unlucky enough to have older userspace stack code,
+	 * we pass NULL to avoid dlmfs.
 	 */
-	if (cluster.c_stack)
-		stack_path = NULL;
-	else
+	if (stackglue_support || !cluster.c_stack)
 		stack_path = DEFAULT_DLMFS_PATH;
+	else
+		stack_path = NULL;
 	ret = o2dlm_initialize(stack_path, fs->uuid_str, &dlm_ctxt);
 	if (ret) {
 		/* What to do with an error code? */
