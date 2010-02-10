@@ -114,4 +114,7 @@ ec	O2DLM_ET_DOMAIN_BUSY,
 ec	O2DLM_ET_BAST_UNSUPPORTED,
 	"This environment does not support BASTs"
 
+ec	O2DLM_ET_LVB_INVALID,
+	"The LVB is not valid"
+
 	end
