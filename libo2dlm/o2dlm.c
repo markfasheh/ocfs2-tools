@@ -564,6 +564,8 @@ static errcode_t o2dlm_read_lvb_classic(struct o2dlm_ctxt *ctxt,
 	ret = read(fd, lvb, len);
 	if (ret < 0)
 		return O2DLM_ET_LVB_READ;
+	if (!ret)
+		return O2DLM_ET_LVB_INVALID;
 
 	if (bytes_read)
 		*bytes_read = ret;
