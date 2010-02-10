@@ -94,6 +94,10 @@ errcode_t o2dlm_lock_with_bast(struct o2dlm_ctxt *ctxt,
 errcode_t o2dlm_unlock(struct o2dlm_ctxt *ctxt,
 		       const char *lockid);
 
+/* Remove an unlocked lock from the domain */
+errcode_t o2dlm_drop_lock(struct o2dlm_ctxt *ctxt, const char *lockid);
+
+
 /* Read the LVB out of a lock.
  * 'len' is the amount to read into 'lvb'
  *
