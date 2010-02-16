@@ -845,6 +845,7 @@ static void do_help (char **args)
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
 	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
+	printf ("frag <filespec>\t\t\tShow inode extents / clusters ratio\n");
 	printf ("fs_locks [-f <file>] [-l] [-B]\t\t\tShow live fs locking state\n");
 	printf ("group <block#>\t\t\t\tShow chain group\n");
 	printf ("hb\t\t\t\t\tShows the used heartbeat blocks\n");
@@ -864,7 +865,6 @@ static void do_help (char **args)
 	printf ("stat <filespec>\t\t\t\tShow inode\n");
 	printf ("stats [-h]\t\t\t\tShow superblock\n");
 	printf ("xattr [-v] <filespec>\t\t\tShow Extended Attributes\n");
-	printf ("frag <filespec>\t\t\tShow inode extents / clusters ratio\n");
 }
 
 /*
