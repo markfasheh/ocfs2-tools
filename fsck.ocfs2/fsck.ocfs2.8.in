@@ -23,6 +23,12 @@ The \fIblock size\fR, specified in bytes, can range from 512 to 4096.
 A value of 0, the default, is used to indicate that the blocksize should be automatically detected.
 
 .TP
+\fB\-D\fR
+Optimize directories in filesystem. This option causes fsck.ocfs2 to
+coalesce the directory entries in order to improve the filesystem
+performance.
+
+.TP
 \fB\-f\fR
 Force checking even if the file system is clean. 
 
