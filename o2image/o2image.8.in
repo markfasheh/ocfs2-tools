@@ -1,4 +1,4 @@
-.TH "o2image" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2image" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2image \- Copy or restore \fIOCFS2\fR file system meta-data
 .SH "SYNOPSIS"
@@ -57,4 +57,4 @@ Copies metadata blocks from /dev/sda1 device to sda1.out file
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2007, 2009 Oracle. All rights reserved.
+Copyright \(co 2007, 2010 Oracle. All rights reserved.
