@@ -85,7 +85,7 @@ static errcode_t ocfs2_inline_data_read(struct ocfs2_dinode *di, void *buf,
 	p = (__u8 *) &(id->id_data);
 	p += offset;
 
-	*got = ocfs2_min((di->i_size - offset), (uint64_t)count);
+	*got = ocfs2_min((uint64_t)(di->i_size - offset), (uint64_t)count);
 	memcpy(buf, p, *got);
 
 	return 0;

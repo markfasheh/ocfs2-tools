@@ -125,7 +125,7 @@ static int ocfs2_xattr_get_refcount_clusters(ocfs2_cached_inode *ci,
 					     int in_bucket,
 					     void *priv_data)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	uint32_t *clusters = priv_data;
 	uint32_t cpos = 0, len, p_cluster, num_clusters;
 	uint16_t ext_flags;
@@ -313,7 +313,7 @@ static int ocfs2_xattr_cow_refcount_clusters(ocfs2_cached_inode *ci,
 					     int in_bucket,
 					     void *priv_data)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	uint32_t cpos = 0, len, p_cluster, num_clusters;
 	uint16_t ext_flags;
 	struct ocfs2_xattr_value_root *xv;

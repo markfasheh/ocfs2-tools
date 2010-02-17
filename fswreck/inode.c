@@ -106,7 +106,7 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 	case INODE_SPARSE_SIZE:
 		fprintf(stdout, "INODE_SPARSE_SIZE: "
 			"Corrupt inode#%"PRIu64", change i_size "
-			"from %u to %u\n",
+			"from %"PRIu64" to %u\n",
 			 blkno, di->i_size, fs->fs_clustersize);
 		di->i_size = fs->fs_clustersize;
 		break;

@@ -226,7 +226,7 @@ void mess_up_truncate_log_list(ocfs2_filesys *fs, enum fsck_type type,
 			       uint16_t slotnum)
 {
 	uint64_t blkno;
-	int i;
+	int i = 0;
 
 	get_truncate_log(fs, slotnum, &blkno);
 
@@ -250,7 +250,7 @@ void mess_up_truncate_log_rec(ocfs2_filesys *fs, enum fsck_type type,
 			      uint16_t slotnum)
 {
 	uint64_t blkno;
-	int i;
+	int i = 0;
 
 	switch (type) {
 	case TRUNCATE_REC_START_RANGE:

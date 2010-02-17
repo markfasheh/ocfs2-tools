@@ -365,7 +365,7 @@ static int parse_corrupt_codes(const char *corrupt_codes)
 	char *p;
 	char *token = NULL;
 
-	p = corrupt_codes;
+	p = (char *)corrupt_codes;
 
 	while (p) {
 

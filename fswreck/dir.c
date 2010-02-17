@@ -285,7 +285,8 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		corrupt_dirent_reclen(fs, dir, ".", &tmp_no, OCFS2_DIR_PAD);
 		fprintf(stdout, "DIR_DOT_EXCESS: "
 			"Corrupt directory#%"PRIu64","
-			"change dot's dirent length from %lu to %lu\n",
+			"change dot's dirent length from %"PRIu64" "
+			"to %"PRIu64"\n",
 			dir, tmp_no - OCFS2_DIR_PAD, tmp_no);
 		break;
 	case DIRENT_ZERO:
@@ -371,7 +372,8 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 		corrupt_dirent_reclen(fs, dir, name, &tmp_no, 1);
 		fprintf(stdout, "DIRENT_LENGTH: "
 			"Corrupt directory#%"PRIu64
-			", modify entry#%"PRIu64" from %lu to %lu.\n",
+			", modify entry#%"PRIu64" from %"PRIu64" "
+			"to %"PRIu64".\n",
 			dir, tmp_blkno, tmp_no - 1, tmp_no);
 		break;
 	default:

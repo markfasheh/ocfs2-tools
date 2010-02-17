@@ -125,7 +125,7 @@ static errcode_t insert_node_into_slot(ocfs2_filesys *fs,
 	int i, num_slots;
 	char *buf = NULL;
 	uint64_t slot_map_blkno;
-	uint32_t len = fs->fs_blocksize;
+	int len = fs->fs_blocksize;
 	int16_t *slots;
 
 	ret = ocfs2_lookup_system_inode(fs, SLOT_MAP_SYSTEM_INODE, -1,

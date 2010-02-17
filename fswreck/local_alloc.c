@@ -40,7 +40,7 @@
 
 extern char *progname;
 
-static inline uint32_t get_local_alloc_window_bits()
+static uint32_t get_local_alloc_window_bits()
 {
 	/* just return a specific number for test */
 	return 256;
