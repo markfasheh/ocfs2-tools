@@ -1,4 +1,4 @@
-.TH "mount.ocfs2" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mount.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "SYNOPSIS"
@@ -33,12 +33,12 @@ The file system only update atime if the previous atime is older than mtime or c
 The file system will not update access time.
 
 .TP
-\fBacl\fR
-Enables POSIX ACLs(Access Control Lists) support.
+\fBacl / noacl\fR
+Enables / disables POSIX ACLs (Access Control Lists) support.
 
 .TP
 \fBuser_xattr / nouser_xattr\fR
-Enables / disable Extended User Attributes.
+Enables / disables Extended User Attributes.
 
 .TP
 \fBcommit=nrsec\fR
@@ -66,9 +66,12 @@ recovery.
 
 .TP
 \fBdatavolume\fR
-Use this mount option to mount volumes storing the Oracle data files,
-control files, redo logs, archive logs, voting disk, cluster registry, etc.
-(This mount option is only available with \fIOCFS2 1.2\fR and \fIOCFS2 1.4\fR.)
+\fIThis mount option has been \fBdeprecated\fR in OCFS2 1.6\fR. It has been used
+in the past (\fIOCFS2 1.2\fR and \fIOCFS2 1.4\fR), to force the Oracle RDBMS to
+issue direct IOs to the hosted data files, control files, redo logs, archive logs,
+voting disk, cluster registry, etc. It has been deprecated because it is no longer
+required. Oracle RDBMS users should instead use the \fIinit.ora\fR parameter,
+\fIfilesystemio_options\fR, to enable direct IOs.
 
 .TP
 \fBerrors=remount-ro / errors=panic\fR
@@ -105,4 +108,4 @@ Mount the file system read-write.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2009 Oracle. All rights reserved.
+Copyright \(co 2004, 2010 Oracle. All rights reserved.
