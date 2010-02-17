@@ -1,4 +1,4 @@
-.TH "debugfs.ocfs2" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
@@ -160,6 +160,10 @@ Display the pathname for the inode specified by \fIlockname\fR or \fIinode#\fR. 
 command does not display all the hard-linked paths for the inode.
 
 .TP
+\fIfrag filespec\fR
+Display the inode's number of extents to clusters ratio.
+
+.TP
 \fIfs_locks [-f <file>] [-l] [-B] [<lockname(s)>]...\fR
 Display the status of all locks known by the file system. This command expects
 the debugfs filesystem to be mounted as \fImount -t debugfs debugfs /sys/kernel/debug\fR.
@@ -223,6 +227,10 @@ the \fIoutdir\fR which should be an existing directory on the native
 filesystem.
 
 .TP
+\fIrefcount [\-e] filespec\fR
+Display the refcount block, and optionally its tree, of the specified inode.
+
+.TP
 \fIslotmap\fR
 Display the contents of the \fIslotmap\fR system file.
 
@@ -255,4 +263,4 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2009 Oracle. All rights reserved.
+Copyright \(co 2004, 2010 Oracle. All rights reserved.
