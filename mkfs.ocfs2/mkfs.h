@@ -100,12 +100,6 @@ enum {
 	SFI_OTHER
 };
 
-enum ocfs2_fs_types {
-	FS_DEFAULT,
-	FS_DATAFILES,
-	FS_MAIL
-};
-
 typedef struct _SystemFileInfo SystemFileInfo;
 
 struct _SystemFileInfo {

@@ -118,6 +118,7 @@ struct fs_type_translation {
 static struct fs_type_translation ocfs2_fs_types_table[] = {
 	{"datafiles", FS_DATAFILES},
 	{"mail", FS_MAIL},
+	{"vmstore", FS_VMSTORE},
 	{NULL, FS_DEFAULT},
 };
 
@@ -1020,6 +1021,7 @@ get_state(int argc, char **argv)
 	s->fs_type = fs_type;
 
 	ret = ocfs2_merge_feature_flags_with_level(&s->feature_flags,
+						   fs_type,
 						   level,
 						   &feature_flags,
 						   &reverse_flags);
@@ -1243,6 +1245,15 @@ static unsigned int journal_size_mail(State *s)
 	return 65536;
 }
 
+static unsigned int journal_size_vmstore(State *s)
+{
+	if (s->volume_size_in_blocks < 262144)
+		return 8192;
+	else if (s->volume_size_in_blocks < 524288)
+		return 16384;
+	return 32768;
+}
+
 /* stolen from e2fsprogs, modified to fit ocfs2 patterns */
 static uint64_t figure_journal_size(uint64_t size, State *s)
 {
@@ -1277,6 +1288,9 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 		break;
 	case FS_MAIL:
 		j_blocks = journal_size_mail(s);
+		break;
+	case FS_VMSTORE:
+		j_blocks = journal_size_vmstore(s);
 		break;
 	default:
 		j_blocks = journal_size_default(s);
@@ -1466,6 +1480,7 @@ fill_defaults(State *s)
 	if (!s->cluster_size) {
 		switch (s->fs_type) {
 		case FS_DATAFILES:
+		case FS_VMSTORE:
 			s->cluster_size = cluster_size_datafiles(s);
 			break;
 		default:
