@@ -239,11 +239,11 @@ struct _ocfs2_fs_options {
 	uint32_t opt_ro_compat;
 };
 
-enum ocfs2_fs_types {
-	FS_DEFAULT,
-	FS_DATAFILES,
-	FS_MAIL,
-	FS_VMSTORE,
+enum ocfs2_mkfs_types {
+	OCFS2_MKFSTYPE_DEFAULT,
+	OCFS2_MKFSTYPE_DATAFILES,
+	OCFS2_MKFSTYPE_MAIL,
+	OCFS2_MKFSTYPE_VMSTORE,
 };
 
 struct _ocfs2_quota_hash {
@@ -906,7 +906,7 @@ errcode_t ocfs2_parse_feature_level(const char *typestr,
 				    enum ocfs2_feature_levels *level);
 
 errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
-					       enum ocfs2_fs_types fstype,
+					       enum ocfs2_mkfs_types fstype,
 					       int level,
 					       ocfs2_fs_options *feature_set,
 					       ocfs2_fs_options *reverse_set);

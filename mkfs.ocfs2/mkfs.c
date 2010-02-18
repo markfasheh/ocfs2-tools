@@ -112,14 +112,14 @@ static SystemFileInfo system_files[] = {
 
 struct fs_type_translation {
 	const char *ft_str;
-	enum ocfs2_fs_types ft_type;
+	enum ocfs2_mkfs_types ft_type;
 };
 
-static struct fs_type_translation ocfs2_fs_types_table[] = {
-	{"datafiles", FS_DATAFILES},
-	{"mail", FS_MAIL},
-	{"vmstore", FS_VMSTORE},
-	{NULL, FS_DEFAULT},
+static struct fs_type_translation ocfs2_mkfs_types_table[] = {
+	{"datafiles", OCFS2_MKFSTYPE_DATAFILES},
+	{"mail", OCFS2_MKFSTYPE_MAIL},
+	{"vmstore", OCFS2_MKFSTYPE_VMSTORE},
+	{NULL, OCFS2_MKFSTYPE_DEFAULT},
 };
 
 enum {
@@ -708,20 +708,20 @@ main(int argc, char **argv)
 
 static void
 parse_fs_type_opts(char *progname, const char *typestr,
-		   enum ocfs2_fs_types *fs_type)
+		   enum ocfs2_mkfs_types *fs_type)
 {
 	int i;
 
-	*fs_type = FS_DEFAULT;
+	*fs_type = OCFS2_MKFSTYPE_DEFAULT;
 
-	for(i = 0; ocfs2_fs_types_table[i].ft_str; i++) {
-		if (strcmp(typestr, ocfs2_fs_types_table[i].ft_str) == 0) {
-			*fs_type = ocfs2_fs_types_table[i].ft_type;
+	for(i = 0; ocfs2_mkfs_types_table[i].ft_str; i++) {
+		if (strcmp(typestr, ocfs2_mkfs_types_table[i].ft_str) == 0) {
+			*fs_type = ocfs2_mkfs_types_table[i].ft_type;
 			break;
 		}
 	}
 
-	if (*fs_type == FS_DEFAULT) {
+	if (*fs_type == OCFS2_MKFSTYPE_DEFAULT) {
 		com_err(progname, 0, "Bad fs type option specified.");
 		exit(1);
 	}
@@ -747,7 +747,7 @@ get_state(int argc, char **argv)
 	uint64_t val;
 	uint64_t journal_size_in_bytes = 0;
 	int journal64 = 0;
-	enum ocfs2_fs_types fs_type = FS_DEFAULT;
+	enum ocfs2_mkfs_types fs_type = OCFS2_MKFSTYPE_DEFAULT;
 	int mount = -1;
 	int no_backup_super = -1;
 	enum ocfs2_feature_levels level = OCFS2_FEATURE_LEVEL_DEFAULT;
@@ -1283,13 +1283,13 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 	}
 
 	switch (s->fs_type) {
-	case FS_DATAFILES:
+	case OCFS2_MKFSTYPE_DATAFILES:
 		j_blocks = journal_size_datafiles();
 		break;
-	case FS_MAIL:
+	case OCFS2_MKFSTYPE_MAIL:
 		j_blocks = journal_size_mail(s);
 		break;
-	case FS_VMSTORE:
+	case OCFS2_MKFSTYPE_VMSTORE:
 		j_blocks = journal_size_vmstore(s);
 		break;
 	default:
@@ -1479,8 +1479,8 @@ fill_defaults(State *s)
 
 	if (!s->cluster_size) {
 		switch (s->fs_type) {
-		case FS_DATAFILES:
-		case FS_VMSTORE:
+		case OCFS2_MKFSTYPE_DATAFILES:
+		case OCFS2_MKFSTYPE_VMSTORE:
 			s->cluster_size = cluster_size_datafiles(s);
 			break;
 		default:
@@ -2601,11 +2601,11 @@ print_state(State *s)
 	if (s->quiet)
 		return;
 
-	if (s->fs_type != FS_DEFAULT) {
-		for(i = 0; ocfs2_fs_types_table[i].ft_str; i++) {
-			if (ocfs2_fs_types_table[i].ft_type == s->fs_type) {
+	if (s->fs_type != OCFS2_MKFSTYPE_DEFAULT) {
+		for(i = 0; ocfs2_mkfs_types_table[i].ft_str; i++) {
+			if (ocfs2_mkfs_types_table[i].ft_type == s->fs_type) {
 				printf("Filesystem Type of %s\n",
-				       ocfs2_fs_types_table[i].ft_str);
+				       ocfs2_mkfs_types_table[i].ft_str);
 				break;
 			}
 		}

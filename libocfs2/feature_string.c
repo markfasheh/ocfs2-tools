@@ -94,28 +94,28 @@ static ocfs2_fs_options feature_level_defaults[] = {
 	 OCFS2_FEATURE_RO_COMPAT_GRPQUOTA }, /* OCFS2_FEATURE_LEVEL_MAX_FEATURES */
 };
 
-static ocfs2_fs_options fstypes_features_defaults[] = {
+static ocfs2_fs_options mkfstypes_features_defaults[] = {
 	{OCFS2_FEATURE_COMPAT_BACKUP_SB | OCFS2_FEATURE_COMPAT_JBD2_SB,
 	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
 	 OCFS2_FEATURE_INCOMPAT_INLINE_DATA,
-	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* FS_DEFAULT */
+	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* OCFS2_MKFSTYPE_DEFAULT */
 
 	{OCFS2_FEATURE_COMPAT_BACKUP_SB | OCFS2_FEATURE_COMPAT_JBD2_SB,
 	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
 	 OCFS2_FEATURE_INCOMPAT_INLINE_DATA,
-	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* FS_DATAFILES */
+	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* OCFS2_MKFSTYPE_DATAFILES */
 
 	{OCFS2_FEATURE_COMPAT_BACKUP_SB | OCFS2_FEATURE_COMPAT_JBD2_SB,
 	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
 	 OCFS2_FEATURE_INCOMPAT_INLINE_DATA,
-	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* FS_MAIL */
+	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* OCFS2_MKFSTYPE_MAIL */
 
 	{OCFS2_FEATURE_COMPAT_BACKUP_SB | OCFS2_FEATURE_COMPAT_JBD2_SB,
 	 OCFS2_FEATURE_INCOMPAT_SPARSE_ALLOC |
 	 OCFS2_FEATURE_INCOMPAT_INLINE_DATA |
 	 OCFS2_FEATURE_INCOMPAT_XATTR |
 	 OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE,
-	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* FS_VMSTORE */
+	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN},  /* OCFS2_MKFSTYPE_VMSTORE */
 };
 
 /* These are the features we support in mkfs/tunefs via --fs-features */
@@ -575,7 +575,7 @@ static void ocfs2_feature_clear_deps(ocfs2_fs_options *reverse_set)
  * reverse_set: all the features a user want to clear by "--fs-features".
  */
 errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
-					       enum ocfs2_fs_types fstype,
+					       enum ocfs2_mkfs_types fstype,
 					       int level,
 					       ocfs2_fs_options *feature_set,
 					       ocfs2_fs_options *reverse_set)
@@ -583,7 +583,7 @@ errcode_t ocfs2_merge_feature_flags_with_level(ocfs2_fs_options *dest,
 	ocfs2_fs_options level_set;
 
 	if (level == OCFS2_FEATURE_LEVEL_DEFAULT)
-		level_set = fstypes_features_defaults[fstype];
+		level_set = mkfstypes_features_defaults[fstype];
 	else
 		level_set = feature_level_defaults[level];
 
@@ -948,7 +948,8 @@ int main(int argc, char *argv[])
 	}
 
 	memset(&mkfs_features, 0, sizeof(ocfs2_fs_options));
-	err = ocfs2_merge_feature_flags_with_level(&mkfs_features, FS_DEFAULT,
+	err = ocfs2_merge_feature_flags_with_level(&mkfs_features,
+						   OCFS2_MKFSTYPE_DEFAULT,
 						   level,
 						   &set_features,
 						   &clear_features);

@@ -230,7 +230,7 @@ struct _State {
 
 	ocfs2_fs_options feature_flags;
 
-	enum ocfs2_fs_types fs_type;
+	enum ocfs2_mkfs_types fs_type;
 };
 
 int ocfs2_fill_cluster_information(State *s);
