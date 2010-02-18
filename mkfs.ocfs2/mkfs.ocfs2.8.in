@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "April 2009" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -92,15 +92,18 @@ filesystem types are:
 .RS 1.2i
 .TP
 \fBmail\fR
-Appropriate for file systems which will have many meta data
-updates. Creates a larger journal.
+Appropriate for file systems that will host lots of small files.
 .RE
 .RS 1.2i
 .TP
 \fBdatafiles\fR
-Appropriate for file systems which will host a relatively small number
-of very large files. A small journal is selected. Cluster size will be
-at least 128K.
+Appropriate for file systems that will host a relatively small number
+of very large files.
+.RE
+.RS 1.2i
+.TP
+\fBvmstore\fR
+Appropriate for file systems that will host Virtual machine images.
 .RE
 
 .TP
@@ -135,6 +138,16 @@ Enable inline-data support. If this feature is turned on, \fIOCFS2\fR will store
 .TP
 \fBextended-slotmap\fR
 The slot-map is a hidden file on an \fIOCFS2\fR fs which is used to map mounted nodes to system file resources. The extended slot map allows a larger range of possible node numbers, which is useful for userspace cluster stacks. This feature is automatically turned on when needed, thus users have no need to turn this on manually.
+.RE
+.RS 1.2i
+.TP
+\fBmetaecc\fR
+Enables metadata checksums. With this enabled, the file system computes and stores the checksums in all metadata blocks. It also computes and stores an error correction code capable of fixing single bit errors.
+.RE
+.RS 1.2i
+.TP
+\fBrefcount\fR
+Enables creation of reference counted trees. With this enabled, the file system allows users to create inode-based snapshots and clones known as reflinks.
 .RE
 .RS 1.2i
 .TP
@@ -174,7 +187,7 @@ Chooses fewer features but ensures that the file system can be mounted from olde
 .RS 1.2i
 .TP
 \fBdefault\fR
-The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR, \fBunwritten\fR and \fBinline-data\fR.
+The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR, \fBunwritten\fR and \fBinline-data\fR. It also enables \fBrefcount\fR and \fBxattr\fR for the \fIvmstore\fR volumes.
 .RE
 .RS 1.2i
 .TP
@@ -217,13 +230,15 @@ CENTER ALLBOX;
 LI LI LI
 LB C C.
 Feature	Mainline Kernel Version	Enterprise OCFS2 Version
-block64	Linux 2.6.29	Not available as yet
-local	Linux 2.6.20	OCFS2 1.2 and 1.4
-sparse	Linux 2.6.22	OCFS2 1.4
-unwritten	Linux 2.6.23	OCFS2 1.4
-inline-data	Linux 2.6.24	OCFS2 1.4
+block64	Linux 2.6.29	OCFS2 1.6
+local	Linux 2.6.20	OCFS2 1.2, 1.4 and 1.6
+metaecc	Linux 2.6.29	Not available as yet
+refcount	Linux 2.6.32	OCFS2 1.6
+sparse	Linux 2.6.22	OCFS2 1.4 and 1.6
+unwritten	Linux 2.6.23	OCFS2 1.4 and 1.6
+inline-data	Linux 2.6.24	OCFS2 1.4 and 1.6
 extended-slotmap	Linux 2.6.27	Not available as yet
-xattr	Linux 2.6.29	Not available as yet
+xattr	Linux 2.6.29	OCFS2 1.6
 .TE
 
 .TS
@@ -252,4 +267,4 @@ Features: sparse inline-data unwritten
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2009 Oracle. All rights reserved.
+Copyright \(co 2004, 2010 Oracle. All rights reserved.
