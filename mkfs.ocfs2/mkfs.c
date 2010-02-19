@@ -2597,9 +2597,12 @@ static void
 print_state(State *s)
 {
 	int i;
+	char buf[PATH_MAX] = "\0";
 
 	if (s->quiet)
 		return;
+
+	ocfs2_snprint_feature_flags(buf, PATH_MAX, &s->feature_flags);
 
 	if (s->fs_type != OCFS2_MKFSTYPE_DEFAULT) {
 		for(i = 0; ocfs2_mkfs_types_table[i].ft_str; i++) {
@@ -2610,21 +2613,22 @@ print_state(State *s)
 			}
 		}
 	}
-	printf("Filesystem label=%s\n", s->vol_label);
-	printf("Block size=%u (bits=%u)\n", s->blocksize, s->blocksize_bits);
-	printf("Cluster size=%u (bits=%u)\n", s->cluster_size, s->cluster_size_bits);
-	printf("Volume size=%"PRIu64" (%u clusters) (%"PRIu64" blocks)\n",
+	printf("Label: %s\n", s->vol_label);
+	printf("Features: %s\n", buf);
+	printf("Block size: %u (%u bits)\n", s->blocksize, s->blocksize_bits);
+	printf("Cluster size: %u (%u bits)\n", s->cluster_size, s->cluster_size_bits);
+	printf("Volume size: %"PRIu64" (%u clusters) (%"PRIu64" blocks)\n",
 	       s->volume_size_in_bytes, s->volume_size_in_clusters,
 	       s->volume_size_in_blocks);
-	printf("%u cluster groups (tail covers %u clusters, rest cover %u "
+	printf("Cluster groups: %u (tail covers %u clusters, rest cover %u "
 	       "clusters)\n", s->nr_cluster_groups, s->tail_group_bits,
 	       s->global_cpg);
 	if (s->hb_dev)
 		printf("Heartbeat device\n");
 	else
-		printf("Journal size=%"PRIu64"\n",
+		printf("Journal size: %"PRIu64"\n",
 		       s->journal_size_in_bytes);
-	printf("Initial number of node slots: %u\n", s->initial_slots);
+	printf("Node slots: %u\n", s->initial_slots);
 }
 
 static void
