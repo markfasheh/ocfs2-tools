@@ -230,15 +230,17 @@ CENTER ALLBOX;
 LI LI LI
 LB C C.
 Feature	Mainline Kernel Version	Enterprise OCFS2 Version
-block64	Linux 2.6.29	OCFS2 1.6
 local	Linux 2.6.20	OCFS2 1.2, 1.4 and 1.6
-metaecc	Linux 2.6.29	Not available as yet
-refcount	Linux 2.6.32	OCFS2 1.6
 sparse	Linux 2.6.22	OCFS2 1.4 and 1.6
 unwritten	Linux 2.6.23	OCFS2 1.4 and 1.6
 inline-data	Linux 2.6.24	OCFS2 1.4 and 1.6
 extended-slotmap	Linux 2.6.27	Not available as yet
+block64	Linux 2.6.29	OCFS2 1.6
+metaecc	Linux 2.6.29	Not available as yet
+grpquota	Linux 2.6.29	Not available as yet
+usrquota	Linux 2.6.29	Not available as yet
 xattr	Linux 2.6.29	OCFS2 1.6
+refcount	Linux 2.6.32	OCFS2 1.6
 .TE
 
 .TS
