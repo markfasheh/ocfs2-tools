@@ -141,17 +141,22 @@ static void ocfs2_print_quick_detect(struct list_head *dev_list)
 {
 	ocfs2_devices *dev;
 	struct list_head *pos;
-	char uuid[40];
+	char uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
+	int i;
+	char *p;
 
-	printf("%-20s  %-5s  %-36s  %-s\n", "Device", "FS", "UUID", "Label");
+	printf("%-20s  %-5s  %-32s  %-s\n", "Device", "FS", "UUID", "Label");
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		if (dev->fs_type == 0)
 			continue;
 
-		uuid_unparse(dev->uuid, uuid);
+		for (i = 0, p = uuid; i < OCFS2_VOL_UUID_LEN; i++) {
+			snprintf(p, 3, "%02X", dev->uuid[i]);
+			p += 2;
+		}
 
-		printf("%-20s  %-5s  %-36s  %-s\n", dev->dev_name,
+		printf("%-20s  %-5s  %-32s  %-s\n", dev->dev_name,
 		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"), uuid,
 		       dev->label);
 	}
