@@ -510,15 +510,20 @@ main(int argc, char **argv)
 
 	fill_defaults(s);
 
-	clear_both_ends(s);
-
 	generate_uuid (s);
 
 	create_generation(s);
 
 	print_state (s);
 
-	check_32bit_blocks (s);
+	check_32bit_blocks(s);
+
+	if (s->dry_run) {
+		close_device(s);
+		return 0;
+	}
+
+	clear_both_ends(s);
 
 	init_record(s, &superblock_rec, SFI_OTHER, S_IFREG | 0644);
 	init_record(s, &root_dir_rec, SFI_OTHER, S_IFDIR | 0755);
@@ -769,7 +774,7 @@ get_state(int argc, char **argv)
 	State *s;
 	int c;
 	int verbose = 0, quiet = 0, force = 0, xtool = 0, hb_dev = 0;
-	int show_version = 0;
+	int show_version = 0, dry_run = 0;
 	char *device_name;
 	int ret;
 	uint64_t val;
@@ -793,6 +798,7 @@ get_state(int argc, char **argv)
 		{ "heartbeat-device", 0, 0, 'H'},
 		{ "force", 0, 0, 'F'},
 		{ "mount", 1, 0, 'M'},
+		{ "dry-run", 0, 0, 'n' },
 		{ "no-backup-super", 0, 0, BACKUP_SUPER_OPTION },
 		{ "fs-feature-level=", 1, 0, FEATURE_LEVEL },
 		{ "fs-features=", 1, 0, FEATURES_OPTION },
@@ -807,7 +813,7 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:C:L:N:J:M:vqVFHxT:", long_options,
+		c = getopt_long(argc, argv, "b:C:L:N:J:M:vnqVFHxT:", long_options,
 				NULL);
 
 		if (c == -1)
@@ -907,6 +913,10 @@ get_state(int argc, char **argv)
 
 		case 'v':
 			verbose = 1;
+			break;
+
+		case 'n':
+			dry_run = 1;
 			break;
 
 		case 'q':
@@ -1027,6 +1037,7 @@ get_state(int argc, char **argv)
 	s->verbose       = verbose;
 	s->quiet         = quiet;
 	s->force         = force;
+	s->dry_run       = dry_run;
 
 	s->prompt        = xtool ? 0 : 1;
 

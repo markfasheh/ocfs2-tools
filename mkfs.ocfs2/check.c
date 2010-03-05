@@ -229,6 +229,11 @@ int ocfs2_check_volume(State *s)
 	errcode_t ret;
 	int mount_flags;
 
+	if (s->dry_run) {
+		fprintf(stdout, "Dry run\n");
+		return 0;
+	}
+
 	if (ocfs2_fill_cluster_information(s))
 		return -1;
 

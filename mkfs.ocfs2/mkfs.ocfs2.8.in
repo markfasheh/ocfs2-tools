@@ -200,6 +200,10 @@ Choose the maximum amount of features available. This will typically provide the
 This option is deprecated, please use \fB--fs-features=nobackup-super\fR instead.
 
 .TP
+\fB\-n, --dry-run\fR
+Display the heuristically determined values without overwriting the existing file system.
+
+.TP
 \fB\-q, \-\-quiet\fR
 Quiet mode.
 
