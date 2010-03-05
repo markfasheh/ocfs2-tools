@@ -679,6 +679,10 @@ errcode_t ocfs2_zero_tail_and_truncate(ocfs2_filesys *fs,
 				       ocfs2_cached_inode *ci,
 				       uint64_t new_size,
 				       uint32_t *new_clusters);
+errcode_t ocfs2_grow_chain_allocator(ocfs2_filesys *fs,
+				     int type,
+				     int slot_num,
+				     uint32_t num_clusters);
 errcode_t ocfs2_new_clusters(ocfs2_filesys *fs,
 			     uint32_t min,
 			     uint32_t requested,
