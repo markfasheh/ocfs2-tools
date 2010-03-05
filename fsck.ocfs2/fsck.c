@@ -385,7 +385,7 @@ static void print_uuid(o2fsck_state *ost)
 	size_t i, max = sizeof(OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_uuid);
 
 	for(i = 0; i < max; i++)
-		printf("%02x ", uuid[i]);
+		printf("%02X", uuid[i]);
 
 	printf("\n");
 }
@@ -859,15 +859,15 @@ int main(int argc, char **argv)
 	}
 
 	printf("Checking OCFS2 filesystem in %s:\n", filename);
-	printf("  label:              ");
+	printf("  Label:              ");
 	print_label(ost);
-	printf("  uuid:               ");
+	printf("  UUID:               ");
 	print_uuid(ost);
-	printf("  number of blocks:   %"PRIu64"\n", ost->ost_fs->fs_blocks);
-	printf("  bytes per block:    %u\n", ost->ost_fs->fs_blocksize);
-	printf("  number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
-	printf("  bytes per cluster:  %u\n", ost->ost_fs->fs_clustersize);
-	printf("  max slots:          %u\n\n", 
+	printf("  Number of blocks:   %"PRIu64"\n", ost->ost_fs->fs_blocks);
+	printf("  Block size:         %u\n", ost->ost_fs->fs_blocksize);
+	printf("  Number of clusters: %"PRIu32"\n", ost->ost_fs->fs_clusters);
+	printf("  Cluster size:       %u\n", ost->ost_fs->fs_clustersize);
+	printf("  Number of slots:    %u\n\n", 
 	       OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots);
 
 	/* Let's get enough of a cache to replay the journals */
