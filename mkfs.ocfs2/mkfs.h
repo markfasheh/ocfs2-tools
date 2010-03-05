@@ -214,6 +214,8 @@ struct _State {
 	uint64_t journal_size_in_bytes;
 	int journal64;
 
+	uint32_t extent_alloc_size_in_clusters;
+
 	char *vol_label;
 	char *device_name;
 	unsigned char *uuid;
