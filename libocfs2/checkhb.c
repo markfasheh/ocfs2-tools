@@ -96,6 +96,16 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 		memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
 		       sizeof(dev->uuid));
 
+		if (OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
+					OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT))
+			snprintf(dev->stack, sizeof(dev->stack), "%s", "local");
+		else if (ocfs2_userspace_stack(OCFS2_RAW_SB(fs->fs_super)))
+			snprintf(dev->stack, sizeof(dev->stack), "%.*s",
+				 OCFS2_STACK_LABEL_LEN,
+				 OCFS2_RAW_SB(fs->fs_super)->s_cluster_info.ci_stack);
+		else
+			snprintf(dev->stack, sizeof(dev->stack), "%s", "o2cb");
+
 		if (dev->hb_dev)
 			goto close;
 

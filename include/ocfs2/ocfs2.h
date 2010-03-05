@@ -224,6 +224,7 @@ struct _ocfs2_devices {
 	int mount_flags;
 	int fs_type;			/* 0=unknown, 1=ocfs, 2=ocfs2 */
 	int hb_dev;
+	char stack[8];			/* Local, O2CB, CMAN, PCMK */
 	uint32_t maj_num;		/* major number of the device */
 	uint32_t min_num;		/* minor number of the device */
 	errcode_t errcode;		/* error encountered reading device */
