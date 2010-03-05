@@ -483,6 +483,45 @@ out:
 	return ret;
 }
 
+errcode_t ocfs2_grow_chain_allocator(ocfs2_filesys *fs, int type,
+				     int slot_num, uint32_t num_clusters)
+{
+	errcode_t ret = OCFS2_ET_INVALID_ARGUMENT;
+	ocfs2_cached_inode *ci;
+	int i, num_groups, cpg;
+
+	switch (type) {
+	case EXTENT_ALLOC_SYSTEM_INODE:
+		ci = fs->fs_eb_allocs[slot_num];
+		break;
+	case INODE_ALLOC_SYSTEM_INODE:
+		ci = fs->fs_inode_allocs[slot_num];
+		break;
+	case GLOBAL_INODE_ALLOC_SYSTEM_INODE:
+		ci = fs->fs_system_inode_alloc;
+		break;
+	default:
+		goto out;
+	}
+
+	ret = ocfs2_load_allocator(fs, type, slot_num, &ci);
+	if (ret)
+		goto out;
+
+	cpg = ci->ci_inode->id2.i_chain.cl_cpg;
+
+	num_groups = (num_clusters + cpg - 1) / cpg;
+
+	for (i = 0; i < num_groups; ++i) {
+		ret = ocfs2_chain_add_group(fs, ci);
+		if (ret)
+			goto out;
+	}
+
+out:
+	return ret;
+}
+
 /* XXX what to do about local allocs?
  * XXX Well, we shouldn't use local allocs to allocate, as we are
  *     userspace and we have the entire bitmap in memory.  However, this
