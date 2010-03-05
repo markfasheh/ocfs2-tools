@@ -121,7 +121,7 @@ fi
 /sbin/ocfs2_hb_ctl
 /etc/init.d/o2cb
 /etc/init.d/ocfs2
-%config /etc/sysconfig/o2cb
+%config(noreplace) /etc/sysconfig/o2cb
 /usr/share/man/man8/debugfs.ocfs2.8.gz
 /usr/share/man/man8/fsck.ocfs2.8.gz
 /usr/share/man/man8/fsck.ocfs2.checks.8.gz
