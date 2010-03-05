@@ -504,6 +504,7 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 	errcode_t ret;
 	uint64_t blkno = 0, old_blkno = 0;
 	uint32_t found;
+	uint16_t chain_num;
 	struct ocfs2_group_desc *gd;
 	char *buf = NULL;
 	struct ocfs2_chain_rec *rec = NULL;
@@ -523,12 +524,21 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 	if (found != cinode->ci_inode->id2.i_chain.cl_cpg)
 		abort();
 
+	/* pick chain to add to */
+	if (cinode->ci_inode->id2.i_chain.cl_next_free_rec <
+	    cinode->ci_inode->id2.i_chain.cl_count)
+		chain_num = cinode->ci_inode->id2.i_chain.cl_next_free_rec;
+	else
+		chain_num = (cinode->ci_inode->i_clusters /
+			     cinode->ci_inode->id2.i_chain.cl_cpg) %
+			cinode->ci_inode->id2.i_chain.cl_count;
+
 	ocfs2_init_group_desc(fs, gd, blkno, fs->fs_super->i_fs_generation,
 			      cinode->ci_inode->i_blkno,
 			      cinode->ci_inode->id2.i_chain.cl_cpg *
-			      cinode->ci_inode->id2.i_chain.cl_bpc, 0);
+			      cinode->ci_inode->id2.i_chain.cl_bpc, chain_num);
 
-	rec = &cinode->ci_inode->id2.i_chain.cl_recs[0];
+	rec = &cinode->ci_inode->id2.i_chain.cl_recs[chain_num];
 	old_blkno = rec->c_blkno;
 	gd->bg_next_group = old_blkno;
 
@@ -547,15 +557,15 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 	cinode->ci_inode->id1.bitmap1.i_total += gd->bg_bits;
 	cinode->ci_inode->id1.bitmap1.i_used += gd->bg_bits -
 						gd->bg_free_bits_count;
-	if (cinode->ci_inode->id2.i_chain.cl_next_free_rec == 0)
-		cinode->ci_inode->id2.i_chain.cl_next_free_rec = 1;
+	if (cinode->ci_inode->id2.i_chain.cl_next_free_rec == chain_num)
+		cinode->ci_inode->id2.i_chain.cl_next_free_rec = chain_num + 1;
 
 	ret = ocfs2_write_cached_inode(fs, cinode);
 	if (ret)
 		goto out;
 
 	/* XXX this is probably too clever by half */ 
-	ret = chainalloc_process_group(fs, blkno, 0, cinode->ci_chains);
+	ret = chainalloc_process_group(fs, blkno, chain_num, cinode->ci_chains);
 	if (ret) {
 		ret = cb->cb_errcode;
 		goto out;
@@ -579,9 +589,9 @@ out:
 		cinode->ci_inode->id1.bitmap1.i_total -= gd->bg_bits;
 		cinode->ci_inode->id1.bitmap1.i_used -= gd->bg_bits -
 							gd->bg_free_bits_count;
-		if (cinode->ci_inode->id2.i_chain.cl_next_free_rec == 1 &&
+		if (cinode->ci_inode->id2.i_chain.cl_next_free_rec == (chain_num + 1) &&
 		    old_blkno == 0)
-			cinode->ci_inode->id2.i_chain.cl_next_free_rec = 0;
+			cinode->ci_inode->id2.i_chain.cl_next_free_rec = chain_num;
 
 		ocfs2_write_cached_inode(fs, cinode);
 	}
