@@ -363,6 +363,28 @@ error:
 	exit(1);
 }
 
+static void grow_extent_allocator(State *s, ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	int i;
+
+	for (i = 0; i < OCFS2_RAW_SB(fs->fs_super)->s_max_slots; i++) {
+		ret = ocfs2_grow_chain_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE,
+						 i, s->extent_alloc_size_in_clusters);
+		if (ret) {
+			com_err(s->progname, ret, "while growing the extent "
+				"allocator for slot %d by %d clusters",
+				i, s->extent_alloc_size_in_clusters);
+			goto error;
+		}
+	}
+	return;
+
+error:
+	clear_both_ends(s);
+	exit(1);
+}
+
 static void finish_normal_format(State *s)
 {
 	errcode_t ret;
@@ -398,6 +420,12 @@ static void finish_normal_format(State *s)
 	if (!s->quiet)
 		printf("Formatting Journals: ");
 	format_journals(s, fs);
+	if (!s->quiet)
+		printf("done\n");
+
+	if (!s->quiet)
+		printf("Growing extent allocator: ");
+	grow_extent_allocator(s, fs);
 	if (!s->quiet)
 		printf("done\n");
 
@@ -1344,6 +1372,42 @@ static uint32_t cluster_size_datafiles(State *s)
 	return cluster_size * 1024;
 }
 
+static uint32_t figure_extent_alloc_size(State *s)
+{
+	uint32_t cpg, numgroups;
+	uint64_t unitsize, totalsize;
+	double curr_percent, target_percent;
+
+	if (!s->initial_slots)
+		return 0;
+
+	switch (s->fs_type) {
+	case OCFS2_MKFSTYPE_DATAFILES:
+	case OCFS2_MKFSTYPE_VMSTORE:
+		target_percent = 0.3;
+		break;
+	case OCFS2_MKFSTYPE_MAIL:
+	default:
+		target_percent = 0.1;
+		break;
+	}
+
+	cpg = ocfs2_clusters_per_group(s->blocksize, s->cluster_size_bits);
+
+	/* size of the allocator across all slots with one group */
+	unitsize = cpg * s->cluster_size * s->initial_slots;
+
+	totalsize = unitsize;
+	for (numgroups = 1; ; ++numgroups) {
+		curr_percent = (double)totalsize * 100 / s->volume_size_in_bytes;
+		if (curr_percent >= target_percent)
+			break;
+		totalsize += unitsize;
+	}
+
+	return cpg * numgroups;
+}
+
 static void
 fill_defaults(State *s)
 {
@@ -1528,6 +1592,8 @@ fill_defaults(State *s)
 	}
 
 	s->journal_size_in_bytes = figure_journal_size(s->journal_size_in_bytes, s);
+
+	s->extent_alloc_size_in_clusters = figure_extent_alloc_size(s);
 }
 
 static int
@@ -2598,9 +2664,19 @@ print_state(State *s)
 {
 	int i;
 	char buf[PATH_MAX] = "\0";
+	uint64_t extsize = 0;
+	uint32_t numgrps = 0;
 
 	if (s->quiet)
 		return;
+
+	if (s->extent_alloc_size_in_clusters) {
+		numgrps = s->extent_alloc_size_in_clusters /
+			ocfs2_clusters_per_group(s->blocksize,
+						 s->cluster_size_bits);
+		extsize = (uint64_t)s->extent_alloc_size_in_clusters *
+			s->cluster_size;
+	}
 
 	ocfs2_snprint_feature_flags(buf, PATH_MAX, &s->feature_flags);
 
@@ -2623,6 +2699,8 @@ print_state(State *s)
 	printf("Cluster groups: %u (tail covers %u clusters, rest cover %u "
 	       "clusters)\n", s->nr_cluster_groups, s->tail_group_bits,
 	       s->global_cpg);
+	printf("Extent allocator size: %"PRIu64" (%u groups)\n",
+	       extsize, numgrps);
 	if (s->hb_dev)
 		printf("Heartbeat device\n");
 	else
