@@ -919,8 +919,16 @@ size_cluster_check:
 			expected *=  fs->fs_clustersize;
 			unexpected = expected - fs->fs_clustersize;
 
-			/* i_size is checked for symlinks elsewhere */
-			if (!S_ISLNK(di->i_mode) && di->i_size <= unexpected &&
+			/*
+			 * NOTE:
+			 *  -	 i_size is checked for symlinks elsewhere
+			 *  -    We're not going to check this for dirs
+			 * 	 since it would be legal for a dir inode
+			 *	 whose i_size(in clusters) was less than
+			 *	 i_clusters, even on a sparsed filesystem
+			 */
+			if (!S_ISLNK(di->i_mode) && !S_ISDIR(di->i_mode) &&
+			    di->i_size <= unexpected &&
 			    prompt(ost, PY, PR_INODE_SPARSE_SIZE, "Inode %"PRIu64
 				   " has a size of %"PRIu64" but has %"PRIu64
 				   " blocks of actual data. "
