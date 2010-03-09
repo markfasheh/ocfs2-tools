@@ -288,12 +288,28 @@ static void mess_up_record(ocfs2_filesys *fs, uint64_t blkno,
 	if (!(di->i_flags & OCFS2_VALID_FL))
 		FSWRK_COM_FATAL(progname, ret);	
 
+	/* We don't want fsck complaining about i_size */
+	if (!di->i_size)
+		di->i_size = 1;
+
 	el = &(di->id2.i_list);
 
 	if (el->l_next_free_rec > 0) {
 		er = el->l_recs;
 		oldno = er->e_blkno;
 		switch (type) {
+		case EXTENT_MARKED_UNWRITTEN:
+			if (ocfs2_writes_unwritten_extents(OCFS2_RAW_SB(fs->fs_super)))
+				FSWRK_FATAL("Cannot exercise "
+					    "EXTENT_MARKED_UNWRITTEN on a "
+					    "filesystem with unwritten "
+					    "extents supported (obviously)");
+			er->e_flags |= OCFS2_EXT_UNWRITTEN;
+			fprintf(stdout, "EXTENT_MARKED_UNWRITTEN: "
+				"Corrupt inode#%"PRIu64", mark extent "
+				"at cpos %"PRIu32" unwritten\n",
+				blkno, er->e_cpos);
+			break;
 		case EXTENT_BLKNO_UNALIGNED: 
 			er->e_blkno += 1;
 			fprintf(stdout, "EXTENT_BLKNO_UNALIGNED: "

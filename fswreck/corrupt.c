@@ -126,6 +126,7 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case EXTENT_EB_INVALID:
 		func = mess_up_extent_block;
 		break;
+	case EXTENT_MARKED_UNWRITTEN:
 	case EXTENT_BLKNO_UNALIGNED:
 		func = mess_up_extent_record;
 		break;
