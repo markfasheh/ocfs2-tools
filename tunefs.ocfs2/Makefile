@@ -104,8 +104,11 @@ ocfs2ne: $(OCFS2NE_OBJS) libocfs2ne.a $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2C
 tunefs.ocfs2: ocfs2ne
 	ln -f ocfs2ne tunefs.ocfs2
 
-CLEAN_RULES = clean-err
+CLEAN_RULES += clean-err
+CLEAN_RULES += ocfs2ne-clean
 
+ocfs2ne-clean:
+	rm -f ocfs2ne
 clean-err:
 	rm -f o2ne_err.c o2ne_err.h
 
