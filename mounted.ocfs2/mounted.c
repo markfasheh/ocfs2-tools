@@ -33,6 +33,8 @@
 #include <linux/fd.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <ctype.h>
 
 #include <uuid/uuid.h>
 
@@ -161,12 +163,48 @@ static void ocfs2_print_quick_detect(struct list_head *dev_list)
 	}
 }
 
+static void scan_dir_for_dev(char *dirname, dev_t devno, char **devname)
+{
+	DIR *dir;
+	struct dirent *dp;
+	char path[PATH_MAX];
+	int dirlen;
+	struct stat st;
+
+	dir = opendir(dirname);
+	if (dir == NULL)
+		return;
+	dirlen = strlen(dirname) + 2;
+	while ((dp = readdir(dir)) != 0) {
+		if (dirlen + strlen(dp->d_name) >= sizeof(path))
+			continue;
+
+		if (dp->d_name[0] == '.' &&
+		    ((dp->d_name[1] == 0) ||
+		     ((dp->d_name[1] == '.') && (dp->d_name[2] == 0))))
+			continue;
+
+		sprintf(path, "%s/%s", dirname, dp->d_name);
+		if (stat(path, &st) < 0)
+			continue;
+
+		if (S_ISBLK(st.st_mode) && st.st_rdev == devno) {
+			*devname = strdup(path);
+			break;
+		}
+	}
+	closedir(dir);
+	return;
+}
+
 static errcode_t ocfs2_partition_list (struct list_head *dev_list)
 {
 	errcode_t ret = 0;
 	FILE *proc;
 	char line[256];
 	char name[256];
+	char *devname = NULL;
+	int major, minor;
 	ocfs2_devices *dev;
 
 	proc = fopen ("/proc/partitions", "r");
@@ -176,14 +214,34 @@ static errcode_t ocfs2_partition_list (struct list_head *dev_list)
 	}
 
 	while (fgets (line, sizeof(line), proc) != NULL) {
-		if (sscanf(line, "%*d %*d %*d %99[^ \t\n]", name) != 1)
+		if (sscanf(line, "%d %d %*d %99[^ \t\n]",
+			   &major, &minor, name) != 3)
 			continue;
 
 		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
 		if (ret)
 			goto bail;
 
-		snprintf(dev->dev_name, sizeof(dev->dev_name), "/dev/%s", name);
+		/* Try to translate private device-mapper dm-<N> names
+		 * to standard /dev/mapper/<name>.
+		 */
+		if (!strncmp(name, "dm-", 3) && isdigit(name[3])) {
+			devname = NULL;
+			scan_dir_for_dev("/dev/mapper",
+					 makedev(major, minor), &devname);
+			if (devname) {
+				snprintf(dev->dev_name, sizeof(dev->dev_name),
+					 "%s", devname);
+				free(devname);
+			} else
+				snprintf(dev->dev_name, sizeof(dev->dev_name),
+					 "/dev/%s", name);
+
+		} else {
+			snprintf(dev->dev_name, sizeof(dev->dev_name),
+				 "/dev/%s", name);
+		}
+
 		list_add_tail(&(dev->list), dev_list);
 	}
 
