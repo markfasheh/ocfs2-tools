@@ -98,8 +98,7 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	for (i = 0; i < 16; i++)
 		fprintf(out, "%02X", sb->s_uuid[i]);
 	fprintf(out, "\n");
-	fprintf(out, "\tUUID_hash: %u (0x%x)\n", sb->s_uuid_hash,
-		sb->s_uuid_hash);
+	fprintf(out, "\tHash: %u (0x%x)\n", sb->s_uuid_hash, sb->s_uuid_hash);
 	if (ocfs2_userspace_stack(sb))
 		fprintf(out,
 			"\tCluster stack: %s\n"
@@ -285,7 +284,8 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	fprintf(out, "\tmtime_nsec: 0x%08"PRIx32" -- %u\n",
 		in->i_mtime_nsec, in->i_mtime_nsec);
 
-	fprintf(out, "\tLast Extblk: %"PRIu64"\n", (uint64_t)in->i_last_eb_blk);
+	fprintf(out, "\tLast Extblk: %"PRIu64"   Orphan Slot: %d\n",
+		(uint64_t)in->i_last_eb_blk, in->i_orphaned_slot);
 	if (in->i_suballoc_slot == (uint16_t)OCFS2_INVALID_SLOT)
 		strcpy(tmp_str, "Global");
 	else
