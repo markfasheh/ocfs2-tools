@@ -120,7 +120,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 			if (dev->hb_dev)
 				printf("Heartbeat device");
 			else if (dev->mount_flags & OCFS2_MF_MOUNTED_CLUSTER)
-				ocfs2_print_nodes(dev, nodes, i);
+				ocfs2_print_nodes(dev, nodes, O2NM_MAX_NODES);
 			else
 				printf("Not mounted");
 			printf("\n");
