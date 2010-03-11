@@ -289,6 +289,13 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 			"to %"PRIu64"\n",
 			dir, tmp_no - OCFS2_DIR_PAD, tmp_no);
 		break;
+	case DIR_DOTDOT:
+		corrupt_dirent_ino(fs, dir, "..", &tmp_no, 10);
+		fprintf(stdout, "DIR_DOTDOT: "
+			"Corrupt directory#%"PRIu64
+			", change dotdot inode from %"PRIu64" to %"PRIu64".\n",
+			dir, tmp_no - 10, tmp_no);
+		break;
 	case DIRENT_ZERO:
 		memset(name, 0, 1);
 		ret = ocfs2_link(fs, dir, name, dir + 100, OCFS2_FT_DIR);
@@ -384,6 +391,16 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 }
 
 void mess_up_dir_dot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
+{
+	uint64_t tmp_blkno;
+
+	create_directory(fs, blkno, &tmp_blkno);
+	damage_dir_content(fs, tmp_blkno, type);
+
+	return;
+}
+
+void mess_up_dir_dotdot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	uint64_t tmp_blkno;
 
