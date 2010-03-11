@@ -238,9 +238,6 @@ void corrupt_sys_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case CHAIN_BITS:
 		func = mess_up_chains_rec;
 		break;
-	case CLUSTER_ALLOC_BIT:
-		func = mess_up_chains_rec;
-		break;
 	case CHAIN_I_CLUSTERS:
 		func = mess_up_chains_inode;
 		break;
