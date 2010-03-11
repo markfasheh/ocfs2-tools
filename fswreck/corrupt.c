@@ -320,6 +320,9 @@ void corrupt_group_desc(ocfs2_filesys *fs, enum fsck_type type,
 	case CLUSTER_GROUP_DESC:
 		func = mess_up_cluster_group_desc;
 		break;
+	case CLUSTER_ALLOC_BIT:
+		func = mess_up_cluster_alloc_bits;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", type);
 	}

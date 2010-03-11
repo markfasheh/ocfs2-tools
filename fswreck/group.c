@@ -296,3 +296,24 @@ void mess_up_cluster_group_desc(ocfs2_filesys *fs, enum fsck_type type,
 	if (buf)
 		ocfs2_free(&buf);
 }
+
+/*
+ * Simply corrupt the global bitmap by allocating a new cluster, without
+ * actually using it later.
+ */
+void mess_up_cluster_alloc_bits(ocfs2_filesys *fs, enum fsck_type type,
+				uint16_t slotnum)
+{
+	errcode_t ret;
+	uint32_t n_clusters;
+	uint64_t blkno;
+
+	ret = ocfs2_new_clusters(fs, 1, 1, &blkno, &n_clusters);
+	if (ret) {
+		FSWRK_COM_FATAL(progname, ret);
+		ocfs2_free_clusters(fs, 1, blkno);
+	}
+
+	fprintf(stdout ,"Mark bits of global bitmap by unused "
+		"block#%"PRIu64".\n", blkno);
+}
