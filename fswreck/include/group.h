@@ -33,5 +33,7 @@ void mess_up_group_list(ocfs2_filesys *fs, enum fsck_type type,
 			uint16_t slotnum);
 void mess_up_cluster_group_desc(ocfs2_filesys *fs, enum fsck_type type,
 				uint16_t slotnum);
+void mess_up_cluster_alloc_bits(ocfs2_filesys *fs, enum fsck_type type,
+				uint16_t slotnum);
 
 #endif		/* __GROUP_H */
