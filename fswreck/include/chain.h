@@ -25,7 +25,6 @@
 #ifndef __CHAIN_H__
 #define __CHAIN_H__
 
-void mess_up_chains(ocfs2_filesys *fs, uint64_t blkno, int code);
 void mess_up_chains_list(ocfs2_filesys *fs, enum fsck_type type,
 			 uint16_t slotnum);
 void mess_up_chains_rec(ocfs2_filesys *fs, enum fsck_type type,
