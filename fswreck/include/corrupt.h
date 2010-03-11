@@ -25,7 +25,6 @@
 #ifndef __CORRUPT_H
 #define __CORRUPT_H
 
-void corrupt_chains(ocfs2_filesys *fs, int code, uint16_t slotnum);
 void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum);
 void corrupt_sys_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum);
 void corrupt_group_desc(ocfs2_filesys *fs, enum fsck_type type,
