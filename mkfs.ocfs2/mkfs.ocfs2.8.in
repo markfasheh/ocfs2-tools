@@ -187,7 +187,7 @@ Chooses fewer features but ensures that the file system can be mounted from olde
 .RS 1.2i
 .TP
 \fBdefault\fR
-The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR, \fBunwritten\fR and \fBinline-data\fR. It also enables \fBrefcount\fR and \fBxattr\fR for the \fIvmstore\fR volumes.
+The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR, \fBunwritten\fR \fBinline-data\fR and \fBxattr\fR. It also enables \fBrefcount\fR for the \fIvmstore\fR volumes.
 .RE
 .RS 1.2i
 .TP
