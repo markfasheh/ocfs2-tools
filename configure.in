@@ -147,48 +147,69 @@ GLIB_REQUIRED_VERSION=2.2.3
 AM_PATH_GLIB_2_0($GLIB_REQUIRED_VERSION, have_glib=yes,
  AC_MSG_ERROR([GLib $GLIB_REQUIRED_VERSION or better is required]))
 
-AC_MSG_CHECKING(whether to build fsck dynamically)
-AC_ARG_ENABLE([dynamic-fsck], [  --enable-dynamic-fsck=[yes/no]    Build fsck dynamically [default=no]],,enable_dynamic_fsck=no)
+
+#
+# Can we build statically?  This is important
+#
+dyn_save_CFLAGS="$CFLAGS"
+dyn_save_LIBS="$LIBS"
+CFLAGS="$CFLAGS $GLIB_CFLAGS"
+LIBS="-static $LIBS $GLIB_LIBS $COM_ERR_LIBS"
+
+AC_MSG_CHECKING(whether glib and com_err can be linked statically)
+AC_TRY_LINK([
+#include <et/com_err.h>
+#include <glib.h>
+#include <stdio.h>
+], [ char *e = error_message(-1); return ((glib_major_version) || (glib_minor_version) || (glib_micro_version)); ], [
+static_lib_link=yes
+], [
+static_lib_link=no
+])
+AC_MSG_RESULT($static_lib_link)
+
+CFLAGS="$dyn_save_CFLAGS"
+LIBS="$dyn_save_LIBS"
+
+
 OCFS2_DYNAMIC_FSCK=
+AC_MSG_CHECKING(whether to build fsck dynamically)
+AC_ARG_ENABLE([dynamic-fsck], [  --enable-dynamic-fsck=[yes/no]    Build fsck dynamically [default=no]],,enable_dynamic_fsck=detect)
+if test "x$enable_dynamic_fsck" = "xdetect"; then
+    if test "x$static_lib_link" = "xyes"; then
+        enable_dynamic_fsck=no
+    else
+        enable_dynamic_fsck=yes
+    fi
+fi
+AC_MSG_RESULT($enable_dynamic_fsck)
+if test "x$static_lib_link" = "xno" -a "x$enable_dynamic_fsck" = "xno"; then
+    AC_MSG_ERROR([Unable to statically link fsck.ocfs2])
+fi
 if test "x$enable_dynamic_fsck" = "xyes"; then
     OCFS2_DYNAMIC_FSCK=yes
 fi
 AC_SUBST(OCFS2_DYNAMIC_FSCK)
-AC_MSG_RESULT($enable_dynamic_fsck)
 
 OCFS2_DYNAMIC_CTL=
 AC_MSG_CHECKING(whether to build cluster control tools dynamically)
-AC_ARG_ENABLE([dynamic-ctl], [  --enable-dynamic-ctl=[yes/no]    Build cluster control tools dynamically [default=test]], [
-AC_MSG_RESULT($enable_dynamic_ctl)
-], [
-enable_dynamic_ctl=test
-AC_MSG_RESULT(test)])
-
-if test "x$enable_dynamic_ctl" = "xtest"; then
-  dyn_save_CFLAGS="$CFLAGS"
-  dyn_save_LIBS="$LIBS"
-  CFLAGS="$CFLAGS $GLIB_CFLAGS"
-  LIBS="-static $LIBS $GLIB_LIBS"
-
-  AC_MSG_CHECKING(how to link o2cb_ctl)
-  AC_TRY_LINK([
-#include <glib.h>
-#include <stdio.h>
-], [ return ((glib_major_version) || (glib_minor_version) || (glib_micro_version)); ], [
-enable_dynamic_ctl=no
-AC_MSG_RESULT(static)
-], [
-enable_dynamic_ctl=yes
-AC_MSG_RESULT(dynamic)])
-
-  CFLAGS="$dyn_save_CFLAGS"
-  LIBS="$dyn_save_LIBS"
+AC_ARG_ENABLE([dynamic-ctl], [  --enable-dynamic-ctl=[yes/no]    Build cluster control tools dynamically [default=no]],,enable_dynamic_ctl=detect)
+if test "x$enable_dynamic_ctl" = "xdetect"; then
+    if test "x$static_lib_link" = "xyes"; then
+        enable_dynamic_ctl=no
+    else
+        enable_dynamic_ctl=yes
+    fi
 fi
-
+AC_MSG_RESULT($enable_dynamic_ctl)
+if test "x$static_lib_link" = "xno" -a "x$enable_dynamic_ctl" = "xno"; then
+    AC_MSG_ERROR([Unable to statically link cluster control tools])
+fi
 if test "x$enable_dynamic_ctl" = "xyes"; then
     OCFS2_DYNAMIC_CTL=yes
 fi
 AC_SUBST(OCFS2_DYNAMIC_CTL)
+
 
 BUILD_DEBUGOCFS2=
 
