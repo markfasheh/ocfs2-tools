@@ -337,7 +337,8 @@ errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino)
 	if (ret)
 		goto out;
 
-	di->i_flags &= ~OCFS2_VALID_FL;
+	di->i_flags &= ~(OCFS2_VALID_FL | OCFS2_ORPHANED_FL);
+	di->i_dtime = time(NULL);
 	ret = ocfs2_write_inode(fs, di->i_blkno, buf);
 
 out:
