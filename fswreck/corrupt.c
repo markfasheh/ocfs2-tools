@@ -124,7 +124,7 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case INODE_COUNT:
 		func = mess_up_inode_field;
 		break;
-	case INODE_LINK_NOT_CONNECTED:
+	case INODE_NOT_CONNECTED:
 		func = mess_up_inode_not_connected;
 		break;
 	case LINK_FAST_DATA:
