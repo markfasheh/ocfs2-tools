@@ -550,6 +550,8 @@ errcode_t ocfs2_allocate_unwritten_extents(ocfs2_filesys *fs, uint64_t ino,
 					   uint64_t offset, uint64_t len);
 
 errcode_t ocfs2_truncate(ocfs2_filesys *fs, uint64_t ino, uint64_t new_i_size);
+errcode_t ocfs2_truncate_inline(ocfs2_filesys *fs, uint64_t ino,
+				uint64_t new_i_size);
 errcode_t ocfs2_truncate_full(ocfs2_filesys *fs, uint64_t ino,
 			      uint64_t new_i_size,
 			      errcode_t (*free_clusters)(ocfs2_filesys *fs,

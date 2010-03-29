@@ -30,6 +30,7 @@
 #include <unistd.h>
 #endif
 
+#include <errno.h>
 #include "ocfs2/ocfs2.h"
 
 struct truncate_ctxt {
@@ -245,6 +246,60 @@ errcode_t ocfs2_zero_tail_and_truncate(ocfs2_filesys *fs,
 						 new_clusters, NULL, NULL);
 }
 
+/*
+ * NOTE: ocfs2_truncate_inline() also handles fast symlink,
+ * since truncating for inline file and fasy symlink are
+ * almost the same thing per se.
+ */
+errcode_t ocfs2_truncate_inline(ocfs2_filesys *fs, uint64_t ino,
+				uint64_t new_i_size)
+{
+	errcode_t ret = 0;
+	char *buf = NULL;
+	struct ocfs2_dinode *di = NULL;
+	struct ocfs2_inline_data *idata = NULL;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_inode(fs, ino, buf);
+	if (ret)
+		goto out_free_buf;
+
+	di = (struct ocfs2_dinode *)buf;
+	if (di->i_size < new_i_size) {
+		ret = EINVAL;
+		goto out_free_buf;
+	}
+
+	idata = &di->id2.i_data;
+
+	if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL) &&
+	    !(S_ISLNK(di->i_mode) && !di->i_clusters)) {
+		ret = EINVAL;
+		goto out_free_buf;
+	}
+
+	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		memset(idata->id_data + new_i_size, 0, di->i_size - new_i_size);
+	else
+		memset(di->id2.i_symlink + new_i_size, 0,
+		       di->i_size - new_i_size);
+
+	di->i_size = new_i_size;
+
+	ret = ocfs2_write_inode(fs, ino, buf);
+
+out_free_buf:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 /* XXX care about zeroing new clusters and final partially truncated 
  * clusters */
 errcode_t ocfs2_truncate_full(ocfs2_filesys *fs, uint64_t ino,
@@ -266,8 +321,14 @@ errcode_t ocfs2_truncate_full(ocfs2_filesys *fs, uint64_t ino,
 	if (ci->ci_inode->i_size == new_i_size)
 		goto out;
 
-	if (ci->ci_inode->i_size < new_i_size)
+	if (ci->ci_inode->i_size < new_i_size) {
 		ret = ocfs2_extend_file(fs, ino, new_i_size);
+		goto out;
+	}
+
+	if ((S_ISLNK(ci->ci_inode->i_mode) && !ci->ci_inode->i_clusters) ||
+	    (ci->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL))
+		ret = ocfs2_truncate_inline(fs, ino, new_i_size);
 	else {
 		ret = ocfs2_zero_tail_and_truncate_full(fs, ci, new_i_size,
 							&new_clusters,
