@@ -29,7 +29,7 @@
  * Directory inode error: DIR_ZERO
  *
  * Dirent dot error:	DIRENT_DOTTY_DUP, DIRENT_NOT_DOTTY, DIRENT_DOT_INODE,
- *			DIRENT_DOT_EXCESS
+ *			DIR_DOTDOT, DIRENT_DOT_EXCESS
  *
  * Dirent field error: 	DIRENT_ZERO, DIRENT_NAME_CHARS,DIRENT_INODE_RANGE,
  *			DIRENT_INODE_FREE, DIRENT_TYPE, DIRENT_DUPLICATE,
@@ -288,6 +288,13 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 			"change dot's dirent length from %lu to %lu\n",
 			dir, tmp_no - OCFS2_DIR_PAD, tmp_no);
 		break;
+	case DIR_DOTDOT:
+		corrupt_dirent_ino(fs, dir, "..", &tmp_no, 10);
+		fprintf(stdout, "DIR_DOTDOT: "
+			"Corrupt directory#%"PRIu64
+			", change dotdot inode from %"PRIu64" to %"PRIu64".\n",
+			dir, tmp_no - 10, tmp_no);
+		break;
 	case DIRENT_ZERO:
 		memset(name, 0, 1);
 		ret = ocfs2_link(fs, dir, name, dir + 100, OCFS2_FT_DIR);
@@ -390,6 +397,17 @@ void mess_up_dir_dot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 
 	return;
 }
+
+void mess_up_dir_dotdot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
+{
+	uint64_t tmp_blkno;
+
+	create_directory(fs, blkno, &tmp_blkno);
+	damage_dir_content(fs, tmp_blkno, type);
+
+	return;
+}
+
 
 void mess_up_dir_ent(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {

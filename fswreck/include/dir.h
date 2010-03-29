@@ -27,6 +27,8 @@
 
 void mess_up_dir_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
 void mess_up_dir_dot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
+void mess_up_dir_dotdot(ocfs2_filesys *fs, enum fsck_type type,
+			uint64_t blkno);
 void mess_up_dir_ent(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno);
 void mess_up_dir_parent_dup(ocfs2_filesys *fs, enum fsck_type type,
 			    uint64_t blkno);
