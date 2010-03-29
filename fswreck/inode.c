@@ -29,7 +29,7 @@
  * Inode field error: 	INODE_SUBALLOC, INODE_GEN, INODE_GEN_FIX,INODE_BLKNO,
 			INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT
  *
- * Inode link not connected error: INODE_LINK_NOT_CONNECTED
+ * Inode link not connected error: INODE_NOT_CONNECTED
  *
  * Inode orphaned error:	INODE_ORPHANED
  *
