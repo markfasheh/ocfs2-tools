@@ -52,7 +52,12 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk);
 void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp, int index);
 int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 		     char *buf, void *priv_data);
+void dump_dx_root (FILE *out, struct ocfs2_dx_root_block *dx_root);
+void dump_dx_leaf (FILE *out, struct ocfs2_dx_leaf *dx_leaf);
 void dump_dir_block(FILE *out, char *buf);
+void dump_dx_entries(FILE *out, struct ocfs2_dinode *inode);
+void dump_dx_space(FILE *out, struct ocfs2_dinode *inode,
+		   struct ocfs2_dx_root_block *dx_root);
 void dump_jbd_header (FILE *out, journal_header_t *header);
 void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb);
 void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
