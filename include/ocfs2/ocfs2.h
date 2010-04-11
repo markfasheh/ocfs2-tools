@@ -254,6 +254,22 @@ struct _ocfs2_quota_hash {
 	ocfs2_cached_dquot **hash;
 };
 
+struct ocfs2_dx_hinfo {
+	uint32_t major_hash;
+	uint32_t minor_hash;
+};
+
+struct ocfs2_dir_lookup_result {
+	struct ocfs2_dx_hinfo       dl_hinfo;         /* name hash results */
+	char *                      dl_leaf;          /* unindexed block buffer */
+	uint64_t                    dl_leaf_blkno;    /* blk number of dl_leaf */
+	struct ocfs2_dir_entry *    dl_entry;         /* dirent pointed into dl_leaf */
+	struct ocfs2_dx_leaf *      dl_dx_leaf;       /* indexed block buffer */
+	uint64_t                    dl_dx_leaf_blkno; /* blk number of dl_dx_leaf */
+	struct ocfs2_dx_entry *     dl_dx_entry;      /* indexed entry pointed to dl_dx_leaf */
+	int                         dl_dx_entry_idx;  /* index of dl_dx_entry in entries list */
+};
+
 typedef struct _ocfs2_quota_hash ocfs2_quota_hash;
 
 errcode_t ocfs2_malloc(unsigned long size, void *ptr);
@@ -332,7 +348,8 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 			    char *inode_buf);
 errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir);
-
+int ocfs2_check_dir_entry(ocfs2_filesys *fs, struct ocfs2_dir_entry *de,
+				char *dir_buf, unsigned int offset);
 errcode_t ocfs2_read_cached_inode(ocfs2_filesys *fs, uint64_t blkno,
 				  ocfs2_cached_inode **ret_ci);
 errcode_t ocfs2_write_cached_inode(ocfs2_filesys *fs,
@@ -478,7 +495,7 @@ errcode_t ocfs2_read_dx_root(ocfs2_filesys *fs, uint64_t block,
 errcode_t ocfs2_read_dx_leaf(ocfs2_filesys *fs, uint64_t block,
 			     void *buf);
 int ocfs2_dir_indexed(struct ocfs2_dinode *di);
-
+errcode_t ocfs2_dx_dir_truncate(ocfs2_filesys *fs, uint64_t dir);
 errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     uint64_t dir,
 			     int flags,
@@ -486,6 +503,7 @@ errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     int (*func)(uint64_t	dir,
 					 int		entry,
 					 struct ocfs2_dir_entry *dirent,
+					 uint64_t blocknr,
 					 int	offset,
 					 int	blocksize,
 					 char	*buf,
@@ -496,6 +514,7 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 				   int flags,
 				   char *block_buf,
 				   int (*func)(struct ocfs2_dir_entry *dirent,
+					       uint64_t blocknr,
 					       int	offset,
 					       int	blocksize,
 					       char	*buf,
@@ -675,7 +694,10 @@ errcode_t ocfs2_new_inode(ocfs2_filesys *fs, uint64_t *ino, int mode);
 errcode_t ocfs2_new_system_inode(ocfs2_filesys *fs, uint64_t *ino, int mode, int flags);
 errcode_t ocfs2_delete_inode(ocfs2_filesys *fs, uint64_t ino);
 errcode_t ocfs2_new_extent_block(ocfs2_filesys *fs, uint64_t *blkno);
+errcode_t ocfs2_new_dx_root(ocfs2_filesys *fs, struct ocfs2_dinode *di, uint64_t *dr_blkno);
 errcode_t ocfs2_delete_extent_block(ocfs2_filesys *fs, uint64_t blkno);
+errcode_t ocfs2_delete_dx_root(ocfs2_filesys *fs, uint64_t dr_blkno);
+
 /*
  * Allocate the blocks and insert them to the file.
  * only i_clusters of dinode will be updated accordingly, i_size not changed.
@@ -1347,6 +1369,10 @@ static inline int ocfs2_refcount_tree(struct ocfs2_super_block *osb)
 #define OCFS2_BLOCK_ABORT	0x02
 #define OCFS2_BLOCK_ERROR	0x04
 
+
+#define OCFS2_IS_VALID_DX_ROOT(ptr)					\
+		(!strcmp((char *)(ptr)->dr_signature, OCFS2_DX_ROOT_SIGNATURE))
+
 /*
  * Block iterate flags
  *
@@ -1487,5 +1513,30 @@ errcode_t ocfs2_extent_iterate_xattr(ocfs2_filesys *fs,
 				     void *priv_data,
 				     int *changed);
 errcode_t ocfs2_delete_xattr_block(ocfs2_filesys *fs, uint64_t blkno);
+errcode_t ocfs2_dir_indexed_tree_truncate(ocfs2_filesys *fs,
+					struct ocfs2_dx_root_block *dx_root);
+errcode_t ocfs2_write_dx_root(ocfs2_filesys *fs, uint64_t block, char *buf);
+errcode_t ocfs2_write_dx_leaf(ocfs2_filesys *fs, uint64_t block, void *buf);
+errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs, uint64_t dir);
+errcode_t ocfs2_dx_dir_insert_entry(ocfs2_filesys *fs, uint64_t dir, const char *name,
+					uint64_t ino, uint64_t blkno);
+int ocfs2_search_dirblock(ocfs2_filesys *fs, char *dir_buf,
+			const char *name, int namelen, unsigned int bytes,
+			struct ocfs2_dir_entry **res_dir);
+void ocfs2_dx_dir_name_hash(ocfs2_filesys *fs, const char *name,
+			int len, struct ocfs2_dx_hinfo *hinfo);
+errcode_t ocfs2_dx_dir_lookup(ocfs2_filesys *fs, struct ocfs2_dx_root_block *dx_root,
+			struct ocfs2_extent_list *el, struct ocfs2_dx_hinfo *hinfo,
+			uint32_t *ret_cpos, uint64_t *ret_phys_blkno);
+errcode_t ocfs2_dx_dir_search(ocfs2_filesys *fs, const char *name,
+			int namelen, struct ocfs2_dx_root_block *dx_root,
+			struct ocfs2_dir_lookup_result *res);
+void release_lookup_res(struct ocfs2_dir_lookup_result *res);
+int ocfs2_find_max_rec_len(ocfs2_filesys *fs, char *buf);
+void ocfs2_dx_list_remove_entry(struct ocfs2_dx_entry_list *entry_list, int index);
+int ocfs2_is_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di, unsigned long de_off);
+
+
+
 
 #endif  /* _FILESYS_H */

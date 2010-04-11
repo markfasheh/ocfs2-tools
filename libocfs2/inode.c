@@ -139,6 +139,9 @@ static void ocfs2_swap_inode_second(struct ocfs2_dinode *di)
 		sb->s_uuid_hash           = bswap_32(sb->s_uuid_hash);
 		sb->s_first_cluster_group = bswap_64(sb->s_first_cluster_group);
 		sb->s_xattr_inline_size   = bswap_16(sb->s_xattr_inline_size);
+		sb->s_dx_seed[0]          = bswap_32(sb->s_dx_seed[0]);
+		sb->s_dx_seed[1]          = bswap_32(sb->s_dx_seed[1]);
+		sb->s_dx_seed[2]          = bswap_32(sb->s_dx_seed[2]);
 
 	} else if (di->i_flags & OCFS2_LOCAL_ALLOC_FL) {
 		struct ocfs2_local_alloc *la = &di->id2.i_lab;

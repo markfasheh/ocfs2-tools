@@ -144,7 +144,7 @@ static void print_ocfs2_super_block(void)
 	SHOW_OFFSET(struct ocfs2_super_block, s_cluster_info);
 	SHOW_OFFSET(struct ocfs2_super_block, s_xattr_inline_size);
 	SHOW_OFFSET(struct ocfs2_super_block, s_reserved0);
-	SHOW_OFFSET(struct ocfs2_super_block, s_reserved1);
+	SHOW_OFFSET(struct ocfs2_super_block, s_dx_seed);
 	SHOW_OFFSET(struct ocfs2_super_block, s_reserved2);
 	
         END_TYPE(struct ocfs2_super_block);

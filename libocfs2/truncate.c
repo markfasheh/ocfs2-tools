@@ -436,6 +436,22 @@ errcode_t ocfs2_xattr_tree_truncate(ocfs2_filesys *fs,
 					&ctxt, &changed);
 }
 
+
+errcode_t ocfs2_dir_indexed_tree_truncate(ocfs2_filesys *fs,
+					struct ocfs2_dx_root_block *dx_root)
+{
+	struct truncate_ctxt ctxt;
+
+	memset(&ctxt, 0, sizeof (struct truncate_ctxt));
+	ctxt.new_i_clusters = dx_root->dr_clusters;
+	ctxt.new_size_in_clusters = 0;
+
+	return ocfs2_extent_iterate_dx_root(fs, dx_root,
+					OCFS2_EXTENT_FLAG_DEPTH_TRAVERSE,
+					NULL, truncate_iterate,	&ctxt);
+}
+
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>

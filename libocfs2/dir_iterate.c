@@ -68,6 +68,7 @@ errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     int (*func)(uint64_t	dir,
 					 int		entry,
 					 struct ocfs2_dir_entry *dirent,
+					 uint64_t blocknr,
 					 int	offset,
 					 int	blocksize,
 					 char	*buf,
@@ -131,6 +132,7 @@ out:
 
 struct xlate {
 	int (*func)(struct ocfs2_dir_entry *dirent,
+		    uint64_t	blocknr,
 		    int		offset,
 		    int		blocksize,
 		    char	*buf,
@@ -140,12 +142,12 @@ struct xlate {
 
 static int xlate_func(uint64_t dir,
 		      int entry,
-		      struct ocfs2_dir_entry *dirent, int offset,
-		      int blocksize, char *buf, void *priv_data)
+		      struct ocfs2_dir_entry *dirent, uint64_t blocknr,
+		      int offset, int blocksize, char *buf, void *priv_data)
 {
 	struct xlate *xl = (struct xlate *) priv_data;
 
-	return (*xl->func)(dirent, offset, blocksize, buf, xl->real_private);
+	return (*xl->func)(dirent, blocknr, offset, blocksize, buf, xl->real_private);
 }
 
 extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs, 
@@ -153,6 +155,7 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 				   int flags,
 				   char *block_buf,
 				   int (*func)(struct ocfs2_dir_entry *dirent,
+					       uint64_t blocknr,
 					       int	offset,
 					       int	blocksize,
 					       char	*buf,
@@ -169,6 +172,7 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 }
 
 static int ocfs2_process_dir_entry(ocfs2_filesys *fs,
+				   uint64_t blocknr,
 				   unsigned int offset,
 				   int entry,
 				   int *changed,
@@ -203,7 +207,7 @@ static int ocfs2_process_dir_entry(ocfs2_filesys *fs,
 		ret = (ctx->func)(ctx->dir,
 				  (next_real_entry > offset) ?
 				  OCFS2_DIRENT_DELETED_FILE : entry,
-				  dirent, offset,
+				  dirent, blocknr, offset,
 				  fs->fs_blocksize, ctx->buf,
 				  ctx->priv_data);
 		if (entry < OCFS2_DIRENT_OTHER_FILE)
@@ -250,7 +254,7 @@ static int ocfs2_inline_dir_iterate(ocfs2_filesys *fs,
 
 	entry = OCFS2_DIRENT_DOT_FILE;
 
-	ret = ocfs2_process_dir_entry(fs, offset, entry, &changed,
+	ret = ocfs2_process_dir_entry(fs, di->i_blkno, offset, entry, &changed,
 				      &do_abort, ctx);
 	if (ret)
 		return ret;
@@ -291,7 +295,7 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 	if (ctx->errcode)
 		return OCFS2_BLOCK_ABORT;
 
-	ret = ocfs2_process_dir_entry(fs, offset, entry, &changed,
+	ret = ocfs2_process_dir_entry(fs, blocknr, offset, entry, &changed,
 				      &do_abort, ctx);
 	if (ret)
 		return ret;

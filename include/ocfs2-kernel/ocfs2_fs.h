@@ -1406,6 +1406,35 @@ static inline int ocfs2_extent_recs_per_eb(int blocksize)
 	return size / sizeof(struct ocfs2_extent_rec);
 }
 
+static inline int ocfs2_dx_entries_per_leaf(int blocksize)
+{
+	int size;
+	size = blocksize -
+		offsetof(struct ocfs2_dx_leaf, dl_list.de_entries);
+
+		return size / sizeof(struct ocfs2_dx_entry);
+}
+
+static inline int ocfs2_dx_entries_per_root(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct ocfs2_dx_root_block, dr_entries.de_entries);
+
+	return size / sizeof(struct ocfs2_dx_entry);
+}
+
+static inline int ocfs2_extent_recs_per_dx_root(int blocksize)
+{
+	int size;
+
+	size = blocksize -
+		offsetof(struct ocfs2_dx_root_block, dr_list.l_recs);
+
+	return size / sizeof(struct ocfs2_extent_rec);
+}
+
 static inline int ocfs2_local_alloc_size(int blocksize)
 {
 	int size;

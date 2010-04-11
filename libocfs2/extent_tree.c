@@ -153,6 +153,49 @@ static struct ocfs2_extent_tree_operations ocfs2_xattr_value_et_ops = {
 	.eo_fill_root_el	= ocfs2_xattr_value_fill_root_el,
 };
 
+static void ocfs2_dx_root_set_last_eb_blk (struct ocfs2_extent_tree *et,
+						uint64_t blkno)
+{
+	struct ocfs2_dx_root_block *dx_root = et->et_object;
+	dx_root->dr_last_eb_blk = blkno;
+}
+
+static uint64_t ocfs2_dx_root_get_last_eb_blk (struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_dx_root_block *dx_root = et->et_object;
+	return dx_root->dr_last_eb_blk;
+}
+
+static void ocfs2_dx_root_update_clusters(struct ocfs2_extent_tree *et,
+					uint32_t clusters)
+{
+	struct ocfs2_dx_root_block *dx_root = et->et_object;
+	dx_root->dr_clusters += clusters;
+}
+
+static int ocfs2_dx_root_sanity_check(struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_dx_root_block *dx_root = (struct ocfs2_dx_root_block *)et->et_object;
+	assert(OCFS2_IS_VALID_DX_ROOT(dx_root));
+
+	return 0;
+}
+
+static void ocfs2_dx_root_fill_root_el (struct ocfs2_extent_tree *et)
+{
+	struct ocfs2_dx_root_block *dx_root = et->et_object;
+
+	et->et_root_el = &dx_root->dr_list;
+}
+
+static struct ocfs2_extent_tree_operations ocfs2_dx_root_et_ops = {
+	.eo_set_last_eb_blk	= ocfs2_dx_root_set_last_eb_blk,
+	.eo_get_last_eb_blk	= ocfs2_dx_root_get_last_eb_blk,
+	.eo_update_clusters	= ocfs2_dx_root_update_clusters,
+	.eo_sanity_check	= ocfs2_dx_root_sanity_check,
+	.eo_fill_root_el	= ocfs2_dx_root_fill_root_el,
+};
+
 static void __ocfs2_init_extent_tree(struct ocfs2_extent_tree *et,
 				     ocfs2_filesys *fs,
 				     char *buf,
@@ -200,6 +243,15 @@ void ocfs2_init_xattr_value_extent_tree(struct ocfs2_extent_tree *et,
 {
 	__ocfs2_init_extent_tree(et, fs, buf, blkno, write,
 				 xv, &ocfs2_xattr_value_et_ops);
+}
+
+void ocfs2_init_dx_root_extent_tree(struct ocfs2_extent_tree *et,
+				    ocfs2_filesys *fs,
+				    char *buf, uint64_t blkno)
+{
+	__ocfs2_init_extent_tree(et, fs, buf, blkno,
+				ocfs2_write_dx_root,
+				buf, &ocfs2_dx_root_et_ops);
 }
 
 static inline void ocfs2_et_set_last_eb_blk(struct ocfs2_extent_tree *et,
@@ -4182,3 +4234,4 @@ out:
 	ocfs2_free_path(path);
 	return ret;
 }
+

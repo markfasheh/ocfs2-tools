@@ -43,10 +43,12 @@ struct link_struct  {
 					      of the block.  This handles
 					      the directory trailer if it
 					      exists */
+	int			blkno;
 	struct ocfs2_dinode	*sb;
 };	
 
 static int link_proc(struct ocfs2_dir_entry *dirent,
+		     uint64_t	blocknr,
 		     int	offset,
 		     int	blocksize,
 		     char	*buf,
@@ -101,6 +103,7 @@ static int link_proc(struct ocfs2_dir_entry *dirent,
 	strncpy(dirent->name, ls->name, ls->namelen);
 	dirent->file_type = ls->flags;
 
+	ls->blkno = blocknr;
 	ls->done++;
 	return OCFS2_DIRENT_ABORT|OCFS2_DIRENT_CHANGED;
 }
@@ -172,6 +175,12 @@ errcode_t ocfs2_link(ocfs2_filesys *fs, uint64_t dir, const char *name,
 			retval = OCFS2_ET_INTERNAL_FAILURE;
 	}
 
+	if (ls.done) {
+		if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(fs->fs_super)) &&
+		    (di->i_dyn_features & OCFS2_INDEXED_DIR_FL))
+			retval = ocfs2_dx_dir_insert_entry(fs, dir, ls.name,
+							ls.inode, ls.blkno);
+	}
 out_free:
 	ocfs2_free(&buf);
 

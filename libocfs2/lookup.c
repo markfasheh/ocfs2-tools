@@ -30,6 +30,7 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "ocfs2/ocfs2.h"
 
@@ -45,6 +46,7 @@ struct lookup_struct  {
  #pragma argsused
 #endif
 static int lookup_proc(struct ocfs2_dir_entry *dirent,
+		       uint64_t	blocknr,
 		       int	offset,
 		       int	blocksize,
 		       char	*buf,
@@ -61,24 +63,81 @@ static int lookup_proc(struct ocfs2_dir_entry *dirent,
 	return OCFS2_DIRENT_ABORT;
 }
 
+static errcode_t ocfs2_find_entry_dx(ocfs2_filesys *fs,
+				struct ocfs2_dinode *di,
+				char *buf,
+				struct lookup_struct *ls)
+{
+	char *dx_root_buf = NULL;
+	struct ocfs2_dx_root_block *dx_root;
+	struct ocfs2_dir_lookup_result lookup;
+	errcode_t ret;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &dx_root_buf);
+	if (ret)
+		goto out;
+	ret = ocfs2_read_dx_root(fs, di->i_dx_root, dx_root_buf);
+	if (ret)
+		goto out;
+	dx_root = (struct ocfs2_dx_root_block *)dx_root_buf;
+
+	memset(&lookup, 0, sizeof(struct ocfs2_dir_lookup_result));
+	ocfs2_dx_dir_name_hash(fs, ls->name,
+			ls->len, &lookup.dl_hinfo);
+
+	ret = ocfs2_dx_dir_search(fs, ls->name, ls->len,
+				dx_root, &lookup);
+	if (ret)
+		goto out;
+
+	*ls->inode = lookup.dl_entry->inode;
+	ls->found++;
+	ret = 0;
+
+out:
+	release_lookup_res(&lookup);
+	if (dx_root_buf)
+		ocfs2_free(&dx_root_buf);
+	return ret;
+}
 
 errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir,
                        const char *name, int namelen, char *buf,
                        uint64_t *inode)
 {
-	errcode_t	retval;
+	errcode_t ret;
 	struct lookup_struct ls;
+	char *di_buf = NULL;
+	struct ocfs2_dinode *di;
 
 	ls.name = name;
 	ls.len = namelen;
 	ls.inode = inode;
 	ls.found = 0;
 
-	retval = ocfs2_dir_iterate(fs, dir, 0, buf, lookup_proc, &ls);
-	if (retval)
-		return retval;
+	ret = ocfs2_malloc_block(fs->fs_io, &di_buf);
+	if (ret)
+		goto out;
+	ret = ocfs2_read_inode(fs, dir, di_buf);
+	if (ret)
+		goto out;
+	di = (struct ocfs2_dinode *)di_buf;
 
-	return (ls.found) ? 0 : OCFS2_ET_FILE_NOT_FOUND;
+	if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(fs->fs_super)) &&
+	    ocfs2_dir_indexed(di)) {
+		ret = ocfs2_find_entry_dx(fs, di, buf, &ls);
+	} else {
+		ret = ocfs2_dir_iterate(fs, dir, 0, buf, lookup_proc, &ls);
+	}
+	if (ret)
+		goto out;
+
+	ret = (ls.found) ? 0 : OCFS2_ET_FILE_NOT_FOUND;
+
+out:
+	if(di_buf)
+		ocfs2_free(&di_buf);
+	return ret;
 }
 
 
