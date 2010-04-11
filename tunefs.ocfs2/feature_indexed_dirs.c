@@ -42,11 +42,46 @@ struct dx_dirs_context {
 	struct tools_progress *prog;
 };
 
+/*
+ * If an indexed-dirs disabled directory has an indexed tree,
+ * this tree is unreliable. it must be truncated and rebuilt.
+ */
+static errcode_t build_dx_dir(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+				void *user_data)
+{
+	errcode_t ret = 0;
+	struct dx_dirs_context *ctxt = (struct dx_dirs_context *)user_data;
+
+	if (!S_ISDIR(di->i_mode))
+		goto bail;
+
+	if (di->i_dyn_features & OCFS2_INDEXED_DIR_FL) {
+		verbosef(VL_APP,
+			"Directory inode %llu already has an indexed tree, "
+			"rebuild the indexed tree.\n", di->i_blkno);
+		ret = ocfs2_dx_dir_truncate(fs, di->i_blkno);
+		if (ret) {
+			ret = TUNEFS_ET_DX_DIRS_TRUNCATE_FAILED;
+			tcom_err(ret, "while rebulid indexed tree");
+		}
+	}
+	ret = ocfs2_dx_dir_build(fs, di->i_blkno);
+	if (ret) {
+		ret = TUNEFS_ET_DX_DIRS_BUILD_FAILED;
+		tcom_err(ret, "while enable indexed-dirs");
+	}
+
+bail:
+	tools_progress_step(ctxt->prog, 1);
+	return ret;
+}
+
 static int enable_indexed_dirs(ocfs2_filesys *fs, int flags)
 {
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
-	struct tools_progress *prog;
+	struct tools_progress *prog = NULL;
+	struct dx_dirs_context ctxt;
 
 	if (ocfs2_supports_indexed_dirs(super)) {
 		verbosef(VL_APP,
@@ -55,30 +90,48 @@ static int enable_indexed_dirs(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
-
 	if (!tools_interact("Enable the directory indexing feature on "
 			    "device \"%s\"? ",
 			    fs->fs_devname))
 		goto out;
 
-	prog = tools_progress_start("Enable directory indexing", "dir idx", 1);
+	prog = tools_progress_start("Enable directory indexing", "dir idx", 2);
 	if (!prog) {
 		ret = TUNEFS_ET_NO_MEMORY;
 		tcom_err(ret, "while initializing the progress display");
 		goto out;
 	}
 
+	memset(&ctxt, 0, sizeof(struct dx_dirs_context));
+	ctxt.prog = tools_progress_start("Building indexed trees", "building", 0);
+	if (!ctxt.prog) {
+		ret = TUNEFS_ET_NO_MEMORY;
+		goto out;
+	}
+
 	OCFS2_SET_INCOMPAT_FEATURE(super,
 				   OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS);
+
 	tunefs_block_signals();
 	ret = ocfs2_write_super(fs);
-	tunefs_unblock_signals();
-	if (ret)
+	if (ret) {
+		ret = TUNEFS_ET_IO_WRITE_FAILED;
 		tcom_err(ret, "while writing out the superblock");
-
+		goto unblock_out;
+	}
 	tools_progress_step(prog, 1);
-	tools_progress_stop(prog);
+	ret = tunefs_foreach_inode(fs, build_dx_dir, &ctxt);
+	if (ret)
+		tcom_err(ret, "while building indexed trees");
+unblock_out:
+	tunefs_unblock_signals();
+	tools_progress_step(prog, 1);
+	if (ctxt.prog)
+		tools_progress_stop(ctxt.prog);
 out:
+	if (prog)
+		tools_progress_stop(prog);
+
 	return ret;
 }
 

@@ -94,4 +94,7 @@ ec	TUNEFS_ET_IO_WRITE_FAILED,
 ec	TUNEFS_ET_DX_DIRS_TRUNCATE_FAILED,
 	"Truncate directory indexed tree failed"
 
+ec	TUNEFS_ET_DX_DIRS_BUILD_FAILED,
+	"Build directory indexed tree failed"
+
 	end
