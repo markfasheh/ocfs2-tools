@@ -699,8 +699,9 @@ static errcode_t truncate_orphan_dir(ocfs2_filesys *fs,
 	return ret;
 }
 
-static int remove_slot_iterate(struct ocfs2_dir_entry *dirent, int offset,
-			       int blocksize, char *buf, void *priv_data)
+static int remove_slot_iterate(struct ocfs2_dir_entry *dirent,
+				uint64_t blocknr, int offset, int blocksize,
+				char *buf, void *priv_data)
 {
 	struct remove_slot_ctxt *ctxt =
 		(struct remove_slot_ctxt *)priv_data;
@@ -783,8 +784,9 @@ bail:
 	return ret;
 }
 
-static int orphan_iterate(struct ocfs2_dir_entry *dirent, int offset,
-			  int blocksize, char *buf, void *priv_data)
+static int orphan_iterate(struct ocfs2_dir_entry *dirent,
+			uint64_t blocknr, int offset, int blocksize,
+			char *buf, void *priv_data)
 {
 	int *has_orphan = (int *)priv_data;
 

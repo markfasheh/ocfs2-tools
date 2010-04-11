@@ -290,8 +290,8 @@ bail:
 }
 
 static int list_sparse_func(struct ocfs2_dir_entry *dirent,
-			    int offset, int blocksize,
-			    char *buf, void *priv_data)
+			    uint64_t blocknr, int offset,
+			    int blocksize, char *buf, void *priv_data)
 {
 	errcode_t ret;
 	char *di_buf = NULL;

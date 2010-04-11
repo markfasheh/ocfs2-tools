@@ -38,7 +38,8 @@ struct walk_path {
 	uint64_t *inode;
 };
 
-static int walk_tree_func(struct ocfs2_dir_entry *dentry, int offset,
+static int walk_tree_func(struct ocfs2_dir_entry *dentry,
+			  uint64_t blocknr, int offset,
 			  int blocksize, char *buf, void *priv_data)
 {
 	errcode_t ret;

@@ -461,8 +461,8 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
  * dump_dir_entry()
  *
  */
-int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
-		     char *buf, void *priv_data)
+int  dump_dir_entry (struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset,
+		     int blocksize, char *buf, void *priv_data)
 {
 	list_dir_opts *ls = (list_dir_opts *)priv_data;
 	char tmp = rec->name[rec->name_len];
@@ -544,7 +544,7 @@ void dump_dir_block(FILE *out, char *buf)
 			return;
 		}
 
-		dump_dir_entry(dirent, offset, gbls.fs->fs_blocksize, NULL,
+		dump_dir_entry(dirent, 0, offset, gbls.fs->fs_blocksize, NULL,
 			       &ls_opts);
 		offset += dirent->rec_len;
 	}

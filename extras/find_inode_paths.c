@@ -53,6 +53,7 @@ struct walk_path {
 };
 
 static int walk_tree_func(struct ocfs2_dir_entry *dentry,
+			  uint64_t blocknr,
 			  int offset,
 			  int blocksize,
 			  char *buf,
