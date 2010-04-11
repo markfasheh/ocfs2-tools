@@ -97,4 +97,7 @@ ec	TUNEFS_ET_DX_DIRS_TRUNCATE_FAILED,
 ec	TUNEFS_ET_DX_DIRS_BUILD_FAILED,
 	"Build directory indexed tree failed"
 
+ec	TUNEFS_ET_INSTALL_DIR_TRAILER_FAILED,
+	"Install directory trailer failed"
+
 	end

@@ -65,6 +65,14 @@ static errcode_t build_dx_dir(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			tcom_err(ret, "while rebulid indexed tree");
 		}
 	}
+
+	ret = tunefs_install_dir_trailer(fs, di, NULL);
+	if (ret) {
+		ret = TUNEFS_ET_INSTALL_DIR_TRAILER_FAILED;
+		tcom_err(ret, "while enable indexed-dirs");
+		goto bail;
+	}
+
 	ret = ocfs2_dx_dir_build(fs, di->i_blkno);
 	if (ret) {
 		ret = TUNEFS_ET_DX_DIRS_BUILD_FAILED;
