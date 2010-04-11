@@ -135,7 +135,7 @@ static errcode_t walk_dirblock(ocfs2_filesys *fs,
 			       struct tunefs_trailer_context *tc,
 			       struct tunefs_trailer_dirblock *db)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	struct ocfs2_dir_entry *dirent, *prev = NULL;
 	unsigned int real_rec_len;
 	unsigned int offset = 0;
