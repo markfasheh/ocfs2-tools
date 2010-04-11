@@ -266,6 +266,7 @@ static void ocfs2_swap_dx_root_to_cpu(struct ocfs2_dx_root_block *dx_root)
 	dx_root->dr_last_eb_blk		= bswap_64(dx_root->dr_last_eb_blk);
 	dx_root->dr_clusters		= bswap_32(dx_root->dr_clusters);
 	dx_root->dr_dir_blkno		= bswap_64(dx_root->dr_dir_blkno);
+	dx_root->dr_num_entries		= bswap_32(dx_root->dr_num_entries);
 	dx_root->dr_free_blk		= bswap_64(dx_root->dr_free_blk);
 
 	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE)

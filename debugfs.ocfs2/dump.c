@@ -600,6 +600,8 @@ void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
 		"Flags: (0x%x) %s\n",
 		tmp_str, dr->dr_suballoc_bit, dr->dr_flags, flags->str);
 
+	fprintf(out, "\tTotal Entry Count: %d\n", dr->dr_num_entries);
+
 	dump_block_check(out, &dr->dr_check);
 
 	if (dr->dr_flags & OCFS2_DX_FLAG_INLINE)

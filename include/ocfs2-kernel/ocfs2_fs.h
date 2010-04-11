@@ -810,7 +810,10 @@ struct ocfs2_dx_root_block {
 	__u8		dr_reserved0;
 	__le16		dr_reserved1;
 	__le64		dr_dir_blkno;		/* Pointer to parent inode */
-	__le64		dr_reserved2;
+	__le32		dr_num_entries;		/* Total number of
+						 * names stored in
+						 * this directory.*/
+	__le32		dr_reserved2;
 	__le64		dr_free_blk;		/* Pointer to head of free
 						 * unindexed block list. */
 	__le64		dr_reserved3[15];
