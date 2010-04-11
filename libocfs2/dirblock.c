@@ -254,7 +254,8 @@ static void ocfs2_swap_dx_entry_list_to_cpu(struct ocfs2_dx_entry_list *dl_list)
 		ocfs2_swap_dx_entry_to_cpu(&dl_list->de_entries[i]);
 }
 
-static void ocfs2_swap_dx_root_to_cpu(struct ocfs2_dx_root_block *dx_root)
+static void ocfs2_swap_dx_root_to_cpu(ocfs2_filesys *fs,
+				struct ocfs2_dx_root_block *dx_root)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -272,7 +273,7 @@ static void ocfs2_swap_dx_root_to_cpu(struct ocfs2_dx_root_block *dx_root)
 	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE)
 		ocfs2_swap_dx_entry_list_to_cpu(&dx_root->dr_entries);
 	else
-		ocfs2_swap_extent_list_to_cpu(&dx_root->dr_list);
+		ocfs2_swap_extent_list_to_cpu(fs, dx_root, &dx_root->dr_list);
 }
 
 errcode_t ocfs2_read_dx_root(ocfs2_filesys *fs, uint64_t block,
@@ -294,7 +295,7 @@ errcode_t ocfs2_read_dx_root(ocfs2_filesys *fs, uint64_t block,
 		   strlen(OCFS2_DX_ROOT_SIGNATURE)))
 		return OCFS2_ET_DIR_CORRUPTED;
 
-	ocfs2_swap_dx_root_to_cpu(dx_root);
+	ocfs2_swap_dx_root_to_cpu(fs, dx_root);
 
 	return 0;
 }
