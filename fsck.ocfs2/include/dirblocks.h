@@ -48,6 +48,10 @@ struct _o2fsck_state;
 void o2fsck_dir_block_iterate(struct _o2fsck_state *ost, dirblock_iterator func,
                               void *priv_data);
 		     
+uint64_t o2fsck_search_reidx_dir(struct rb_root *root, uint64_t dino);
+errcode_t o2fsck_try_add_reidx_dir(struct rb_root *root, uint64_t dino);
+errcode_t o2fsck_rebuild_indexed_dirs(ocfs2_filesys *fs, struct rb_root *root);
+errcode_t o2fsck_check_dir_index(struct _o2fsck_state *ost, struct ocfs2_dinode *di);
 
 #endif /* __O2FSCK_DIRBLOCKS_H__ */
 

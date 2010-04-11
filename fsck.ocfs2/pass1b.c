@@ -902,8 +902,8 @@ static void name_inode(struct dir_scan_context *scan,
 		pass1c_warn(OCFS2_ET_NO_MEMORY);
 }
 
-static int walk_iterate(struct ocfs2_dir_entry *de, int offset,
-			int blocksize, char *buf, void *priv_data)
+static int walk_iterate(struct ocfs2_dir_entry *de, uint64_t blocknr,
+			int offset, int blocksize, char *buf, void *priv_data)
 {
 	struct dir_scan_context *scan = priv_data;
 

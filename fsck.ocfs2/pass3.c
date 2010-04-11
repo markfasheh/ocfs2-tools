@@ -193,6 +193,7 @@ struct fix_dot_dot_args {
 };
 
 static int fix_dot_dot_dirent(struct ocfs2_dir_entry *dirent,
+			      uint64_t blocknr,
 			      int	offset,
 			      int	blocksize,
 			      char	*buf,
