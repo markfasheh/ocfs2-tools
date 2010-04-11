@@ -1004,6 +1004,8 @@ get_state(int argc, char **argv)
 	if ((optind == argc) && !show_version)
 		usage(progname);
 
+	srand48(time(NULL));
+
 	device_name = argv[optind];
 	optind++;
 
@@ -2240,11 +2242,9 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	 */
 	s->feature_flags.opt_compat &= ~OCFS2_FEATURE_COMPAT_BACKUP_SB;
 
-	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR) {
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR)
 		di->id2.i_super.s_xattr_inline_size =
 						OCFS2_MIN_XATTR_INLINE_SIZE;
-		di->id2.i_super.s_uuid_hash = ocfs2_xattr_uuid_hash(s->uuid);
-	}
 
 	di->id2.i_super.s_feature_incompat = s->feature_flags.opt_incompat;
 	di->id2.i_super.s_feature_compat = s->feature_flags.opt_compat;
@@ -2252,6 +2252,17 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 
 	strcpy((char *)di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
+
+	/* s_uuid_hash is also used by Indexed Dirs */
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR ||
+	    s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS)
+		di->id2.i_super.s_uuid_hash = ocfs2_xattr_uuid_hash(s->uuid);
+
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS) {
+		di->id2.i_super.s_dx_seed[0] = mrand48();
+		di->id2.i_super.s_dx_seed[1] = mrand48();
+		di->id2.i_super.s_dx_seed[2] = mrand48();
+	}
 
 	mkfs_swap_inode_from_cpu(s, di);
 	mkfs_compute_meta_ecc(s, di, &di->i_check);
