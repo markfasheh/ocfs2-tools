@@ -173,7 +173,7 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, i_generation);
 	SHOW_OFFSET(struct ocfs2_dinode, i_suballoc_slot);
 	SHOW_OFFSET(struct ocfs2_dinode, i_suballoc_bit);
-	SHOW_OFFSET(struct ocfs2_dinode, i_reserved0);
+	SHOW_OFFSET(struct ocfs2_dinode, i_links_count_hi);
 	SHOW_OFFSET(struct ocfs2_dinode, i_xattr_inline_size);
 	SHOW_OFFSET(struct ocfs2_dinode, i_clusters);
 	SHOW_OFFSET(struct ocfs2_dinode, i_uid);
@@ -197,6 +197,7 @@ static void print_ocfs2_dinode(void)
 	SHOW_OFFSET(struct ocfs2_dinode, i_dyn_features);
 	SHOW_OFFSET(struct ocfs2_dinode, i_xattr_loc);
 	SHOW_OFFSET(struct ocfs2_dinode, i_check);
+	SHOW_OFFSET(struct ocfs2_dinode, i_dx_root);
 	SHOW_OFFSET(struct ocfs2_dinode, i_reserved2);
 
 	SHOW_OFFSET(struct ocfs2_dinode, id1.i_pad1);

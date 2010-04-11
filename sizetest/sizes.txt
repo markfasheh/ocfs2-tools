@@ -110,7 +110,7 @@
 0x0C0	id2.i_chain         	+0x10
 0x0C0	id2.i_list          	+0x10
 0x0C0	id2.i_symlink       	+0x00
-	Total               	0x200
+	Total               	0x208
 
 [off]	struct ocfs2_dir_entry	[size]
 0x000	inode               	+0x08

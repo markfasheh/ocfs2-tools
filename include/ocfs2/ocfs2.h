@@ -473,6 +473,11 @@ int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			   struct ocfs2_dir_entry *de, unsigned long offset);
 void ocfs2_init_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			    uint64_t blkno, void *buf);
+errcode_t ocfs2_read_dx_root(ocfs2_filesys *fs, uint64_t block,
+			     void *buf);
+errcode_t ocfs2_read_dx_leaf(ocfs2_filesys *fs, uint64_t block,
+			     void *buf);
+int ocfs2_dir_indexed(struct ocfs2_dinode *di);
 
 errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     uint64_t dir,
@@ -496,6 +501,27 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 					       char	*buf,
 					       void	*priv_data),
 				   void *priv_data);
+
+extern errcode_t ocfs2_dx_entries_iterate(ocfs2_filesys *fs,
+			struct ocfs2_dinode *dir,
+			int flags,
+			int (*func)(ocfs2_filesys *fs,
+				    struct ocfs2_dx_entry_list *entry_list,
+				    struct ocfs2_dx_root_block *dx_root,
+				    struct ocfs2_dx_leaf *dx_leaf,
+				    void *priv_data),
+			void *priv_data);
+
+extern errcode_t ocfs2_dx_frees_iterate(ocfs2_filesys *fs,
+			struct ocfs2_dinode *dir,
+			struct ocfs2_dx_root_block *dx_root,
+			int flags,
+			int (*func)(ocfs2_filesys *fs,
+				    uint64_t blkno,
+				    struct ocfs2_dir_block_trailer *trailer,
+				    char *dirblock,
+				    void *priv_data),
+			void *priv_data);
 
 errcode_t ocfs2_lookup(ocfs2_filesys *fs, uint64_t dir,
 		       const char *name, int namelen, char *buf,
@@ -1224,6 +1250,13 @@ static inline int ocfs2_support_xattr(struct ocfs2_super_block *osb)
 	return 0;
 }
 
+static inline int ocfs2_supports_indexed_dirs(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS)
+		return 1;
+	return 0;
+}
+
 /*
  * When we're swapping some of our disk structures, a garbage count
  * can send us past the edge of a block buffer.  This function guards
@@ -1352,6 +1385,19 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 					         int ref_recno,
 					         void *priv_data),
 					         void *priv_data);
+errcode_t ocfs2_extent_iterate_dx_root(ocfs2_filesys *fs,
+				       struct ocfs2_dx_root_block *dx_root,
+				       int flags,
+				       char *block_buf,
+				       int (*func)(ocfs2_filesys *fs,
+						   struct ocfs2_extent_rec *rec,
+						   int tree_depth,
+						   uint32_t ccount,
+						   uint64_t ref_blkno,
+						   int ref_recno,
+						   void *priv_data),
+				       void *priv_data);
+
 errcode_t ocfs2_block_iterate(ocfs2_filesys *fs,
 			      uint64_t blkno,
 			      int flags,

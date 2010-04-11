@@ -163,6 +163,8 @@ static void ocfs2_swap_inode_second(struct ocfs2_dinode *di)
 		struct ocfs2_inline_data *id = &di->id2.i_data;
 
 		id->id_count = bswap_16(id->id_count);
+	} else if (di->i_dyn_features & OCFS2_INDEXED_DIR_FL) {
+		di->i_dx_root = bswap_64(di->i_dx_root);
 	}
 }
 
