@@ -39,10 +39,13 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <dirent.h>
+#include <ctype.h>
 
 #include "ocfs2/ocfs2.h"
 
 #define DEV_PREFIX      "/dev/"
+#define DEV_MAPPER_DIR      "/dev/mapper"
 #define PROC_IDE_FORMAT "/proc/ide/%s/media"
 #define IONICE_PATH	"/usr/bin/ionice"
 
@@ -182,39 +185,28 @@ static errcode_t get_uuid(char *dev, char *uuid)
 	return ret;
 }
 
-static errcode_t compare_dev(const char *dev,
+static errcode_t compare_dev(const char *device,
 			     struct hb_ctl_options *hbo)
 {
 	errcode_t err;
-	int len;
-	char *device;
 
 	if (region_desc) {
 		fprintf(stderr, "We have a descriptor already!\n");
 		free_desc();
 	}
 	
-	len = strlen(DEV_PREFIX) + strlen(dev) + 1;
-	device = malloc(sizeof(char) * len);
-	if (!device)
-		return OCFS2_ET_NO_MEMORY;
-	snprintf(device, len, DEV_PREFIX "%s", dev);
-
 	/* Any problem with getting the descriptor is NOT FOUND */
 	err = OCFS2_ET_FILE_NOT_FOUND;
 	if (get_desc(device))
 		goto out;
 
 	if (!strcmp(region_desc->r_name, hbo->uuid_str)) {
-		hbo->dev_str = device;
+		hbo->dev_str = strdup(device);
 		err = 0;
 	} else
 		free_desc();
 
 out:
-	if (err && device)
-		free(device);
-
 	return err;
 }
 
@@ -252,31 +244,68 @@ static int as_ide_disk(const char *dev_name)
 }  /* as_ide_disk() */
 
 
+static void scan_dir_for_dev(char *dirname, dev_t devno,
+			     char *devname, int len)
+{
+	DIR *dir;
+	struct dirent *dp;
+	char path[PATH_MAX];
+	int dirlen;
+	struct stat st;
+
+	dir = opendir(dirname);
+	if (dir == NULL)
+		return;
+	dirlen = strlen(dirname) + 2;
+	while ((dp = readdir(dir)) != 0) {
+		if (dirlen + strlen(dp->d_name) >= sizeof(path))
+			continue;
+
+		if (dp->d_name[0] == '.' &&
+		    ((dp->d_name[1] == 0) ||
+		     ((dp->d_name[1] == '.') && (dp->d_name[2] == 0))))
+			continue;
+
+		sprintf(path, "%s/%s", dirname, dp->d_name);
+		if (stat(path, &st) < 0)
+			continue;
+
+		if (S_ISBLK(st.st_mode) && st.st_rdev == devno) {
+			snprintf(devname, len, "%s", path);
+			break;
+		}
+	}
+	closedir(dir);
+	return;
+}
+
 /* Um, wow, this is, like, one big hardcode */
 static errcode_t scan_devices(errcode_t (*func)(const char *,
 						struct hb_ctl_options *),
 			      struct hb_ctl_options *hbo)
 {
 	errcode_t err = 0;
-	int rc, major, minor;
+	int major, minor;
 	FILE *f;
-	char *buffer, *name;
+	char *buffer = NULL, *name = NULL, *device = NULL;
+
+	err = OCFS2_ET_NO_MEMORY;
+	device = (char *)malloc(sizeof(char) * (PATH_MAX + 1));
+	if (!device)
+		goto out_free;
 
 	buffer = (char *)malloc(sizeof(char) * (PATH_MAX + 1));
 	if (!buffer)
-		return OCFS2_ET_NO_MEMORY;
+		goto out_free;
 
 	name = (char *)malloc(sizeof(char) * (PATH_MAX + 1));
 	if (!name)
-	{
-		free(buffer);
-		return OCFS2_ET_NO_MEMORY;
-	}
+		goto out_free;
 
 	f = fopen("/proc/partitions", "r");
 	if (!f)
 	{
-		rc = -errno;
+		err = -errno;
 		goto out_free;
 	}
 
@@ -299,7 +328,17 @@ static errcode_t scan_devices(errcode_t (*func)(const char *,
 			if (!as_ide_disk(name))
 				continue;
 			
-			err = func(name, hbo);
+			snprintf(device, PATH_MAX + 1,
+				 DEV_PREFIX "%s", name);
+			/* Try to translate private device-mapper dm-<N> names
+			 * to standard /dev/mapper/<name>.
+			 */
+			if (!strncmp(name, "dm-", 3) && isdigit(name[3]))
+				scan_dir_for_dev(DEV_MAPPER_DIR,
+						 makedev(major, minor),
+						 device, PATH_MAX + 1);
+
+			err = func(device, hbo);
 			if (!err || (err != OCFS2_ET_FILE_NOT_FOUND))
 				break;
 		}
@@ -308,8 +347,12 @@ static errcode_t scan_devices(errcode_t (*func)(const char *,
 	fclose(f);
 
 out_free:
-	free(buffer);
-	free(name);
+	if (device)
+		free(device);
+	if (buffer)
+		free(buffer);
+	if (name)
+		free(name);
 
 	return err;
 }  /* scan_devices() */
