@@ -57,6 +57,7 @@
 #include <ocfs2/ocfs2_err.h>
 #include <ocfs2/jbd2.h>
 #include <ocfs2-kernel/ocfs2_lockid.h>
+#include <ocfs2-kernel/ocfs2_ioctl.h>
 
 #define OCFS2_LIB_FEATURE_INCOMPAT_SUPP		(OCFS2_FEATURE_INCOMPAT_SUPP | \
 						 OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV | \
