@@ -874,7 +874,11 @@ next:
 	if ((!ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super)))&&
 	     di->i_dyn_features & OCFS2_INDEXED_DIR_FL ) {
 		/* ignore the return value */
-		ocfs2_dx_dir_truncate(dd->fs, dbe->e_ino);
+		if (prompt(dd->ost, PY, PR_IV_DX_TREE, "A directory index was "
+			   "found on inode %"PRIu64" but this filesystem does"
+			   "not support directory indexes. Truncate the invalid index?",
+			   dbe->e_ino))
+			ocfs2_dx_dir_truncate(dd->fs, dbe->e_ino);
 	}
 
 out:
