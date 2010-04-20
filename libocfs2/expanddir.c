@@ -238,7 +238,7 @@ errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
 	 * directory to extent in ocfs2_expand_dir()
 	 */
 	if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(fs->fs_super)) &&
-	    (!cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
+	    !(cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
 		ret = ocfs2_dx_dir_build(fs, dir);
 		if (ret)
 			goto bail;
