@@ -242,6 +242,15 @@ errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
 		ret = ocfs2_dx_dir_build(fs, dir);
 		if (ret)
 			goto bail;
+
+		/*
+		 * Re-read the 'cached inode' as ocfs2_dx_dir_build()
+		 * may have written out changes which won't be
+		 * reflected in our copy.
+		 */
+		ret = ocfs2_read_cached_inode(fs, dir, &cinode);
+		if (ret)
+			goto bail;
 	}
 
 	/* set link count of the parent */
