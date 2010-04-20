@@ -188,6 +188,7 @@ struct _State {
 	int mount;
 	int no_backup_super;
 	int inline_data;
+	int dx_dirs;
 	int dry_run;
 
 	uint32_t blocksize;
