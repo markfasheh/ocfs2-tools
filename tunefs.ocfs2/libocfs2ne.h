@@ -304,7 +304,11 @@ struct tunefs_trailer_context {
  * called from feature_metaecc.c and feature_indexed_dirs.c
  * to install dir trailers
  */
+errcode_t tunefs_prepare_dir_trailer(ocfs2_filesys *fs,
+				     struct ocfs2_dinode *di,
+				     struct tunefs_trailer_context **tc_ret);
 errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 				struct tunefs_trailer_context *tc);
+void tunefs_trailer_context_free(struct tunefs_trailer_context *tc);
 
 #endif  /* _LIBTUNEFS_H */
