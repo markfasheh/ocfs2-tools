@@ -658,6 +658,9 @@ errcode_t ocfs2_new_dx_root(ocfs2_filesys *fs,
 		goto out;
 
 	slot = di->i_suballoc_slot;
+	if (slot == (uint16_t)OCFS2_INVALID_SLOT)
+		slot = 0;
+
 	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE,
 				slot, &fs->fs_eb_allocs[slot]);
 	if (ret)
