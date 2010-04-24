@@ -1061,6 +1061,12 @@ file system.
 
 Answering yes will truncate the invalid index.
 
+.SS "DX_LOOKUP_FAILED"
+A directory entry is missing an entry in the directory index. The missing
+index entry will cause lookups on this name to fail.
+
+Answering yes will rebuild the directory index, restoring the missing entry.
+
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)
 

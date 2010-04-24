@@ -648,6 +648,41 @@ out:
 	return ret;
 }
 
+static errcode_t fix_dirent_index(o2fsck_dirblock_entry *dbe,
+				  struct dirblock_data *dd,
+				  struct ocfs2_dir_entry *dirent,
+				  unsigned int *flags)
+{
+	errcode_t ret = 0;
+	struct ocfs2_dinode *di = (struct ocfs2_dinode *)dd->inoblock_buf;
+	uint64_t ino;
+
+	if (!ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super)))
+		goto out;
+
+	if (di->i_dyn_features  & OCFS2_INDEXED_DIR_FL) {
+		ret = ocfs2_lookup(dd->fs, dbe->e_ino, dirent->name,
+				   dirent->name_len, NULL, &ino);
+		if (ret) {
+			if (ret != OCFS2_ET_FILE_NOT_FOUND)
+				goto out;
+			ret = 0;
+
+			if (prompt(dd->ost, PY, PR_DX_LOOKUP_FAILED,
+				   "Directory inode %"PRIu64" is missing "
+				   "an index entry for the file \"%.*s\""
+				   " (inode # %"PRIu64")\n. Repair this by "
+				   "rebuilding the directory index?",
+				   dbe->e_ino, dirent->name_len, dirent->name,
+				   ino))
+				*flags |= OCFS2_DIRENT_CHANGED;
+			goto out;
+		}
+	}
+out:
+	return ret;
+}
+
 static int corrupt_dirent_lengths(struct ocfs2_dir_entry *dirent, int left)
 {
 	if ((dirent->rec_len >= OCFS2_DIR_REC_LEN(1)) &&
@@ -804,6 +839,10 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 			goto out;
 		if (dirent->inode == 0)
 			goto next;
+
+		ret = fix_dirent_index(dbe, dd, dirent, &ret_flags);
+		if (ret)
+			goto out;
 
 		verbosef("dirent %.*s refs ino %"PRIu64"\n", dirent->name_len,
 				dirent->name, (uint64_t)dirent->inode);
