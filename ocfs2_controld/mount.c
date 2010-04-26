@@ -260,13 +260,27 @@ static void add_service(struct mountgroup *mg, const char *device,
 			   const char *service, int ci, int fd)
 {
 	struct service *ms;
+	struct stat st1, st2;
 
-	log_debug("Adding service %s to device %s uuid %s",
+	log_debug("Adding service \"%s\" to device \"%s\" uuid \"%s\"",
 		  service, device, mg->mg_uuid);
 
-	if (strcmp(mg->mg_device, device)) {
+	if (stat(mg->mg_device, &st1)) {
+		fill_error(mg, errno, "Failed to stat device \"%s\": %s",
+			   mg->mg_device, strerror(errno));
+		return;
+	}
+
+	if (stat(device, &st2)) {
+		fill_error(mg, errno, "Failed to stat device \"%s\": %s",
+			   device, strerror(errno));
+		return;
+	}
+
+	if (st1.st_rdev != st2.st_rdev) {
 		fill_error(mg, EINVAL,
-			   "Trying to mount fs %s on device %s, but it is already mounted from device %s",
+			   "Trying to mount fs \"%s\" on device \"%s\", "
+			   "but it is already mounted from device \"%s\"",
 			   mg->mg_uuid, device, mg->mg_device);
 		return;
 	}
