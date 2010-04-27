@@ -348,8 +348,13 @@ static int dx_iterator(ocfs2_filesys *fs,
 		}
 
 		dx_leaf = (struct ocfs2_dx_leaf *)iter->leaf_buf;
-		iter->dx_func(fs, &dx_leaf->dl_list, iter->dx_root, dx_leaf,
+		err = iter->dx_func(fs, &dx_leaf->dl_list, iter->dx_root, dx_leaf,
 			      iter->dx_priv_data);
+		/* callback dx_func() is defined by users, the return value does not
+		 * follow libocfs2 error codes. Don't touch iter->err and just stop
+		 * the iteration here.*/
+		if (err)
+			return OCFS2_EXTENT_ERROR;
 
 		blkno++;
 	}
