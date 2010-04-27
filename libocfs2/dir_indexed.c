@@ -121,6 +121,7 @@ int ocfs2_find_max_rec_len(ocfs2_filesys *fs, char *buf)
 struct trailer_ctxt {
 	struct ocfs2_dx_root_block *dx_root;
 	struct ocfs2_dinode *di;
+	errcode_t err;
 };
 
 /* make sure the space for trailer is reserved */
@@ -170,8 +171,8 @@ static int dir_trailer_func(ocfs2_filesys *fs,
 	struct ocfs2_dinode *di = ctxt->di;
 	struct ocfs2_dx_root_block *dx_root = ctxt->dx_root;
 	struct ocfs2_dir_block_trailer *trailer;
-	int max_rec_len = 0;
-	errcode_t ret = 0;
+	int max_rec_len = 0, ret = 0;
+	errcode_t err;
 	char *blk = NULL;
 
 	ret = ocfs2_malloc_block(fs->fs_io, &blk);
@@ -180,12 +181,20 @@ static int dir_trailer_func(ocfs2_filesys *fs,
 
 	/* here we don't trust trailer, cannot use
 	 * ocfs2_read_dir_block() */
-	ret = ocfs2_read_blocks(fs, blkno, 1, blk);
-	if (ret)
+	err = ocfs2_read_blocks(fs, blkno, 1, blk);
+	if (err) {
+		ctxt->err = err;
+		ret = OCFS2_EXTENT_ERROR;
 		goto out;
-	ret = ocfs2_check_dir_trailer_space(fs, di, blkno, blk);
-	if (ret)
+	}
+
+	err = ocfs2_check_dir_trailer_space(fs, di, blkno, blk);
+	if (err) {
+		ctxt->err = err;
+		ret = OCFS2_EXTENT_ERROR;
 		goto out;
+	}
+
 	ocfs2_init_dir_trailer(fs, di, blkno, blk);
 	max_rec_len = ocfs2_find_max_rec_len(fs, blk);
 	trailer = ocfs2_dir_trailer_from_block(fs, blk);
@@ -198,7 +207,12 @@ static int dir_trailer_func(ocfs2_filesys *fs,
 
 	/* comput trailer->db_check here, after writes out,
 	 * trailer is trustable */
-	ret = ocfs2_write_dir_block(fs, di, blkno, blk);
+	err = ocfs2_write_dir_block(fs, di, blkno, blk);
+	if (err) {
+		ctxt->err = err;
+		ret = OCFS2_EXTENT_ERROR;
+	}
+
 out:
 	if (blk)
 		ocfs2_free(&blk);
@@ -219,9 +233,16 @@ static errcode_t ocfs2_init_dir_trailers(ocfs2_filesys *fs,
 
 	ctxt.di = di;
 	ctxt.dx_root = dx_root;
-
+	ctxt.err = 0;
 	ret = ocfs2_block_iterate_inode(fs, di,
 			0, dir_trailer_func, &ctxt);
+
+	/* callback dir_trailer_func() may have error which can not
+	 * return to its caller directly. If dir_trailer_func() sets
+	 * error in ctxt.err, we should take this REAL error other
+	 * than the value returned by ocfs2_block_iterate_inode(). */
+	if (ctxt.err)
+		ret = ctxt.err;
 out:
 	return ret;
 }
