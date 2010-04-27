@@ -593,7 +593,7 @@ void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
 		(uint64_t)dr->dr_dir_blkno);
 
 	if (dr->dr_suballoc_slot == (uint16_t)OCFS2_INVALID_SLOT)
-		strcpy(tmp_str, "Global");
+		strcpy(tmp_str, "Invalid Slot");
 	else
 		sprintf(tmp_str, "%d", dr->dr_suballoc_slot);
 	fprintf(out, "\tSub Alloc Slot: %s   Sub Alloc Bit: %u   "
