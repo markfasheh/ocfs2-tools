@@ -320,6 +320,7 @@ struct dx_iterator_data {
 	void *dx_priv_data;
 	char *leaf_buf;
 	struct ocfs2_dx_root_block *dx_root;
+	errcode_t err;
 };
 
 static int dx_iterator(ocfs2_filesys *fs,
@@ -330,7 +331,8 @@ static int dx_iterator(ocfs2_filesys *fs,
 		       int ref_recno,
 		       void *priv_data)
 {
-	int ret, i;
+	errcode_t err;
+	int i;
 	struct ocfs2_dx_leaf *dx_leaf;
 	struct dx_iterator_data *iter = priv_data;
 	uint64_t blkno, count;
@@ -339,9 +341,11 @@ static int dx_iterator(ocfs2_filesys *fs,
 
 	blkno = rec->e_blkno;
 	for (i = 0; i < count; i++) {
-		ret = ocfs2_read_dx_leaf(fs, blkno, iter->leaf_buf);
-		if (ret)
-			return ret;
+		err = ocfs2_read_dx_leaf(fs, blkno, iter->leaf_buf);
+		if (err) {
+			iter->err = err;
+			return OCFS2_EXTENT_ERROR;
+		}
 
 		dx_leaf = (struct ocfs2_dx_leaf *)iter->leaf_buf;
 		iter->dx_func(fs, &dx_leaf->dl_list, iter->dx_root, dx_leaf,
@@ -387,8 +391,7 @@ extern errcode_t ocfs2_dx_entries_iterate(ocfs2_filesys *fs,
 	dx_root = (struct ocfs2_dx_root_block *)buf;
 
 	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE) {
-		func(fs, &dx_root->dr_entries, dx_root, NULL, priv_data);
-		ret = 0;
+		ret = func(fs, &dx_root->dr_entries, dx_root, NULL, priv_data);
 		goto out;
 	}
 
@@ -404,10 +407,16 @@ extern errcode_t ocfs2_dx_entries_iterate(ocfs2_filesys *fs,
 	data.dx_priv_data = priv_data;
 	data.leaf_buf = leaf_buf;
 	data.dx_root = dx_root;
+	data.err = 0;
 	ret = ocfs2_extent_iterate_dx_root(fs, dx_root,
 					   OCFS2_EXTENT_FLAG_DATA_ONLY, eb_buf,
 					   dx_iterator, &data);
-
+	/* dx_iterator may set the error code for non-extents-related
+	 * errors. If the error code is set by dx_iterator, no matter
+	 * what ocfs2_extent_iterate_dx_root() returns, we should take
+	 * data.err as retured error code. */
+	if (data.err)
+		ret = data.err;
 out:
 	if (buf)
 		ocfs2_free(&buf);

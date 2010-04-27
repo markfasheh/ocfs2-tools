@@ -464,13 +464,13 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 				     int flags,
 				     char *block_buf,
 				     int (*func)(ocfs2_filesys *fs,
-					         struct ocfs2_extent_rec *rec,
-					         int tree_depth,
-					         uint32_t ccount,
-					         uint64_t ref_blkno,
-					         int ref_recno,
-					         void *priv_data),
-					         void *priv_data)
+						 struct ocfs2_extent_rec *rec,
+						 int tree_depth,
+						 uint32_t ccount,
+						 uint64_t ref_blkno,
+						 int ref_recno,
+						 void *priv_data),
+				     void *priv_data)
 {
 	int i;
 	int iret = 0;
