@@ -1254,7 +1254,6 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 	dx_root->dr_entries.de_count = ocfs2_dx_entries_per_root(fs->fs_blocksize);
 
 	di->i_dx_root = dr_blkno;
-	di->i_dyn_features |= OCFS2_INDEXED_DIR_FL;
 
 	ret = ocfs2_write_dx_root(fs, dr_blkno, dx_buf);
 	if (ret)
@@ -1274,14 +1273,20 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 	if (ret)
 		goto out;
 
-	/* check quota for dx_leaf */
 	ret = ocfs2_read_dx_root(fs, dr_blkno, dx_buf);
 	if (ret)
 		goto out;
 	ret = ocfs2_read_inode(fs, dir, di_buf);
 	if (ret)
 		goto out;
+	/* set inode to use indexed-dirs */
+	di->i_dyn_features |= OCFS2_INDEXED_DIR_FL;
 
+	ret = ocfs2_write_inode(fs, dir, di_buf);
+	if(ret)
+		goto out;
+
+	/* check quota for dx_leaf */
 	change = ocfs2_clusters_to_bytes(fs,
 				dx_root->dr_clusters);
 	uid = di->i_uid;
