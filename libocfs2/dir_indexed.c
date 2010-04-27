@@ -269,6 +269,7 @@ struct dx_insert_ctxt {
 	uint64_t dir_blkno;
 	uint64_t dx_root_blkno;
 	ocfs2_filesys *fs;
+	errcode_t err;
 };
 
 
@@ -1069,7 +1070,8 @@ static int ocfs2_dx_dir_insert(struct ocfs2_dir_entry *dentry,
 				char *buf,
 				void *priv_data)
 {
-	errcode_t ret = 0;
+	int ret = 0;
+	errcode_t err;
 	char *dx_buf = NULL;
 	char *dx_leaf_buf = NULL;
 	struct ocfs2_dx_root_block *dx_root = NULL;
@@ -1081,17 +1083,17 @@ static int ocfs2_dx_dir_insert(struct ocfs2_dir_entry *dentry,
 	uint64_t dx_root_blkno = ctxt->dx_root_blkno;
 	int write_dx_leaf = 0;
 
-	ret = ocfs2_malloc_block(fs->fs_io, &dx_buf);
-	if (ret)
-		goto out;
+	err = ocfs2_malloc_block(fs->fs_io, &dx_buf);
+	if (err)
+		goto set_err;
 
-	ret = ocfs2_malloc_block(fs->fs_io, &dx_leaf_buf);
-	if (ret)
-		goto out;
+	err = ocfs2_malloc_block(fs->fs_io, &dx_leaf_buf);
+	if (err)
+		goto set_err;
 
-	ret = ocfs2_read_dx_root(fs, dx_root_blkno, dx_buf);
-	if (ret)
-		goto out;
+	err = ocfs2_read_dx_root(fs, dx_root_blkno, dx_buf);
+	if (err)
+		goto set_err;
 
 	dx_root = (struct ocfs2_dx_root_block *)dx_buf;
 	memset(&lookup, 0, sizeof(struct ocfs2_dir_lookup_result));
@@ -1104,19 +1106,21 @@ static int ocfs2_dx_dir_insert(struct ocfs2_dir_entry *dentry,
 			goto insert_into_entries;
 		} else {
 			/* root block is full, expand it to an extent */
-			ret = ocfs2_expand_inline_dx_root(fs, dx_root);
-			if (ret)
-				goto out;
+			err = ocfs2_expand_inline_dx_root(fs, dx_root);
+			if (err)
+				goto set_err;
 		}
 	}
 
-	ret = ocfs2_find_dir_space_dx(fs, dx_root,
+	err = ocfs2_find_dir_space_dx(fs, dx_root,
 				dentry->name, dentry->name_len, &lookup);
-	if (ret)
-		goto out;
-	ret = ocfs2_read_dx_leaf(fs, lookup.dl_dx_leaf_blkno, dx_leaf_buf);
-	if (ret)
-		goto out;
+	if (err)
+		goto set_err;
+
+	err = ocfs2_read_dx_leaf(fs, lookup.dl_dx_leaf_blkno, dx_leaf_buf);
+	if (err)
+		goto set_err;
+
 	dx_leaf = (struct ocfs2_dx_leaf *)dx_leaf_buf;
 	entry_list = &dx_leaf->dl_list;
 	write_dx_leaf = 1;
@@ -1124,12 +1128,18 @@ static int ocfs2_dx_dir_insert(struct ocfs2_dir_entry *dentry,
 insert_into_entries:
 	ocfs2_dx_entry_list_insert(entry_list, &lookup.dl_hinfo, blocknr);
 	if (write_dx_leaf) {
-		ret = ocfs2_write_dx_leaf(fs, dx_leaf->dl_blkno, dx_leaf);
-		if (ret)
-			goto out;
+		err = ocfs2_write_dx_leaf(fs, dx_leaf->dl_blkno, dx_leaf);
+		if (err)
+			goto set_err;
 	}
 	dx_root->dr_num_entries += 1;
-	ret = ocfs2_write_dx_root(fs, dx_root_blkno, dx_buf);
+	err = ocfs2_write_dx_root(fs, dx_root_blkno, dx_buf);
+	if (!err)
+		goto out;
+
+set_err:
+	ctxt->err = err;
+	ret = OCFS2_EXTENT_ERROR;
 out:
 	if (dx_leaf_buf)
 		ocfs2_free(&dx_leaf_buf);
@@ -1256,8 +1266,13 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 	ctxt.dir_blkno = dir;
 	ctxt.dx_root_blkno = dr_blkno;
 	ctxt.fs = fs;
+	ctxt.err = 0;
 	ret = ocfs2_dir_iterate(fs, dir, 0, NULL,
 				ocfs2_dx_dir_insert,  &ctxt);
+	if (ctxt.err)
+		ret = ctxt.err;
+	if (ret)
+		goto out;
 
 	/* check quota for dx_leaf */
 	ret = ocfs2_read_dx_root(fs, dr_blkno, dx_buf);
