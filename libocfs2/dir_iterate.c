@@ -379,7 +379,6 @@ extern errcode_t ocfs2_dx_entries_iterate(ocfs2_filesys *fs,
 	struct dx_iterator_data data;
 
 	if (!S_ISDIR(dir->i_mode) && !ocfs2_dir_indexed(dir)) {
-		ret = 0;
 		goto out;
 	}
 
@@ -449,12 +448,10 @@ extern errcode_t ocfs2_dx_frees_iterate(ocfs2_filesys *fs,
 	struct ocfs2_dir_block_trailer *trailer;
 
 	if (!S_ISDIR(dir->i_mode) || !(ocfs2_dir_indexed(dir))) {
-		ret = 0;
 		goto out;
 	}
 
 	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE) {
-		ret = 0;
 		goto out;
 	}
 
