@@ -254,7 +254,7 @@ static struct feature_name ocfs2_feature_names[] = {
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_XATTR, 0},
 	},
 	{
-		.fn_name = "IndexedDirs",
+		.fn_name = "indexed-dirs",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS, 0},
 	},
 	{
