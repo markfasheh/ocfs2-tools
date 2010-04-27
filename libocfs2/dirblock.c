@@ -245,29 +245,32 @@ static void ocfs2_swap_dx_entry(struct ocfs2_dx_entry *dx_entry)
 	dx_entry->dx_dirent_blk		= bswap_64(dx_entry->dx_dirent_blk);
 }
 
-static void ocfs2_swap_dx_entry_list(struct ocfs2_dx_entry_list *dl_list)
+static void ocfs2_swap_dx_entry_list_to_cpu(struct ocfs2_dx_entry_list *dl_list)
 {
 	int i;
 
-	dl_list->de_count	= bswap_16(dl_list->de_count);
-	dl_list->de_num_used	= bswap_16(dl_list->de_num_used);
+	if (cpu_is_little_endian)
+		return;
+
+	dl_list->de_count = bswap_16(dl_list->de_count);
+	dl_list->de_num_used = bswap_16(dl_list->de_num_used);
 
 	for (i = 0; i < dl_list->de_count; i++)
 		ocfs2_swap_dx_entry(&dl_list->de_entries[i]);
 }
 
-static void ocfs2_swap_dx_entry_list_to_cpu(struct ocfs2_dx_entry_list *dl_list)
-{
-	if (cpu_is_little_endian)
-		return;
-	ocfs2_swap_dx_entry_list(dl_list);
-}
-
 static void ocfs2_swap_dx_entry_list_from_cpu(struct ocfs2_dx_entry_list *dl_list)
 {
+	int i;
+
 	if (cpu_is_little_endian)
 		return;
-	ocfs2_swap_dx_entry_list(dl_list);
+
+	for (i = 0; i < dl_list->de_count; i++)
+		ocfs2_swap_dx_entry(&dl_list->de_entries[i]);
+
+	dl_list->de_count = bswap_16(dl_list->de_count);
+	dl_list->de_num_used = bswap_16(dl_list->de_num_used);
 }
 
 static void ocfs2_swap_dx_root_to_cpu(ocfs2_filesys *fs,
@@ -384,26 +387,22 @@ out:
 	return ret;
 }
 
-static void ocfs2_swap_dx_leaf(struct ocfs2_dx_leaf *dx_leaf)
-{
-	dx_leaf->dl_blkno = bswap_64(dx_leaf->dl_blkno);
-	dx_leaf->dl_fs_generation = bswap_64(dx_leaf->dl_fs_generation);
-
-	ocfs2_swap_dx_entry_list(&dx_leaf->dl_list);
-}
-
 static void ocfs2_swap_dx_leaf_to_cpu(struct ocfs2_dx_leaf *dx_leaf)
 {
 	if (cpu_is_little_endian)
 		return;
-	ocfs2_swap_dx_leaf(dx_leaf);
+	dx_leaf->dl_blkno = bswap_64(dx_leaf->dl_blkno);
+	dx_leaf->dl_fs_generation = bswap_64(dx_leaf->dl_fs_generation);
+	ocfs2_swap_dx_entry_list_to_cpu(&dx_leaf->dl_list);
 }
 
 static void ocfs2_swap_dx_leaf_from_cpu(struct ocfs2_dx_leaf *dx_leaf)
 {
 	if (cpu_is_little_endian)
 		return;
-	ocfs2_swap_dx_leaf(dx_leaf);
+	dx_leaf->dl_blkno = bswap_64(dx_leaf->dl_blkno);
+	dx_leaf->dl_fs_generation = bswap_64(dx_leaf->dl_fs_generation);
+	ocfs2_swap_dx_entry_list_from_cpu(&dx_leaf->dl_list);
 }
 
 errcode_t ocfs2_read_dx_leaf(ocfs2_filesys *fs, uint64_t block,
