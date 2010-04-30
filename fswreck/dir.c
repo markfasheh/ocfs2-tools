@@ -112,6 +112,7 @@ static int corrupt_match_dirent(struct dirent_corrupt_struct *dcs,
 }
 
 static int rename_dirent_proc(struct ocfs2_dir_entry *dirent,
+			      uint64_t   blocknr,
 			      int        offset,
 			      int        blocksize,
 			      char       *buf,
@@ -157,6 +158,7 @@ static int rename_dirent(ocfs2_filesys *fs, uint64_t dir,
 }
 
 static int corrupt_dirent_ino_proc(struct ocfs2_dir_entry *dirent,
+				   uint64_t   blocknr,
 				   int        offset,
 				   int        blocksize,
 				   char       *buf,
@@ -200,6 +202,7 @@ static int corrupt_dirent_ino(ocfs2_filesys *fs, uint64_t dir,
 }
 
 static int corrupt_dirent_reclen_proc(struct ocfs2_dir_entry *dirent,
+				      uint64_t   blocknr,
 				      int        offset,
 				      int        blocksize,
 				      char       *buf,

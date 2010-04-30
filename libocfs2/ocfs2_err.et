@@ -102,6 +102,9 @@ ec	OCFS2_ET_DIR_CORRUPTED,
 ec	OCFS2_ET_NO_DIRECTORY,
 	"OCFS2 inode is not a directory"
 
+ec	OCFS2_ET_DIRENT_NOT_FOUND,
+	"Directory entry not found"
+
 ec	OCFS2_ET_FILE_NOT_FOUND,
 	"File not found by ocfs2_lookup"
 
@@ -188,6 +191,9 @@ ec	OCFS2_ET_CORRUPT_QUOTA_FILE,
 
 ec	OCFS2_ET_CANNOT_DETERMINE_SECTOR_SIZE,
 	"Cannot determine sector size"
+
+ec	OCFS2_ET_DX_BALANCE_EMPTY_LEAF,
+	"Trying to rebalance empty leaf for indexed dir"
 
 ec	OCFS2_ET_NONEMTY_QUOTA_HASH,
 	"Freeing non-empty quota hash"

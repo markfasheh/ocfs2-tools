@@ -577,6 +577,549 @@ out:
 	return ret;
 }
 
+/* A dirblock we have to add a trailer to */
+struct tunefs_trailer_dirblock {
+	struct list_head db_list;
+	uint64_t db_blkno;
+	char *db_buf;
+
+	/*
+	 * These require a little explanation.  They point to
+	 * ocfs2_dir_entry structures inside db_buf.
+	 *
+	 * db_last is the entry we're going to *keep*.  If the last
+	 * entry in the dirblock has enough extra rec_len to allow the
+	 * trailer, db_last points to it.  We will shorten its rec_len
+	 * and insert the trailer.
+	 *
+	 * However, if the last entry in the dirblock cannot be
+	 * truncated, db_last points to the entry before that - the
+	 * last entry we're keeping in this dirblock.
+	 *
+	 * Examples:
+	 *
+	 * - The last entry in the dirblock has a name_len of 1 and a
+	 *   rec_len of 128.  We can easily change the rec_len to 64 and
+	 *   insert the trailer.  db_last points to this entry.
+	 *
+	 * - The last entry in the dirblock has a name_len of 1 and a
+	 *   rec_len of 48.  The previous entry has a name_len of 1 and a
+	 *   rec_len of 32.  We have to move the last entry out.  The
+	 *   second-to-last entry can have its rec_len truncated to 16, so
+	 *   we put it in db_last.
+	 */
+	struct ocfs2_dir_entry *db_last;
+};
+
+void tunefs_trailer_context_free(struct tunefs_trailer_context *tc)
+{
+	struct tunefs_trailer_dirblock *db;
+	struct list_head *n, *pos;
+
+	if (!list_empty(&tc->d_list))
+		list_del(&tc->d_list);
+
+	list_for_each_safe(pos, n, &tc->d_dirblocks) {
+		db = list_entry(pos, struct tunefs_trailer_dirblock, db_list);
+		list_del(&db->db_list);
+		ocfs2_free(&db->db_buf);
+		ocfs2_free(&db);
+	}
+
+	ocfs2_free(&tc);
+}
+
+/*
+ * We're calculating how many bytes we need to add to make space for
+ * the dir trailers.  But we need to make sure that the added directory
+ * blocks also have room for a trailer.
+ */
+static void add_bytes_needed(ocfs2_filesys *fs,
+			     struct tunefs_trailer_context *tc,
+			     unsigned int rec_len)
+{
+	unsigned int toff = ocfs2_dir_trailer_blk_off(fs);
+	unsigned int block_offset = tc->d_bytes_needed % fs->fs_blocksize;
+
+	/*
+	 * If the current byte offset would put us into a trailer, push
+	 * it out to the start of the next block.  Remember, dirents have
+	 * to be at least 16 bytes, which is why we check against the
+	 * smallest rec_len.
+	 */
+	if ((block_offset + rec_len) > (toff - OCFS2_DIR_REC_LEN(1)))
+		tc->d_bytes_needed += fs->fs_blocksize - block_offset;
+
+	tc->d_bytes_needed += rec_len;
+	tc->d_blocks_needed =
+		ocfs2_blocks_in_bytes(fs, tc->d_bytes_needed);
+}
+
+static errcode_t walk_dirblock(ocfs2_filesys *fs,
+			       struct tunefs_trailer_context *tc,
+			       struct tunefs_trailer_dirblock *db)
+{
+	errcode_t ret = 0;
+	struct ocfs2_dir_entry *dirent, *prev = NULL;
+	unsigned int real_rec_len;
+	unsigned int offset = 0;
+	unsigned int toff = ocfs2_dir_trailer_blk_off(fs);
+
+	while (offset < fs->fs_blocksize) {
+		dirent = (struct ocfs2_dir_entry *) (db->db_buf + offset);
+		if (((offset + dirent->rec_len) > fs->fs_blocksize) ||
+		    (dirent->rec_len < 8) ||
+		    ((dirent->rec_len % 4) != 0) ||
+		    (((dirent->name_len & 0xFF)+8) > dirent->rec_len)) {
+			ret = OCFS2_ET_DIR_CORRUPTED;
+			break;
+		}
+
+		real_rec_len = dirent->inode ?
+			OCFS2_DIR_REC_LEN(dirent->name_len) :
+			OCFS2_DIR_REC_LEN(1);
+		if ((offset + real_rec_len) <= toff)
+			goto next;
+
+		/*
+		 * The first time through, we store off the last dirent
+		 * before the trailer.
+		 */
+		if (!db->db_last)
+			db->db_last = prev;
+
+		/* Only live dirents need to be moved */
+		if (dirent->inode) {
+			verbosef(VL_DEBUG,
+				 "Will move dirent %.*s out of "
+				 "directory block %"PRIu64" to make way "
+				 "for the trailer\n",
+				 dirent->name_len, dirent->name,
+				 db->db_blkno);
+			add_bytes_needed(fs, tc, real_rec_len);
+		}
+
+next:
+		prev = dirent;
+		offset += dirent->rec_len;
+	}
+
+	/* There were no dirents across the boundary */
+	if (!db->db_last)
+		db->db_last = prev;
+
+	return ret;
+}
+
+static int dirblock_scan_iterate(ocfs2_filesys *fs, uint64_t blkno,
+				 uint64_t bcount, uint16_t ext_flags,
+				 void *priv_data)
+{
+	errcode_t ret = 0;
+	struct tunefs_trailer_dirblock *db = NULL;
+	struct tunefs_trailer_context *tc = priv_data;
+
+	ret = ocfs2_malloc0(sizeof(struct tunefs_trailer_dirblock), &db);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &db->db_buf);
+	if (ret)
+		goto out;
+
+	db->db_blkno = blkno;
+
+	verbosef(VL_DEBUG,
+		 "Reading dinode %"PRIu64" dirblock %"PRIu64" at block "
+		 "%"PRIu64"\n",
+		 tc->d_di->i_blkno, bcount, blkno);
+	ret = ocfs2_read_dir_block(fs, tc->d_di, blkno, db->db_buf);
+	if (ret)
+		goto out;
+
+	ret = walk_dirblock(fs, tc, db);
+	if (ret)
+		goto out;
+
+	list_add_tail(&db->db_list, &tc->d_dirblocks);
+	db = NULL;
+
+out:
+	if (db) {
+		if (db->db_buf)
+			ocfs2_free(&db->db_buf);
+		ocfs2_free(&db);
+	}
+
+	if (ret) {
+		tc->d_err = ret;
+		return OCFS2_BLOCK_ABORT;
+	}
+
+	return 0;
+}
+
+errcode_t tunefs_prepare_dir_trailer(ocfs2_filesys *fs,
+				     struct ocfs2_dinode *di,
+				     struct tunefs_trailer_context **tc_ret)
+{
+	errcode_t ret = 0;
+	struct tunefs_trailer_context *tc = NULL;
+
+	if (ocfs2_dir_has_trailer(fs, di))
+		goto out;
+
+	ret = ocfs2_malloc0(sizeof(struct tunefs_trailer_context), &tc);
+	if (ret)
+		goto out;
+
+	tc->d_blkno = di->i_blkno;
+	tc->d_di = di;
+	INIT_LIST_HEAD(&tc->d_list);
+	INIT_LIST_HEAD(&tc->d_dirblocks);
+
+	ret = ocfs2_block_iterate_inode(fs, tc->d_di, 0,
+					dirblock_scan_iterate, tc);
+	if (!ret)
+		ret = tc->d_err;
+	if (ret)
+		goto out;
+
+	*tc_ret = tc;
+	tc = NULL;
+
+out:
+	if (tc)
+		tunefs_trailer_context_free(tc);
+
+	return ret;
+}
+
+/*
+ * We are hand-coding the directory expansion because we're going to
+ * build the new directory blocks ourselves.  We can't just use
+ * ocfs2_expand_dir() and ocfs2_link(), because we're moving around
+ * entries.
+ */
+static errcode_t expand_dir_if_needed(ocfs2_filesys *fs,
+				      struct ocfs2_dinode *di,
+				      uint64_t blocks_needed)
+{
+	errcode_t ret = 0;
+	uint64_t used_blocks, total_blocks;
+	uint32_t clusters_needed;
+
+	/* This relies on the fact that i_size of a directory is a
+	 * multiple of blocksize */
+	used_blocks = ocfs2_blocks_in_bytes(fs, di->i_size);
+	total_blocks = ocfs2_clusters_to_blocks(fs, di->i_clusters);
+	if ((used_blocks + blocks_needed) <= total_blocks)
+		goto out;
+
+	clusters_needed =
+		ocfs2_clusters_in_blocks(fs,
+					 (used_blocks + blocks_needed) -
+					 total_blocks);
+	ret = ocfs2_extend_allocation(fs, di->i_blkno, clusters_needed);
+	if (ret)
+		goto out;
+
+	/* Pick up changes to the inode */
+	ret = ocfs2_read_inode(fs, di->i_blkno, (char *)di);
+
+out:
+	return ret;
+}
+
+static void shift_dirent(ocfs2_filesys *fs,
+			 struct tunefs_trailer_context *tc,
+			 struct ocfs2_dir_entry *dirent)
+{
+	/* Using the real rec_len */
+	unsigned int rec_len = OCFS2_DIR_REC_LEN(dirent->name_len);
+	unsigned int offset, remain;
+
+	/*
+	 * If the current byte offset would put us into a trailer, push
+	 * it out to the start of the next block.  Remember, dirents have
+	 * to be at least 16 bytes, which is why we check against the
+	 * smallest rec_len.
+	 */
+	if (rec_len > (tc->d_next_dirent->rec_len - OCFS2_DIR_REC_LEN(1))) {
+		tc->d_cur_block += fs->fs_blocksize;
+		tc->d_next_dirent = (struct ocfs2_dir_entry *)tc->d_cur_block;
+	}
+
+	assert(ocfs2_blocks_in_bytes(fs,
+				     tc->d_cur_block - tc->d_new_blocks) <
+	       tc->d_blocks_needed);
+
+	offset = (char *)(tc->d_next_dirent) - tc->d_cur_block;
+	remain = tc->d_next_dirent->rec_len - rec_len;
+
+	memcpy(tc->d_cur_block + offset, dirent, rec_len);
+	tc->d_next_dirent->rec_len = rec_len;
+
+	verbosef(VL_DEBUG,
+		 "Installed dirent %.*s at offset %u of new block "
+		 "%"PRIu64", rec_len %u\n",
+		 tc->d_next_dirent->name_len, tc->d_next_dirent->name,
+		 offset,
+		 ocfs2_blocks_in_bytes(fs, tc->d_cur_block - tc->d_new_blocks),
+		 rec_len);
+
+
+	offset += rec_len;
+	tc->d_next_dirent =
+		(struct ocfs2_dir_entry *)(tc->d_cur_block + offset);
+	tc->d_next_dirent->rec_len = remain;
+
+	verbosef(VL_DEBUG,
+		 "New block %"PRIu64" has its last dirent at %u, with %u "
+		 "bytes left\n",
+		 ocfs2_blocks_in_bytes(fs, tc->d_cur_block - tc->d_new_blocks),
+		 offset, remain);
+}
+
+static errcode_t fixup_dirblock(ocfs2_filesys *fs,
+				struct tunefs_trailer_context *tc,
+				struct tunefs_trailer_dirblock *db)
+{
+	errcode_t ret = 0;
+	struct ocfs2_dir_entry *dirent;
+	unsigned int real_rec_len;
+	unsigned int offset;
+	unsigned int toff = ocfs2_dir_trailer_blk_off(fs);
+
+	/*
+	 * db_last is the last dirent we're *keeping*.  So we need to 
+	 * move out every valid dirent *after* db_last.
+	 *
+	 * tunefs_prepare_dir_trailer() should have calculated this
+	 * correctly.
+	 */
+	offset = ((char *)db->db_last) - db->db_buf;
+	offset += db->db_last->rec_len;
+	while (offset < fs->fs_blocksize) {
+		dirent = (struct ocfs2_dir_entry *) (db->db_buf + offset);
+		if (((offset + dirent->rec_len) > fs->fs_blocksize) ||
+		    (dirent->rec_len < 8) ||
+		    ((dirent->rec_len % 4) != 0) ||
+		    (((dirent->name_len & 0xFF)+8) > dirent->rec_len)) {
+			ret = OCFS2_ET_DIR_CORRUPTED;
+			break;
+		}
+
+		real_rec_len = dirent->inode ?
+			OCFS2_DIR_REC_LEN(dirent->name_len) :
+			OCFS2_DIR_REC_LEN(1);
+
+		assert((offset + real_rec_len) > toff);
+
+		/* Only live dirents need to be moved */
+		if (dirent->inode) {
+			verbosef(VL_DEBUG,
+				 "Moving dirent %.*s out of directory "
+				 "block %"PRIu64" to make way for the "
+				 "trailer\n",
+				 dirent->name_len, dirent->name,
+				 db->db_blkno);
+			shift_dirent(fs, tc, dirent);
+		}
+
+		offset += dirent->rec_len;
+	}
+
+	/*
+	 * Now that we've moved any dirents out of the way, we need to
+	 * fix up db_last and install the trailer.
+	 */
+	offset = ((char *)db->db_last) - db->db_buf;
+	verbosef(VL_DEBUG,
+		 "Last valid dirent of directory block %"PRIu64" "
+		 "(\"%.*s\") is %u bytes in.  Setting rec_len to %u and "
+		 "installing the trailer\n",
+		 db->db_blkno, db->db_last->name_len, db->db_last->name,
+		 offset, toff - offset);
+	db->db_last->rec_len = toff - offset;
+	ocfs2_init_dir_trailer(fs, tc->d_di, db->db_blkno, db->db_buf);
+
+	return ret;
+}
+
+static errcode_t run_dirblocks(ocfs2_filesys *fs,
+			       struct tunefs_trailer_context *tc)
+{
+	errcode_t ret = 0;
+	struct list_head *pos;
+	struct tunefs_trailer_dirblock *db;
+
+	list_for_each(pos, &tc->d_dirblocks) {
+		db = list_entry(pos, struct tunefs_trailer_dirblock, db_list);
+		ret = fixup_dirblock(fs, tc, db);
+		if (ret)
+			break;
+	}
+
+	return ret;
+}
+
+static errcode_t write_dirblocks(ocfs2_filesys *fs,
+				 struct tunefs_trailer_context *tc)
+{
+	errcode_t ret = 0;
+	struct list_head *pos;
+	struct tunefs_trailer_dirblock *db;
+
+	list_for_each(pos, &tc->d_dirblocks) {
+		db = list_entry(pos, struct tunefs_trailer_dirblock, db_list);
+		ret = ocfs2_write_dir_block(fs, tc->d_di, db->db_blkno,
+					    db->db_buf);
+		if (ret) {
+			verbosef(VL_DEBUG,
+				 "Error writing dirblock %"PRIu64"\n",
+				 db->db_blkno);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static errcode_t init_new_dirblocks(ocfs2_filesys *fs,
+				    struct tunefs_trailer_context *tc)
+{
+	int i;
+	errcode_t ret;
+	uint64_t blkno;
+	uint64_t orig_block = ocfs2_blocks_in_bytes(fs, tc->d_di->i_size);
+	ocfs2_cached_inode *cinode;
+	char *blockptr;
+	struct ocfs2_dir_entry *first;
+
+	ret = ocfs2_read_cached_inode(fs, tc->d_blkno, &cinode);
+	if (ret)
+		goto out;
+	assert(!memcmp(tc->d_di, cinode->ci_inode, fs->fs_blocksize));
+
+	for (i = 0; i < tc->d_blocks_needed; i++) {
+		ret = ocfs2_extent_map_get_blocks(cinode, orig_block + i,
+						  1, &blkno, NULL, NULL);
+		if (ret)
+			goto out;
+		blockptr = tc->d_new_blocks + (i * fs->fs_blocksize);
+		memset(blockptr, 0, fs->fs_blocksize);
+		first = (struct ocfs2_dir_entry *)blockptr;
+		first->rec_len = ocfs2_dir_trailer_blk_off(fs);
+		ocfs2_init_dir_trailer(fs, tc->d_di, blkno, blockptr);
+	}
+
+out:
+	return ret;
+}
+
+static errcode_t write_new_dirblocks(ocfs2_filesys *fs,
+				     struct tunefs_trailer_context *tc)
+{
+	int i;
+	errcode_t ret;
+	uint64_t blkno;
+	uint64_t orig_block = ocfs2_blocks_in_bytes(fs, tc->d_di->i_size);
+	ocfs2_cached_inode *cinode;
+	char *blockptr;
+
+	ret = ocfs2_read_cached_inode(fs, tc->d_blkno, &cinode);
+	if (ret)
+		goto out;
+	assert(!memcmp(tc->d_di, cinode->ci_inode, fs->fs_blocksize));
+
+	for (i = 0; i < tc->d_blocks_needed; i++) {
+		ret = ocfs2_extent_map_get_blocks(cinode, orig_block + i,
+						  1, &blkno, NULL, NULL);
+		if (ret)
+			goto out;
+		blockptr = tc->d_new_blocks + (i * fs->fs_blocksize);
+		ret = ocfs2_write_dir_block(fs, tc->d_di, blkno, blockptr);
+		if (ret) {
+			verbosef(VL_DEBUG,
+				 "Error writing dirblock %"PRIu64"\n",
+				 blkno);
+			goto out;
+		}
+	}
+
+out:
+	return ret;
+}
+
+errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
+					struct ocfs2_dinode *di,
+					struct tunefs_trailer_context *tc)
+{
+	errcode_t ret = 0;
+	struct tunefs_trailer_context *our_tc = NULL;
+
+	if (!tc) {
+		ret = tunefs_prepare_dir_trailer(fs, di, &our_tc);
+		if (ret)
+			goto out;
+		tc = our_tc;
+	}
+
+	if (tc->d_di != di) {
+		ret = OCFS2_ET_INVALID_ARGUMENT;
+		goto out;
+	}
+
+	if (tc->d_blocks_needed) {
+		ret = ocfs2_malloc_blocks(fs->fs_io, tc->d_blocks_needed,
+					  &tc->d_new_blocks);
+		if (ret)
+			goto out;
+
+		tc->d_cur_block = tc->d_new_blocks;
+
+		ret = expand_dir_if_needed(fs, di, tc->d_blocks_needed);
+		if (ret)
+			goto out;
+
+		ret = init_new_dirblocks(fs, tc);
+		if (ret)
+			goto out;
+		tc->d_next_dirent = (struct ocfs2_dir_entry *)tc->d_cur_block;
+		verbosef(VL_DEBUG, "t_next_dirent has rec_len of %u\n",
+			 tc->d_next_dirent->rec_len);
+	}
+
+	ret = run_dirblocks(fs, tc);
+	if (ret)
+		goto out;
+
+	/*
+	 * We write in a specific order.  We write any new dirblocks first
+	 * so that they are on disk.  Then we write the new i_size in the
+	 * inode.  If we crash at this point, the directory has duplicate
+	 * entries but no lost entries.  fsck can clean it up.  Finally, we
+	 * write the modified dirblocks with trailers.
+	 */
+	if (tc->d_blocks_needed) {
+		ret = write_new_dirblocks(fs, tc);
+		if (ret)
+			goto out;
+
+		di->i_size += ocfs2_blocks_to_bytes(fs, tc->d_blocks_needed);
+		ret = ocfs2_write_inode(fs, di->i_blkno, (char *)di);
+		if (ret)
+			goto out;
+	}
+
+	ret = write_dirblocks(fs, tc);
+
+out:
+	if (our_tc)
+		tunefs_trailer_context_free(our_tc);
+	return ret;
+}
 
 /*
  * Starting, opening, closing, and exiting.

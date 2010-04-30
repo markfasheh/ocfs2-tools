@@ -781,6 +781,53 @@ static int clear_block(ocfs2_filesys *fs,
 	return 0;
 }
 
+
+static errcode_t o2fsck_check_dx_dir(o2fsck_state *ost, struct ocfs2_dinode *di)
+{
+	errcode_t ret = 0;
+	char *buf = NULL;
+	struct ocfs2_dx_root_block *dx_root;
+	ocfs2_filesys *fs = ost->ost_fs;
+	struct extent_info ei = {0,};
+	int changed = 0;
+
+	if (!ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(fs->fs_super)))
+		goto out;
+
+	if (!ocfs2_dir_indexed(di))
+		goto out;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_dx_root(fs, (uint64_t)di->i_dx_root, buf);
+	if (ret)
+		goto out;
+
+	dx_root = (struct ocfs2_dx_root_block *)buf;
+	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE)
+		goto out;
+
+	ret = check_el(ost, &ei, di->i_blkno, &dx_root->dr_list,
+			ocfs2_extent_recs_per_dx_root(fs->fs_blocksize),
+			&changed);
+	if (ret)
+		goto out;
+
+	if (changed) {
+		ret = ocfs2_write_dx_root(fs, (uint64_t)di->i_dx_root, (char *)dx_root);
+		if (ret)
+			com_err(whoami, ret, "while writing an updated "
+				"dx_root block at %"PRIu64" for inode %"PRIu64,
+				(uint64_t)di->i_dx_root, (uint64_t)di->i_blkno);
+	}
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 /*
  * this verifies i_size and i_clusters for inodes that use i_list to
  * reference extents of data.
@@ -833,6 +880,13 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	if (ret) {
 		com_err(whoami, ret, "while iterating over the blocks for "
 			"inode %"PRIu64, (uint64_t)di->i_blkno);
+		goto out;
+	}
+
+	ret = o2fsck_check_dx_dir(ost, di);
+	if (ret) {
+		com_err(whoami, ret, "while iterating over the dir indexed "
+			"tree for directory inode %"PRIu64, (uint64_t)di->i_blkno);
 		goto out;
 	}
 

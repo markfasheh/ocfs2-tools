@@ -99,6 +99,9 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 		fprintf(out, "%02X", sb->s_uuid[i]);
 	fprintf(out, "\n");
 	fprintf(out, "\tHash: %u (0x%x)\n", sb->s_uuid_hash, sb->s_uuid_hash);
+	for (i = 0; i < 3; i++)
+		fprintf(out, "\tDX Seed[%d]: 0x%08x\n", i, sb->s_dx_seed[i]);
+
 	if (ocfs2_userspace_stack(sb))
 		fprintf(out,
 			"\tCluster stack: %s\n"
@@ -315,6 +318,9 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	if (in->i_dyn_features & OCFS2_INLINE_DATA_FL) {
 		fprintf(out, "\tInline Data Max: %u\n",
 			in->id2.i_data.id_count);
+	} else if (in->i_dyn_features & OCFS2_INDEXED_DIR_FL) {
+		fprintf(out, "\tIndexed Tree Root: %"PRIu64"\n",
+			(uint64_t)in->i_dx_root);
 	}
 
 	if (flags)
@@ -455,8 +461,8 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
  * dump_dir_entry()
  *
  */
-int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
-		     char *buf, void *priv_data)
+int  dump_dir_entry (struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset,
+		     int blocksize, char *buf, void *priv_data)
 {
 	list_dir_opts *ls = (list_dir_opts *)priv_data;
 	char tmp = rec->name[rec->name_len];
@@ -490,6 +496,21 @@ int  dump_dir_entry (struct ocfs2_dir_entry *rec, int offset, int blocksize,
 }
 
 /*
+ * dump_dir_trailer()
+ */
+static void dump_dir_trailer(FILE *out, struct ocfs2_dir_block_trailer *trailer)
+{
+	fprintf(out,
+		"\tTrailer Block: %-15"PRIu64" Inode: %-15"PRIu64" rec_len: %-4u\n",
+		trailer->db_blkno, trailer->db_parent_dinode,
+		trailer->db_compat_rec_len);
+	fprintf(out,
+		"\tLargest hole: %u  Next in list: %-15"PRIu64"\n",
+		trailer->db_free_rec_len, trailer->db_free_next);
+	dump_block_check(out, &trailer->db_check);
+}
+
+/*
  * dump_dir_block()
  *
  */
@@ -507,13 +528,9 @@ void dump_dir_block(FILE *out, char *buf)
 	};
 
 	if (!strncmp((char *)trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
-		     sizeof(trailer->db_signature))) {
-		fprintf(out,
-			"\tTrailer Block: %-15"PRIu64" Inode: %-15"PRIu64" rec_len: %-4u\n",
-			trailer->db_blkno, trailer->db_parent_dinode,
-			trailer->db_compat_rec_len);
-		dump_block_check(out, &trailer->db_check);
-	} else
+		     sizeof(trailer->db_signature)))
+		dump_dir_trailer(out, trailer);
+	else
 		end = gbls.fs->fs_blocksize;
 
 	fprintf(out, "\tEntries:\n");
@@ -527,10 +544,145 @@ void dump_dir_block(FILE *out, char *buf)
 			return;
 		}
 
-		dump_dir_entry(dirent, offset, gbls.fs->fs_blocksize, NULL,
+		dump_dir_entry(dirent, 0, offset, gbls.fs->fs_blocksize, NULL,
 			       &ls_opts);
 		offset += dirent->rec_len;
 	}
+}
+
+static void dump_dx_entry(FILE *out, int i, struct ocfs2_dx_entry *dx_entry)
+{
+	fprintf(out, "\t %-2d (0x%08x 0x%08x)    %-13"PRIu64"\n",
+		i, dx_entry->dx_major_hash, dx_entry->dx_minor_hash,
+		(uint64_t)dx_entry->dx_dirent_blk);
+}
+
+static void dump_dx_entry_list(FILE *out, struct ocfs2_dx_entry_list *dl_list,
+			       int traverse)
+{
+	int i;
+
+	fprintf(out, "\tCount: %u  Num Used: %u\n",
+		dl_list->de_count, dl_list->de_num_used);
+
+	if (traverse) {
+		fprintf(out, "\t## %-11s         %-13s\n", "Hash (Major Minor)",
+			"Dir Block#");
+
+		for (i = 0; i < dl_list->de_num_used; i++)
+			dump_dx_entry(out, i, &dl_list->de_entries[i]);
+	}
+}
+
+void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
+{
+	char tmp_str[30];
+	GString *flags = NULL;
+
+	flags = g_string_new(NULL);
+	if (dr->dr_flags & OCFS2_DX_FLAG_INLINE)
+		g_string_append(flags, "Inline ");
+
+	fprintf(out, "\tDir Index Root: %"PRIu64"   FS Generation: %u (0x%x)\n",
+		(uint64_t)dr->dr_blkno, dr->dr_fs_generation,
+		dr->dr_fs_generation);
+
+	fprintf(out, "\tClusters: %u   Last Extblk: %"PRIu64"   "
+		"Dir Inode: %"PRIu64"\n",
+		dr->dr_clusters, (uint64_t)dr->dr_last_eb_blk,
+		(uint64_t)dr->dr_dir_blkno);
+
+	if (dr->dr_suballoc_slot == (uint16_t)OCFS2_INVALID_SLOT)
+		strcpy(tmp_str, "Invalid Slot");
+	else
+		sprintf(tmp_str, "%d", dr->dr_suballoc_slot);
+	fprintf(out, "\tSub Alloc Slot: %s   Sub Alloc Bit: %u   "
+		"Flags: (0x%x) %s\n",
+		tmp_str, dr->dr_suballoc_bit, dr->dr_flags, flags->str);
+
+	fprintf(out, "\tTotal Entry Count: %d\n", dr->dr_num_entries);
+
+	dump_block_check(out, &dr->dr_check);
+
+	if (dr->dr_flags & OCFS2_DX_FLAG_INLINE)
+		dump_dx_entry_list(out, &dr->dr_entries, 0);
+
+	if (flags)
+		g_string_free(flags, 1);
+}
+
+void dump_dx_leaf (FILE *out, struct ocfs2_dx_leaf *dx_leaf)
+{
+	fprintf(out, "\tDir Index Leaf: %"PRIu64"  FS Generation: %u (0x%x)\n",
+		(uint64_t)dx_leaf->dl_blkno, dx_leaf->dl_fs_generation,
+		dx_leaf->dl_fs_generation);
+	dump_block_check(out, &dx_leaf->dl_check);
+
+	dump_dx_entry_list(out, &dx_leaf->dl_list, 1);
+}
+
+static int entries_iter(ocfs2_filesys *fs,
+			struct ocfs2_dx_entry_list *entry_list,
+			struct ocfs2_dx_root_block *dx_root,
+			struct ocfs2_dx_leaf *dx_leaf,
+			void *priv_data)
+{
+	FILE *out = priv_data;
+
+	if (dx_leaf) {
+		dump_dx_leaf(out, dx_leaf);
+		return 0;
+	}
+
+	/* Inline entries. Dump the list directly. */
+	dump_dx_entry_list(out, entry_list, 1);
+
+	return 0;
+}
+
+void dump_dx_entries(FILE *out, struct ocfs2_dinode *inode)
+{
+	struct ocfs2_dx_root_block *dx_root;
+	uint64_t dx_blkno;
+	char *buf = NULL;
+	errcode_t ret = 0;
+
+	if (ocfs2_malloc_block(gbls.fs->fs_io, &buf))
+		return;
+
+	if (!(ocfs2_dir_indexed(inode)))
+		return;
+
+	dx_blkno = (uint64_t) inode->i_dx_root;
+
+	ret = ocfs2_read_dx_root(gbls.fs, dx_blkno, buf);
+	if (ret)
+		return;
+
+	dx_root = (struct ocfs2_dx_root_block *)buf;
+	dump_dx_root(out, dx_root);
+
+	ocfs2_dx_entries_iterate(gbls.fs, inode, 0, entries_iter, out);
+	return;
+}
+
+static int dx_space_iter(ocfs2_filesys *fs,
+			 uint64_t blkno,
+			 struct ocfs2_dir_block_trailer *trailer,
+			 char *dirblock,
+			 void *priv_data)
+{
+	FILE *out = priv_data;
+
+	dump_dir_trailer(out, trailer);
+
+	return 0;
+}
+
+void dump_dx_space(FILE *out, struct ocfs2_dinode *inode,
+		   struct ocfs2_dx_root_block *dx_root)
+{
+	ocfs2_dx_frees_iterate(gbls.fs, inode, dx_root, 0, dx_space_iter, out);
 }
 
 /*

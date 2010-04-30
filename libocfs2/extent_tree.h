@@ -123,6 +123,9 @@ void ocfs2_init_xattr_value_extent_tree(struct ocfs2_extent_tree *et,
 					char *buf, uint64_t blkno,
 					ocfs2_root_write_func write,
 					struct ocfs2_xattr_value_root *xv);
+void ocfs2_init_dx_root_extent_tree(struct ocfs2_extent_tree *et,
+				    ocfs2_filesys *fs,
+				    char *buf, uint64_t blkno);
 errcode_t ocfs2_tree_insert_extent(ocfs2_filesys *fs,
 				   struct ocfs2_extent_tree *et,
 				   uint32_t cpos, uint64_t c_blkno,
@@ -135,6 +138,8 @@ int ocfs2_change_extent_flag(ocfs2_filesys *fs,
 int ocfs2_remove_extent(ocfs2_filesys *fs,
 			struct ocfs2_extent_tree *et,
 			uint32_t cpos, uint32_t len);
+
+
 /*
  * Structures which describe a path through a btree, and functions to
  * manipulate them.

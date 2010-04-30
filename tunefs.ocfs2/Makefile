@@ -26,6 +26,7 @@ OCFS2NE_FEATURES =			\
 	feature_sparse_files		\
 	feature_unwritten_extents	\
 	feature_xattr			\
+	feature_indexed_dirs		\
 	feature_quota
 
 OCFS2NE_OPERATIONS =			\

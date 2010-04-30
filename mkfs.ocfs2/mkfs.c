@@ -82,6 +82,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint64_t blkno,
 					   uint16_t chain, uint16_t cpg,
 					   uint16_t bpc);
+static void index_system_dirs(State *s, ocfs2_filesys *fs);
 static void create_lost_found_dir(State *s, ocfs2_filesys *fs);
 static void format_journals(State *s, ocfs2_filesys *fs);
 static void format_slotmap(State *s, ocfs2_filesys *fs);
@@ -436,16 +437,28 @@ static void finish_normal_format(State *s)
 		printf("done\n");
 
 	if (!s->quiet)
-		printf("Writing lost+found: ");
-	create_lost_found_dir(s, fs);
-	if (!s->quiet)
-		printf("done\n");
-
-	if (!s->quiet)
 		printf("Formatting quota files: ");
 
 	format_quota_files(s, fs);
 
+	if (!s->quiet)
+		printf("done\n");
+
+	if (s->dx_dirs && !s->inline_data) {
+		/*
+		 * We want to do this after quota, but before adding
+		 * any new entries to directories.
+		 */
+		if (!s->quiet)
+			printf("Indexing system directories: ");
+		index_system_dirs(s, fs);
+		if (!s->quiet)
+			printf("done\n");
+	}
+
+	if (!s->quiet)
+		printf("Writing lost+found: ");
+	create_lost_found_dir(s, fs);
 	if (!s->quiet)
 		printf("done\n");
 
@@ -1004,6 +1017,8 @@ get_state(int argc, char **argv)
 	if ((optind == argc) && !show_version)
 		usage(progname);
 
+	srand48(time(NULL));
+
 	device_name = argv[optind];
 	optind++;
 
@@ -1083,6 +1098,10 @@ get_state(int argc, char **argv)
 		s->no_backup_super = 0;
 	else
 		s->no_backup_super = 1;
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS)
+		s->dx_dirs = 1;
+	else
+		s->dx_dirs = 0;
 
 
 	/* Here if the user set these flags explicitly, we will use them and
@@ -2240,11 +2259,9 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	 */
 	s->feature_flags.opt_compat &= ~OCFS2_FEATURE_COMPAT_BACKUP_SB;
 
-	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR) {
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR)
 		di->id2.i_super.s_xattr_inline_size =
 						OCFS2_MIN_XATTR_INLINE_SIZE;
-		di->id2.i_super.s_uuid_hash = ocfs2_xattr_uuid_hash(s->uuid);
-	}
 
 	di->id2.i_super.s_feature_incompat = s->feature_flags.opt_incompat;
 	di->id2.i_super.s_feature_compat = s->feature_flags.opt_compat;
@@ -2252,6 +2269,17 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 
 	strcpy((char *)di->id2.i_super.s_label, s->vol_label);
 	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
+
+	/* s_uuid_hash is also used by Indexed Dirs */
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR ||
+	    s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS)
+		di->id2.i_super.s_uuid_hash = ocfs2_xattr_uuid_hash(s->uuid);
+
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS) {
+		di->id2.i_super.s_dx_seed[0] = mrand48();
+		di->id2.i_super.s_dx_seed[1] = mrand48();
+		di->id2.i_super.s_dx_seed[2] = mrand48();
+	}
 
 	mkfs_swap_inode_from_cpu(s, di);
 	mkfs_compute_meta_ecc(s, di, &di->i_check);
@@ -2738,6 +2766,44 @@ clear_both_ends(State *s)
 	free(buf);
 
 	return ;
+}
+
+static void index_system_dirs(State *s, ocfs2_filesys *fs)
+{
+	errcode_t ret;
+	int i, num_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	uint64_t orphan_dir_blkno;
+
+
+	/* Start with the root directory */
+	ret = ocfs2_dx_dir_build(fs, fs->fs_root_blkno);
+	if (ret) {
+		com_err(s->progname, ret, "while indexing root directory");
+		goto bail;
+	}
+
+	for (i = 0; i < num_slots; i++) {
+		ret = ocfs2_lookup_system_inode(fs, ORPHAN_DIR_SYSTEM_INODE,
+						i, &orphan_dir_blkno);
+		if (ret) {
+			com_err(s->progname, ret,
+				"while looking up orphan dir %d for indexing",
+				i);
+			goto bail;
+		}
+
+		ret = ocfs2_dx_dir_build(fs, orphan_dir_blkno);
+		if (ret) {
+			com_err(s->progname, ret, "while indexing root directory");
+			goto bail;
+		}
+	}
+
+	return;
+
+bail:
+	clear_both_ends(s);
+	exit(1);
 }
 
 static void create_lost_found_dir(State *s, ocfs2_filesys *fs)

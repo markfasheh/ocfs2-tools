@@ -68,6 +68,7 @@ errcode_t ocfs2_dir_iterate2(ocfs2_filesys *fs,
 			     int (*func)(uint64_t	dir,
 					 int		entry,
 					 struct ocfs2_dir_entry *dirent,
+					 uint64_t blocknr,
 					 int	offset,
 					 int	blocksize,
 					 char	*buf,
@@ -131,6 +132,7 @@ out:
 
 struct xlate {
 	int (*func)(struct ocfs2_dir_entry *dirent,
+		    uint64_t	blocknr,
 		    int		offset,
 		    int		blocksize,
 		    char	*buf,
@@ -140,12 +142,12 @@ struct xlate {
 
 static int xlate_func(uint64_t dir,
 		      int entry,
-		      struct ocfs2_dir_entry *dirent, int offset,
-		      int blocksize, char *buf, void *priv_data)
+		      struct ocfs2_dir_entry *dirent, uint64_t blocknr,
+		      int offset, int blocksize, char *buf, void *priv_data)
 {
 	struct xlate *xl = (struct xlate *) priv_data;
 
-	return (*xl->func)(dirent, offset, blocksize, buf, xl->real_private);
+	return (*xl->func)(dirent, blocknr, offset, blocksize, buf, xl->real_private);
 }
 
 extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs, 
@@ -153,6 +155,7 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 				   int flags,
 				   char *block_buf,
 				   int (*func)(struct ocfs2_dir_entry *dirent,
+					       uint64_t blocknr,
 					       int	offset,
 					       int	blocksize,
 					       char	*buf,
@@ -169,6 +172,7 @@ extern errcode_t ocfs2_dir_iterate(ocfs2_filesys *fs,
 }
 
 static int ocfs2_process_dir_entry(ocfs2_filesys *fs,
+				   uint64_t blocknr,
 				   unsigned int offset,
 				   int entry,
 				   int *changed,
@@ -203,7 +207,7 @@ static int ocfs2_process_dir_entry(ocfs2_filesys *fs,
 		ret = (ctx->func)(ctx->dir,
 				  (next_real_entry > offset) ?
 				  OCFS2_DIRENT_DELETED_FILE : entry,
-				  dirent, offset,
+				  dirent, blocknr, offset,
 				  fs->fs_blocksize, ctx->buf,
 				  ctx->priv_data);
 		if (entry < OCFS2_DIRENT_OTHER_FILE)
@@ -250,7 +254,7 @@ static int ocfs2_inline_dir_iterate(ocfs2_filesys *fs,
 
 	entry = OCFS2_DIRENT_DOT_FILE;
 
-	ret = ocfs2_process_dir_entry(fs, offset, entry, &changed,
+	ret = ocfs2_process_dir_entry(fs, di->i_blkno, offset, entry, &changed,
 				      &do_abort, ctx);
 	if (ret)
 		return ret;
@@ -291,7 +295,7 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 	if (ctx->errcode)
 		return OCFS2_BLOCK_ABORT;
 
-	ret = ocfs2_process_dir_entry(fs, offset, entry, &changed,
+	ret = ocfs2_process_dir_entry(fs, blocknr, offset, entry, &changed,
 				      &do_abort, ctx);
 	if (ret)
 		return ret;
@@ -307,6 +311,172 @@ int ocfs2_process_dir_block(ocfs2_filesys *fs,
 	return 0;
 }
 
+struct dx_iterator_data {
+	int (*dx_func)(ocfs2_filesys *fs,
+		       struct ocfs2_dx_entry_list *entry_list,
+		       struct ocfs2_dx_root_block *dx_root,
+		       struct ocfs2_dx_leaf *dx_leaf,
+		       void *priv_data);
+	void *dx_priv_data;
+	char *leaf_buf;
+	struct ocfs2_dx_root_block *dx_root;
+	errcode_t err;
+};
+
+static int dx_iterator(ocfs2_filesys *fs,
+		       struct ocfs2_extent_rec *rec,
+		       int tree_depth,
+		       uint32_t ccount,
+		       uint64_t ref_blkno,
+		       int ref_recno,
+		       void *priv_data)
+{
+	errcode_t err;
+	int i;
+	struct ocfs2_dx_leaf *dx_leaf;
+	struct dx_iterator_data *iter = priv_data;
+	uint64_t blkno, count;
+
+	count = ocfs2_clusters_to_blocks(fs, rec->e_leaf_clusters);
+
+	blkno = rec->e_blkno;
+	for (i = 0; i < count; i++) {
+		err = ocfs2_read_dx_leaf(fs, blkno, iter->leaf_buf);
+		if (err) {
+			iter->err = err;
+			return OCFS2_EXTENT_ERROR;
+		}
+
+		dx_leaf = (struct ocfs2_dx_leaf *)iter->leaf_buf;
+		err = iter->dx_func(fs, &dx_leaf->dl_list, iter->dx_root, dx_leaf,
+			      iter->dx_priv_data);
+		/* callback dx_func() is defined by users, the return value does not
+		 * follow libocfs2 error codes. Don't touch iter->err and just stop
+		 * the iteration here.*/
+		if (err)
+			return OCFS2_EXTENT_ERROR;
+
+		blkno++;
+	}
+
+	return 0;
+}
+
+extern errcode_t ocfs2_dx_entries_iterate(ocfs2_filesys *fs,
+			struct ocfs2_dinode *dir,
+			int flags,
+			int (*func)(ocfs2_filesys *fs,
+				    struct ocfs2_dx_entry_list *entry_list,
+				    struct ocfs2_dx_root_block *dx_root,
+				    struct ocfs2_dx_leaf *dx_leaf,
+				    void *priv_data),
+			void *priv_data)
+{
+	errcode_t ret = 0;
+	struct ocfs2_dx_root_block *dx_root;
+	uint64_t dx_blkno;
+	char *buf = NULL, *eb_buf = NULL, *leaf_buf = NULL;
+	struct dx_iterator_data data;
+
+	if (!S_ISDIR(dir->i_mode) && !ocfs2_dir_indexed(dir)) {
+		goto out;
+	}
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	dx_blkno = (uint64_t) dir->i_dx_root;
+
+	ret = ocfs2_read_dx_root(fs, dx_blkno, buf);
+	if (ret)
+		goto out;
+
+	dx_root = (struct ocfs2_dx_root_block *)buf;
+
+	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE) {
+		ret = func(fs, &dx_root->dr_entries, dx_root, NULL, priv_data);
+		goto out;
+	}
+
+	ret = ocfs2_malloc_block(fs->fs_io, &eb_buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &leaf_buf);
+	if (ret)
+		goto out;
+
+	data.dx_func = func;
+	data.dx_priv_data = priv_data;
+	data.leaf_buf = leaf_buf;
+	data.dx_root = dx_root;
+	data.err = 0;
+	ret = ocfs2_extent_iterate_dx_root(fs, dx_root,
+					   OCFS2_EXTENT_FLAG_DATA_ONLY, eb_buf,
+					   dx_iterator, &data);
+	/* dx_iterator may set the error code for non-extents-related
+	 * errors. If the error code is set by dx_iterator, no matter
+	 * what ocfs2_extent_iterate_dx_root() returns, we should take
+	 * data.err as retured error code. */
+	if (data.err)
+		ret = data.err;
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	if (eb_buf)
+		ocfs2_free(&eb_buf);
+	if (leaf_buf)
+		ocfs2_free(&leaf_buf);
+	return ret;
+}
+
+extern errcode_t ocfs2_dx_frees_iterate(ocfs2_filesys *fs,
+			struct ocfs2_dinode *dir,
+			struct ocfs2_dx_root_block *dx_root,
+			int flags,
+			int (*func)(ocfs2_filesys *fs,
+				    uint64_t blkno,
+				    struct ocfs2_dir_block_trailer *trailer,
+				    char *dirblock,
+				    void *priv_data),
+			void *priv_data)
+{
+	errcode_t ret = 0;
+	uint64_t blkno;
+	char *buf = NULL;
+	struct ocfs2_dir_block_trailer *trailer;
+
+	if (!S_ISDIR(dir->i_mode) || !(ocfs2_dir_indexed(dir))) {
+		goto out;
+	}
+
+	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE) {
+		goto out;
+	}
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	blkno = dx_root->dr_free_blk;
+	while (blkno) {
+		ret = ocfs2_read_dir_block(fs, dir, blkno, buf);
+		if (ret)
+			goto out;
+
+		trailer = ocfs2_dir_trailer_from_block(fs, buf);
+
+		func(fs, blkno, trailer, buf, priv_data);
+
+		blkno = trailer->db_free_next;
+	}
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
 
 #ifdef DEBUG_EXE
 #include <stdlib.h>

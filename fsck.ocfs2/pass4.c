@@ -101,6 +101,7 @@ out:
 }
 
 static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
+				 uint64_t blocknr,
 				 int	offset,
 				 int	blocksize,
 				 char	*buf,

@@ -1055,6 +1055,18 @@ but fsck has already found quota limits for this user / group.
 
 Answering yes will use new values of limits for the user / group.
 
+.SS "IV_DX_TREE"
+A directory index was found on an inode but that feature is not enabled on the
+file system.
+
+Answering yes will truncate the invalid index.
+
+.SS "DX_LOOKUP_FAILED"
+A directory entry is missing an entry in the directory index. The missing
+index entry will cause lookups on this name to fail.
+
+Answering yes will rebuild the directory index, restoring the missing entry.
+
 .SH "SEE ALSO"
 .BR fsck.ocfs2(8)
 

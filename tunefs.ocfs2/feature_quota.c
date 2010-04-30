@@ -165,7 +165,8 @@ struct remove_quota_files_ctxt {
 };
 
 static int remove_quota_files_iterate(struct ocfs2_dir_entry *dirent,
-				      int offset, int blocksize, char *buf,
+				      uint64_t blocknr, int offset,
+				      int blocksize, char *buf,
 				      void *priv_data)
 {
 	struct remove_quota_files_ctxt *ctxt = priv_data;

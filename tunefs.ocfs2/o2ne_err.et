@@ -85,4 +85,19 @@ ec	TUNEFS_ET_ONLINE_NOT_SUPPORTED,
 ec	TUNEFS_ET_CLUSTER_SKIPPED,
 	"Cluster stack initialization was skipped"
 
+ec	TUNEFS_ET_DX_DIRS_SCAN_FAILED,
+	"Scanning inodes for directory indexing failed"
+
+ec	TUNEFS_ET_IO_WRITE_FAILED,
+	"Write I/O failed"
+
+ec	TUNEFS_ET_DX_DIRS_TRUNCATE_FAILED,
+	"Truncate directory indexed tree failed"
+
+ec	TUNEFS_ET_DX_DIRS_BUILD_FAILED,
+	"Build directory indexed tree failed"
+
+ec	TUNEFS_ET_INSTALL_DIR_TRAILER_FAILED,
+	"Install directory trailer failed"
+
 	end

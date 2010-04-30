@@ -281,5 +281,34 @@ errcode_t tunefs_feature_run(ocfs2_filesys *master_fs,
 int tunefs_feature_main(int argc, char *argv[], struct tunefs_feature *feat);
 int tunefs_op_main(int argc, char *argv[], struct tunefs_operation *op);
 
+/* A directory inode we're adding trailers to */
+struct tunefs_trailer_context {
+	struct list_head d_list;
+	uint64_t d_blkno;		/* block number of the dir */
+	struct ocfs2_dinode *d_di;	/* The directory's inode */
+	struct list_head d_dirblocks;	/* List of its dirblocks */
+	uint64_t d_bytes_needed;	/* How many new bytes will
+					   cover the dirents we are moving
+					   to make way for trailers */
+	uint64_t d_blocks_needed;	/* How many blocks covers
+					   d_bytes_needed */
+	char *d_new_blocks;		/* Buffer of new blocks to fill */
+	char *d_cur_block;		/* Which block we're filling in
+					   d_new_blocks */
+	struct ocfs2_dir_entry *d_next_dirent;	/* Next dentry to use */
+	errcode_t d_err;		/* Any processing error during
+					   iteration of the directory */
+};
+
+/*
+ * called from feature_metaecc.c and feature_indexed_dirs.c
+ * to install dir trailers
+ */
+errcode_t tunefs_prepare_dir_trailer(ocfs2_filesys *fs,
+				     struct ocfs2_dinode *di,
+				     struct tunefs_trailer_context **tc_ret);
+errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
+				struct tunefs_trailer_context *tc);
+void tunefs_trailer_context_free(struct tunefs_trailer_context *tc);
 
 #endif  /* _LIBTUNEFS_H */

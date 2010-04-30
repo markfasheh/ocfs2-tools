@@ -175,6 +175,10 @@ and number of inodes (files, directories, symbolic links) each group owns. It is
 to limit the maximum amount of space or inodes user can have. See a documentation of
 quota-tools package for more details.
 .RE
+.TP
+\fBindexed-dirs\fR
+Enable directory indexing support. With this feature enabled, the file system creates indexed tree for non-inline directory entries. For large scale directories, directory entry lookup perfromance from the indexed tree is faster then from the legacy directory blocks.
+.RE
 
 .TP
 \fB\-\-fs\-feature\-level=\fR\fR\fIfeature\-level\fR

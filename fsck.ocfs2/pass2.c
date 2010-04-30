@@ -36,6 +36,7 @@
 #include <time.h>
 
 #include "ocfs2/ocfs2.h"
+#include "ocfs2/kernel-rbtree.h"
 
 #include "dirparents.h"
 #include "icount.h"
@@ -70,6 +71,7 @@ struct dirblock_data {
 	errcode_t	ret;
 	o2fsck_strings	strings;
 	uint64_t	last_ino;
+	struct rb_root	re_idx_dirs;
 };
 
 static int dirent_has_dots(struct ocfs2_dir_entry *dirent, int num_dots)
@@ -646,6 +648,41 @@ out:
 	return ret;
 }
 
+static errcode_t fix_dirent_index(o2fsck_dirblock_entry *dbe,
+				  struct dirblock_data *dd,
+				  struct ocfs2_dir_entry *dirent,
+				  unsigned int *flags)
+{
+	errcode_t ret = 0;
+	struct ocfs2_dinode *di = (struct ocfs2_dinode *)dd->inoblock_buf;
+	uint64_t ino;
+
+	if (!ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super)))
+		goto out;
+
+	if (di->i_dyn_features  & OCFS2_INDEXED_DIR_FL) {
+		ret = ocfs2_lookup(dd->fs, dbe->e_ino, dirent->name,
+				   dirent->name_len, NULL, &ino);
+		if (ret) {
+			if (ret != OCFS2_ET_FILE_NOT_FOUND)
+				goto out;
+			ret = 0;
+
+			if (prompt(dd->ost, PY, PR_DX_LOOKUP_FAILED,
+				   "Directory inode %"PRIu64" is missing "
+				   "an index entry for the file \"%.*s\""
+				   " (inode # %"PRIu64")\n. Repair this by "
+				   "rebuilding the directory index?",
+				   dbe->e_ino, dirent->name_len, dirent->name,
+				   ino))
+				*flags |= OCFS2_DIRENT_CHANGED;
+			goto out;
+		}
+	}
+out:
+	return ret;
+}
+
 static int corrupt_dirent_lengths(struct ocfs2_dir_entry *dirent, int left)
 {
 	if ((dirent->rec_len >= OCFS2_DIR_REC_LEN(1)) &&
@@ -803,6 +840,10 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		if (dirent->inode == 0)
 			goto next;
 
+		ret = fix_dirent_index(dbe, dd, dirent, &ret_flags);
+		if (ret)
+			goto out;
+
 		verbosef("dirent %.*s refs ino %"PRIu64"\n", dirent->name_len,
 				dirent->name, (uint64_t)dirent->inode);
 		o2fsck_icount_delta(dd->ost->ost_icount_refs, dirent->inode, 1);
@@ -833,10 +874,11 @@ next:
 	}
 
 	if (ocfs2_dir_has_trailer(dd->fs, di))
-		fix_dir_trailer(dd->ost, dbe,
+		fix_dir_trailer(dd->ost,
+				dbe,
 				ocfs2_dir_trailer_from_block(dd->fs,
 							     dd->dirblock_buf),
-				&ret_flags);
+							     &ret_flags);
 
 	if (ret_flags & OCFS2_DIRENT_CHANGED) {
 		if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
@@ -851,13 +893,49 @@ next:
 			com_err(whoami, ret, "while writing dir block %"PRIu64,
 				dbe->e_blkno);
 			dd->ost->ost_write_error = 1;
+			goto out;
 		}
+
+		if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super)) &&
+		    !(di->i_dyn_features & OCFS2_INLINE_DATA_FL) &&
+		    (di->i_dyn_features  & OCFS2_INDEXED_DIR_FL)) {
+			ret = o2fsck_try_add_reidx_dir(&dd->re_idx_dirs, dbe->e_ino);
+			if (ret) {
+				com_err(whoami, ret, "while adding block for "
+					"directory inode %"PRIu64" to rebuild "
+					"dir index", dbe->e_ino);
+				goto out;
+			}
+		}
+	}
+
+	/* truncate invalid indexed tree */
+	if ((!ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super)))&&
+	     di->i_dyn_features & OCFS2_INDEXED_DIR_FL ) {
+		/* ignore the return value */
+		if (prompt(dd->ost, PY, PR_IV_DX_TREE, "A directory index was "
+			   "found on inode %"PRIu64" but this filesystem does"
+			   "not support directory indexes. Truncate the invalid index?",
+			   dbe->e_ino))
+			ocfs2_dx_dir_truncate(dd->fs, dbe->e_ino);
 	}
 
 out:
 	if (ret)
 		dd->ret = ret;
 	return ret_flags;
+}
+
+static void release_re_idx_dirs_rbtree(struct rb_root * root)
+{
+	struct rb_node *node;
+	o2fsck_dirblock_entry *dp;
+
+	while ((node = rb_first(root)) != NULL) {
+		dp = rb_entry(node, o2fsck_dirblock_entry, e_node);
+		rb_erase(&dp->e_node, root);
+		ocfs2_free(&dp);
+	}
 }
 
 errcode_t o2fsck_pass2(o2fsck_state *ost)
@@ -868,6 +946,7 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 		.ost = ost,
 		.fs = ost->ost_fs,
 		.last_ino = 0,
+		.re_idx_dirs = RB_ROOT,
 	};
 
 	printf("Pass 2: Checking directory entries.\n");
@@ -905,6 +984,14 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 		dp->dp_dirent = ost->ost_fs->fs_sysdir_blkno;
 
 	o2fsck_dir_block_iterate(ost, pass2_dir_block_iterate, &dd);
+
+	if (dd.re_idx_dirs.rb_node) {
+		ret = o2fsck_rebuild_indexed_dirs(ost->ost_fs, &dd.re_idx_dirs);
+		if (ret)
+			com_err(whoami, ret, "while rebuild indexed dirs.");
+	}
+	release_re_idx_dirs_rbtree(&dd.re_idx_dirs);
+
 	o2fsck_strings_free(&dd.strings);
 out:
 	if (dd.dirblock_buf)

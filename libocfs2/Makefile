@@ -77,7 +77,8 @@ CFILES = 		\
 	image.c		\
 	xattr.c		\
 	extent_tree.c	\
-	refcount.c
+	refcount.c	\
+	dir_indexed.c
 
 HFILES =		\
 	bitmap.h	\

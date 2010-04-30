@@ -77,6 +77,10 @@ static void do_dirblocks(char **args);
 static void do_xattr(char **args);
 static void do_frag(char **args);
 static void do_refcount(char **args);
+static void do_dx_root(char **args);
+static void do_dx_leaf(char **args);
+static void do_dx_dump(char **args);
+static void do_dx_space(char **args);
 
 dbgfs_gbls gbls;
 
@@ -116,6 +120,10 @@ static Command commands[] = {
 	{ "dirblocks",	do_dirblocks },
 	{ "frag",	do_frag },
 	{ "refcount",	do_refcount },
+	{ "dx_root",	do_dx_root },
+	{ "dx_leaf",	do_dx_leaf },
+	{ "dx_dump",	do_dx_dump },
+	{ "dx_space",	do_dx_space },
 };
 
 /*
@@ -842,6 +850,10 @@ static void do_help (char **args)
 	printf ("dlm_locks [-f <file>] [-l] lockname\t\t\tShow live dlm locking state\n");
 	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
 	printf ("dirblocks <filespec>\t\t\tDump directory blocks\n");
+	printf ("dx_space <filespec>\t\t\tDump directory free space list\n");
+	printf ("dx_dump <blkno>\t\t\tShow directory index information\n");
+	printf ("dx_leaf <blkno>\t\t\tShow directory index leaf block only\n");
+	printf ("dx_root <blkno>\t\t\tShow directory index root block only\n");
 	printf ("encode <filespec>\t\t\tShow lock name\n");
 	printf ("extent <block#>\t\t\t\tShow extent block\n");
 	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
@@ -1313,6 +1325,167 @@ static void do_dirblocks (char **args)
 	close_pager(ctxt.out);
 
 	ocfs2_free(&ctxt.buf);
+}
+
+/*
+ * do_dx_root()
+ *
+ */
+static void do_dx_root (char **args)
+{
+	struct ocfs2_dx_root_block *dx_root;
+	uint64_t blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+
+	if (process_inodestr_args(args, 1, &blkno) != 1)
+		return;
+
+	buf = gbls.blockbuf;
+	out = open_pager(gbls.interactive);
+
+	ret = ocfs2_read_dx_root(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading dx dir root "
+			"block %"PRIu64"", blkno);
+		close_pager (out);
+		return;
+	}
+
+	dx_root = (struct ocfs2_dx_root_block *)buf;
+	dump_dx_root(out, dx_root);
+	if (!(dx_root->dr_flags & OCFS2_DX_FLAG_INLINE))
+		traverse_extents(gbls.fs, &dx_root->dr_list, out);
+	close_pager(out);
+
+	return;
+}
+
+/*
+ * do_dx_leaf()
+ *
+ */
+static void do_dx_leaf (char **args)
+{
+	struct ocfs2_dx_leaf *dx_leaf;
+	uint64_t blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+
+	if (process_inodestr_args(args, 1, &blkno) != 1)
+		return;
+
+	buf = gbls.blockbuf;
+	out = open_pager(gbls.interactive);
+
+	ret = ocfs2_read_dx_leaf(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading dx dir leaf "
+			"block %"PRIu64"", blkno);
+		close_pager (out);
+		return;
+	}
+
+	dx_leaf = (struct ocfs2_dx_leaf *)buf;
+	dump_dx_leaf(out, dx_leaf);
+
+	close_pager(out);
+
+	return;
+}
+
+/*
+ * do_dx_dump()
+ *
+ */
+static void do_dx_dump (char **args)
+{
+	struct ocfs2_dinode *inode;
+	uint64_t ino_blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+
+	if (process_inode_args(args, &ino_blkno))
+		return;
+
+	out = open_pager(gbls.interactive);
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, ino_blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading inode %"PRIu64"",
+			ino_blkno);
+		close_pager (out);
+		return ;
+	}
+
+	inode = (struct ocfs2_dinode *)buf;
+
+	dump_dx_entries(out, inode);
+
+	close_pager(out);
+
+	return;
+}
+
+/*
+ * do_dx_space()
+ *
+ */
+static void do_dx_space (char **args)
+{
+	struct ocfs2_dinode *inode;
+	struct ocfs2_dx_root_block *dx_root;
+	uint64_t ino_blkno, dx_blkno;
+	char *buf = NULL, *dx_root_buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+
+	if (process_inode_args(args, &ino_blkno))
+		return;
+
+	out = open_pager(gbls.interactive);
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, ino_blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading inode %"PRIu64"",
+			ino_blkno);
+		goto out;
+	}
+
+	inode = (struct ocfs2_dinode *)buf;
+	if (!(ocfs2_dir_indexed(inode))) {
+		fprintf(out, "Inode %"PRIu64" is not indexed\n", ino_blkno);
+		goto out;
+	}
+
+	ret = ocfs2_malloc_block(gbls.fs->fs_io, &dx_root_buf);
+	if (ret) {
+		goto out;
+	}
+
+	dx_blkno = (uint64_t) inode->i_dx_root;
+
+	ret = ocfs2_read_dx_root(gbls.fs, dx_blkno, dx_root_buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading dx dir root "
+			"block %"PRIu64"", dx_blkno);
+		goto out;
+	}
+
+	dx_root = (struct ocfs2_dx_root_block *)dx_root_buf;
+
+	dump_dx_space(out, inode, dx_root);
+out:
+	close_pager(out);
+	if (dx_root_buf)
+		ocfs2_free(&dx_root_buf);
+
+	return;
 }
 
 /*

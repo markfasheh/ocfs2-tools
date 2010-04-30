@@ -674,8 +674,8 @@ bail:
  * Copyright (C) 1994 Theodore Ts'o.  This file may be redistributed
  * under the terms of the GNU Public License.
  */
-static int rdump_dirent(struct ocfs2_dir_entry *rec, int offset, int blocksize,
-			char *buf, void *priv_data)
+static int rdump_dirent(struct ocfs2_dir_entry *rec, uint64_t blocknr,
+			int offset, int blocksize, char *buf, void *priv_data)
 {
 	rdump_opts *rd = (rdump_opts *)priv_data;
 	char tmp = rec->name[rec->name_len];

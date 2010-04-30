@@ -464,13 +464,13 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 				     int flags,
 				     char *block_buf,
 				     int (*func)(ocfs2_filesys *fs,
-					         struct ocfs2_extent_rec *rec,
-					         int tree_depth,
-					         uint32_t ccount,
-					         uint64_t ref_blkno,
-					         int ref_recno,
-					         void *priv_data),
-					         void *priv_data)
+						 struct ocfs2_extent_rec *rec,
+						 int tree_depth,
+						 uint32_t ccount,
+						 uint64_t ref_blkno,
+						 int ref_recno,
+						 void *priv_data),
+				     void *priv_data)
 {
 	int i;
 	int iret = 0;
@@ -538,6 +538,95 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 out_abort:
 	if (!ret && (iret & OCFS2_EXTENT_CHANGED))
 		ret = ocfs2_write_inode(fs, inode->i_blkno, (char *)inode);
+
+out_eb_bufs:
+	if (ctxt.eb_bufs) {
+		if (!block_buf && ctxt.eb_bufs[0])
+			ocfs2_free(&ctxt.eb_bufs[0]);
+		ocfs2_free(&ctxt.eb_bufs);
+	}
+
+out:
+	return ret;
+}
+
+errcode_t ocfs2_extent_iterate_dx_root(ocfs2_filesys *fs,
+				       struct ocfs2_dx_root_block *dx_root,
+				       int flags,
+				       char *block_buf,
+				       int (*func)(ocfs2_filesys *fs,
+						   struct ocfs2_extent_rec *rec,
+						   int tree_depth,
+						   uint32_t ccount,
+						   uint64_t ref_blkno,
+						   int ref_recno,
+						   void *priv_data),
+				       void *priv_data)
+{
+	int i;
+	int iret = 0;
+	struct ocfs2_extent_list *el;
+	errcode_t ret;
+	struct extent_context ctxt;
+
+	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE)
+		return OCFS2_ET_INODE_CANNOT_BE_ITERATED;
+
+	el = &dx_root->dr_list;
+	if (el->l_tree_depth) {
+		ret = ocfs2_malloc0(sizeof(char *) * el->l_tree_depth,
+				    &ctxt.eb_bufs);
+		if (ret)
+			goto out;
+
+		if (block_buf) {
+			ctxt.eb_bufs[0] = block_buf;
+		} else {
+			ret = ocfs2_malloc0(fs->fs_blocksize *
+					    el->l_tree_depth,
+					    &ctxt.eb_bufs[0]);
+			if (ret)
+				goto out_eb_bufs;
+		}
+
+		for (i = 1; i < el->l_tree_depth; i++) {
+			ctxt.eb_bufs[i] = ctxt.eb_bufs[0] +
+				i * fs->fs_blocksize;
+		}
+	}
+	else
+		ctxt.eb_bufs = NULL;
+
+	ctxt.fs = fs;
+	ctxt.func = func;
+	ctxt.priv_data = priv_data;
+	ctxt.flags = flags;
+	ctxt.ccount = 0;
+	ctxt.last_eb_blkno = 0;
+	ctxt.last_eb_cpos = 0;
+
+	ret = 0;
+	iret |= extent_iterate_el(el, 0, &ctxt);
+	if (iret & OCFS2_EXTENT_ERROR)
+		ret = ctxt.errcode;
+
+	if (iret & OCFS2_EXTENT_ABORT)
+		goto out_abort;
+
+	/* we can only trust ctxt.last_eb_blkno if we walked the whole tree */
+	if (dx_root->dr_last_eb_blk != ctxt.last_eb_blkno) {
+		dx_root->dr_last_eb_blk = ctxt.last_eb_blkno;
+		iret |= OCFS2_EXTENT_CHANGED;
+	}
+
+out_abort:
+#if 0
+	/*
+	 * This block needs to be fixed up for write support.
+	 */
+	if (!ret && (iret & OCFS2_EXTENT_CHANGED))
+		ret = ocfs2_write_inode(fs, inode->i_blkno, (char *)inode);
+#endif
 
 out_eb_bufs:
 	if (ctxt.eb_bufs) {

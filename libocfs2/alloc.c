@@ -622,6 +622,105 @@ out:
 	return ret;
 }
 
+/* only initiate part of dx_root:
+ *   dr_subllaoc_slot
+ *   dr_sbualloc_bit
+ *   dr_fs_generation
+ *   dr_blkno
+ *   dr_flags
+ */
+static void init_dx_root(ocfs2_filesys *fs,
+			struct ocfs2_dx_root_block *dx_root,
+			int slot, uint64_t gd_blkno, uint64_t dr_blkno)
+{
+
+	memset(dx_root, 0, fs->fs_blocksize);
+	strcpy((char *)dx_root->dr_signature, OCFS2_DX_ROOT_SIGNATURE);
+	dx_root->dr_suballoc_slot = slot;
+	dx_root->dr_suballoc_bit = (uint16_t)(dr_blkno - gd_blkno);
+	dx_root->dr_fs_generation = fs->fs_super->i_fs_generation;
+	dx_root->dr_blkno = dr_blkno;
+	dx_root->dr_flags |= OCFS2_DX_FLAG_INLINE;
+}
+
+errcode_t ocfs2_new_dx_root(ocfs2_filesys *fs,
+				struct ocfs2_dinode *di,
+				uint64_t *dr_blkno)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	uint64_t gd_blkno;
+	struct ocfs2_dx_root_block *dx_root;
+	int slot;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	slot = di->i_suballoc_slot;
+	if (slot == (uint16_t)OCFS2_INVALID_SLOT)
+		slot = 0;
+
+	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE,
+				slot, &fs->fs_eb_allocs[slot]);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_alloc_with_io(fs, fs->fs_eb_allocs[slot],
+					&gd_blkno, dr_blkno);
+	if (ret == OCFS2_ET_BIT_NOT_FOUND) {
+		ret = ocfs2_chain_add_group(fs, fs->fs_eb_allocs[slot]);
+		if (ret)
+			goto out;
+		ret = ocfs2_chain_alloc_with_io(fs, fs->fs_eb_allocs[slot],
+						&gd_blkno, dr_blkno);
+		if (ret)
+			goto out;
+	} else if (ret)
+		goto out;
+
+	dx_root = (struct ocfs2_dx_root_block *)buf;
+	init_dx_root(fs, dx_root, slot, gd_blkno, *dr_blkno);
+
+	ret = ocfs2_write_dx_root(fs, *dr_blkno, (char *)dx_root);
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
+errcode_t ocfs2_delete_dx_root(ocfs2_filesys *fs, uint64_t dr_blkno)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	struct ocfs2_dx_root_block *dx_root;
+	int slot;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_dx_root(fs, dr_blkno, buf);
+	if (ret)
+		goto out;
+
+	dx_root = (struct ocfs2_dx_root_block *)buf;
+	slot = dx_root->dr_suballoc_slot;
+
+	ret = ocfs2_load_allocator(fs, EXTENT_ALLOC_SYSTEM_INODE, slot,
+				&fs->fs_eb_allocs[slot]);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_chain_free_with_io(fs, fs->fs_eb_allocs[slot], dr_blkno);
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
 /* XXX what to do about local allocs?
  * XXX Well, we shouldn't use local allocs to allocate, as we are
  *     userspace and we have the entire bitmap in memory.  However, this

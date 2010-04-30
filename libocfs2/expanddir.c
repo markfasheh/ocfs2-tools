@@ -69,6 +69,10 @@ errcode_t ocfs2_expand_dir(ocfs2_filesys *fs,
 	if (ocfs2_support_inline_data(OCFS2_RAW_SB(fs->fs_super)) &&
 	    cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL) {
 		ret = ocfs2_convert_inline_data_to_extents(cinode);
+		if ((ret == 0) &&
+		     ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(fs->fs_super))) {
+			ret = ocfs2_dx_dir_build(fs, dir);
+		}
 		goto bail;
 	}
 
@@ -228,6 +232,27 @@ errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
 			goto bail;
 	}
 
+	/*
+	 * Only build indexed tree if the directory is initiated as non-inline.
+	 * Otherwise, the indexed tree will be build when convert the inlined
+	 * directory to extent in ocfs2_expand_dir()
+	 */
+	if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(fs->fs_super)) &&
+	    !(cinode->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
+		ret = ocfs2_dx_dir_build(fs, dir);
+		if (ret)
+			goto bail;
+
+		/*
+		 * Re-read the 'cached inode' as ocfs2_dx_dir_build()
+		 * may have written out changes which won't be
+		 * reflected in our copy.
+		 */
+		ret = ocfs2_read_cached_inode(fs, dir, &cinode);
+		if (ret)
+			goto bail;
+	}
+
 	/* set link count of the parent */
 	ret = ocfs2_read_inode(fs, parent_dir, buf);
 	if (ret)
@@ -243,8 +268,6 @@ errcode_t ocfs2_init_dir(ocfs2_filesys *fs,
 
 	/* update the inode */
 	ret = ocfs2_write_cached_inode(fs, cinode);
-	if (ret)
-		goto bail;
 
 bail:
 	if (buf)
