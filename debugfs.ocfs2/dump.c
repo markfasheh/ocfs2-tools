@@ -167,10 +167,25 @@ void dump_fast_symlink (FILE *out, char *link)
  * dump_block_check
  *
  */
-void dump_block_check(FILE *out, struct ocfs2_block_check *bc)
+void dump_block_check(FILE *out, struct ocfs2_block_check *bc, void *block)
 {
+	struct ocfs2_block_check tmp = *bc;
+	int crc_fail;
+
+	/* Re-compute based on what we got from disk */
+	ocfs2_compute_meta_ecc(gbls.fs, block, bc);
+
+	crc_fail = memcmp(bc, &tmp, sizeof(*bc));
+
 	fprintf(out, "\tCRC32: %.8"PRIx32"   ECC: %.4"PRIx16"\n",
-		le32_to_cpu(bc->bc_crc32e), le16_to_cpu(bc->bc_ecc));
+		le32_to_cpu(tmp.bc_crc32e), le16_to_cpu(tmp.bc_ecc));
+	if (crc_fail)
+		fprintf(out, "\t**FAILED CHECKSUM** Computed CRC32: %.8"
+			PRIx32"   ECC: %.4"PRIx16"\n",
+			le32_to_cpu(bc->bc_crc32e), le16_to_cpu(bc->bc_ecc));
+
+	/* Leave the block as we found it. */
+	*bc = tmp;
 }
 
 /*
@@ -251,7 +266,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	fprintf(out, "\tFS Generation: %u (0x%x)\n", in->i_fs_generation,
 		in->i_fs_generation);
 
-	dump_block_check(out, &in->i_check);
+	dump_block_check(out, &in->i_check, in);
 
 	fprintf(out, "\tType: %s   Attr: 0x%x   Flags: %s\n", str, in->i_attr,
 		flags->str);
@@ -421,7 +436,7 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
 	fprintf (out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
 		 (uint64_t)blk->h_blkno, (uint64_t)blk->h_next_leaf_blk);
 
-	dump_block_check(out, &blk->h_check);
+	dump_block_check(out, &blk->h_check, blk);
 
 	return ;
 }
@@ -441,7 +456,7 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
 			 grp->bg_chain,
 			 (uint64_t)grp->bg_parent_dinode,
 			 grp->bg_generation);
-		dump_block_check(out, &grp->bg_check);
+		dump_block_check(out, &grp->bg_check, grp);
 
 		fprintf(out, "\t##   %-15s   %-6s   %-6s   %-6s   %-6s   %-6s\n",
 			"Block#", "Total", "Used", "Free", "Contig", "Size");
@@ -507,7 +522,7 @@ static void dump_dir_trailer(FILE *out, struct ocfs2_dir_block_trailer *trailer)
 	fprintf(out,
 		"\tLargest hole: %u  Next in list: %-15"PRIu64"\n",
 		trailer->db_free_rec_len, trailer->db_free_next);
-	dump_block_check(out, &trailer->db_check);
+	dump_block_check(out, &trailer->db_check, trailer);
 }
 
 /*
@@ -602,7 +617,7 @@ void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
 
 	fprintf(out, "\tTotal Entry Count: %d\n", dr->dr_num_entries);
 
-	dump_block_check(out, &dr->dr_check);
+	dump_block_check(out, &dr->dr_check, dr);
 
 	if (dr->dr_flags & OCFS2_DX_FLAG_INLINE)
 		dump_dx_entry_list(out, &dr->dr_entries, 0);
@@ -616,7 +631,7 @@ void dump_dx_leaf (FILE *out, struct ocfs2_dx_leaf *dx_leaf)
 	fprintf(out, "\tDir Index Leaf: %"PRIu64"  FS Generation: %u (0x%x)\n",
 		(uint64_t)dx_leaf->dl_blkno, dx_leaf->dl_fs_generation,
 		dx_leaf->dl_fs_generation);
-	dump_block_check(out, &dx_leaf->dl_check);
+	dump_block_check(out, &dx_leaf->dl_check, dx_leaf);
 
 	dump_dx_entry_list(out, &dx_leaf->dl_list, 1);
 }
@@ -1214,7 +1229,7 @@ void dump_refcount_block(FILE *out, struct ocfs2_refcount_block *rb)
 	if (ocfs2_snprint_refcount_flags(flags, PATH_MAX, rb->rf_flags))
 		flags[0] = '\0';
 	fprintf(out, "\tFlags: 0x%x %s\n", rb->rf_flags, flags);
-	dump_block_check(out, &rb->rf_check);
+	dump_block_check(out, &rb->rf_check, rb);
 
 	return;
 
