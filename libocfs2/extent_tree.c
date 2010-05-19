@@ -3973,7 +3973,6 @@ static int ocfs2_split_tree(ocfs2_filesys *fs,
 	char *last_eb_buf = NULL;
 	struct ocfs2_extent_block *eb;
 	struct ocfs2_extent_list *rightmost_el, *el;
-	struct ocfs2_extent_rec split_rec;
 	struct ocfs2_extent_rec *rec;
 	struct ocfs2_insert_type insert;
 	struct insert_ctxt ctxt;
@@ -4015,7 +4014,6 @@ static int ocfs2_split_tree(ocfs2_filesys *fs,
 	insert.ins_contig = CONTIG_NONE;
 	insert.ins_split = SPLIT_RIGHT;
 	insert.ins_tree_depth = depth;
-	ctxt.rec = split_rec;
 
 	ret = ocfs2_do_insert_extent(&ctxt, &insert);
 
