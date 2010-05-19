@@ -169,6 +169,32 @@ out:
 	return ret;
 }
 
+static errcode_t traverse_dx_root(ocfs2_filesys *ofs, uint64_t blkno)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	struct ocfs2_dx_root_block *dx_root;
+
+	ocfs2_image_mark_bitmap(ofs, blkno);
+
+	ret = ocfs2_malloc_block(ofs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_dx_root(ofs, blkno, buf);
+	if (ret)
+		goto out;
+
+	dx_root = (struct ocfs2_dx_root_block *) buf;
+	if (!(dx_root->dr_flags & OCFS2_DX_FLAG_INLINE))
+		traverse_extents(ofs, &dx_root->dr_list);
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 static errcode_t traverse_inode(ocfs2_filesys *ofs, uint64_t inode)
 {
 	struct ocfs2_super_block *super;
@@ -234,10 +260,30 @@ static errcode_t traverse_inode(ocfs2_filesys *ofs, uint64_t inode)
 		ret = traverse_chains(ofs, &(di->id2.i_chain), dump_type);
 	else if (di->i_flags & OCFS2_DEALLOC_FL)
 		ret = mark_dealloc_bits(ofs, &(di->id2.i_dealloc));
-	else
+	else {
+		/*
+		 * Don't check superblock flag for the dir indexing
+		 * feature in case it (or the directory) is corrupted
+		 * we want to try to pick up as much of the supposed
+		 * index as possible.
+		 *
+		 * Error reporting is a bit different though. If the
+		 * directory indexing feature is set on the super
+		 * block, we should fail here to indicate an
+		 * incomplete inode. Otherwise it is safe to ignore
+		 * errors from traverse_dx_root.
+		 */
+		if (S_ISDIR(di->i_mode) &&
+		    (di->i_dyn_features & OCFS2_INDEXED_DIR_FL)) {
+			ret = traverse_dx_root(ofs, di->i_dx_root);
+			if (ret && ocfs2_supports_indexed_dirs(super))
+			    goto out_error;
+		}
 		/* traverse extents for system files */
 		ret = traverse_extents(ofs, &(di->id2.i_list));
+	}
 
+out_error:
 	if (ret) {
 		com_err(program_name, ret, "while scanning inode %"PRIu64"",
 			inode);
