@@ -388,7 +388,8 @@ errcode_t ocfs2_validate_meta_ecc(ocfs2_filesys *fs, void *data,
 {
 	errcode_t err = 0;
 
-	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)))
+	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)) &&
+	    !(fs->fs_flags & OCFS2_FLAG_NO_ECC_CHECKS))
 		err = ocfs2_block_check_validate(data, fs->fs_blocksize, bc);
 
 	return err;

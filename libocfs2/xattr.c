@@ -452,7 +452,8 @@ errcode_t ocfs2_read_xattr_bucket(ocfs2_filesys *fs,
 		goto out;
 
 	xh = (struct ocfs2_xattr_header *)bucket;
-	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super))) {
+	if (ocfs2_meta_ecc(OCFS2_RAW_SB(fs->fs_super)) &&
+	    !(fs->fs_flags & OCFS2_FLAG_NO_ECC_CHECKS)) {
 		ret = ocfs2_block_check_validate(bucket,
 						 OCFS2_XATTR_BUCKET_SIZE,
 						 &xh->xh_check);
