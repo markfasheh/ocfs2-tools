@@ -2001,7 +2001,7 @@ static void do_xattr(char **args)
 	}
 
 	inode = (struct ocfs2_dinode *)buf;
-	if (!inode->i_dyn_features & OCFS2_HAS_XATTR_FL)
+	if (!(inode->i_dyn_features & OCFS2_HAS_XATTR_FL))
 		return;
 
 	out = open_pager(gbls.interactive);
@@ -2219,7 +2219,7 @@ static void do_refcount(char **args)
 	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
 	if (!ret) {
 		di = (struct ocfs2_dinode *)buf;
-		if (!di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL) {
+		if (!(di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL)) {
 			fprintf(stderr,
 				"%s: Inode %"PRIu64" does not have a "
 				"refcount tree\n",
