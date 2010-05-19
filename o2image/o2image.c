@@ -593,7 +593,9 @@ int main(int argc, char **argv)
 	 * open routine allocates ocfs2_image_state and loads the bitmap if
 	 * OCFS2_FLAG_IMAGE_FILE flag is passed in
 	 */
-	ret = ocfs2_open(src_file, OCFS2_FLAG_RO|open_flags, 0, 0, &ofs);
+	ret = ocfs2_open(src_file,
+			 OCFS2_FLAG_RO|OCFS2_FLAG_NO_ECC_CHECKS|open_flags, 0,
+			 0, &ofs);
 	if (ret) {
 		com_err(program_name, ret, "while trying to open \"%s\"",
 			src_file);
