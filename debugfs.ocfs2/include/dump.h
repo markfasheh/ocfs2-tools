@@ -73,7 +73,7 @@ void dump_inode_path (FILE *out, uint64_t blkno, char *path);
 void dump_logical_blkno(FILE *out, uint64_t blkno);
 void dump_icheck(FILE *out, int hdr, uint64_t blkno, uint64_t inode,
 		 int validoffset, uint64_t offset, int status);
-void dump_block_check(FILE *out, struct ocfs2_block_check *bc);
+void dump_block_check(FILE *out, struct ocfs2_block_check *bc, void *block);
 uint32_t dump_xattr_ibody(FILE *out, ocfs2_filesys *fs,
 			  struct ocfs2_dinode *in, int verbose);
 errcode_t dump_xattr_block(FILE *out, ocfs2_filesys *fs,
