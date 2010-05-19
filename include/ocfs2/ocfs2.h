@@ -89,6 +89,10 @@
 #define OCFS2_FLAG_HEARTBEAT_DEV_OK	0x40
 #define OCFS2_FLAG_STRICT_COMPAT_CHECK	0x80
 #define OCFS2_FLAG_IMAGE_FILE	      0x0100
+#define OCFS2_FLAG_NO_ECC_CHECKS      0x0200	/* Do not validate metaecc
+						 * information on block
+						 * reads. */
+
 
 /* Return flags for the directory iterator functions */
 #define OCFS2_DIRENT_CHANGED	0x01
