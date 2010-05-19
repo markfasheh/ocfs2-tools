@@ -192,7 +192,7 @@ static errcode_t find_indexed_dirs(ocfs2_filesys *fs,
 	}
 
 	verbosef(VL_APP,
-		"We have %lu indexed %s to truncate.\n",
+		"We have %"PRIu64" indexed %s to truncate.\n",
 		ctxt->dx_dirs_nr,
 		(ctxt->dx_dirs_nr > 1)?"directories":"directory");
 
@@ -225,7 +225,7 @@ static errcode_t clean_indexed_dirs(ocfs2_filesys *fs,
 		ret = ocfs2_dx_dir_truncate(fs, dx_di->ino);
 		if (ret) {
 			verbosef(VL_APP,
-				"Truncate directory (ino \"%lu\") failed.",
+				"Truncate directory (ino \"%"PRIu64"\") failed.",
 				dx_di->ino);
 			ret = TUNEFS_ET_DX_DIRS_TRUNCATE_FAILED;
 			goto bail;
@@ -237,7 +237,7 @@ static errcode_t clean_indexed_dirs(ocfs2_filesys *fs,
 bail:
 	tools_progress_stop(prog);
 	verbosef(VL_APP,
-		"\"%lu\" from \"%lu\" indexed %s truncated.",
+		"\"%"PRIu64"\" from \"%"PRIu64"\" indexed %s truncated.",
 		dirs_truncated, ctxt->dx_dirs_nr,
 		(dirs_truncated <= 1) ? "directory is" : "directories are");
 

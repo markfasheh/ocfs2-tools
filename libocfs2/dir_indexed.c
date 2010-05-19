@@ -157,7 +157,6 @@ next:
 		offset += dirent->rec_len;
 	}
 
-out:
 	return ret;
 }
 
