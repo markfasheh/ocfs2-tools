@@ -48,7 +48,7 @@ char *program_name = NULL;
 
 static void usage(void)
 {
-	fprintf(stderr, ("Usage: %s [-rI] device image_file\n"),
+	fprintf(stderr, ("Usage: %s [-frI] device image_file\n"),
 		program_name);
 	exit(1);
 }
@@ -538,7 +538,8 @@ int main(int argc, char **argv)
 	int open_flags		= 0;
 	int raw_flag      	= 0;
 	int install_flag  	= 0;
-	int fd            	= 0;
+	int interactive		= 0;
+	int fd            	= 1;
 	int c;
 
 	if (argc && *argv)
@@ -547,13 +548,16 @@ int main(int argc, char **argv)
 	initialize_ocfs_error_table();
 
 	optind = 0;
-	while((c = getopt(argc, argv, "rI")) != EOF) {
+	while((c = getopt(argc, argv, "irI")) != EOF) {
 		switch (c) {
 		case 'r':
 			raw_flag++;
 			break;
 		case 'I':
 			install_flag++;
+			break;
+		case 'i':
+			interactive = 1;
 			break;
 		default:
 			usage();
@@ -633,8 +637,8 @@ int main(int argc, char **argv)
 		fd = 1;
 	else {
 		/* prompt user for image creation */
-		if (!install_flag && !prompt_image_creation(ofs, raw_flag,
-					dest_file))
+		if (interactive && !install_flag &&
+		    !prompt_image_creation(ofs, raw_flag, dest_file))
 			goto out;
 		fd = open64(dest_file, O_CREAT|O_TRUNC|O_WRONLY, 0600);
 		if (fd < 0) {

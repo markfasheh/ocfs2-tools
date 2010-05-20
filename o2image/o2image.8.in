@@ -37,6 +37,10 @@ and let the tool create the image-file in the packed format.
 Restores meta-data from the image-file onto the device. \fBCAUTION: This option could
 corrupt the file system.\fR
 
+.TP
+\fB\-i\fR
+Interactive mode - before writing out the image file print it's size and ask whether to proceed. This setting only applies when '-I' is not specified. It can be useful when the file system holding the image is low on disk space and the user might need to free up space once the target image size is calculated.
+
 .SH "EXAMPLES"
 
 .TS
