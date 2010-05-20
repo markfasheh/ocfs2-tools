@@ -34,7 +34,6 @@
 #include "ocfs2/bitops.h"
 #include "ocfs2/byteorder.h"
 
-#include "blockcheck.h"
 #include "crc32table.h"
 
 

@@ -1539,6 +1539,14 @@ void release_lookup_res(struct ocfs2_dir_lookup_result *res);
 int ocfs2_find_max_rec_len(ocfs2_filesys *fs, char *buf);
 void ocfs2_dx_list_remove_entry(struct ocfs2_dx_entry_list *entry_list, int index);
 int ocfs2_is_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di, unsigned long de_off);
+/* routines for block check */
+uint32_t ocfs2_hamming_encode(uint32_t parity, void *data,
+				unsigned int d, unsigned int nr);
+uint32_t ocfs2_hamming_encode_block(void *data, unsigned int d);
+void ocfs2_hamming_fix(void *data, unsigned int d,
+			unsigned int nr, unsigned int fix);
+void ocfs2_hamming_fix_block(void *data, unsigned int d, unsigned int fix);
+uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len);
 
 
 
