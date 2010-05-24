@@ -122,6 +122,10 @@ errcode_t ocfs2_image_alloc_bitmap(ocfs2_filesys *ofs)
 			if (allocsize == OCFS2_IMAGE_BITMAP_BLOCKSIZE)
 				goto out;
 			allocsize >>= 1;
+			if (allocsize % OCFS2_IMAGE_BITMAP_BLOCKSIZE) {
+				allocsize /= OCFS2_IMAGE_BITMAP_BLOCKSIZE;
+				allocsize *= OCFS2_IMAGE_BITMAP_BLOCKSIZE;
+			}
 			continue;
 		}
 
@@ -138,6 +142,8 @@ errcode_t ocfs2_image_alloc_bitmap(ocfs2_filesys *ofs)
 			indx++;
 		}
 		leftsize -= allocsize;
+		if (leftsize <= allocsize)
+			allocsize = leftsize;
 	}
 out:
 	/* If allocation failed free and return error */
