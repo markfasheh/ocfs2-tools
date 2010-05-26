@@ -82,7 +82,6 @@ CFILES = 		\
 
 HFILES =		\
 	bitmap.h	\
-	blockcheck.h	\
 	crc32table.h	\
 	dir_iterate.h	\
 	dir_util.h	\
