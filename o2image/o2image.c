@@ -195,6 +195,36 @@ out:
 	return ret;
 }
 
+static errcode_t traverse_xb(ocfs2_filesys *ofs, uint64_t blkno)
+{
+	errcode_t ret = 0;
+	char *buf = NULL;
+	struct ocfs2_xattr_block *xb;
+
+	ret = ocfs2_malloc_block(ofs->fs_io, &buf);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_read_xattr_block(ofs, blkno, buf);
+	if (ret)
+		goto out;
+
+	xb = (struct ocfs2_xattr_block *)buf;
+
+	if (xb->xb_flags & OCFS2_XATTR_INDEXED)
+		traverse_extents(ofs, &(xb->xb_attrs.xb_root.xt_list));
+	else
+		/* Direct xattr block should be handled by
+		 * extent_alloc scans */
+		goto out;
+out:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return ret;
+}
+
+
 static errcode_t traverse_inode(ocfs2_filesys *ofs, uint64_t inode)
 {
 	struct ocfs2_super_block *super;
@@ -225,8 +255,11 @@ static errcode_t traverse_inode(ocfs2_filesys *ofs, uint64_t inode)
 	/*
 	 * Do not scan inode if it's regular file. Extent blocks of regular
 	 * files get backedup when scanning extent_alloc system files
+	 *
+	 * NOTE: we do need to handle its xattr btree if exists.
 	 */
-	if (!S_ISDIR(di->i_mode) && !(di->i_flags & OCFS2_SYSTEM_FL))
+	if (!S_ISDIR(di->i_mode) && !(di->i_flags & OCFS2_SYSTEM_FL) &&
+	    !(di->i_dyn_features & OCFS2_HAS_XATTR_FL))
 		goto out;
 
 	/* Read and traverse group descriptors */
@@ -260,6 +293,9 @@ static errcode_t traverse_inode(ocfs2_filesys *ofs, uint64_t inode)
 		ret = traverse_chains(ofs, &(di->id2.i_chain), dump_type);
 	else if (di->i_flags & OCFS2_DEALLOC_FL)
 		ret = mark_dealloc_bits(ofs, &(di->id2.i_dealloc));
+	else if ((di->i_dyn_features & OCFS2_HAS_XATTR_FL) && di->i_xattr_loc)
+		/* Do need to traverse xattr btree to map bucket leaves */
+		ret = traverse_xb(ofs, di->i_xattr_loc);
 	else {
 		/*
 		 * Don't check superblock flag for the dir indexing
