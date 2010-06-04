@@ -205,10 +205,11 @@ static int blocks_cached;
 void o2fsck_init_cache(o2fsck_state *ost, enum o2fsck_cache_hint hint)
 {
 	errcode_t ret;
-	uint64_t blocks_wanted;
+	uint64_t blocks_wanted, av_blocks;
 	int leave_room;
 	ocfs2_filesys *fs = ost->ost_fs;
 	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	uint64_t pages_wanted, avpages;
 
 	switch (hint) {
 		case O2FSCK_CACHE_MODE_FULL:
@@ -245,10 +246,19 @@ void o2fsck_init_cache(o2fsck_state *ost, enum o2fsck_cache_hint hint)
 	if (blocks_wanted > INT_MAX)
 		blocks_wanted = INT_MAX;
 
+	av_blocks = blocks_wanted;
+	avpages = sysconf(_SC_AVPHYS_PAGES);
+	pages_wanted = blocks_wanted * fs->fs_blocksize / getpagesize();
+	if (pages_wanted > avpages)
+		av_blocks = avpages * getpagesize() / fs->fs_blocksize;
+
 	while (blocks_wanted > 0) {
 		io_destroy_cache(fs->fs_io);
+
 		verbosef("Asking for %"PRIu64" blocks of I/O cache\n",
 			 blocks_wanted);
+		if (blocks_wanted > av_blocks)
+			blocks_wanted = av_blocks;
 		ret = io_init_cache(fs->fs_io, blocks_wanted);
 		if (!ret) {
 			/*
