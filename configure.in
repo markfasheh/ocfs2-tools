@@ -268,7 +268,12 @@ if test "x$cpg_found" = "xyes"; then
     AC_MSG_CHECKING([for cpg_initialize in -lcpg])
     while test "x$TRY_PATH" != "x"; do
         TRY="`echo $TRY_PATH | cut -f1 -d:`"
-        TRY_PATH="`echo $TRY_PATH | cut -f2- -d:`"
+        NEW_TRY_PATH="`echo $TRY_PATH | cut -f2- -d:`"
+        if test "x$NEW_TRY_PATH" != "x$TRY_PATH"; then
+            TRY_PATH="$NEW_TRY_PATH"
+        else
+            TRY_PATH=""
+        fi
 
         if test "x$TRY" != "x"; then
             TRY="-L${TRY}/${cpg_package}"
@@ -307,7 +312,12 @@ if test "x$ckpt_found" = "xyes"; then
     AC_MSG_CHECKING([for saCkptInitialize in -lSaCkpt])
     while test "x$TRY_PATH" != "x"; do
         TRY="`echo $TRY_PATH | cut -f1 -d:`"
-        TRY_PATH="`echo $TRY_PATH | cut -f2- -d:`"
+        NEW_TRY_PATH="`echo $TRY_PATH | cut -f2- -d:`"
+        if test "x$NEW_TRY_PATH" != "x$TRY_PATH"; then
+            TRY_PATH="$NEW_TRY_PATH"
+        else
+            TRY_PATH=""
+        fi
 
         if test "x$TRY" != "x"; then
             TRY="-L${TRY}/openais"
