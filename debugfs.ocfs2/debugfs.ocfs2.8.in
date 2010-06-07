@@ -235,8 +235,12 @@ Display the refcount block, and optionally its tree, of the specified inode.
 Display the contents of the \fIslotmap\fR system file.
 
 .TP
-\fIstat filespec\fR
-Display the contents of the inode structure for the \fIfilespec\fR.
+\fIstat [\-t|\-T] filespec\fR
+Display the contents of the inode structure for the \fIfilespec\fR.  The
+\fI-t\fR ("traverse") option selects traversal of the inode's metadata.
+The extent tree, chain list, or other extra metadata will be dumped.  This
+is the default.  The \fI-T\fR option turns off traversal to reduce the I/O
+required when basic inode information is needed.
 
 .TP
 \fIstats [\-h] [\-s backup\-number]\fR
