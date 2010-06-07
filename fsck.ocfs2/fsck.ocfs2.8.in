@@ -2,7 +2,7 @@
 .SH "NAME"
 fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
-\fBfsck.ocfs2\fR [ \fB\-fFGnuvVy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
+\fBfsck.ocfs2\fR [ \fB\-pafFGnuvVy\fR ] [ \fB\-b\fR \fIsuperblock block\fR ] [ \fB\-B\fR \fIblock size\fR ] \fIdevice\fR
 .SH "DESCRIPTION"
 .PP 
 \fBfsck.ocfs2\fR is used to check an OCFS2 file system.
@@ -11,6 +11,12 @@ fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 It will almost always be a device file but a regular file will work as well.
 
 .SH "OPTIONS"
+.TP
+\fB\-a\fR
+This option does the same thing as the \fB-p\fR option.  It is provided for
+backwards compatibility only: it is suggested that people use the \fB-p\fR
+option whenever possible.
+
 .TP
 \fB\-b\fR \fIsuperblock block\fR
 Normally, \fBfsck.ocfs2\fR will read the superblock from the first block of
@@ -54,6 +60,16 @@ Give the 'no' answer to all questions that fsck will ask.  This guarantees
 that the file system will not be modified and the device will be opened
 read-only.  The output of \fBfsck.ocfs2\fR with this option can be redirected
 to produce a record of a file system's faults.
+
+.TP
+\fB\-p\fR
+Automatically repair ("preen") the file system.  This option will cause
+\fBfsck.ocfs2\fR to automatically fix any problem that can be safely
+corrected without human intervention.  If there are problems that require
+intervention, the descriptions will be printed and fsck.ocfs2 will exit
+with the value 4 logically or'd into the exit code.  (See the
+\fBEXIT CODE\fR section.)  This option is normally used by the system's
+boot scripts.
 
 .TP
 \fB\-r\fR \fIbackup-number\fR

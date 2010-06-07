@@ -118,12 +118,13 @@ static void block_signals(int how)
 static void print_usage(void)
 {
 	fprintf(stderr,
-		"Usage: fsck.ocfs2 [ -fGnuvVy ] [ -b superblock block ]\n"
+		"Usage: fsck.ocfs2 {-y|-n|-p} [ -fGnuvVy ] [ -b superblock block ]\n"
 		"		    [ -B block size ] [-r num] device\n"
 		"\n"
 		"Critical flags for emergency repair:\n" 
 		" -n		Check but don't change the file system\n"
 		" -y		Answer 'yes' to all repair questions\n"
+		" -p		Automatic repair (no questions, only safe repairs)\n"
 		" -f		Force checking even if file system is clean\n"
 		" -F		Ignore cluster locking (dangerous!)\n"
 		" -r		restore backup superblock(dangerous!)\n"
@@ -654,7 +655,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:DfFGnuvVyr:")) != EOF) {
+	while((c = getopt(argc, argv, "b:B:DfFGnupavVyr:")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -696,10 +697,23 @@ int main(int argc, char **argv)
 				break;
 
 			case 'n':
-				ost->ost_ask = 0;
-				ost->ost_answer = 0;
 				open_flags &= ~OCFS2_FLAG_RW;
 				open_flags |= OCFS2_FLAG_RO;
+				/* Fall through */
+
+			case 'a':
+			case 'p':
+				/*
+				 * Like extN, -a maps to -p, which is
+				 * 'preen'.  This means only fix things
+				 * that don't require human interaction.
+				 * Unlike extN, this is only journal
+				 * replay for now.  To make it smarter,
+				 * ost->ost_answer needs to learn a
+				 * new mode.
+				 */
+				ost->ost_ask = 0;
+				ost->ost_answer = 0;
 				break;
 
 			case 'y':
