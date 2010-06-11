@@ -405,10 +405,98 @@ out:
 	return ret;
 }
 
+/*
+ * This write function takes a file descriptor and pretends to be
+ * pwrite64().  If the descriptor is seekable, it will just call
+ * pwrite64().  Otherwise it will send zeros down to fill any holes.  The
+ * caller can't go backwards in the file, because seeking may not be
+ * possible.
+ *
+ * It returns -1 if it fails to finish up at offset+count.  It will
+ * print its error, so the caller does not need to.
+ */
+#define ZERO_BUF_SIZE  (1<<20)
+static ssize_t raw_write(ocfs2_filesys *fs, int fd, const void *buf,
+			 size_t count, loff_t offset)
+{
+	errcode_t ret;
+	ssize_t written;
+	static char *zero_buf = NULL;
+	static int can_seek = -1;
+	static loff_t fpos = 0;
+	loff_t to_write;
+
+	if (can_seek == -1) {
+		/* Test if we can seek/pwrite */
+		fpos = lseek64(fd, 0, SEEK_CUR);
+		if (fpos < 0) {
+			fpos = 0;
+			can_seek = 0;
+		} else
+			can_seek = 1;
+	}
+
+	if (!can_seek && !zero_buf) {
+		ret = ocfs2_malloc_blocks(fs->fs_io,
+					  ZERO_BUF_SIZE / fs->fs_blocksize,
+					  &zero_buf);
+		if (ret) {
+			com_err(program_name, ret,
+				"while allocating zero buffer");
+			written = -1;
+			goto out;
+		}
+		memset(zero_buf, 0, ZERO_BUF_SIZE);
+	}
+
+	if (can_seek) {
+		written = pwrite64(fd, buf, count, offset);
+		goto out;
+	}
+
+	/* Ok, let's fake pwrite64() for the caller */
+	if (fpos > offset) {
+		com_err(program_name, OCFS2_ET_INTERNAL_FAILURE,
+			": file position went backwards while writing "
+			"image file");
+		written = -1;
+		goto out;
+	}
+
+	while (fpos < offset) {
+		to_write = ocfs2_min((loff_t)ZERO_BUF_SIZE, offset - fpos);
+		written = write(fd, zero_buf, to_write);
+		if (written < 0) {
+			com_err(program_name, OCFS2_ET_IO,
+				"while writing zero blocks: %s",
+				strerror(errno));
+			goto out;
+		}
+		fpos += written;
+	}
+
+	to_write = count;
+	while (to_write) {
+		written = write(fd, buf, to_write);
+		if (written < 0) {
+			com_err(program_name, OCFS2_ET_IO,
+				"while writing data blocks: %s",
+				strerror(errno));
+			goto out;
+		}
+		fpos += written;
+		to_write -= written;
+	}
+	/* Ok, we did it */
+	written = count;
+
+out:
+	return written;
+}
+
 static errcode_t write_raw_image_file(ocfs2_filesys *ofs, int fd)
 {
 	struct ocfs2_super_block *super;
-	char *zero_buf = NULL;
 	char *blk_buf = NULL;
 	uint64_t blk = -1;
 	ssize_t count;
@@ -417,47 +505,32 @@ static errcode_t write_raw_image_file(ocfs2_filesys *ofs, int fd)
 	super = OCFS2_RAW_SB(ofs->fs_super);
 	ret = ocfs2_malloc_block(ofs->fs_io, &blk_buf);
 	if (ret) {
-		com_err(program_name, ret, "error while allocating buffer ");
+		com_err(program_name, ret, "while allocating I/O buffer");
 		goto out;
 	}
-
-	ret = ocfs2_malloc_block(ofs->fs_io, &zero_buf);
-	if (ret) {
-		com_err(program_name, ret, "error while allocating buffer ");
-		goto out;
-	}
-	memset(zero_buf, 0, ofs->fs_blocksize);
 
 	while (++blk < ofs->fs_blocks) {
 		if (ocfs2_image_test_bit(ofs, blk)) {
 			ret = ocfs2_read_blocks(ofs, blk, 1, blk_buf);
 			if (ret) {
-				com_err(program_name, ret, "error occurred "
-					"during read cluster %"PRIu64"", blk);
-				goto out;
+				com_err(program_name, ret,
+					"while reading block %"PRIu64, blk);
+				break;
 			}
 
-			if (fd == 1)
-				count = write(fd, blk_buf, ofs->fs_blocksize);
-			else
-				count = pwrite64(fd, blk_buf, ofs->fs_blocksize,
-					(__off64_t)(blk * ofs->fs_blocksize));
-		} else if (fd == 1) {
-			count = write(fd, zero_buf, ofs->fs_blocksize);
-		} else
-			continue;
-
-		if ((count == -1) || (count < ofs->fs_blocksize)) {
-			com_err(program_name, errno, "error writing "
-				"blk %"PRIu64"", blk);
-			goto out;
+			count = raw_write(ofs, fd, blk_buf,
+					  ofs->fs_blocksize,
+					  (loff_t)(blk * ofs->fs_blocksize));
+			if (count < 0) {
+				ret = OCFS2_ET_IO;
+				break;
+			}
 		}
 	}
+
 out:
 	if (blk_buf)
 		ocfs2_free(&blk_buf);
-	if (zero_buf)
-		ocfs2_free(&zero_buf);
 	return ret;
 }
 
@@ -621,7 +694,7 @@ int main(int argc, char **argv)
 	int raw_flag      	= 0;
 	int install_flag  	= 0;
 	int interactive		= 0;
-	int fd            	= 1;
+	int fd            	= STDOUT_FILENO;
 	int c;
 
 	if (argc && *argv)
@@ -716,7 +789,7 @@ int main(int argc, char **argv)
 	}
 
 	if (strcmp(dest_file, "-") == 0)
-		fd = 1;
+		fd = STDOUT_FILENO;
 	else {
 		/* prompt user for image creation */
 		if (interactive && !install_flag &&
@@ -754,7 +827,7 @@ out:
 		com_err(program_name, ret, "while closing file \"%s\"",
 			src_file);
 
-	if (fd && (fd != 1))
+	if (fd && (fd != STDOUT_FILENO))
 		close(fd);
 
 	return ret;
