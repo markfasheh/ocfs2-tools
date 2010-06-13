@@ -490,10 +490,12 @@ static struct tunefs_option list_sparse_option = {
 
 static struct tunefs_option reset_uuid_option = {
 	.opt_option	= {
-		.name	= "uuid-reset",
-		.val	= 'U',
+		.name		= "uuid-reset",
+		.val		= 'U',
+		.has_arg	= 2,
 	},
-	.opt_help	= "-U|--uuid-reset",
+	.opt_help	= "-U|--uuid-reset[=new-uuid]",
+	.opt_handle	= &generic_handle_arg,
 	.opt_op		= &reset_uuid_op,
 };
 
