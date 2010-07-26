@@ -869,7 +869,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 				     char *buf1, char *buf2)
 {
 	struct ocfs2_cluster_group_sizes cgs;
-	uint16_t i, max_recs;
+	uint16_t max_recs;
 	uint16_t bits, chain;
 	uint64_t blkno;
 	struct ocfs2_group_desc *bg = (struct ocfs2_group_desc *)buf1;
@@ -877,7 +877,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 	struct chain_state cs;
 	struct ocfs2_chain_rec *rec;
 	ocfs2_bitmap *allowed = NULL, *forbidden = NULL;
-	int was_set;
+	int was_set, i;
 
 	/* XXX ugh, only used by mark_ */
 	cs.cs_cpg = di->id2.i_chain.cl_cpg;
