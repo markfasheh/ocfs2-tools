@@ -261,7 +261,7 @@ int main(int argc, char **argv)
 	char *extra = NULL;
 	int dev_ro = 0;
 	char *hbstr = NULL;
-	char stackstr[strlen(OCFS2_CLUSTER_STACK_ARG) + OCFS2_STACK_LABEL_LEN + 1] = "";
+	char stackstr[strlen(OCFS2_CLUSTER_STACK_ARG) + OCFS2_STACK_LABEL_LEN + 1];
 	ocfs2_filesys *fs = NULL;
 	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
@@ -285,6 +285,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Could not set SIGINT\n");
 		exit(1);
 	}
+
+	*stackstr = '\0';
 
 	memset(&mo, 0, sizeof(mo));
 	read_options (argc, argv, &mo);
