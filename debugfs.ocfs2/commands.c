@@ -1044,6 +1044,9 @@ static void do_stat (char **args)
 	const char *stat_usage = "usage: stat [-t|-T] <filespec>";
 	int index = 1, traverse = 1;
 
+	if (check_device_open())
+		return;
+
 	if (!args[index]) {
 		fprintf(stderr, "%s\n", stat_usage);
 		return ;
@@ -1950,6 +1953,9 @@ static void do_icheck(char **args)
 	uint64_t blkno[MAX_BLOCKS];
 	int i;
 	FILE *out;
+
+	if (check_device_open())
+		return;
 
 	if (!args[1]) {
 		fprintf(stderr, "%s\n", testb_usage);
