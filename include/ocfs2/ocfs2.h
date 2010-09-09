@@ -643,6 +643,7 @@ errcode_t ocfs2_write_chain_allocator(ocfs2_filesys *fs,
 errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 			    ocfs2_cached_inode *cinode,
 			    uint64_t *gd_blkno,
+			    uint16_t *suballoc_bit,
 			    uint64_t *bitno);
 errcode_t ocfs2_chain_free(ocfs2_filesys *fs,
 			   ocfs2_cached_inode *cinode,

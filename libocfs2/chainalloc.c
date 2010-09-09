@@ -501,6 +501,7 @@ struct find_gd_state {
 	ocfs2_filesys *fs;
 	uint64_t bitno;
 	uint64_t gd_blkno;
+	uint64_t suballoc_bit;
 	int found;
 };
 
@@ -514,6 +515,8 @@ static errcode_t chainalloc_find_gd(struct ocfs2_bitmap_region *br,
 	    (state->bitno < (br->br_start_bit + br->br_valid_bits))) {
 		state->found = 1;
 		state->gd_blkno = cr->cr_ag->bg_blkno;
+		state->suballoc_bit = state->bitno - br->br_start_bit
+					+ cr->bit_offset;
 		if (state->gd_blkno == OCFS2_RAW_SB(state->fs->fs_super)->s_first_cluster_group)
 			state->gd_blkno = 0;
 		return OCFS2_ET_ITERATION_COMPLETE;
@@ -525,6 +528,7 @@ static errcode_t chainalloc_find_gd(struct ocfs2_bitmap_region *br,
 errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 			    ocfs2_cached_inode *cinode,
 			    uint64_t *gd_blkno,
+			    uint16_t *suballoc_bit,
 			    uint64_t *bitno)
 {
 	errcode_t ret;
@@ -551,9 +555,10 @@ errcode_t ocfs2_chain_alloc(ocfs2_filesys *fs,
 	ret = ocfs2_bitmap_foreach_region(cinode->ci_chains,
 					  chainalloc_find_gd, &state);
 	if (!ret) {
-		if (state.found)
+		if (state.found) {
 			*gd_blkno = state.gd_blkno;
-		else
+			*suballoc_bit = state.suballoc_bit;
+		} else
 			ret = OCFS2_ET_INTERNAL_FAILURE;
 	}
 	return ret;
