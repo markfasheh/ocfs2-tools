@@ -245,6 +245,7 @@ static size_t ocfs2_align_total(int total_bits)
 
 errcode_t ocfs2_bitmap_alloc_region(ocfs2_bitmap *bitmap,
 				    uint64_t start_bit,
+				    int bitmap_start,
 				    int total_bits,
 				    struct ocfs2_bitmap_region **ret_br)
 {
@@ -259,9 +260,11 @@ errcode_t ocfs2_bitmap_alloc_region(ocfs2_bitmap *bitmap,
 		return ret;
 
 
-	br->br_bytes = ocfs2_align_total(total_bits);
 	br->br_start_bit = start_bit;
-	br->br_total_bits = total_bits;
+	br->br_bitmap_start = bitmap_start;
+	br->br_valid_bits = total_bits;
+	br->br_total_bits = total_bits + bitmap_start;
+	br->br_bytes = ocfs2_align_total(br->br_total_bits);
 
 	ret = ocfs2_malloc0(br->br_bytes, &br->br_bitmap);
 	if (ret)
@@ -289,7 +292,7 @@ errcode_t ocfs2_bitmap_realloc_region(ocfs2_bitmap *bitmap,
 	if ((br->br_start_bit + total_bits) > bitmap->b_total_bits)
 		return OCFS2_ET_INVALID_BIT;
 
-	new_bytes = ocfs2_align_total(total_bits);
+	new_bytes = ocfs2_align_total(total_bits + br->br_bitmap_start);
 
 	if (new_bytes > br->br_bytes) {
 		ret = ocfs2_realloc0(new_bytes, &br->br_bitmap, br->br_bytes);
@@ -297,7 +300,8 @@ errcode_t ocfs2_bitmap_realloc_region(ocfs2_bitmap *bitmap,
 			return ret;
 		br->br_bytes = new_bytes;
 	}
-	br->br_total_bits = total_bits;
+	br->br_valid_bits = total_bits;
+	br->br_total_bits = total_bits + br->br_bitmap_start;
 
 	return 0;
 }
@@ -339,12 +343,16 @@ static errcode_t ocfs2_bitmap_merge_region(ocfs2_bitmap *bitmap,
 	size_t prev_bytes;
 	uint8_t *pbm, *nbm, offset, diff;
 
-	if ((prev->br_start_bit + prev->br_total_bits) !=
+	if ((prev->br_start_bit + prev->br_valid_bits) !=
 	    next->br_start_bit)
 		return OCFS2_ET_INVALID_BIT;
 
 	if (bitmap->b_ops->merge_region &&
 	    !(*bitmap->b_ops->merge_region)(bitmap, prev, next))
+		return OCFS2_ET_INVALID_BIT;
+
+	/* XXX: We don't support merge if the bitmap isn't aligned now. */
+	if (prev->br_bitmap_start || next->br_bitmap_start)
 		return OCFS2_ET_INVALID_BIT;
 
 	new_bits = (uint64_t)(prev->br_total_bits) +
@@ -431,7 +439,7 @@ struct ocfs2_bitmap_region *ocfs2_bitmap_lookup(ocfs2_bitmap *bitmap,
 			last_left = parent;
 			p = &(*p)->rb_left;
 			br = NULL;
-		} else if (bitno >= (br->br_start_bit + br->br_total_bits)) {
+		} else if (bitno >= (br->br_start_bit + br->br_valid_bits)) {
 			p = &(*p)->rb_right;
 			br = NULL;
 		} else
@@ -457,7 +465,7 @@ errcode_t ocfs2_bitmap_insert_region(ocfs2_bitmap *bitmap,
 
 	/* we shouldn't find an existing region that intersects our new one */
 	br_tmp = ocfs2_bitmap_lookup(bitmap, br->br_start_bit, 
-				     br->br_total_bits, &p, &parent, NULL);
+				     br->br_valid_bits, &p, &parent, NULL);
 	if (br_tmp)
 		return OCFS2_ET_INVALID_BIT;
 
@@ -488,7 +496,8 @@ static int set_generic_shared(ocfs2_bitmap *bitmap,
 {
 	int old_tmp;
 
-	old_tmp = ocfs2_set_bit(bitno - br->br_start_bit, br->br_bitmap);
+	old_tmp = ocfs2_set_bit(bitno - br->br_start_bit + br->br_bitmap_start,
+				br->br_bitmap);
 	if (!old_tmp) {
 		br->br_set_bits++;
 		if (bitmap->b_ops->bit_change_notify)
@@ -525,7 +534,8 @@ static int clear_generic_shared(ocfs2_bitmap *bitmap,
 {
 	int old_tmp;
 
-	old_tmp = ocfs2_clear_bit(bitno - br->br_start_bit,
+	old_tmp = ocfs2_clear_bit(bitno - br->br_start_bit +
+				  br->br_bitmap_start,
 				  br->br_bitmap);
 	if (old_tmp) {
 		br->br_set_bits--;
@@ -563,7 +573,7 @@ errcode_t ocfs2_bitmap_test_generic(ocfs2_bitmap *bitmap,
 	if (!br)
 		return OCFS2_ET_INVALID_BIT;
 
-	*val = ocfs2_test_bit(bitno - br->br_start_bit,
+	*val = ocfs2_test_bit(bitno - br->br_start_bit + br->br_bitmap_start,
 			      br->br_bitmap) ? 1 : 0;
 	return 0;
 }
@@ -592,9 +602,9 @@ errcode_t ocfs2_bitmap_find_next_set_generic(ocfs2_bitmap *bitmap,
 
 		ret = ocfs2_find_next_bit_set(br->br_bitmap,
 					      br->br_total_bits,
-					      offset);
+					      offset + br->br_bitmap_start);
 		if (ret != br->br_total_bits) {
-			*found = br->br_start_bit + ret;
+			*found = br->br_start_bit + ret - br->br_bitmap_start;
 			return 0;
 		}
 	}
@@ -626,9 +636,9 @@ errcode_t ocfs2_bitmap_find_next_clear_generic(ocfs2_bitmap *bitmap,
 
 		ret = ocfs2_find_next_bit_clear(br->br_bitmap,
 						br->br_total_bits,
-						offset);
+						offset + br->br_bitmap_start);
 		if (ret != br->br_total_bits) {
-			*found = br->br_start_bit + ret;
+			*found = br->br_start_bit + ret - br->br_bitmap_start;
 			return 0;
 		}
 	}
@@ -656,10 +666,11 @@ static errcode_t alloc_range_func(struct ocfs2_bitmap_region *br,
 	uint64_t best_start = UINT64_MAX, best_len = 0;
 	int start, end;
 
-	if ((br->br_total_bits - br->br_set_bits) < ar->ar_min_len)
+	if ((br->br_valid_bits - br->br_set_bits) < ar->ar_min_len)
 		goto out;
 
-	for (start = 0; start + ar->ar_min_len <= br->br_total_bits; ) {
+	for (start = br->br_bitmap_start;
+	     start + ar->ar_min_len <= br->br_total_bits;) {
 		start = ocfs2_find_next_bit_clear(br->br_bitmap,
 						  br->br_total_bits,
 						  start);
@@ -694,12 +705,12 @@ static errcode_t alloc_range_func(struct ocfs2_bitmap_region *br,
 	start = best_start;
 	end = best_start + best_len;
 found:
-	ar->ar_first_bit = br->br_start_bit + start;
+	ar->ar_first_bit = br->br_start_bit + start - br->br_bitmap_start;
 	ar->ar_bits_found = end - start;
 
 	for (; start < end; start++)
 		set_generic_shared(ar->ar_bitmap, br,
-				   start + br->br_start_bit);
+				br->br_start_bit + start - br->br_bitmap_start);
 
 	ar->ar_ret = 0;
 	ret = OCFS2_ET_ITERATION_COMPLETE;
@@ -764,7 +775,7 @@ errcode_t ocfs2_bitmap_set_holes(ocfs2_bitmap *bitmap,
 	if (!ocfs2_bitmap_set_generic(bitmap, bitno, oldval))
 		return 0;
 
-	ret = ocfs2_bitmap_alloc_region(bitmap, bitno, 1, &br);
+	ret = ocfs2_bitmap_alloc_region(bitmap, bitno, 0, 1, &br);
 	if (ret)
 		return ret;
 
@@ -784,7 +795,7 @@ errcode_t ocfs2_bitmap_clear_holes(ocfs2_bitmap *bitmap,
 	if (!ocfs2_bitmap_clear_generic(bitmap, bitno, oldval))
 		return 0;
 
-	ret = ocfs2_bitmap_alloc_region(bitmap, bitno, 1, &br);
+	ret = ocfs2_bitmap_alloc_region(bitmap, bitno, 0, 1, &br);
 	if (ret)
 		return ret;
 
@@ -846,12 +857,12 @@ errcode_t ocfs2_bitmap_find_next_clear_holes(ocfs2_bitmap *bitmap,
 
 		ret = ocfs2_find_next_bit_clear(br->br_bitmap,
 						br->br_total_bits,
-						offset);
+						offset + br->br_bitmap_start);
 		if (ret != br->br_total_bits) {
-			*found = br->br_start_bit + ret;
+			*found = br->br_start_bit + ret - br->br_bitmap_start;
 			return 0;
 		}
-		seen = br->br_start_bit + br->br_total_bits;
+		seen = br->br_start_bit + br->br_valid_bits;
 	}
 
 	return OCFS2_ET_BIT_NOT_FOUND;
@@ -893,7 +904,7 @@ errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
 		alloc_bits = num_bits;
 		if (num_bits > max_bits)
 			alloc_bits = max_bits;
-		ret = ocfs2_bitmap_alloc_region(bitmap, bitoff,
+		ret = ocfs2_bitmap_alloc_region(bitmap, bitoff, 0,
 						alloc_bits, &br);
 		if (ret) {
 			ocfs2_bitmap_free(bitmap);
@@ -989,7 +1000,7 @@ static void dump_regions(ocfs2_bitmap *bitmap)
 
 		fprintf(stdout,
 			"(start: %"PRIu64", n: %d, set: %d)\n",
-			br->br_start_bit, br->br_total_bits,
+			br->br_start_bit, br->br_valid_bits,
 			br->br_set_bits);
 	}
 }

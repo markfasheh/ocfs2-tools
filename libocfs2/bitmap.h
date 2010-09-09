@@ -33,6 +33,8 @@
 struct ocfs2_bitmap_region {
 	struct rb_node br_node;
 	uint64_t br_start_bit;		/* Bit offset. */
+	int br_bitmap_start;		/* bit start in br_bitmap. */
+	int br_valid_bits;		/* bit length valid in br_bitmap. */
 	int br_total_bits;		/* set_bit() and friends can't
 					   handle bitmaps larger than
 					   int offsets */
@@ -91,6 +93,7 @@ errcode_t ocfs2_bitmap_new(ocfs2_filesys *fs,
 			   ocfs2_bitmap **ret_bitmap);
 errcode_t ocfs2_bitmap_alloc_region(ocfs2_bitmap *bitmap,
 				    uint64_t start_bit,
+				    int bitmap_start,
 				    int total_bits,
 				    struct ocfs2_bitmap_region **ret_br);
 void ocfs2_bitmap_free_region(struct ocfs2_bitmap_region *br);

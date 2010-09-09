@@ -121,6 +121,7 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 					       cb->cb_cinode->ci_inode->id2.i_chain.cl_bpc);
 	cb->cb_errcode = ocfs2_bitmap_alloc_region(bitmap,
 						   start_bit,
+						   0,
 						   cr->cr_ag->bg_bits,
 						   &br);
 	if (cb->cb_errcode)
@@ -380,7 +381,7 @@ static errcode_t chainalloc_find_gd(struct ocfs2_bitmap_region *br,
 	struct find_gd_state *state = private_data;
 
 	if ((state->bitno >= br->br_start_bit) &&
-	    (state->bitno < (br->br_start_bit + br->br_total_bits))) {
+	    (state->bitno < (br->br_start_bit + br->br_valid_bits))) {
 		state->found = 1;
 		state->gd_blkno = cr->cr_ag->bg_blkno;
 		if (state->gd_blkno == OCFS2_RAW_SB(state->fs->fs_super)->s_first_cluster_group)
@@ -648,7 +649,7 @@ static void dump_regions(ocfs2_bitmap *bitmap)
 
 		fprintf(stdout,
 			"(start: %"PRIu64", n: %d, set: %d)\n",
-			br->br_start_bit, br->br_total_bits,
+			br->br_start_bit, br->br_valid_bits,
 			br->br_set_bits);
 	}
 }
