@@ -456,3 +456,9 @@ void corrupt_refcount(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 
 	return;
 }
+
+void corrupt_discontig_bg(ocfs2_filesys *fs, enum fsck_type type,
+			  uint16_t slotnum)
+{
+	mess_up_discontig_bg(fs, type, slotnum);
+}

@@ -35,5 +35,7 @@ void corrupt_local_alloc(ocfs2_filesys *fs, enum fsck_type type,
 void corrupt_truncate_log(ocfs2_filesys *fs, enum fsck_type type,
 			  uint16_t slotnum);
 void corrupt_refcount(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum);
+void corrupt_discontig_bg(ocfs2_filesys *fs, enum fsck_type type,
+			  uint16_t slotnum);
 
 #endif		/* __CORRUPT_H */

@@ -10,7 +10,7 @@ INCLUDES += $(GLIB_CFLAGS)
 
 UNINST_PROGRAMS = fswreck
 
-CFILES = main.c corrupt.c chain.c extent.c group.c inode.c local_alloc.c truncate_log.c special.c symlink.c dir.c journal.c quota.c refcount.c
+CFILES = main.c corrupt.c chain.c extent.c group.c inode.c local_alloc.c truncate_log.c special.c symlink.c dir.c journal.c quota.c refcount.c discontig_bg.c
 
 HFILES = 			\
 	include/chain.h		\
@@ -27,7 +27,8 @@ HFILES = 			\
 	include/main.h		\
 	include/symlink.h	\
 	include/quota.h		\
-	include/refcount.h
+	include/refcount.h	\
+	include/discontig_bg.h
 
 DIST_FILES = $(CFILES) $(HFILES)
 DIST_RULES = dist-subdircreate
