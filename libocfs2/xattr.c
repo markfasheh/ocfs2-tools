@@ -93,6 +93,7 @@ static void ocfs2_swap_xattr_block_header(struct ocfs2_xattr_block *xb)
 	xb->xb_fs_generation	= bswap_32(xb->xb_fs_generation);
 	xb->xb_blkno		= bswap_64(xb->xb_blkno);
 	xb->xb_flags		= bswap_16(xb->xb_flags);
+	xb->xb_suballoc_loc	= bswap_64(xb->xb_suballoc_loc);
 }
 
 static void ocfs2_swap_xattr_header(struct ocfs2_xattr_header *xh)

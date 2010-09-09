@@ -90,6 +90,7 @@ static void ocfs2_swap_extent_block_header(struct ocfs2_extent_block *eb)
 	eb->h_fs_generation = bswap_32(eb->h_fs_generation);
 	eb->h_blkno         = bswap_64(eb->h_blkno);
 	eb->h_next_leaf_blk = bswap_64(eb->h_next_leaf_blk);
+	eb->h_suballoc_loc  = bswap_64(eb->h_suballoc_loc);
 }
 
 void ocfs2_swap_extent_block_from_cpu(ocfs2_filesys *fs,

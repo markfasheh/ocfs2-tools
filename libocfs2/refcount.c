@@ -105,6 +105,7 @@ static void ocfs2_swap_refcount_block_header(struct ocfs2_refcount_block *rb)
 	rb->rf_flags		= bswap_32(rb->rf_flags);
 	rb->rf_clusters		= bswap_32(rb->rf_clusters);
 	rb->rf_cpos		= bswap_32(rb->rf_cpos);
+	rb->rf_suballoc_loc	= bswap_64(rb->rf_suballoc_loc);
 }
 
 void ocfs2_swap_refcount_block_from_cpu(ocfs2_filesys *fs,
