@@ -809,6 +809,10 @@ static errcode_t o2fsck_check_dx_dir(o2fsck_state *ost, struct ocfs2_dinode *di)
 	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE)
 		goto out;
 
+	ei.chk_rec_func = o2fsck_check_extent_rec;
+	ei.mark_rec_alloc_func = o2fsck_mark_tree_clusters_allocated;
+	ei.para = di;
+
 	ret = check_el(ost, &ei, di->i_blkno, &dx_root->dr_list,
 			ocfs2_extent_recs_per_dx_root(fs->fs_blocksize),
 			&changed);
