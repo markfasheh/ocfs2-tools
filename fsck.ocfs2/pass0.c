@@ -980,7 +980,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 			ocfs2_init_group_desc(ost->ost_fs, bg, blkno,
 					      ost->ost_fs_generation,
 					      di->i_blkno,
-					      bits, chain);
+					      bits, chain, 0);
 			ret = 0;
 		}
 		if (ret) {

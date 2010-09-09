@@ -483,13 +483,13 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs,
 			   struct ocfs2_group_desc *gd,
 			   uint64_t blkno, uint32_t generation,
 			   uint64_t parent_inode, uint16_t bits,
-			   uint16_t chain)
+			   uint16_t chain, int suballoc)
 {
 	memset(gd, 0, fs->fs_blocksize);
 
 	strcpy((char *)gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
 	gd->bg_generation = generation;
-	gd->bg_size = ocfs2_group_bitmap_size(fs->fs_blocksize, 0,
+	gd->bg_size = ocfs2_group_bitmap_size(fs->fs_blocksize, suballoc,
 			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat);
 	gd->bg_bits = bits;
 	gd->bg_chain = chain;
@@ -539,7 +539,8 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 	ocfs2_init_group_desc(fs, gd, blkno, fs->fs_super->i_fs_generation,
 			      cinode->ci_inode->i_blkno,
 			      cinode->ci_inode->id2.i_chain.cl_cpg *
-			      cinode->ci_inode->id2.i_chain.cl_bpc, chain_num);
+			      cinode->ci_inode->id2.i_chain.cl_bpc,
+			      chain_num, 0);
 
 	rec = &cinode->ci_inode->id2.i_chain.cl_recs[chain_num];
 	old_blkno = rec->c_blkno;

@@ -682,7 +682,7 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs,
 			   struct ocfs2_group_desc *gd,
 			   uint64_t blkno, uint32_t generation,
 			   uint64_t parent_inode, uint16_t bits,
-			   uint16_t chain);
+			   uint16_t chain, int suballoc);
 
 errcode_t ocfs2_new_dir_block(ocfs2_filesys *fs, uint64_t dir_ino,
 			      uint64_t parent_ino, char **block);

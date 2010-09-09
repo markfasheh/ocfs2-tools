@@ -231,7 +231,7 @@ static errcode_t init_new_gd(ocfs2_filesys *fs,
 
 		ocfs2_init_group_desc(fs, gd, gd_blkno,
 				      fs->fs_super->i_fs_generation, di->i_blkno,
-				      (cluster_chunk *cl->cl_bpc), chain);
+				      (cluster_chunk * cl->cl_bpc), chain, 0);
 
 		/* Add group to chain */
 		cr = &(cl->cl_recs[chain]);
