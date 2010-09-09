@@ -38,5 +38,6 @@ extern int ocfs2_find_first_bit_set(void *addr, int size);
 extern int ocfs2_find_first_bit_clear(void *addr, int size);
 extern int ocfs2_find_next_bit_set(void *addr, int size, int offset);
 extern int ocfs2_find_next_bit_clear(void *addr, int size, int offset);
+extern int ocfs2_get_bits_set(void *addr, int size, int offset);
 
 #endif

@@ -161,6 +161,22 @@ int ocfs2_find_next_bit_clear(void *addr, int size, int offset)
 	return (res + d0 - 1);
 }
 
+int ocfs2_get_bits_set(void *addr, int size, int offset)
+{
+	int set_bits = 0, found = 0;
+
+	while (1) {
+		found = ocfs2_find_next_bit_set(addr, size, offset);
+		if (found < size) {
+			set_bits++;
+			offset = found + 1;
+		} else
+			break;
+	}
+
+	return set_bits;
+}
+
 #ifdef DEBUG_EXE
 #include <stdio.h>
 #include <stdlib.h>
