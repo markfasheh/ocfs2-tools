@@ -90,7 +90,8 @@ static ocfs2_fs_options feature_level_defaults[] = {
 	 OCFS2_FEATURE_INCOMPAT_META_ECC |
 	 OCFS2_FEATURE_INCOMPAT_XATTR |
 	 OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE |
-	 OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS,
+	 OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS |
+	 OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG,
 	 OCFS2_FEATURE_RO_COMPAT_UNWRITTEN |
 	 OCFS2_FEATURE_RO_COMPAT_USRQUOTA |
 	 OCFS2_FEATURE_RO_COMPAT_GRPQUOTA }, /* OCFS2_FEATURE_LEVEL_MAX_FEATURES */
@@ -187,6 +188,11 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
 		{0, OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE, 0},
 	},
 	{
+		"discontig-bg",
+		{0, OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG, 0},
+		{0, OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG, 0},
+	},
+	{
 		NULL,
 		{0, 0, 0},
 		{0, 0, 0}
@@ -268,6 +274,10 @@ static struct feature_name ocfs2_feature_names[] = {
 	{
 		.fn_name = "refcount",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE, 0},
+	},
+	{
+		.fn_name = "discontig-bg",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG, 0},
 	},
 	{
 		.fn_name = NULL,
