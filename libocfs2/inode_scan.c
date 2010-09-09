@@ -53,7 +53,8 @@ struct _ocfs2_inode_scan {
 	int buffer_blocks;
 	int blocks_in_buffer;
 	unsigned int blocks_left;
-	uint64_t bpos;
+	uint64_t b_offset;		/* bit offset in the group bitmap. */
+	uint16_t cur_discontig_rec;	/* Only valid in discontig group. */
 };
 
 
@@ -67,7 +68,7 @@ static errcode_t get_next_group(ocfs2_inode_scan *scan)
 	errcode_t ret;
 
 	if (!scan->cur_desc) {
-		if (scan->bpos)
+		if (scan->b_offset)
 			abort();
 
 		ret = ocfs2_malloc_block(scan->fs->fs_io,
@@ -76,7 +77,7 @@ static errcode_t get_next_group(ocfs2_inode_scan *scan)
 			return ret;
 	}
 
-	if (scan->bpos)
+	if (scan->b_offset)
 		scan->cur_blkno = scan->cur_desc->bg_next_group;
 
 	/*
@@ -98,7 +99,8 @@ static errcode_t get_next_group(ocfs2_inode_scan *scan)
 	scan->cur_blkno++;
 	scan->count++;
 	scan->blocks_left--;
-	scan->bpos = scan->cur_blkno;
+	scan->b_offset = 1;
+	scan->cur_discontig_rec = 0;
 
 	return 0;
 }
@@ -130,10 +132,57 @@ static errcode_t get_next_chain(ocfs2_inode_scan *scan)
 	scan->cur_rec = &di->id2.i_chain.cl_recs[scan->next_rec];
 	scan->next_rec++;
 	scan->count = 0;
-	scan->bpos = 0;
+	scan->b_offset = 0;
 	scan->cur_blkno = scan->cur_rec->c_blkno;
 
 	return 0;
+}
+
+/*
+ * Get the number of blocks we will read next.
+ * In case of discontiguous group, we will set scan->cur_blkno in case
+ * we need to read next extent record.
+ */
+static int get_next_read_blocks(ocfs2_inode_scan *scan)
+{
+	int num_blocks, rec_end;
+	struct ocfs2_extent_rec *rec;
+
+	if (!scan->cur_desc)
+		abort();
+
+	if (!scan->cur_desc->bg_list.l_next_free_rec) {
+		/* Contiguous group. Just set num_blocks. */
+		num_blocks = scan->cur_desc->bg_bits - scan->b_offset;
+		goto out;
+	}
+
+	/* We shouldn't arrived here. */
+	if (scan->cur_discontig_rec == scan->cur_desc->bg_list.l_next_free_rec)
+		abort();
+
+	rec = &scan->cur_desc->bg_list.l_recs[scan->cur_discontig_rec];
+	rec_end = ocfs2_clusters_to_blocks(scan->fs,
+					   rec->e_cpos + rec->e_leaf_clusters);
+	if (rec_end < scan->b_offset)
+		abort();
+	else if (rec_end > scan->b_offset) {
+		/* OK, we have more blocks to read in this rec. */
+		num_blocks = rec_end - scan->b_offset;
+	} else {
+		/* We have to read the next rec now. */
+		scan->cur_discontig_rec++;
+		rec = &scan->cur_desc->bg_list.l_recs[scan->cur_discontig_rec];
+		scan->cur_blkno = rec->e_blkno;
+		num_blocks = ocfs2_clusters_to_blocks(scan->fs,
+						      rec->e_leaf_clusters);
+	}
+
+out:
+	if (num_blocks > scan->buffer_blocks)
+		num_blocks = scan->buffer_blocks;
+
+	return num_blocks;
 }
 
 /*
@@ -151,8 +200,7 @@ static errcode_t fill_group_buffer(ocfs2_inode_scan *scan)
 	if (scan->cur_rec && (scan->count > scan->cur_rec->c_total))
 		abort();
 
-	if (scan->cur_rec && (scan->bpos > (scan->cur_desc->bg_blkno +
-			  scan->cur_desc->bg_bits)))
+	if (scan->cur_rec && (scan->b_offset > scan->cur_desc->bg_bits))
 		abort();
 
 	if (!scan->cur_rec || (scan->count == scan->cur_rec->c_total)) {
@@ -161,26 +209,20 @@ static errcode_t fill_group_buffer(ocfs2_inode_scan *scan)
 			return ret;
 	}
 	
-	if (!scan->bpos || (scan->bpos == (scan->cur_desc->bg_blkno +
-					   scan->cur_desc->bg_bits))) {
+	if (!scan->b_offset || (scan->b_offset == scan->cur_desc->bg_bits)) {
 		ret = get_next_group(scan);
 		if (ret)
 			return ret;
 	}
 
-
-	num_blocks = (scan->cur_desc->bg_blkno +
-		      scan->cur_desc->bg_bits) - scan->bpos;
-
-	if (num_blocks > scan->buffer_blocks)
-		num_blocks = scan->buffer_blocks;
+	num_blocks = get_next_read_blocks(scan);
 
 	ret = ocfs2_read_blocks(scan->fs, scan->cur_blkno, num_blocks,
 				scan->group_buffer);
 	if (ret)
 		return ret;
 
-	scan->bpos += num_blocks;
+	scan->b_offset += num_blocks;
 	scan->blocks_in_buffer = num_blocks;
 	scan->cur_block = scan->group_buffer;
 
