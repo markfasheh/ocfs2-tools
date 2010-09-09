@@ -313,8 +313,14 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 		strcpy(tmp_str, "Global");
 	else
 		sprintf(tmp_str, "%d", in->i_suballoc_slot);
-	fprintf(out, "\tSub Alloc Slot: %s   Sub Alloc Bit: %u\n",
+	fprintf(out, "\tSub Alloc Slot: %s   Sub Alloc Bit: %u",
 		tmp_str, in->i_suballoc_bit);
+
+	if (in->i_suballoc_loc)
+		fprintf(out, "   Sub Alloc Group %"PRIu64"\n",
+			in->i_suballoc_loc);
+	else
+		fprintf(out, "\n");
 
 	if (in->i_flags & OCFS2_BITMAP_FL)
 		fprintf(out, "\tBitmap Total: %u   Used: %u   Free: %u\n",
@@ -430,8 +436,14 @@ bail:
  */
 void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
 {
-	fprintf (out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u\n",
+	fprintf(out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u",
 		 blk->h_suballoc_bit, blk->h_suballoc_slot);
+
+	if (blk->h_suballoc_loc)
+		fprintf(out, "   SubAlloc Group: %"PRIu64"\n",
+			blk->h_suballoc_loc);
+	else
+		fprintf(out, "\n");
 
 	fprintf (out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
 		 (uint64_t)blk->h_blkno, (uint64_t)blk->h_next_leaf_blk);
@@ -611,9 +623,16 @@ void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
 		strcpy(tmp_str, "Invalid Slot");
 	else
 		sprintf(tmp_str, "%d", dr->dr_suballoc_slot);
-	fprintf(out, "\tSub Alloc Slot: %s   Sub Alloc Bit: %u   "
-		"Flags: (0x%x) %s\n",
-		tmp_str, dr->dr_suballoc_bit, dr->dr_flags, flags->str);
+	fprintf(out, "\tSub Alloc Slot: %s   Sub Alloc Bit: %u",
+		tmp_str, dr->dr_suballoc_bit);
+
+	if (dr->dr_suballoc_loc)
+		fprintf(out, "   SubAlloc Group: %"PRIu64"\n",
+			dr->dr_suballoc_loc);
+	else
+		fprintf(out, "\n");
+
+	fprintf(out, "Flags: (0x%x) %s\n", dr->dr_flags, flags->str);
 
 	fprintf(out, "\tTotal Entry Count: %d\n", dr->dr_num_entries);
 
@@ -1214,8 +1233,14 @@ void dump_refcount_block(FILE *out, struct ocfs2_refcount_block *rb)
 {
 	char flags[PATH_MAX];
 
-	fprintf(out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u\n",
+	fprintf(out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u",
 		rb->rf_suballoc_bit, rb->rf_suballoc_slot);
+
+	if (rb->rf_suballoc_loc)
+		fprintf(out, "   SubAlloc Group: %"PRIu64"\n",
+			rb->rf_suballoc_loc);
+	else
+		fprintf(out, "\n");
 
 	fprintf(out, "\tFS Generation: %u (0x%x)\n", rb->rf_fs_generation,
 		rb->rf_fs_generation);
