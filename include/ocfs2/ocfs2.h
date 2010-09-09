@@ -1312,6 +1312,14 @@ static inline int ocfs2_refcount_tree(struct ocfs2_super_block *osb)
 	return 0;
 }
 
+static inline int ocfs2_supports_discontig_bg(struct ocfs2_super_block *osb)
+{
+	if (OCFS2_HAS_INCOMPAT_FEATURE(osb,
+					OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG))
+		return 1;
+	return 0;
+}
+
 /*
  * shamelessly lifted from the kernel
  *

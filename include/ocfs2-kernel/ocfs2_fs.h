@@ -165,6 +165,9 @@
 /* Refcount tree support */
 #define OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE	0x1000
 
+/* Discontigous block groups */
+#define OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG	0x2000
+
 /*
  * backup superblock flag is used to indicate that this volume
  * has backup superblocks.
@@ -514,7 +517,10 @@ struct ocfs2_extent_block
 					   block group */
 	__le32 h_fs_generation;		/* Must match super block */
 	__le64 h_blkno;			/* Offset on disk, in blocks */
-/*20*/	__le64 h_reserved3;
+/*20*/	__le64 h_suballoc_loc;		/* Suballocator block group this
+					   eb belongs to.  Only valid
+					   if allocated from a
+					   discontiguous block group */
 	__le64 h_next_leaf_blk;		/* Offset on disk, in blocks,
 					   of next leaf header pointing
 					   to data */
@@ -681,7 +687,11 @@ struct ocfs2_dinode {
 /*80*/	struct ocfs2_block_check i_check;	/* Error checking */
 	__le64 i_dx_root;
 /*90*/	__le64 i_refcount_loc;
-	__le64 i_reserved2[4];
+	__le64 i_suballoc_loc;		/* Suballocator block group this
+					   inode belongs to.  Only valid
+					   if allocated from a
+					   discontiguous block group */
+/*A0*/	__le64 i_reserved2[3];
 /*B8*/	union {
 		__le64 i_pad1;		/* Generic way to refer to this
 					   64bit union */
@@ -816,7 +826,12 @@ struct ocfs2_dx_root_block {
 	__le32		dr_reserved2;
 	__le64		dr_free_blk;		/* Pointer to head of free
 						 * unindexed block list. */
-	__le64		dr_reserved3[15];
+	__le64          dr_suballoc_loc;        /* Suballocator block group
+						 * this root belongs to.
+						 * Only valid if allocated
+						 * from a discontiguous
+						 * block group. */
+	__le64		dr_reserved3[14];
 	union {
 		struct ocfs2_extent_list dr_list; /* Keep this aligned to 128
 						   * bits for maximum space
@@ -842,6 +857,13 @@ struct ocfs2_dx_leaf {
 };
 
 /*
+ * Largest bitmap for a block (suballocator) group in bytes.  This limit
+ * does not affect cluster groups (global allocator).  Cluster group
+ * bitmaps run to the end of the block.
+ */
+#define OCFS2_MAX_BG_BITMAP_SIZE	256
+
+/*
  * On disk allocator group structure for OCFS2
  */
 struct ocfs2_group_desc
@@ -862,7 +884,29 @@ struct ocfs2_group_desc
 	__le64   bg_blkno;               /* Offset on disk, in blocks */
 /*30*/	struct ocfs2_block_check bg_check;	/* Error checking */
 	__le64   bg_reserved2;
-/*40*/	__u8    bg_bitmap[0];
+/*40*/	union {
+		__u8    bg_bitmap[0];
+		struct {
+			/*
+			 * Block groups may be discontiguous when
+			 * OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG is set.
+			 * The extents of a discontigous block group are
+			 * stored in bg_list.  It is a flat list.
+			 * l_tree_depth must always be zero.  A
+			 * discontiguous group is signified by a non-zero
+			 * bg_list->l_next_free_rec.  Only block groups
+			 * can be discontiguous; Cluster groups cannot.
+			 * We've never made a block group with more than
+			 * 2048 blocks (256 bytes of bg_bitmap).  This
+			 * codifies that limit so that we can fit bg_list.
+			 * bg_size of a discontiguous block group will
+			 * be 256 to match bg_bitmap_filler.
+			 */
+			__u8 bg_bitmap_filler[OCFS2_MAX_BG_BITMAP_SIZE];
+/*140*/			struct ocfs2_extent_list bg_list;
+		};
+	};
+/* Actual on-disk size is one block */
 };
 
 struct ocfs2_refcount_rec {
@@ -907,7 +951,11 @@ struct ocfs2_refcount_block {
 /*40*/	__le32 rf_generation;		/* generation number. all be the same
 					 * for the same refcount tree. */
 	__le32 rf_reserved0;
-	__le64 rf_reserved1[7];
+	__le64 rf_suballoc_loc;		/* Suballocator block group this
+					   refcount block belongs to. Only
+					   valid if allocated from a
+					   discontiguous block group */
+/*50*/	__le64 rf_reserved1[6];
 /*80*/	union {
 		struct ocfs2_refcount_list rf_records;  /* List of refcount
 							  records */
@@ -1020,7 +1068,10 @@ struct ocfs2_xattr_block {
 					real xattr or a xattr tree. */
 	__le16	xb_reserved0;
 	__le32  xb_reserved1;
-	__le64	xb_reserved2;
+	__le64	xb_suballoc_loc;	/* Suballocator block group this
+					   xattr block belongs to. Only
+					   valid if allocated from a
+					   discontiguous block group */
 /*30*/	union {
 		struct ocfs2_xattr_header xb_header; /* xattr header if this
 							block contains xattr */
