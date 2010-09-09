@@ -39,12 +39,19 @@ struct chainalloc_bitmap_private {
 	ocfs2_cached_inode	*cb_cinode;
 	errcode_t		cb_errcode;
 	int			cb_dirty;
+	int			cb_suballoc;
 };
 
 struct chainalloc_region_private {
 	struct chainalloc_bitmap_private	*cr_cb;
 	struct ocfs2_group_desc			*cr_ag;
 	int					cr_dirty;
+
+	/* In discontiguous group block, it is set as
+	 * the bit offset of this region in the whole group.
+	 * As for contiguous group, it is set to 0.
+	 */
+	int					bit_offset;
 };
 
 
@@ -58,7 +65,11 @@ static void chainalloc_destroy_notify(ocfs2_bitmap *bitmap)
 		br = rb_entry(node, struct ocfs2_bitmap_region, br_node);
 
 		cr = br->br_private;
-		if (cr->cr_ag)
+		/*
+		 * For discontiguous block group, only destroy
+		 * cr_ag once when we meet with the head.
+		 */
+		if (cr->cr_ag && !cr->bit_offset)
 			ocfs2_free(&cr->cr_ag);
 		ocfs2_free(&br->br_private);
 	}
@@ -80,17 +91,137 @@ static uint64_t chainalloc_scale_start_bit(ocfs2_filesys *fs,
 		return blkno / (bitsize / fs->fs_blocksize);
 }
 
+/*
+ * Find the next bitmap_region we could add in the block group.
+ * For contiguous group, the return bits will contains the whole group.
+ * For a discontiguous one, every leaf extent record will become an
+ * individual ocfs2_bitmap_region. So the 'bits' are set properly.
+ */
+static void chainalloc_get_next_region(ocfs2_filesys *fs,
+				       struct ocfs2_group_desc *gd,
+				       struct chainalloc_bitmap_private *cb,
+				       uint64_t *start_bit,
+				       int bit_offset, int *region_bits,
+				       int *set_bits)
+{
+	int i;
+	int bpc = cb->cb_cinode->ci_inode->id2.i_chain.cl_bpc;
+	uint32_t cpos;
+	uint64_t blkno = gd->bg_blkno;
+	struct ocfs2_extent_rec *rec = NULL;
+
+	if (!ocfs2_gd_is_discontig(gd) || !gd->bg_list.l_next_free_rec) {
+		/* OK, a contiguous group. */
+		if (bit_offset)
+			abort();
+
+		if (blkno == OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group)
+			blkno = 0;
+
+		*start_bit = chainalloc_scale_start_bit(fs, blkno, bpc);
+		*region_bits = gd->bg_bits;
+
+		*set_bits = gd->bg_bits - gd->bg_free_bits_count;
+		return;
+	}
+
+	/* handle discontiguous group. */
+	cpos = bit_offset / bpc;
+	for (i = 0; i < gd->bg_list.l_next_free_rec; i++) {
+		rec = &gd->bg_list.l_recs[i];
+
+		if (rec->e_cpos == cpos)
+			break;
+	}
+
+	if (i == gd->bg_list.l_next_free_rec)
+		abort();
+
+	*start_bit = chainalloc_scale_start_bit(fs, rec->e_blkno, bpc);
+	*region_bits = rec->e_leaf_clusters * bpc;
+	*set_bits = ocfs2_get_bits_set(gd->bg_bitmap,
+				       bit_offset + *region_bits, bit_offset);
+
+	return;
+}
+
+/*
+ * Create bitmap regions for the group.
+ * For contiguous group, create one region for the whole group.
+ * For a discontiguous one, every leaf extent record will become an
+ * individual ocfs2_bitmap_region and be inserted.
+ */
+static errcode_t create_chainalloc_region(ocfs2_filesys *fs,
+					  ocfs2_bitmap *bitmap,
+					  struct ocfs2_group_desc *gd,
+					  struct chainalloc_bitmap_private *cb)
+{
+	errcode_t ret;
+	int total_bits = gd->bg_bits;
+	int region_bits = 0, bit_offset = 0, set_bits = 0;
+	uint64_t start_bit;
+	struct chainalloc_region_private *cr = NULL;
+	struct ocfs2_bitmap_region *br = NULL;
+
+	while (total_bits) {
+		chainalloc_get_next_region(fs, gd, cb, &start_bit,
+					   bit_offset, &region_bits,
+					   &set_bits);
+
+		ret = ocfs2_malloc0(sizeof(struct chainalloc_region_private),
+				    &cr);
+		if (ret)
+			break;
+
+		cr->cr_cb = cb;
+		cr->cr_ag = gd;
+		cr->bit_offset = bit_offset;
+
+		/*
+		 * In case bit_offset isn't aligned to byte,
+		 * We have to alloc/copy some addiontal bits in
+		 * the head.
+		 */
+		ret = ocfs2_bitmap_alloc_region(bitmap,
+						start_bit,
+						bit_offset % 8,
+						region_bits,
+						&br);
+		if (ret)
+			break;
+
+		br->br_private = cr;
+		memcpy(br->br_bitmap, cr->cr_ag->bg_bitmap + bit_offset / 8,
+		       br->br_bytes);
+		br->br_set_bits = set_bits;
+
+		ret = ocfs2_bitmap_insert_region(bitmap, br);
+		if (ret)
+			break;
+		br = NULL;
+		cr = NULL;
+		total_bits -= region_bits;
+		bit_offset += region_bits;
+	}
+
+	if (br)
+		ocfs2_bitmap_free_region(br);
+	if (cr)
+		ocfs2_free(&cr);
+
+	return ret;
+}
+
+
 static int chainalloc_process_group(ocfs2_filesys *fs,
 				    uint64_t gd_blkno,
 				    int chain_num,
 				    void *priv_data)
 {
 	ocfs2_bitmap *bitmap = priv_data;
-	struct ocfs2_bitmap_region *br;
 	struct chainalloc_bitmap_private *cb = bitmap->b_private;
-	struct chainalloc_region_private *cr;
-	uint64_t start_bit;
 	char *gd_buf;
+	struct ocfs2_group_desc *gd;
 
 	cb->cb_errcode = ocfs2_malloc_block(fs->fs_io, &gd_buf);
 	if (cb->cb_errcode)
@@ -100,48 +231,13 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 	if (cb->cb_errcode)
 		goto out_free_buf;
 
-	cb->cb_errcode = ocfs2_malloc0(sizeof(struct chainalloc_region_private),
-				       &cr);
+	gd = (struct ocfs2_group_desc *)gd_buf;
+
+	cb->cb_errcode = create_chainalloc_region(fs, bitmap, gd, cb);
 	if (cb->cb_errcode)
 		goto out_free_buf;
 
-	cr->cr_cb = cb;
-	cr->cr_ag = (struct ocfs2_group_desc *)gd_buf;
-
-	cb->cb_errcode = OCFS2_ET_CORRUPT_GROUP_DESC;
-	if (cr->cr_ag->bg_size !=
-	    ocfs2_group_bitmap_size(fs->fs_blocksize, 0,
-				OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat))
-		goto out_free_cr;
-
-	if (gd_blkno == OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group)
-		gd_blkno = 0;
-
-	start_bit = chainalloc_scale_start_bit(fs, gd_blkno,
-					       cb->cb_cinode->ci_inode->id2.i_chain.cl_bpc);
-	cb->cb_errcode = ocfs2_bitmap_alloc_region(bitmap,
-						   start_bit,
-						   0,
-						   cr->cr_ag->bg_bits,
-						   &br);
-	if (cb->cb_errcode)
-		goto out_free_cr;
-
-	br->br_private = cr;
-	memcpy(br->br_bitmap, cr->cr_ag->bg_bitmap, br->br_bytes);
-	br->br_set_bits = cr->cr_ag->bg_bits - cr->cr_ag->bg_free_bits_count;
-
-	cb->cb_errcode = ocfs2_bitmap_insert_region(bitmap, br);
-	if (cb->cb_errcode)
-		goto out_free_region;
-
 	return 0;
-
-out_free_region:
-	ocfs2_bitmap_free_region(br);
-
-out_free_cr:
-	ocfs2_free(&cr);
 
 out_free_buf:
 	ocfs2_free(&gd_buf);
@@ -172,11 +268,38 @@ static errcode_t chainalloc_write_group(struct ocfs2_bitmap_region *br,
 	struct chainalloc_region_private *cr = br->br_private;
 	ocfs2_filesys *fs = private_data;
 	errcode_t ret = 0;
+	uint8_t *bm, *gbm;
+	int offset, end;
 
 	if (!cr->cr_dirty)
 		return 0;
 
-	memcpy(cr->cr_ag->bg_bitmap, br->br_bitmap, br->br_bytes);
+	if (cr->bit_offset) {
+		/*
+		 * Discontiguous block group.
+		 * The lower bits of bg_bitmap[0] isn't controled by this br,
+		 * so we should copy them from the original group bitmap.
+		 */
+		offset = cr->bit_offset % 8;
+		gbm = &cr->cr_ag->bg_bitmap[cr->bit_offset / 8];
+		bm = &br->br_bitmap[0];
+
+		*bm &= 0xFF << offset;
+		*bm |= *gbm & (0xFF >> (8 - offset));
+	}
+
+	if (br->br_total_bits % 8 != 0) {
+		end = cr->bit_offset + br->br_valid_bits;
+		offset = end % 8;
+		gbm = &cr->cr_ag->bg_bitmap[end / 8];
+		bm = &br->br_bitmap[br->br_total_bits / 8];
+
+		*bm &= 0xFF >> (8 - offset);
+		*bm |= *gbm & (0xFF << offset);
+	}
+
+	memcpy(cr->cr_ag->bg_bitmap + cr->bit_offset / 8,
+	       br->br_bitmap, br->br_bytes);
 
 	ret = ocfs2_write_group_desc(fs, cr->cr_ag->bg_blkno, 
 				     (char *)cr->cr_ag);
@@ -292,19 +415,21 @@ static errcode_t ocfs2_chainalloc_bitmap_new(ocfs2_filesys *fs,
 	return 0;
 }
 
-static void ocfs2_chainalloc_set_cinode(ocfs2_bitmap *bitmap,
-					ocfs2_cached_inode *cinode)
+static void ocfs2_chainalloc_set_private(ocfs2_bitmap *bitmap,
+					 ocfs2_cached_inode *cinode,
+					 uint64_t gb_blkno)
 {
 	struct chainalloc_bitmap_private *cb = bitmap->b_private;
 
 	cb->cb_cinode = cinode;
+	cb->cb_suballoc = (gb_blkno != cinode->ci_inode->i_blkno);
 }
 
 errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 				     ocfs2_cached_inode *cinode)
 {
 	errcode_t ret;
-	uint64_t total_bits;
+	uint64_t total_bits, gb_blkno;
 	char name[256];
 
 	if (cinode->ci_chains)
@@ -313,6 +438,11 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 	total_bits = (uint64_t)fs->fs_clusters *
 		cinode->ci_inode->id2.i_chain.cl_bpc;
 
+	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+					0, &gb_blkno);
+	if (ret)
+		return ret;
+
 	snprintf(name, sizeof(name),
 		 "Chain allocator inode %"PRIu64, cinode->ci_blkno);
 	ret = ocfs2_chainalloc_bitmap_new(fs, name, total_bits,
@@ -320,8 +450,8 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 	if (ret)
 		return ret;
 
-	ocfs2_chainalloc_set_cinode(cinode->ci_chains,
-				    cinode);
+	ocfs2_chainalloc_set_private(cinode->ci_chains,
+				    cinode, gb_blkno);
 	ret = ocfs2_bitmap_read(cinode->ci_chains);
 	if (ret) {
 		ocfs2_bitmap_free(cinode->ci_chains);
@@ -541,7 +671,7 @@ errcode_t ocfs2_chain_add_group(ocfs2_filesys *fs,
 			      cinode->ci_inode->i_blkno,
 			      cinode->ci_inode->id2.i_chain.cl_cpg *
 			      cinode->ci_inode->id2.i_chain.cl_bpc,
-			      chain_num, 0);
+			      chain_num, cb->cb_suballoc);
 
 	rec = &cinode->ci_inode->id2.i_chain.cl_recs[chain_num];
 	old_blkno = rec->c_blkno;
