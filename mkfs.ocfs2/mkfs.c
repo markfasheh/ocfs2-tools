@@ -2193,6 +2193,24 @@ static void mkfs_swap_inode_from_cpu(State *s, struct ocfs2_dinode *di)
 	ocfs2_swap_inode_from_cpu(&fake_fs, di);
 }
 
+static void mkfs_swap_group_desc_from_cpu(State *s, struct ocfs2_group_desc *gd)
+{
+	ocfs2_filesys fake_fs;
+	char super_buf[OCFS2_MAX_BLOCKSIZE];
+
+	fill_fake_fs(s, &fake_fs, super_buf);
+	ocfs2_swap_group_desc_from_cpu(&fake_fs, gd);
+}
+
+static void mkfs_swap_group_desc_to_cpu(State *s, struct ocfs2_group_desc *gd)
+{
+	ocfs2_filesys fake_fs;
+	char super_buf[OCFS2_MAX_BLOCKSIZE];
+
+	fill_fake_fs(s, &fake_fs, super_buf);
+	ocfs2_swap_group_desc_to_cpu(&fake_fs, gd);
+}
+
 static void
 format_superblock(State *s, SystemFileDiskRecord *rec,
 		  SystemFileDiskRecord *root_rec, SystemFileDiskRecord *sys_rec)
@@ -2497,7 +2515,7 @@ write_bitmap_data(State *s, AllocBitmap *bitmap)
 		gd->bg_parent_dinode = parent_blkno;
 		memcpy(buf, gd, s->blocksize);
 		gd_buf = (struct ocfs2_group_desc *)buf;
-		ocfs2_swap_group_desc(gd_buf);
+		mkfs_swap_group_desc_from_cpu(s, gd_buf);
 		mkfs_compute_meta_ecc(s, buf, &gd_buf->bg_check);
 		do_pwrite(s, buf, s->cluster_size,
 			  gd->bg_blkno << s->blocksize_bits);
@@ -2509,10 +2527,10 @@ static void
 write_group_data(State *s, AllocGroup *group)
 {
 	uint64_t blkno = group->gd->bg_blkno;
-	ocfs2_swap_group_desc(group->gd);
+	mkfs_swap_group_desc_from_cpu(s, group->gd);
 	mkfs_compute_meta_ecc(s, group->gd, &group->gd->bg_check);
 	do_pwrite(s, group->gd, s->blocksize, blkno << s->blocksize_bits);
-	ocfs2_swap_group_desc(group->gd);
+	mkfs_swap_group_desc_to_cpu(s, group->gd);
 }
 
 static void mkfs_swap_dir(State *s, DirData *dir,

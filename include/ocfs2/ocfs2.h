@@ -618,7 +618,10 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local);
 errcode_t ocfs2_get_ocfs1_label(char *device, uint8_t *label, uint16_t label_len,
 				uint8_t *uuid, uint16_t uuid_len);
 
-void ocfs2_swap_group_desc(struct ocfs2_group_desc *gd);
+void ocfs2_swap_group_desc_from_cpu(ocfs2_filesys *fs,
+				    struct ocfs2_group_desc *gd);
+void ocfs2_swap_group_desc_to_cpu(ocfs2_filesys *fs,
+				  struct ocfs2_group_desc *gd);
 errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 				char *gd_buf);
 

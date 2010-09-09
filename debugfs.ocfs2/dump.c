@@ -875,7 +875,8 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 		break;
 	case DUMP_BLOCK_GROUP_DESCRIPTOR:
 		fprintf(out, "Group\n");
-		ocfs2_swap_group_desc((struct ocfs2_group_desc *)buf);
+		ocfs2_swap_group_desc_to_cpu(gbls.fs,
+				      (struct ocfs2_group_desc *)buf);
 		dump_group_descriptor (out, (struct ocfs2_group_desc *)buf, 0);
 		fprintf (out, "\n");
 		break;
