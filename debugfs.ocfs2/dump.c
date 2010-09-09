@@ -481,6 +481,9 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
 		(grp->bg_bits - grp->bg_free_bits_count),
 		grp->bg_free_bits_count, max_contig_free_bits, grp->bg_size);
 
+	if (ocfs2_gd_is_discontig(grp))
+		dump_extent_list(out, &grp->bg_list);
+
 	return ;
 }
 
