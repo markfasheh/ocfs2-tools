@@ -155,6 +155,197 @@ out:
 	return ret;
 }
 
+static void check_discontig_bg(o2fsck_state *ost, int cpg,
+			       struct ocfs2_group_desc *bg,
+			       int *changed, int *clear_ref)
+{
+	uint64_t blkno = bg->bg_blkno;
+	int next_free, i, total_clusters = 0;
+	int fix_pos = -1;
+	struct ocfs2_extent_rec *rec;
+
+	if (bg->bg_list.l_tree_depth &&
+	    prompt(ost, PY, PR_DISCONTIG_BG_DEPTH,
+		   "Discontiguous Group descriptor at block %"PRIu64" has "
+		   "a tree depth %u which is greater than 0. "
+		   "Change it to 0?", blkno, bg->bg_list.l_tree_depth)) {
+		bg->bg_list.l_tree_depth = 0;
+		*changed = 1;
+	}
+
+	if ((bg->bg_list.l_count >
+	     ocfs2_extent_recs_per_gd(ost->ost_fs->fs_blocksize)) &&
+	    prompt(ost, PY, PR_DISCONTIG_BG_COUNT,
+		   "Discontigous group descriptor at block %"PRIu64" has "
+		   "an extent count of %u, but discontiguous groups can "
+		   "only hold %u records.  Set it to %u?", blkno,
+		   bg->bg_list.l_count,
+		   ocfs2_extent_recs_per_gd(ost->ost_fs->fs_blocksize),
+		   ocfs2_extent_recs_per_gd(ost->ost_fs->fs_blocksize))) {
+		bg->bg_list.l_count =
+			ocfs2_extent_recs_per_gd(ost->ost_fs->fs_blocksize);
+		*changed = 1;
+	}
+
+	if (bg->bg_list.l_next_free_rec > bg->bg_list.l_count)
+		next_free = bg->bg_list.l_count;
+	else
+		next_free = bg->bg_list.l_next_free_rec;
+
+	for (i = 0; i < next_free; i++) {
+		rec = &bg->bg_list.l_recs[i];
+
+		/*
+		 * We treat e_blkno = 0 and e_leaf_cluster = 0 as the
+		 * end of the extent list so that we can find the proper
+		 * l_next_free_rec.
+		 */
+		if (!rec->e_blkno && !rec->e_leaf_clusters)
+			break;
+
+		if (ocfs2_block_out_of_range(ost->ost_fs, rec->e_blkno) ||
+		    ocfs2_block_out_of_range(ost->ost_fs, rec->e_blkno +
+			ocfs2_clusters_to_blocks(ost->ost_fs,
+						 rec->e_leaf_clusters) - 1)) {
+			if (prompt(ost, PY, PR_DISCONTIG_BG_REC_RANGE,
+				   "Discontiguous block group %"PRIu64" in "
+				   "chain %d of inode %"PRIu64" claims "
+				   "clusters which is out of range. "
+				   "Drop this group?",
+				   blkno, bg->bg_chain,
+				   (uint64_t)bg->bg_parent_dinode))
+				*clear_ref = 1;
+			goto out;
+		}
+
+		if (rec->e_leaf_clusters > cpg) {
+			if (fix_pos >= 0) {
+				if (prompt(ost, PY,
+					   PR_DISCONTIG_BG_CORRUPT_LEAVES,
+					   "Discontiguous block group %"PRIu64
+					   " in chain %d of inode %"PRIu64" "
+					   "has errors in more than one extent "
+					   "record.  Record %d claims %u "
+					   "clusters and record %d claims %u "
+					   "clusters, but a group does not "
+					   "contain more than %u clusters. "
+					   "Drop this group?", blkno,
+					   bg->bg_chain,
+					   (uint64_t)bg->bg_parent_dinode,
+					   fix_pos,
+					   bg->bg_list.l_recs[fix_pos].e_leaf_clusters,
+					   i, rec->e_leaf_clusters, cpg))
+					*clear_ref = 1;
+				goto out;
+			}
+			fix_pos = i;
+			continue;
+		}
+
+		if ((total_clusters + rec->e_leaf_clusters) > cpg) {
+			if (total_clusters == cpg) {
+				if (fix_pos >= 0) {
+					/*
+					 * We have to drop the group here since
+					 * both l_next_free_rec and a extent
+					 * record have errors.
+					 */
+					if (prompt(ost, PY,
+						   PR_DISCONTIG_BG_LIST_CORRUPT,
+						   "Discontiguous group "
+						   "descriptor at block "
+						   "%"PRIu64" claims to use %u "
+						   "extents but only has %u "
+						   "filled in.  The filled in "
+						   "records contain errors. "
+						   "Drop this group?",
+						   blkno,
+						   bg->bg_list.l_next_free_rec,
+						   i))
+						*clear_ref = 1;
+					goto out;
+				}
+
+				/*
+				 * break out here so that we can fix the
+				 * l_next_free_rec.
+				 */
+				break;
+			} else {
+				if (prompt(ost, PY, PR_DISCONTIG_BG_CLUSTERS,
+					   "Discontiguous group descriptor at "
+					   "block %"PRIu64" claims to have %u "
+					   "clusters but a group does not "
+					   "contain more than %u clusters. "
+					   "Drop the group?",
+					   blkno,
+					   total_clusters +
+					   rec->e_leaf_clusters, cpg))
+					*clear_ref = 1;
+				goto out;
+			}
+		} else
+			total_clusters += rec->e_leaf_clusters;
+	}
+
+	if (bg->bg_list.l_next_free_rec != i) {
+		/* Change l_next_free_rec since the extent list look sane. */
+		if (prompt(ost, PY,
+			   PR_DISCONTIG_BG_NEXT_FREE_REC,
+			   "Discontiguous group descriptor at "
+			   "block %"PRIu64" claims to use %u "
+			   "extents but only has %u filled in. "
+			   "The filled in records appear to "
+			   "be correct.  Set the used extent "
+			   "count to the number filled in?",
+			   blkno, bg->bg_list.l_next_free_rec,
+			   i)) {
+			bg->bg_list.l_next_free_rec = i;
+			*changed = 1;
+		}
+	}
+
+	if (fix_pos < 0 && total_clusters < cpg) {
+		if (prompt(ost, PY, PR_DISCONTIG_BG_LESS_CLUSTERS,
+			   "Discontiguous group descriptor at "
+			   "block %"PRIu64" claims to have %u "
+			   "clusters but a group does not "
+			   "contain less than %u clusters. "
+			   "Drop the group?",
+			   blkno, total_clusters, cpg))
+			*clear_ref = 1;
+		goto out;
+	}
+
+	if (fix_pos >= 0) {
+		rec = &bg->bg_list.l_recs[fix_pos];
+
+		if (total_clusters == cpg) {
+			if (prompt(ost, PY, PR_DISCONTIG_BG_REC_CORRUPT,
+				   "Extent record %d of discontiguous group "
+				   "descriptor at block %"PRIu64" claims %u "
+				   "clusters, but a group does not "
+				   "contain more than %u clusters. "
+				   "Drop the group?",
+				   fix_pos, blkno, rec->e_leaf_clusters, cpg))
+					*clear_ref = 1;
+				goto out;
+		}
+
+		if (prompt(ost, PY, PR_DISCONTIG_BG_LEAF_CLUSTERS,
+			   "Extent record %d of discontiguous group "
+			   "descriptor %"PRIu64" claims %u clusters, "
+			   "but it should only have %u.  Correct it?",
+			   fix_pos, blkno, rec->e_leaf_clusters,
+			   cpg - total_clusters)) {
+			rec->e_leaf_clusters = cpg - total_clusters;
+			*changed = 1;
+		}
+	}
+out:
+	return;
+}
+
 static errcode_t repair_group_desc(o2fsck_state *ost,
 				   struct ocfs2_dinode *di,
 				   struct chain_state *cs,
@@ -250,6 +441,11 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 		bg->bg_free_bits_count = max_free_bits;
 		changed = 1;
 	}
+
+	if (ocfs2_gd_is_discontig(bg))
+		check_discontig_bg(ost, cs->cs_cpg, bg, &changed, clear_ref);
+	if (*clear_ref)
+		goto out;
 
 	/* XXX check bg_bits vs cpg/bpc. */
 

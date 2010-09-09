@@ -295,6 +295,76 @@ what was found by totalling up the group descriptors.
 Answering yes updates the c_total and c_free members of the header to reflect
 what was found in the group descriptors in the chain.
 
+.SS "DISCONTIG_BG_DEPTH"
+A discontiguous block group has an extent list which records all the clusters
+allocated to it.  Discontiguous block groups only support extent lists with
+a tree depth of 0.  A block group claims to have a tree depth greater than 0.
+
+Answering yes will set the tree depth of the extent list to 0.
+
+.SS "DISCONTIG_BG_COUNT"
+A discontiguous block group has an extent list which records all the clusters
+allocated to it. A block group claims to have more records than can actually
+fit.
+
+Answering yes will set the record count to the maximum possible.
+
+.SS "DISCONTIG_BG_REC_RANGE"
+Block groups set aside clusters to be used for metadata.  A discontiguous
+block group claims to contain clusters beyond the end of the volume.
+
+Answering yes will remove the block group.
+
+.SS "DISCONTIG_BG_CORRUPT_LEAVES"
+A discontiguous block group has an extent list which records all the clusters
+allocated to it.  A group has more than one extent claiming to have an
+impossible number of clusters.
+
+Answering yes will remove the block group.
+
+.SS "DISCONTIG_BG_CLUSTERS"
+Extent records in a discontiguous block group were found having more clusters
+allocated then a block group can have.
+
+Answering yes will remove the block group.
+
+.SS "DISCONTIG_BG_LESS_CLUSTERS"
+Extent records in a discontiguous block group were found having less clusters
+allocated then a block group can have.
+
+Answering yes will remove the block group.
+
+.SS "DISCONTIG_BG_NEXT_FREE_REC"
+A discontiguous block group has an extent list which records all the clusters
+allocated to it. A group was found with fewer filled in extents than it claims
+to have.  The filled in extents describe a complete and correct group.
+
+Answering yes will set the used extent count to the number of filled extents.
+
+.SS "DISCONTIG_BG_LIST_CORRUPT"
+A discontiguous block group has an extent list which records all the clusters
+allocated to it.  The group claims to have more extents than is possible, and
+the existing extents contain errors.
+
+Answering yes will remove the block group.
+
+.SS "DISCONTIG_BG_REC_CORRUPT"
+A discontiguous block group has a extent list which records all the clusters
+allocated to it.  A group was found with one extent claiming too many
+clusters but the sum of the remaining extents are equal to the total clusters
+a group must have.
+
+Answering yes will remove the block group.
+
+.SS "DISCONTIG_BG_LEAF_CLUSTERS"
+A discontiguous block group has a extent list which records all the clusters
+allocated to it.  A group was found with one extent claiming too many
+clusters, but the remaining extents are correct.
+
+Answering yes will set the number of the clusters on the broken extent
+to the difference between the total clusters a group must have and the
+sum of the remaining extents.
+
 \" pass1.c
 
 .SS "INODE_ALLOC_REPAIR"
