@@ -1168,7 +1168,7 @@ static inline void ocfs2_calc_cluster_groups(uint64_t clusters,
 					     uint64_t blocksize,
 				     struct ocfs2_cluster_group_sizes *cgs)
 {
-	uint16_t max_bits = 8 * ocfs2_group_bitmap_size(blocksize);
+	uint16_t max_bits = 8 * ocfs2_group_bitmap_size(blocksize, 0, 0);
 
 	cgs->cgs_cpg = max_bits;
 	if (max_bits > clusters)

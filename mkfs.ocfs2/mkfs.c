@@ -1711,7 +1711,8 @@ initialize_alloc_group(State *s, const char *name,
 
 	strcpy((char *)group->gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
 	group->gd->bg_generation = s->vol_generation;
-	group->gd->bg_size = (uint32_t)ocfs2_group_bitmap_size(s->blocksize);
+	group->gd->bg_size =
+			(uint32_t)ocfs2_group_bitmap_size(s->blocksize, 0, 0);
 	group->gd->bg_bits = cpg * bpc;
 	group->gd->bg_chain = chain;
 	group->gd->bg_parent_dinode = alloc_inode->fe_off >> 
@@ -2366,7 +2367,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 		di->id2.i_chain.cl_count = 
 			ocfs2_chain_recs_per_inode(s->blocksize);
 		di->id2.i_chain.cl_cpg =
-				 ocfs2_group_bitmap_size(s->blocksize) * 8;
+			 ocfs2_group_bitmap_size(s->blocksize, 0, 0) * 8;
 		di->id2.i_chain.cl_bpc = 1;
 		if (s->nr_cluster_groups > 
 		    ocfs2_chain_recs_per_inode(s->blocksize)) {

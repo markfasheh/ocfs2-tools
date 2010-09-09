@@ -62,7 +62,7 @@ int main (int argc, char **argv)
 	       "size %"PRIu64" bytes\n", max_size);
 
 	for (bs = 9; bs < 13; bs++) {
-		cpg = ocfs2_group_bitmap_size(1 << bs) * 8;
+		cpg = ocfs2_group_bitmap_size(1 << bs, 0, 0) * 8;
 		stringyfy((1 << bs), 'b', blkstr);
 		for (cs = 12; cs < 21; cs++) {
 			for (bytoff = 0, clsoff = 0; bytoff < max_size; ) {

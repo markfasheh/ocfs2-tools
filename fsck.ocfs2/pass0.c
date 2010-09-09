@@ -991,7 +991,9 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 		}
 
 		/* first some easy fields */
-		bg->bg_size = ocfs2_group_bitmap_size(ost->ost_fs->fs_blocksize);
+		bg->bg_size = ocfs2_group_bitmap_size(
+			ost->ost_fs->fs_blocksize, 0,
+			OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_incompat);
 		bg->bg_bits = bits;
 		bg->bg_parent_dinode = di->i_blkno;
 		bg->bg_blkno = blkno;

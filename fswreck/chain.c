@@ -286,7 +286,8 @@ static void mess_up_superblock_clusters(ocfs2_filesys *fs, int excess)
 
 	di = (struct ocfs2_dinode *)buf;
 
-	cpg= 8 * ocfs2_group_bitmap_size(fs->fs_blocksize);
+	cpg = 8 * ocfs2_group_bitmap_size(fs->fs_blocksize, 0,
+				OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat);
 
 	/* make the wrong value to 2.5 times of cluster_per_group. */
 	wrong = cpg * 2 + cpg / 2;

@@ -294,7 +294,8 @@ static void check_computed_blocks(ocfs2_filesys *fs, uint64_t gb_blkno,
 	if (*found >= count)
 		return;
 
-	cpg = ocfs2_group_bitmap_size(1 << fs->fs_blocksize) * 8;
+	cpg = ocfs2_group_bitmap_size(fs->fs_blocksize, 0,
+			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat) * 8;
 	bpg = ocfs2_clusters_to_blocks(fs, cpg);
 
 	for (i = 0; i < count; ++i) {

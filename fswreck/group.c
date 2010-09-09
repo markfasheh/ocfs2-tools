@@ -268,7 +268,8 @@ void mess_up_cluster_group_desc(ocfs2_filesys *fs, enum fsck_type type,
 		FSWRK_COM_FATAL(progname, ret);
 
 	start_cluster = ocfs2_blocks_to_clusters(fs, start_blk);
-	cpg = ocfs2_group_bitmap_size(fs->fs_blocksize) * 8;
+	cpg = ocfs2_group_bitmap_size(fs->fs_blocksize, 0,
+		OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat) * 8;
 	bg_blk = ocfs2_which_cluster_group(fs, cpg, start_cluster);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);

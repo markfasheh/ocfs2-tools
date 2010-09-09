@@ -109,7 +109,9 @@ static int chainalloc_process_group(ocfs2_filesys *fs,
 	cr->cr_ag = (struct ocfs2_group_desc *)gd_buf;
 
 	cb->cb_errcode = OCFS2_ET_CORRUPT_GROUP_DESC;
-	if (cr->cr_ag->bg_size != ocfs2_group_bitmap_size(fs->fs_blocksize))
+	if (cr->cr_ag->bg_size !=
+	    ocfs2_group_bitmap_size(fs->fs_blocksize, 0,
+				OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat))
 		goto out_free_cr;
 
 	if (gd_blkno == OCFS2_RAW_SB(fs->fs_super)->s_first_cluster_group)
@@ -487,7 +489,8 @@ void ocfs2_init_group_desc(ocfs2_filesys *fs,
 
 	strcpy((char *)gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
 	gd->bg_generation = generation;
-	gd->bg_size = ocfs2_group_bitmap_size(fs->fs_blocksize);
+	gd->bg_size = ocfs2_group_bitmap_size(fs->fs_blocksize, 0,
+			OCFS2_RAW_SB(fs->fs_super)->s_feature_incompat);
 	gd->bg_bits = bits;
 	gd->bg_chain = chain;
 	gd->bg_parent_dinode = parent_inode;
