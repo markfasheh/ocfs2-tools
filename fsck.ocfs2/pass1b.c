@@ -367,6 +367,7 @@ struct process_extents_context {
 	struct ocfs2_dinode *di;
 	errcode_t ret;
 	uint64_t global_bitmap_blkno;
+	char *extra_buf;
 };
 
 static errcode_t process_dup_clusters(struct process_extents_context *pc,
@@ -415,14 +416,44 @@ static int process_inode_chains(ocfs2_filesys *fs, uint64_t gd_blkno,
 {
 	struct process_extents_context *pc = priv_data;
 	uint32_t clusters = pc->di->id2.i_chain.cl_cpg;
+	struct ocfs2_group_desc *gd;
+	int i;
 
 	if (pc->di->i_blkno == pc->global_bitmap_blkno)
 		clusters = 1;
 
-	pc->ret = process_dup_clusters(pc,
-				       ocfs2_blocks_to_clusters(fs, gd_blkno),
-				       clusters, 0);
+	if (!ocfs2_supports_discontig_bg(OCFS2_RAW_SB(fs->fs_super)) ||
+	    (pc->di->i_blkno == pc->global_bitmap_blkno)) {
+		pc->ret = process_dup_clusters(pc,
+					ocfs2_blocks_to_clusters(fs, gd_blkno),
+					clusters, 0);
+		goto out;
+	}
 
+	pc->ret = ocfs2_read_group_desc(fs, gd_blkno, pc->extra_buf);
+	if (pc->ret)
+		goto out;
+
+	gd = (struct ocfs2_group_desc *)pc->extra_buf;
+	if (!ocfs2_gd_is_discontig(gd)) {
+		pc->ret = process_dup_clusters(pc,
+					ocfs2_blocks_to_clusters(fs, gd_blkno),
+					clusters, 0);
+		goto out;
+	}
+
+	/* Now check the discontiguous group case. */
+	for (i = 0; i < gd->bg_list.l_next_free_rec; i++) {
+		struct ocfs2_extent_rec *rec = &gd->bg_list.l_recs[i];
+
+		pc->ret = process_dup_clusters(pc,
+				       ocfs2_blocks_to_clusters(fs,
+								rec->e_blkno),
+				       rec->e_leaf_clusters,
+				       rec->e_cpos);
+	}
+
+out:
 	return pc->ret ? OCFS2_CHAIN_ERROR | OCFS2_CHAIN_ABORT : 0;
 }
 
@@ -642,7 +673,8 @@ out:
 
 static errcode_t pass1b_process_inode(o2fsck_state *ost,
 				      struct dup_context *dct,
-				      uint64_t ino, struct ocfs2_dinode *di)
+				      uint64_t ino, struct ocfs2_dinode *di,
+				      char *extra_buf)
 {
 	errcode_t ret = 0;
 	static uint64_t global_bitmap_blkno = 0;
@@ -650,6 +682,7 @@ static errcode_t pass1b_process_inode(o2fsck_state *ost,
 		.ost = ost,
 		.dct = dct,
 		.di = di,
+		.extra_buf = extra_buf,
 	};
 
 	/*
@@ -713,7 +746,7 @@ static errcode_t o2fsck_pass1b(o2fsck_state *ost, struct dup_context *dct)
 {
 	errcode_t ret;
 	uint64_t blkno;
-	char *buf;
+	char *buf = NULL, *extra_buf = NULL;
 	struct ocfs2_dinode *di;
 	ocfs2_inode_scan *scan;
 	ocfs2_filesys *fs = ost->ost_fs;
@@ -729,12 +762,18 @@ static errcode_t o2fsck_pass1b(o2fsck_state *ost, struct dup_context *dct)
 		goto out;
 	}
 
+	ret = ocfs2_malloc_block(fs->fs_io, &extra_buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating extra buffer");
+		goto out;
+	}
+
 	di = (struct ocfs2_dinode *)buf;
 
 	ret = ocfs2_open_inode_scan(fs, &scan);
 	if (ret) {
 		com_err(whoami, ret, "while opening inode scan");
-		goto out_free;
+		goto out;
 	}
 
 	/*
@@ -762,17 +801,19 @@ static errcode_t o2fsck_pass1b(o2fsck_state *ost, struct dup_context *dct)
 		if (!(di->i_flags & OCFS2_VALID_FL))
 			continue;
 
-		ret = pass1b_process_inode(ost, dct, blkno, di);
+		ret = pass1b_process_inode(ost, dct, blkno, di, extra_buf);
 		if (ret)
 			break;
 	}
 
 	ocfs2_close_inode_scan(scan);
 
-out_free:
-	ocfs2_free(&buf);
-
 out:
+	if (buf)
+		ocfs2_free(&buf);
+	if (extra_buf)
+		ocfs2_free(&extra_buf);
+
 	return ret;
 }
 
