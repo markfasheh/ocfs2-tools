@@ -45,6 +45,7 @@ extern struct tunefs_feature usrquota_feature;
 extern struct tunefs_feature grpquota_feature;
 extern struct tunefs_feature refcount_feature;
 extern struct tunefs_feature indexed_dirs_feature;
+extern struct tunefs_feature discontig_bg_feature;
 
 /* List of features supported by ocfs2ne */
 static struct tunefs_feature *features[] = {
@@ -60,6 +61,7 @@ static struct tunefs_feature *features[] = {
 	&grpquota_feature,
 	&refcount_feature,
 	&indexed_dirs_feature,
+	&discontig_bg_feature,
 	NULL,
 };
 

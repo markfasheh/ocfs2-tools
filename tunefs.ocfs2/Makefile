@@ -18,6 +18,7 @@ UNINST_LIBRARIES = libocfs2ne.a
 
 OCFS2NE_FEATURES =			\
 	feature_backup_super		\
+	feature_discontig_bg		\
 	feature_extended_slotmap	\
 	feature_inline_data		\
 	feature_local			\
