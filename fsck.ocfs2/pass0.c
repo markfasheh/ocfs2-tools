@@ -380,18 +380,32 @@ out:
 }
 
 static void mark_group_used(o2fsck_state *ost, struct chain_state *cs,
-			    uint64_t blkno, int just_desc)
+			    uint64_t blkno, int just_desc,
+			    struct ocfs2_group_desc *desc)
 {
-	uint16_t clusters;
+	int i;
+	uint16_t clusters = 0;
 
 	if (just_desc)
 		clusters = 1;
-	else
+	else if (!desc || !ocfs2_gd_is_discontig(desc))
 		clusters = cs->cs_cpg;
 
-	o2fsck_mark_clusters_allocated(ost, 
+	if (clusters) {
+		o2fsck_mark_clusters_allocated(ost,
 				ocfs2_blocks_to_clusters(ost->ost_fs, blkno),
 				clusters);
+		return;
+	}
+
+	/* Now check the discontiguous group case. */
+	for (i = 0; i < desc->bg_list.l_next_free_rec; i++) {
+		struct ocfs2_extent_rec *rec = &desc->bg_list.l_recs[i];
+
+		o2fsck_mark_clusters_allocated(ost,
+			ocfs2_blocks_to_clusters(ost->ost_fs, rec->e_blkno),
+			rec->e_leaf_clusters);
+	}
 }
 
 /*
@@ -497,13 +511,13 @@ static errcode_t check_chain(o2fsck_state *ost,
 					o2fsck_bitmap_clear(allowed, blkno,
 							    &was_set);
 					mark_group_used(ost, cs, bg1->bg_blkno,
-							allowed != NULL);
+							allowed != NULL, bg1);
 				} else if (forbidden)
 					o2fsck_bitmap_set(forbidden, blkno,
 							  &was_set);
 			} else
 				mark_group_used(ost, cs, bg1->bg_blkno,
-						allowed != NULL);
+						allowed != NULL, bg1);
 			blkno = bg1->bg_next_group;
 		}
 
@@ -927,7 +941,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 			    "so shouldn't be in the allocator.  Remove it "
 			    "from the chain?", blkno)) {
 
-			mark_group_used(ost, &cs, blkno, 1);
+			mark_group_used(ost, &cs, blkno, 1, NULL);
 			continue;
 		}
 
@@ -1044,7 +1058,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 			goto out;
 		}
 
-		mark_group_used(ost, &cs, bg->bg_blkno, 1);
+		mark_group_used(ost, &cs, bg->bg_blkno, 1, bg);
 	}
 
 out:
