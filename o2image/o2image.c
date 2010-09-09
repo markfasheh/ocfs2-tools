@@ -62,7 +62,7 @@ static errcode_t mark_localalloc_bits(ocfs2_filesys *ofs,
 
 static errcode_t traverse_group_desc(ocfs2_filesys *ofs,
 				     struct ocfs2_group_desc *grp,
-				     int dump_type)
+				     int dump_type, int bpc)
 {
 	errcode_t ret = 0;
 	uint64_t blkno;
@@ -70,11 +70,12 @@ static errcode_t traverse_group_desc(ocfs2_filesys *ofs,
 
 	blkno = grp->bg_blkno;
 	for (i = 1; i < grp->bg_bits; i++) {
+		blkno = ocfs2_get_block_from_group(ofs, grp, bpc, i);
 		if ((dump_type == OCFS2_IMAGE_READ_INODE_YES) &&
 		    ocfs2_test_bit(i, grp->bg_bitmap))
-			ret = traverse_inode(ofs, (blkno + i));
+			ret = traverse_inode(ofs, blkno);
 		else
-			ocfs2_image_mark_bitmap(ofs, blkno + i);
+			ocfs2_image_mark_bitmap(ofs, blkno);
 	}
 	return ret;
 }
@@ -155,7 +156,8 @@ static errcode_t traverse_chains(ocfs2_filesys *ofs,
 
 			grp = (struct ocfs2_group_desc *)buf;
 			if (dump_type) {
-				ret = traverse_group_desc(ofs, grp, dump_type);
+				ret = traverse_group_desc(ofs, grp,
+						dump_type, cl->cl_bpc);
 				if (ret)
 					goto out;
 			}

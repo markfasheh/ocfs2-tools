@@ -627,6 +627,9 @@ errcode_t ocfs2_read_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 
 errcode_t ocfs2_write_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 				 char *gd_buf);
+uint64_t ocfs2_get_block_from_group(ocfs2_filesys *fs,
+				    struct ocfs2_group_desc *grp,
+				    int bpc, int bit_offset);
 
 errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
 			      uint64_t blkno,

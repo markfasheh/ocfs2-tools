@@ -275,6 +275,33 @@ out_buf:
 	return ret;
 }
 
+uint64_t ocfs2_get_block_from_group(ocfs2_filesys *fs,
+				    struct ocfs2_group_desc *grp,
+				    int bpc, int bit_offset)
+{
+	int cpos, i;
+	struct ocfs2_extent_rec *rec;
+	int block_per_bit = ocfs2_clusters_to_blocks(fs, 1) / bpc;
+
+	if (!ocfs2_gd_is_discontig(grp))
+		return grp->bg_blkno + bit_offset * block_per_bit;
+
+	/* handle discontiguous group. */
+	cpos = bit_offset / bpc;
+	for (i = 0; i < grp->bg_list.l_next_free_rec; i++) {
+		rec = &grp->bg_list.l_recs[i];
+
+		if (rec->e_cpos <= cpos &&
+		    rec->e_cpos + rec->e_leaf_clusters > cpos)
+			break;
+	}
+
+	if (i == grp->bg_list.l_next_free_rec)
+		abort();
+
+	return rec->e_blkno + (bit_offset * block_per_bit -
+		ocfs2_clusters_to_blocks(fs, rec->e_cpos));
+}
 
 #ifdef DEBUG_EXE
 #include <stdlib.h>
