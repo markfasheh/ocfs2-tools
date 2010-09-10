@@ -1066,8 +1066,9 @@ static int print_func(struct dup_cluster *dc, struct dup_inode *di,
 /*
  * Check whether we can create refcount for the file.
  * So a file is valid only if:
- * 1. It has no refcount tree.
- * 2. It has the same tree as others.
+ * 1. It isn't a system file.
+ * 2. It has no refcount tree.
+ * 3. It has the same tree as others.
  * Store refcount_loc if we find one.
  *
  * if there is other file that does't have the same tree, set refcount_loc
@@ -1077,6 +1078,11 @@ static int find_refcount_func(struct dup_cluster *dc, struct dup_inode *di,
 			      struct dup_cluster_owner *dco, void *priv_data)
 {
 	uint64_t *refcount_loc = priv_data;
+
+	if (di->di_flags & OCFS2_SYSTEM_FL) {
+		*refcount_loc = UINT64_MAX;
+		return 1;
+	}
 
 	if (!di->di_refcount_loc)
 		return 0;
