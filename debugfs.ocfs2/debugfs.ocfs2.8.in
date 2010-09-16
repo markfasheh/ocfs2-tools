@@ -1,4 +1,4 @@
-.TH "debugfs.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
@@ -87,8 +87,8 @@ by \fIOCFS2\fR are generated using the inode number and its generation
 number and can be decoded using the \fIdecode\fR command or used directly
 in place of an inode number in commands requiring a \fIfilespec\fR. Like
 inode numbers, locknames need to be enclosed in angle brackets, e.g.,
-<M000000000000000040c40c044069cf>. To generate a lockname for a given object,
-use the \fIencode\fR command.
+<M000000000000000040c40c044069cf>. Use the \fIencode\fR command to generate
+all possible locknames for an object.
 
 .SH "COMMANDS"
 This is a list of the commands which debugfs.ocfs2 supports.
@@ -145,6 +145,22 @@ Dump the contents of the inode \fIfilespec\fR to the output file
 \fIoutfile\fR. If the \fI-p\fR is given, set the owner, group,
 timestamps and permissions information on \fIoutfile\fR to match
 those of \fIfilespec\fR.
+
+.TP
+\fIdx_dump filespec\fR
+Display the indexed directory information for the given directory.
+
+.TP
+\fIdx_leaf <block#>\fR
+Display the contents of the given indexed directory leaf block.
+
+.TP
+\fIdx_root <block#>\fR
+Display the contents of the given indexed directory root block.
+
+.TP
+\fIdx_space filespec\fR
+Display the directory free space list.
 
 .TP
 \fIencode filespec\fR
