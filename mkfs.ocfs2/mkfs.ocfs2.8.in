@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -147,7 +147,7 @@ Enables metadata checksums. With this enabled, the file system computes and stor
 .RS 1.2i
 .TP
 \fBrefcount\fR
-Enables creation of reference counted trees. With this enabled, the file system allows users to create inode-based snapshots and clones known as reflinks.
+Enables creation of reference counted trees. With this enabled, the file system allows users to create inode-based snapshots and clones known as \fBreflinks\fR.
 .RE
 .RS 1.2i
 .TP
@@ -175,9 +175,17 @@ and number of inodes (files, directories, symbolic links) each group owns. It is
 to limit the maximum amount of space or inodes user can have. See a documentation of
 quota-tools package for more details.
 .RE
+.RS 1.2i
 .TP
 \fBindexed-dirs\fR
 Enable directory indexing support. With this feature enabled, the file system creates indexed tree for non-inline directory entries. For large scale directories, directory entry lookup perfromance from the indexed tree is faster then from the legacy directory blocks.
+.RE
+.RS 1.2i
+.TP
+\fBdiscontig-bg\fR
+Enables discontiguous block groups. With this feature enabled, the file system is able to grow
+the inode and the extent allocators even when there is no contiguous free chunk available. It
+allows the file system to grow the allocators in smaller (discontiguous) chunks.
 .RE
 
 .TP
@@ -228,27 +236,29 @@ consume the given number of file system blocks (see \fB-b\fR) on the device.
 
 .SH "FEATURE COMPATIBILITY"
 This section lists the file system features that have been added to the \fIOCFS2\fR
-file system and the version that each appeared in. The table below lists the versions
+file system and the version that it first appeared in. The table below lists the versions
 of the mainline Linux kernel and that of the file system for the Enterprise Linux
 Distributions. Users should use this information to enable only those features that
-are available in the file system that they are using. 
+are available in the file system that they are using. Before enabling new features,
+users are advised to review to the section titled \fBfeature values\fR.
 
 .TS
 CENTER ALLBOX;
 LI LI LI
 LB C C.
 Feature	Mainline Kernel Version	Enterprise OCFS2 Version
-local	Linux 2.6.20	OCFS2 1.2, 1.4 and 1.6
-sparse	Linux 2.6.22	OCFS2 1.4 and 1.6
-unwritten	Linux 2.6.23	OCFS2 1.4 and 1.6
-inline-data	Linux 2.6.24	OCFS2 1.4 and 1.6
-extended-slotmap	Linux 2.6.27	Not available as yet
-block64	Linux 2.6.29	OCFS2 1.6
-metaecc	Linux 2.6.29	Not available as yet
-grpquota	Linux 2.6.29	Not available as yet
-usrquota	Linux 2.6.29	Not available as yet
+local	Linux 2.6.20	OCFS2 1.2
+sparse	Linux 2.6.22	OCFS2 1.4
+unwritten	Linux 2.6.23	OCFS2 1.4
+inline-data	Linux 2.6.24	OCFS2 1.4
+extended-slotmap	Linux 2.6.27	OCFS2 1.6
+metaecc	Linux 2.6.29	OCFS2 1.6
+grpquota	Linux 2.6.29	OCFS2 1.6
+usrquota	Linux 2.6.29	OCFS2 1.6
 xattr	Linux 2.6.29	OCFS2 1.6
+indexed-dirs	Linux 2.6.30	OCFS2 1.6
 refcount	Linux 2.6.32	OCFS2 1.6
+discontig-bg	Linux 2.6.35	OCFS2 1.6
 .TE
 
 .TS
@@ -264,6 +274,52 @@ L.
 Label: apache_files_10
 Features: sparse inline-data unwritten
 .TE
+
+.SH "FEATURE VALUES"
+This section lists the hex values that are associated with the file system features.
+This information is useful when debugging mount failures that are due to feature
+incompatibility. When a user attempts to mount an \fBOCFS2\fR volume that has features
+enabled that are not supported by the running file system software, it will fail
+with an error like:
+
+\fBERROR: couldn't mount because of unsupported optional features (200).\fR
+
+By referring to the table below, it becomes apparent that the user attempted to mount
+a volume with the \fIxattr\fR (extended attributes) feature enabled with a version of
+the file system software that did not support it. At this stage, the user has the option
+of either upgrading the file system software, or, disabling that on-disk feature using
+\fBtunefs.ocfs2\fR.
+
+Some features allow the file system to be mounted with an older version of the software
+provided the mount is read-only. If a user attempts to mount such a volume in a read-write
+mode, it will fail with an error like:
+
+\fBERROR: couldn't mount RDWR because of unsupported optional features (1).\fR
+
+This error indicates that the volume had the \fIunwritten\fR RO compat feature enabled.
+This volume can be mounted by an older file system software only in the read-only mode.
+In this case, the user has the option of either mounting the volume with the \fIro\fR
+mount option, or, disabling that on-disk feature using \fBtunefs.ocfs2\fR.
+
+.TS
+CENTER ALLBOX;
+LI LI LI
+LB C C.
+Feature	Category	Hex value
+local	Incompat	8
+sparse	Incompat	10
+inline-data	Incompat	40
+extended-slotmap	Incompat	100
+xattr	Incompat	200
+indexed-dirs	Incompat	400
+metaecc	Incompat	800
+refcount	Incompat	1000
+discontig-bg	Incompat	2000
+unwritten	RO Compat	1
+usrquota	RO Compat	2
+grpquota	RO Compat	4
+.TE
+
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
