@@ -1,4 +1,4 @@
-.TH "o2image" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2image" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2image \- Copy or restore \fIOCFS2\fR file system meta-data
 .SH "SYNOPSIS"

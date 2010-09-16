@@ -1,4 +1,4 @@
-.TH "ocfs2_hb_ctl" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "ocfs2_hb_ctl" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 ocfs2_hb_ctl \- Starts and stops the \fIOCFS2\fR heartbeat on a given device.
 .SH "SYNOPSIS"

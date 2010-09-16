@@ -1,4 +1,4 @@
-.TH "ocfs2console" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "ocfs2console" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 ocfs2console - GUI console for \fIOCFS2\fR.
 .SH "SYNOPSIS"

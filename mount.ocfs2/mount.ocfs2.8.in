@@ -1,4 +1,4 @@
-.TH "mount.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mount.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "SYNOPSIS"

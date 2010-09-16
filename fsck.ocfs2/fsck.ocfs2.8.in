@@ -1,4 +1,4 @@
-.TH "fsck.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "fsck.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 fsck.ocfs2 \- Check an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
