@@ -1,4 +1,4 @@
-.TH "mounted.ocfs2" "8" "February 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mounted.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mounted.ocfs2 \- Detects all \fIOCFS2\fR volumes on a system.
 .SH "SYNOPSIS"
@@ -25,10 +25,13 @@ the information may be stale.
 .SH "EXAMPLES"
 [root@node1 ~]# mounted.ocfs2 -d
 .br
-Device      FS     UUID                                  Label
+Device      FS     Stack  UUID                              Label
 .br
-/dev/sdb1   ocfs2  26d5dcdf-6d87-45a7-b01a-b98a7791bd61  logs_0405
+/dev/sdb1   ocfs2  local  2D1C9636FE38462DB43A75D1DA592207  vmvol
 .br
+/dev/sdj1   ocfs2  o2cb   FF2E239B02D941FEAF25BDAE8DD553B9  dbstore
+.br
+
 
 [root@node1 ~]# mounted.ocfs2 -f
 .br
