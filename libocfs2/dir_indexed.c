@@ -903,7 +903,7 @@ static errcode_t ocfs2_dx_dir_rebalance(ocfs2_filesys *fs,
 	ret = ocfs2_malloc_block(fs->fs_io, (char **)(&tmp_dx_leaf));
 	if (ret)
 		goto out;
-	orig_leaves_start = ocfs2_blocks_to_clusters(fs, leaf_blkno);
+	orig_leaves_start = ocfs2_block_to_cluster_start(fs, leaf_blkno);
 	ret = ocfs2_read_dx_leaves(fs, orig_leaves_start, num_dx_leaves,
 					orig_dx_leaves);
 	if (ret)

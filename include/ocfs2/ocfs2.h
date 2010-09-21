@@ -1066,6 +1066,18 @@ static inline uint32_t ocfs2_bytes_to_clusters(ocfs2_filesys *fs,
 	return (uint32_t)ret;
 }
 
+static inline uint64_t ocfs2_block_to_cluster_start(ocfs2_filesys *fs,
+						    uint64_t blocks)
+{
+	int c_to_b_bits =
+		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
+		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	uint32_t clusters;
+
+	clusters = ocfs2_blocks_to_clusters(fs, blocks);
+	return (uint64_t)clusters << c_to_b_bits;
+}
+
 static inline uint64_t ocfs2_blocks_to_bytes(ocfs2_filesys *fs,
 					     uint64_t blocks)
 {
