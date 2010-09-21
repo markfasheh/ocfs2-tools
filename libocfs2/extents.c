@@ -489,6 +489,9 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 			      OCFS2_CHAIN_FL))
 		goto out;
 
+	if (inode->i_dyn_features & OCFS2_INLINE_DATA_FL)
+		goto out;
+
 	el = &inode->id2.i_list;
 	if (el->l_tree_depth) {
 		ret = ocfs2_malloc0(sizeof(char *) * el->l_tree_depth,
