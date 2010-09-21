@@ -1138,7 +1138,7 @@ insert_into_entries:
 
 set_err:
 	ctxt->err = err;
-	ret = OCFS2_EXTENT_ERROR;
+	ret = OCFS2_DIRENT_ABORT;
 out:
 	if (dx_leaf_buf)
 		ocfs2_free(&dx_leaf_buf);
@@ -1182,6 +1182,8 @@ errcode_t ocfs2_dx_dir_insert_entry(ocfs2_filesys *fs, uint64_t dir, const char 
 
 	ret = ocfs2_dx_dir_insert(&dummy_de, blkno, 0,
 			fs->fs_blocksize, NULL, &dummy_ctxt);
+	if (ret)
+		ret = dummy_ctxt.err;
 out:
 	if (di_buf)
 		ocfs2_free(&di_buf);
