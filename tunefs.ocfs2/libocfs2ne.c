@@ -1059,6 +1059,10 @@ errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs,
 	errcode_t ret = 0;
 	struct tunefs_trailer_context *our_tc = NULL;
 
+	if ((di->i_dyn_features & OCFS2_INLINE_DATA_FL) ||
+	    ocfs2_dir_has_trailer(fs, di))
+		goto out;
+
 	if (!tc) {
 		ret = tunefs_prepare_dir_trailer(fs, di, &our_tc);
 		if (ret)
