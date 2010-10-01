@@ -40,6 +40,7 @@
 #include <netinet/in.h>
 #include <inttypes.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include <uuid/uuid.h>
 
@@ -88,6 +89,8 @@
 #define AUTO_CLUSTERSIZE       65536
 
 #define CLUSTERS_MAX           (UINT32_MAX - 1)
+
+#define MAX_EXTALLOC_RESERVE_PERCENT	5
 
 enum {
 	SFI_JOURNAL,

@@ -1404,7 +1404,8 @@ static uint32_t cluster_size_datafiles(State *s)
 
 static uint32_t figure_extent_alloc_size(State *s)
 {
-	uint32_t cpg, numgroups;
+	uint32_t cpg;
+	int numgroups;
 	uint64_t unitsize, totalsize;
 	double curr_percent, target_percent;
 
@@ -1434,6 +1435,11 @@ static uint32_t figure_extent_alloc_size(State *s)
 			break;
 		totalsize += unitsize;
 	}
+
+	if (curr_percent > MAX_EXTALLOC_RESERVE_PERCENT)
+		--numgroups;
+
+	assert(numgroups >= 0);
 
 	return cpg * numgroups;
 }
