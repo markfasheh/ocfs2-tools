@@ -2,13 +2,17 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
 \fBo2info\fR is designed to be an information tool, to display \fIOCFS2\fR file system information on disk. Its main goal on one hand, is to provide a tool to display fs info in a comprehensive way and providing the information which may be missing in \fBdebugfs.ocfs\fR and \fBtunefs.ocfs2\fR such as global bitmap free space fragmentation and free inode info for each slot, on the other hand, it also aims to become a info tool(\fBnot\fR an administration one), which therefore allows all users who may have no read privilege on the underlying device to use the utility. In practice, \fB'o2info /path/to/file/on/ocfs2/vol'\fR use a new \fBOCFS2_IOC_INFO\fR ioctl to get info from fs for a mounted case. For a privileged user(e.g, root), the same info however, can also be accessed by \fB'o2info /dev/sdxN'\fR to direcly manipulate the raw device.
 
 .SH "OPTIONS"
+.TP
+\fB\-C, \-\-cluster\-coherent\fR
+Enable cluster (in)coherency for mounted case, means it will attempt to acquire a global PR lock when querying info from a cluster filesystem, which may degrade the performance, default is none cluster-coherency.
+
 .TP
 \fB\-V, \-\-version\fR
 Show version and exit.

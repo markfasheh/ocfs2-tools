@@ -51,6 +51,13 @@ static int version_handler(struct o2info_option *opt, char *arg)
 	exit(0);
 }
 
+static int coherency_handler(struct o2info_option *opt, char *arg)
+{
+	cluster_coherent = 1;
+
+	return 0;
+}
+
 static struct o2info_option help_option = {
 	.opt_option	= {
 		.name		= "help",
@@ -77,9 +84,24 @@ static struct o2info_option version_option = {
 	.opt_private = NULL,
 };
 
+static struct o2info_option coherency_option = {
+	.opt_option	= {
+		.name		= "cluster-coherent",
+		.val		= 'C',
+		.has_arg	= 0,
+		.flag		= NULL,
+	},
+	.opt_help	=
+		"-C|--cluster-coherent",
+	.opt_handler	= coherency_handler,
+	.opt_op		= NULL,
+	.opt_private = NULL,
+};
+
 static struct o2info_option *options[] = {
 	&help_option,
 	&version_option,
+	&coherency_option,
 	NULL,
 };
 
