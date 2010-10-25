@@ -29,6 +29,9 @@ ocfs2cdsl:
 ocfs2console:
 	Written by Manish Singh.
 
+o2info:
+	Written by Tristan Ye.
+
 ocfs2console/blkid:
 	From e2fsprogs 1.37, by Theodore Ts'o and Andreas Dilger.
 

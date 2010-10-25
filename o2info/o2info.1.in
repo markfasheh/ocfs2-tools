@@ -1,0 +1,28 @@
+.TH "o2info" "1" "October 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+o2info \- Dump \fIOCFS2\fR file system information on disk.
+.SH "SYNOPSIS"
+\fBo2info\fR <\fBdevice or file\fR>
+
+.SH "DESCRIPTION"
+.PP
+\fBo2info\fR is designed to be an information tool, to display \fIOCFS2\fR file system information on disk. Its main goal on one hand, is to provide a tool to display fs info in a comprehensive way and providing the information which may be missing in \fBdebugfs.ocfs\fR and \fBtunefs.ocfs2\fR such as global bitmap free space fragmentation and free inode info for each slot, on the other hand, it also aims to become a info tool(\fBnot\fR an administration one), which therefore allows all users who may have no read privilege on the underlying device to use the utility. In practice, \fB'o2info /path/to/file/on/ocfs2/vol'\fR use a new \fBOCFS2_IOC_INFO\fR ioctl to get info from fs for a mounted case. For a privileged user(e.g, root), the same info however, can also be accessed by \fB'o2info /dev/sdxN'\fR to direcly manipulate the raw device.
+
+.SH "OPTIONS"
+.TP
+\fB\-V, \-\-version\fR
+Show version and exit.
+
+.TP
+\fB\-h, \-\-help\fR
+Display help and exit.
+
+.SH "SEE ALSO"
+.BR debugfs.ocfs2(8)
+.BR tunefs.ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2010 Oracle. All rights reserved.

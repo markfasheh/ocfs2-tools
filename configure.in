@@ -443,6 +443,7 @@ ocfs2_hb_ctl/ocfs2_hb_ctl.8
 ocfs2console/ocfs2console.8
 tunefs.ocfs2/tunefs.ocfs2.8
 o2image/o2image.8
+o2info/o2info.1
 libo2cb/o2cb.7
 vendor/common/ocfs2-tools.spec-generic
 ])

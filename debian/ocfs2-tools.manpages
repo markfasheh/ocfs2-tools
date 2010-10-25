@@ -8,3 +8,4 @@ debian/tmp/usr/share/man/man8/o2cb_ctl.8
 debian/tmp/usr/share/man/man8/ocfs2_hb_ctl.8
 debian/tmp/usr/share/man/man8/o2image.8
 debian/tmp/usr/share/man/man7/o2cb.7
+debian/tmp/usr/share/man/man1/o2info.1
