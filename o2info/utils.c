@@ -31,6 +31,81 @@
 
 #include "utils.h"
 
+int o2info_get_compat_flag(uint32_t flag, char **compat)
+{
+	errcode_t err;
+	char buf[PATH_MAX];
+	ocfs2_fs_options flags = {
+		.opt_compat = flag,
+	};
+
+	*buf = '\0';
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (err) {
+		tcom_err(err, "while processing feature flags");
+		goto bail;
+	}
+
+	*compat = strdup(buf);
+	if (!*compat) {
+		errorf("No memory for allocation\n");
+		err = -1;
+	}
+
+bail:
+	return err;
+}
+
+int o2info_get_incompat_flag(uint32_t flag, char **incompat)
+{
+	errcode_t err;
+	char buf[PATH_MAX];
+	ocfs2_fs_options flags = {
+		.opt_incompat = flag,
+	};
+
+	*buf = '\0';
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (err) {
+		tcom_err(err, "while processing feature flags");
+		goto bail;
+	}
+
+	*incompat = strdup(buf);
+	if (!*incompat) {
+		errorf("No memory for allocation\n");
+		err = -1;
+	}
+
+bail:
+	return err;
+}
+
+int o2info_get_rocompat_flag(uint32_t flag, char **rocompat)
+{
+	errcode_t err;
+	char buf[PATH_MAX];
+	ocfs2_fs_options flags = {
+		.opt_ro_compat = flag,
+	};
+
+	*buf = '\0';
+	err = ocfs2_snprint_feature_flags(buf, PATH_MAX, &flags);
+	if (err) {
+		tcom_err(err, "while processing feature flags");
+		goto bail;
+	}
+
+	*rocompat = strdup(buf);
+	if (!*rocompat) {
+		errorf("No memory for allocation\n");
+		err = -1;
+	}
+
+bail:
+	return err;
+}
+
 errcode_t o2info_open(struct o2info_method *om, int flags)
 {
 	errcode_t err = 0;

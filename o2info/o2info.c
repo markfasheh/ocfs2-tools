@@ -34,6 +34,8 @@
 
 #include "utils.h"
 
+extern struct o2info_operation fs_features_op;
+
 static LIST_HEAD(o2info_op_task_list);
 static int o2info_op_task_count;
 int cluster_coherent;
@@ -98,10 +100,24 @@ static struct o2info_option coherency_option = {
 	.opt_private = NULL,
 };
 
+static struct o2info_option fs_features_option = {
+	.opt_option	= {
+		.name		= "fs-features",
+		.val		= CHAR_MAX,
+		.has_arg	= 0,
+		.flag		= NULL,
+	},
+	.opt_help	= "   --fs-features",
+	.opt_handler	= NULL,
+	.opt_op		= &fs_features_op,
+	.opt_private	= NULL,
+};
+
 static struct o2info_option *options[] = {
 	&help_option,
 	&version_option,
 	&coherency_option,
+	&fs_features_option,
 	NULL,
 };
 

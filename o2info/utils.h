@@ -22,6 +22,10 @@
 
 #include "o2info.h"
 
+int o2info_get_compat_flag(uint32_t flag, char **compat);
+int o2info_get_incompat_flag(uint32_t flag, char **incompat);
+int o2info_get_rocompat_flag(uint32_t flag, char **rocompat);
+
 int o2info_method(const char *path);
 
 errcode_t o2info_open(struct o2info_method *om, int flags);

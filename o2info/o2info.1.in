@@ -2,7 +2,7 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
@@ -12,6 +12,10 @@ o2info \- Dump \fIOCFS2\fR file system information on disk.
 .TP
 \fB\-C, \-\-cluster\-coherent\fR
 Enable cluster (in)coherency for mounted case, means it will attempt to acquire a global PR lock when querying info from a cluster filesystem, which may degrade the performance, default is none cluster-coherency.
+
+.TP
+\fB\-\-fs\-features\fR
+List all compat, incompat and ro-compat fs features on \fIOCFS2\fR filesystem.
 
 .TP
 \fB\-V, \-\-version\fR
