@@ -36,6 +36,7 @@
 
 extern struct o2info_operation fs_features_op;
 extern struct o2info_operation volinfo_op;
+extern struct o2info_operation mkfs_op;
 
 static LIST_HEAD(o2info_op_task_list);
 static int o2info_op_task_count;
@@ -127,12 +128,26 @@ static struct o2info_option volinfo_option = {
 	.opt_private	= NULL,
 };
 
+static struct o2info_option mkfs_option = {
+	.opt_option	= {
+		.name		= "mkfs",
+		.val		= CHAR_MAX,
+		.has_arg	= 0,
+		.flag		= NULL,
+	},
+	.opt_help	= "   --mkfs",
+	.opt_handler	= NULL,
+	.opt_op		= &mkfs_op,
+	.opt_private	= NULL,
+};
+
 static struct o2info_option *options[] = {
 	&help_option,
 	&version_option,
 	&coherency_option,
 	&fs_features_option,
 	&volinfo_option,
+	&mkfs_option,
 	NULL,
 };
 

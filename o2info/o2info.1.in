@@ -2,7 +2,7 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
@@ -20,6 +20,11 @@ List all compat, incompat and ro-compat fs features on \fIOCFS2\fR filesystem.
 .TP
 \fB\-\-volinfo\fR
 Dump basic volume information, such as blocksize, clustersize, volume label and UUID etc.
+
+.TP
+\fB\-\-mkfs\fR
+Dump an original format of mkfs.ocfs's arguments, importantly, which can be used directly as a fresh mkfs retry:
+#mkfs.ocfs2 "$(o2info --mkfs /dev/name/or/path/of/file)" /dev/sdaX
 
 .TP
 \fB\-V, \-\-version\fR

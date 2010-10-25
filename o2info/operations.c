@@ -448,3 +448,190 @@ out:
 DEFINE_O2INFO_OP(volinfo,
 		 volinfo_run,
 		 NULL);
+
+struct o2info_mkfs {
+	struct o2info_volinfo ovf;
+	uint64_t journal_size;
+};
+
+static int get_mkfs_libocfs2(struct o2info_operation *op,
+			     ocfs2_filesys *fs,
+			     struct o2info_mkfs *oms)
+{
+	errcode_t err;
+	uint64_t blkno;
+	char *buf = NULL;
+	struct ocfs2_dinode *di = NULL;
+
+	memset(oms, 0, sizeof(*oms));
+
+	err = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (err) {
+		tcom_err(err, "while allocating buffer");
+		goto out;
+	}
+
+	err = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, 0, &blkno);
+	if (err) {
+		tcom_err(err, "while looking up journal system inode");
+		goto out;
+	} else
+
+	err = ocfs2_read_inode(fs, blkno, buf);
+	if (err) {
+		tcom_err(err, "while reading journal system inode");
+		goto out;
+	}
+
+	di = (struct ocfs2_dinode *)buf;
+
+	oms->journal_size = di->i_size;
+
+	err = get_volinfo_libocfs2(op, fs, &(oms->ovf));
+
+out:
+	if (buf)
+		ocfs2_free(&buf);
+
+	return err;
+}
+
+static int get_mkfs_ioctl(struct o2info_operation *op, int fd,
+			  struct o2info_mkfs *oms)
+{
+	int rc = 0, flags = 0;
+	uint32_t unknowns = 0, errors = 0, fills = 0;
+	struct ocfs2_info_journal_size oij;
+	uint64_t reqs[1];
+	struct ocfs2_info info;
+
+	memset(oms, 0, sizeof(*oms));
+
+	if (!cluster_coherent)
+		flags |= OCFS2_INFO_FL_NON_COHERENT;
+
+	o2info_fill_request((struct ocfs2_info_request *)&oij, sizeof(oij),
+			    OCFS2_INFO_JOURNAL_SIZE, flags);
+
+	reqs[0] = (unsigned long)&oij;
+
+	info.oi_requests = (uint64_t)reqs;
+	info.oi_count = 1;
+
+	rc = ioctl(fd, OCFS2_IOC_INFO, &info);
+	if (rc) {
+		rc = errno;
+		o2i_error(op, "ioctl failed: %s\n", strerror(rc));
+		o2i_scan_requests(op, info, &unknowns, &errors, &fills);
+		goto out;
+	}
+
+	if (oij.ij_req.ir_flags & OCFS2_INFO_FL_FILLED)
+		oms->journal_size = oij.ij_journal_size;
+
+	rc = get_volinfo_ioctl(op, fd, &(oms->ovf));
+
+out:
+	return rc;
+}
+
+static int o2info_gen_mkfs_string(struct o2info_mkfs oms, char **mkfs)
+{
+	int rc = 0;
+	char *compat = NULL;
+	char *incompat = NULL;
+	char *rocompat = NULL;
+	char *features = NULL;
+	char *ptr = NULL;
+	char op_fs_features[PATH_MAX];
+	char op_label[PATH_MAX];
+	char buf[4096];
+
+#define MKFS "-N %u "		\
+	     "-J size=%llu "	\
+	     "-b %u "		\
+	     "-C %u "		\
+	     "%s "		\
+	     "%s "
+
+	rc = o2info_get_compat_flag(oms.ovf.ofs.compat, &compat);
+	if (rc)
+		goto out;
+
+	rc = o2info_get_incompat_flag(oms.ovf.ofs.incompat, &incompat);
+	if (rc)
+		goto out;
+
+	rc = o2info_get_rocompat_flag(oms.ovf.ofs.rocompat, &rocompat);
+	if (rc)
+		goto out;
+
+	features = malloc(strlen(compat) + strlen(incompat) +
+			  strlen(rocompat) + 3);
+
+	sprintf(features, "%s %s %s", compat, incompat, rocompat);
+
+	ptr = features;
+
+	while ((ptr = strchr(ptr, ' ')))
+		*ptr = ',';
+
+	if (strcmp("", features))
+		snprintf(op_fs_features, PATH_MAX, "--fs-features %s",
+			 features);
+	else
+		strcpy(op_fs_features, "");
+
+	if (strcmp("", (char *)oms.ovf.label))
+		snprintf(op_label, PATH_MAX, "-L %s", (char *)(oms.ovf.label));
+	else
+		strcpy(op_label, "");
+
+	snprintf(buf, 4096, MKFS, oms.ovf.maxslots, oms.journal_size,
+		 oms.ovf.blocksize, oms.ovf.clustersize, op_fs_features,
+		 op_label);
+
+	*mkfs = strdup(buf);
+out:
+	if (compat)
+		ocfs2_free(&compat);
+
+	if (incompat)
+		ocfs2_free(&incompat);
+
+	if (rocompat)
+		ocfs2_free(&rocompat);
+
+	if (features)
+		ocfs2_free(&features);
+
+	return rc;
+}
+
+static int mkfs_run(struct o2info_operation *op, struct o2info_method *om,
+		    void *arg)
+{
+	int rc = 0;
+	static struct o2info_mkfs oms;
+	char *mkfs = NULL;
+
+	if (om->om_method == O2INFO_USE_IOCTL)
+		rc = get_mkfs_ioctl(op, om->om_fd, &oms);
+	else
+		rc = get_mkfs_libocfs2(op, om->om_fs, &oms);
+	if (rc)
+		goto out;
+
+	o2info_gen_mkfs_string(oms, &mkfs);
+
+	fprintf(stdout, "%s\n", mkfs);
+out:
+	if (mkfs)
+		ocfs2_free(&mkfs);
+
+	return rc;
+}
+
+DEFINE_O2INFO_OP(mkfs,
+		 mkfs_run,
+		 NULL);
