@@ -2,7 +2,7 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
@@ -18,12 +18,36 @@ Enable cluster (in)coherency for mounted case, means it will attempt to acquire 
 List all compat, incompat and ro-compat fs features on \fIOCFS2\fR filesystem.
 
 .TP
+\fB\-\-volinfo\fR
+Dump basic volume information, such as blocksize, clustersize, volume label and UUID etc.
+
+.TP
 \fB\-V, \-\-version\fR
 Show version and exit.
 
 .TP
 \fB\-h, \-\-help\fR
 Display help and exit.
+
+.SH "EXAMPLES"
+[oracle@node1 ~]# o2info --volinfo /storage/testfile      # For none-privileged users.
+.br
+[root@node1 ~]# o2info --volinfo /dev/sda1
+.br
+       Label: ocfs2-volume
+.br
+        UUID: 976D8E630B3A4F1F95497311A92901FC
+.br
+  Block Size: 4096
+.br
+Cluster Size: 4096
+.br
+  Node Slots: 4
+.br
+    Features: backup-super strict-journal-super sparse inline-data xattr
+.br
+    Features: unwritten
+
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)

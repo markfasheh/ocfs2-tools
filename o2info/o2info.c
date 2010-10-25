@@ -35,6 +35,7 @@
 #include "utils.h"
 
 extern struct o2info_operation fs_features_op;
+extern struct o2info_operation volinfo_op;
 
 static LIST_HEAD(o2info_op_task_list);
 static int o2info_op_task_count;
@@ -113,11 +114,25 @@ static struct o2info_option fs_features_option = {
 	.opt_private	= NULL,
 };
 
+static struct o2info_option volinfo_option = {
+	.opt_option	= {
+		.name		= "volinfo",
+		.val		= CHAR_MAX,
+		.has_arg	= 0,
+		.flag		= NULL,
+	},
+	.opt_help	= "   --volinfo",
+	.opt_handler	= NULL,
+	.opt_op		= &volinfo_op,
+	.opt_private	= NULL,
+};
+
 static struct o2info_option *options[] = {
 	&help_option,
 	&version_option,
 	&coherency_option,
 	&fs_features_option,
+	&volinfo_option,
 	NULL,
 };
 
