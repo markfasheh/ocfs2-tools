@@ -428,7 +428,7 @@ static void daemon_change(struct cgroup *cg)
 static void process_configuration_change(struct cgroup *cg)
 {
 	memcpy(&cg->cg_members, &cg->cg_cb_members,
-	       sizeof(&cg->cg_cb_members));
+	       sizeof(cg->cg_cb_members));
 	cg->cg_member_count = cg->cg_cb_member_count;
 
 	if (cg == &daemon_group)
