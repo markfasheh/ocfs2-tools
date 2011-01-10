@@ -43,6 +43,8 @@
 #include <libgen.h>
 #include <syslog.h>
 #include <errno.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
 
 #define SYS_CONFIG_DIR			"/sys/kernel/config"
 #define O2HB_CLUSTER_DIR		SYS_CONFIG_DIR"/cluster"
@@ -60,6 +62,8 @@
 #define CONFIG_POLL_IN_SECS		60
 #define SLOW_POLL_IN_SECS		10
 #define FAST_POLL_IN_SECS		2
+
+#define O2HB_SEM_MAGIC_KEY		0x6F326862
 
 char *progname;
 int interactive;
@@ -300,6 +304,53 @@ static void monitor(void)
 	}
 }
 
+static int islocked(void)
+{
+	int semid;
+	struct sembuf trylock[1] = {
+		{.sem_num = 0, .sem_op = 0, .sem_flg = SEM_UNDO|IPC_NOWAIT},
+	};
+
+	semid = semget(O2HB_SEM_MAGIC_KEY, 1, 0);
+	if (semid < 0)
+		return 0;
+	if (semop(semid, trylock, 1) < 0)
+		return 1;
+	return 0;
+}
+
+static int getlock(void)
+{
+	int semid, vals[1] = { 0 };
+	struct sembuf trylock[2] = {
+		{.sem_num = 0, .sem_op = 0, .sem_flg = SEM_UNDO|IPC_NOWAIT},
+		{.sem_num = 0, .sem_op = 1, .sem_flg = SEM_UNDO|IPC_NOWAIT},
+	};
+
+	semid = semget(O2HB_SEM_MAGIC_KEY, 1, 0);
+	if (semid < 0) {
+		semid = semget(O2HB_SEM_MAGIC_KEY, 1,
+			       IPC_CREAT|IPC_EXCL|S_IRUSR);
+		if (semid < 0)
+			goto out;
+		semctl(semid, 0, SETALL, vals);
+		if (semop(semid, trylock, 2) < 0)
+			goto out;
+		else
+			return 0;
+	}
+	if (semop(semid, trylock, 2) < 0)
+		goto out;
+	return 0;
+out:
+	if (errno == EAGAIN) {
+		syslog(LOG_WARNING, "Another instance of %s is already running."
+		       " Aborting.\n", progname);
+		return 1;
+	}
+	return 0;
+}
+
 static void usage(void)
 {
 	fprintf(stderr, "usage: %s [-w percent] -[ivV]\n", progname);
@@ -352,6 +403,12 @@ int main(int argc, char **argv)
 	if (version)
 		show_version();
 
+	if (islocked()) {
+		fprintf(stderr, "Another instance of %s is already running. "
+		       "Aborting.\n", progname);
+		return 1;
+	}
+
 	if (!interactive) {
 		ret = daemon(0, verbose);
 		if (ret)
@@ -360,6 +417,13 @@ int main(int argc, char **argv)
 	}
 
 	openlog(progname, LOG_CONS|LOG_NDELAY, LOG_DAEMON);
+	ret = getlock();
+	if (ret) {
+		closelog();
+		return ret;
+	}
+
+	syslog(LOG_INFO, "Starting\n");
 	monitor();
 	closelog();
 
