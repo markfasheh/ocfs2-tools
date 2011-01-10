@@ -120,6 +120,7 @@ fi
 /sbin/o2image
 /sbin/ocfs2_hb_ctl
 /usr/bin/o2info
+/usr/sbin/o2hbmonitor
 /etc/init.d/o2cb
 /etc/init.d/ocfs2
 %config(noreplace) /etc/sysconfig/o2cb
