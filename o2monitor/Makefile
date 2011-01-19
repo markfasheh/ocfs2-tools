@@ -2,8 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-sbindir = $(root_sbindir)
-SBIN_PROGRAMS = o2hbmonitor
+SBIN_EXTRA = o2hbmonitor
 
 WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
            -Wmissing-declarations
