@@ -60,6 +60,7 @@ enum {
 	IP_OPTION,
 	PORT_OPTION,
 	NODENUM_OPTION,
+	ONELINE_OPTION,
 };
 
 errcode_t o2cbtool_validate_clustername(char *clustername);
@@ -73,3 +74,6 @@ errcode_t o2cbtool_remove_node(struct o2cb_command *cmd);
 errcode_t o2cbtool_add_heartbeat(struct o2cb_command *cmd);
 errcode_t o2cbtool_remove_heartbeat(struct o2cb_command *cmd);
 errcode_t o2cbtool_heartbeat_mode(struct o2cb_command *cmd);
+
+errcode_t o2cbtool_list_clusters(struct o2cb_command *cmd);
+errcode_t o2cbtool_list_objects(struct o2cb_command *cmd);

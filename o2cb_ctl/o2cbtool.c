@@ -68,6 +68,33 @@ struct o2cb_command o2cbtool_cmds[] = {
 		.o_help = "Toggles the heartbeat mode between global and local.",
 	},
 	{
+		.o_name = "list-clusters",
+		.o_action = o2cbtool_list_clusters,
+		.o_usage = "",
+		.o_help = "Lists all the cluster names in the config file.",
+	},
+	{
+		.o_name = "list-cluster",
+		.o_action = o2cbtool_list_objects,
+		.o_usage = "[--oneline] <clustername>",
+		.o_help = "Lists all the nodes and heartbeat regions "
+			"associated with the cluster in the config file.",
+	},
+	{
+		.o_name = "list-nodes",
+		.o_action = o2cbtool_list_objects,
+		.o_usage = "[--oneline] <clustername>",
+		.o_help = "Lists all the nodes associated with the cluster in "
+			"the config file. ",
+	},
+	{
+		.o_name = "list-heartbeats",
+		.o_action = o2cbtool_list_objects,
+		.o_usage = "[--oneline] <clustername>",
+		.o_help = "Lists all the heartbeat regions associated with "
+			"the cluster in the config file.",
+	},
+	{
 		.o_name = NULL,
 		.o_action = NULL,
 	},
