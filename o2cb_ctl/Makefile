@@ -28,12 +28,12 @@ DEFINES = -DVERSION=\"$(VERSION)\"
 O2CB_CONFIG_CFILES = o2cb_config.c jconfig.c jiterator.c
 O2CB_CTL_CFILES = ${O2CB_CONFIG_CFILES} o2cb_ctl.c
 O2CB_CFILES = ${O2CB_CONFIG_CFILES} o2cbtool.c op_cluster.c op_node.c op_heartbeat.c \
-		op_lists.c op_register.c
+		op_lists.c op_register.c op_start.c o2cb_scandisk.c
 
 O2CB_CTL_OBJS = $(subst .c,.o,$(O2CB_CTL_CFILES))
 O2CB_OBJS = $(subst .c,.o,$(O2CB_CFILES))
 
-HFILES = o2cb_config.h jconfig.h jiterator.h o2cbtool.h
+HFILES = o2cb_config.h jconfig.h jiterator.h o2cbtool.h o2cb_scandisk.h
 
 CFILES = $(O2CB_CTL_CFILES) $(O2CB_CFILES)
 
@@ -53,9 +53,12 @@ op_node_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 op_heartbeat_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 op_lists_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 op_register_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
+op_start_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
+o2cb_scandisk_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 
 o2cb_ctl: $(O2CB_CTL_OBJS) $(LIBOCFS2_DEPS) $(LIBO2CB_DEPS)
 	$(LINK) $(LIBO2CB_LIBS) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+
 o2cb: $(O2CB_OBJS) $(LIBOCFS2_DEPS) $(LIBO2CB_DEPS) ${LIBO2DLM_DEPS} ${LIBTOOLS_INTERNAL_DEPS}
 	$(LINK) $(LIBO2CB_LIBS) $(GLIB_LIBS) $(LIBOCFS2_LIBS) ${LIBO2DLM_LIBS} ${LIBTOOLS_INTERNAL_LIBS} $(COM_ERR_LIBS)
 

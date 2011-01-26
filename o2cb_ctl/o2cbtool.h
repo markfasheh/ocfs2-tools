@@ -82,3 +82,6 @@ errcode_t o2cbtool_init_cluster_stack(void);
 
 errcode_t o2cbtool_register_cluster(struct o2cb_command *cmd);
 errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd);
+
+errcode_t o2cbtool_start_heartbeat(struct o2cb_command *cmd);
+errcode_t o2cbtool_stop_heartbeat(struct o2cb_command *cmd);

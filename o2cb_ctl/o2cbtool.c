@@ -108,6 +108,18 @@ struct o2cb_command o2cbtool_cmds[] = {
 		.o_help = "Unregisters the cluster from configfs.",
 	},
 	{
+		.o_name = "start-heartbeat",
+		.o_action = o2cbtool_start_heartbeat,
+		.o_usage = "<clustername>",
+		.o_help = "Starts global heartbeat."
+	},
+	{
+		.o_name = "stop-heartbeat",
+		.o_action = o2cbtool_stop_heartbeat,
+		.o_usage = "<clustername>",
+		.o_help = "Stops global heartbeat."
+	},
+	{
 		.o_name = NULL,
 		.o_action = NULL,
 	},
