@@ -1193,13 +1193,46 @@ out:
 	return err;
 }
 
-/* For ref counting purposes, we need to know whether this process
- * called o2cb_create_heartbeat_region_disk. If it did, then we want
- * to drop the reference taken during startup, otherwise that
- * reference was dropped automatically at process shutdown so there's
- * no need to drop one here. */
-static errcode_t classic_group_leave(struct o2cb_cluster_desc *cluster,
-				     struct o2cb_region_desc *region)
+errcode_t o2cb_start_heartbeat(struct o2cb_cluster_desc *cluster,
+			       struct o2cb_region_desc *region)
+{
+	errcode_t ret, up_ret;
+	int semid, global = 0;
+
+	ret = o2cb_mutex_down_lookup(region->r_name, &semid);
+	if (ret)
+		return ret;
+
+	ret = o2cb_global_heartbeat_mode(cluster->c_cluster, &global);
+	if (ret)
+		goto up;
+
+	ret = o2cb_create_heartbeat_region(cluster->c_cluster,
+					   region->r_name,
+					   region->r_device_name,
+					   region->r_block_bytes,
+					   region->r_start_block,
+					   region->r_blocks);
+	if (ret && ret != O2CB_ET_REGION_EXISTS)
+		goto up;
+
+	if (global && ret == O2CB_ET_REGION_EXISTS) {
+		ret = 0;
+		goto up;
+	}
+
+	ret = __o2cb_get_ref(semid, !region->r_persist);
+	/* XXX: Maybe stop heartbeat on error here? */
+up:
+	up_ret = o2cb_mutex_up(semid);
+	if (up_ret && !ret)
+		ret = up_ret;
+
+	return ret;
+}
+
+errcode_t o2cb_stop_heartbeat(struct o2cb_cluster_desc *cluster,
+			      struct o2cb_region_desc *region)
 {
 	errcode_t ret, up_ret;
 	int hb_refs;
@@ -1247,34 +1280,45 @@ up:
 
 done:
 	return ret;
+
+}
+
+/* For ref counting purposes, we need to know whether this process
+ * called o2cb_create_heartbeat_region_disk. If it did, then we want
+ * to drop the reference taken during startup, otherwise that
+ * reference was dropped automatically at process shutdown so there's
+ * no need to drop one here. */
+static errcode_t classic_group_leave(struct o2cb_cluster_desc *cluster,
+				     struct o2cb_region_desc *region)
+{
+	errcode_t ret;
+	int global = 0;
+
+	ret = o2cb_global_heartbeat_mode(cluster->c_cluster, &global);
+	if (ret)
+		goto bail;
+
+	if (!global)
+		ret = o2cb_stop_heartbeat(cluster, region);
+
+bail:
+	return ret;
 }
 
 static errcode_t classic_begin_group_join(struct o2cb_cluster_desc *cluster,
 					  struct o2cb_region_desc *region)
 {
-	errcode_t ret, up_ret;
-	int semid;
+	errcode_t ret;
+	int global = 0;
 
-	ret = o2cb_mutex_down_lookup(region->r_name, &semid);
+	ret = o2cb_global_heartbeat_mode(cluster->c_cluster, &global);
 	if (ret)
-		return ret;
+		goto bail;
 
-	ret = o2cb_create_heartbeat_region(cluster->c_cluster,
-					   region->r_name,
-					   region->r_device_name,
-					   region->r_block_bytes,
-					   region->r_start_block,
-					   region->r_blocks);
-	if (ret && ret != O2CB_ET_REGION_EXISTS)
-		goto up;
+	if (!global)
+		ret = o2cb_start_heartbeat(cluster, region);
 
-	ret = __o2cb_get_ref(semid, !region->r_persist);
-	/* XXX: Maybe stop heartbeat on error here? */
-up:
-	up_ret = o2cb_mutex_up(semid);
-	if (up_ret && !ret)
-		ret = up_ret;
-
+bail:
 	return ret;
 }
 
@@ -1932,6 +1976,91 @@ errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes)
 void o2cb_free_nodes_list(char **nodes)
 {
 	o2cb_free_dir_list(nodes);
+}
+
+errcode_t o2cb_list_hb_regions(char *cluster_name, char ***regions)
+{
+	char path[PATH_MAX];
+	errcode_t ret;
+
+	if (configfs_path == NULL)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	ret = snprintf(path, PATH_MAX - 1, O2CB_FORMAT_HEARTBEAT_DIR,
+		       configfs_path, cluster_name);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	return o2cb_list_dir(path, regions);
+}
+
+void o2cb_free_hb_regions_list(char **regions)
+{
+	o2cb_free_dir_list(regions);
+}
+
+errcode_t o2cb_global_heartbeat_mode(char *cluster_name, int *global)
+{
+	char attr_path[PATH_MAX];
+	char _fake_cluster_name[NAME_MAX];
+	char attr_value[16];
+	errcode_t ret;
+
+	if (!cluster_name) {
+		ret = _fake_default_cluster(_fake_cluster_name);
+		if (ret)
+			return ret;
+		cluster_name = _fake_cluster_name;
+	}
+
+	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_HEARTBEAT_MODE,
+		       configfs_path, cluster_name);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	*global = 0;
+
+	ret = o2cb_get_attribute(attr_path, attr_value, sizeof(attr_value) - 1);
+	if (ret) {
+		if (ret == O2CB_ET_SERVICE_UNAVAILABLE)
+			ret = 0;
+		return ret;
+	}
+
+	/* wipeout the last newline character */
+	do_strchomp(attr_value);
+
+	if (!strcmp(attr_value, O2CB_GLOBAL_HEARTBEAT_TAG))
+		*global = 1;
+
+	return 0;
+
+}
+
+/*
+ * The hbmode validation is done in the kernel
+ */
+errcode_t o2cb_set_heartbeat_mode(char *cluster_name, char *hbmode)
+{
+	char attr_path[PATH_MAX];
+	char _fake_cluster_name[NAME_MAX];
+	errcode_t ret;
+
+	if (!cluster_name) {
+		ret = _fake_default_cluster(_fake_cluster_name);
+		if (ret)
+			return ret;
+		cluster_name = _fake_cluster_name;
+	}
+
+	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_HEARTBEAT_MODE,
+		       configfs_path, cluster_name);
+	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
+		return O2CB_ET_INTERNAL_FAILURE;
+
+	ret = o2cb_set_attribute(attr_path, hbmode);
+
+	return ret;
 }
 
 static errcode_t dump_list_to_string(char **dump_list, char **debug)

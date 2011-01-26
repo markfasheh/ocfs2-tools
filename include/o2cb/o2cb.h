@@ -71,6 +71,12 @@ void o2cb_free_cluster_list(char **clusters);
 errcode_t o2cb_list_nodes(char *cluster_name, char ***nodes);
 void o2cb_free_nodes_list(char **nodes);
 
+errcode_t o2cb_list_hb_regions(char *cluster_name, char ***regions);
+void o2cb_free_hb_regions_list(char **regions);
+
+errcode_t o2cb_global_heartbeat_mode(char *cluster_name, int *global);
+errcode_t o2cb_set_heartbeat_mode(char *cluster_name, char *mode);
+
 errcode_t o2cb_control_daemon_debug(char **debug);
 
 struct o2cb_cluster_desc {
@@ -95,6 +101,12 @@ struct o2cb_region_desc {
  * begin_group_join().  Regular programs (not mount.ocfs2) should provide
  * a mountpoint that does not begin with a '/'.  Eg, fsck could use "fsck"
  */
+errcode_t o2cb_start_heartbeat(struct o2cb_cluster_desc *cluster,
+			       struct o2cb_region_desc *region);
+
+errcode_t o2cb_stop_heartbeat(struct o2cb_cluster_desc *cluster,
+			      struct o2cb_region_desc *region);
+
 errcode_t o2cb_begin_group_join(struct o2cb_cluster_desc *cluster,
 				struct o2cb_region_desc *region);
 errcode_t o2cb_complete_group_join(struct o2cb_cluster_desc *cluster,
