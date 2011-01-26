@@ -7,11 +7,17 @@ SBIN_PROGRAMS = o2cb_ctl
 
 INCLUDES = -I$(TOPDIR)/include
 
+LIBTOOLS_INTERNAL_LIBS = -L$(TOPDIR)/libtools-internal -ltools-internal
+LIBTOOLS_INTERNAL_DEPS = $(TOPDIR)/libtools-internal/libtools-internal.a
+
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 LIBO2CB_LIBS  = -L$(TOPDIR)/libo2cb -lo2cb
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
+
+LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)
+LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
 
 ifndef OCFS2_DYNAMIC_CTL
 LDFLAGS += -static
