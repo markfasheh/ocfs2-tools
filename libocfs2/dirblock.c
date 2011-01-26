@@ -273,8 +273,8 @@ static void ocfs2_swap_dx_entry_list_from_cpu(struct ocfs2_dx_entry_list *dl_lis
 	dl_list->de_num_used = bswap_16(dl_list->de_num_used);
 }
 
-static void ocfs2_swap_dx_root_to_cpu(ocfs2_filesys *fs,
-				struct ocfs2_dx_root_block *dx_root)
+void ocfs2_swap_dx_root_to_cpu(ocfs2_filesys *fs,
+			       struct ocfs2_dx_root_block *dx_root)
 {
 	if (cpu_is_little_endian)
 		return;
@@ -387,7 +387,7 @@ out:
 	return ret;
 }
 
-static void ocfs2_swap_dx_leaf_to_cpu(struct ocfs2_dx_leaf *dx_leaf)
+void ocfs2_swap_dx_leaf_to_cpu(struct ocfs2_dx_leaf *dx_leaf)
 {
 	if (cpu_is_little_endian)
 		return;

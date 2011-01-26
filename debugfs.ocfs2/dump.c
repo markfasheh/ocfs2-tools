@@ -866,6 +866,11 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 			uint64_t blknum)
 {
 	struct ocfs2_dir_block_trailer *trailer;
+	struct ocfs2_xattr_block *xb;
+	struct ocfs2_xattr_header *xh;
+	struct ocfs2_refcount_block *rb;
+	struct ocfs2_dx_root_block *dx_root;
+	struct ocfs2_dx_leaf *dx_leaf;
 
 	fprintf (out, "\tBlock %"PRIu64": ", blknum);
 	switch (type) {
@@ -900,6 +905,37 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 		trailer = ocfs2_dir_trailer_from_block(gbls.fs, buf);
 		ocfs2_swap_dir_trailer(trailer);
 		dump_dir_block(out, buf);
+		fprintf (out, "\n");
+		break;
+	case DUMP_BLOCK_XATTR:
+		fprintf(out, "Xattr\n");
+		xb = (struct ocfs2_xattr_block *)buf;
+		ocfs2_swap_xattr_block_to_cpu(gbls.fs, xb);
+		if (!(xb->xb_flags & OCFS2_XATTR_INDEXED)) {
+			xh = &xb->xb_attrs.xb_header;
+			dump_xattr(out, xh);
+		}
+		fprintf (out, "\n");
+		break;
+	case DUMP_BLOCK_REFCOUNT:
+		fprintf(out, "Refcount\n");
+		rb = (struct ocfs2_refcount_block *)buf;
+		ocfs2_swap_refcount_block_to_cpu(gbls.fs, rb);
+		dump_refcount_block(out, rb);
+		fprintf (out, "\n");
+		break;
+	case DUMP_BLOCK_DXROOT:
+		fprintf(out, "DxRoot\n");
+		dx_root = (struct ocfs2_dx_root_block *)buf;
+		ocfs2_swap_dx_root_to_cpu(gbls.fs, dx_root);
+		dump_dx_root(out, dx_root);
+		fprintf (out, "\n");
+		break;
+	case DUMP_BLOCK_DXLEAF:
+		fprintf(out, "DxLeaf\n");
+		dx_leaf = (struct ocfs2_dx_leaf *)buf;
+		ocfs2_swap_dx_leaf_to_cpu(dx_leaf);
+		dump_dx_leaf(out, dx_leaf);
 		fprintf (out, "\n");
 		break;
 	default:
@@ -1019,7 +1055,7 @@ void dump_icheck(FILE *out, int hdr, uint64_t blkno, uint64_t inode,
 	fprintf(out, "\t%-15"PRIu64"   %-15s   %-15s\n", blkno, inostr, offstr);
 }
 
-static void dump_xattr(FILE *out, struct ocfs2_xattr_header *xh)
+void dump_xattr(FILE *out, struct ocfs2_xattr_header *xh)
 {
 	int i;
 

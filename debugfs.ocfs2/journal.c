@@ -167,6 +167,10 @@ static enum dump_block_type detect_block (char *buf)
 	struct ocfs2_extent_block *extent;
 	struct ocfs2_group_desc *group;
 	struct ocfs2_dir_block_trailer *trailer;
+	struct ocfs2_xattr_block *xb;
+	struct ocfs2_refcount_block *rb;
+	struct ocfs2_dx_root_block *dx_root;
+	struct ocfs2_dx_leaf *dx_leaf;
 	enum dump_block_type ret = DUMP_BLOCK_UNKNOWN;
 
 	inode = (struct ocfs2_dinode *)buf;
@@ -194,6 +198,34 @@ static enum dump_block_type detect_block (char *buf)
 	if (!strncmp((char *)trailer->db_signature, OCFS2_DIR_TRAILER_SIGNATURE,
 		     sizeof(trailer->db_signature))) {
 		ret = DUMP_BLOCK_DIR_BLOCK;
+		goto bail;
+	}
+
+	xb = (struct ocfs2_xattr_block *)buf;
+	if (!strncmp((char *)xb->xb_signature, OCFS2_XATTR_BLOCK_SIGNATURE,
+		     sizeof(xb->xb_signature))) {
+		ret = DUMP_BLOCK_XATTR;
+		goto bail;
+	}
+
+	rb = (struct ocfs2_refcount_block *)buf;
+	if (!strncmp((char *)rb->rf_signature, OCFS2_REFCOUNT_BLOCK_SIGNATURE,
+		     sizeof(rb->rf_signature))) {
+		ret = DUMP_BLOCK_REFCOUNT;
+		goto bail;
+	}
+
+	dx_root = (struct ocfs2_dx_root_block *)buf;
+	if (!strncmp((char *)dx_root->dr_signature, OCFS2_DX_ROOT_SIGNATURE,
+		     strlen(OCFS2_DX_ROOT_SIGNATURE))) {
+		ret = DUMP_BLOCK_DXROOT;
+		goto bail;
+	}
+
+	dx_leaf = (struct ocfs2_dx_leaf *)buf;
+	if (!strncmp((char *)dx_leaf->dl_signature, OCFS2_DX_LEAF_SIGNATURE,
+		     strlen(OCFS2_DX_LEAF_SIGNATURE))) {
+		ret = DUMP_BLOCK_DXLEAF;
 		goto bail;
 	}
 

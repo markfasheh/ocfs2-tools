@@ -494,6 +494,9 @@ int ocfs2_skip_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			   struct ocfs2_dir_entry *de, unsigned long offset);
 void ocfs2_init_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 			    uint64_t blkno, void *buf);
+void ocfs2_swap_dx_root_to_cpu(ocfs2_filesys *fs,
+			       struct ocfs2_dx_root_block *dx_root);
+void ocfs2_swap_dx_leaf_to_cpu(struct ocfs2_dx_leaf *dx_leaf);
 errcode_t ocfs2_read_dx_root(ocfs2_filesys *fs, uint64_t block,
 			     void *buf);
 errcode_t ocfs2_read_dx_leaf(ocfs2_filesys *fs, uint64_t block,

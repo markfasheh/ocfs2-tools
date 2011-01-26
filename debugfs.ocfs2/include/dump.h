@@ -26,6 +26,10 @@ enum dump_block_type {
 	DUMP_BLOCK_EXTENT_BLOCK,
 	DUMP_BLOCK_GROUP_DESCRIPTOR,
 	DUMP_BLOCK_DIR_BLOCK,
+	DUMP_BLOCK_XATTR,
+	DUMP_BLOCK_REFCOUNT,
+	DUMP_BLOCK_DXROOT,
+	DUMP_BLOCK_DXLEAF,
 };
 
 typedef struct _list_dir_opts {
@@ -76,6 +80,7 @@ void dump_icheck(FILE *out, int hdr, uint64_t blkno, uint64_t inode,
 void dump_block_check(FILE *out, struct ocfs2_block_check *bc, void *block);
 uint32_t dump_xattr_ibody(FILE *out, ocfs2_filesys *fs,
 			  struct ocfs2_dinode *in, int verbose);
+void dump_xattr(FILE *out, struct ocfs2_xattr_header *xh);
 errcode_t dump_xattr_block(FILE *out, ocfs2_filesys *fs,
 			   struct ocfs2_dinode *in,
 			   uint32_t *xattrs_block,
