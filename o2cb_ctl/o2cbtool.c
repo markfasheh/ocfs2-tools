@@ -20,6 +20,7 @@
 #include "o2cbtool.h"
 
 char *progname = "o2cbtool";
+const char *stackname = "o2cb";
 
 struct o2cb_command o2cbtool_cmds[] = {
 	{
@@ -93,6 +94,18 @@ struct o2cb_command o2cbtool_cmds[] = {
 		.o_usage = "[--oneline] <clustername>",
 		.o_help = "Lists all the heartbeat regions associated with "
 			"the cluster in the config file.",
+	},
+	{
+		.o_name = "register-cluster",
+		.o_action = o2cbtool_register_cluster,
+		.o_usage = "<clustername>",
+		.o_help = "Registers the cluster with configfs.",
+	},
+	{
+		.o_name = "unregister-cluster",
+		.o_action = o2cbtool_unregister_cluster,
+		.o_usage = "<clustername>",
+		.o_help = "Unregisters the cluster from configfs.",
 	},
 	{
 		.o_name = NULL,
@@ -193,6 +206,35 @@ static void parse_options(int argc, char *argv[], struct o2cb_command **cmd)
 	errorf("Unknown command '%s'\n", argv[optind]);
 	usage();
 	exit(1);
+}
+
+errcode_t o2cbtool_init_cluster_stack(void)
+{
+	errcode_t ret;
+	const char *stack = NULL;
+
+	verbosef(VL_DEBUG, "Initializing cluster stack\n");
+
+	ret = o2cb_init();
+	if (ret) {
+		tcom_err(ret, "while initializing the cluster");
+		goto bail;
+	}
+
+	ret = o2cb_get_stack_name(&stack);
+	if (ret) {
+		tcom_err(ret, "while determining the current cluster stack");
+		goto bail;
+	}
+
+	if (strcmp(stack, stackname)) {
+		ret = -1;
+		errorf("This tool supports the '%s' stack, but the '%s' "
+		       "stack is in use.\n", stackname, stack);
+	}
+
+bail:
+	return ret;
 }
 
 int main(int argc, char **argv)
