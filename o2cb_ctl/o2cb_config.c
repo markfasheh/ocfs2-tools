@@ -482,22 +482,15 @@ static void o2cb_cluster_free(O2CBCluster *cluster)
     g_free(cluster);
 }  /* o2cb_cluster_free() */
 
+static void _o2cb_cluster_free(gpointer data, gpointer user_data)
+{
+	o2cb_cluster_free((O2CBCluster *)data);
+}
+
 void o2cb_config_free(O2CBConfig *config)
 {
-    GList *list;
-    O2CBCluster *cluster;
-
-    while (config->co_clusters)
-    {
-        list = config->co_clusters;
-        config->co_clusters = list->next;
-
-        cluster = (O2CBCluster *)list->data;
-        g_list_free(list);
-
-        o2cb_cluster_free(cluster);
-    }
-
+    g_list_foreach(config->co_clusters, _o2cb_cluster_free, NULL);
+    g_list_free(config->co_clusters);
     g_free(config);
 }
 
