@@ -50,6 +50,9 @@
 
 #define OCFS2_FS_NAME		"ocfs2"
 
+#define O2CB_GLOBAL_HEARTBEAT_TAG	"global"
+#define O2CB_LOCAL_HEARTBEAT_TAG	"local"
+
 errcode_t o2cb_init(void);
 
 errcode_t o2cb_get_stack_name(const char **name);

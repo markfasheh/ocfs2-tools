@@ -45,8 +45,10 @@ struct _O2CBConfig {
 
 struct _O2CBCluster {
     gchar *c_name;
+    gchar *c_hb_mode;
     guint c_num_nodes;
     GList *c_nodes;
+    GList *c_heartbeat;
 };
 
 struct _O2CBNode {
@@ -56,9 +58,17 @@ struct _O2CBNode {
     guint n_port;
 };
 
+struct _O2CBHeartbeat {
+    gchar *h_region;
+};
+
+gchar *valid_heartbeat_modes[] = {
+	O2CB_LOCAL_HEARTBEAT_TAG,
+	O2CB_GLOBAL_HEARTBEAT_TAG,
+	NULL,
+};
 
 static void o2cb_node_free(O2CBNode *node);
-
 
 O2CBConfig *o2cb_config_initialize(void)
 {
@@ -73,6 +83,30 @@ O2CBConfig *o2cb_config_initialize(void)
 
     return config;
 }  /* o2cb_config_initialize() */
+
+static gint o2cb_cluster_fill_heartbeat(O2CBCluster *cluster,
+                                        JConfigStanza *cfs)
+{
+    O2CBHeartbeat *hb;
+    gchar *region;
+    gint rc;
+
+    rc = -EINVAL;
+    region = j_config_get_attribute(cfs, "region");
+    if (!region || !*region)
+        goto out_error;
+
+    hb = o2cb_cluster_add_heartbeat(cluster, region);
+    if (!hb)
+        return -ENOMEM;
+
+    rc = 0;
+
+out_error:
+    g_free(region);
+
+    return rc;
+}  /* o2cb_config_fill_heartbeat() */
 
 static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
                                    JConfigStanza *cfs)
@@ -144,12 +178,13 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
 {
     gint rc;
     gulong val;
-    gchar *count, *ptr;
+    gchar *count, *ptr, *hb_mode = NULL;
     O2CBCluster *cluster;
     JIterator *iter;
     JConfigStanza *n_cfs;
     JConfigMatch match = {J_CONFIG_MATCH_VALUE, "cluster", NULL};
 
+    /* cluster: name */
     rc = -ENOENT;
     match.value = j_config_get_attribute(c_cfs, "name");
     if (!match.value && !*match.value)
@@ -159,6 +194,18 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
     if (!cluster)
         goto out_error;
 
+    /* cluster: heartbeat_mode */
+    rc = -ENOMEM;
+    hb_mode = j_config_get_attribute(c_cfs, "heartbeat_mode");
+    if (!hb_mode)
+        hb_mode = g_strdup("local");
+    if (!hb_mode)
+        goto out_error;
+    rc = o2cb_cluster_set_heartbeat_mode(cluster, hb_mode);
+    if (rc)
+        goto out_error;
+
+    /* node: */
     rc = -ENOMEM;
     iter = j_config_get_stanzas(cf, "node", &match, 1);
     if (!iter)
@@ -177,6 +224,7 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
     if (rc)
         goto out_error;
 
+    /* cluster: node_count */
     rc = -EINVAL;
     count = j_config_get_attribute(c_cfs, "node_count");
     if (!count || !*count)
@@ -189,9 +237,29 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
         goto out_error;
     cluster->c_num_nodes = val;
 
+    /* heartbeat: */
+    rc = -ENOMEM;
+    iter = j_config_get_stanzas(cf, "heartbeat", &match, 1);
+    if (!iter)
+        goto out_error;
+
+    rc = 0;
+    while (j_iterator_has_more(iter))
+    {
+        n_cfs = (JConfigStanza *)j_iterator_get_next(iter);
+        rc = o2cb_cluster_fill_heartbeat(cluster, n_cfs);
+        if (rc)
+            break;
+    }
+    j_iterator_free(iter);
+
+    if (rc)
+        goto out_error;
+
     rc = 0;
 
 out_error:
+    g_free(hb_mode);
     g_free(match.value);
 
     return rc;
@@ -279,6 +347,22 @@ gint o2cb_config_load(const gchar *filename, O2CBConfig **config)
     return rc;
 }  /* o2cb_config_load() */
 
+static gint o2cb_heartbeat_store(JConfig *cf, O2CBCluster *cluster,
+                                 O2CBHeartbeat *hb)
+{
+    JConfigStanza *cfs;
+
+    cfs = j_config_add_stanza(cf, "heartbeat");
+    if (!cfs)
+        return -ENOMEM;
+
+    j_config_set_attribute(cfs, "cluster", cluster->c_name);
+
+    j_config_set_attribute(cfs, "region", hb->h_region);
+
+    return 0;
+}  /* o2cb_heartbeat_store() */
+
 static gint o2cb_node_store(JConfig *cf, O2CBCluster *cluster,
                             O2CBNode *node)
 {
@@ -316,16 +400,29 @@ static gint o2cb_cluster_store(JConfig *cf, O2CBCluster *cluster)
     GList *list;
     JConfigStanza *cfs;
     O2CBNode *node;
+    O2CBHeartbeat *hb;
 
     cfs = j_config_add_stanza(cf, "cluster");
 
     j_config_set_attribute(cfs, "name", cluster->c_name);
+    j_config_set_attribute(cfs, "heartbeat_mode", cluster->c_hb_mode);
 
     count = g_strdup_printf("%u", cluster->c_num_nodes);
     j_config_set_attribute(cfs, "node_count", count);
     g_free(count);
 
     rc = 0;
+    list = cluster->c_heartbeat;
+    while (list)
+    {
+        hb = (O2CBHeartbeat *)list->data;
+        rc = o2cb_heartbeat_store(cf, cluster, hb);
+        if (rc)
+            break;
+
+        list = list->next;
+    }
+
     list = cluster->c_nodes;
     while (list)
     {
@@ -462,10 +559,19 @@ static void o2cb_node_free(O2CBNode *node)
     g_free(node);
 }  /* o2cb_node_free() */
 
+static void o2cb_heartbeat_free(O2CBHeartbeat *hb)
+{
+    if (hb->h_region)
+        g_free(hb->h_region);
+
+    g_free(hb);
+}  /* o2cb_heartbeat_free() */
+
 static void o2cb_cluster_free(O2CBCluster *cluster)
 {
     GList *list;
     O2CBNode *node;
+    O2CBHeartbeat *hb;
 
     while (cluster->c_nodes)
     {
@@ -474,6 +580,15 @@ static void o2cb_cluster_free(O2CBCluster *cluster)
 
         cluster->c_nodes = g_list_delete_link(list, list);
         o2cb_node_free(node);
+    }
+
+    while (cluster->c_heartbeat)
+    {
+        list = cluster->c_heartbeat;
+        hb = (O2CBHeartbeat *)list->data;
+
+        cluster->c_heartbeat = g_list_delete_link(list, list);
+        o2cb_heartbeat_free(hb);
     }
 
     if (cluster->c_name)
@@ -508,8 +623,10 @@ O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config,
     cluster = g_new(O2CBCluster, 1);
 
     cluster->c_name = g_strdup(name);
+    cluster->c_hb_mode = g_strdup("local");
     cluster->c_num_nodes = 0;
     cluster->c_nodes = NULL;
+    cluster->c_heartbeat = NULL;
 
     config->co_clusters = g_list_append(config->co_clusters, cluster);
 
@@ -580,6 +697,112 @@ gint o2cb_cluster_set_name(O2CBCluster *cluster, const gchar *name)
 
     return 0;
 }  /* o2cb_config_set_cluster_name() */
+
+gchar *o2cb_cluster_get_heartbeat_mode(O2CBCluster *cluster)
+{
+    g_return_val_if_fail(cluster != NULL, NULL);
+
+    return g_strdup(cluster->c_hb_mode);
+}  /* o2cb_cluster_get_hb_mode() */
+
+gint o2cb_cluster_set_heartbeat_mode(O2CBCluster *cluster, const gchar *hb_mode)
+{
+    gchar *new_hb_mode;
+    gint i, valid = 0;
+
+    if (cluster->c_hb_mode && !g_ascii_strcasecmp(hb_mode, cluster->c_hb_mode))
+        return 0;
+
+    for (i = 0; valid_heartbeat_modes[i]; i++) {
+        if (!g_ascii_strcasecmp(hb_mode, valid_heartbeat_modes[i])) {
+                valid = 1;
+                break;
+	}
+    }
+
+    if (!valid)
+        return -EINVAL;
+
+    new_hb_mode = g_ascii_strdown(hb_mode, -1);
+    if (!new_hb_mode)
+        return -ENOMEM;
+
+    g_free(cluster->c_hb_mode);
+    cluster->c_hb_mode = new_hb_mode;
+
+    return 0;
+}  /* o2cb_config_set_cluster_hb_mode() */
+
+JIterator *o2cb_cluster_get_heartbeat_regions(O2CBCluster *cluster)
+{
+    g_return_val_if_fail(cluster != NULL, NULL);
+
+    return j_iterator_new_from_list(cluster->c_heartbeat);
+}  /* o2cb_cluster_get_heartbeat_regions() */
+
+O2CBHeartbeat *o2cb_cluster_get_heartbeat_by_region(O2CBCluster *cluster,
+						    const gchar *region)
+{
+    GList *list;
+    O2CBHeartbeat *hb;
+
+    g_return_val_if_fail(cluster != NULL, NULL);
+
+    list = cluster->c_heartbeat;
+    while (list)
+    {
+        hb = (O2CBHeartbeat *)list->data;
+        if (!strcmp(hb->h_region, region))
+            return hb;
+        list = list->next;
+    }
+
+    return NULL;
+}  /* o2cb_cluster_get_heartbeat_by_region() */
+
+gint o2cb_cluster_remove_heartbeat(O2CBCluster *cluster, const gchar *region)
+{
+    O2CBHeartbeat *hb;
+
+    g_return_val_if_fail(cluster != NULL, -1);
+
+    hb = o2cb_cluster_get_heartbeat_by_region(cluster, region);
+    if (!hb)
+        return -1;
+
+    cluster->c_heartbeat = g_list_remove(cluster->c_heartbeat, hb);
+    g_free(hb->h_region);
+    g_free(hb);
+
+    return 0;
+}  /* o2cb_cluster_remove_heartbeat() */
+
+O2CBHeartbeat *o2cb_cluster_add_heartbeat(O2CBCluster *cluster,
+                                          const gchar *region)
+{
+    O2CBHeartbeat *hb;
+
+    g_return_val_if_fail(cluster != NULL, NULL);
+
+    hb = o2cb_cluster_get_heartbeat_by_region(cluster, region);
+    if (hb)
+        return NULL;
+
+    hb = g_new(O2CBHeartbeat, 1);
+
+    hb->h_region = g_strdup(region);
+
+    cluster->c_heartbeat = g_list_append(cluster->c_heartbeat, hb);
+
+    return hb;
+}  /* o2cb_cluster_add_heartbeat() */
+
+gchar *o2cb_heartbeat_get_region(O2CBHeartbeat *heartbeat)
+{
+    g_return_val_if_fail(heartbeat != NULL, NULL);
+
+    return g_strdup(heartbeat->h_region);
+} /* o2cb_heartbeat_get_region */
 
 guint o2cb_cluster_get_node_count(O2CBCluster *cluster)
 {

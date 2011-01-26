@@ -28,6 +28,7 @@
 typedef struct _O2CBConfig	O2CBConfig;
 typedef struct _O2CBCluster	O2CBCluster;
 typedef struct _O2CBNode	O2CBNode;
+typedef struct _O2CBHeartbeat	O2CBHeartbeat;
 
 O2CBConfig *o2cb_config_initialize(void);
 gint o2cb_config_load(const gchar *filename, O2CBConfig **config);
@@ -43,6 +44,18 @@ O2CBCluster *o2cb_config_get_cluster_by_name(O2CBConfig *config,
 
 gchar *o2cb_cluster_get_name(O2CBCluster *cluster);
 gint o2cb_cluster_set_name(O2CBCluster *cluster, const gchar *name);
+
+gchar *o2cb_heartbeat_get_region(O2CBHeartbeat *heartbeat);
+JIterator *o2cb_cluster_get_heartbeat_regions(O2CBCluster *cluster);
+gchar *o2cb_cluster_get_heartbeat_mode(O2CBCluster *cluster);
+gint o2cb_cluster_set_heartbeat_mode(O2CBCluster *cluster,
+				     const gchar *hb_mode);
+O2CBHeartbeat *o2cb_cluster_get_heartbeat_by_region(O2CBCluster *cluster,
+						    const gchar *region);
+gint o2cb_cluster_remove_heartbeat(O2CBCluster *cluster, const gchar *region);
+O2CBHeartbeat *o2cb_cluster_add_heartbeat(O2CBCluster *cluster,
+					  const gchar *region);
+
 guint o2cb_cluster_get_node_count(O2CBCluster *cluster);
 JIterator *o2cb_cluster_get_nodes(O2CBCluster *cluster);
 O2CBNode *o2cb_cluster_get_node(O2CBCluster *cluster, guint n);
