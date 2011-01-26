@@ -871,27 +871,41 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 	struct ocfs2_refcount_block *rb;
 	struct ocfs2_dx_root_block *dx_root;
 	struct ocfs2_dx_leaf *dx_leaf;
+	struct ocfs2_dinode *di;
+	struct ocfs2_extent_block *eb;
 
 	fprintf (out, "\tBlock %"PRIu64": ", blknum);
 	switch (type) {
 	case DUMP_BLOCK_INODE:
 		fprintf(out, "Inode\n");
-		ocfs2_swap_inode_to_cpu(gbls.fs, (struct ocfs2_dinode *)buf);
-		dump_inode (out, (struct ocfs2_dinode *)buf);
+		di = (struct ocfs2_dinode *)buf;
+		ocfs2_swap_inode_to_cpu(gbls.fs, di);
+		dump_inode(out, di);
+		if (di->i_flags & OCFS2_LOCAL_ALLOC_FL)
+			dump_local_alloc(out, &(di->id2.i_lab));
+		else if (di->i_flags & OCFS2_CHAIN_FL)
+			dump_chain_list(out, &(di->id2.i_chain));
+		else if (S_ISLNK(di->i_mode) && !di->i_clusters)
+			dump_fast_symlink(out, (char *)di->id2.i_symlink);
+		else if (di->i_flags & OCFS2_DEALLOC_FL)
+			dump_truncate_log(out, &(di->id2.i_dealloc));
+		else if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL))
+			dump_extent_list (out, &(di->id2.i_list));
 		fprintf (out, "\n");
 		break;
 	case DUMP_BLOCK_EXTENT_BLOCK:
 		fprintf(out, "Extent\n");
-		ocfs2_swap_extent_block_to_cpu(gbls.fs,
-					       (struct ocfs2_extent_block *)buf);
-		dump_extent_block (out, (struct ocfs2_extent_block *)buf);
+		eb = (struct ocfs2_extent_block *)buf;
+		ocfs2_swap_extent_block_to_cpu(gbls.fs, eb);
+		dump_extent_block(out, eb);
+		dump_extent_list(out, &(eb->h_list));
 		fprintf (out, "\n");
 		break;
 	case DUMP_BLOCK_GROUP_DESCRIPTOR:
 		fprintf(out, "Group\n");
 		ocfs2_swap_group_desc_to_cpu(gbls.fs,
 				      (struct ocfs2_group_desc *)buf);
-		dump_group_descriptor (out, (struct ocfs2_group_desc *)buf, 0);
+		dump_group_descriptor(out, (struct ocfs2_group_desc *)buf, 0);
 		fprintf (out, "\n");
 		break;
 	case DUMP_BLOCK_DIR_BLOCK:
