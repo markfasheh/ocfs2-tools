@@ -36,8 +36,7 @@ void o2cb_config_free(O2CBConfig *config);
 
 O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config,
                                      const gchar *name);
-void o2cb_config_delete_cluster(O2CBConfig *config,
-                                O2CBCluster *cluster);
+gint o2cb_config_remove_cluster(O2CBConfig *config, const gchar *name);
 JIterator *o2cb_config_get_clusters(O2CBConfig *config);
 O2CBCluster *o2cb_config_get_cluster_by_name(O2CBConfig *config,
                                              const gchar *name);

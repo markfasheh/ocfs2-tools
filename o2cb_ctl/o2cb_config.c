@@ -518,6 +518,21 @@ O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config,
     return cluster;
 }  /* o2cb_cluster_add_cluster() */
 
+gint o2cb_config_remove_cluster(O2CBConfig *config, const gchar *name)
+{
+    O2CBCluster *cluster;
+
+    g_return_val_if_fail(config != NULL, -1);
+    cluster = o2cb_config_get_cluster_by_name(config, name);
+    if (!cluster)
+        return -ENOENT;
+
+    config->co_clusters = g_list_remove(config->co_clusters, cluster);
+    o2cb_cluster_free(cluster);
+
+    return 0;
+}
+
 O2CBCluster *o2cb_config_get_cluster_by_name(O2CBConfig *config,
                                              const gchar *name)
 {
