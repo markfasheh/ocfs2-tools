@@ -50,7 +50,7 @@ O2CBNode *o2cb_cluster_get_node_by_name(O2CBCluster *cluster,
                                         const gchar *name);
 O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster,
                                 const gchar *name);
-void o2cb_cluster_delete_node(O2CBCluster *cluster, O2CBNode *node);
+gint o2cb_cluster_delete_node(O2CBCluster *cluster, const gchar *name);
 
 gint o2cb_node_get_number(O2CBNode *node);
 gchar *o2cb_node_get_name(O2CBNode *node);

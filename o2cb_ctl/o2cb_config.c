@@ -658,8 +658,24 @@ O2CBNode *o2cb_cluster_add_node(O2CBCluster *cluster,
     return node;
 }  /* o2cb_cluster_add_node() */
 
-void o2cb_cluster_delete_node(O2CBCluster *cluster, O2CBNode *node)
+gint o2cb_cluster_delete_node(O2CBCluster *cluster, const gchar *name)
 {
+    O2CBNode *node;
+    g_return_val_if_fail(cluster != NULL, -1);
+    g_return_val_if_fail(name != NULL, -1);
+
+    node = o2cb_cluster_get_node_by_name(cluster, name);
+    if (!node)
+        return -ENOENT;
+
+    cluster->c_nodes = g_list_remove(cluster->c_nodes, node);
+    cluster->c_num_nodes--;
+    g_free(node->n_name);
+    g_free(node->n_addr);
+    g_free(node);
+
+    return 0;
+
 }  /* o2cb_cluster_delete_node() */
 
 gint o2cb_node_get_number(O2CBNode *node)
