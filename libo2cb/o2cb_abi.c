@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <limits.h>
+#include <ctype.h>
 
 #include <linux/types.h>
 
@@ -107,6 +108,20 @@ static int control_device_fd = -1;
 
 static char *configfs_path;
 
+static char *do_strchomp(char *str)
+{
+	int len = strlen(str);
+	char *p;
+
+	if (!len)
+		return str;
+
+	p = str + len - 1;
+	while (isspace(*p) && len--)
+		*p-- = '\0';
+
+	return str;
+}
 
 static ssize_t read_single_line_file(const char *file, char *line,
 				     size_t count)
@@ -2045,6 +2060,60 @@ errcode_t o2cb_get_node_num(const char *cluster_name, const char *node_name,
 	return 0;
 }
 
+errcode_t o2cb_get_node_port(const char *cluster_name, const char *node_name,
+			     uint32_t *ip_port)
+{
+	char val[30];
+	char *p;
+	errcode_t ret;
+
+	ret = o2cb_get_node_attribute(cluster_name, node_name, "ipv4_port",
+				      val, sizeof(val));
+	if (ret)
+		return ret;
+
+	*ip_port = strtoul(val, &p, 0);
+	if (!p || (*p && *p != '\n'))
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	return 0;
+}
+
+errcode_t o2cb_get_node_ip_string(const char *cluster_name,
+				  const char *node_name,
+				  char *ip_address, int count)
+{
+	errcode_t ret;
+
+	ret = o2cb_get_node_attribute(cluster_name, node_name, "ipv4_address",
+				      ip_address, count - 1);
+	if (ret)
+		return ret;
+
+	/* wipeout the last newline character */
+	do_strchomp(ip_address);
+
+	return 0;
+}
+
+errcode_t o2cb_get_node_local(const char *cluster_name, const char *node_name,
+			      uint32_t *local)
+{
+	char val[30];
+	char *p;
+	errcode_t ret;
+
+	ret = o2cb_get_node_attribute(cluster_name, node_name, "local",
+				      val, sizeof(val));
+	if (ret)
+		return ret;
+
+	*local = strtoul(val, &p, 0);
+	if (!p || (*p && *p != '\n'))
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	return 0;
+}
 /*
  * The handshake is pretty simple.  We need to read all supported control
  * device protocols from the kernel.  Once we've read them, we can write

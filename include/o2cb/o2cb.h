@@ -114,6 +114,16 @@ errcode_t o2cb_num_region_refs(const char *region_name,
 errcode_t o2cb_get_node_num(const char *cluster_name,
 			    const char *node_name,
 			    uint16_t *node_num);
+errcode_t o2cb_get_node_port(const char *cluster_name,
+			     const char *node_name,
+			     uint32_t *ip_port);
+errcode_t o2cb_get_node_ip_string(const char *cluster_name,
+				  const char *node_name,
+				  char *ip_address, int count);
+errcode_t o2cb_get_node_local(const char *cluster_name,
+			      const char *node_name,
+			      uint32_t *local);
+
 void o2cb_free_cluster_desc(struct o2cb_cluster_desc *cluster);
 errcode_t o2cb_running_cluster_desc(struct o2cb_cluster_desc *cluster);
 
