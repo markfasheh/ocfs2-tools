@@ -37,12 +37,10 @@ struct strings {
 	struct list_head s_list;
 };
 
-void get_incompat_flag(uint32_t flag, GString *str);
-void get_tunefs_flag(uint32_t incompat_flag, uint16_t flag, GString *str);
-void get_compat_flag(uint32_t flag, GString *str);
-void get_rocompat_flag(uint32_t flag, GString *str);
-void get_vote_flag (uint32_t flag, GString *str);
-void get_publish_flag (uint32_t flag, GString *str);
+void get_incompat_flag(struct ocfs2_super_block *sb, char *buf, size_t count);
+void get_tunefs_flag(struct ocfs2_super_block *sb, char *buf, size_t count);
+void get_compat_flag(struct ocfs2_super_block *sb, char *buf, size_t count);
+void get_rocompat_flag(struct ocfs2_super_block *sb, char *buf, size_t count);
 void get_journal_block_type (uint32_t jtype, GString *str);
 void get_tag_flag (uint32_t flags, GString *str);
 FILE *open_pager(int interactive);

@@ -40,16 +40,8 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 {
 	int i;
 	char *str;
-	GString *compat = NULL;
-	GString *incompat = NULL;
-	GString *rocompat = NULL;
-	GString *tunefs_flag = NULL;
+	char buf[PATH_MAX];
 	time_t lastcheck;
-
-	compat = g_string_new(NULL);
-	incompat = g_string_new(NULL);
-	rocompat = g_string_new(NULL);
-	tunefs_flag = g_string_new(NULL);
 
 	fprintf(out, "\tRevision: %u.%u\n", sb->s_major_rev_level, sb->s_minor_rev_level);
 	fprintf(out, "\tMount Count: %u   Max Mount Count: %u\n", sb->s_mnt_count,
@@ -63,20 +55,19 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 
 	fprintf(out, "\tCreator OS: %u\n", sb->s_creator_os);
 
-	get_compat_flag(sb->s_feature_compat, compat);
-	get_incompat_flag(sb->s_feature_incompat, incompat);
-	get_tunefs_flag(sb->s_feature_incompat,
-			sb->s_tunefs_flag, tunefs_flag);
-	get_rocompat_flag(sb->s_feature_ro_compat, rocompat);
+	get_compat_flag(sb, buf, sizeof(buf));
+	fprintf(out, "\tFeature Compat: %u %s\n", sb->s_feature_compat, buf);
 
-	fprintf(out, "\tFeature Compat: %u %s\n", sb->s_feature_compat,
-		compat->str);
+	get_incompat_flag(sb, buf, sizeof(buf));
 	fprintf(out, "\tFeature Incompat: %u %s\n", sb->s_feature_incompat,
-		incompat->str);
-	fprintf(out, "\tTunefs Incomplete: %u %s\n", sb->s_tunefs_flag,
-		tunefs_flag->str);
+		buf);
+
+	get_tunefs_flag(sb, buf, sizeof(buf));
+	fprintf(out, "\tTunefs Incomplete: %u %s\n", sb->s_tunefs_flag, buf);
+
+	get_rocompat_flag(sb, buf, sizeof(buf));
 	fprintf(out, "\tFeature RO compat: %u %s\n", sb->s_feature_ro_compat,
-		rocompat->str);
+		buf);
 
 	fprintf(out, "\tRoot Blknum: %"PRIu64"   System Dir Blknum: %"PRIu64"\n",
 		(uint64_t)sb->s_root_blkno,
@@ -110,10 +101,6 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 			sb->s_cluster_info.ci_cluster);
 	else
 		fprintf(out, "\tCluster stack: classic o2cb\n");
-
-	g_string_free(compat, 1);
-	g_string_free(incompat, 1);
-	g_string_free(rocompat, 1);
 
 	return ;
 }
