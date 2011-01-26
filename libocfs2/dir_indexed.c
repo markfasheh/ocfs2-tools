@@ -670,7 +670,7 @@ static errcode_t ocfs2_read_dx_leaves(ocfs2_filesys *fs,
 				int num,
 				struct ocfs2_dx_leaf **dx_leaves)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	int i;
 	struct ocfs2_dx_leaf *dx_leaf;
 	for (i = 0; i < num; i++) {
@@ -750,7 +750,7 @@ static errcode_t ocfs2_dx_dir_transfer_leaf(ocfs2_filesys *fs,
 				uint64_t new_dx_leaves_blkno,
 				int num_dx_leaves)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	int i, j, num_used;
 	uint32_t major_hash;
 	struct ocfs2_dx_leaf *orig_dx_leaf, *new_dx_leaf;

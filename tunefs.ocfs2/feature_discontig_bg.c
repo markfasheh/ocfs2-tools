@@ -237,7 +237,7 @@ static int disable_discontig_bg(ocfs2_filesys *fs, int flags)
 {
 	errcode_t ret = 0;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
-	struct tools_progress *prog;
+	struct tools_progress *prog = NULL;
 	struct no_discontig_bg_ctxt ctxt;
 	struct discontig_bg *tmp;
 

@@ -280,7 +280,7 @@ uint64_t ocfs2_get_block_from_group(ocfs2_filesys *fs,
 				    int bpc, int bit_offset)
 {
 	int cpos, i;
-	struct ocfs2_extent_rec *rec;
+	struct ocfs2_extent_rec *rec = NULL;
 	int block_per_bit = ocfs2_clusters_to_blocks(fs, 1) / bpc;
 
 	if (!ocfs2_gd_is_discontig(grp))
@@ -296,7 +296,7 @@ uint64_t ocfs2_get_block_from_group(ocfs2_filesys *fs,
 			break;
 	}
 
-	if (i == grp->bg_list.l_next_free_rec)
+	if (!rec || i == grp->bg_list.l_next_free_rec)
 		abort();
 
 	return rec->e_blkno + (bit_offset * block_per_bit -
