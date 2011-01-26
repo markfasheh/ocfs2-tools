@@ -23,6 +23,18 @@ char *progname = "o2cbtool";
 
 struct o2cb_command o2cbtool_cmds[] = {
 	{
+		.o_name = "add-cluster",
+		.o_action = o2cbtool_add_cluster,
+		.o_usage = "<clustername>",
+		.o_help = "Add cluster to the config file.",
+	},
+	{
+		.o_name = "remove-cluster",
+		.o_action = o2cbtool_remove_cluster,
+		.o_usage = "<clustername>",
+		.o_help = "Removes cluster from the config file.",
+	},
+	{
 		.o_name = NULL,
 		.o_action = NULL,
 	},

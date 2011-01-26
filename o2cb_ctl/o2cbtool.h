@@ -28,6 +28,7 @@
 #include <getopt.h>
 #include <libgen.h>
 #include <signal.h>
+#include <ctype.h>
 
 #include <glib.h>
 
@@ -56,3 +57,8 @@ struct o2cb_command {
 enum {
 	CONFIG_FILE_OPTION = CHAR_MAX + 1,
 };
+
+errcode_t o2cbtool_validate_clustername(char *clustername);
+
+errcode_t o2cbtool_add_cluster(struct o2cb_command *cmd);
+errcode_t o2cbtool_remove_cluster(struct o2cb_command *cmd);
