@@ -133,6 +133,7 @@ fi
 /usr/share/man/man8/mount.ocfs2.8.gz
 /usr/share/man/man8/mounted.ocfs2.8.gz
 /usr/share/man/man8/o2cb_ctl.8.gz
+/usr/share/man/man8/o2cb.8.gz
 /usr/share/man/man8/ocfs2_hb_ctl.8.gz
 /usr/share/man/man8/o2image.8.gz
 /usr/share/man/man7/o2cb.7.gz

@@ -1,0 +1,140 @@
+.TH "o2cb" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+o2cb \- Cluster registration utility for the \fIO2CB\fR cluster stack.
+.SH "SYNOPSIS"
+\fBo2cb\fR [\fB--config-file\fR=path] [-\fBh\fR|\fB--help\fR] [-\fBv\fR|\fB--verbose\fR] [\fB-V\fR|\fB--version\fR] \fICOMMAND\fR [\fIARGS\fR]
+
+.SH "DESCRIPTION"
+.PP
+\fBo2cb(8)\fR is used to add, remove and list the information in the \fBO2CB\fR
+cluster configuration file. This utility is also used to register and unregister the
+cluster, as well as start and stop global heartbeat.
+
+The default location of the configuration file, /etc/ocfs2/cluster.conf, can be
+overridden using the --config-file option.
+
+.SH "OPTIONS"
+.TP
+\fB--config-file\fR \fIconfig-file\fR
+Specify a path to the configuration file. If not provided, it will use the default path
+of /etc/ocfs2/cluster.conf.
+
+.TP
+\fB-v, --verbose\fR
+Verbose mode.
+
+.TP
+\fB-h, --help\fR
+Help.
+
+.TP
+\fB-V, --version\fR
+Show version and exit.
+
+.SH "O2CB COMMANDS"
+
+.TP
+\fBadd-cluster\fR \fIcluster-name\fR
+Adds a cluster to the configuration file. The \fBO2CB\fR configuration file can hold
+multiple clusters. However, only one cluster can be active at any time.
+
+.TP
+\fBremove-cluster\fR \fIcluster-name\fR
+Removes a cluster from the configuration file. This command removes all the nodes and
+heartbeat regions assigned to the cluster.
+
+.TP
+\fBadd-node\fR \fIcluster-name\fR \fInode-name\fR [\fB--ip\fR \fIip-address\fR] [\fB--port\fR \fIport\fR] [\fB--number\fR \fInode-number\fR]
+Adds a node to the cluster in the configuration file. It accepts three optional arguments.
+If not provided, the \fIip-address\fR defaults to the one assigned to the \fInode-name\fR,
+\fIport\fR to 7777, and \fInode-number\fR to the lowest unused node number.
+
+.TP
+\fBremove-node\fR \fIcluster-name\fR \fInode-name\fR
+Removes a node from the cluster in the configuration file.
+
+.TP
+\fBadd-heartbeat\fR \fIcluster-name\fR [\fIuuid\fR|\fIdevice\fR]
+Adds a heartbeat region to the cluster in the configuration file.
+
+.TP
+\fBremove-heartbeat\fR \fIcluster-name\fR [\fIuuid\fR|\fIdevice\fR]
+Removes a heartbeat region from the cluster in the configuration file.
+
+.TP
+\fBheartbeat-mode\fR \fIcluster-name\fR [\fBlocal\fR|\fBglobal\fR]
+Sets the heartbeat mode for the cluster in the configuration file.
+
+.TP
+\fBlist-clusters\fR
+Lists all the cluster names in the configuration file.
+
+.TP
+\fBlist-cluster\fR \fIcluster-name\fR \fB--oneline\fR
+Lists all the nodes and heartbeat regions associated with the cluster in the
+configuration file.
+
+.TP
+\fBlist-nodes\fR \fIcluster-name\fR \fB--oneline\fR
+Lists all the nodes associated with the cluster in the configuration file. 
+
+.TP
+\fBlist-heartbeats\fR \fIcluster-name\fR \fB--oneline\fR
+Lists all the heartbeat regions associated with the cluster in the configuration
+file.
+
+.TP
+\fBregister-cluster\fR \fIcluster-name\fR
+Registers the cluster listed in the configuration file with configfs.
+If called when the cluster is already registered, it will update configfs with
+the current configuration.
+
+.TP
+\fBunregister-cluster\fR \fIcluster-name\fR
+Unregisters the cluster from configfs.
+
+.TP
+\fBstart-heartbeat\fR \fIcluster-name\fR
+Starts global heartbeat on all regions for the cluster as listed in the
+configuration file. If repeated, it will start heartbeat on new regions and
+stop on regions since removed. It will silently exit if global heartbeat has
+not been enabled.
+
+.TP
+\fBstop-heartbeat\fR \fIcluster-name\fR
+Stops global heartbeat on all regions for the cluster. It will silently exit
+if global heartbeat has not been enabled.
+
+.SH "EXAMPLE"
+
+.TS
+;
+L.
+To create a cluster, mycluster having two nodes, node1 and node2, do:
+[root@node1 ~]# \fBo2cb add-cluster mycluster\fR
+[root@node1 ~]# \fBo2cb add-node mycluster node1 --ip 10.10.10.1\fR
+[root@node1 ~]# \fBo2cb add-node mycluster node2 --ip 10.10.10.2\fR
+
+To specify a global heartbeat device, /dev/sda1, do:
+[root@node1 ~]# \fBo2cb add-heartbeat mycluster /dev/sda1\fR
+
+To enable global heartbeat, do:
+[root@node1 ~]# \fBo2cb heartbeat-mode mycluster global\fR
+
+.TE
+
+
+.SH "SEE ALSO"
+.BR mkfs.ocfs2(8)
+.BR debugfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR tunefs.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR ocfs2console(8)
+.BR o2cb(7)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2010 Oracle. All rights reserved.

@@ -439,6 +439,7 @@ fsck.ocfs2/fsck.ocfs2.8
 fsck.ocfs2/fsck.ocfs2.checks.8
 mount.ocfs2/mount.ocfs2.8
 o2cb_ctl/o2cb_ctl.8
+o2cb_ctl/o2cb.8
 ocfs2_hb_ctl/ocfs2_hb_ctl.8
 ocfs2console/ocfs2console.8
 tunefs.ocfs2/tunefs.ocfs2.8
