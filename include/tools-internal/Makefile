@@ -2,7 +2,7 @@ TOPDIR = ../..
 
 include $(TOPDIR)/Preamble.make
 
-HFILES = verbose.h progress.h
+HFILES = verbose.h progress.h utils.h
 
 DIST_FILES = $(HFILES)
 

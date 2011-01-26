@@ -28,7 +28,7 @@ debug_%: debug_%.o
 
 endif
 
-CFILES = verbose.c progress.c
+CFILES = verbose.c progress.c utils.c
 HFILES = libtools-internal.h
 
 OBJS = $(subst .c,.o,$(CFILES))
