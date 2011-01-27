@@ -1719,38 +1719,55 @@ errcode_t o2cb_running_cluster_desc(struct o2cb_cluster_desc *cluster)
 	errcode_t err;
 	const char *stack;
 	char **clusters = NULL;
+	int globalhb;
 
+	cluster->c_stack = NULL;
+	cluster->c_cluster = NULL;
+	cluster->c_flags = 0;
+
+	/* c_stack */
 	err = o2cb_get_stack_name(&stack);
 	if (err)
-		return err;
+		goto out;
 
-	if (!strcmp(stack, classic_stack.s_name)) {
-		cluster->c_stack = NULL;
-		cluster->c_cluster = NULL;
-		return 0;
-	}
-
+	err = O2CB_ET_NO_MEMORY;
 	cluster->c_stack = strdup(stack);
 	if (!cluster->c_stack)
-		return O2CB_ET_NO_MEMORY;
+		goto out;
 
+	/* c_cluster */
 	err = o2cb_list_clusters(&clusters);
-	if (err) {
-		free(cluster->c_stack);
-		return err;
-	}
+	if (err)
+		goto out;
 
 	/* The first cluster is the default cluster */
-	if (clusters[0]) {
+	if (!clusters[0])
+		err = O2CB_ET_SERVICE_UNAVAILABLE;
+	else {
 		cluster->c_cluster = strdup(clusters[0]);
-		if (!cluster->c_cluster) {
-			free(cluster->c_stack);
+		if (!cluster->c_cluster)
 			err = O2CB_ET_NO_MEMORY;
-		}
 	}
-	o2cb_free_cluster_list(clusters);
+	if (err)
+		goto out;
 
-	return 0;
+	/* c_flags */
+	err = o2cb_global_heartbeat_mode(cluster->c_cluster, &globalhb);
+	if (err)
+		goto out;
+
+	if (globalhb)
+		cluster->c_flags |= OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT;
+
+out:
+	if (clusters)
+		o2cb_free_cluster_list(clusters);
+	if (err) {
+		free(cluster->c_stack);
+		free(cluster->c_cluster);
+	}
+
+	return err;
 }
 
 static inline int is_dots(const char *name)

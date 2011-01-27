@@ -41,4 +41,9 @@
 #define O2CB_FORMAT_HEARTBEAT_REGION_ATTR	O2CB_FORMAT_HEARTBEAT_REGION "/%s"
 #define O2CB_FORMAT_HEARTBEAT_MODE	O2CB_FORMAT_HEARTBEAT_DIR "/mode"
 
+/*
+ * Cluster info flags (ocfs2_cluster_info.ci_stackflags)
+ */
+#define OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT	(0x01)
+
 #endif  /* _O2CB_ABI_H */

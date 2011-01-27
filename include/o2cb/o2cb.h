@@ -84,6 +84,7 @@ struct o2cb_cluster_desc {
 	char *c_cluster;	/* The name of the cluster, NULL for the
 				   default cluster, which is only valid in
 				   the classic stack.  */
+	uint8_t c_flags;
 };
 
 struct o2cb_region_desc {
