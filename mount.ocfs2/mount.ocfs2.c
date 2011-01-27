@@ -407,6 +407,21 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
+	/* validate mount dir */
+	if (lstat(mo.dir, &statbuf)) {
+		com_err(progname, 0, "mount directory %s does not exist",
+			mo.dir);
+		goto bail;
+	} else if (stat(mo.dir, &statbuf)) {
+		com_err(progname, 0, "mount directory %s is a broken symbolic "
+			"link", mo.dir);
+		goto bail;
+	} else if (!S_ISDIR(statbuf.st_mode)) {
+		com_err(progname, 0, "mount directory %s is not a directory",
+			mo.dir);
+		goto bail;
+	}
+
 	block_signals (SIG_BLOCK);
 
 	if (!(mo.flags & MS_REMOUNT) && !dev_ro && clustered) {
@@ -431,21 +446,8 @@ int main(int argc, char **argv)
 			o2cb_complete_group_join(&cluster, &desc, errno);
 		}
 		block_signals (SIG_UNBLOCK);
-
-		/* complain mount failure */
-		if (lstat(mo.dir, &statbuf))
-			com_err(progname, 0, "mount point %s does not "
-				"exist", mo.dir);
-		else if (stat(mo.dir, &statbuf))
-			com_err(progname, 0, "mount point %s is a "
-				"broken symbolic link", mo.dir);
-		else if (!S_ISDIR(statbuf.st_mode))
-			com_err(progname, 0, "mount point %s is not "
-				"a directory", mo.dir);
-		else
-			com_err(progname, ret, "while mounting %s on %s. "
-				"Check 'dmesg' for more information on this "
-				"error.", mo.dev, mo.dir);
+		com_err(progname, ret, "while mounting %s on %s. Check 'dmesg' "
+			"for more information on this error.", mo.dev, mo.dir);
 		goto bail;
 	}
 	if (group_join) {
