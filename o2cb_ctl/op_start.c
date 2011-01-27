@@ -195,10 +195,10 @@ errcode_t o2cbtool_start_heartbeat(struct o2cb_command *cmd)
 	gchar *clustername;
 	int global = 0;
 
-	if (cmd->o_argc < 2) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 2)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 
@@ -367,10 +367,10 @@ errcode_t o2cbtool_stop_heartbeat(struct o2cb_command *cmd)
 	gchar *clustername;
 	int global = 0;
 
-	if (cmd->o_argc < 2) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 2)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 

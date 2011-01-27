@@ -140,10 +140,10 @@ errcode_t o2cbtool_list_objects(struct o2cb_command *cmd)
 
 	ret = list_parse_options(cmd->o_argc, cmd->o_argv, &oneline,
 				 &clustername);
-	if (ret) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (ret)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	cluster = o2cb_config_get_cluster_by_name(cmd->o_config, clustername);
 	if (!cluster) {

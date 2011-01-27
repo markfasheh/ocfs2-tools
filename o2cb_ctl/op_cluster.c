@@ -56,10 +56,10 @@ errcode_t o2cbtool_add_cluster(struct o2cb_command *cmd)
 	errcode_t ret = -1;
 	gchar *clustername;
 
-	if (cmd->o_argc < 2) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 2)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 
@@ -69,7 +69,7 @@ errcode_t o2cbtool_add_cluster(struct o2cb_command *cmd)
 
 	cluster = o2cb_config_add_cluster(cmd->o_config, clustername);
 	if (!cluster) {
-		errorf("cluster '%s' already exists\n", clustername);
+		errorf("Cluster '%s' already exists\n", clustername);
 		goto bail;
 	}
 
@@ -89,16 +89,16 @@ errcode_t o2cbtool_remove_cluster(struct o2cb_command *cmd)
 	errcode_t ret = -1;
 	gchar *clustername;
 
-	if (cmd->o_argc < 2 || !strlen(tools_strstrip(cmd->o_argv[1]))) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 2 || !strlen(tools_strstrip(cmd->o_argv[1])))
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 
 	ret = o2cb_config_remove_cluster(cmd->o_config, clustername);
 	if (ret) {
-		errorf("cluster '%s' not found\n", clustername);
+		errorf("Unknown cluster '%s'\n", clustername);
 		goto bail;
 	}
 

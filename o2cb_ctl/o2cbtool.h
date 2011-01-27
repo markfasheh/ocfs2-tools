@@ -45,6 +45,7 @@
 
 struct o2cb_command {
 	int o_modified;
+	int o_print_usage;
 	int o_argc;
 	char **o_argv;
 	char *o_name;

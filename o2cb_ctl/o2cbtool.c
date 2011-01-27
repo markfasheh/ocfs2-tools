@@ -273,6 +273,7 @@ int main(int argc, char **argv)
 
 	cmd->o_config = oc_config;
 	cmd->o_modified = 0;
+	cmd->o_print_usage = 1;
 
 	ret = -1;
 	if (!cmd->o_action) {
@@ -281,6 +282,9 @@ int main(int argc, char **argv)
 	}
 
 	ret = cmd->o_action(cmd);
+
+	if (cmd->o_print_usage)
+		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
 
 	if (ret || !cmd->o_modified)
 		goto bail;

@@ -44,21 +44,21 @@ static int add_node_parse_options(int argc, char *argv[], char **ip, int *port,
 		case IP_OPTION:
 			*ip = strdup(optarg);
 			if (!*ip) {
-				errorf("out-off-memory while copying ip\n");
+				errorf("Out-off-memory while copying IP\n");
 				goto bail;
 			}
 			break;
 		case PORT_OPTION:
 			*port = strtol(optarg, &p, 0);
 			if (*p) {
-				errorf("invalid port number\n");
+				errorf("Invalid port number\n");
 				goto bail;
 			}
 			break;
 		case NODENUM_OPTION:
 			*nodenum = strtol(optarg, &p, 0);
 			if (*p) {
-				errorf("invalid node number\n");
+				errorf("Invalid node number\n");
 				goto bail;
 			}
 			break;
@@ -75,7 +75,7 @@ static int add_node_parse_options(int argc, char *argv[], char **ip, int *port,
 
 	*nodename = tools_strstrip(argv[optind + 1]);
 	if (!strlen(*nodename)) {
-		errorf("node name cannot be zero length\n");
+		errorf("Node name cannot be zero length\n");
 		goto bail;
 	}
 
@@ -122,7 +122,7 @@ static int validate_ip_address(char *nodename, char **ip)
 
 	*ip = strdup(inet_ntoa(addr));
 	if (!*ip) {
-		tcom_err(O2CB_ET_NO_MEMORY, "while setting ip for node '%s'",
+		tcom_err(O2CB_ET_NO_MEMORY, "while setting IP for node '%s'",
 			 nodename);
 		goto bail;
 	}
@@ -133,7 +133,7 @@ bail:
 	if (ai)
 		freeaddrinfo(ai);
 	if (!ret)
-		verbosef(VL_DEBUG, "Validated ip address '%s'\n", *ip);
+		verbosef(VL_DEBUG, "Validated IP address '%s'\n", *ip);
 	return ret;
 }
 
@@ -192,15 +192,15 @@ errcode_t o2cbtool_add_node(struct o2cb_command *cmd)
 
 	ret = add_node_parse_options(cmd->o_argc, cmd->o_argv, &ip, &port,
 				     &nodenum, &nodename, &clustername);
-	if (ret) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (ret)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	ret = -1;
 	cluster = o2cb_config_get_cluster_by_name(cmd->o_config, clustername);
 	if (!cluster) {
-		errorf("unknown cluster '%s'\n", clustername);
+		errorf("Unknown cluster '%s'\n", clustername);
 		goto bail;
 	}
 
@@ -219,7 +219,7 @@ errcode_t o2cbtool_add_node(struct o2cb_command *cmd)
 	ret = -1;
 	node = o2cb_cluster_add_node(cluster, nodename);
 	if (!node) {
-		errorf("node '%s' already exists\n", nodename);
+		errorf("Node '%s' already exists\n", nodename);
 		goto bail;
 	}
 
@@ -251,23 +251,23 @@ errcode_t o2cbtool_remove_node(struct o2cb_command *cmd)
 	errcode_t ret = -1;
 	gchar *clustername, *nodename;
 
-	if (cmd->o_argc < 3) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 3)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 	nodename = cmd->o_argv[2];
 
 	cluster = o2cb_config_get_cluster_by_name(cmd->o_config, clustername);
 	if (!cluster) {
-		errorf("unknown cluster '%s'\n", clustername);
+		errorf("Unknown cluster '%s'\n", clustername);
 		goto bail;
 	}
 
 	ret = o2cb_cluster_delete_node(cluster, nodename);
 	if (ret) {
-		errorf("unknown node '%s'\n", nodename);
+		errorf("Unknown node '%s'\n", nodename);
 		goto bail;
 	}
 

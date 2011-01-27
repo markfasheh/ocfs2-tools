@@ -80,10 +80,10 @@ errcode_t o2cbtool_add_heartbeat(struct o2cb_command *cmd)
 	int ret = -1;
 	gchar *clustername, *tmp, *region = '\0';
 
-	if (cmd->o_argc < 3) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 3)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 	tmp = tools_strstrip(cmd->o_argv[2]);
@@ -125,10 +125,10 @@ errcode_t o2cbtool_remove_heartbeat(struct o2cb_command *cmd)
 	int ret = -1;
 	gchar *clustername, *tmp, *region = '\0';
 
-	if (cmd->o_argc < 3) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 3)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 	tmp = cmd->o_argv[2];
@@ -170,18 +170,16 @@ errcode_t o2cbtool_heartbeat_mode(struct o2cb_command *cmd)
 	int ret = -1;
 	gchar *clustername, *hbmode;
 
-	if (cmd->o_argc < 3) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 3)
 		goto bail;
-	}
 
 	clustername = cmd->o_argv[1];
 	hbmode = cmd->o_argv[2];
 
-	if (strcmp(hbmode, "global") && strcmp(hbmode, "local")) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (strcmp(hbmode, "global") && strcmp(hbmode, "local"))
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	cluster = o2cb_config_get_cluster_by_name(cmd->o_config, clustername);
 	if (!cluster) {

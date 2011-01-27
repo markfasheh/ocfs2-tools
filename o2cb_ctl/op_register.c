@@ -276,10 +276,10 @@ errcode_t o2cbtool_register_cluster(struct o2cb_command *cmd)
 	errcode_t ret = -1;
 	gchar *clustername;
 
-	if (cmd->o_argc < 2) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 2)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 
@@ -376,10 +376,10 @@ errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd)
 	errcode_t ret = -1;
 	gchar *clustername;
 
-	if (cmd->o_argc < 2) {
-		errorf("usage: %s %s\n", cmd->o_name, cmd->o_usage);
+	if (cmd->o_argc < 2)
 		goto bail;
-	}
+
+	cmd->o_print_usage = 0;
 
 	clustername = cmd->o_argv[1];
 
