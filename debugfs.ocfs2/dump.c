@@ -102,6 +102,10 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	else
 		fprintf(out, "\tCluster stack: classic o2cb\n");
 
+	get_cluster_info_flag(sb, buf, sizeof(buf));
+	fprintf(out, "\tCluster flags: %u %s\n",
+		sb->s_cluster_info.ci_stackflags, buf);
+
 	return ;
 }
 

@@ -341,6 +341,16 @@ static struct flag_name ocfs2_refcount_flag_names[] = {
 	},
 };
 
+static struct flag_name ocfs2_cluster_o2cb_flag_names[] = {
+	{
+		.fl_name = "Globalheartbeat",
+		.fl_flag = OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT,
+	},
+	{
+		.fl_name = NULL,
+	},
+};
+
 static inline void merge_features(ocfs2_fs_options *features,
 				  ocfs2_fs_options new_features)
 {
@@ -502,6 +512,13 @@ errcode_t ocfs2_snprint_extent_flags(char *str, size_t size, uint8_t flags)
 errcode_t ocfs2_snprint_refcount_flags(char *str, size_t size, uint8_t flags)
 {
 	return ocfs2_snprint_flag_names(ocfs2_refcount_flag_names,
+					str, size, (uint32_t)flags);
+}
+
+errcode_t ocfs2_snprint_cluster_o2cb_flags(char *str, size_t size,
+					   uint8_t flags)
+{
+	return ocfs2_snprint_flag_names(ocfs2_cluster_o2cb_flag_names,
 					str, size, (uint32_t)flags);
 }
 

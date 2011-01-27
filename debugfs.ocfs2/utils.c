@@ -78,6 +78,20 @@ void get_rocompat_flag(struct ocfs2_super_block *sb, char *buf, size_t count)
 		com_err(gbls.cmd, err, "while processing ro compat flags");
 }
 
+void get_cluster_info_flag(struct ocfs2_super_block *sb, char *buf,
+			   size_t count)
+{
+	errcode_t err = 0;
+
+	*buf = '\0';
+	if (ocfs2_o2cb_stack(sb))
+		err = ocfs2_snprint_cluster_o2cb_flags(buf, count,
+					sb->s_cluster_info.ci_stackflags);
+
+	if (err)
+		com_err(gbls.cmd, err, "while processing clusterinfo flags");
+}
+
 /*
  * get_journal_block_type()
  *
