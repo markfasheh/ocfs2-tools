@@ -27,11 +27,20 @@
 
 #define WHOAMI "mkfs.ocfs2"
 
+int is_classic_stack(char *stack_name)
+{
+	return !strcmp(stack_name, OCFS2_CLASSIC_CLUSTER_STACK);
+}
+
 /* For ocfs2_fill_cluster_information().  Errors are to be ignored */
-static void cluster_fill(char **stack_name, char **cluster_name)
+void cluster_fill(char **stack_name, char **cluster_name, uint8_t *stack_flags)
 {
 	errcode_t err;
 	struct o2cb_cluster_desc cluster;
+
+	*stack_name = NULL;
+	*cluster_name = NULL;
+	*stack_flags = 0;
 
 	err = o2cb_init();
 	if (err)
@@ -48,26 +57,28 @@ static void cluster_fill(char **stack_name, char **cluster_name)
 		 */
 		*stack_name = cluster.c_stack;
 		*cluster_name = cluster.c_cluster;
-	} else
-		*stack_name = strdup("o2cb");
+		*stack_flags = cluster.c_flags;
+	}
 }
 
 /* For ocfs2_fill_cluster_information().  Errors are to be ignored */
 static void disk_fill(const char *device, char **stack_name,
-		      char **cluster_name)
+		      char **cluster_name, uint8_t *stack_flags)
 {
 	errcode_t err;
 	ocfs2_filesys *fs = NULL;
 	struct o2cb_cluster_desc desc;
 
+	*stack_name = NULL;
+	*cluster_name = NULL;
+	*stack_flags = 0;
+
 	err = ocfs2_open(device, OCFS2_FLAG_RO, 0, 0, &fs);
 	if (err)
 		return;
 
-	if (!ocfs2_clusterinfo_valid(OCFS2_RAW_SB(fs->fs_super))) {
-		*stack_name = strdup("o2cb");
+	if (!ocfs2_clusterinfo_valid(OCFS2_RAW_SB(fs->fs_super)))
 		goto close;
-	}
 
 	err = ocfs2_fill_cluster_desc(fs, &desc);
 	if (err)
@@ -75,152 +86,185 @@ static void disk_fill(const char *device, char **stack_name,
 
 	*stack_name = strdup(desc.c_stack);
 	*cluster_name = strdup(desc.c_cluster);
+	*stack_flags = desc.c_flags;
 
 close:
 	ocfs2_close(fs);
 }
 
-static int pick_one(State *s, const char *what_is_it,
-		    const char *user_value, const char *o2cb_value,
-		    const char *disk_value, char **ret_value)
+static int check_cluster_compatibility(State *s, char *active, char *other,
+				       const char *other_desc)
 {
-	int rc = -1;
+	int ret = -1;
 
-	/*
-	 * First, compare o2cb and disk values.  If we get past this
-	 * block (via match or override), the o2cb value takes precedence.
-	 */
-	if (disk_value && o2cb_value && strcmp(o2cb_value, disk_value)) {
+	if (strlen(other) && strlen(active) && strcmp(active, other)) {
 		fprintf(stderr,
-			"%s is configured to use %s \"%s\", but \"%s\" is currently running.\n"
-			"%s will not be able to determine if the filesystem is in use.\n",
-			s->device_name, what_is_it,
-			disk_value, o2cb_value,
-			s->progname);
+			"%s cluster (%s) does not match the active cluster "
+			"(%s).\n%s will not be able to determine if this "
+			"operation can be done safely.\n",
+			other_desc, other, active, s->progname);
 		if (!s->force) {
 			fprintf(stderr, "To skip this check, use --force or -F\n");
 			goto out;
 		}
-		fprintf(stdout, "Overwrite of disk information forced\n");
+		fprintf(stdout, "Format is forced.\n");
 	}
 
-	if (user_value) {
-		if (o2cb_value) {
-			if (strcmp(o2cb_value, user_value)) {
-				fprintf(stderr, "%s \"%s\" was requested, but \"%s\" is running.\n",
-				what_is_it, user_value, o2cb_value);
-				if (!s->force) {
-					fprintf(stderr,
-						"To skip this check, use --force or -F\n");
-					goto out;
-				}
-				fprintf(stdout, "%s forced\n", what_is_it);
-			}
-		} else if (disk_value) {
-			if (strcmp(disk_value, user_value)) {
-				fprintf(stderr, "%s \"%s\" was requested, but %s is configured for \"%s\".\n",
-					what_is_it, user_value,
-					s->device_name, disk_value);
-				if (!s->force) {
-					fprintf(stderr,
-						"To skip this check, use --force or -F\n");
-					goto out;
-				}
-				fprintf(stderr, "%s forced\n", what_is_it);
-			}
-		}
-		*ret_value = strdup(user_value);
-	} else if (o2cb_value)
-		*ret_value = strdup(o2cb_value);
-	else if (disk_value)
-		*ret_value = strdup(disk_value);
-
-	rc = 0;
-
+	ret = 0;
 out:
-	return rc;;
+	return ret;
 }
 
 /*
  * Try to connect to the cluster and look at the disk to fill in default
  * cluster values.  If we can't connect, that's OK for now.  The only errors
  * are when values are missing or conflict with option arguments.
+ *
+ * This function assumes that each set of cluster stack values (stack and
+ * cluster name) are either both set or both unset. As in, if the user
+ * specifies a cluster stack, he must specify the cluster name too.
  */
 int ocfs2_fill_cluster_information(State *s)
 {
-	int rc = -1;
-	char *user_cluster_name = NULL;
-	char *user_stack_name = NULL;
-	char *o2cb_cluster_name = NULL;
-	char *o2cb_stack_name = NULL;
-	char *disk_cluster_name = NULL;
-	char *disk_stack_name = NULL;
+	char *user_cluster_name, *user_stack_name, user_value[100];
+	char *o2cb_cluster_name, *o2cb_stack_name, o2cb_value[100];
+	char *disk_cluster_name, *disk_stack_name, disk_value[100];
+	uint8_t user_stack_flags, o2cb_stack_flags, disk_stack_flags;
+	int clusterinfo = 0, userspace = 0;
+	int ret = -1;
 
 	if (s->mount == MOUNT_LOCAL)
 		return 0;
 
-	cluster_fill(&o2cb_stack_name, &o2cb_cluster_name);
-	disk_fill(s->device_name, &disk_stack_name, &disk_cluster_name);
+	*user_value = *o2cb_value = *disk_value = '\0';
+
+	/* get currently active cluster stack */
+	cluster_fill(&o2cb_stack_name, &o2cb_cluster_name, &o2cb_stack_flags);
+
+	/* get cluster stack configured on disk */
+	disk_fill(s->device_name, &disk_stack_name, &disk_cluster_name,
+		  &disk_stack_flags);
+
+	/* cluster stack as provided by the user */
 	user_stack_name = s->cluster_stack;
 	user_cluster_name = s->cluster_name;
+	user_stack_flags = s->stack_flags;
 
-	if (pick_one(s, "cluster stack", user_stack_name, o2cb_stack_name,
-		     disk_stack_name, &s->cluster_stack))
-		return -1;
+	s->cluster_stack = s->cluster_name = NULL;
+	s->stack_flags = 0;
 
-	if (pick_one(s, "cluster name", user_cluster_name,
-		     o2cb_cluster_name, disk_cluster_name,
-		     &s->cluster_name))
-		return -1;
+	/*
+	 * If the user specifies global heartbeat, while we can assume o2cb
+	 * stack, we still need to find the cluster name.
+	 */
+	if (s->global_heartbeat && !user_stack_name) {
+		if (!o2cb_stack_name) {
+			com_err(s->progname, 0, "Global heartbeat cannot be "
+				"enabled without either starting the o2cb "
+				"cluster stack or providing the cluster stack "
+				"info.");
+			goto out;
+		}
+		if (strcmp(o2cb_stack_name, OCFS2_CLASSIC_CLUSTER_STACK)) {
+			com_err(s->progname, 0, "Global heartbeat is "
+				"incompatible with the active cluster stack "
+				"\"%s\".\n", o2cb_stack_name);
+			goto out;
+		}
 
-	if (s->cluster_stack) {
-		if (!strcmp(s->cluster_stack, "o2cb")) {
-			/*
-			 * We've already checked for conflicts above.  Now
-			 * clear out the stack so that fill_super knows
-			 * it's a classic filesystem.
-			 */
-			free(s->cluster_stack);
-			s->cluster_stack = NULL;
-		} else if (!s->cluster_name) {
-			fprintf(stderr,
-				"Cluster name required for stack \"%s\".\n",
-				s->cluster_stack);
+		user_stack_name = strdup(o2cb_stack_name);
+		user_cluster_name = strdup(o2cb_cluster_name);
+		user_stack_flags |= OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT;
+	}
+
+	/* User specifically asked for clusterinfo */
+	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_CLUSTERINFO)
+		clusterinfo++;
+
+	/* User specifically asked for usersapce stack */
+	if (s->feature_flags.opt_incompat &
+	    OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK)
+		userspace++;
+
+	/* merge - easier to compare */
+	if (user_stack_name && user_cluster_name) {
+		snprintf(user_value, sizeof(user_value), "%s,%s,%d",
+			 user_stack_name, user_cluster_name, user_stack_flags);
+	}
+	if (o2cb_stack_name && o2cb_cluster_name) {
+		snprintf(o2cb_value, sizeof(o2cb_value), "%s,%s,%d",
+			 o2cb_stack_name, o2cb_cluster_name, o2cb_stack_flags);
+	}
+	if (disk_stack_name && disk_cluster_name) {
+		snprintf(disk_value, sizeof(disk_value), "%s,%s,%d",
+			 disk_stack_name, disk_cluster_name, disk_stack_flags);
+	}
+
+	/* if disk and o2cb are not the same, continue only if force set */
+	if (check_cluster_compatibility(s, o2cb_value, disk_value, "On disk"))
+		goto out;
+
+	/* if user and o2cb are not the same, continue only if force set */
+	if (check_cluster_compatibility(s, o2cb_value, user_value,
+					"User requested"))
+		goto out;
+
+	if (strlen(user_value)) {
+		s->cluster_stack = strdup(user_stack_name);
+		s->cluster_name = strdup(user_cluster_name);
+		s->stack_flags = user_stack_flags;
+	} else if (strlen(o2cb_value)) {
+		s->cluster_stack = strdup(o2cb_stack_name);
+		s->cluster_name = strdup(o2cb_cluster_name);
+		s->stack_flags = o2cb_stack_flags;
+	} else if (strlen(disk_value)) {
+		s->cluster_stack = strdup(disk_stack_name);
+		s->cluster_name = strdup(disk_cluster_name);
+		s->stack_flags = disk_stack_flags;
+	} else { /* default */
+		if (clusterinfo || userspace) {
+			fprintf(stderr, "The clusterinfo or userspace stack "
+				"features cannot be enabled. Please rerun with "
+				"the cluster stack details or after starting "
+				"the cluster stack.\n");
 			goto out;
 		}
 	}
-	if (!s->cluster_stack && s->cluster_name) {
-		/* The classic stack doesn't write a name */
-		free(s->cluster_name);
-		s->cluster_name = NULL;
+
+	/*
+	 * If it is the o2cb stack and the user has not specifically asked
+	 * for the clusterinfo feature, then go default.
+	 */
+	if (!strlen(user_value) && s->cluster_stack) {
+		if (is_classic_stack(s->cluster_stack) && !clusterinfo &&
+		    !s->stack_flags) {
+			free(s->cluster_stack);
+			free(s->cluster_name);
+			s->cluster_stack = s->cluster_name = NULL;
+			s->stack_flags = 0;
+		}
 	}
+
 	if (s->cluster_stack) {
 		fprintf(stdout,
 			"Cluster stack: %s\n"
 			"Cluster name: %s\n"
-			"NOTE: Selecting extended slot map for userspace "
-			"cluster stack\n",
-			s->cluster_stack, s->cluster_name);
+			"Stack Flags: 0x%x\n"
+			"NOTE: Feature extended slot map may be enabled\n",
+			s->cluster_stack, s->cluster_name, s->stack_flags);
 	} else
 		fprintf(stdout, "Cluster stack: classic o2cb\n");
 
-	rc = 0;
+	ret = 0;
 
 out:
-	if (user_stack_name)
-		free(user_stack_name);
-	if (user_cluster_name)
-		free(user_cluster_name);
-	if (o2cb_stack_name)
-		free(o2cb_stack_name);
-	if (o2cb_cluster_name)
-		free(o2cb_cluster_name);
-	if (disk_stack_name)
-		free(disk_stack_name);
-	if (disk_cluster_name)
-		free(disk_cluster_name);
-
-	return rc;
+	free(user_cluster_name);
+	free(user_stack_name);
+	free(o2cb_cluster_name);
+	free(o2cb_stack_name);
+	free(disk_cluster_name);
+	free(disk_stack_name);
+	return ret;
 }
 
 int ocfs2_check_volume(State *s)

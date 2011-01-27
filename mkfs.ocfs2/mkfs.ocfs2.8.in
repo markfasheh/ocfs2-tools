@@ -2,7 +2,7 @@
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
-\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-\-fs\-features=\fR\fI[no]sparse...\fR] [\fB\-\-fs\-feature\-level=\fR\fIfeature\-level\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-FqvV\fR] \fIdevice\fR [\fIblocks-count\fI]
+\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-\-fs\-features=\fR\fI[no]sparse...\fR] [\fB\-\-fs\-feature\-level=\fR\fIfeature\-level\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-\-cluster\-stack=\fR\fIstackname\fR] [\fB\-\-cluster\-name=\fR\fIclustername\fR] [\fB\-\-global\-heartbeat\fR] [\fB\-FqvV\fR] \fIdevice\fR [\fIblocks-count\fI]
 .SH "DESCRIPTION"
 .PP
 \fBmkfs.ocfs2\fR is used to create an \fIOCFS2\fR file system on a \fIdevice\fR,
@@ -206,6 +206,27 @@ The default feature set tries to strike a balance between providing new features
 \fBmax-features\fR
 Choose the maximum amount of features available. This will typically provide the best performance from \fIOCFS2\fR at the expense of creating a file system that is only compatible with very recent versions of the \fIOCFS2\fR kernel module.
 .RE
+
+.TP
+\fB\-\-cluster\-stack\fR
+Specify the cluster stack. This option is normally not required as \fBmkfs.ocfs2\fR
+chooses the currently active cluster stack. It is required only if the cluster stack
+is not online and the user wishes to use a stack other than the default,
+\fBO2CB\fR. Other cluster stacks known to work with \fIOCFS2\fR are \fBPCMK\fR
+\fI(Pacemaker)\fR and \fBCMAN\fR. Once set, \fIOCFS2\fR will only allow mounting
+the volume if the active cluster stack (and name) matches the one specified on-disk.
+
+.TP
+\fB\-\-cluster\-name\fR
+Specify the name of the cluster. This option is mandatory if the user has specified
+a \fIcluster\-stack\fR.
+
+.TP
+\fB\-\-global\-heartbeat\fR
+Enable global heartbeat for the \fBO2CB\fR cluster stack. This option is not required
+if the \fBO2CB\fR cluster stack with global heartbeat is online. However, if the
+cluster stack is not up, then this option is required as are \fIcluster\-stack\fR and
+\fIcluster\-name\fR. For more, refer to \fBo2cb(7)\fR.
 
 .TP
 \fB\-\-no-backup-super\fR

@@ -129,6 +129,7 @@ enum {
 	FEATURES_OPTION,
 	CLUSTER_STACK_OPTION,
 	CLUSTER_NAME_OPTION,
+	GLOBAL_HEARTBEAT_OPTION,
 };
 
 static uint64_t align_bytes_to_clusters_ceil(State *s,
@@ -782,6 +783,7 @@ get_state(int argc, char **argv)
 	char *vol_label = NULL;
 	char *stack_name = NULL;
 	char *cluster_name = NULL;
+	int globalhb = 0;
 	unsigned int initial_slots = 0;
 	char *dummy;
 	State *s;
@@ -817,6 +819,7 @@ get_state(int argc, char **argv)
 		{ "fs-features=", 1, 0, FEATURES_OPTION },
 		{ "cluster-stack=", 1, 0, CLUSTER_STACK_OPTION },
 		{ "cluster-name=", 1, 0, CLUSTER_NAME_OPTION },
+		{ "global-heartbeat", 0, 0, GLOBAL_HEARTBEAT_OPTION },
 		{ 0, 0, 0, 0}
 	};
 
@@ -1008,6 +1011,10 @@ get_state(int argc, char **argv)
 			cluster_name = strdup(optarg);
 			break;
 
+		case GLOBAL_HEARTBEAT_OPTION:
+			globalhb = 1;
+			break;
+
 		default:
 			usage(progname);
 			break;
@@ -1110,15 +1117,31 @@ get_state(int argc, char **argv)
 	if (mount != -1)
 		s->mount = mount;
 
-	if ((stack_name || cluster_name) && (s->mount == MOUNT_LOCAL)) {
+	if ((stack_name || cluster_name || globalhb) &&
+	    (s->mount == MOUNT_LOCAL)) {
 		com_err(progname, 0,
 			"Local mount is incompatible with specifying a cluster stack");
 		exit(1);
 	}
-	if (stack_name)
-		s->cluster_stack = stack_name;
-	if (cluster_name)
-		s->cluster_name = cluster_name;
+
+	if (globalhb && stack_name &&
+	    strcmp(stack_name, OCFS2_CLASSIC_CLUSTER_STACK)) {
+		com_err(progname, 0, "Global heartbeat is incompatible "
+			"with the cluster stack, %s", stack_name);
+		exit(1);
+	}
+
+	if ((stack_name && !cluster_name) || (!stack_name && cluster_name)) {
+		com_err(progname, 0, "Both cluster stack and the cluster name "
+			"need to be specified");
+		exit(1);
+	}
+
+	s->cluster_stack = stack_name;
+	s->cluster_name = cluster_name;
+	if (globalhb)
+		s->stack_flags |= OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT;
+	s->global_heartbeat = globalhb;
 
 	if (no_backup_super != -1)
 		s->no_backup_super = no_backup_super;
@@ -1258,8 +1281,9 @@ usage(const char *progname)
 		"[-J journal-options]\n\t\t[-L volume-label] [-M mount-type] "
 		"[-N number-of-node-slots]\n\t\t[-T filesystem-type] [-HFqvV] "
 		"\n\t\t[--fs-feature-level=[default|max-compat|max-features]] "
-		"\n\t\t[--fs-features=[[no]sparse,...]]"
-		"[--no-backup-super] device [blocks-count]\n", progname);
+		"\n\t\t[--fs-features=[[no]sparse,...]] [--global-heartbeat]"
+		"\n\t\t[--cluster-stack=stackname] [--cluster-name=clustername]"
+		"\n\t\t[--no-backup-super] device [blocks-count]\n", progname);
 	exit(0);
 }
 
@@ -2270,16 +2294,22 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 		s->feature_flags.opt_incompat |=
 			OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP;
 
+		/* Selectively enable clusterinfo or userspace stack */
 		if (!(s->feature_flags.opt_incompat &
-		      OCFS2_FEATURE_INCOMPAT_CLUSTERINFO) &&
-		    (strcmp(s->cluster_stack, OCFS2_CLASSIC_CLUSTER_STACK))) {
-			s->feature_flags.opt_incompat |=
-				OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+		      OCFS2_FEATURE_INCOMPAT_CLUSTERINFO)) {
+			if (!is_classic_stack(s->cluster_stack))
+				s->feature_flags.opt_incompat |=
+					OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+			else
+				s->feature_flags.opt_incompat |=
+					OCFS2_FEATURE_INCOMPAT_CLUSTERINFO;
 		}
+
 		memcpy(di->id2.i_super.s_cluster_info.ci_stack,
 		       s->cluster_stack, OCFS2_STACK_LABEL_LEN);
 		memcpy(di->id2.i_super.s_cluster_info.ci_cluster,
 		       s->cluster_name, OCFS2_CLUSTER_NAME_LEN);
+		di->id2.i_super.s_cluster_info.ci_stackflags = s->stack_flags;
 	}
 
 	/*
