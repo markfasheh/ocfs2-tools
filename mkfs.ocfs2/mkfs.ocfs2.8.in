@@ -241,6 +241,15 @@ Display the heuristically determined values without overwriting the existing fil
 Quiet mode.
 
 .TP
+\fB\-U\fR \fIuuid\fR
+Specify a custom UUID in the plain (2A4D1C581FAA42A1A41D26EFC90C1315) or
+traditional (2a4d1c58-1faa-42a1-a41d-26efc90c1315) format. This option in
+\fBnot\fR recommended because the file system uses the UUID to uniquely identify
+a file system. \fIIf more than one file system were to have the same UUID, one
+is very likely to encounter erratic behavior, if not, outright file system
+corruption.\fR
+
+.TP
 \fB\-v, \-\-verbose\fR
 Verbose mode.
 

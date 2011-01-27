@@ -70,7 +70,6 @@ static void format_leading_space(State *s);
 static void open_device(State *s);
 static void close_device(State *s);
 static int initial_slots_for_volume(uint64_t size);
-static void generate_uuid(State *s);
 static void create_generation(State *s);
 static void init_record(State *s, SystemFileDiskRecord *rec, int type, int mode);
 static void print_state(State *s);
@@ -144,6 +143,26 @@ static uint64_t align_bytes_to_clusters_ceil(State *s,
 	ret = ret << s->cluster_size_bits;
 
 	return ret;
+}
+
+/*
+ *	Translate 32 bytes uuid to 36 bytes uuid format.
+ *	for example:
+ *	32 bytes uuid: 178BDC83D50241EF94EB474A677D498B
+ *	36 bytes uuid: 178BDC83-D502-41EF-94EB-474A677D498B
+ */
+static void translate_uuid(char *uuid_32, char *uuid_36)
+{
+	int i;
+	char *cp = uuid_32;
+
+	for (i = 0; i < 36; i++) {
+		if ((i == 8) || (i == 13) || (i == 18) || (i == 23)) {
+			uuid_36[i] = '-';
+			continue;
+		}
+		uuid_36[i] = *cp++;
+	}
 }
 
 static void
@@ -524,8 +543,6 @@ main(int argc, char **argv)
 
 	fill_defaults(s);
 
-	generate_uuid (s);
-
 	create_generation(s);
 
 	print_state (s);
@@ -791,6 +808,7 @@ get_state(int argc, char **argv)
 	int verbose = 0, quiet = 0, force = 0, xtool = 0, hb_dev = 0;
 	int show_version = 0, dry_run = 0;
 	char *device_name;
+	char *uuid = NULL, uuid_36[37] = {'\0'}, *uuid_p;
 	int ret;
 	uint64_t val;
 	uint64_t journal_size_in_bytes = 0;
@@ -829,8 +847,8 @@ get_state(int argc, char **argv)
 		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
-		c = getopt_long(argc, argv, "b:C:L:N:J:M:vnqVFHxT:", long_options,
-				NULL);
+		c = getopt_long(argc, argv, "b:C:L:N:J:M:vnqVFHxT:U:",
+				long_options, NULL);
 
 		if (c == -1)
 			break;
@@ -921,6 +939,10 @@ get_state(int argc, char **argv)
 			parse_journal_opts(progname, optarg,
 					   &journal_size_in_bytes,
 					   &journal64);
+			break;
+
+		case 'U':
+			uuid = strdup(optarg);
 			break;
 
 		case 'H':
@@ -1110,6 +1132,28 @@ get_state(int argc, char **argv)
 	else
 		s->dx_dirs = 0;
 
+	/* uuid */
+	if (!uuid)
+		uuid_generate(s->uuid);
+	else {
+		if (strlen(uuid) == 32) {
+			translate_uuid(uuid, uuid_36);
+			uuid_p = uuid_36;
+		} else
+			uuid_p = uuid;
+
+		/*uuid_parse only support 36 bytes uuid*/
+		if (uuid_parse(uuid_p, s->uuid)) {
+			com_err(s->progname, 0, "Invalid UUID specified");
+			exit(1);
+		}
+		printf("\nWARNING!!! OCFS2 uses the UUID to uniquely identify "
+		       "a file system.\nHaving two OCFS2 file systems with "
+		       "the same UUID could, in the least,\ncause erratic "
+		       "behavior, and if unlucky, cause file system damage.\n"
+		       "Please choose the UUID with care.\n\n");
+		free(uuid);
+	}
 
 	/* Here if the user set these flags explicitly, we will use them and
 	 * discard the setting in the features set.
@@ -1279,7 +1323,8 @@ usage(const char *progname)
 {
 	fprintf(stderr, "usage: %s [-b block-size] [-C cluster-size] "
 		"[-J journal-options]\n\t\t[-L volume-label] [-M mount-type] "
-		"[-N number-of-node-slots]\n\t\t[-T filesystem-type] [-HFqvV] "
+		"[-N number-of-node-slots]\n\t\t[-T filesystem-type] [-U uuid]"
+		"[-HFqvV] "
 		"\n\t\t[--fs-feature-level=[default|max-compat|max-features]] "
 		"\n\t\t[--fs-features=[[no]sparse,...]] [--global-heartbeat]"
 		"\n\t\t[--cluster-stack=stackname] [--cluster-name=clustername]"
@@ -2329,7 +2374,7 @@ format_superblock(State *s, SystemFileDiskRecord *rec,
 	di->id2.i_super.s_feature_ro_compat = s->feature_flags.opt_ro_compat;
 
 	strcpy((char *)di->id2.i_super.s_label, s->vol_label);
-	memcpy(di->id2.i_super.s_uuid, s->uuid, 16);
+	memcpy(di->id2.i_super.s_uuid, s->uuid, OCFS2_VOL_UUID_LEN);
 
 	/* s_uuid_hash is also used by Indexed Dirs */
 	if (s->feature_flags.opt_incompat & OCFS2_FEATURE_INCOMPAT_XATTR ||
@@ -2690,13 +2735,6 @@ initial_slots_for_volume(uint64_t size)
 		return 8;
 	else
 		return 16;
-}
-
-static void
-generate_uuid(State *s)
-{
-	s->uuid = do_malloc(s, OCFS2_VOL_UUID_LEN);
-	uuid_generate(s->uuid);
 }
 
 static void create_generation(State *s)

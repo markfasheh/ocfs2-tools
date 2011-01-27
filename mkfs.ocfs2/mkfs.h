@@ -218,7 +218,7 @@ struct _State {
 
 	char *vol_label;
 	char *device_name;
-	unsigned char *uuid;
+	unsigned char uuid[OCFS2_VOL_UUID_LEN];
 	char *cluster_stack;
 	char *cluster_name;
 	uint8_t stack_flags;
