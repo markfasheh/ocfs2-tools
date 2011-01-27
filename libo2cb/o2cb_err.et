@@ -84,4 +84,7 @@ ec      O2CB_ET_INVALID_STACK_NAME,
 ec	O2CB_ET_UNKNOWN_REGION,
 	"Heartbeat region could not be found"
 
+ec	O2CB_ET_INVALID_HEARTBEAT_MODE,
+	"Active heartbeat mode does not match the configuration on disk"
+
 	end

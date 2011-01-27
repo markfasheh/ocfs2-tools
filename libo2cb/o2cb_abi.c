@@ -48,6 +48,9 @@
 #define OCFS2_STACK_LABEL_LEN	4
 #define CONTROL_DEVICE		"/dev/misc/ocfs2_control"
 
+static errcode_t o2cb_validate_cluster_name(struct o2cb_cluster_desc *desc);
+static errcode_t o2cb_validate_cluster_flags(struct o2cb_cluster_desc *desc,
+					     int *globalhb);
 
 struct o2cb_stack_ops {
 	errcode_t (*list_clusters)(char ***clusters);
@@ -1292,30 +1295,42 @@ static errcode_t classic_group_leave(struct o2cb_cluster_desc *cluster,
 				     struct o2cb_region_desc *region)
 {
 	errcode_t ret;
-	int global = 0;
+	int globalhb;
 
-	ret = o2cb_global_heartbeat_mode(cluster->c_cluster, &global);
+	ret = o2cb_validate_cluster_name(cluster);
 	if (ret)
 		goto bail;
 
-	if (!global)
+	ret = o2cb_validate_cluster_flags(cluster, &globalhb);
+	if (ret)
+		goto bail;
+
+	if (!globalhb)
 		ret = o2cb_stop_heartbeat(cluster, region);
 
 bail:
 	return ret;
 }
 
+/*
+ * Cluster stack is validated in o2cb_begin_group_join(). Here we validate
+ * the cluster name and the cluster flags (aka heartbeat mode).
+ */
 static errcode_t classic_begin_group_join(struct o2cb_cluster_desc *cluster,
 					  struct o2cb_region_desc *region)
 {
 	errcode_t ret;
-	int global = 0;
+	int globalhb;
 
-	ret = o2cb_global_heartbeat_mode(cluster->c_cluster, &global);
+	ret = o2cb_validate_cluster_name(cluster);
 	if (ret)
 		goto bail;
 
-	if (!global)
+	ret = o2cb_validate_cluster_flags(cluster, &globalhb);
+	if (ret)
+		goto bail;
+
+	if (!globalhb)
 		ret = o2cb_start_heartbeat(cluster, region);
 
 bail:
@@ -1605,7 +1620,45 @@ out:
 	return err;
 }
 
-static errcode_t o2cb_validate_cluster_desc(struct o2cb_cluster_desc *desc)
+static errcode_t o2cb_validate_cluster_flags(struct o2cb_cluster_desc *desc,
+					     int *globalhb)
+{
+	errcode_t ret;
+	int disk_mode = 0;
+
+	ret = o2cb_global_heartbeat_mode(desc->c_cluster, globalhb);
+	if (ret)
+		goto bail;
+
+	disk_mode = !!(desc->c_flags & OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT);
+
+	if (disk_mode != *globalhb)
+		ret = O2CB_ET_INVALID_HEARTBEAT_MODE;
+
+bail:
+	return ret;
+}
+
+static errcode_t o2cb_validate_cluster_name(struct o2cb_cluster_desc *desc)
+{
+	errcode_t ret;
+	char **clusters = NULL;
+
+	ret = o2cb_list_clusters(&clusters);
+	if (ret)
+		goto bail;
+
+	/* The first cluster is the default cluster */
+	if (!clusters[0] || strcmp(clusters[0], desc->c_cluster))
+		ret = O2CB_ET_INVALID_CLUSTER_NAME;
+
+	o2cb_free_cluster_list(clusters);
+
+bail:
+	return ret;
+}
+
+static errcode_t o2cb_validate_cluster_stack(struct o2cb_cluster_desc *desc)
 {
 	errcode_t err;
 	const char *name;
@@ -1639,7 +1692,7 @@ errcode_t o2cb_begin_group_join(struct o2cb_cluster_desc *cluster,
 	if (!current_stack)
 		return O2CB_ET_SERVICE_UNAVAILABLE;
 
-	err = o2cb_validate_cluster_desc(cluster);
+	err = o2cb_validate_cluster_stack(cluster);
 	if (err)
 		return err;
 
@@ -1665,7 +1718,7 @@ errcode_t o2cb_complete_group_join(struct o2cb_cluster_desc *cluster,
 	if (!current_stack)
 		return O2CB_ET_SERVICE_UNAVAILABLE;
 
-	err = o2cb_validate_cluster_desc(cluster);
+	err = o2cb_validate_cluster_stack(cluster);
 	if (err)
 		return err;
 
@@ -1691,7 +1744,7 @@ errcode_t o2cb_group_leave(struct o2cb_cluster_desc *cluster,
 	if (!current_stack)
 		return O2CB_ET_SERVICE_UNAVAILABLE;
 
-	err = o2cb_validate_cluster_desc(cluster);
+	err = o2cb_validate_cluster_stack(cluster);
 	if (err)
 		return err;
 
