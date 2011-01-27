@@ -43,21 +43,9 @@ struct feature_name {
 						   feature */
 };
 
-struct tunefs_flag_name {
-	const char	*tfn_name;
-	uint16_t	tfn_flag;
-};
-
-/* Printable names for extent flags */
-struct extent_flag_name {
-	const char	*efn_name;
-	uint8_t		efn_flag;
-};
-
-/* Printable names for refcount flags */
-struct refcount_flag_name {
-	const char	*rfn_name;
-	uint32_t	rfn_flag;
+struct flag_name {
+	const char		*fl_name;
+	uint32_t		fl_flag;
 };
 
 struct feature_level_translation {
@@ -290,17 +278,17 @@ static struct feature_name ocfs2_feature_names[] = {
  *
  * These MUST be kept in sync with the flags in ocfs2_fs.h.
  */
-static struct tunefs_flag_name ocfs2_tunefs_flag_names[] = {
+static struct flag_name ocfs2_tunefs_flag_names[] = {
 	{
-		.tfn_name = "remove-slot",
-		.tfn_flag = OCFS2_TUNEFS_INPROG_REMOVE_SLOT,
+		.fl_name = "remove-slot",
+		.fl_flag = OCFS2_TUNEFS_INPROG_REMOVE_SLOT,
 	},
 	{
-		.tfn_name = "dir-trailer",
-		.tfn_flag = OCFS2_TUNEFS_INPROG_DIR_TRAILER,
+		.fl_name = "dir-trailer",
+		.fl_flag = OCFS2_TUNEFS_INPROG_DIR_TRAILER,
 	},
 	{
-		.tfn_name = NULL,
+		.fl_name = NULL,
 	},
 };
 
@@ -310,17 +298,17 @@ static struct tunefs_flag_name ocfs2_tunefs_flag_names[] = {
  *
  * These MUST be kept in sync with the flags in ocfs2_fs.h.
  */
-static struct extent_flag_name ocfs2_extent_flag_names[] = {
+static struct flag_name ocfs2_extent_flag_names[] = {
 	{
-		.efn_name = "Unwritten",
-		.efn_flag = OCFS2_EXT_UNWRITTEN,
+		.fl_name = "Unwritten",
+		.fl_flag = OCFS2_EXT_UNWRITTEN,
 	},
 	{
-		.efn_name = "Refcounted",
-		.efn_flag = OCFS2_EXT_REFCOUNTED,
+		.fl_name = "Refcounted",
+		.fl_flag = OCFS2_EXT_REFCOUNTED,
 	},
 	{
-		.efn_name = NULL,
+		.fl_name = NULL,
 	},
 };
 
@@ -330,17 +318,17 @@ static struct extent_flag_name ocfs2_extent_flag_names[] = {
  *
  * These MUST be kept in sync with the flags in ocfs2_fs.h.
  */
-static struct refcount_flag_name ocfs2_refcount_flag_names[] = {
+static struct flag_name ocfs2_refcount_flag_names[] = {
 	{
-		.rfn_name = "Leaf",
-		.rfn_flag = OCFS2_REFCOUNT_LEAF_FL,
+		.fl_name = "Leaf",
+		.fl_flag = OCFS2_REFCOUNT_LEAF_FL,
 	},
 	{
-		.rfn_name = "Tree",
-		.rfn_flag = OCFS2_REFCOUNT_TREE_FL,
+		.fl_name = "Tree",
+		.fl_flag = OCFS2_REFCOUNT_TREE_FL,
 	},
 	{
-		.rfn_name = NULL,
+		.fl_name = NULL,
 	},
 };
 
@@ -446,7 +434,9 @@ errcode_t ocfs2_snprint_feature_flags(char *str, size_t size,
 	return err;
 }
 
-errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags)
+static errcode_t ocfs2_snprint_flag_names(struct flag_name *flag_names,
+					  char *str, size_t size,
+					  uint32_t flags)
 {
 	int i, printed;
 	char *ptr = str;
@@ -455,14 +445,14 @@ errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags)
 	char *sep = " ";
 	uint16_t found = 0;
 
-	for (i = 0; ocfs2_tunefs_flag_names[i].tfn_name; i++) {
-		if (!(flags & ocfs2_tunefs_flag_names[i].tfn_flag))
+	for (i = 0; flag_names[i].fl_name; i++) {
+		if (!(flags & flag_names[i].fl_flag))
 			continue;
-		found |= ocfs2_tunefs_flag_names[i].tfn_flag;
+		found |= flag_names[i].fl_flag;
 
 		printed = snprintf(ptr, remain, "%s%s",
 				   ptr == str ? "" : sep,
-				   ocfs2_tunefs_flag_names[i].tfn_name);
+				   flag_names[i].fl_name);
 		if (printed < 0)
 			err = OCFS2_ET_INTERNAL_FAILURE;
 		else if (printed >= remain)
@@ -488,90 +478,23 @@ errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags)
 	return err;
 }
 
+errcode_t ocfs2_snprint_tunefs_flags(char *str, size_t size, uint16_t flags)
+{
+	return ocfs2_snprint_flag_names(ocfs2_tunefs_flag_names,
+					str, size, (uint32_t)flags);
+}
+
 errcode_t ocfs2_snprint_extent_flags(char *str, size_t size, uint8_t flags)
 {
-	int i, printed;
-	char *ptr = str;
-	size_t remain = size;
-	errcode_t err = 0;
-	char *sep = " ";
-	uint8_t found = 0;
-
-	for (i = 0; ocfs2_extent_flag_names[i].efn_name; i++) {
-		if (!(flags & ocfs2_extent_flag_names[i].efn_flag))
-			continue;
-		found |= ocfs2_extent_flag_names[i].efn_flag;
-
-		printed = snprintf(ptr, remain, "%s%s",
-				   ptr == str ? "" : sep,
-				   ocfs2_extent_flag_names[i].efn_name);
-		if (printed < 0)
-			err = OCFS2_ET_INTERNAL_FAILURE;
-		else if (printed >= remain)
-			err = OCFS2_ET_NO_SPACE;
-		if (err)
-			break;
-
-		remain -= printed;
-		ptr += printed;
-	}
-
-	if (!err) {
-		if (found != flags) {
-			printed = snprintf(ptr, remain, "%sUnknown",
-					   ptr == str ? "" : sep);
-			if (printed < 0)
-				err = OCFS2_ET_INTERNAL_FAILURE;
-			else if (printed >= remain)
-				err = OCFS2_ET_NO_SPACE;
-		}
-	}
-
-	return err;
+	return ocfs2_snprint_flag_names(ocfs2_extent_flag_names,
+					str, size, (uint32_t)flags);
 }
 
 errcode_t ocfs2_snprint_refcount_flags(char *str, size_t size, uint8_t flags)
 {
-	int i, printed;
-	char *ptr = str;
-	size_t remain = size;
-	errcode_t err = 0;
-	char *sep = " ";
-	uint8_t found = 0;
-
-	for (i = 0; ocfs2_refcount_flag_names[i].rfn_name; i++) {
-		if (!(flags & ocfs2_refcount_flag_names[i].rfn_flag))
-			continue;
-		found |= ocfs2_refcount_flag_names[i].rfn_flag;
-
-		printed = snprintf(ptr, remain, "%s%s",
-				   ptr == str ? "" : sep,
-				   ocfs2_refcount_flag_names[i].rfn_name);
-		if (printed < 0)
-			err = OCFS2_ET_INTERNAL_FAILURE;
-		else if (printed >= remain)
-			err = OCFS2_ET_NO_SPACE;
-		if (err)
-			break;
-
-		remain -= printed;
-		ptr += printed;
-	}
-
-	if (!err) {
-		if (found != flags) {
-			printed = snprintf(ptr, remain, "%sUnknown",
-					   ptr == str ? "" : sep);
-			if (printed < 0)
-				err = OCFS2_ET_INTERNAL_FAILURE;
-			else if (printed >= remain)
-				err = OCFS2_ET_NO_SPACE;
-		}
-	}
-
-	return err;
+	return ocfs2_snprint_flag_names(ocfs2_refcount_flag_names,
+					str, size, (uint32_t)flags);
 }
-
 
 /*
  * If we are asked to clear a feature, we also need to clear any other
