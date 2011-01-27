@@ -99,6 +99,56 @@ static void read_options(int argc, char **argv, struct mount_options *mo)
 }
 
 /*
+ * For local mounts, add heartbeat=none.
+ * For userspace clusterstack, add cluster_stack=xxxx.
+ * For o2cb with local heartbeat, add heartbeat=local.
+ * For o2cb with global heartbeat, add heartbeat=global.
+ */
+static errcode_t add_mount_options(ocfs2_filesys *fs,
+				   struct o2cb_cluster_desc *cluster,
+				   char **optstr)
+{
+	char *add, *extra = NULL;
+	char stackstr[strlen(OCFS2_CLUSTER_STACK_ARG) + OCFS2_STACK_LABEL_LEN + 1];
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+
+	if (ocfs2_mount_local(fs)) {
+		add = OCFS2_HB_NONE;
+		goto addit;
+	}
+
+	if (cluster->c_stack &&
+	    strcmp(cluster->c_stack, OCFS2_CLASSIC_CLUSTER_STACK)) {
+		snprintf(stackstr, sizeof(stackstr), "%s%s",
+			 OCFS2_CLUSTER_STACK_ARG, cluster->c_stack);
+		add = stackstr;
+		goto addit;
+	}
+
+	if (ocfs2_cluster_o2cb_global_heartbeat(sb)) {
+		add = OCFS2_HB_GLOBAL;
+		goto addit;
+	}
+
+	add = OCFS2_HB_LOCAL;
+
+addit:
+	if (optstr && *optstr) {
+		extra = xstrndup(*optstr, strlen(*optstr) + strlen(add) + 1);
+		if (extra)
+			extra = xstrconcat3(extra, ",", add);
+	} else
+		extra = xstrndup(add, strlen(add));
+
+	if (!extra)
+		return OCFS2_ET_NO_MEMORY;
+
+	*optstr = extra;
+
+	return 0;
+}
+
+/*
  * Code based on similar function in util-linux-2.12p/mount/mount.c
  *
  */
@@ -252,21 +302,36 @@ bail:
 	return ret;
 }
 
+static void change_local_hb_io_priority(ocfs2_filesys *fs, char *dev)
+{
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+	char hb_ctl_path[PATH_MAX];
+	errcode_t ret;
+
+	if (ocfs2_mount_local(fs))
+		return;
+
+	if (ocfs2_userspace_stack(sb))
+		return;
+
+	if (ocfs2_cluster_o2cb_global_heartbeat(sb))
+		return;
+
+	ret = o2cb_get_hb_ctl_path(hb_ctl_path, sizeof(hb_ctl_path));
+	if (!ret)
+		run_hb_ctl(hb_ctl_path, dev, "-P");
+}
 
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	struct mount_options mo;
-	char hb_ctl_path[PATH_MAX];
-	char *extra = NULL;
 	int dev_ro = 0;
-	char *hbstr = NULL;
-	char stackstr[strlen(OCFS2_CLUSTER_STACK_ARG) + OCFS2_STACK_LABEL_LEN + 1];
 	ocfs2_filesys *fs = NULL;
 	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
 	int clustered = 1;
-	int hb_started = 0;
+	int group_join = 0;
 	struct stat statbuf;
 
 	initialize_ocfs_error_table();
@@ -285,8 +350,6 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Could not set SIGINT\n");
 		exit(1);
 	}
-
-	*stackstr = '\0';
 
 	memset(&mo, 0, sizeof(mo));
 	read_options (argc, argv, &mo);
@@ -319,9 +382,6 @@ int main(int argc, char **argv)
 				"while trying to determine cluster information");
 			goto bail;
 		}
-		if (cluster.c_stack)
-			snprintf(stackstr, sizeof(stackstr), "%s%s",
-				 OCFS2_CLUSTER_STACK_ARG, cluster.c_stack);
 
 		ret = ocfs2_fill_heartbeat_desc(fs, &desc);
 		if (ret) {
@@ -331,13 +391,6 @@ int main(int argc, char **argv)
 		}
 		desc.r_persist = 1;
 		desc.r_service = OCFS2_FS_NAME;
-
-		ret = o2cb_get_hb_ctl_path(hb_ctl_path, sizeof(hb_ctl_path));
-		if (ret) {
-			com_err(progname, ret,
-				"probably because o2cb service not started");
-			goto bail;
-		}
 	}
 
 	if (mo.flags & MS_RDONLY) {
@@ -346,6 +399,12 @@ int main(int argc, char **argv)
 			com_err(progname, ret, "device not accessible");
 			goto bail;
 		}
+	}
+
+	ret = add_mount_options(fs, &cluster, &mo.xtra_opts);
+	if (ret) {
+		com_err(progname, ret, "while adding mount options");
+		goto bail;
 	}
 
 	block_signals (SIG_BLOCK);
@@ -358,27 +417,14 @@ int main(int argc, char **argv)
 				"while trying to join the group");
 			goto bail;
 		}
-		hb_started = 1;
+		group_join = 1;
 	}
 
-	if (dev_ro || !clustered)
-		hbstr = OCFS2_HB_NONE;
-	else if (strlen(stackstr))
-		hbstr = stackstr;
-	else
-		hbstr = OCFS2_HB_LOCAL;
-
-	if (mo.xtra_opts && *mo.xtra_opts) {
-		extra = xstrndup(mo.xtra_opts,
-				 strlen(mo.xtra_opts) + strlen(hbstr) + 1);
-		extra = xstrconcat3(extra, ",", hbstr);
-	} else
-		extra = xstrndup(hbstr, strlen(hbstr));
-
-	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS, extra);
+	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS,
+		    mo.xtra_opts);
 	if (ret) {
 		ret = errno;
-		if (hb_started) {
+		if (group_join) {
 			/* We ignore the return code because the mount
 			 * failure is the important error.
 			 * complete_group_join() will handle cleaning up */
@@ -402,7 +448,7 @@ int main(int argc, char **argv)
 				"error.", mo.dev, mo.dir);
 		goto bail;
 	}
-	if (hb_started) {
+	if (group_join) {
 		ret = o2cb_complete_group_join(&cluster, &desc, 0);
 		if (ret) {
 			com_err(progname, ret,
@@ -416,11 +462,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-	run_hb_ctl (hb_ctl_path, mo.dev, "-P");
+	change_local_hb_io_priority(fs, mo.dev);
+
 	update_mtab_entry(mo.dev, mo.dir, OCFS2_FS_NAME,
 			  fix_opts_string(((mo.flags & ~MS_NOMTAB) |
 					   (clustered ? MS_NETDEV : 0)),
-					  extra, NULL),
+					  mo.xtra_opts, NULL),
 			  mo.flags, 0, 0);
 
 	block_signals (SIG_UNBLOCK);
@@ -428,8 +475,6 @@ int main(int argc, char **argv)
 bail:
 	if (fs)
 		ocfs2_close(fs);
-	if (extra)
-		free(extra);
 	if (mo.dev)
 		free(mo.dev);
 	if (mo.dir)
