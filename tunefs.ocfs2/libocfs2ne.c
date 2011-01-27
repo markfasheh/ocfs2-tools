@@ -1361,7 +1361,9 @@ static errcode_t tunefs_lock_cluster(ocfs2_filesys *fs, int flags)
 
 		err = ocfs2_initialize_dlm(master_fs, WHOAMI);
 		if (flags & TUNEFS_FLAG_NOCLUSTER) {
-			if (err == O2CB_ET_INVALID_STACK_NAME) {
+			if (err == O2CB_ET_INVALID_STACK_NAME ||
+			    err == O2CB_ET_INVALID_CLUSTER_NAME ||
+			    err == O2CB_ET_INVALID_HEARTBEAT_MODE) {
 				/*
 				 * We expected this - why else ask for
 				 * TUNEFS_FLAG_NOCLUSTER?

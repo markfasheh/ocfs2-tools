@@ -845,7 +845,9 @@ int main(int argc, char **argv)
 
 		block_signals(SIG_BLOCK);
 		ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
-		if (ret == O2CB_ET_INVALID_STACK_NAME) {
+		if (ret == O2CB_ET_INVALID_STACK_NAME ||
+		    ret == O2CB_ET_INVALID_CLUSTER_NAME ||
+		    ret == O2CB_ET_INVALID_HEARTBEAT_MODE) {
 			block_signals(SIG_UNBLOCK);
 			ret = recover_cluster_info(ost);
 			if (ret) {
