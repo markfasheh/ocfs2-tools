@@ -110,7 +110,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 	printf("%-20s  %-5s  %s\n", "Device", "FS", "Nodes");
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
-		if (dev->fs_type == 0)
+		if (dev->fs_type != 2)
 			continue;
 
 		printf("%-20s  %-5s  ", dev->dev_name, "ocfs2");
@@ -144,12 +144,13 @@ static void ocfs2_print_quick_detect(struct list_head *dev_list)
 	char uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
 	int i;
 	char *p;
+	char cluster[OCFS2_CLUSTER_NAME_LEN + 4];
 
-	printf("%-20s  %-5s  %-5s  %-32s  %-s\n", "Device", "FS", "Stack",
-	       "UUID", "Label");
+	printf("%-20s  %-5s  %-20s  %-32s  %-s\n", "Device", "Stack",
+	       "Cluster", "UUID", "Label");
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
-		if (dev->fs_type == 0)
+		if (dev->fs_type != 2)
 			continue;
 
 		for (i = 0, p = uuid; i < OCFS2_VOL_UUID_LEN; i++) {
@@ -157,9 +158,17 @@ static void ocfs2_print_quick_detect(struct list_head *dev_list)
 			p += 2;
 		}
 
-		printf("%-20s  %-5s  %-5s  %-32s  %-s\n", dev->dev_name,
-		       (dev->fs_type == 2 ? "ocfs2" : "ocfs"), dev->stack,
-		       uuid, dev->label);
+		snprintf(cluster, sizeof(cluster), dev->cluster);
+
+		if (!strcmp(dev->stack, OCFS2_CLASSIC_CLUSTER_STACK)) {
+			if (dev->stackflags &
+			    OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT)
+				strncat(cluster, " (G)",
+					sizeof(cluster) - strlen(cluster));
+		}
+
+		printf("%-20s  %-5s  %-20s  %-32s  %-s\n",
+		       dev->dev_name, dev->stack, cluster, uuid, dev->label);
 	}
 }
 

@@ -58,6 +58,7 @@
 errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 {
 	ocfs2_filesys *fs = NULL;
+	struct ocfs2_super_block *osb;
 	errcode_t ret = 0;
 	struct list_head *pos;
 	ocfs2_devices *dev = NULL;
@@ -78,8 +79,10 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 		} else
 			dev->fs_type = 2;
 
-		if (OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
-					  OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV))
+		osb = OCFS2_RAW_SB(fs->fs_super);
+
+		if (OCFS2_HAS_INCOMPAT_FEATURE(osb,
+				       OCFS2_FEATURE_INCOMPAT_HEARTBEAT_DEV))
 			dev->hb_dev = 1;
 
 		/* is it locally mounted */
@@ -91,20 +94,22 @@ errcode_t ocfs2_check_heartbeats(struct list_head *dev_list, int ignore_local)
 		}
 
 		/* get label/uuid for ocfs2 */
-		memcpy(dev->label, OCFS2_RAW_SB(fs->fs_super)->s_label,
-		       sizeof(dev->label));
-		memcpy(dev->uuid, OCFS2_RAW_SB(fs->fs_super)->s_uuid,
-		       sizeof(dev->uuid));
+		memcpy(dev->label, osb->s_label, sizeof(dev->label));
+		memcpy(dev->uuid, osb->s_uuid, sizeof(dev->uuid));
 
-		if (OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(fs->fs_super),
-					OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT))
-			snprintf(dev->stack, sizeof(dev->stack), "%s", "local");
-		else if (ocfs2_clusterinfo_valid(OCFS2_RAW_SB(fs->fs_super)))
+		if (ocfs2_mount_local(fs))
+			snprintf(dev->stack, sizeof(dev->stack), "%s", "None");
+		else if (ocfs2_clusterinfo_valid(osb)) {
 			snprintf(dev->stack, sizeof(dev->stack), "%.*s",
 				 OCFS2_STACK_LABEL_LEN,
-				 OCFS2_RAW_SB(fs->fs_super)->s_cluster_info.ci_stack);
-		else
-			snprintf(dev->stack, sizeof(dev->stack), "%s", "o2cb");
+				 osb->s_cluster_info.ci_stack);
+			snprintf(dev->cluster, sizeof(dev->cluster), "%.*s",
+				 OCFS2_CLUSTER_NAME_LEN,
+				 osb->s_cluster_info.ci_cluster);
+			dev->stackflags = osb->s_cluster_info.ci_stackflags;
+		} else
+			snprintf(dev->stack, sizeof(dev->stack), "%s",
+				 OCFS2_CLASSIC_CLUSTER_STACK);
 
 		if (dev->hb_dev)
 			goto close;
