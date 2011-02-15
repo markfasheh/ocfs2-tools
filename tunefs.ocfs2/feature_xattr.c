@@ -352,7 +352,10 @@ static int enable_xattr(ocfs2_filesys *fs, int flag)
 		goto out;
 	}
 
-	super->s_uuid_hash =
+	/* s_uuid_hash is also used by Indexed Dirs */
+	if (!OCFS2_HAS_INCOMPAT_FEATURE(super,
+					OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS))
+		super->s_uuid_hash =
 			ocfs2_xattr_uuid_hash((unsigned char *)super->s_uuid);
 	super->s_xattr_inline_size = OCFS2_MIN_XATTR_INLINE_SIZE;
 	OCFS2_SET_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_XATTR);
@@ -424,7 +427,10 @@ static int disable_xattr(ocfs2_filesys *fs, int flag)
 	}
 	tools_progress_step(prog, 1);
 
-	super->s_uuid_hash = 0;
+	/* s_uuid_hash is also used by Indexed Dirs */
+	if (!OCFS2_HAS_INCOMPAT_FEATURE(super,
+					OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS))
+		super->s_uuid_hash = 0;
 	super->s_xattr_inline_size = 0;
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_XATTR);
 

@@ -117,6 +117,10 @@ static int enable_indexed_dirs(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
+	/* s_uuid_hash is also used by xattr */
+	if (!OCFS2_HAS_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_XATTR))
+		super->s_uuid_hash =
+			ocfs2_xattr_uuid_hash((unsigned char *)super->s_uuid);
 	/* set seed for indexed dir hash */
 	srand48(time(NULL));
 	super->s_dx_seed[0] = mrand48();
@@ -309,6 +313,9 @@ static int disable_indexed_dirs(ocfs2_filesys *fs, int flags)
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
 				     OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS);
 
+	/* s_uuid_hash is also used by xattr */
+	if (!OCFS2_HAS_INCOMPAT_FEATURE(super, OCFS2_FEATURE_INCOMPAT_XATTR))
+		super->s_uuid_hash = 0;
 	super->s_dx_seed[0] = super->s_dx_seed[1] = super->s_dx_seed[2] = 0;
 
 	ret = ocfs2_write_super(fs);
