@@ -117,6 +117,12 @@ static int enable_indexed_dirs(ocfs2_filesys *fs, int flags)
 		goto out;
 	}
 
+	/* set seed for indexed dir hash */
+	srand48(time(NULL));
+	super->s_dx_seed[0] = mrand48();
+	super->s_dx_seed[1] = mrand48();
+	super->s_dx_seed[2] = mrand48();
+
 	OCFS2_SET_INCOMPAT_FEATURE(super,
 				   OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS);
 
@@ -302,6 +308,9 @@ static int disable_indexed_dirs(ocfs2_filesys *fs, int flags)
 	 * fsck.ocfs2 will handle the orphan indexed trees. */
 	OCFS2_CLEAR_INCOMPAT_FEATURE(super,
 				     OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS);
+
+	super->s_dx_seed[0] = super->s_dx_seed[1] = super->s_dx_seed[2] = 0;
+
 	ret = ocfs2_write_super(fs);
 	tunefs_unblock_signals();
 
