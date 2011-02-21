@@ -151,8 +151,17 @@ errcode_t ocfs2_set_cluster_desc(ocfs2_filesys *fs,
 			if (ret)
 				goto out;
 		}
-		sb->s_feature_incompat |=
-			OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+
+		/*
+		 * if clusterinfo is not set and the stackname != o2cb,
+		 * then set the userspace flag
+		 */
+		if (!(sb->s_feature_incompat &
+		      OCFS2_FEATURE_INCOMPAT_CLUSTERINFO)) {
+			if (strcmp(desc->c_stack, OCFS2_CLASSIC_CLUSTER_STACK))
+				sb->s_feature_incompat |=
+					OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+		}
 		memcpy(sb->s_cluster_info.ci_stack, desc->c_stack,
 		       OCFS2_STACK_LABEL_LEN);
 		memcpy(sb->s_cluster_info.ci_cluster, desc->c_cluster,
