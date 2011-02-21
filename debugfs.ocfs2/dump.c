@@ -93,7 +93,7 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 	for (i = 0; i < 3; i++)
 		fprintf(out, "\tDX Seed[%d]: 0x%08x\n", i, sb->s_dx_seed[i]);
 
-	if (ocfs2_userspace_stack(sb))
+	if (ocfs2_clusterinfo_valid(sb))
 		fprintf(out,
 			"\tCluster stack: %s\n"
 			"\tCluster name: %s\n",

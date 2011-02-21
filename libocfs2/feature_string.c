@@ -181,6 +181,11 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
 		{0, OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG, 0},
 	},
 	{
+		"clusterinfo",
+		{0, OCFS2_FEATURE_INCOMPAT_CLUSTERINFO, 0},
+		{0, OCFS2_FEATURE_INCOMPAT_CLUSTERINFO, 0},
+	},
+	{
 		NULL,
 		{0, 0, 0},
 		{0, 0, 0}
@@ -266,6 +271,10 @@ static struct feature_name ocfs2_feature_names[] = {
 	{
 		.fn_name = "discontig-bg",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG, 0},
+	},
+	{
+		.fn_name = "clusterinfo",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_CLUSTERINFO, 0},
 	},
 	{
 		.fn_name = NULL,

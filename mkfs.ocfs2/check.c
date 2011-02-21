@@ -64,7 +64,7 @@ static void disk_fill(const char *device, char **stack_name,
 	if (err)
 		return;
 
-	if (!ocfs2_userspace_stack(OCFS2_RAW_SB(fs->fs_super))) {
+	if (!ocfs2_clusterinfo_valid(OCFS2_RAW_SB(fs->fs_super))) {
 		*stack_name = strdup("o2cb");
 		goto close;
 	}

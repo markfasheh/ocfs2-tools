@@ -136,6 +136,9 @@
 #define OCFS2_QF_INFO_DIRTY 1
 #define OCFS2_QF_INFO_LOADED 2
 
+/* Classic (historically speaking) cluster stack */
+#define OCFS2_CLASSIC_CLUSTER_STACK	"o2cb"
+
 typedef void (*ocfs2_chb_notify)(int state, char *progress, void *data);
 
 typedef struct _ocfs2_filesys ocfs2_filesys;
@@ -1249,9 +1252,29 @@ static inline int ocfs2_sparse_alloc(struct ocfs2_super_block *osb)
 	return 0;
 }
 
+static inline int ocfs2_clusterinfo_valid(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat &
+	    (OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK |
+	     OCFS2_FEATURE_INCOMPAT_CLUSTERINFO))
+		return 1;
+	return 0;
+}
+
 static inline int ocfs2_userspace_stack(struct ocfs2_super_block *osb)
 {
-	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK)
+	if (ocfs2_clusterinfo_valid(osb) &&
+	    memcmp(osb->s_cluster_info.ci_stack, OCFS2_CLASSIC_CLUSTER_STACK,
+		   OCFS2_STACK_LABEL_LEN))
+		return 1;
+	return 0;
+}
+
+static inline int ocfs2_o2cb_stack(struct ocfs2_super_block *osb)
+{
+	if (ocfs2_clusterinfo_valid(osb) &&
+	    !memcmp(osb->s_cluster_info.ci_stack, OCFS2_CLASSIC_CLUSTER_STACK,
+		    OCFS2_STACK_LABEL_LEN))
 		return 1;
 	return 0;
 }

@@ -107,7 +107,7 @@ errcode_t ocfs2_fill_cluster_desc(ocfs2_filesys *fs,
 	errcode_t ret = 0;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 
-	if (!ocfs2_userspace_stack(sb)) {
+	if (!ocfs2_clusterinfo_valid(sb)) {
 		desc->c_stack = NULL;
 		desc->c_cluster = NULL;
 		return 0;

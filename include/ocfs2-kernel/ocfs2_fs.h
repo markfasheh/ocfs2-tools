@@ -170,6 +170,13 @@
 #define OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG	0x2000
 
 /*
+ * Incompat bit to indicate useable clusterinfo with stackflags for all
+ * cluster stacks (userspace adnd o2cb). If this bit is set,
+ * INCOMPAT_USERSPACE_STACK becomes superfluous and thus should not be set.
+ */
+#define OCFS2_FEATURE_INCOMPAT_CLUSTERINFO	0x4000
+
+/*
  * backup superblock flag is used to indicate that this volume
  * has backup superblocks.
  */
@@ -282,7 +289,7 @@
 #define OCFS2_VOL_UUID_LEN		16
 #define OCFS2_MAX_VOL_LABEL_LEN		64
 
-/* The alternate, userspace stack fields */
+/* The cluster stack fields */
 #define OCFS2_STACK_LABEL_LEN		4
 #define OCFS2_CLUSTER_NAME_LEN		16
 
@@ -602,9 +609,9 @@ struct ocfs2_super_block {
 					 * group header */
 /*50*/	__u8  s_label[OCFS2_MAX_VOL_LABEL_LEN];	/* Label for mounting, etc. */
 /*90*/	__u8  s_uuid[OCFS2_VOL_UUID_LEN];	/* 128-bit uuid */
-/*A0*/  struct ocfs2_cluster_info s_cluster_info; /* Selected userspace
-						     stack.  Only valid
-						     with INCOMPAT flag. */
+/*A0*/  struct ocfs2_cluster_info s_cluster_info; /* Only valid if either
+						     userspace or clusterinfo
+						     INCOMPAT flag set. */
 /*B8*/	__le16 s_xattr_inline_size;	/* extended attribute inline size
 					   for this fs*/
 	__le16 s_reserved0;
