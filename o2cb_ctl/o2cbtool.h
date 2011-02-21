@@ -41,6 +41,7 @@
 #include "tools-internal/utils.h"
 
 #define O2CB_DEFAULT_CONFIG_FILE	"/etc/ocfs2/cluster.conf"
+#define O2CB_DEFAULT_IP_PORT		7777
 
 struct o2cb_command {
 	int o_modified;
@@ -56,9 +57,15 @@ struct o2cb_command {
 
 enum {
 	CONFIG_FILE_OPTION = CHAR_MAX + 1,
+	IP_OPTION,
+	PORT_OPTION,
+	NODENUM_OPTION,
 };
 
 errcode_t o2cbtool_validate_clustername(char *clustername);
 
 errcode_t o2cbtool_add_cluster(struct o2cb_command *cmd);
 errcode_t o2cbtool_remove_cluster(struct o2cb_command *cmd);
+
+errcode_t o2cbtool_add_node(struct o2cb_command *cmd);
+errcode_t o2cbtool_remove_node(struct o2cb_command *cmd);

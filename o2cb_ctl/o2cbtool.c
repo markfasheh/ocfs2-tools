@@ -35,6 +35,19 @@ struct o2cb_command o2cbtool_cmds[] = {
 		.o_help = "Removes cluster from the config file.",
 	},
 	{
+		.o_name = "add-node",
+		.o_action = o2cbtool_add_node,
+		.o_usage = "[--ip <ip>] [--port <port>] [--number <num>] "
+			"<clustername> <nodename>",
+		.o_help = "Adds a node to the cluster in the config file.",
+	},
+	{
+		.o_name = "remove-node",
+		.o_action = o2cbtool_remove_node,
+		.o_usage = "<clustername> <nodename>",
+		.o_help = "Removes a node from the cluster in the config file.",
+	},
+	{
 		.o_name = NULL,
 		.o_action = NULL,
 	},
