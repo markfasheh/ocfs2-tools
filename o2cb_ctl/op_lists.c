@@ -121,7 +121,7 @@ static void show_cluster(O2CBCluster *cluster, gchar *clustername,
 	nodecount = o2cb_cluster_get_node_count(cluster);
 	hbmode = o2cb_cluster_get_heartbeat_mode(cluster);
 	if (!hbmode)
-		hbmode = strdup("local");
+		hbmode = strdup(O2CB_LOCAL_HEARTBEAT_TAG);
 	verbosef(VL_OUT, format, nodecount, hbmode, clustername);
 	g_free(hbmode);
 }

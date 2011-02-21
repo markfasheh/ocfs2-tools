@@ -176,7 +176,8 @@ errcode_t o2cbtool_heartbeat_mode(struct o2cb_command *cmd)
 	clustername = cmd->o_argv[1];
 	hbmode = cmd->o_argv[2];
 
-	if (strcmp(hbmode, "global") && strcmp(hbmode, "local"))
+	if (strcmp(hbmode, O2CB_GLOBAL_HEARTBEAT_TAG) &&
+	    strcmp(hbmode, O2CB_LOCAL_HEARTBEAT_TAG))
 		goto bail;
 
 	cmd->o_print_usage = 0;

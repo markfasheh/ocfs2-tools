@@ -198,7 +198,7 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
     rc = -ENOMEM;
     hb_mode = j_config_get_attribute(c_cfs, "heartbeat_mode");
     if (!hb_mode)
-        hb_mode = g_strdup("local");
+        hb_mode = g_strdup(O2CB_LOCAL_HEARTBEAT_TAG);
     if (!hb_mode)
         goto out_error;
     rc = o2cb_cluster_set_heartbeat_mode(cluster, hb_mode);
@@ -623,7 +623,7 @@ O2CBCluster *o2cb_config_add_cluster(O2CBConfig *config,
     cluster = g_new(O2CBCluster, 1);
 
     cluster->c_name = g_strdup(name);
-    cluster->c_hb_mode = g_strdup("local");
+    cluster->c_hb_mode = g_strdup(O2CB_LOCAL_HEARTBEAT_TAG);
     cluster->c_num_nodes = 0;
     cluster->c_nodes = NULL;
     cluster->c_heartbeat = NULL;
