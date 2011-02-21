@@ -69,3 +69,7 @@ errcode_t o2cbtool_remove_cluster(struct o2cb_command *cmd);
 
 errcode_t o2cbtool_add_node(struct o2cb_command *cmd);
 errcode_t o2cbtool_remove_node(struct o2cb_command *cmd);
+
+errcode_t o2cbtool_add_heartbeat(struct o2cb_command *cmd);
+errcode_t o2cbtool_remove_heartbeat(struct o2cb_command *cmd);
+errcode_t o2cbtool_heartbeat_mode(struct o2cb_command *cmd);

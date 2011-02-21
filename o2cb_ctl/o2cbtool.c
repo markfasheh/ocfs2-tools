@@ -48,6 +48,26 @@ struct o2cb_command o2cbtool_cmds[] = {
 		.o_help = "Removes a node from the cluster in the config file.",
 	},
 	{
+		.o_name = "add-heartbeat",
+		.o_action = o2cbtool_add_heartbeat,
+		.o_usage = "<clustername> [<uuid>|<device>]",
+		.o_help = "Adds a heartbeat region to the cluster in the "
+			"config file.",
+	},
+	{
+		.o_name = "remove-heartbeat",
+		.o_action = o2cbtool_remove_heartbeat,
+		.o_usage = "<clustername> [<uuid>|<device>]",
+		.o_help = "Removes a heartbeat region from the cluster in "
+			"the config file.",
+	},
+	{
+		.o_name = "heartbeat-mode",
+		.o_action = o2cbtool_heartbeat_mode,
+		.o_usage = "<clustername> {global|local}",
+		.o_help = "Toggles the heartbeat mode between global and local.",
+	},
+	{
 		.o_name = NULL,
 		.o_action = NULL,
 	},
