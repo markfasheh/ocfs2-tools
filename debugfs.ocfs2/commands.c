@@ -439,26 +439,22 @@ bail:
  * get_slotnum()
  *
  */
-static int get_slotnum(char **args, uint16_t *slotnum)
+static int get_slotnum(char *str, uint16_t *slotnum)
 {
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	char *endptr;
 
-	if (args[1]) {
-		*slotnum = strtoul(args[1], &endptr, 0);
-		if (!*endptr) {
-			if (*slotnum < sb->s_max_slots)
-				return 0;
-			else
-				fprintf(stderr,
-					"%s: Invalid node slot number\n",
-					args[0]);
-		} else
-			fprintf(stderr, "usage: %s <slotnum>\n", args[0]);
-	} else
-		fprintf(stderr, "usage: %s <slotnum>\n", args[0]);
+	if (!str)
+		return -1;
 
-	return -1;
+	*slotnum = strtoul(str, &endptr, 0);
+	if (*endptr)
+		return -1;
+
+	if (*slotnum >= sb->s_max_slots)
+		return -1;
+
+	return 0;
 }
 
 /*
@@ -865,7 +861,7 @@ static void do_help (char **args)
 	printf ("icheck block# ...\t\t\tDo block->inode translation\n");
 	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
 	printf ("locate <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
-	printf ("logdump <slot#>\t\t\t\tPrints journal file for the node slot\n");
+	printf ("logdump [-T] <slot#>\t\t\t\tPrints journal file for the node slot\n");
 	printf ("ls [-l] <filespec>\t\t\tList directory\n");
 	printf ("ncheck <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
 	printf ("open <device> [-i] [-s backup#]\t\tOpen a device\n");
@@ -1233,12 +1229,27 @@ static void do_logdump (char **args)
 	uint16_t slotnum;
 	uint64_t blkno;
 	FILE *out;
+	int index = 1, traverse = 1;
+	const char *logdump_usage = "usage: logdump [-T] <slot#>";
 
 	if (check_device_open())
 		return ;
 
-	if (get_slotnum(args, &slotnum))
+	if (!args[index]) {
+		fprintf(stderr, "%s\n", logdump_usage);
 		return ;
+	}
+
+	if (!strncmp(args[index], "-T", 2)) {
+		traverse = 0;
+		index++;
+	}
+
+	if (get_slotnum(args[index], &slotnum)) {
+		fprintf(stderr, "%s: Invalid node slot number\n", args[0]);
+		fprintf(stderr, "%s\n", logdump_usage);
+		return ;
+	}
 
 	blkno = gbls.jrnl_blkno[slotnum];
 

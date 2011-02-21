@@ -215,8 +215,9 @@ to the \fIdirectory\fR on the native filesystem.
 Display all pathnames for the inode(s) specified by \fIlockname\fRs or \fIinode#\fRs.
 
 .TP
-\fIlogdump node#\fR
-Display the contents of the journal for node \fInode#\fR.
+\fIlogdump [-T] slot#\fR
+Display the contents of the journal for slot \fIslot#\fR. Use \fI-T\fR to limit
+the output to just the summary of the inodes in the journal.
 
 .TP
 \fIls [\-l] filespec\fR
