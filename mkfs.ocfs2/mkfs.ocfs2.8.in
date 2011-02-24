@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "February 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -199,7 +199,7 @@ Chooses fewer features but ensures that the file system can be mounted from olde
 .RS 1.2i
 .TP
 \fBdefault\fR
-The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR, \fBunwritten\fR \fBinline-data\fR and \fBxattr\fR. It also enables \fBrefcount\fR for the \fIvmstore\fR volumes.
+The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR, \fBunwritten\fR \fBinline-data\fR \fBxattr\fR, \fBindexed-dirs\fR, \fBdiscontig-bg\fR, \fBrefcount\fR and \fBextended-slotmap\fR.
 .RE
 .RS 1.2i
 .TP
@@ -363,4 +363,4 @@ grpquota	RO Compat	4
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2010 Oracle. All rights reserved.
+Copyright \(co 2004, 2011 Oracle. All rights reserved.
