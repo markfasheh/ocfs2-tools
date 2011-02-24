@@ -386,7 +386,9 @@ fi
 AC_SUBST(BUILD_CMAN_SUPPORT)
 
 BUILD_OCFS2CONSOLE=
-AC_ARG_ENABLE(ocfs2console, [  --enable-ocfs2console=[yes/no]    Build GUI frontend [default=yes]],,enable_ocfs2console=yes)
+AC_MSG_CHECKING(whether to build ocfs2console)
+AC_ARG_ENABLE(ocfs2console, [  --enable-ocfs2console=[yes/no]    Build GUI frontend [default=no]],,enable_ocfs2console=no)
+AC_MSG_RESULT($enable_ocfs2console)
 
 if test "x$enable_ocfs2console" = "xyes"; then
   dnl check for Python
