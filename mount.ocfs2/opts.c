@@ -78,12 +78,12 @@ static const struct opt_map opt_map[] = {
   { "mand",	0, 0, MS_MANDLOCK },	/* Allow mandatory locks on this FS */
   { "nomand",	0, 1, MS_MANDLOCK },	/* Forbid mandatory locks on this FS */
   { "loop",	1, 0, MS_LOOP	},	/* use a loop device */
-  { "atime",	0, 1, MS_NOATIME },	/* Update access time */
   { "noatime",	0, 0, MS_NOATIME },	/* Do not update access time */
   { "relatime",	0, 0, MS_RELATIME },	/* only update atime if previous */
 					/* atime is older than mtime/ctime */
   { "diratime",	0, 1, MS_NODIRATIME },	/* Update dir access times */
   { "nodiratime", 0, 0, MS_NODIRATIME },/* Do not update dir access times */
+  { "strictatime", 0, 0, MS_STRICTATIME },/* Strict atime semantics */
   { "kudzu",	0, 0, MS_COMMENT },	/* Silently remove this option (backwards compat use only) */
   { "managed",	0, 0, MS_COMMENT },	/* Silently remove this option */
   { NULL,	0, 0, 0	}

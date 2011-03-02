@@ -60,6 +60,9 @@ if we have a stack or plain mount - mount atop of it, forming a stack. */
 #ifndef MS_RELATIME
 #define MS_RELATIME	(1<<21)	/* Update atime relative to mtime/ctime. */
 #endif
+#ifndef MS_STRICTATIME
+#define MS_STRICTATIME	(1<<24)	/* Strict atime semantics */
+#endif
 /*
  * Magic mount flag number. Had to be or-ed to the flag values.
  */

@@ -20,17 +20,18 @@ specify this mount option to delay the system from mounting the volume until
 after the network has been enabled.
 
 .TP
-\fBatime\_quantum=nrsec\fR
-The file system will not update atime unless this number of seconds has passed
-since the last update. Set to zero to always update atime. It defaults to 60 secs.
+\fBnoatime\fR
+The file system will not update access time.
 
 .TP
 \fBrelatime\fR
 The file system only update atime if the previous atime is older than mtime or ctime.
 
 .TP
-\fBnoatime\fR
-The file system will not update access time.
+\fBstrictatime,atime\_quantum=nrsec\fR
+The file system will always perform atime updates, but the minimum update
+interval is specified by atime_quantum. Atime_quantum defaults to 60 secs,
+set it to zero to always update atime. These two options need work together.
 
 .TP
 \fBacl / noacl\fR
