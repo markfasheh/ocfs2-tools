@@ -133,11 +133,9 @@ static errcode_t add_mount_options(ocfs2_filesys *fs,
 	add = OCFS2_HB_LOCAL;
 
 addit:
-	if (optstr && *optstr) {
-		extra = xstrndup(*optstr, strlen(*optstr) + strlen(add) + 1);
-		if (extra)
-			extra = xstrconcat3(extra, ",", add);
-	} else
+	if (*optstr && *(*optstr))
+		extra = xstrconcat3(*optstr, ",", add);
+	else
 		extra = xstrndup(add, strlen(add));
 
 	if (!extra)
