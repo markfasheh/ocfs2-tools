@@ -1,7 +1,7 @@
 #!/bin/bash
 # init fragment for O2CB.
 #
-# chkconfig: 2345 24 20
+# chkconfig: 2345 24 19
 # description: Load O2CB cluster services at system boot.
 #
 ### BEGIN INIT INFO

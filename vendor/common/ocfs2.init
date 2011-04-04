@@ -2,7 +2,7 @@
 # Copyright (c) 2005 Oracle
 # All rights reserved.
 #
-# chkconfig: 2345 25 19
+# chkconfig: 2345 25 18
 # description: Mount OCFS2 volumes at boot.
 #
 ### BEGIN INIT INFO
