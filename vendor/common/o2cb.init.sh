@@ -1357,6 +1357,18 @@ online_o2cb()
     fi
     CLUSTER="$1"
 
+    # allow re-online if global heartbeat enabled
+    check_online $CLUSTER
+    if [ $? = 2 ]
+    then
+        global_heartbeat_enabled_o2cb
+        if [ $? -ne 1 ]
+        then
+            echo "Cluster ${CLUSTER} already online"
+            return 1
+        fi
+    fi
+
     register_cluster_o2cb "${CLUSTER}"
     if [ $? -eq 1 ]
     then
@@ -1387,6 +1399,13 @@ online_user()
     fi
     CLUSTER="$1"
 
+    check_online $CLUSTER
+    if [ $? = 2 ]
+    then
+        echo "Cluster ${CLUSTER} already online"
+        return 1
+    fi
+
     load_filesystem "ocfs2"
     if_fail $? "Unable to load ocfs2 driver"
 
@@ -1403,13 +1422,6 @@ online()
         return
     fi
     PLUGIN="$(select_stack_plugin)"
-
-    check_online $CLUSTER
-    if [ $? = 2 ]
-    then
-        echo "Cluster ${CLUSTER} already online"
-        return
-    fi
 
     if [ -f "$CLUSTER_STACK_FILE" ]
     then
