@@ -32,6 +32,7 @@ OCFS2_SYS_DIR="/sys/fs/ocfs2"
 LOADED_PLUGINS_FILE="${OCFS2_SYS_DIR}/loaded_cluster_plugins"
 CLUSTER_STACK_FILE="${OCFS2_SYS_DIR}/cluster_stack"
 DLMFS_CAPABILITIES_FILE='/sys/module/ocfs2_dlmfs/parameters/capabilities'
+DEBUGFS_DIR="/sys/kernel/debug"
 
 if [ -f /etc/sysconfig/o2cb ]
 then
@@ -735,6 +736,48 @@ kill_daemon()
     echo "Failed"
     return 1
 }
+
+#
+# list_nodes_o2cb()
+#
+list_nodes_o2cb()
+{
+    check_filesystem "debugfs" "$DEBUGFS_DIR"
+    if [ "$?" -ne "0" ]
+    then
+        return
+    fi
+
+    nodestr=$(cat $DEBUGFS_DIR/o2hb/livenodes)
+    echo "Nodes in O2CB cluster: $nodestr"
+}
+
+#
+# list_heartbeat_o2cb()
+#
+list_heartbeat_o2cb()
+{
+    if [ "$#" -lt "1" -o -z "$1" ]
+    then
+        echo "list_heartbeat_o2cb(): Requires an argument" >&2
+        return 1
+    fi
+    CLUSTER="$1"
+
+    RC=0
+    if [ -d "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" ]
+    then
+        ls -1 "$(configfs_path)/cluster/${CLUSTER}/heartbeat/" | while read HBUUID
+        do
+            if [ -d "$(configfs_path)/cluster/${CLUSTER}/heartbeat/${HBUUID}" ]
+            then
+                dev=$(cat "$(configfs_path)/cluster/${CLUSTER}/heartbeat/${HBUUID}/dev")
+                echo "  ${regionstr}${HBUUID} /dev/${dev}"
+            fi
+        done
+    fi
+}
+
 
 #
 # check_heartbeat_o2cb()
@@ -1613,7 +1656,7 @@ online_status_o2cb()
     fi
     CLUSTER="$1"
 
-    echo -n "Checking O2CB cluster $CLUSTER: "
+    echo -n "Checking O2CB cluster \"$CLUSTER\": "
     check_online_o2cb $CLUSTER
     if [ $? = 2 ]
     then
@@ -1632,7 +1675,7 @@ online_status_o2cb()
         HBMODE="Global"
     fi
 
-    echo "  Heartbeat Mode: ${HBMODE}"
+    echo "  Heartbeat mode: ${HBMODE}"
 
     echo -n "Checking O2CB heartbeat: "
     check_heartbeat_o2cb $CLUSTER
@@ -1642,6 +1685,12 @@ online_status_o2cb()
     else
         echo "Not active"
         return 0;
+    fi
+
+    if [ $HBMODE = "Global" ]
+    then
+        list_heartbeat_o2cb $CLUSTER
+        list_nodes_o2cb
     fi
 }
 
