@@ -90,16 +90,20 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 		fprintf(out, "%02X", sb->s_uuid[i]);
 	fprintf(out, "\n");
 	fprintf(out, "\tHash: %u (0x%x)\n", sb->s_uuid_hash, sb->s_uuid_hash);
-	for (i = 0; i < 3; i++)
-		fprintf(out, "\tDX Seed[%d]: 0x%08x\n", i, sb->s_dx_seed[i]);
+	fprintf(out, "\tDX Seeds: %u %u %u (0x%08x 0x%08x 0x%08x)\n",
+		sb->s_dx_seed[0], sb->s_dx_seed[1], sb->s_dx_seed[2],
+		sb->s_dx_seed[0], sb->s_dx_seed[1], sb->s_dx_seed[2]);
 
-	if (ocfs2_clusterinfo_valid(sb))
-		fprintf(out,
-			"\tCluster stack: %s\n"
-			"\tCluster name: %s\n",
-			sb->s_cluster_info.ci_stack,
-			sb->s_cluster_info.ci_cluster);
-	else
+	if (ocfs2_clusterinfo_valid(sb)) {
+		strncpy(buf, sb->s_cluster_info.ci_stack,
+			OCFS2_STACK_LABEL_LEN);
+		buf[OCFS2_STACK_LABEL_LEN] = '\0';
+		fprintf(out, "\tCluster stack: %s\n", buf);
+		strncpy(buf, sb->s_cluster_info.ci_cluster,
+			OCFS2_CLUSTER_NAME_LEN);
+		buf[OCFS2_CLUSTER_NAME_LEN] = '\0';
+		fprintf(out, "\tCluster name: %s\n", buf);
+	} else
 		fprintf(out, "\tCluster stack: classic o2cb\n");
 
 	get_cluster_info_flag(sb, buf, sizeof(buf));
