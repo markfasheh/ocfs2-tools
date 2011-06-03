@@ -32,6 +32,7 @@
 #include "tools-internal/verbose.h"
 
 #include "utils.h"
+#include "libo2info.h"
 
 extern void print_usage(int rc);
 extern int cluster_coherent;
@@ -114,12 +115,6 @@ static void o2i_scan_requests(struct o2info_operation *op,
 	*fills = num_filled;
 }
 
-struct o2info_fs_features {
-	uint32_t compat;
-	uint32_t incompat;
-	uint32_t rocompat;
-};
-
 static int get_fs_features_ioctl(struct o2info_operation *op,
 				 int fd,
 				 struct o2info_fs_features *ofs)
@@ -158,23 +153,6 @@ static int get_fs_features_ioctl(struct o2info_operation *op,
 	}
 
 out:
-	return rc;
-}
-
-static int get_fs_features_libocfs2(struct o2info_operation *op,
-				    ocfs2_filesys *fs,
-				    struct o2info_fs_features *ofs)
-{
-	int rc = 0;
-	struct ocfs2_super_block *sb = NULL;
-
-	memset(ofs, 0, sizeof(*ofs));
-
-	sb = OCFS2_RAW_SB(fs->fs_super);
-	ofs->compat = sb->s_feature_compat;
-	ofs->incompat = sb->s_feature_incompat;
-	ofs->rocompat = sb->s_feature_ro_compat;
-
 	return rc;
 }
 
@@ -242,7 +220,7 @@ static int fs_features_run(struct o2info_operation *op,
 	if (om->om_method == O2INFO_USE_IOCTL)
 		rc = get_fs_features_ioctl(op, om->om_fd, &ofs);
 	else
-		rc = get_fs_features_libocfs2(op, om->om_fs, &ofs);
+		rc = o2info_get_fs_features(om->om_fs, &ofs);
 	if (rc)
 		goto out;
 
@@ -284,35 +262,6 @@ out:
 DEFINE_O2INFO_OP(fs_features,
 		 fs_features_run,
 		 NULL);
-
-struct o2info_volinfo {
-	uint32_t blocksize;
-	uint32_t clustersize;
-	uint32_t maxslots;
-	uint8_t label[OCFS2_MAX_VOL_LABEL_LEN];
-	uint8_t uuid_str[OCFS2_TEXT_UUID_LEN + 1];
-	struct o2info_fs_features ofs;
-};
-
-static int get_volinfo_libocfs2(struct o2info_operation *op,
-				ocfs2_filesys *fs,
-				struct o2info_volinfo *vf)
-{
-	int rc = 0;
-	struct ocfs2_super_block *sb = NULL;
-
-	memset(vf, 0, sizeof(*vf));
-
-	sb = OCFS2_RAW_SB(fs->fs_super);
-	vf->blocksize = fs->fs_blocksize;
-	vf->clustersize = fs->fs_clustersize;
-	vf->maxslots = sb->s_max_slots;
-	memcpy(vf->label, sb->s_label, OCFS2_MAX_VOL_LABEL_LEN);
-	memcpy(vf->uuid_str, fs->uuid_str, OCFS2_TEXT_UUID_LEN + 1);
-	rc = get_fs_features_libocfs2(op, fs, &(vf->ofs));
-
-	return rc;
-}
 
 static int get_volinfo_ioctl(struct o2info_operation *op,
 			     int fd,
@@ -403,7 +352,7 @@ static int volinfo_run(struct o2info_operation *op,
 	if (om->om_method == O2INFO_USE_IOCTL)
 		rc = get_volinfo_ioctl(op, om->om_fd, &vf);
 	else
-		rc = get_volinfo_libocfs2(op, om->om_fs, &vf);
+		rc = o2info_get_volinfo(om->om_fs, &vf);
 	if (rc)
 		goto out;
 
@@ -448,53 +397,6 @@ out:
 DEFINE_O2INFO_OP(volinfo,
 		 volinfo_run,
 		 NULL);
-
-struct o2info_mkfs {
-	struct o2info_volinfo ovf;
-	uint64_t journal_size;
-};
-
-static int get_mkfs_libocfs2(struct o2info_operation *op,
-			     ocfs2_filesys *fs,
-			     struct o2info_mkfs *oms)
-{
-	errcode_t err;
-	uint64_t blkno;
-	char *buf = NULL;
-	struct ocfs2_dinode *di = NULL;
-
-	memset(oms, 0, sizeof(*oms));
-
-	err = ocfs2_malloc_block(fs->fs_io, &buf);
-	if (err) {
-		tcom_err(err, "while allocating buffer");
-		goto out;
-	}
-
-	err = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE, 0, &blkno);
-	if (err) {
-		tcom_err(err, "while looking up journal system inode");
-		goto out;
-	} else
-
-	err = ocfs2_read_inode(fs, blkno, buf);
-	if (err) {
-		tcom_err(err, "while reading journal system inode");
-		goto out;
-	}
-
-	di = (struct ocfs2_dinode *)buf;
-
-	oms->journal_size = di->i_size;
-
-	err = get_volinfo_libocfs2(op, fs, &(oms->ovf));
-
-out:
-	if (buf)
-		ocfs2_free(&buf);
-
-	return err;
-}
 
 static int get_mkfs_ioctl(struct o2info_operation *op, int fd,
 			  struct o2info_mkfs *oms)
@@ -618,7 +520,7 @@ static int mkfs_run(struct o2info_operation *op, struct o2info_method *om,
 	if (om->om_method == O2INFO_USE_IOCTL)
 		rc = get_mkfs_ioctl(op, om->om_fd, &oms);
 	else
-		rc = get_mkfs_libocfs2(op, om->om_fs, &oms);
+		rc = o2info_get_mkfs(om->om_fs, &oms);
 	if (rc)
 		goto out;
 

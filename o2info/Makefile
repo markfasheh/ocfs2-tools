@@ -21,18 +21,28 @@ DEFINES = -DVERSION=\"$(VERSION)\"
 MANS = o2info.1
 
 HFILES = o2info.h		\
-	 utils.h
+	 utils.h		\
+	 libo2info.h
 
 CFILES =			\
 	o2info.c		\
-	operations.c	\
+	operations.c		\
 	utils.c
+
+LIBO2INFO_CFILES = libo2info.c
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES) $(HFILES) o2info.1.in
+LIBO2INFO_OBJS = $(subst .c,.o,$(LIBO2INFO_CFILES))
 
-o2info: $(OBJS) $(LIBOCFS2_DEPS)
-	$(LINK) $(LIBOCFS2_LIBS) $(LIBTOOLS_INTERNAL_LIBS) $(COM_ERR_LIBS)
+DIST_FILES = $(CFILES) $(LIBO2INFO_CFILES) $(HFILES) o2info.1.in
+
+libo2info.a: $(LIBO2INFO_OBJS)
+	rm -f $@
+	$(AR) r $@ $^
+	$(RANLIB) $@
+
+o2info: $(OBJS) $(LIBOCFS2_DEPS) libo2info.a
+	$(LINK) $(LIBOCFS2_LIBS) $(LIBTOOLS_INTERNAL_LIBS) $(COM_ERR_LIBS) libo2info.a
 
 include $(TOPDIR)/Postamble.make
