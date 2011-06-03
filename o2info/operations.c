@@ -885,3 +885,139 @@ out:
 DEFINE_O2INFO_OP(space_usage,
 		 space_usage_run,
 		 NULL);
+
+static int o2info_report_filestat(struct o2info_method *om,
+				  struct stat *st,
+				  struct o2info_fiemap *ofp)
+{
+	int ret = 0;
+	uint16_t perm;
+
+	char *path = NULL;
+	char *filetype = NULL, *h_perm = NULL;
+	char *uname = NULL, *gname = NULL;
+	char *ah_time = NULL, *ch_time = NULL, *mh_time = NULL;
+
+	ret = o2info_get_human_path(st->st_mode, om->om_path, &path);
+	if (ret)
+		goto out;
+
+	ret = o2info_get_filetype(*st, &filetype);
+	if (ret)
+		goto out;
+
+	ret = o2info_uid2name(st->st_uid, &uname);
+	if (ret)
+		goto out;
+
+	ret = o2info_gid2name(st->st_gid, &gname);
+	if (ret)
+		goto out;
+
+	ret = o2info_get_human_permission(st->st_mode, &perm, &h_perm);
+	if (ret)
+		goto out;
+
+	if (!ofp->blocksize)
+		ofp->blocksize = st->st_blksize;
+
+	fprintf(stdout, "  File: %s\n", path);
+	fprintf(stdout, "  Size: %-10lu\tBlocks: %-10u IO Block: %-6u %s\n",
+		st->st_size, st->st_blocks, ofp->blocksize, filetype);
+	 if (S_ISBLK(st->st_mode) || S_ISCHR(st->st_mode))
+		fprintf(stdout, "Device: %xh/%dd\tInode: %-10i  Links: %-5u"
+			" Device type: %u,%u\n", st->st_dev, st->st_dev,
+			st->st_ino, st->st_nlink,
+			st->st_dev >> 16UL, st->st_dev & 0x0000FFFF);
+	else
+		fprintf(stdout, "Device: %xh/%dd\tInode: %-10i  Links: %u\n",
+			st->st_dev, st->st_dev, st->st_ino, st->st_nlink);
+	fprintf(stdout, " Frag%: %-10.2f\tClusters: %-8u Extents: "
+		"%-6lu Score: %.0f\n", ofp->frag, ofp->clusters,
+		ofp->num_extents, ofp->score);
+	fprintf(stdout, "Shared: %-10u\tUnwritten: %-7u Holes: %-8u "
+		"Xattr: %u\n", ofp->shared, ofp->unwrittens,
+		ofp->holes, ofp->xattr);
+	fprintf(stdout, "Access: (%04o/%10s)  Uid: (%5u/%8s)   "
+		"Gid: (%5u/%8s)\n", perm, h_perm, st->st_uid,
+		uname, st->st_gid, gname);
+
+	ret = o2info_get_human_time(&ah_time, o2info_get_stat_atime(st));
+	if (ret)
+		goto out;
+	ret = o2info_get_human_time(&mh_time, o2info_get_stat_mtime(st));
+	if (ret)
+		goto out;
+	ret = o2info_get_human_time(&ch_time, o2info_get_stat_ctime(st));
+	if (ret)
+		goto out;
+
+	fprintf(stdout, "Access: %s\n", ah_time);
+	fprintf(stdout, "Modify: %s\n", mh_time);
+	fprintf(stdout, "Change: %s\n", ch_time);
+
+out:
+	if (path)
+		ocfs2_free(&path);
+	if (filetype)
+		ocfs2_free(&filetype);
+	if (uname)
+		ocfs2_free(&uname);
+	if (gname)
+		ocfs2_free(&gname);
+	if (h_perm)
+		ocfs2_free(&h_perm);
+	if (ah_time)
+		ocfs2_free(&ah_time);
+	if (mh_time)
+		ocfs2_free(&mh_time);
+	if (ch_time)
+		ocfs2_free(&ch_time);
+
+	return ret;
+}
+
+static int filestat_run(struct o2info_operation *op,
+			struct o2info_method *om,
+			void *arg)
+{
+	int ret = 0, flags = 0;
+	struct stat st;
+	struct o2info_volinfo ovf;
+	struct o2info_fiemap ofp;
+
+	if (om->om_method == O2INFO_USE_LIBOCFS2) {
+		o2i_error(op, "specify a none-device file to stat\n");
+		ret = -1;
+		goto out;
+	}
+
+	ret = lstat(om->om_path, &st);
+	if (ret < 0) {
+		ret = errno;
+		o2i_error(op, "lstat error: %s\n", strerror(ret));
+		ret = -1;
+		goto out;
+	}
+
+	memset(&ofp, 0, sizeof(ofp));
+
+	ret = get_volinfo_ioctl(op, om->om_fd, &ovf);
+	if (ret)
+		return -1;
+
+	ofp.blocksize = ovf.blocksize;
+	ofp.clustersize = ovf.clustersize;
+
+	ret = o2info_get_fiemap(om->om_fd, flags, &ofp);
+	if (ret)
+		goto out;
+
+	ret = o2info_report_filestat(om, &st, &ofp);
+out:
+	return ret;
+}
+
+DEFINE_O2INFO_OP(filestat,
+		 filestat_run,
+		 NULL);

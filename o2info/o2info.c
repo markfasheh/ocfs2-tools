@@ -40,6 +40,7 @@ extern struct o2info_operation mkfs_op;
 extern struct o2info_operation freeinode_op;
 extern struct o2info_operation freefrag_op;
 extern struct o2info_operation space_usage_op;
+extern struct o2info_operation filestat_op;
 
 static LIST_HEAD(o2info_op_task_list);
 static int o2info_op_task_count;
@@ -183,6 +184,19 @@ static struct o2info_option space_usage_option = {
 	.opt_private	= NULL,
 };
 
+static struct o2info_option filestat_option = {
+	.opt_option	= {
+		.name		= "filestat",
+		.val		= CHAR_MAX,
+		.has_arg	= 0,
+		.flag		= NULL,
+	},
+	.opt_help	= "   --filestat",
+	.opt_handler	= NULL,
+	.opt_op		= &filestat_op,
+	.opt_private	= NULL,
+};
+
 static struct o2info_option *options[] = {
 	&help_option,
 	&version_option,
@@ -193,6 +207,7 @@ static struct o2info_option *options[] = {
 	&freeinode_option,
 	&freefrag_option,
 	&space_usage_option,
+	&filestat_option,
 	NULL,
 };
 

@@ -2,7 +2,7 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] [\fB\-\-freefrag\fR \fIchunksize\fR] [\fB\-\-space\-usage\fR] <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] [\fB\-\-freefrag\fR \fIchunksize\fR] [\fB\-\-space\-usage\fR] [\fB\-\-filestat\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
@@ -37,6 +37,10 @@ Report free space fragmentation on \fIOCFS2\fR filesystems, it prints how many c
 .TP
 \fB\-\-space\-usage\fR
 Display file's usage information on disk in terms of how many physical blocks it consumed, how many reserved space and holes in it.
+
+.TP
+\fB\-\-filestat\fR
+Display inode's standard stat information, other than this, it also dumps inode's extended info such as extents, fragmentation, holes, unwritten and shared space in clusters.
 
 .TP
 \fB\-V, \-\-version\fR
