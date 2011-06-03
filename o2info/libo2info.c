@@ -21,9 +21,14 @@
 #define _LARGEFILE64_SOURCE
 #define _GNU_SOURCE
 
+#include <errno.h>
 #include <inttypes.h>
+#include <sys/ioctl.h>
+#include <linux/fs.h>
 
 #include "ocfs2/ocfs2.h"
+#include "ocfs2/bitops.h"
+#include "ocfs2-kernel/fiemap.h"
 #include "tools-internal/verbose.h"
 #include "libo2info.h"
 
@@ -353,6 +358,164 @@ int o2info_get_freefrag(ocfs2_filesys *fs, struct o2info_freefrag *off)
 out:
 	if (block)
 		ocfs2_free(&block);
+
+	return ret;
+}
+
+static int figure_extents(int fd, uint32_t *num, int flags)
+{
+	int ret;
+	static struct fiemap fiemap;
+
+	fiemap.fm_start = 0ULL;
+	fiemap.fm_length = FIEMAP_MAX_OFFSET;
+
+	if (flags & FIEMAP_FLAG_XATTR)
+		fiemap.fm_flags = FIEMAP_FLAG_XATTR;
+
+	fiemap.fm_extent_count = 0;
+	ret = ioctl(fd, FS_IOC_FIEMAP, &fiemap);
+	if (ret < 0) {
+		ret = errno;
+		tcom_err(ret, "fiemap get count error");
+		return -1;
+	}
+
+	*num = fiemap.fm_mapped_extents;
+
+	return 0;
+}
+
+static uint32_t clusters_in_bytes(uint32_t clustersize, uint32_t bytes)
+{
+	uint64_t ret = bytes + clustersize - 1;
+
+	if (ret < bytes)
+		ret = UINT64_MAX;
+
+	ret = ret >> ul_log2(clustersize);
+	if (ret > UINT32_MAX)
+		ret = UINT32_MAX;
+
+	return (uint32_t)ret;
+}
+
+static int do_fiemap(int fd, int flags, struct o2info_fiemap *ofp)
+{
+	char buf[4096];
+
+	int ret = 0, last = 0;
+	int cluster_shift = 0, blk_shift = 0;
+	int count = (sizeof(buf) - sizeof(struct fiemap)) /
+		     sizeof(struct fiemap_extent);
+
+	struct fiemap *fiemap = (struct fiemap *)buf;
+	struct fiemap_extent *fm_ext = &fiemap->fm_extents[0];
+	uint32_t num_extents = 0, extents_got = 0, i;
+
+	uint32_t prev_start = 0, prev_len = 0;
+	uint32_t start = 0, len = 0, phy_pos = 0;
+
+	if (ofp->clustersize)
+		cluster_shift = ul_log2(ofp->clustersize);
+
+	if (ofp->blocksize)
+		blk_shift = ul_log2(ofp->blocksize);
+
+	memset(fiemap, 0, sizeof(*fiemap));
+
+	ret = figure_extents(fd, &num_extents, 0);
+	if (ret)
+		return -1;
+
+	if (flags & FIEMAP_FLAG_XATTR)
+		fiemap->fm_flags = FIEMAP_FLAG_XATTR;
+	else
+		fiemap->fm_flags = flags;
+
+	do {
+		fiemap->fm_length = ~0ULL;
+		fiemap->fm_extent_count = count;
+
+		ret = ioctl(fd, FS_IOC_FIEMAP, (unsigned long)fiemap);
+		if (ret < 0) {
+			ret = errno;
+			if (errno == EBADR) {
+				fprintf(stderr, "fiemap failed with unsupported"
+					" flags %x\n", fiemap->fm_flags);
+			} else
+				fprintf(stderr, "fiemap error: %d, %s\n",
+					ret, strerror(ret));
+			return -1;
+		}
+
+		if (!fiemap->fm_mapped_extents)
+			break;
+
+		for (i = 0; i < fiemap->fm_mapped_extents; i++) {
+
+			start = fm_ext[i].fe_logical >> cluster_shift;
+			len = fm_ext[i].fe_length >> cluster_shift;
+			phy_pos = fm_ext[i].fe_physical >> blk_shift;
+
+			if (fiemap->fm_flags & FIEMAP_FLAG_XATTR) {
+				ofp->xattr += len;
+			} else {
+				if (fm_ext[i].fe_flags &
+				    FIEMAP_EXTENT_UNWRITTEN)
+					ofp->unwrittens += len;
+
+				if (fm_ext[i].fe_flags & FIEMAP_EXTENT_SHARED)
+					ofp->shared += len;
+
+				if ((prev_start + prev_len) < start)
+					ofp->holes += start - prev_start -
+						      prev_len;
+			}
+
+			if (fm_ext[i].fe_flags & FIEMAP_EXTENT_LAST)
+				last = 1;
+
+			prev_start = start;
+			prev_len = len;
+
+			extents_got++;
+			ofp->clusters += len;
+		}
+
+		fiemap->fm_start = (fm_ext[i-1].fe_logical +
+				    fm_ext[i-1].fe_length);
+	} while (!last);
+
+	if (extents_got != num_extents) {
+		fprintf(stderr, "Got wrong extents number, expected:%lu, "
+			"got:%lu\n", num_extents, extents_got);
+		return -1;
+	}
+
+	if (flags & FIEMAP_FLAG_XATTR)
+		ofp->num_extents_xattr = num_extents;
+	else
+		ofp->num_extents = num_extents;
+
+	return ret;
+}
+
+int o2info_get_fiemap(int fd, int flags, struct o2info_fiemap *ofp)
+{
+	int ret = 0;
+
+	ret = do_fiemap(fd, flags, ofp);
+	if (ret)
+		return ret;
+
+	if ((ofp->clusters > 1) && ofp->num_extents) {
+		float e = ofp->num_extents, c = ofp->clusters;
+		int clusters_per_mb = clusters_in_bytes(ofp->clustersize,
+							OCFS2_MAX_CLUSTERSIZE);
+		ofp->frag = 100 * (e / c);
+		ofp->score = ofp->frag * clusters_per_mb;
+	}
 
 	return ret;
 }

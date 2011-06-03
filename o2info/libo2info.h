@@ -73,10 +73,25 @@ struct o2info_freefrag {
 	struct free_chunk_histogram histogram;
 };
 
+struct o2info_fiemap {
+	uint32_t blocksize;
+	uint32_t clustersize;
+	uint32_t num_extents;
+	uint32_t num_extents_xattr;
+	uint32_t clusters;
+	uint32_t shared;
+	uint32_t holes;
+	uint32_t unwrittens;
+	uint32_t xattr;
+	float frag; /* extents / clusters ratio */
+	float score;
+};
+
 int o2info_get_fs_features(ocfs2_filesys *fs, struct o2info_fs_features *ofs);
 int o2info_get_volinfo(ocfs2_filesys *fs, struct o2info_volinfo *vf);
 int o2info_get_mkfs(ocfs2_filesys *fs, struct o2info_mkfs *oms);
 int o2info_get_freeinode(ocfs2_filesys *fs, struct o2info_freeinode *ofi);
 int o2info_get_freefrag(ocfs2_filesys *fs, struct o2info_freefrag *off);
+int o2info_get_fiemap(int fd, int flags, struct o2info_fiemap *ofp);
 
 #endif

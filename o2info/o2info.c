@@ -39,6 +39,7 @@ extern struct o2info_operation volinfo_op;
 extern struct o2info_operation mkfs_op;
 extern struct o2info_operation freeinode_op;
 extern struct o2info_operation freefrag_op;
+extern struct o2info_operation space_usage_op;
 
 static LIST_HEAD(o2info_op_task_list);
 static int o2info_op_task_count;
@@ -169,6 +170,19 @@ static struct o2info_option freefrag_option = {
 	.opt_private	= NULL,
 };
 
+static struct o2info_option space_usage_option = {
+	.opt_option	= {
+		.name		= "space-usage",
+		.val		= CHAR_MAX,
+		.has_arg	= 0,
+		.flag		= NULL,
+	},
+	.opt_help	= "   --space-usage",
+	.opt_handler	= NULL,
+	.opt_op		= &space_usage_op,
+	.opt_private	= NULL,
+};
+
 static struct o2info_option *options[] = {
 	&help_option,
 	&version_option,
@@ -178,6 +192,7 @@ static struct o2info_option *options[] = {
 	&mkfs_option,
 	&freeinode_option,
 	&freefrag_option,
+	&space_usage_option,
 	NULL,
 };
 

@@ -837,3 +837,51 @@ static int freefrag_run(struct o2info_operation *op,
 DEFINE_O2INFO_OP(freefrag,
 		 freefrag_run,
 		 NULL);
+
+static int space_usage_run(struct o2info_operation *op,
+			   struct o2info_method *om,
+			   void *arg)
+{
+	int ret = 0, flags = 0;
+	struct stat st;
+	struct o2info_volinfo ovf;
+	struct o2info_fiemap ofp;
+
+	if (om->om_method == O2INFO_USE_LIBOCFS2) {
+		o2i_error(op, "specify a none-device file to stat\n");
+		ret = -1;
+		goto out;
+	}
+
+	ret = lstat(om->om_path, &st);
+	if (ret < 0) {
+		ret = errno;
+		o2i_error(op, "lstat error: %s\n", strerror(ret));
+		ret = -1;
+		goto out;
+	}
+
+	memset(&ofp, 0, sizeof(ofp));
+
+	ret = get_volinfo_ioctl(op, om->om_fd, &ovf);
+	if (ret)
+		return -1;
+
+	ofp.blocksize = ovf.blocksize;
+	ofp.clustersize = ovf.clustersize;
+
+	ret = o2info_get_fiemap(om->om_fd, flags, &ofp);
+	if (ret)
+		goto out;
+
+	fprintf(stdout, "Blocks: %-10u Shared: %-10u\tUnwritten: %-7u "
+		"Holes: %-6u\n", st.st_blocks, ofp.shared, ofp.unwrittens,
+		ofp.holes);
+
+out:
+	return ret;
+}
+
+DEFINE_O2INFO_OP(space_usage,
+		 space_usage_run,
+		 NULL);

@@ -2,7 +2,7 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] [\fB\-\-freefrag\fR \fIchunksize\fR] <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] [\fB\-\-freefrag\fR \fIchunksize\fR] [\fB\-\-space\-usage\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
@@ -33,6 +33,10 @@ Display free inode space for all nodes in \fIOCFS2\fR cluster.
 .TP
 \fB\-\-freefrag\fR \fIchunksize\fR
 Report free space fragmentation on \fIOCFS2\fR filesystems, it prints how many chunks of chunksize are available as contiguous and aligned free space by scanning the global allocation bitmap. In the meantime, the percentage of contiguous free clusters of size and of alignment chunksize is reported, what's more, it also displays the minimum/maximum/average free chunk size in filesystem, along with a histogram of all free chunks. \fBNOTE\fR, chunksize specified must be a power of two and be equal to or larger than filesystem's clustersize.
+
+.TP
+\fB\-\-space\-usage\fR
+Display file's usage information on disk in terms of how many physical blocks it consumed, how many reserved space and holes in it.
 
 .TP
 \fB\-V, \-\-version\fR
