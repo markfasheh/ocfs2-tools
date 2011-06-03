@@ -37,6 +37,7 @@
 extern struct o2info_operation fs_features_op;
 extern struct o2info_operation volinfo_op;
 extern struct o2info_operation mkfs_op;
+extern struct o2info_operation freeinode_op;
 
 static LIST_HEAD(o2info_op_task_list);
 static int o2info_op_task_count;
@@ -141,6 +142,19 @@ static struct o2info_option mkfs_option = {
 	.opt_private	= NULL,
 };
 
+static struct o2info_option freeinode_option = {
+	.opt_option	= {
+		.name		= "freeinode",
+		.val		= CHAR_MAX,
+		.has_arg	= 0,
+		.flag		= NULL,
+	},
+	.opt_help	= "   --freeinode",
+	.opt_handler	= NULL,
+	.opt_op		= &freeinode_op,
+	.opt_private	= NULL,
+};
+
 static struct o2info_option *options[] = {
 	&help_option,
 	&version_option,
@@ -148,6 +162,7 @@ static struct o2info_option *options[] = {
 	&fs_features_option,
 	&volinfo_option,
 	&mkfs_option,
+	&freeinode_option,
 	NULL,
 };
 

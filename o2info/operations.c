@@ -537,3 +537,78 @@ out:
 DEFINE_O2INFO_OP(mkfs,
 		 mkfs_run,
 		 NULL);
+
+static int get_freeinode_ioctl(struct o2info_operation *op,
+			       int fd,
+			       struct o2info_freeinode *ofi)
+{
+	uint64_t reqs[1];
+	int ret = 0, flags = 0;
+	struct ocfs2_info info;
+	struct ocfs2_info_freeinode oifi;
+	uint32_t unknowns = 0, errors = 0, fills = 0;
+
+	memset(ofi, 0, sizeof(*ofi));
+
+	if (!cluster_coherent)
+		flags |= OCFS2_INFO_FL_NON_COHERENT;
+
+	o2info_fill_request((struct ocfs2_info_request *)&oifi, sizeof(oifi),
+			    OCFS2_INFO_FREEINODE, flags);
+
+	reqs[0] = (unsigned long)&oifi;
+
+	info.oi_requests = (uint64_t)reqs;
+	info.oi_count = 1;
+
+	ret = ioctl(fd, OCFS2_IOC_INFO, &info);
+	if (ret) {
+		ret = errno;
+		o2i_error(op, "ioctl failed: %s\n", strerror(ret));
+		o2i_scan_requests(op, info, &unknowns, &errors, &fills);
+		goto out;
+	}
+
+	if (oifi.ifi_req.ir_flags & OCFS2_INFO_FL_FILLED) {
+		ofi->slotnum = oifi.ifi_slotnum;
+		memcpy(ofi->fi, oifi.ifi_stat,
+		       sizeof(struct o2info_local_freeinode) * OCFS2_MAX_SLOTS);
+	}
+
+out:
+	return ret;
+}
+
+static int freeinode_run(struct o2info_operation *op,
+			struct o2info_method *om,
+			void *arg)
+{
+	int ret = 0, i;
+
+	struct o2info_freeinode ofi;
+	unsigned long total = 0, free = 0;
+
+	if (om->om_method == O2INFO_USE_IOCTL)
+		ret = get_freeinode_ioctl(op, om->om_fd, &ofi);
+	else
+		ret = o2info_get_freeinode(om->om_fs, &ofi);
+
+	if (ret)
+		return ret;
+
+	fprintf(stdout, "Slot\t\tSpace\t\tFree\n");
+	for (i = 0; i < ofi.slotnum ; i++) {
+		fprintf(stdout, "%3d\t%13lu\t%12lu\n", i, ofi.fi[i].total,
+			ofi.fi[i].free);
+		total += ofi.fi[i].total;
+		free += ofi.fi[i].free;
+	}
+
+	fprintf(stdout, "Total\t%13lu\t%12lu\n", total, free);
+
+	return ret;
+}
+
+DEFINE_O2INFO_OP(freeinode,
+		 freeinode_run,
+		 NULL);

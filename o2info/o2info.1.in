@@ -2,7 +2,7 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
@@ -25,6 +25,10 @@ Dump basic volume information, such as blocksize, clustersize, volume label and 
 \fB\-\-mkfs\fR
 Dump an original format of mkfs.ocfs's arguments, importantly, which can be used directly as a fresh mkfs retry:
 #mkfs.ocfs2 "$(o2info --mkfs /dev/name/or/path/of/file)" /dev/sdaX
+
+.TP
+\fB\-\-freeinode\fR
+Display free inode space for all nodes in \fIOCFS2\fR cluster.
 
 .TP
 \fB\-V, \-\-version\fR

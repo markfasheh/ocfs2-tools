@@ -40,8 +40,19 @@ struct o2info_mkfs {
 	uint64_t journal_size;
 };
 
+struct o2info_local_freeinode {
+	unsigned long total;
+	unsigned long free;
+};
+
+struct o2info_freeinode {
+	int slotnum;
+	struct o2info_local_freeinode fi[OCFS2_MAX_SLOTS];
+};
+
 int o2info_get_fs_features(ocfs2_filesys *fs, struct o2info_fs_features *ofs);
 int o2info_get_volinfo(ocfs2_filesys *fs, struct o2info_volinfo *vf);
 int o2info_get_mkfs(ocfs2_filesys *fs, struct o2info_mkfs *oms);
+int o2info_get_freeinode(ocfs2_filesys *fs, struct o2info_freeinode *ofi);
 
 #endif

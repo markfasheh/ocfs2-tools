@@ -21,6 +21,8 @@
 #define _LARGEFILE64_SOURCE
 #define _GNU_SOURCE
 
+#include <inttypes.h>
+
 #include "ocfs2/ocfs2.h"
 #include "tools-internal/verbose.h"
 #include "libo2info.h"
@@ -94,4 +96,60 @@ out:
 		ocfs2_free(&buf);
 
 	return err;
+}
+
+int o2info_get_freeinode(ocfs2_filesys *fs, struct o2info_freeinode *ofi)
+{
+
+	int ret = 0, i, j;
+	char *block = NULL;
+	uint64_t inode_alloc;
+
+	struct ocfs2_dinode *dinode_alloc = NULL;
+	struct ocfs2_chain_list *cl = NULL;
+	struct ocfs2_chain_rec *rec = NULL;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+
+	ofi->slotnum = sb->s_max_slots;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &block);
+	if (ret) {
+		tcom_err(ret, "while allocating block buffer");
+		goto out;
+	}
+
+	dinode_alloc = (struct ocfs2_dinode *)block;
+
+	for (i = 0; i < ofi->slotnum; i++) {
+
+		ofi->fi[i].total = ofi->fi[i].free = 0;
+
+		ret = ocfs2_lookup_system_inode(fs, INODE_ALLOC_SYSTEM_INODE,
+						i, &inode_alloc);
+		if (ret) {
+			tcom_err(ret, "while looking up the global"
+				 " bitmap inode");
+			goto out;
+		}
+
+		ret = ocfs2_read_inode(fs, inode_alloc, (char *)dinode_alloc);
+		if (ret) {
+			tcom_err(ret, "reading global_bitmap inode "
+				 "%"PRIu64" for stats", inode_alloc);
+			goto out;
+		}
+
+		cl = &(dinode_alloc->id2.i_chain);
+
+		for (j = 0; j < cl->cl_next_free_rec; j++) {
+			rec = &(cl->cl_recs[j]);
+			ofi->fi[i].total += rec->c_total;
+			ofi->fi[i].free += rec->c_free;
+		}
+	}
+out:
+	if (block)
+		ocfs2_free(&block);
+
+	return ret;
 }
