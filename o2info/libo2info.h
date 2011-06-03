@@ -50,9 +50,33 @@ struct o2info_freeinode {
 	struct o2info_local_freeinode fi[OCFS2_MAX_SLOTS];
 };
 
+#define DEFAULT_CHUNKSIZE (1024*1024)
+
+struct free_chunk_histogram {
+	uint32_t fc_chunks[OCFS2_INFO_MAX_HIST];
+	uint32_t fc_clusters[OCFS2_INFO_MAX_HIST];
+};
+
+struct o2info_freefrag {
+	unsigned long chunkbytes;
+	uint32_t clusters;
+	uint32_t free_clusters;
+	uint32_t total_chunks;
+	uint32_t free_chunks;
+	uint32_t free_chunks_real;
+	int clustersize_bits;
+	int blksize_bits;
+	int chunkbits;
+	uint32_t clusters_in_chunk;
+	uint32_t chunks_in_group;
+	uint32_t min, max, avg; /* chunksize in clusters */
+	struct free_chunk_histogram histogram;
+};
+
 int o2info_get_fs_features(ocfs2_filesys *fs, struct o2info_fs_features *ofs);
 int o2info_get_volinfo(ocfs2_filesys *fs, struct o2info_volinfo *vf);
 int o2info_get_mkfs(ocfs2_filesys *fs, struct o2info_mkfs *oms);
 int o2info_get_freeinode(ocfs2_filesys *fs, struct o2info_freeinode *ofi);
+int o2info_get_freefrag(ocfs2_filesys *fs, struct o2info_freefrag *off);
 
 #endif

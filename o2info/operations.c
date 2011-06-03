@@ -612,3 +612,228 @@ static int freeinode_run(struct o2info_operation *op,
 DEFINE_O2INFO_OP(freeinode,
 		 freeinode_run,
 		 NULL);
+
+static int ul_log2(unsigned long arg)
+{
+	unsigned int i = 0;
+
+	arg >>= 1;
+	while (arg) {
+		i++;
+		arg >>= 1;
+	}
+
+	return i;
+}
+
+static int o2info_init_freefrag(struct o2info_freefrag *off,
+				struct o2info_volinfo *ovf)
+{
+	int ret = 0, i;
+
+	off->clustersize_bits = ul_log2((unsigned long)ovf->clustersize);
+	off->blksize_bits = ul_log2((unsigned long)ovf->blocksize);
+
+	if (off->chunkbytes) {
+		off->chunkbits = ul_log2(off->chunkbytes);
+		off->clusters_in_chunk = off->chunkbytes >>
+						off->clustersize_bits;
+	} else {
+		off->chunkbits = ul_log2(DEFAULT_CHUNKSIZE);
+		off->clusters_in_chunk = DEFAULT_CHUNKSIZE >>
+						off->clustersize_bits;
+	}
+
+	off->min = ~0U;
+	off->max = off->avg = 0;
+	off->free_chunks_real = 0;
+	off->free_chunks = 0;
+
+	for (i = 0; i < OCFS2_INFO_MAX_HIST; i++) {
+		off->histogram.fc_chunks[i] = 0;
+		off->histogram.fc_clusters[i] = 0;
+	}
+
+	return ret;
+}
+
+static int get_freefrag_ioctl(struct o2info_operation *op, int fd,
+			      struct o2info_freefrag *off)
+{
+	uint64_t reqs[1];
+	int ret = 0, flags = 0;
+	struct ocfs2_info info;
+	struct ocfs2_info_freefrag oiff;
+	uint32_t unknowns = 0, errors = 0, fills = 0;
+
+	if (!cluster_coherent)
+		flags |= OCFS2_INFO_FL_NON_COHERENT;
+
+	o2info_fill_request((struct ocfs2_info_request *)&oiff, sizeof(oiff),
+			    OCFS2_INFO_FREEFRAG, flags);
+	oiff.iff_chunksize = off->clusters_in_chunk;
+
+	reqs[0] = (unsigned long)&oiff;
+
+	info.oi_requests = (uint64_t)reqs;
+	info.oi_count = 1;
+
+	ret = ioctl(fd, OCFS2_IOC_INFO, &info);
+	if (ret) {
+		ret = errno;
+		o2i_error(op, "ioctl failed: %s\n", strerror(ret));
+		o2i_scan_requests(op, info, &unknowns, &errors, &fills);
+		goto out;
+	}
+
+	if (oiff.iff_req.ir_flags & OCFS2_INFO_FL_FILLED) {
+		off->clusters = oiff.iff_ffs.ffs_clusters;
+		off->free_clusters = oiff.iff_ffs.ffs_free_clusters;
+		off->free_chunks = oiff.iff_ffs.ffs_free_chunks;
+		off->free_chunks_real = oiff.iff_ffs.ffs_free_chunks_real;
+		if (off->free_chunks_real) {
+			off->min = oiff.iff_ffs.ffs_min <<
+					(off->clustersize_bits - 10);
+			off->max = oiff.iff_ffs.ffs_max <<
+					(off->clustersize_bits - 10);
+			off->avg = oiff.iff_ffs.ffs_avg <<
+					(off->clustersize_bits - 10);
+		} else
+			off->min = 0;
+
+		memcpy(&(off->histogram), &(oiff.iff_ffs.ffs_fc_hist),
+		       sizeof(struct free_chunk_histogram));
+	}
+
+	off->total_chunks = (off->clusters + off->clusters_in_chunk) >>
+				(off->chunkbits - off->clustersize_bits);
+out:
+	return ret;
+}
+
+static void o2info_report_freefrag(struct o2info_freefrag *off)
+{
+	char *unitp = "KMGTPEZY";
+	char end_str[32];
+
+	int i, unit = 10; /* Begin from KB in terms of 10 bits */
+	unsigned int start = 0, end;
+
+	fprintf(stdout, "Blocksize: %u bytes\n", 1 << off->blksize_bits);
+	fprintf(stdout, "Clustersize: %u bytes\n", 1 << off->clustersize_bits);
+	fprintf(stdout, "Total clusters: %llu\nFree clusters: %u (%0.1f%%)\n",
+		off->clusters, off->free_clusters,
+		(double)off->free_clusters * 100 / off->clusters);
+
+	fprintf(stdout, "\nMin. free extent: %u KB \nMax. free extent: %u KB\n"
+		"Avg. free extent: %u KB\n", off->min, off->max, off->avg);
+
+	if (off->chunkbytes) {
+		fprintf(stdout, "\nChunksize: %lu bytes (%u clusters)\n",
+			off->chunkbytes, off->clusters_in_chunk);
+
+		fprintf(stdout, "Total chunks: %u\nFree chunks: %u (%0.1f%%)\n",
+			off->total_chunks, off->free_chunks,
+			(double)off->free_chunks * 100 / off->total_chunks);
+	}
+
+	fprintf(stdout, "\nHISTOGRAM OF FREE EXTENT SIZES:\n");
+	fprintf(stdout, "%s :  %12s  %12s  %7s\n", "Extent Size Range",
+		"Free extents", "Free Clusters", "Percent");
+
+	/*
+	 * We probably need to start with 'M' when clustersize = 1M.
+	 */
+	start = 1 << (off->clustersize_bits - unit);
+	if (start == (1 << 10)) {
+		unit += 10;
+		unitp++;
+	}
+
+	for (i = 0; i < OCFS2_INFO_MAX_HIST; i++) {
+
+		start = 1 << (i + off->clustersize_bits - unit);
+		end = start << 1;
+
+		if (off->histogram.fc_chunks[i] != 0) {
+			snprintf(end_str, 32,  "%5lu%c-", end, *unitp);
+			if (i == (OCFS2_INFO_MAX_HIST - 1))
+				strcpy(end_str, "max ");
+			fprintf(stdout, "%5u%c...%7s  :  "
+				"%12u  %12u  %6.2f%%\n",
+				start, *unitp, end_str,
+				off->histogram.fc_chunks[i],
+				off->histogram.fc_clusters[i],
+				(double)off->histogram.fc_clusters[i] * 100 /
+				off->free_clusters);
+		}
+
+		start = end;
+		if (start == (1 << 10)) {
+			unit += 10;
+			unitp++;
+			if (!(*unitp))
+				break;
+		}
+	}
+}
+
+static int freefrag_run(struct o2info_operation *op,
+			struct o2info_method *om,
+			void *arg)
+{
+	int ret = 0;
+	static struct o2info_freefrag off;
+	static struct o2info_volinfo ovf;
+	char *end;
+
+	off.chunkbytes = strtoull((char *)arg, &end, 0);
+	if (*end != '\0') {
+		o2i_error(op, "bad chunk size '%s'\n", (char *)arg);
+		ret = -1;
+		print_usage(ret);
+	}
+
+	if (off.chunkbytes & (off.chunkbytes - 1)) {
+		o2i_error(op, "chunksize needs to be power of 2\n");
+		ret = -1;
+		print_usage(ret);
+	}
+
+	off.chunkbytes *= 1024;
+
+	if (om->om_method == O2INFO_USE_IOCTL)
+		ret = get_volinfo_ioctl(op, om->om_fd, &ovf);
+	else
+		ret = o2info_get_volinfo(om->om_fs, &ovf);
+	if (ret)
+		return -1;
+
+	if (off.chunkbytes &&
+	    (off.chunkbytes < ovf.clustersize)) {
+		o2i_error(op, "chunksize should be greater than or equal to "
+			  "filesystem cluster size\n");
+		ret = -1;
+		print_usage(ret);
+	}
+
+	ret = o2info_init_freefrag(&off, &ovf);
+	if (ret)
+		return -1;
+
+	if (om->om_method == O2INFO_USE_IOCTL)
+		ret = get_freefrag_ioctl(op, om->om_fd, &off);
+	else
+		ret = o2info_get_freefrag(om->om_fs, &off);
+
+	if (ret)
+		return ret;
+
+	o2info_report_freefrag(&off);
+
+	return ret;
+}
+
+DEFINE_O2INFO_OP(freefrag,
+		 freefrag_run,
+		 NULL);

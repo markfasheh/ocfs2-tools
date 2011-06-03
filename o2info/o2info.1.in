@@ -2,7 +2,7 @@
 .SH "NAME"
 o2info \- Dump \fIOCFS2\fR file system information on disk.
 .SH "SYNOPSIS"
-\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] <\fBdevice or file\fR>
+\fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] [\fB\-\-freefrag\fR \fIchunksize\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
@@ -31,6 +31,10 @@ Dump an original format of mkfs.ocfs's arguments, importantly, which can be used
 Display free inode space for all nodes in \fIOCFS2\fR cluster.
 
 .TP
+\fB\-\-freefrag\fR \fIchunksize\fR
+Report free space fragmentation on \fIOCFS2\fR filesystems, it prints how many chunks of chunksize are available as contiguous and aligned free space by scanning the global allocation bitmap. In the meantime, the percentage of contiguous free clusters of size and of alignment chunksize is reported, what's more, it also displays the minimum/maximum/average free chunk size in filesystem, along with a histogram of all free chunks. \fBNOTE\fR, chunksize specified must be a power of two and be equal to or larger than filesystem's clustersize.
+
+.TP
 \fB\-V, \-\-version\fR
 Show version and exit.
 
@@ -56,6 +60,52 @@ Cluster Size: 4096
     Features: backup-super strict-journal-super sparse inline-data xattr
 .br
     Features: unwritten
+
+[oracle@node1 ~]# o2info --freefrag 64 /storage/testfile      # For none-privileged users.
+.br
+[root@node1 ~]# o2info --freefrag 64 /dev/sda1
+.br
+Blocksize: 4096 bytes
+.br
+Clustersize: 32768 bytes
+.br
+Total clusters: 915704
+.br
+Free clusters: 891687 (97.4%)
+.br
+
+Min. free extent: 32 KB
+.br
+Max. free extent: 1032160 KB
+.br
+Avg. free extent: 663552 KB
+.br
+
+Chunksize: 131072 bytes (4 clusters)
+.br
+Total chunks: 228927
+.br
+Free chunks: 222888 (97.4%)
+.br
+
+HISTOGRAM OF FREE EXTENT SIZES:
+.br
+Extent Size Range :  Free extents  Free Clusters  Percent
+.br
+   32K...   64K-  :             1             1    0.00%
+.br
+    1M...    2M-  :             9           288    0.03%
+.br
+    8M...   16M-  :             2           831    0.09%
+.br
+   32M...   64M-  :             1          2047    0.23%
+.br
+  128M...  256M-  :             1          8191    0.92%
+.br
+  256M...  512M-  :             2         21706    2.43%
+.br
+  512M... 1024M-  :            27        858623   96.29%
+.br
 
 
 .SH "SEE ALSO"
