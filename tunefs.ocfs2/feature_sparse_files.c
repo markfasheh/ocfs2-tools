@@ -486,7 +486,7 @@ static errcode_t fill_sparse_files(ocfs2_filesys *fs,
 			break;
 		di = (struct ocfs2_dinode *)buf;
 		if (file->truncate) {
-			ret = truncate_to_i_size(fs, di, NULL);
+			ret = truncate_to_i_size(fs, di, prog);
 			if (ret)
 				break;
 		}
