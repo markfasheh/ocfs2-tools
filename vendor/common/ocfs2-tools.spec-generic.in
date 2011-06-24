@@ -14,7 +14,13 @@
 %define brokenrhlibdir %{_libdir}
 %endif
 
-%define compile_py @@COMPILE_PY@@
+
+%define build_ocfs2console	0
+%define compile_py		0
+
+%if %{build_ocfs2console}
+%define compile_py		@@COMPILE_PY@@
+%endif
 
 Summary: Tools for managing the Oracle Cluster Filesystem 2
 Name: ocfs2-tools
@@ -36,7 +42,7 @@ BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 %description
 Tools to manage Oracle Cluster Filesystem 2 volumes.
 
-
+%if %{build_ocfs2console}
 %package -n ocfs2console
 Summary: GUI frontend for OCFS2 management
 Group: System Environment/Kernel
@@ -47,6 +53,7 @@ AutoReqProv: No
 %description -n ocfs2console
 GUI frontend for management and debugging of Oracle Cluster Filesystem 2
 volumes.
+%endif
 
 
 
@@ -140,11 +147,13 @@ fi
 /usr/share/man/man1/o2info.1.gz
 
 
+%if %{build_ocfs2console}
 %files -n ocfs2console
 %defattr(-,root,root)
 %{brokenrhlibdir}/python@@PYVERSION@@/site-packages/ocfs2interface
 /usr/sbin/ocfs2console
 /usr/share/man/man8/ocfs2console.8.gz
+%endif
 
 %files -n ocfs2-tools-devel
 %defattr(-,root,root)
