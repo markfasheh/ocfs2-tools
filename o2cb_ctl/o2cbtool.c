@@ -5,7 +5,7 @@
  *
  * Manipulates o2cb cluster configuration
  *
- * Copyright (C) 2010 Oracle.  All rights reserved.
+ * Copyright (C) 2010, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -118,6 +118,12 @@ struct o2cb_command o2cbtool_cmds[] = {
 		.o_action = o2cbtool_stop_heartbeat,
 		.o_usage = "<clustername>",
 		.o_help = "Stops global heartbeat."
+	},
+	{
+		.o_name = "cluster-status",
+		.o_action = o2cbtool_cluster_status,
+		.o_usage = "[<clustername>]",
+		.o_help = "Returns 0 if cluster online, 1 otherwise.",
 	},
 	{
 		.o_name = NULL,

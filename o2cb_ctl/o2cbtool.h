@@ -5,7 +5,7 @@
  *
  * Manipulates o2cb cluster configuration
  *
- * Copyright (C) 2010 Oracle.  All rights reserved.
+ * Copyright (C) 2010, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -86,3 +86,9 @@ errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd);
 
 errcode_t o2cbtool_start_heartbeat(struct o2cb_command *cmd);
 errcode_t o2cbtool_stop_heartbeat(struct o2cb_command *cmd);
+
+errcode_t o2cbtool_cluster_status(struct o2cb_command *cmd);
+
+/* utility functions */
+int is_cluster_registered(char *clustername);
+int is_heartbeat_active(char *clustername);

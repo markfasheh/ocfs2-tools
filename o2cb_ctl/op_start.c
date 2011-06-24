@@ -5,7 +5,7 @@
  *
  * Starts and stops the global heartbeat
  *
- * Copyright (C) 2010 Oracle.  All rights reserved.
+ * Copyright (C) 2010, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -24,35 +24,6 @@ extern const char *stackname;
 
 static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername,
 				       int only_missing);
-/*
- * Only after the local node is added to the cluster is the cluster
- * considered registered
- */
-static int is_cluster_registered(char *clustername)
-{
-	char **nodename = NULL;
-	uint32_t local;
-	int ret = 0, i = 0;
-
-	if (o2cb_list_nodes(clustername, &nodename))
-		goto bail;
-
-	while(nodename && nodename[i] && *(nodename[i])) {
-		if (o2cb_get_node_local(clustername, nodename[i], &local))
-			break;
-		if (local) {
-			ret = 1;
-			break;
-		}
-		++i;
-	}
-
-	if (nodename)
-		o2cb_free_nodes_list(nodename);
-
-bail:
-	return ret;
-}
 
 static void stop_heartbeat(struct o2cb_device *od)
 {
