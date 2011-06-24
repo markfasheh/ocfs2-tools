@@ -1,6 +1,7 @@
-.*.sw?
+*.sw?
 *.d
-.*.cmd
+*.cmd
 stamp-md5
 cscope*
 o2info
+o2info.1

@@ -12,4 +12,4 @@ ocfs2-tools-*.tar.gz
 build-stamp
 configure-stamp
 *.pc
-.*.sw?
+*.sw?

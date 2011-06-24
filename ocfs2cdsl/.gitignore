@@ -1,4 +1,4 @@
-.*.sw?
+*.sw?
 ocfs2cdsl
 stamp-md5
 *.d

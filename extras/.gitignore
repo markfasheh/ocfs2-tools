@@ -1,4 +1,4 @@
-.*.sw?
+*.sw?
 find_hardlinks
 find_dup_extents
 find_inode_paths
@@ -8,4 +8,5 @@ mark_journal_dirty
 encode_lockres
 find_allocation_fragments
 compute_groups
+check_metaecc
 *.d

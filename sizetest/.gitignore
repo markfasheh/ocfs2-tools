@@ -1,7 +1,7 @@
 cscope*
 stamp-md5
-.*.sw?
-.*.cmd
+*.sw?
+*.cmd
 sizetest.ocfs2
 *.8
 *.d

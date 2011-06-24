@@ -1,4 +1,4 @@
-.*.sw?
-.*.d
+*.sw?
+*.d
 blkid_types.h
 libblkid-internal.a

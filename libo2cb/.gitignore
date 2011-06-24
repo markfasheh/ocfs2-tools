@@ -1,4 +1,4 @@
-.*.sw?
+*.sw?
 *.d
 debug_*
 o2cb_err.c

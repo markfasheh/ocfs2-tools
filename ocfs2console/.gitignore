@@ -1,4 +1,4 @@
-.*.sw?
+*.sw?
 *.pyc
 ocfsmarshal.c
 ocfsmarshal.h

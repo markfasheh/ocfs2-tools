@@ -1,4 +1,4 @@
-.*.sw?
+*.sw?
 mount.ocfs2
 mount.ocfs2.8
 *.d

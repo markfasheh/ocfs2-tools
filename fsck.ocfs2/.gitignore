@@ -1,7 +1,7 @@
 cscope*
 stamp-md5
-.*.sw?
-.*.cmd
+*.sw?
+*.cmd
 fsck.ocfs2
 *.8
 *.d

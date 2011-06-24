@@ -1,5 +1,5 @@
 cscope*
 stamp-md5
-.*.sw?
-.*.cmd
+*.sw?
+*.cmd
 ocfs2_err.h

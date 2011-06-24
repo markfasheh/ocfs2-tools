@@ -1,6 +1,6 @@
 mounted.ocfs2
 stamp-md5
-.*.sw?
+*.sw?
 cscope.*
 *.d
 mounted.ocfs2.8

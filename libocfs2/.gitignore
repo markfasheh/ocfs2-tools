@@ -1,7 +1,7 @@
 cscope*
 stamp-md5
-.*.sw?
-.*.cmd
+*.sw?
+*.cmd
 ocfs2_err.c
 ocfs2_err.h
 libocfs2.a
