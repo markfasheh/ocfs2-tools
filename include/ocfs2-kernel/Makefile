@@ -4,6 +4,7 @@ include $(TOPDIR)/Preamble.make
 
 HEADERS_SUBDIR = ocfs2-kernel
 HEADERS =			\
+	fiemap.h		\
 	kernel-list.h		\
 	ocfs1_fs_compat.h	\
 	ocfs2_fs.h		\
