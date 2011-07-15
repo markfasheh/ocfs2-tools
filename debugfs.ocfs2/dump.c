@@ -166,9 +166,73 @@ void dump_block_check(FILE *out, struct ocfs2_block_check *bc, void *block)
 {
 	struct ocfs2_block_check tmp = *bc;
 	int crc_fail;
+	enum dump_block_type bt = detect_block(block);
+
+	/* Swap block to little endian for compute_meta_ecc */
+	switch (bt) {
+		case DUMP_BLOCK_INODE:
+			ocfs2_swap_inode_from_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_EXTENT_BLOCK:
+			ocfs2_swap_extent_block_from_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_GROUP_DESCRIPTOR:
+			ocfs2_swap_group_desc_from_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_DIR_BLOCK:
+			ocfs2_swap_dir_entries_from_cpu(block,
+					gbls.fs->fs_blocksize);
+			break;
+		case DUMP_BLOCK_XATTR:
+			ocfs2_swap_xattr_block_from_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_REFCOUNT:
+			ocfs2_swap_refcount_block_from_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_DXROOT:
+			ocfs2_swap_dx_root_from_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_DXLEAF:
+			ocfs2_swap_dx_leaf_from_cpu(block);
+			break;
+		default:
+			fprintf(out, "Unable to determine block type");
+			return;
+	}
 
 	/* Re-compute based on what we got from disk */
 	ocfs2_compute_meta_ecc(gbls.fs, block, bc);
+
+	/* Swap block back to CPU */
+	switch (bt) {
+		case DUMP_BLOCK_INODE:
+			ocfs2_swap_inode_to_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_EXTENT_BLOCK:
+			ocfs2_swap_extent_block_to_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_GROUP_DESCRIPTOR:
+			ocfs2_swap_group_desc_to_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_DIR_BLOCK:
+			ocfs2_swap_dir_entries_to_cpu(block,
+					gbls.fs->fs_blocksize);
+			break;
+		case DUMP_BLOCK_XATTR:
+			ocfs2_swap_xattr_block_to_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_REFCOUNT:
+			ocfs2_swap_refcount_block_to_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_DXROOT:
+			ocfs2_swap_dx_root_to_cpu(gbls.fs, block);
+			break;
+		case DUMP_BLOCK_DXLEAF:
+			ocfs2_swap_dx_leaf_to_cpu(block);
+			break;
+		default:
+			break;
+	}
 
 	crc_fail = memcmp(bc, &tmp, sizeof(*bc));
 

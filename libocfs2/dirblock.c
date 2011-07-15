@@ -295,7 +295,7 @@ void ocfs2_swap_dx_root_to_cpu(ocfs2_filesys *fs,
 		ocfs2_swap_extent_list_to_cpu(fs, dx_root, &dx_root->dr_list);
 }
 
-static void ocfs2_swap_dx_root_from_cpu(ocfs2_filesys *fs,
+void ocfs2_swap_dx_root_from_cpu(ocfs2_filesys *fs,
 				struct ocfs2_dx_root_block *dx_root)
 {
 	if (cpu_is_little_endian)
@@ -396,7 +396,7 @@ void ocfs2_swap_dx_leaf_to_cpu(struct ocfs2_dx_leaf *dx_leaf)
 	ocfs2_swap_dx_entry_list_to_cpu(&dx_leaf->dl_list);
 }
 
-static void ocfs2_swap_dx_leaf_from_cpu(struct ocfs2_dx_leaf *dx_leaf)
+void ocfs2_swap_dx_leaf_from_cpu(struct ocfs2_dx_leaf *dx_leaf)
 {
 	if (cpu_is_little_endian)
 		return;

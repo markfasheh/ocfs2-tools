@@ -69,5 +69,6 @@ void init_stringlist(struct list_head *strlist);
 void free_stringlist(struct list_head *strlist);
 errcode_t add_to_stringlist(char *str, struct list_head *strlist);
 int del_from_stringlist(char *str, struct list_head *strlist);
+enum dump_block_type detect_block (char *buf);
 
 #endif		/* __UTILS_H__ */
