@@ -1005,7 +1005,7 @@ static void do_stats (char **args)
 	if (!sb_num)
 		in = gbls.fs->fs_super;
 	else {
-		ret = ocfs2_read_backup_super(gbls.fs, sb_num, buf);
+		ret = ocfs2_read_backup_super(gbls.fs, sb_num - 1, buf);
 		if (ret) {
 			com_err(gbls.cmd, ret, "while reading backup "
 				"superblock");

@@ -198,7 +198,7 @@ errcode_t ocfs2_read_backup_super(ocfs2_filesys *fs, int backup, char *sbbuf)
 
 	numsb = ocfs2_get_backup_super_offsets(fs, blocks,
 					       ARRAY_SIZE(blocks));
-	if (backup < 1 || backup > numsb)
+	if (backup < 0 || backup >= numsb)
 		return OCFS2_ET_NO_BACKUP_SUPER;
 
 	return ocfs2_read_super(fs, blocks[backup], sbbuf);
