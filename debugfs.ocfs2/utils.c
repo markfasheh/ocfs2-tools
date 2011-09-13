@@ -5,7 +5,7 @@
  *
  * utility functions
  *
- * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -27,7 +27,7 @@
 #include "main.h"
 #include "ocfs2/bitops.h"
 
-extern dbgfs_gbls gbls;
+extern struct dbgfs_gbls gbls;
 
 void get_incompat_flag(struct ocfs2_super_block *sb, char *buf, size_t count)
 {
@@ -96,28 +96,28 @@ void get_cluster_info_flag(struct ocfs2_super_block *sb, char *buf,
  * get_journal_block_type()
  *
  */
-void get_journal_block_type (uint32_t jtype, GString *str)
+void get_journal_block_type(uint32_t jtype, GString *str)
 {
 	switch (jtype) {
 	case JBD2_DESCRIPTOR_BLOCK:
-		g_string_append (str, "JBD2_DESCRIPTOR_BLOCK");
+		g_string_append(str, "JBD2_DESCRIPTOR_BLOCK");
 		break;
 	case JBD2_COMMIT_BLOCK:
-		g_string_append (str, "JBD2_COMMIT_BLOCK");
+		g_string_append(str, "JBD2_COMMIT_BLOCK");
 		break;
 	case JBD2_SUPERBLOCK_V1:
-		g_string_append (str, "JBD2_SUPERBLOCK_V1");
+		g_string_append(str, "JBD2_SUPERBLOCK_V1");
 		break;
 	case JBD2_SUPERBLOCK_V2:
-		g_string_append (str, "JBD2_SUPERBLOCK_V2");
+		g_string_append(str, "JBD2_SUPERBLOCK_V2");
 		break;
 	case JBD2_REVOKE_BLOCK:
-		g_string_append (str, "JBD2_REVOKE_BLOCK");
+		g_string_append(str, "JBD2_REVOKE_BLOCK");
 		break;
 	}
 
 	if (!str->len)
-		g_string_append (str, "none");
+		g_string_append(str, "none");
 
 	return ;
 }
@@ -126,24 +126,24 @@ void get_journal_block_type (uint32_t jtype, GString *str)
  * get_tag_flag()
  *
  */
-void get_tag_flag (uint32_t flags, GString *str)
+void get_tag_flag(uint32_t flags, GString *str)
 {
 	if (flags == 0) {
-		g_string_append (str, "none");
+		g_string_append(str, "none");
 		goto done;
 	}
 
 	if (flags & JBD2_FLAG_ESCAPE)
-		g_string_append (str, "JBD2_FLAG_ESCAPE ");
+		g_string_append(str, "JBD2_FLAG_ESCAPE ");
 
 	if (flags & JBD2_FLAG_SAME_UUID)
-		g_string_append (str, "JBD2_FLAG_SAME_UUID ");
+		g_string_append(str, "JBD2_FLAG_SAME_UUID ");
 
 	if (flags & JBD2_FLAG_DELETED)
-		g_string_append (str, "JBD2_FLAG_DELETED ");
+		g_string_append(str, "JBD2_FLAG_DELETED ");
 
 	if (flags & JBD2_FLAG_LAST_TAG)
-		g_string_append (str, "JBD2_FLAG_LAST_TAG");
+		g_string_append(str, "JBD2_FLAG_LAST_TAG");
 
 done:
 	return ;
@@ -561,7 +561,7 @@ bail:
 static int rdump_dirent(struct ocfs2_dir_entry *rec, uint64_t blocknr,
 			int offset, int blocksize, char *buf, void *priv_data)
 {
-	rdump_opts *rd = (rdump_opts *)priv_data;
+	struct rdump_opts *rd = (struct rdump_opts *)priv_data;
 	char tmp = rec->name[rec->name_len];
 	errcode_t ret = 0;
 
@@ -597,7 +597,7 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 	char *dirbuf = NULL;
 	struct ocfs2_dinode *di;
 	int fd;
-	rdump_opts rd_opts = { NULL, NULL, NULL, 0 };
+	struct rdump_opts rd_opts = { NULL, NULL, NULL, 0 };
 
 	len = strlen(dumproot) + strlen(name) + 2;
 	ret = ocfs2_malloc(len, &fullname);

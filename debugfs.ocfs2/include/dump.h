@@ -32,12 +32,12 @@ enum dump_block_type {
 	DUMP_BLOCK_DXLEAF,
 };
 
-typedef struct _list_dir_opts {
+struct list_dir_opts {
 	ocfs2_filesys *fs;
 	FILE *out;
 	int long_opt;
 	char *buf;
-} list_dir_opts;
+};
 
 struct dirblocks_walk {
 	ocfs2_filesys *fs;

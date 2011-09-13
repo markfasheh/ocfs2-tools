@@ -5,7 +5,7 @@ include $(TOPDIR)/Preamble.make
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = debugfs.ocfs2
 
-DEFINES = -DG_DISABLE_DEPRECATED -DLINUX -DDEBUGOCFS -DDEBUG
+DEFINES = -DG_DISABLE_DEPRECATED -DLINUX -DDEBUG
 DEFINES += -DVERSION=\"$(VERSION)\"
 
 INCLUDES = -I$(TOPDIR)/include -Iinclude
@@ -14,7 +14,7 @@ INCLUDES += $(GLIB_CFLAGS)
 CFILES = main.c commands.c dump.c utils.c journal.c find_block_inode.c \
 	find_inode_paths.c dump_fs_locks.c dump_dlm_locks.c
 
-HFILES =			\
+HFILES =				\
 	include/main.h			\
 	include/commands.h		\
 	include/dump.h			\

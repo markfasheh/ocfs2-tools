@@ -27,7 +27,7 @@
 
 #include "main.h"
 
-extern dbgfs_gbls gbls;
+extern struct dbgfs_gbls gbls;
 
 static void scan_journal(FILE *out, journal_superblock_t *jsb, char *buf,
 			 int len, uint64_t *blocknum, uint64_t *last_unknown)

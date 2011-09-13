@@ -25,12 +25,12 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
-typedef struct _rdump_opts {
+struct rdump_opts {
 	ocfs2_filesys *fs;
 	char *fullname;
 	char *buf;
 	int verbose;
-} rdump_opts;
+};
 
 struct strings {
 	char *s_str;

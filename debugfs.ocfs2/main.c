@@ -31,7 +31,7 @@
 
 #define PROMPT "debugfs: "
 
-extern dbgfs_gbls gbls;
+extern struct dbgfs_gbls gbls;
 
 static int decodemode = 0;
 static int encodemode = 0;
@@ -44,24 +44,24 @@ struct log_entry {
 };
 static GList *loglist = NULL;
 
-static void usage (char *progname)
+static void usage(char *progname)
 {
-	g_print ("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
-	g_print ("usage: %s -d, --decode <lockres>\n", progname);
-	g_print ("usage: %s -e, --encode <lock type> <block num> <generation|parent>\n", progname);
-	g_print ("usage: %s [-f cmdfile] [-R request] [-i] [-s backup#] [-V] [-w] [-n] [-?] [device]\n", progname);
-	g_print ("\t-f, --file <cmdfile>\t\tExecute commands in cmdfile\n");
-	g_print ("\t-R, --request <command>\t\tExecute a single command\n");
-	g_print ("\t-s, --superblock <backup#>\tOpen the device using a backup superblock\n");
-	g_print ("\t-i, --image\t\t\tOpen an o2image file\n");
-	g_print ("\t-w, --write\t\t\tOpen in read-write mode instead of the default of read-only\n");
-	g_print ("\t-V, --version\t\t\tShow version\n");
-	g_print ("\t-n, --noprompt\t\t\tHide prompt\n");
-	g_print ("\t-?, --help\t\t\tShow this help\n");
-	exit (0);
+	g_print("usage: %s -l [<logentry> ... [allow|off|deny]] ...\n", progname);
+	g_print("usage: %s -d, --decode <lockres>\n", progname);
+	g_print("usage: %s -e, --encode <lock type> <block num> <generation|parent>\n", progname);
+	g_print("usage: %s [-f cmdfile] [-R request] [-i] [-s backup#] [-V] [-w] [-n] [-?] [device]\n", progname);
+	g_print("\t-f, --file <cmdfile>\t\tExecute commands in cmdfile\n");
+	g_print("\t-R, --request <command>\t\tExecute a single command\n");
+	g_print("\t-s, --superblock <backup#>\tOpen the device using a backup superblock\n");
+	g_print("\t-i, --image\t\t\tOpen an o2image file\n");
+	g_print("\t-w, --write\t\t\tOpen in read-write mode instead of the default of read-only\n");
+	g_print("\t-V, --version\t\t\tShow version\n");
+	g_print("\t-n, --noprompt\t\t\tHide prompt\n");
+	g_print("\t-?, --help\t\t\tShow this help\n");
+	exit(0);
 }
 
-static void print_version (char *progname)
+static void print_version(char *progname)
 {
 	fprintf(stderr, "%s %s\n", progname, VERSION);
 }
@@ -184,7 +184,7 @@ static void process_encode_lockres(int argc, char **argv, int startind)
 	return ;
 }
 
-static void get_options(int argc, char **argv, dbgfs_opts *opts)
+static void get_options(int argc, char **argv, struct dbgfs_opts *opts)
 {
 	int c;
 	char *ptr = NULL;
@@ -287,7 +287,7 @@ static void get_options(int argc, char **argv, dbgfs_opts *opts)
 	return ;
 }
 
-static char * get_line (FILE *stream, int no_prompt)
+static char *get_line(FILE *stream, int no_prompt)
 {
 	char *line;
 	static char buf[1024];
@@ -313,7 +313,7 @@ static char * get_line (FILE *stream, int no_prompt)
 
 		if (line && *line) {
 			g_strchug(line);
-			add_history (line);
+			add_history(line);
 		}
 	}
 
@@ -433,10 +433,10 @@ static void run_logmode(void)
 		run_logmode_proc();
 }
 
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
 	char *line;
-	dbgfs_opts opts;
+	struct dbgfs_opts opts;
 	FILE *cmd = NULL;
 
 	initialize_o2cb_error_table();
@@ -485,15 +485,15 @@ int main (int argc, char **argv)
 
 	if (opts.device) {
 		if (opts.sb_num)
-			line = g_strdup_printf ("open %s -s %u", opts.device, opts.sb_num);
+			line = g_strdup_printf("open %s -s %u", opts.device, opts.sb_num);
 		else
-			line = g_strdup_printf ("open %s", opts.device);
-		do_command (line);
-		g_free (line);
+			line = g_strdup_printf("open %s", opts.device);
+		do_command(line);
+		g_free(line);
 	}
 
 	if (opts.one_cmd) {
-		do_command (opts.one_cmd);
+		do_command(opts.one_cmd);
 		goto bail;
 	}
 
@@ -506,21 +506,21 @@ int main (int argc, char **argv)
 	}
 
 	if (!opts.no_prompt)
-		print_version (gbls.progname);
+		print_version(gbls.progname);
 
 	while (1) {
 		line = get_line(cmd, opts.no_prompt);
 
 		if (line) {
 			if (!gbls.interactive && !opts.no_prompt)
-				fprintf (stdout, "%s%s\n", PROMPT, line);
-			do_command (line);
+				fprintf(stdout, "%s%s\n", PROMPT, line);
+			do_command(line);
 			if (gbls.interactive)
-				free (line);
+				free(line);
 		} else {
-			printf ("\n");
-			raise (SIGTERM);
-			exit (0);
+			printf("\n");
+			raise(SIGTERM);
+			exit(0);
 		}
 	}
 

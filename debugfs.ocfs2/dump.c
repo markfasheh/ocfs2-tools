@@ -5,7 +5,7 @@
  *
  * dumps ocfs2 structures
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -21,8 +21,6 @@
  * License along with this program; if not, write to the
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 021110-1307, USA.
- *
- * Authors: Sunil Mushran
  */
 
 #include <stdint.h>
@@ -30,7 +28,7 @@
 #include "main.h"
 #include "ocfs2/byteorder.h"
 
-extern dbgfs_gbls gbls;
+extern struct dbgfs_gbls gbls;
 
 /*
  * dump_super_block()
@@ -95,11 +93,11 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
 		sb->s_dx_seed[0], sb->s_dx_seed[1], sb->s_dx_seed[2]);
 
 	if (ocfs2_clusterinfo_valid(sb)) {
-		strncpy(buf, sb->s_cluster_info.ci_stack,
+		strncpy(buf, (char *)sb->s_cluster_info.ci_stack,
 			OCFS2_STACK_LABEL_LEN);
 		buf[OCFS2_STACK_LABEL_LEN] = '\0';
 		fprintf(out, "\tCluster stack: %s\n", buf);
-		strncpy(buf, sb->s_cluster_info.ci_cluster,
+		strncpy(buf, (char *)sb->s_cluster_info.ci_cluster,
 			OCFS2_CLUSTER_NAME_LEN);
 		buf[OCFS2_CLUSTER_NAME_LEN] = '\0';
 		fprintf(out, "\tCluster name: %s\n", buf);
@@ -117,7 +115,7 @@ void dump_super_block(FILE *out, struct ocfs2_super_block *sb)
  * dump_local_alloc()
  *
  */
-void dump_local_alloc (FILE *out, struct ocfs2_local_alloc *loc)
+void dump_local_alloc(FILE *out, struct ocfs2_local_alloc *loc)
 {
 	fprintf(out, "\tLocal Bitmap Offset: %u   Size: %u\n",
 	       loc->la_bm_off, loc->la_size);
@@ -129,7 +127,7 @@ void dump_local_alloc (FILE *out, struct ocfs2_local_alloc *loc)
  * dump_truncate_log()
  *
  */
-void dump_truncate_log (FILE *out, struct ocfs2_truncate_log *tl)
+void dump_truncate_log(FILE *out, struct ocfs2_truncate_log *tl)
 {
 	int i;
 
@@ -151,7 +149,7 @@ void dump_truncate_log (FILE *out, struct ocfs2_truncate_log *tl)
  * dump_fast_symlink()
  *
  */
-void dump_fast_symlink (FILE *out, char *link)
+void dump_fast_symlink(FILE *out, char *link)
 {
 	fprintf(out, "\tFast Symlink Destination: %s\n", link);
 
@@ -283,29 +281,29 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 
 	flags = g_string_new(NULL);
 	if (in->i_flags & OCFS2_VALID_FL)
-		g_string_append (flags, "Valid ");
+		g_string_append(flags, "Valid ");
 	if (in->i_flags & OCFS2_UNUSED2_FL)
-		g_string_append (flags, "Unused2 ");
+		g_string_append(flags, "Unused2 ");
 	if (in->i_flags & OCFS2_ORPHANED_FL)
-		g_string_append (flags, "Orphan ");
+		g_string_append(flags, "Orphan ");
 	if (in->i_flags & OCFS2_UNUSED3_FL)
-		g_string_append (flags, "Unused3 ");
+		g_string_append(flags, "Unused3 ");
 	if (in->i_flags & OCFS2_SYSTEM_FL)
-		g_string_append (flags, "System ");
+		g_string_append(flags, "System ");
 	if (in->i_flags & OCFS2_SUPER_BLOCK_FL)
-		g_string_append (flags, "Superblock ");
+		g_string_append(flags, "Superblock ");
 	if (in->i_flags & OCFS2_LOCAL_ALLOC_FL)
-		g_string_append (flags, "Localalloc ");
+		g_string_append(flags, "Localalloc ");
 	if (in->i_flags & OCFS2_BITMAP_FL)
-		g_string_append (flags, "Allocbitmap ");
+		g_string_append(flags, "Allocbitmap ");
 	if (in->i_flags & OCFS2_JOURNAL_FL)
-		g_string_append (flags, "Journal ");
+		g_string_append(flags, "Journal ");
 	if (in->i_flags & OCFS2_HEARTBEAT_FL)
-		g_string_append (flags, "Heartbeat ");
+		g_string_append(flags, "Heartbeat ");
 	if (in->i_flags & OCFS2_CHAIN_FL)
-		g_string_append (flags, "Chain ");
+		g_string_append(flags, "Chain ");
 	if (in->i_flags & OCFS2_DEALLOC_FL)
-		g_string_append (flags, "Dealloc ");
+		g_string_append(flags, "Dealloc ");
 
 	dyn_features = g_string_new(NULL);
 	if (in->i_dyn_features & OCFS2_INLINE_DATA_FL)
@@ -404,7 +402,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	}
 
 	if (flags)
-		g_string_free (flags, 1);
+		g_string_free(flags, 1);
 	if (dyn_features)
 		g_string_free(dyn_features, 1);
 	return ;
@@ -415,7 +413,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
  * dump_chain_list()
  *
  */
-void dump_chain_list (FILE *out, struct ocfs2_chain_list *cl)
+void dump_chain_list(FILE *out, struct ocfs2_chain_list *cl)
 {
 	struct ocfs2_chain_rec *rec;
 	int i;
@@ -443,7 +441,7 @@ bail:
 	return ;
 }
 
-void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext)
+void dump_extent_list(FILE *out, struct ocfs2_extent_list *ext)
 {
 	struct ocfs2_extent_rec *rec;
 	int i;
@@ -493,7 +491,7 @@ bail:
  * dump_extent_block()
  *
  */
-void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
+void dump_extent_block(FILE *out, struct ocfs2_extent_block *blk)
 {
 	fprintf(out, "\tSubAlloc Bit: %u   SubAlloc Slot: %u",
 		 blk->h_suballoc_bit, blk->h_suballoc_slot);
@@ -504,7 +502,7 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
 	else
 		fprintf(out, "\n");
 
-	fprintf (out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
+	fprintf(out, "\tBlknum: %"PRIu64"   Next Leaf: %"PRIu64"\n",
 		 (uint64_t)blk->h_blkno, (uint64_t)blk->h_next_leaf_blk);
 
 	dump_block_check(out, &blk->h_check, blk);
@@ -516,13 +514,12 @@ void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk)
  * dump_group_descriptor()
  *
  */
-void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
-                            int index)
+void dump_group_descriptor(FILE *out, struct ocfs2_group_desc *grp, int index)
 {
 	int max_contig_free_bits = 0;
 
 	if (!index) {
-		fprintf (out, "\tGroup Chain: %u   Parent Inode: %"PRIu64"  "
+		fprintf(out, "\tGroup Chain: %u   Parent Inode: %"PRIu64"  "
 			 "Generation: %u\n",
 			 grp->bg_chain,
 			 (uint64_t)grp->bg_parent_dinode,
@@ -550,10 +547,10 @@ void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp,
  * dump_dir_entry()
  *
  */
-int  dump_dir_entry (struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset,
-		     int blocksize, char *buf, void *priv_data)
+int dump_dir_entry(struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset,
+		   int blocksize, char *buf, void *priv_data)
 {
-	list_dir_opts *ls = (list_dir_opts *)priv_data;
+	struct list_dir_opts *ls = (struct list_dir_opts *)priv_data;
 	char tmp = rec->name[rec->name_len];
 	struct ocfs2_dinode *di;
 	char perms[20];
@@ -611,7 +608,7 @@ void dump_dir_block(FILE *out, char *buf)
 	int end = ocfs2_dir_trailer_blk_off(gbls.fs);
 	struct ocfs2_dir_block_trailer *trailer =
 		ocfs2_dir_trailer_from_block(gbls.fs, buf);
-	list_dir_opts ls_opts = {
+	struct list_dir_opts ls_opts = {
 		.fs	= gbls.fs,
 		.out	= out,
 	};
@@ -707,7 +704,7 @@ void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
 		g_string_free(flags, 1);
 }
 
-void dump_dx_leaf (FILE *out, struct ocfs2_dx_leaf *dx_leaf)
+void dump_dx_leaf(FILE *out, struct ocfs2_dx_leaf *dx_leaf)
 {
 	fprintf(out, "\tDir Index Leaf: %"PRIu64"  FS Generation: %u (0x%x)\n",
 		(uint64_t)dx_leaf->dl_blkno, dx_leaf->dl_fs_generation,
@@ -785,18 +782,18 @@ void dump_dx_space(FILE *out, struct ocfs2_dinode *inode,
  * dump_jbd_header()
  *
  */
-void dump_jbd_header (FILE *out, journal_header_t *header)
+void dump_jbd_header(FILE *out, journal_header_t *header)
 {
 	GString *jstr = NULL;
 
-	jstr = g_string_new (NULL);
-	get_journal_block_type (ntohl(header->h_blocktype), jstr);
+	jstr = g_string_new(NULL);
+	get_journal_block_type(ntohl(header->h_blocktype), jstr);
 
-	fprintf (out, "\tSeq: %u   Type: %d (%s)\n", ntohl(header->h_sequence),
+	fprintf(out, "\tSeq: %u   Type: %d (%s)\n", ntohl(header->h_sequence),
 		 ntohl(header->h_blocktype), jstr->str);
 
 	if (jstr)
-		g_string_free (jstr, 1);
+		g_string_free(jstr, 1);
 	return;
 }
 
@@ -804,40 +801,40 @@ void dump_jbd_header (FILE *out, journal_header_t *header)
  * dump_jbd_superblock()
  *
  */
-void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb)
+void dump_jbd_superblock(FILE *out, journal_superblock_t *jsb)
 {
 	int i;
 
-	fprintf (out, "\tBlock 0: Journal Superblock\n");
+	fprintf(out, "\tBlock 0: Journal Superblock\n");
 
-	dump_jbd_header (out, &(jsb->s_header));
+	dump_jbd_header(out, &(jsb->s_header));
 
-	fprintf (out, "\tBlocksize: %u   Total Blocks: %u   First Block: %u\n",
+	fprintf(out, "\tBlocksize: %u   Total Blocks: %u   First Block: %u\n",
 		 ntohl(jsb->s_blocksize), ntohl(jsb->s_maxlen), 
 		 ntohl(jsb->s_first));
-	fprintf (out, "\tFirst Commit ID: %u   Start Log Blknum: %u\n",
+	fprintf(out, "\tFirst Commit ID: %u   Start Log Blknum: %u\n",
 		 ntohl(jsb->s_sequence), ntohl(jsb->s_start));
 
-	fprintf (out, "\tError: %d\n", ntohl(jsb->s_errno));
+	fprintf(out, "\tError: %d\n", ntohl(jsb->s_errno));
 
-	fprintf (out, "\tFeatures Compat: 0x%"PRIx32"   "
+	fprintf(out, "\tFeatures Compat: 0x%"PRIx32"   "
 		 "Incompat: 0x%"PRIx32"   RO Compat: 0x%"PRIx32"\n",
 		 ntohl(jsb->s_feature_compat),
 		 ntohl(jsb->s_feature_incompat),
 		 ntohl(jsb->s_feature_ro_compat));
 
-	fprintf (out, "\tJournal UUID: ");
+	fprintf(out, "\tJournal UUID: ");
 	for(i = 0; i < 16; i++)
-		fprintf (out, "%02X", jsb->s_uuid[i]);
-	fprintf (out, "\n");
+		fprintf(out, "%02X", jsb->s_uuid[i]);
+	fprintf(out, "\n");
 
-	fprintf (out, "\tFS Share Cnt: %u   Dynamic Superblk Blknum: %u\n",
+	fprintf(out, "\tFS Share Cnt: %u   Dynamic Superblk Blknum: %u\n",
 		 ntohl(jsb->s_nr_users), ntohl(jsb->s_dynsuper));
 
-	fprintf (out, "\tPer Txn Block Limit    Journal: %u    Data: %u\n",
+	fprintf(out, "\tPer Txn Block Limit    Journal: %u    Data: %u\n",
 		 ntohl(jsb->s_max_transaction), ntohl(jsb->s_max_trans_data));
 
-	fprintf (out, "\n");
+	fprintf(out, "\n");
 
 	return;
 }
@@ -846,8 +843,8 @@ void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb)
  * dump_jbd_block()
  *
  */
-void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
-		     journal_header_t *header, uint64_t blknum)
+void dump_jbd_block(FILE *out, journal_superblock_t *jsb,
+		    journal_header_t *header, uint64_t blknum)
 {
 	int i;
 	int j;
@@ -862,27 +859,27 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
 	int tag_bytes = ocfs2_journal_tag_bytes(jsb);
 
-	tagflg = g_string_new (NULL);
+	tagflg = g_string_new(NULL);
 
-	fprintf (out, "\tBlock %"PRIu64": ", blknum);
+	fprintf(out, "\tBlock %"PRIu64": ", blknum);
 
 	switch (ntohl(header->h_blocktype)) {
 	case JBD2_DESCRIPTOR_BLOCK:
-		fprintf (out, "Journal Descriptor\n");
-		dump_jbd_header (out, header);
+		fprintf(out, "Journal Descriptor\n");
+		dump_jbd_header(out, header);
 
-		fprintf (out, "\t%3s %-15s %-s\n", "No.", "Blocknum", "Flags");
+		fprintf(out, "\t%3s %-15s %-s\n", "No.", "Blocknum", "Flags");
 
 		for (i = sizeof(journal_header_t); i < (1 << sb->s_blocksize_bits);
 		     i+=tag_bytes) {
 			tag = (journal_block_tag_t *) &blk[i];
 
 			get_tag_flag(ntohl(tag->t_flags), tagflg);
-			fprintf (out, "\t%2d. %-15"PRIu64" %-s\n",
+			fprintf(out, "\t%2d. %-15"PRIu64" %-s\n",
 				 count,
                                  ocfs2_journal_tag_block(tag, tag_bytes),
                                  tagflg->str);
-			g_string_truncate (tagflg, 0);
+			g_string_truncate(tagflg, 0);
 
 			if (tag->t_flags & htonl(JBD2_FLAG_LAST_TAG))
 				break;
@@ -890,10 +887,10 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 			/* skip the uuid. */
 			if (!(tag->t_flags & htonl(JBD2_FLAG_SAME_UUID))) {
 				uuid = &blk[i + tag_bytes];
-				fprintf (out, "\tUUID: ");
+				fprintf(out, "\tUUID: ");
 				for(j = 0; j < 16; j++)
-					fprintf (out, "%02X",uuid[j]);
-				fprintf (out, "\n");
+					fprintf(out, "%02X",uuid[j]);
+				fprintf(out, "\n");
 				i += 16;
 			}
 			count++;
@@ -902,12 +899,12 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 
 	case JBD2_COMMIT_BLOCK:
 		fprintf(out, "Journal Commit Block\n");
-		dump_jbd_header (out, header);
+		dump_jbd_header(out, header);
 		break;
 
-	case JBD2_REVOKE_BLOCK:							/*TODO*/
+	case JBD2_REVOKE_BLOCK:						/*TODO*/
 		fprintf(out, "Journal Revoke Block\n");
-		dump_jbd_header (out, header);
+		dump_jbd_header(out, header);
 		revoke = (journal_revoke_header_t *) blk;
 
 		fprintf(out, "\tr_count:\t\t%d\n", ntohl(revoke->r_count));
@@ -922,10 +919,10 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 		fprintf(out, "Unknown Block Type\n");
 		break;
 	}
-	fprintf (out, "\n");
+	fprintf(out, "\n");
 
 	if (tagflg)
-		g_string_free (tagflg, 1);
+		g_string_free(tagflg, 1);
 
 	return;
 }
@@ -934,8 +931,8 @@ void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
  * dump_jbd_metadata()
  *
  */
-void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
-			uint64_t blknum)
+void dump_jbd_metadata(FILE *out, enum dump_block_type type, char *buf,
+		       uint64_t blknum)
 {
 	struct ocfs2_dir_block_trailer *trailer;
 	struct ocfs2_xattr_block *xb;
@@ -946,7 +943,7 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 	struct ocfs2_dinode *di;
 	struct ocfs2_extent_block *eb;
 
-	fprintf (out, "\tBlock %"PRIu64": ", blknum);
+	fprintf(out, "\tBlock %"PRIu64": ", blknum);
 	switch (type) {
 	case DUMP_BLOCK_INODE:
 		fprintf(out, "Inode\n");
@@ -962,8 +959,8 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 		else if (di->i_flags & OCFS2_DEALLOC_FL)
 			dump_truncate_log(out, &(di->id2.i_dealloc));
 		else if (!(di->i_dyn_features & OCFS2_INLINE_DATA_FL))
-			dump_extent_list (out, &(di->id2.i_list));
-		fprintf (out, "\n");
+			dump_extent_list(out, &(di->id2.i_list));
+		fprintf(out, "\n");
 		break;
 	case DUMP_BLOCK_EXTENT_BLOCK:
 		fprintf(out, "Extent\n");
@@ -971,14 +968,14 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 		ocfs2_swap_extent_block_to_cpu(gbls.fs, eb);
 		dump_extent_block(out, eb);
 		dump_extent_list(out, &(eb->h_list));
-		fprintf (out, "\n");
+		fprintf(out, "\n");
 		break;
 	case DUMP_BLOCK_GROUP_DESCRIPTOR:
 		fprintf(out, "Group\n");
 		ocfs2_swap_group_desc_to_cpu(gbls.fs,
 				      (struct ocfs2_group_desc *)buf);
 		dump_group_descriptor(out, (struct ocfs2_group_desc *)buf, 0);
-		fprintf (out, "\n");
+		fprintf(out, "\n");
 		break;
 	case DUMP_BLOCK_DIR_BLOCK:
 		fprintf(out, "Dirblock\n");
@@ -991,7 +988,7 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 		trailer = ocfs2_dir_trailer_from_block(gbls.fs, buf);
 		ocfs2_swap_dir_trailer(trailer);
 		dump_dir_block(out, buf);
-		fprintf (out, "\n");
+		fprintf(out, "\n");
 		break;
 	case DUMP_BLOCK_XATTR:
 		fprintf(out, "Xattr\n");
@@ -1001,31 +998,31 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
 			xh = &xb->xb_attrs.xb_header;
 			dump_xattr(out, xh);
 		}
-		fprintf (out, "\n");
+		fprintf(out, "\n");
 		break;
 	case DUMP_BLOCK_REFCOUNT:
 		fprintf(out, "Refcount\n");
 		rb = (struct ocfs2_refcount_block *)buf;
 		ocfs2_swap_refcount_block_to_cpu(gbls.fs, rb);
 		dump_refcount_block(out, rb);
-		fprintf (out, "\n");
+		fprintf(out, "\n");
 		break;
 	case DUMP_BLOCK_DXROOT:
 		fprintf(out, "DxRoot\n");
 		dx_root = (struct ocfs2_dx_root_block *)buf;
 		ocfs2_swap_dx_root_to_cpu(gbls.fs, dx_root);
 		dump_dx_root(out, dx_root);
-		fprintf (out, "\n");
+		fprintf(out, "\n");
 		break;
 	case DUMP_BLOCK_DXLEAF:
 		fprintf(out, "DxLeaf\n");
 		dx_leaf = (struct ocfs2_dx_leaf *)buf;
 		ocfs2_swap_dx_leaf_to_cpu(dx_leaf);
 		dump_dx_leaf(out, dx_leaf);
-		fprintf (out, "\n");
+		fprintf(out, "\n");
 		break;
 	default:
-		fprintf (out, "TODO\n\n");
+		fprintf(out, "TODO\n\n");
 		break;
 	}
 
@@ -1036,14 +1033,14 @@ void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
  * dump_jbd_unknown()
  *
  */
-void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end)
+void dump_jbd_unknown(FILE *out, uint64_t start, uint64_t end)
 {
 	if (start == end - 1)
-		fprintf (out, "\tBlock %"PRIu64": ", start);
+		fprintf(out, "\tBlock %"PRIu64": ", start);
 	else
-		fprintf (out, "\tBlock %"PRIu64" to %"PRIu64": ",
+		fprintf(out, "\tBlock %"PRIu64" to %"PRIu64": ",
 			 start, (end - 1));
-	fprintf (out, "Unknown -- Probably Data\n\n");
+	fprintf(out, "Unknown -- Probably Data\n\n");
 
 	return ;
 }
@@ -1052,13 +1049,13 @@ void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end)
  * dump_slots()
  *
  */
-void dump_slots (FILE *out, struct ocfs2_slot_map_extended *se,
-                 struct ocfs2_slot_map *sm, int num_slots)
+void dump_slots(FILE *out, struct ocfs2_slot_map_extended *se,
+		struct ocfs2_slot_map *sm, int num_slots)
 {
 	int i;
         unsigned int node_num;
 	
-	fprintf (out, "\t%5s   %5s\n", "Slot#", "Node#");
+	fprintf(out, "\t%5s   %5s\n", "Slot#", "Node#");
 	
 	for (i = 0; i < num_slots; ++i) {
 		if (se) {
@@ -1071,23 +1068,23 @@ void dump_slots (FILE *out, struct ocfs2_slot_map_extended *se,
 			node_num = sm->sm_slots[i];
 		}
 
-		fprintf (out, "\t%5d   %5u\n", i, node_num);
+		fprintf(out, "\t%5d   %5u\n", i, node_num);
 	}
 }
 
-void dump_hb (FILE *out, char *buf, uint32_t len)
+void dump_hb(FILE *out, char *buf, uint32_t len)
 {
 	uint32_t i;
 	struct o2hb_disk_heartbeat_block *hb;
 
-	fprintf (out, "\t%4s: %4s %16s %16s %8s\n",
+	fprintf(out, "\t%4s: %4s %16s %16s %8s\n",
 		 "node", "node", "seq", "generation", "checksum");
 	
 	for (i = 0; i < 255 && ((i + 1) * 512 < len); ++i) {
 		hb = (struct o2hb_disk_heartbeat_block *)(buf + (i * 512));
 		ocfs2_swap_disk_heartbeat_block(hb);
 		if (hb->hb_seq)
-			fprintf (out, "\t%4u: %4u %016"PRIx64" %016"PRIx64" "
+			fprintf(out, "\t%4u: %4u %016"PRIx64" %016"PRIx64" "
 				 "%08"PRIx32"\n", i,
 				 hb->hb_node, (uint64_t)hb->hb_seq,
 				 (uint64_t)hb->hb_generation, hb->hb_cksum);
@@ -1096,9 +1093,9 @@ void dump_hb (FILE *out, char *buf, uint32_t len)
 	return ;
 }
 
-void dump_inode_path (FILE *out, uint64_t blkno, char *path)
+void dump_inode_path(FILE *out, uint64_t blkno, char *path)
 {
-	fprintf (out, "\t%"PRIu64"\t%s\n", blkno, path);
+	fprintf(out, "\t%"PRIu64"\t%s\n", blkno, path);
 }
 
 /*

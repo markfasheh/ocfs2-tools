@@ -25,7 +25,7 @@
 
 #include "main.h"
 
-extern dbgfs_gbls gbls;
+extern struct dbgfs_gbls gbls;
 
 struct block_array {
 	uint64_t blkno;

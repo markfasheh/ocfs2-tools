@@ -5,7 +5,7 @@
  *
  * handles debugfs commands
  *
- * Copyright (C) 2004, 2008 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -31,146 +31,286 @@
 #define SYSTEM_FILE_NAME_MAX	40
 #define MAX_BLOCKS		50
 
-typedef void (*PrintFunc) (void *buf);
-typedef gboolean (*WriteFunc) (char **data, void *buf);
+struct dbgfs_gbls gbls;
 
-typedef void (*CommandFunc) (char **args);
+typedef void (*cmdfunc)(char **args);
 
-typedef struct _Command Command;
-
-struct _Command
-{
-	char        *cmd;
-	CommandFunc  func;
+struct command {
+	char		*cmd_name;
+	cmdfunc		cmd_func;
+	char		*cmd_usage;
+	char		*cmd_desc;
 };
 
-static Command  *find_command (char  *cmd);
+static struct command *find_command(char  *cmd);
 
-static void do_open (char **args);
-static void do_close (char **args);
-static void do_cd (char **args);
-static void do_ls (char **args);
-static void do_quit (char **args);
-static void do_help (char **args);
-static void do_hb (char **args);
-static void do_dump (char **args);
-static void do_rdump (char **args);
-static void do_cat (char **args);
-static void do_lcd (char **args);
-static void do_curdev (char **args);
-static void do_stats (char **args);
-static void do_stat (char **args);
-static void do_logdump (char **args);
-static void do_group (char **args);
-static void do_extent (char **args);
-static void do_chroot (char **args);
-static void do_slotmap (char **args);
-static void do_encode_lockres (char **args);
-static void do_decode_lockres (char **args);
-static void do_locate (char **args);
-static void do_fs_locks (char **args);
-static void do_bmap (char **args);
-static void do_icheck (char **args);
-static void do_dlm_locks (char **args);
+static void do_bmap(char **args);
+static void do_cat(char **args);
+static void do_cd(char **args);
+static void do_chroot(char **args);
+static void do_close(char **args);
 static void do_controld(char **args);
+static void do_curdev(char **args);
+static void do_decode_lockres(char **args);
 static void do_dirblocks(char **args);
-static void do_xattr(char **args);
-static void do_frag(char **args);
-static void do_refcount(char **args);
-static void do_dx_root(char **args);
-static void do_dx_leaf(char **args);
+static void do_dlm_locks(char **args);
+static void do_dump(char **args);
 static void do_dx_dump(char **args);
+static void do_dx_leaf(char **args);
+static void do_dx_root(char **args);
 static void do_dx_space(char **args);
+static void do_encode_lockres(char **args);
+static void do_extent(char **args);
+static void do_frag(char **args);
+static void do_fs_locks(char **args);
+static void do_group(char **args);
+static void do_hb(char **args);
+static void do_help(char **args);
+static void do_icheck(char **args);
+static void do_lcd(char **args);
+static void do_locate(char **args);
+static void do_logdump(char **args);
+static void do_ls(char **args);
+static void do_open(char **args);
+static void do_quit(char **args);
+static void do_rdump(char **args);
+static void do_refcount(char **args);
+static void do_slotmap(char **args);
+static void do_stat(char **args);
+static void do_stats(char **args);
+static void do_xattr(char **args);
 
-dbgfs_gbls gbls;
-
-static Command commands[] = {
-	{ "bmap",	do_bmap },
-	{ "cat",	do_cat },
-	{ "cd",		do_cd },
-	{ "chroot",	do_chroot },
-	{ "close",	do_close },
-	{ "controld",   do_controld },
-	{ "curdev",	do_curdev },
-	{ "dlm_locks",	do_dlm_locks },
-	{ "dump",	do_dump },
-	{ "extent",	do_extent },
-	{ "fs_locks",	do_fs_locks },
-	{ "group",	do_group },
-	{ "help",	do_help },
-	{ "hb",		do_hb },
-	{ "?",		do_help },
-	{ "icheck",	do_icheck },
-	{ "lcd",	do_lcd },
-	{ "locate",	do_locate },
-	{ "ncheck",	do_locate },
-	{ "findpath",	do_locate },
-	{ "logdump",	do_logdump },
-	{ "ls",		do_ls },
-	{ "open",	do_open },
-	{ "quit",	do_quit },
-	{ "q",		do_quit },
-	{ "rdump",	do_rdump },
-	{ "slotmap",	do_slotmap },
-	{ "stat",	do_stat },
-	{ "stats",	do_stats },
-	{ "xattr",	do_xattr },
-	{ "encode",	do_encode_lockres },
-	{ "decode",	do_decode_lockres },
-	{ "dirblocks",	do_dirblocks },
-	{ "frag",	do_frag },
-	{ "refcount",	do_refcount },
-	{ "dx_root",	do_dx_root },
-	{ "dx_leaf",	do_dx_leaf },
-	{ "dx_dump",	do_dx_dump },
-	{ "dx_space",	do_dx_space },
+static struct command commands[] = {
+	{ "bmap",
+		do_bmap,
+		"bmap <filespec> <logical_blk>",
+		"Show the corresponding physical block# for the inode",
+	},
+	{ "cat",
+		do_cat,
+		"cat <filespec>",
+		"Show file on stdout",
+	},
+	{ "cd",
+		do_cd,
+		"cd <filespec>",
+		"Change directory",
+	},
+	{ "chroot",
+		do_chroot,
+		"chroot <filespec>",
+		"Change root",
+	},
+	{ "close",
+		do_close,
+		"close",
+		"Close a device",
+	},
+	{ "controld",
+		do_controld,
+		"controld dump",
+		"Obtain information from ocfs2_controld",
+	},
+	{ "curdev",
+		do_curdev,
+		"curdev",
+		"Show current device",
+	},
+	{ "decode",
+		do_decode_lockres,
+		"decode <lockname#> ...",
+		"Decode block#(s) from the lockname(s)",
+	},
+	{ "dirblocks",
+		do_dirblocks,
+		"dirblocks <filespec>",
+		"Dump directory blocks",
+	},
+	{ "dlm_locks",
+		do_dlm_locks,
+		"dlm_locks [-f <file>] [-l] lockname",
+		"Show live dlm locking state",
+	},
+	{ "dump",
+		do_dump,
+		"dump [-p] <filespec> <outfile>",
+		"Dumps file to outfile on a mounted fs",
+	},
+	{ "dx_dump",
+		do_dx_dump,
+		"dx_dump <blkno>",
+		"Show directory index information",
+	},
+	{ "dx_leaf",
+		do_dx_leaf,
+		"dx_leaf <blkno>",
+		"Show directory index leaf block only",
+	},
+	{ "dx_root",
+		do_dx_root,
+		"dx_root <blkno>",
+		"Show directory index root block only",
+	},
+	{ "dx_space",
+		do_dx_space,
+		"dx_space <filespec>",
+		"Dump directory free space list",
+	},
+	{ "encode",
+		do_encode_lockres,
+		"encode <filespec>",
+		"Show lock name",
+	},
+	{ "extent",
+		do_extent,
+		"extent <block#>",
+		"Show extent block",
+	},
+	{ "findpath",
+		do_locate,
+		"findpath <block#>",
+		"List one pathname of the inode/lockname",
+	},
+	{ "frag",
+		do_frag,
+		"frag <filespec>",
+		"Show inode extents / clusters ratio",
+	},
+	{ "fs_locks",
+		do_fs_locks,
+		"fs_locks [-f <file>] [-l] [-B]",
+		"Show live fs locking state",
+	},
+	{ "group",
+		do_group,
+		"group <block#>",
+		"Show chain group",
+	},
+	{ "hb",
+		do_hb,
+		"hb",
+		"Show the heartbeat blocks",
+	},
+	{ "help",
+		do_help,
+		"help, ?",
+		"This information",
+	},
+	{ "?",
+		do_help,
+		NULL,
+		NULL,
+	},
+	{ "icheck",
+		do_icheck,
+		"icheck block# ...",
+		"List inode# that is using the block#",
+	},
+	{ "lcd",
+		do_lcd,
+		"lcd <directory>",
+		"Change directory on a mounted flesystem",
+	},
+	{ "locate",
+		do_locate,
+		"locate <block#> ...",
+		"List all pathnames of the inode(s)/lockname(s)",
+	},
+	{ "logdump",
+		do_logdump,
+		"logdump [-T] <slot#>",
+		"Show journal file for the node slot",
+	},
+	{ "ls",
+		do_ls,
+		"ls [-l] <filespec>",
+		"List directory",
+	},
+	{ "ncheck",
+		do_locate,
+		"ncheck <block#> ...",
+		"List all pathnames of the inode(s)/lockname(s)",
+	},
+	{ "open",
+		do_open,
+		"open <device> [-i] [-s backup#]",
+		"Open a device",
+	},
+	{ "quit",
+		do_quit,
+		"quit, q",
+		"Exit the program",
+	},
+	{ "q",
+		do_quit,
+		NULL,
+		NULL,
+	},
+	{ "rdump",
+		do_rdump,
+		"rdump [-v] <filespec> <outdir>",
+		"Recursively dumps from src to a dir on a mounted filesystem",
+	},
+	{ "refcount",
+		do_refcount,
+		"refcount [-e] <filespec>",
+		"Dump the refcount tree for the inode or refcount block",
+	},
+	{ "slotmap",
+		do_slotmap,
+		"slotmap",
+		"Show slot map",
+	},
+	{ "stat",
+		do_stat,
+		"stat [-t|-T] <filespec>",
+		"Show inode",
+	},
+	{ "stats",
+		do_stats,
+		"stats [-h]",
+		"Show superblock",
+	},
+	{ "xattr",
+		do_xattr,
+		"xattr [-v] <filespec>",
+		"Show extended attributes",
+	},
 };
 
-/*
- * handle_signal()
- *
- */
-void handle_signal (int sig)
+void handle_signal(int sig)
 {
 	switch (sig) {
 	case SIGTERM:
 	case SIGINT:
 		if (gbls.device)
-			do_close (NULL);
+			do_close(NULL);
 		exit(1);
 	}
 
 	return ;
 }
 
-/*
- * find_command()
- *
- */
-static Command * find_command (char *cmd)
+static struct command *find_command(char *cmd)
 {
 	unsigned int i;
 
-	for (i = 0; i < sizeof (commands) / sizeof (commands[0]); i++)
-		if (strcmp (cmd, commands[i].cmd) == 0)
+	for (i = 0; i < sizeof(commands) / sizeof(commands[0]); i++)
+		if (strcmp(cmd, commands[i].cmd_name) == 0)
 			return &commands[i];
 
 	return NULL;
 }
 
-/*
- * do_command()
- *
- */
-void do_command (char *cmd)
+void do_command(char *cmd)
 {
 	char    **args;
-	Command  *command;
+	struct command  *command;
 
 	if (*cmd == '\0')
 		return;
 
-	args = g_strsplit (cmd, " ", -1);
+	args = g_strsplit(cmd, " ", -1);
 
 	/* Move empty strings to the end */
 	crunch_strsplit(args);
@@ -179,24 +319,20 @@ void do_command (char *cmd)
 	if (!strncmp(args[0], "#", 1))
 		goto bail;
 
-	command = find_command (args[0]);
+	command = find_command(args[0]);
 
 	fflush(stdout);
 
 	if (command) {
-		gbls.cmd = command->cmd;
-		command->func (args);
+		gbls.cmd = command->cmd_name;
+		command->cmd_func(args);
 	} else
 		fprintf(stderr, "%s: command not found\n", args[0]);
 
 bail:
-	g_strfreev (args);
+	g_strfreev(args);
 }
 
-/*
- * check_device_open()
- *
- */
 static int check_device_open(void)
 {
 	if (!gbls.fs) {
@@ -207,10 +343,6 @@ static int check_device_open(void)
 	return 0;
 }
 
-/*
- * process_inode_args()
- *
- */
 static int process_inode_args(char **args, uint64_t *blkno)
 {
 	errcode_t ret;
@@ -239,10 +371,6 @@ static int process_inode_args(char **args, uint64_t *blkno)
 	return 0;
 }
 
-/*
- * process_ls_args()
- *
- */
 static int process_ls_args(char **args, uint64_t *blkno, int *long_opt)
 {
 	errcode_t ret;
@@ -376,10 +504,7 @@ bail:
 		io_close(channel);
 	return ret;
 }
-/*
- * process_open_args
- *
- */
+
 static int process_open_args(char **args,
 			     uint64_t *superblock, uint64_t *blocksize)
 {
@@ -416,8 +541,8 @@ static int process_open_args(char **args,
 		return -1;
 
 	if (s < 1 || s > num) {
-		fprintf (stderr, "Backup super block is outside of valid range"
-			 "(between 1 and %d)\n", num);
+		fprintf(stderr, "Backup super block is outside of valid range"
+			"(between 1 and %d)\n", num);
 		return -1;
 	}
 
@@ -435,10 +560,6 @@ bail:
 	return ret;
 }
 
-/*
- * get_slotnum()
- *
- */
 static int get_slotnum(char *str, uint16_t *slotnum)
 {
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(gbls.fs->fs_super);
@@ -457,10 +578,6 @@ static int get_slotnum(char *str, uint16_t *slotnum)
 	return 0;
 }
 
-/*
- * find_block_offset()
- *
- */
 static errcode_t find_block_offset(ocfs2_filesys *fs,
 				   struct ocfs2_extent_list *el,
 				   uint64_t blkoff, FILE *out)
@@ -528,11 +645,8 @@ bail:
 	return ret;
 }
 
-/*
- * traverse_extents()
- *
- */
-static errcode_t traverse_extents (ocfs2_filesys *fs, struct ocfs2_extent_list *el, FILE *out)
+static errcode_t traverse_extents(ocfs2_filesys *fs,
+				  struct ocfs2_extent_list *el, FILE *out)
 {
 	struct ocfs2_extent_block *eb;
 	struct ocfs2_extent_rec *rec;
@@ -541,7 +655,7 @@ static errcode_t traverse_extents (ocfs2_filesys *fs, struct ocfs2_extent_list *
 	int i;
 	uint32_t clusters;
 
-	dump_extent_list (out, el);
+	dump_extent_list(out, el);
 
 	for (i = 0; i < el->l_next_free_rec; ++i) {
 		rec = &(el->l_recs[i]);
@@ -567,9 +681,9 @@ static errcode_t traverse_extents (ocfs2_filesys *fs, struct ocfs2_extent_list *
 
 			eb = (struct ocfs2_extent_block *)buf;
 
-			dump_extent_block (out, eb);
+			dump_extent_block(out, eb);
 
-			ret = traverse_extents (fs, &(eb->h_list), out);
+			ret = traverse_extents(fs, &(eb->h_list), out);
 			if (ret)
 				goto bail;
 		}
@@ -581,11 +695,8 @@ bail:
 	return ret;
 }
 
-/*
- * traverse_chains()
- *
- */
-static errcode_t traverse_chains (ocfs2_filesys *fs, struct ocfs2_chain_list *cl, FILE *out)
+static errcode_t traverse_chains(ocfs2_filesys *fs,
+				 struct ocfs2_chain_list *cl, FILE *out)
 {
 	struct ocfs2_group_desc *grp;
 	struct ocfs2_chain_rec *rec;
@@ -595,7 +706,7 @@ static errcode_t traverse_chains (ocfs2_filesys *fs, struct ocfs2_chain_list *cl
 	int i;
 	int index;
 
-	dump_chain_list (out, cl);
+	dump_chain_list(out, cl);
 
 	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
 	if (ret)
@@ -624,12 +735,7 @@ bail:
 	return ret;
 }
 
-
-/*
- * do_open()
- *
- */
-static void do_open (char **args)
+static void do_open(char **args)
 {
 	char *dev = args[1];
 	int flags;
@@ -640,10 +746,10 @@ static void do_open (char **args)
 	uint64_t superblock = 0, block_size = 0;
 
 	if (gbls.device)
-		do_close (NULL);
+		do_close(NULL);
 
 	if (dev == NULL || process_open_args(args, &superblock, &block_size)) {
-		fprintf (stderr, "usage: %s <device> [-i] [-s num]\n", args[0]);
+		fprintf(stderr, "usage: %s <device> [-i] [-s num]\n", args[0]);
 		gbls.imagefile = 0;
 		return ;
 	}
@@ -683,7 +789,7 @@ static void do_open (char **args)
 	gbls.cwd = strdup("/");
 
 	/* lookup heartbeat file */
-	snprintf (sysfile, sizeof(sysfile),
+	snprintf(sysfile, sizeof(sysfile),
 		  ocfs2_system_inodes[HEARTBEAT_SYSTEM_INODE].si_name);
 	ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
 			   strlen(sysfile), NULL, &gbls.hb_blkno);
@@ -691,7 +797,7 @@ static void do_open (char **args)
 		gbls.hb_blkno = 0;
 
 	/* lookup slotmap file */
-	snprintf (sysfile, sizeof(sysfile),
+	snprintf(sysfile, sizeof(sysfile),
 		  ocfs2_system_inodes[SLOT_MAP_SYSTEM_INODE].si_name);
 	ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
 			   strlen(sysfile), NULL, &gbls.slotmap_blkno);
@@ -700,7 +806,7 @@ static void do_open (char **args)
 
 	/* lookup journal files */
 	for (i = 0; i < sb->s_max_slots; ++i) {
-		snprintf (sysfile, sizeof(sysfile),
+		snprintf(sysfile, sizeof(sysfile),
 			  ocfs2_system_inodes[JOURNAL_SYSTEM_INODE].si_name, i);
 		ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
 				   strlen(sysfile), NULL, &gbls.jrnl_blkno[i]);
@@ -712,11 +818,7 @@ static void do_open (char **args)
 	
 }
 
-/*
- * do_close()
- *
- */
-static void do_close (char **args)
+static void do_close(char **args)
 {
 	errcode_t ret = 0;
 
@@ -732,17 +834,13 @@ static void do_close (char **args)
 	if (gbls.blockbuf)
 		ocfs2_free(&gbls.blockbuf);
 
-	g_free (gbls.device);
+	g_free(gbls.device);
 	gbls.device = NULL;
 
 	return ;
 }
 
-/*
- * do_cd()
- *
- */
-static void do_cd (char **args)
+static void do_cd(char **args)
 {
 	uint64_t blkno;
 	errcode_t ret;
@@ -762,11 +860,7 @@ static void do_cd (char **args)
 	return ;
 }
 
-/*
- * do_chroot()
- *
- */
-static void do_chroot (char **args)
+static void do_chroot(char **args)
 {
 	uint64_t blkno;
 	errcode_t ret;
@@ -786,15 +880,11 @@ static void do_chroot (char **args)
 	return ;
 }
 
-/*
- * do_ls()
- *
- */
-static void do_ls (char **args)
+static void do_ls(char **args)
 {
 	uint64_t blkno;
 	errcode_t ret = 0;
-	list_dir_opts ls_opts = { gbls.fs, NULL, 0, NULL };
+	struct list_dir_opts ls_opts = { gbls.fs, NULL, 0, NULL };
 
 	if (process_ls_args(args, &blkno, &ls_opts.long_opt))
 		return ;
@@ -829,68 +919,34 @@ static void do_ls (char **args)
 	return ;
 }
 
-/*
- * do_help()
- *
- */
-static void do_help (char **args)
+static void do_help(char **args)
 {
-	printf ("bmap <filespec> <logical_blk>\t\tPrint the corresponding physical block# for the inode\n");
-	printf ("cat <filespec>\t\t\t\tPrints file on stdout\n");
-	printf ("cd <filespec>\t\t\t\tChange directory\n");
-	printf ("chroot <filespec>\t\t\tChange root\n");
-	printf ("close\t\t\t\t\tClose a device\n");
-	printf ("controld dump\t\t\tObtain information from ocfs2_controld\n");
-	printf ("curdev\t\t\t\t\tShow current device\n");
-	printf ("decode <lockname#> ...\t\t\tDecode block#(s) from the lockname(s)\n");
-	printf ("dlm_locks [-f <file>] [-l] lockname\t\t\tShow live dlm locking state\n");
-	printf ("dump [-p] <filespec> <outfile>\t\tDumps file to outfile on a mounted fs\n");
-	printf ("dirblocks <filespec>\t\t\tDump directory blocks\n");
-	printf ("dx_space <filespec>\t\t\tDump directory free space list\n");
-	printf ("dx_dump <blkno>\t\t\tShow directory index information\n");
-	printf ("dx_leaf <blkno>\t\t\tShow directory index leaf block only\n");
-	printf ("dx_root <blkno>\t\t\tShow directory index root block only\n");
-	printf ("encode <filespec>\t\t\tShow lock name\n");
-	printf ("extent <block#>\t\t\t\tShow extent block\n");
-	printf ("findpath <block#>\t\t\tList one pathname of the inode/lockname\n");
-	printf ("frag <filespec>\t\t\tShow inode extents / clusters ratio\n");
-	printf ("fs_locks [-f <file>] [-l] [-B]\t\t\tShow live fs locking state\n");
-	printf ("group <block#>\t\t\t\tShow chain group\n");
-	printf ("hb\t\t\t\t\tShows the used heartbeat blocks\n");
-	printf ("help, ?\t\t\t\t\tThis information\n");
-	printf ("icheck block# ...\t\t\tDo block->inode translation\n");
-	printf ("lcd <directory>\t\t\t\tChange directory on a mounted flesystem\n");
-	printf ("locate <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
-	printf ("logdump [-T] <slot#>\t\t\t\tPrints journal file for the node slot\n");
-	printf ("ls [-l] <filespec>\t\t\tList directory\n");
-	printf ("ncheck <block#> ...\t\t\tList all pathnames of the inode(s)/lockname(s)\n");
-	printf ("open <device> [-i] [-s backup#]\t\tOpen a device\n");
-	printf ("quit, q\t\t\t\t\tExit the program\n");
-	printf ("rdump [-v] <filespec> <outdir>\t\tRecursively dumps from src to a dir on a mounted filesystem\n");
-	printf ("refcount [-e] <filespec>\t\t\tDump the refcount tree "
-		"for the specified inode or refcount block\n");
-	printf ("slotmap\t\t\t\t\tShow slot map\n");
-	printf ("stat [-t|-T] <filespec>\t\t\t\tShow inode\n");
-	printf ("stats [-h]\t\t\t\tShow superblock\n");
-	printf ("xattr [-v] <filespec>\t\t\tShow Extended Attributes\n");
+	int i, usagelen = 0;
+	int numcmds = sizeof(commands) / sizeof(commands[0]);
+
+	for (i = 0; i < numcmds; ++i) {
+		if (commands[i].cmd_usage)
+			usagelen = max(usagelen, strlen(commands[i].cmd_usage));
+	}
+
+#define MIN_USAGE_LEN	40
+	usagelen = max(usagelen, MIN_USAGE_LEN);
+
+	for (i = 0; i < numcmds; ++i) {
+		if (commands[i].cmd_usage)
+			fprintf(stdout, "%-*s  %s\n", usagelen,
+				commands[i].cmd_usage, commands[i].cmd_desc);
+	}
 }
 
-/*
- * do_quit()
- *
- */
-static void do_quit (char **args)
+static void do_quit(char **args)
 {
 	if (gbls.device)
-		do_close (NULL);
-	exit (0);
+		do_close(NULL);
+	exit(0);
 }
 
-/*
- * do_lcd()
- *
- */
-static void do_lcd (char **args)
+static void do_lcd(char **args)
 {
 	char buf[PATH_MAX];
 
@@ -916,10 +972,6 @@ static void do_lcd (char **args)
 	return ;
 }
 
-/*
- * do_controld_dump()
- *
- */
 static void do_controld_dump(char **args)
 {
 	FILE *out;
@@ -938,10 +990,6 @@ static void do_controld_dump(char **args)
 	free(debug_buffer);
 }
 
-/*
- * do_controld()
- *
- */
 static void do_controld(char **args)
 {
 	if (!args[1])
@@ -953,20 +1001,12 @@ static void do_controld(char **args)
 			args[0], args[1]);
 }
 
-/*
- * do_curdev()
- *
- */
-static void do_curdev (char **args)
+static void do_curdev(char **args)
 {
-	printf ("%s\n", gbls.device ? gbls.device : "No device");
+	printf("%s\n", gbls.device ? gbls.device : "No device");
 }
 
-/*
- * do_stats()
- *
- */
-static void do_stats (char **args)
+static void do_stats(char **args)
 {
 	FILE *out;
 	errcode_t ret;
@@ -1026,11 +1066,7 @@ bail:
 	return ;
 }
 
-/*
- * do_stat()
- *
- */
-static void do_stat (char **args)
+static void do_stat(char **args)
 {
 	struct ocfs2_dinode *inode;
 	uint64_t blkno;
@@ -1100,11 +1136,8 @@ static void do_stat (char **args)
 
 	return ;
 }
-/*
- * do_hb()
- *
- */
-static void do_hb (char **args)
+
+static void do_hb(char **args)
 {
 	char *hbbuf = NULL;
 	FILE *out;
@@ -1131,11 +1164,7 @@ bail:
 	return ;
 }
 
-/*
- * do_dump()
- *
- */
-static void do_dump (char **args)
+static void do_dump(char **args)
 {
 	uint64_t blkno;
 	int preserve = 0;
@@ -1188,11 +1217,7 @@ static void do_dump (char **args)
 	return;
 }
 
-/*
- * do_cat()
- *
- */
-static void do_cat (char **args)
+static void do_cat(char **args)
 {
 	uint64_t blkno;
 	errcode_t ret;
@@ -1223,7 +1248,7 @@ static void do_cat (char **args)
 	return ;
 }
 
-static void do_logdump (char **args)
+static void do_logdump(char **args)
 {
 	errcode_t ret;
 	uint16_t slotnum;
@@ -1255,18 +1280,14 @@ static void do_logdump (char **args)
 
 	out = open_pager(gbls.interactive);
 	ret = read_journal(gbls.fs, blkno, out);
-	close_pager (out);
+	close_pager(out);
 	if (ret)
 		com_err(gbls.cmd, ret, "while reading journal");
 
 	return;
 }
 
-/*
- * do_group()
- *
- */
-static void do_group (char **args)
+static void do_group(char **args)
 {
 	struct ocfs2_group_desc *grp;
 	uint64_t blkno;
@@ -1285,7 +1306,7 @@ static void do_group (char **args)
 		if (ret) {
 			com_err(args[0], ret, "while reading block group "
 				"descriptor %"PRIu64"", blkno);
-			close_pager (out);
+			close_pager(out);
 			return ;
 		}
 
@@ -1295,7 +1316,7 @@ static void do_group (char **args)
 		index++;
 	}
 
-	close_pager (out);
+	close_pager(out);
 
 	return ;
 }
@@ -1319,11 +1340,7 @@ static int dirblocks_proxy(ocfs2_filesys *fs, uint64_t blkno,
 	return 0;
 }
 
-/*
- * do_dirblocks()
- *
- */
-static void do_dirblocks (char **args)
+static void do_dirblocks(char **args)
 {
 	uint64_t ino_blkno;
 	errcode_t ret = 0;
@@ -1366,11 +1383,7 @@ static void do_dirblocks (char **args)
 	ocfs2_free(&ctxt.buf);
 }
 
-/*
- * do_dx_root()
- *
- */
-static void do_dx_root (char **args)
+static void do_dx_root(char **args)
 {
 	struct ocfs2_dx_root_block *dx_root;
 	uint64_t blkno;
@@ -1388,7 +1401,7 @@ static void do_dx_root (char **args)
 	if (ret) {
 		com_err(args[0], ret, "while reading dx dir root "
 			"block %"PRIu64"", blkno);
-		close_pager (out);
+		close_pager(out);
 		return;
 	}
 
@@ -1401,11 +1414,7 @@ static void do_dx_root (char **args)
 	return;
 }
 
-/*
- * do_dx_leaf()
- *
- */
-static void do_dx_leaf (char **args)
+static void do_dx_leaf(char **args)
 {
 	struct ocfs2_dx_leaf *dx_leaf;
 	uint64_t blkno;
@@ -1423,7 +1432,7 @@ static void do_dx_leaf (char **args)
 	if (ret) {
 		com_err(args[0], ret, "while reading dx dir leaf "
 			"block %"PRIu64"", blkno);
-		close_pager (out);
+		close_pager(out);
 		return;
 	}
 
@@ -1435,11 +1444,7 @@ static void do_dx_leaf (char **args)
 	return;
 }
 
-/*
- * do_dx_dump()
- *
- */
-static void do_dx_dump (char **args)
+static void do_dx_dump(char **args)
 {
 	struct ocfs2_dinode *inode;
 	uint64_t ino_blkno;
@@ -1457,7 +1462,7 @@ static void do_dx_dump (char **args)
 	if (ret) {
 		com_err(args[0], ret, "while reading inode %"PRIu64"",
 			ino_blkno);
-		close_pager (out);
+		close_pager(out);
 		return ;
 	}
 
@@ -1470,11 +1475,7 @@ static void do_dx_dump (char **args)
 	return;
 }
 
-/*
- * do_dx_space()
- *
- */
-static void do_dx_space (char **args)
+static void do_dx_space(char **args)
 {
 	struct ocfs2_dinode *inode;
 	struct ocfs2_dx_root_block *dx_root;
@@ -1527,11 +1528,7 @@ out:
 	return;
 }
 
-/*
- * do_extent()
- *
- */
-static void do_extent (char **args)
+static void do_extent(char **args)
 {
 	struct ocfs2_extent_block *eb;
 	uint64_t blkno;
@@ -1560,11 +1557,7 @@ static void do_extent (char **args)
 	return ;
 }
 
-/*
- * do_slotmap()
- *
- */
-static void do_slotmap (char **args)
+static void do_slotmap(char **args)
 {
 	FILE *out;
 	errcode_t ret;
@@ -1586,8 +1579,8 @@ static void do_slotmap (char **args)
 	}
 
 	out = open_pager(gbls.interactive);
-	dump_slots (out, se, sm, num_slots);
-	close_pager (out);
+	dump_slots(out, se, sm, num_slots);
+	close_pager(out);
 
 bail:
 	if (sm)
@@ -1596,10 +1589,6 @@ bail:
 	return ;
 }
 
-/*
- * do_rdump()
- *
- */
 static void do_rdump(char **args)
 {
 	uint64_t blkno;
@@ -1693,7 +1682,7 @@ static void do_rdump(char **args)
  * This function only encodes the Super and the Inode lock. For the
  * rest, use the --encode parameter directly.
  */
-static void do_encode_lockres (char **args)
+static void do_encode_lockres(char **args)
 {
 	struct ocfs2_dinode *inode = (struct ocfs2_dinode *)gbls.blockbuf;
 	uint64_t blkno;
@@ -1728,10 +1717,6 @@ static void do_encode_lockres (char **args)
 	return ;
 }
 
-/*
- * do_decode_lockres()
- *
- */
 static void do_decode_lockres(char **args)
 {
 	uint64_t blkno[MAX_BLOCKS];
@@ -1746,10 +1731,6 @@ static void do_decode_lockres(char **args)
 		printf("\t%s\t%"PRIu64"\n", args[i + 1], blkno[i]);
 }
 
-/*
- * do_locate()
- *
- */
 static void do_locate(char **args)
 {
 	uint64_t blkno[MAX_BLOCKS];
@@ -1766,10 +1747,6 @@ static void do_locate(char **args)
 	find_inode_paths(gbls.fs, args, findall, count, blkno, stdout);
 }
 
-/*
- * do_dlm_locks()
- *
- */
 static void do_dlm_locks(char **args)
 {
 	FILE *out;
@@ -1819,10 +1796,6 @@ static void do_dlm_locks(char **args)
 	free_stringlist(&locklist);
 }
 
-/*
- * do_dump_fs_locks()
- *
- */
 static void do_fs_locks(char **args)
 {
 	FILE *out;
@@ -1875,10 +1848,6 @@ static void do_fs_locks(char **args)
 	free_stringlist(&locklist);
 }
 
-/*
- * do_bmap()
- *
- */
 static void do_bmap(char **args)
 {
 	struct ocfs2_dinode *inode;
@@ -1976,12 +1945,14 @@ static void do_icheck(char **args)
 	for (i = 0; i < MAX_BLOCKS && args[i + 1]; ++i) {
 		blkno[i] = strtoull(args[i + 1], &endptr, 0);
 		if (*endptr) {
-			com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %s", args[i + 1]);
+			com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %s",
+				args[i + 1]);
 			return;
 		}
 
 		if (blkno[i] >= gbls.max_blocks) {
-			com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"", blkno[i]);
+			com_err(args[0], OCFS2_ET_BAD_BLKNO, "- %"PRIu64"",
+				blkno[i]);
 			return;
 		}
 	}
@@ -1995,10 +1966,6 @@ static void do_icheck(char **args)
 	return;
 }
 
-/*
- * do_xattr()
- *
- */
 static void do_xattr(char **args)
 {
 	struct ocfs2_dinode *inode;
