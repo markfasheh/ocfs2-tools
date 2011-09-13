@@ -17,7 +17,9 @@ CFILES = o2hbmonitor.c
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-DIST_FILES = $(CFILES) $(HFILES)
+MANS = o2hbmonitor.8
+
+DIST_FILES = $(CFILES) $(HFILES) o2hbmonitor.8.in
 
 o2hbmonitor: $(OBJS)
 	$(LINK)

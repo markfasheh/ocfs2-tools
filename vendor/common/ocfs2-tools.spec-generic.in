@@ -145,6 +145,7 @@ fi
 /usr/share/man/man8/o2image.8.gz
 /usr/share/man/man7/o2cb.7.gz
 /usr/share/man/man1/o2info.1.gz
+/usr/share/man/man8/o2hbmonitor.8.gz
 
 
 %if %{build_ocfs2console}

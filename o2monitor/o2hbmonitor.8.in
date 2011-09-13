@@ -1,0 +1,48 @@
+.TH "o2hbmonitor" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+o2hbmonitor \- Monitors disk heartbeat in the O2CB cluster stack
+.SH "SYNOPSIS"
+\fBo2hbmonitor\fR [\fB\-w\fR percent] [\fB\-ivV\fR]
+.SH "DESCRIPTION"
+.PP 
+\fBo2hbmonitor\fR is a utility to monitor the disk heartbeat in the \fBo2cb\fR
+cluster stack. It tracks the time elapsed since the last heartbeat and logs messages
+once it exceeds the warn threshold.
+
+By default, it runs as a daemon and logs messages to the system logger. It can be
+started at any time and stopped using \fBkill(1)\fR. It does not affect the functioning
+of the heartbeat thread. It is typically automatically started during cluster online and
+stopped during cluster offline by the \fIo2cb\fR init script.
+
+This utility expects the \fBdebugfs\fR file system to be mounted at \fB/sys/kernel/debug\fR.
+
+.SH "OPTIONS"
+.TP
+\fB\-w\fR percent
+Warn threshold percent. It is the percentage of the idle threshold. It defaults to 50%.
+
+.TP
+\fB\-i\fR
+Interactive mode. It works as a daemon by default. This mode is typically only used
+for debugging.
+
+.TP
+\fB\-v\fR
+Verbose mode. It logs messages only to the system logger by default. In this mode it also
+logs the messages to stdout.
+
+.TP
+\fB\-V\fR
+Displays version.
+
+.SH "NOTES"
+This utility works with Linux kernel \fB2.6.37\fR and later.
+
+.SH "SEE ALSO"
+.BR o2cb(7)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2010, 2011 Oracle. All rights reserved.
