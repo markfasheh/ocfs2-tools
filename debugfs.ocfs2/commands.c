@@ -71,6 +71,7 @@ static void do_lcd(char **args);
 static void do_locate(char **args);
 static void do_logdump(char **args);
 static void do_ls(char **args);
+static void do_net_stats(char **args);
 static void do_open(char **args);
 static void do_quit(char **args);
 static void do_rdump(char **args);
@@ -226,6 +227,11 @@ static struct command commands[] = {
 		do_ls,
 		"ls [-l] <filespec>",
 		"List directory",
+	},
+	{ "net_stats",
+		do_net_stats,
+		"net_stats [interval [count]]",
+		"Show net statistics",
 	},
 	{ "ncheck",
 		do_locate,
@@ -2178,6 +2184,25 @@ static void do_refcount(char **args)
 	walk_refcount_block(out, rb, extent_tree);
 
 	close_pager(out);
+}
+
+static void do_net_stats(char **args)
+{
+	int interval = 0, count = 0;
+	char *net_stats_usage = "usage: net_stats [interval [count]]";
+	char *endptr;
+
+	if (args[1]) {
+		interval = strtoul(args[1], &endptr, 0);
+		if (!*endptr && args[2])
+			count = strtoul(args[2], &endptr, 0);
+		if (*endptr) {
+			fprintf(stderr, "%s\n", net_stats_usage);
+			return ;
+		}
+	}
+
+	dump_net_stats(stdout, interval, count);
 }
 
 static void do_stat_sysdir(char **args)

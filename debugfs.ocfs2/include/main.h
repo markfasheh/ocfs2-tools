@@ -110,6 +110,13 @@ struct dbgfs_opts {
 #undef min
 #define min(a,b)	((a) < (b) ? (a) : (b))
 
+#define dbfs_swap(a, b)			\
+	do {				\
+		typeof(a) c = (a);	\
+		(a) = (b);		\
+		(b) = c;		\
+	} while (0);
+
 /* remaining headers */
 #include <commands.h>
 #include "ocfs2-kernel/kernel-list.h"
@@ -121,5 +128,6 @@ struct dbgfs_opts {
 #include <dump_dlm_locks.h>
 #include <dump.h>
 #include <stat_sysdir.h>
+#include <dump_net_stats.h>
 
 #endif		/* __MAIN_H__ */
