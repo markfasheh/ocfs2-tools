@@ -105,7 +105,9 @@ libocfs2.a: $(OBJS)
 	$(AR) r $@ $^
 	$(RANLIB) $@
 
-DIST_FILES = $(CFILES) $(HFILES) ocfs2_err.et
+MANS = ocfs2.7
+
+DIST_FILES = $(CFILES) $(HFILES) ocfs2_err.et ocfs2.7.in
 
 CLEAN_RULES = clean-err
 
