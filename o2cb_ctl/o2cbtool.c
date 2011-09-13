@@ -226,6 +226,17 @@ static void parse_options(int argc, char *argv[], struct o2cb_command **cmd)
 	exit(1);
 }
 
+/* Call this with SIG_BLOCK to block and SIG_UNBLOCK to unblock */
+void o2cbtool_block_signals(int how)
+{
+     sigset_t sigs;
+
+     sigfillset(&sigs);
+     sigdelset(&sigs, SIGTRAP);
+     sigdelset(&sigs, SIGSEGV);
+     sigprocmask(how, &sigs, NULL);
+}
+
 errcode_t o2cbtool_init_cluster_stack(void)
 {
 	errcode_t ret;

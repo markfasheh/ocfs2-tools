@@ -276,6 +276,8 @@ errcode_t o2cbtool_register_cluster(struct o2cb_command *cmd)
 	errcode_t ret = -1;
 	gchar *clustername;
 
+	o2cbtool_block_signals(SIG_BLOCK);
+
 	if (cmd->o_argc < 2)
 		goto bail;
 
@@ -315,6 +317,7 @@ errcode_t o2cbtool_register_cluster(struct o2cb_command *cmd)
 
 	verbosef(VL_APP, "Cluster '%s' registered\n", clustername);
 bail:
+	o2cbtool_block_signals(SIG_UNBLOCK);
 	return ret;
 }
 
@@ -379,6 +382,8 @@ errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd)
 	errcode_t ret = -1;
 	gchar *clustername;
 
+	o2cbtool_block_signals(SIG_BLOCK);
+
 	if (cmd->o_argc < 2)
 		goto bail;
 
@@ -415,5 +420,6 @@ errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd)
 	verbosef(VL_APP, "Cluster '%s' unregistered\n", clustername);
 
 bail:
+	o2cbtool_block_signals(SIG_UNBLOCK);
 	return ret;
 }

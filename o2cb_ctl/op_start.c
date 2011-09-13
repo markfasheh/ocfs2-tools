@@ -133,6 +133,8 @@ static errcode_t start_global_heartbeat(O2CBCluster *cluster, char *clustername)
 	struct o2cb_device *od;
 	errcode_t ret;
 
+	o2cbtool_block_signals(SIG_BLOCK);
+
 	INIT_LIST_HEAD(&hbdevs);
 	ret = get_region_descs(cluster, &hbdevs);
 	if (ret)
@@ -152,6 +154,7 @@ static errcode_t start_global_heartbeat(O2CBCluster *cluster, char *clustername)
 		goto bail;
 
 bail:
+	o2cbtool_block_signals(SIG_UNBLOCK);
 	free_region_descs(&hbdevs, !!ret);
 	return ret;
 }
@@ -263,6 +266,8 @@ static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername,
 	gchar **regions = NULL;
 	int i;
 
+	o2cbtool_block_signals(SIG_BLOCK);
+
 	ret = _fake_default_cluster_desc(&cluster_desc);
 	if (ret) {
 		tcom_err(ret, "while looking up the active cluster");
@@ -319,6 +324,7 @@ static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername,
 	ret = 0;
 
 bail:
+	o2cbtool_block_signals(SIG_UNBLOCK);
 	if (regions)
 		o2cb_free_hb_regions_list(regions);
 	free(cluster_desc.c_stack);
