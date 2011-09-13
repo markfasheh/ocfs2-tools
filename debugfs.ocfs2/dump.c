@@ -695,7 +695,7 @@ void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
 	else
 		fprintf(out, "\n");
 
-	fprintf(out, "Flags: (0x%x) %s\n", dr->dr_flags, flags->str);
+	fprintf(out, "\tFlags: (0x%x) %s\n", dr->dr_flags, flags->str);
 
 	fprintf(out, "\tTotal Entry Count: %d\n", dr->dr_num_entries);
 
