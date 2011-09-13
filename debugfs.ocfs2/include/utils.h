@@ -45,6 +45,7 @@ void get_cluster_info_flag(struct ocfs2_super_block *sb, char *buf,
 			   size_t count);
 void get_journal_block_type (uint32_t jtype, GString *str);
 void get_tag_flag (uint32_t flags, GString *str);
+void ctime_nano(struct timespec *t, char *buf, int buflen);
 FILE *open_pager(int interactive);
 void close_pager(FILE *stream);
 int inodestr_to_inode(char *str, uint64_t *blkno);

@@ -258,6 +258,8 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 	GString *flags = NULL;
 	GString *dyn_features = NULL;
 	char tmp_str[30];
+	struct timespec ts;
+	char timebuf[50];
 	time_t tm;
 
 	if (S_ISREG(in->i_mode))
@@ -345,21 +347,21 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 
 	fprintf(out, "\tLinks: %u   Clusters: %u\n", in->i_links_count, in->i_clusters);
 
-	tm = (time_t)in->i_ctime;
-	fprintf(out, "\tctime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
-	tm = (time_t)in->i_atime;
-	fprintf(out, "\tatime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
-	tm = (time_t)in->i_mtime;
-	fprintf(out, "\tmtime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
+#define SHOW_TIME(str, sec, nsec)							\
+	do {										\
+		ts.tv_sec = (sec); ts.tv_nsec = (nsec);					\
+		ctime_nano(&ts, timebuf, sizeof(timebuf));				\
+		fprintf(out, "\t%s: 0x%"PRIx64" 0x%x -- %s", (str), (uint64_t)(sec),	\
+			(nsec), timebuf);						\
+	} while (0)
+
+	SHOW_TIME("ctime", in->i_ctime, in->i_ctime_nsec);
+	SHOW_TIME("atime", in->i_atime, in->i_atime_nsec);
+	SHOW_TIME("mtime", in->i_mtime, in->i_mtime_nsec);
+#undef SHOW_TIME
+
 	tm = (time_t)in->i_dtime;
 	fprintf(out, "\tdtime: 0x%"PRIx64" -- %s", (uint64_t)tm, ctime(&tm));
-
-	fprintf(out, "\tctime_nsec: 0x%08"PRIx32" -- %u\n",
-		in->i_ctime_nsec, in->i_ctime_nsec);
-	fprintf(out, "\tatime_nsec: 0x%08"PRIx32" -- %u\n",
-		in->i_atime_nsec, in->i_atime_nsec);
-	fprintf(out, "\tmtime_nsec: 0x%08"PRIx32" -- %u\n",
-		in->i_mtime_nsec, in->i_mtime_nsec);
 
 	fprintf(out, "\tRefcount Block: %"PRIu64"\n",
 		(uint64_t)in->i_refcount_loc);

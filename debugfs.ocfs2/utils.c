@@ -150,6 +150,26 @@ done:
 }
 
 /*
+ * Adds nanosec to the ctime output. eg. Tue Jul 19 13:36:52.123456 2011
+ * On error, returns an empty string.
+ */
+void ctime_nano(struct timespec *t, char *buf, int buflen)
+{
+	time_t sec;
+	char tmp[26], *p;
+
+	sec = (time_t)t->tv_sec;
+	if (!ctime_r(&sec, tmp))
+		return;
+
+	/* Find the last space where we will append the nanosec */
+	if ((p = strrchr(tmp, ' '))) {
+		*p = '\0';
+		snprintf(buf, buflen, "%s.%ld %s", tmp, t->tv_nsec, ++p);
+	}
+}
+
+/*
  * open_pager() -- copied from e2fsprogs-1.32/debugfs/util.c
  * 
  * Copyright (C) 1993, 1994 Theodore Ts'o.  This file may be
