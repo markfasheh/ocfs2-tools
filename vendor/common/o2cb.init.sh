@@ -1430,6 +1430,8 @@ online_o2cb()
         return 1
     fi
 
+    o2hbmonitor 2>/dev/null
+
     return 0
 }
 
@@ -1564,6 +1566,8 @@ offline_o2cb()
         echo "Unable to stop cluster as heartbeat region still active" >&2
         exit 1
     fi
+
+    killall -e o2hbmonitor 2>/dev/null
 
     # ignoring force-offline as this should be enough
 
