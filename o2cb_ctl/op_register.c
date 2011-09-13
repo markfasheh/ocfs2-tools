@@ -302,10 +302,13 @@ errcode_t o2cbtool_register_cluster(struct o2cb_command *cmd)
 	if (ret)
 		goto bail;
 
+	verbosef(VL_DEBUG, "Registering heartbeat mode in cluster '%s'\n",
+		 clustername);
 	ret = register_heartbeat_mode(cluster, clustername);
 	if (ret)
 		goto bail;
 
+	verbosef(VL_DEBUG, "Registering nodes in cluster '%s'\n", clustername);
 	ret = register_nodes(cluster, clustername);
 	if (ret)
 		goto bail;
@@ -393,15 +396,18 @@ errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd)
 	if (ret)
 		goto bail;
 
-	verbosef(VL_DEBUG, "Unregistering cluster '%s'\n", clustername);
+	verbosef(VL_DEBUG, "Looking up cluster '%s'\n", clustername);
 	ret = proceed_unregister(clustername);
 	if (ret)
 		goto bail;
 
+	verbosef(VL_DEBUG, "Unregistering nodes in cluster '%s'\n",
+		 clustername);
 	ret = unregister_nodes(cluster, clustername, 0);
 	if (ret)
 		goto bail;
 
+	verbosef(VL_DEBUG, "Unregistering cluster '%s'\n", clustername);
 	ret = unregister_cluster(clustername);
 	if (ret)
 		goto bail;
