@@ -66,7 +66,7 @@ errcode_t o2cbtool_cluster_status(struct o2cb_command *cmd)
 		goto bail;
 
 	/* Get active clustername */
-	err = get_active_clustername(clustername, sizeof(clustername));
+	err = get_active_clustername(clustername, OCFS2_CLUSTER_NAME_LEN);
 	if (err)
 		goto bail;
 

@@ -111,11 +111,12 @@ bail:
 }
 
 /*
- * With only_missing set, it unregisters only nodes that are either no longer
- * in the config file or are in the config file but with differring attributes.
+ * unregister_nodes()
+ * If cluster != NULL, unregister nodes that are _no_ longer in the config file,
+ * or, are in it with different attributes.
+ * If cluster == NULL, unregister all nodes.
  */
-static errcode_t unregister_nodes(O2CBCluster *cluster, gchar *clustername,
-				  int only_missing)
+static errcode_t unregister_nodes(O2CBCluster *cluster, gchar *clustername)
 {
 	errcode_t ret;
 	char **nodenames = NULL;
@@ -128,8 +129,8 @@ static errcode_t unregister_nodes(O2CBCluster *cluster, gchar *clustername,
 	if (!nodenames)
 		goto bail;
 
-	while(nodenames[i] && *(nodenames[i])) {
-		if (only_missing) {
+	while (nodenames[i] && *(nodenames[i])) {
+		if (cluster) {
 			ret = compare_node_attributes(cluster, clustername,
 						      nodenames[i], &different);
 			if (ret) {
@@ -172,7 +173,7 @@ static errcode_t register_nodes(O2CBCluster *cluster, gchar *clustername)
 	gchar s_port[16], s_nodenum[16], s_local[16];
 
 	/* Unregister nodes that have been removed/changed in config */
-	ret = unregister_nodes(cluster, clustername, 1);
+	ret = unregister_nodes(cluster, clustername);
 	if (ret)
 		goto bail;
 
@@ -324,7 +325,6 @@ bail:
 static errcode_t proceed_unregister(char *name)
 {
 	gchar **clusternames = NULL, **regions = NULL;
-	int foundit = 0;
 	errcode_t ret;
 
 	/* lookup the registered cluster */
@@ -338,16 +338,8 @@ static errcode_t proceed_unregister(char *name)
 		goto bail;
 
 	/* check if name matches to the registered cluster */
-	while(clusternames[0] && *(clusternames[0])) {
-		if (!strcmp(clusternames[0], name)) {
-			foundit = 1;
-			break;
-		}
-	}
-
-	/* if not, exit */
-	if (!foundit) {
-		errorf("Cluster '%s' not active\n", name);
+	if (!clusternames[0] || strcmp(clusternames[0], name)) {
+		errorf("Cluster '%s' is not active\n", name);
 		ret = -1;
 		goto bail;
 	}
@@ -378,7 +370,6 @@ bail:
  */
 errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd)
 {
-	O2CBCluster *cluster;
 	errcode_t ret = -1;
 	gchar *clustername;
 
@@ -391,12 +382,6 @@ errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd)
 
 	clustername = cmd->o_argv[1];
 
-	cluster = o2cb_config_get_cluster_by_name(cmd->o_config, clustername);
-	if (!cluster) {
-		errorf("Unknown cluster '%s'\n", clustername);
-		goto bail;
-	}
-
 	ret = o2cbtool_init_cluster_stack();
 	if (ret)
 		goto bail;
@@ -408,7 +393,7 @@ errcode_t o2cbtool_unregister_cluster(struct o2cb_command *cmd)
 
 	verbosef(VL_DEBUG, "Unregistering nodes in cluster '%s'\n",
 		 clustername);
-	ret = unregister_nodes(cluster, clustername, 0);
+	ret = unregister_nodes(NULL, clustername);
 	if (ret)
 		goto bail;
 

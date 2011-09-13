@@ -22,8 +22,7 @@
 
 extern const char *stackname;
 
-static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername,
-				       int only_missing);
+static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername);
 
 static void stop_heartbeat(struct o2cb_device *od)
 {
@@ -149,7 +148,7 @@ static errcode_t start_global_heartbeat(O2CBCluster *cluster, char *clustername)
 	}
 
 	verbosef(VL_DEBUG, "Stop heartbeat on devices removed from config\n");
-	ret = stop_global_heartbeat(cluster, clustername, 1);
+	ret = stop_global_heartbeat(cluster, clustername);
 	if (ret)
 		goto bail;
 
@@ -256,14 +255,20 @@ static errcode_t _fake_region_desc(struct o2cb_region_desc *region_desc,
 	return 0;
 }
 
-static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername,
-				       int only_missing)
+/*
+ * stop_global_heartbeat()
+ * If cluster != NULL, stop heartbeat on regions that are _no_ longer
+ * in the configuration.
+ * If cluster == NULL, stop heartbeat on all regions.
+ */
+static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername)
 {
 	struct o2cb_cluster_desc cluster_desc = { NULL, NULL };
 	struct o2cb_region_desc region_desc = { NULL, };
 	O2CBHeartbeat *hb;
 	errcode_t ret;
 	gchar **regions = NULL;
+	int global = 0;
 	int i;
 
 	o2cbtool_block_signals(SIG_BLOCK);
@@ -275,10 +280,25 @@ static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername,
 	}
 
 	if (strcmp(cluster_desc.c_cluster, clustername)) {
-		errorf("Cluster %s is not active\n", clustername);
+		errorf("Cluster '%s' is not active\n", clustername);
 		ret = -1;
 		goto bail;
 	}
+
+	verbosef(VL_DEBUG, "Checking heartbeat mode\n");
+
+	ret = o2cb_global_heartbeat_mode(clustername, &global);
+	if (ret) {
+		tcom_err(ret, "while stopping heartbeat");
+		goto bail;
+	}
+
+	if (!global) {
+		verbosef(VL_DEBUG, "Global heartbeat not enabled\n");
+		goto bail;
+	}
+
+	verbosef(VL_DEBUG, "Global heartbeat enabled\n");
 
 	verbosef(VL_DEBUG, "Looking up active heartbeat regions\n");
 
@@ -293,7 +313,7 @@ static errcode_t stop_global_heartbeat(O2CBCluster *cluster, char *clustername,
 		if (!regions[i] || !(*(regions[i])))
 			continue;
 
-		if (only_missing) {
+		if (cluster) {
 			hb = o2cb_cluster_get_heartbeat_by_region(cluster,
 								  regions[i]);
 			if (hb)
@@ -339,10 +359,8 @@ bail:
  */
 errcode_t o2cbtool_stop_heartbeat(struct o2cb_command *cmd)
 {
-	O2CBCluster *cluster;
 	int ret = -1;
 	gchar *clustername;
-	int global = 0;
 
 	if (cmd->o_argc < 2)
 		goto bail;
@@ -351,37 +369,11 @@ errcode_t o2cbtool_stop_heartbeat(struct o2cb_command *cmd)
 
 	clustername = cmd->o_argv[1];
 
-	cluster = o2cb_config_get_cluster_by_name(cmd->o_config, clustername);
-	if (!cluster) {
-		errorf("Unknown cluster '%s'\n", clustername);
-		goto bail;
-	}
-
 	ret = o2cbtool_init_cluster_stack();
 	if (ret)
 		goto bail;
 
-	if (!is_cluster_registered(clustername)) {
-		errorf("Cluster '%s' not registered\n", clustername);
-		goto bail;
-	}
-
-	verbosef(VL_DEBUG, "Checking heartbeat mode\n");
-
-	ret = o2cb_global_heartbeat_mode(clustername, &global);
-	if (ret) {
-		tcom_err(ret, "while stopping heartbeat");
-		goto bail;
-	}
-
-	if (!global) {
-		verbosef(VL_DEBUG, "Global heartbeat not enabled\n");
-		goto bail;
-	}
-
-	verbosef(VL_DEBUG, "Global heartbeat enabled\n");
-
-	ret = stop_global_heartbeat(cluster, clustername, 0);
+	ret = stop_global_heartbeat(NULL, clustername);
 	if (ret)
 		goto bail;
 
