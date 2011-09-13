@@ -37,9 +37,9 @@ HFILES = o2cb_config.h jconfig.h jiterator.h o2cbtool.h o2cb_scandisk.h
 
 CFILES = $(O2CB_CTL_CFILES) $(O2CB_CFILES)
 
-MANS = o2cb_ctl.8 o2cb.8
+MANS = o2cb_ctl.8 o2cb.8 ocfs2.cluster.conf.5
 
-DIST_FILES = $(CFILES) $(HFILES) o2cb_ctl.8.in o2cb.8.in
+DIST_FILES = $(CFILES) $(HFILES) o2cb_ctl.8.in o2cb.8.in ocfs2.cluster.conf.5.in
 
 DIST_RULES = dist-subdircreate
 

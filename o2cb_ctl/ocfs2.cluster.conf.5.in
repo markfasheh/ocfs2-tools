@@ -1,0 +1,141 @@
+.TH "/etc/ocfs2/cluster.conf" "5" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+/etc/ocfs2/cluster.conf \- Cluster configuration file for the \fBo2cb\fR cluster stack.
+.SH "SYNOPSIS"
+.PP
+The cluster layout of the \fBo2cb\fR cluster stack is specified in \fI/etc/ocfs2/cluster.conf\fR.
+It lists the name of the cluster, the nodes comprising that cluster and its heartbeat regions.
+The cluster stack expects this file to be the same on all nodes in that cluster.
+
+This file should be populated using the \fBo2cb(8)\fR cluster configuration utility. A sample
+of the same is shown in the example section.
+
+.SH "DESCRIPTION"
+The configuration file is divided into three types of stanzas, each with a list of parameters
+and values. The three stanza types are \fIcluster\fR, \fInode\fR and \fIheartbeat\fR. While a
+configuration file can store definitions of multiple clusters, the \fBo2cb\fR cluster stack
+allows only one cluster to be active at any one time. The name of this active cluster is stored
+in /etc/sysconfig/o2cb [\fBo2cb.sysconfig(5)\fR].
+
+The \fBcluster stanza\fR specifies the name of the cluster, number of nodes and the heartbeat mode.
+The cluster name can include upto 16 alphanumeric characters [0-9A-Za-z]. No special characters
+are allowed.
+
+.TS
+CENTER ALLBOX;
+LB LB
+LB L.
+Parameters	Description
+node_count	Number of nodes in the cluster
+heartbeat_mode	\fBlocal\fR or \fBglobal\fR heartbeat
+name	Cluster name (upto 16 alphanumeric chars [0-9A-Za-z])
+.TE
+.BR
+
+The \fBnode stanza\fR specifies the node name that is part of the cluster alongwith its
+IPv4 address, port and node number.  The node name must match the hostname. The domain
+name is not required. For example, appserver1.company.com can be appserver1. The IPv4
+address need not be the one associated with that hostname. As in, any valid IPv4 address
+on that node can be used. The \fBo2cb\fR cluster stack will not attempt to match the
+node name (hostname) with the specified IPv4 address. A low-latency private interconnect
+address is recommended for best performance.
+
+.TS
+CENTER ALLBOX;
+LB LB
+LB L.
+Parameters	Description
+ip_port	IPv4 port
+ip_address	IPv4 address (private interconnect recommended)
+number	Node number (0 - 254)
+name	Node name (\fIhostname\fR without the domain name)
+cluster	Cluster name (should match the name in the cluster stanza)
+.TE
+.BR
+
+The \fBheartbeat stanza\fR specifies the global heartbeat region UUIDs. A cluster can have
+upto 32 heartbeat regions. This is an optional stanza and is only required if the global
+heartbeat mode is enabled. In other words, the regions are only used if \fBheartbeat_mode = global\fR
+is in the \fIcluster\fR stanza. If not, this stanza is ignored.
+
+.TS
+CENTER ALLBOX;
+LB LB
+LB L.
+Parameters	Description
+region	Heartbeat region UUID
+cluster	Cluster name (should match the name in the cluster stanza)
+.TE
+.BR
+
+While manual editing is not recommended, users doing so must follow the format strictly.
+The stanza should start at the first column and end with a colon. The parameters
+must start after a tab. A blank line must demarcate each stanza. Care should be taken
+to avoid stray white-spaces.
+
+.SH "EXAMPLE"
+The example below illustrates populating a cluster.conf with a cluster called webcluster,
+having 3 nodes and 3 global heartbeat regions, using the \fBo2cb(8)\fR utility.
+
+.in +4n
+.nf
+.sp
+$ \fBo2cb add-cluster webcluster\fR
+$ \fBo2cb add-node webcluster node7 --ip 192.168.0.107 --number 7\fR
+$ \fBo2cb add-node webcluster node6 --ip 192.168.0.106 --number 6\fR
+$ \fBo2cb add-node webcluster node10 --ip 192.168.0.110 --number 10\fR
+$ \fBo2cb add-heartbeat webcluster /dev/sdg1\fR
+$ \fBo2cb add-heartbeat webcluster /dev/sdk1\fR
+$ \fBo2cb add-heartbeat webcluster /dev/sdh1\fR
+$ \fBo2cb heartbeat-mode webcluster global\fR
+$ \fBo2cb list-cluster webcluster\fR
+heartbeat:
+        region = 77D95EF51C0149D2823674FCC162CF8B
+        cluster = webcluster
+
+heartbeat:
+        region = DCDA2845177F4D59A0F2DCD8DE507CC3
+        cluster = webcluster
+
+heartbeat:
+        region = BBA1DBD0F73F449384CE75197D9B7098
+        cluster = webcluster
+
+node:
+        ip_port = 7777
+        ip_address = 192.168.0.107
+        number = 7
+        name = node7
+        cluster = webcluster
+
+node:
+        ip_port = 7777
+        ip_address = 192.168.0.106
+        number = 6
+        name = node6
+        cluster = webcluster
+
+node:
+        ip_port = 7777
+        ip_address = 192.168.0.110
+        number = 10
+        name = node10
+        cluster = webcluster
+
+cluster:
+        node_count = 3
+        heartbeat_mode = global
+        name = webcluster
+.fi
+.in
+
+.SH "SEE ALSO"
+.BR o2cb(7)
+.BR o2cb(8)
+.BR o2cb.sysconfig(5)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2004, 2011 Oracle. All rights reserved.
