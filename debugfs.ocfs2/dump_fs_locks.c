@@ -225,11 +225,12 @@ static void dump_meta_lvb(const char *raw_lvb, FILE *out)
 }
 
 /* 0 = eof, > 0 = success, < 0 = error */
-static int dump_version_two(FILE *file, FILE *out)
+static int dump_version_two_and_three(FILE *file, FILE *out, int v3)
 {
 	unsigned long long num_prmode, num_exmode;
 	unsigned int num_prmode_failed, num_exmode_failed;
 	unsigned long long  total_prmode, total_exmode;
+	unsigned long long  avg_prmode = 0, avg_exmode = 0;
 	unsigned int max_prmode, max_exmode, num_refresh;
 	int ret;
 
@@ -258,14 +259,25 @@ static int dump_version_two(FILE *file, FILE *out)
 		goto out;
 	}
 
-	fprintf(out, "PR > Gets: %llu  Fails: %u    Waits (usec) Total: %llu  "
-		"Max: %u\n",
+	if (!v3) {
+		max_prmode /= NSEC_PER_USEC;
+		max_exmode /= NSEC_PER_USEC;
+	}
+
+	if (num_prmode)
+		avg_prmode = total_prmode/num_prmode;
+
+	if (num_exmode)
+		avg_exmode = total_exmode/num_exmode;
+
+	fprintf(out, "PR > Gets: %llu  Fails: %u    Waits Total: %lluus  "
+		"Max: %uus  Avg: %lluns\n",
 		num_prmode, num_prmode_failed, total_prmode/NSEC_PER_USEC,
-		max_prmode/NSEC_PER_USEC);
-	fprintf(out, "EX > Gets: %llu  Fails: %u    Waits (usec) Total: %llu  "
-		"Max: %u\n",
+		max_prmode, avg_prmode);
+	fprintf(out, "EX > Gets: %llu  Fails: %u    Waits Total: %lluus  "
+		"Max: %uus  Avg: %lluns\n",
 		num_exmode, num_exmode_failed, total_exmode/NSEC_PER_USEC,
-		max_exmode/NSEC_PER_USEC);
+		max_exmode, avg_exmode);
 	fprintf(out, "Disk Refreshes: %u\n", num_refresh);
 
 	ret = 1;
@@ -376,13 +388,13 @@ static int end_line(FILE *f)
 	return 0;
 }
 
-#define CURRENT_PROTO 2
+#define CURRENT_PROTO 3
 /* returns 0 on error or end of file */
 static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy,
 			    struct list_head *locklist)
 {
 	unsigned int version;
-	int ret;
+	int ret, v3;
 	int skipped = 0;
 
 	ret = fscanf(file, "%x\t", &version);
@@ -400,8 +412,9 @@ static int dump_one_lockres(FILE *file, FILE *out, int lvbs, int only_busy,
 		return 0;
 
 	if (!skipped) {
-		if (version == CURRENT_PROTO) {
-			ret = dump_version_two(file, out);
+		if (version > 1) {
+			v3 = !!(version == 3);
+			ret = dump_version_two_and_three(file, out, v3);
 			if (ret <= 0)
 				return 0;
 		}
