@@ -16,12 +16,15 @@ $(patsubst %.sh,%,$(SCRIPT_SH)) : % : %.sh
 
 ALL_RULES = $(SCRIPTS)
 
+MANS = o2cb.sysconfig.5
+
 DIST_FILES =					\
 	$(SCRIPT_SH)				\
 	o2cb.sysconfig				\
 	ocfs2.init				\
 	ocfs2-tools.spec-generic.in		\
 	51-ocfs2.rules				\
-	Vendor.make
+	Vendor.make				\
+	o2cb.sysconfig.5.in
 
 include $(TOPDIR)/Postamble.make

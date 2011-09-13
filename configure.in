@@ -444,6 +444,7 @@ o2info/o2info.1
 libo2cb/o2cb.7
 o2monitor/o2hbmonitor.8
 o2cb_ctl/ocfs2.cluster.conf.5
+vendor/common/o2cb.sysconfig.5
 vendor/common/ocfs2-tools.spec-generic
 ])
 

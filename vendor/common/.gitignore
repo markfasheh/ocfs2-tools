@@ -2,3 +2,4 @@ ocfs2-tools.spec
 ocfs2-tools.spec-generic
 *.sw?
 o2cb.init
+o2cb.sysconfig.5
