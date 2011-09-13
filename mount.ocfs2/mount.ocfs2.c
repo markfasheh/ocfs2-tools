@@ -112,7 +112,7 @@ static errcode_t add_mount_options(ocfs2_filesys *fs,
 	char stackstr[strlen(OCFS2_CLUSTER_STACK_ARG) + OCFS2_STACK_LABEL_LEN + 1];
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 
-	if (ocfs2_mount_local(fs)) {
+	if (ocfs2_mount_local(fs) || ocfs2_is_hard_readonly(fs)) {
 		add = OCFS2_HB_NONE;
 		goto addit;
 	}
@@ -243,24 +243,6 @@ static int process_options(struct mount_options *mo)
 	return 0;
 }
 
-static int check_dev_readonly(const char *dev, int *dev_ro)
-{
-	int fd;
-	int ret;
-
-	fd = open64(dev, O_RDONLY);
-	if (fd < 0)
-		return errno;
-
-	ret = ioctl(fd, BLKROGET, dev_ro);
-	if (ret < 0)
-		return errno;
-
-	close(fd);
-
-	return 0;
-}
-
 static int run_hb_ctl(const char *hb_ctl_path,
 		      const char *device, const char *arg)
 {
@@ -324,7 +306,6 @@ int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
 	struct mount_options mo;
-	int dev_ro = 0;
 	ocfs2_filesys *fs = NULL;
 	struct o2cb_cluster_desc cluster;
 	struct o2cb_region_desc desc;
@@ -364,6 +345,15 @@ int main(int argc, char **argv)
 
 	clustered = (0 == ocfs2_mount_local(fs));
 
+	if (ocfs2_is_hard_readonly(fs) && (clustered ||
+					   !(mo.flags & MS_RDONLY))) {
+		ret = OCFS2_ET_IO;
+		com_err(progname, ret,
+			"while mounting read-only device in %s mode",
+			(clustered ? "clustered" : "read-write"));
+		goto bail;
+	}
+
 	if (verbose)
 		printf("device=%s\n", mo.dev);
 
@@ -391,14 +381,6 @@ int main(int argc, char **argv)
 		desc.r_service = OCFS2_FS_NAME;
 	}
 
-	if (mo.flags & MS_RDONLY) {
-		ret = check_dev_readonly(mo.dev, &dev_ro);
-		if (ret) {
-			com_err(progname, ret, "device not accessible");
-			goto bail;
-		}
-	}
-
 	ret = add_mount_options(fs, &cluster, &mo.xtra_opts);
 	if (ret) {
 		com_err(progname, ret, "while adding mount options");
@@ -422,7 +404,7 @@ int main(int argc, char **argv)
 
 	block_signals (SIG_BLOCK);
 
-	if (!(mo.flags & MS_REMOUNT) && !dev_ro && clustered) {
+	if (clustered && !(mo.flags & MS_REMOUNT)) {
 		ret = o2cb_begin_group_join(&cluster, &desc);
 		if (ret) {
 			block_signals (SIG_UNBLOCK);

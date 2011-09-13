@@ -33,6 +33,7 @@
 #include <assert.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -40,6 +41,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/utsname.h>
+#include <linux/fs.h>
 #endif
 #include <sys/mman.h>
 #include <inttypes.h>
@@ -616,6 +618,17 @@ static errcode_t io_validate_o_direct(io_channel *channel)
 	}
 
 	return ret;
+}
+
+int io_is_device_readonly(io_channel *channel)
+{
+	errcode_t ret;
+	int dev_ro;
+
+	ret = ioctl(channel->io_fd, BLKROGET, &dev_ro);
+	if (ret >= 0 && dev_ro)
+		return 1;
+	return 0;
 }
 
 errcode_t io_open(const char *name, int flags, io_channel **channel)

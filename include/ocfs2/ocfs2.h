@@ -92,6 +92,7 @@
 #define OCFS2_FLAG_NO_ECC_CHECKS      0x0200	/* Do not validate metaecc
 						 * information on block
 						 * reads. */
+#define OCFS2_FLAG_HARD_RO            0x0400
 
 
 /* Return flags for the directory iterator functions */
@@ -291,6 +292,7 @@ errcode_t ocfs2_malloc_blocks(io_channel *channel, int num_blocks,
 			      void *ptr);
 errcode_t ocfs2_malloc_block(io_channel *channel, void *ptr);
 
+int io_is_device_readonly(io_channel *channel);
 errcode_t io_open(const char *name, int flags, io_channel **channel);
 errcode_t io_close(io_channel *channel);
 int io_get_error(io_channel *channel);
@@ -342,6 +344,7 @@ errcode_t ocfs2_read_blocks(ocfs2_filesys *fs, int64_t blkno, int count,
 			    char *data);
 errcode_t ocfs2_read_blocks_nocache(ocfs2_filesys *fs, int64_t blkno, int count,
 				    char *data);
+int ocfs2_is_hard_readonly(ocfs2_filesys *fs);
 int ocfs2_mount_local(ocfs2_filesys *fs);
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int blksize,

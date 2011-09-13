@@ -264,6 +264,11 @@ int ocfs2_mount_local(ocfs2_filesys *fs)
 	       OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT;
 }
 
+int ocfs2_is_hard_readonly(ocfs2_filesys *fs)
+{
+	return fs->fs_flags & OCFS2_FLAG_HARD_RO;
+}
+
 errcode_t ocfs2_open(const char *name, int flags,
 		     unsigned int superblock, unsigned int block_size,
 		     ocfs2_filesys **ret_fs)
@@ -306,6 +311,11 @@ errcode_t ocfs2_open(const char *name, int flags,
 			block_size = fs->ost->ost_fsblksz;
 	}
 
+	/* image file is not a device */
+	if (!(flags & OCFS2_FLAG_IMAGE_FILE)) {
+		if (io_is_device_readonly(fs->fs_io))
+			fs->fs_flags |= OCFS2_FLAG_HARD_RO;
+	}
 
 	/*
 	 * If OCFS2_FLAG_NO_REV_CHECK is specified, fsck (or someone
