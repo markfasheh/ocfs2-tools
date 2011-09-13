@@ -10,3 +10,4 @@ find_allocation_fragments
 compute_groups
 check_metaecc
 *.d
+resize_slotmap
