@@ -57,7 +57,6 @@ DIST_FILES = \
 	CREDITS					\
 	MAINTAINERS				\
 	README					\
-	README.O2CB				\
 	Config.make.in				\
 	Preamble.make				\
 	Postamble.make				\
@@ -78,8 +77,6 @@ DIST_FILES = \
 	svnrev.guess				\
 	Vendor.make				\
 	vendor.guess				\
-	documentation/ocfs2_faq.txt		\
-	documentation/users_guide.txt		\
 	documentation/samples/cluster.conf	\
 	$(PKGCONFIG_SOURCES)			\
 	$(DEBIAN_FILES)

@@ -115,8 +115,7 @@ fi
 
 %files
 %defattr(-,root,root)
-%doc README.O2CB COPYING CREDITS MAINTAINERS
-%doc documentation/users_guide.txt
+%doc COPYING CREDITS MAINTAINERS
 /sbin/fsck.ocfs2
 /sbin/mkfs.ocfs2
 /sbin/mounted.ocfs2
