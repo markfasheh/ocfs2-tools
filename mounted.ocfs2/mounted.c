@@ -3,7 +3,7 @@
  *
  * ocfs2 mount detect utility
  *
- * Copyright (C) 2004, 2005 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -40,18 +40,41 @@
 
 #include "ocfs2-kernel/kernel-list.h"
 #include "ocfs2/ocfs2.h"
+#include "ocfs2/byteorder.h"
+#include "tools-internal/verbose.h"
 
-static int quick_detect = 0;
+#undef max
+#define max(a,b)	((a) > (b) ? (a) : (b))
+#undef min
+#define min(a,b)	((a) < (b) ? (a) : (b))
+
+static int quick_detect = 1; /* default */
 static char *device = NULL;
 static char *progname = NULL;
 
 static char *usage_string =
-"usage: %s [-d] [-f] [device]\n"
+"usage: %s [-dfv] [device]\n"
 "	-d quick detect\n"
-"	-f full detect\n";
+"	-f full detect\n"
+"	-v verbose\n";
 
-static void ocfs2_print_nodes(ocfs2_devices *dev, char **names,
-				unsigned int length_of_names)
+static void get_max_widths(struct list_head *dev_list, int *dev_width,
+			   int *cluster_width)
+{
+	ocfs2_devices *dev;
+	struct list_head *pos;
+
+	list_for_each(pos, dev_list) {
+		dev = list_entry(pos, ocfs2_devices, list);
+		if (dev->fs_type != 2)
+			continue;
+		*dev_width = max(*dev_width, strlen(dev->dev_name));
+		*cluster_width = max(*cluster_width, strlen(dev->cluster));
+	}
+}
+
+static void print_nodes(ocfs2_devices *dev, char **names,
+			unsigned int length_of_names)
 {
 	int i, start = 1;
 	unsigned int node_num;
@@ -78,15 +101,18 @@ static void ocfs2_print_nodes(ocfs2_devices *dev, char **names,
 }
 
 
-static void ocfs2_print_full_detect(struct list_head *dev_list)
+static void print_full_detect(struct list_head *dev_list)
 {
 	ocfs2_devices *dev;
 	struct list_head *pos;
 	char **node_names = NULL;
 	char **cluster_names = NULL;
 	char *nodes[O2NM_MAX_NODES];
-	int i = 0;
+	char flag;
+	int i = 0, dev_width = 7, cluster_width = 7;
 	uint16_t num;
+
+	get_max_widths(dev_list, &dev_width, &cluster_width);
 
 	memset(nodes, 0, sizeof(nodes));
 
@@ -107,13 +133,23 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 		}
 	}
 
-	printf("%-20s  %-5s  %s\n", "Device", "FS", "Nodes");
+	printf("%-*s  %-5s  %-*s  %c  %-s\n", dev_width, "Device", "Stack",
+	       cluster_width, "Cluster", 'F', "Nodes");
+
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		if (dev->fs_type != 2)
 			continue;
 
-		printf("%-20s  %-5s  ", dev->dev_name, "ocfs2");
+		flag = ' ';
+		if (!strcmp(dev->stack, OCFS2_CLASSIC_CLUSTER_STACK)) {
+			if (dev->stackflags &
+			    OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT)
+				flag = 'G';
+		}
+
+		printf("%-*s  %-5s  %-*s  %c  ", dev_width, dev->dev_name,
+		       dev->stack, cluster_width, dev->cluster, flag);
 
 		if (dev->errcode) {
 			fflush(stdout);
@@ -122,7 +158,7 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 			if (dev->hb_dev)
 				printf("Heartbeat device");
 			else if (dev->mount_flags & OCFS2_MF_MOUNTED_CLUSTER)
-				ocfs2_print_nodes(dev, nodes, O2NM_MAX_NODES);
+				print_nodes(dev, nodes, O2NM_MAX_NODES);
 			else
 				printf("Not mounted");
 			printf("\n");
@@ -136,18 +172,19 @@ static void ocfs2_print_full_detect(struct list_head *dev_list)
 		o2cb_free_cluster_list(cluster_names);
 }
 
-
-static void ocfs2_print_quick_detect(struct list_head *dev_list)
+static void print_quick_detect(struct list_head *dev_list)
 {
 	ocfs2_devices *dev;
 	struct list_head *pos;
 	char uuid[OCFS2_VOL_UUID_LEN * 2 + 1];
-	int i;
-	char *p;
-	char cluster[OCFS2_CLUSTER_NAME_LEN + 4];
+	int i, dev_width = 7, cluster_width = 7;
+	char *p, flag;
 
-	printf("%-20s  %-5s  %-20s  %-32s  %-s\n", "Device", "Stack",
-	       "Cluster", "UUID", "Label");
+	get_max_widths(dev_list, &dev_width, &cluster_width);
+
+	printf("%-*s  %-5s  %-*s  %c  %-32s  %-s\n", dev_width, "Device",
+	       "Stack", cluster_width, "Cluster", 'F', "UUID", "Label");
+
 	list_for_each(pos, dev_list) {
 		dev = list_entry(pos, ocfs2_devices, list);
 		if (dev->fs_type != 2)
@@ -158,17 +195,16 @@ static void ocfs2_print_quick_detect(struct list_head *dev_list)
 			p += 2;
 		}
 
-		snprintf(cluster, sizeof(cluster), dev->cluster);
-
+		flag = ' ';
 		if (!strcmp(dev->stack, OCFS2_CLASSIC_CLUSTER_STACK)) {
 			if (dev->stackflags &
 			    OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT)
-				strncat(cluster, " (G)",
-					sizeof(cluster) - strlen(cluster));
+				flag = 'G';
 		}
 
-		printf("%-20s  %-5s  %-20s  %-32s  %-s\n",
-		       dev->dev_name, dev->stack, cluster, uuid, dev->label);
+		printf("%-*s  %-5s  %-*s  %c  %-32s  %-s\n", dev_width,
+		       dev->dev_name, dev->stack, cluster_width, dev->cluster,
+		       flag, uuid, dev->label);
 	}
 }
 
@@ -206,15 +242,39 @@ static void scan_dir_for_dev(char *dirname, dev_t devno, char **devname)
 	return;
 }
 
-static errcode_t ocfs2_partition_list (struct list_head *dev_list)
+static void free_partition_list(struct list_head *dev_list)
+{
+	struct list_head *pos1, *pos2;
+	ocfs2_devices *dev;
+
+	list_for_each_safe(pos1, pos2, dev_list) {
+		dev = list_entry(pos1, ocfs2_devices, list);
+		if (dev->map)
+			ocfs2_free(&dev->map);
+		list_del(&(dev->list));
+		ocfs2_free(&dev);
+	}
+}
+
+static errcode_t build_partition_list(struct list_head *dev_list, char *device)
 {
 	errcode_t ret = 0;
 	FILE *proc;
-	char line[256];
-	char name[256];
+	char line[512];
+	char name[512];
 	char *devname = NULL;
 	int major, minor;
 	ocfs2_devices *dev;
+	uint64_t numblocks;
+
+	if (device) {
+		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
+		if (ret)
+			goto bail;
+		strncpy(dev->dev_name, device, sizeof(dev->dev_name));
+		list_add(&(dev->list), dev_list);
+		return 0;
+	}
 
 	proc = fopen ("/proc/partitions", "r");
 	if (proc == NULL) {
@@ -231,7 +291,8 @@ static errcode_t ocfs2_partition_list (struct list_head *dev_list)
 		if (ret)
 			goto bail;
 
-		/* Try to translate private device-mapper dm-<N> names
+		/*
+		 * Try to translate private device-mapper dm-<N> names
 		 * to standard /dev/mapper/<name>.
 		 */
 		if (!strncmp(name, "dm-", 3) && isdigit(name[3])) {
@@ -251,6 +312,25 @@ static errcode_t ocfs2_partition_list (struct list_head *dev_list)
 				 "/dev/%s", name);
 		}
 
+		/* skip devices smaller than 1M */
+		ret = ocfs2_get_device_size(dev->dev_name, 4096, &numblocks);
+		if (ret < 0) {
+			verbosef(VL_DEBUG, "Unable to get size of %s\n",
+				 dev->dev_name);
+			ocfs2_free(&dev);
+			continue;
+		}
+
+		if (numblocks <= (1024 * 1024 / 4096)) {
+			verbosef(VL_DEBUG, "Skipping small device %s\n",
+				 dev->dev_name);
+			ocfs2_free(&dev);
+			continue;
+		}
+
+		dev->maj_num = major;
+		dev->min_num = minor;
+
 		list_add_tail(&(dev->list), dev_list);
 	}
 
@@ -260,7 +340,6 @@ bail:
 
 	return ret;
 }
-
 
 static void usage(char *progname)
 {
@@ -282,7 +361,7 @@ static int read_options(int argc, char **argv)
 	}
 
 	while(1) {
-		c = getopt(argc, argv, "df");
+		c = getopt(argc, argv, "dfv");
 		if (c == -1)
 			break;
 
@@ -293,6 +372,10 @@ static int read_options(int argc, char **argv)
 
 		case 'f':	/* full detect*/
 			quick_detect = 0;
+			break;
+
+		case 'v':
+			tools_verbose();
 			break;
 
 		default:
@@ -307,61 +390,119 @@ bail:
 	return ret;
 }
 
-
-static errcode_t ocfs2_detect(char *device, int quick_detect)
+static ssize_t do_pread(int fd, void *buf, size_t count, off_t offset)
 {
-	errcode_t ret = 0;
-	struct list_head dev_list;
-	struct list_head *pos1, *pos2;
-	ocfs2_devices *dev;
+	ssize_t rd = 0, ret;
 
-	INIT_LIST_HEAD(&(dev_list));
-
-	if (device) {
-		ret = ocfs2_malloc0(sizeof(ocfs2_devices), &dev);
-		if (ret)
-			goto bail;
-		strncpy(dev->dev_name, device, sizeof(dev->dev_name));
-		list_add(&(dev->list), &dev_list);
-	} else {
-		ret = ocfs2_partition_list(&dev_list);
-		if (ret) {
-			com_err(progname, ret, "while reading /proc/partitions");
-			goto bail;
-		}
+	while (1) {
+		ret = pread(fd, buf + rd, count - rd, offset + rd);
+		if (ret > 0)
+			rd += ret;
+		if (ret <= 0 || rd == count)
+			break;
 	}
 
-	ret = ocfs2_check_heartbeats(&dev_list, 1);
-	if (ret) {
-		com_err(progname, ret, "while detecting heartbeat");
-		goto bail;
-	}
-
-	if (quick_detect)
-		ocfs2_print_quick_detect(&dev_list);
-	else
-		ocfs2_print_full_detect(&dev_list);
-
-bail:
-	list_for_each_safe(pos1, pos2, &(dev_list)) {
-		dev = list_entry(pos1, ocfs2_devices, list);
-		if (dev->map)
-			ocfs2_free(&dev->map);
-		list_del(&(dev->list));
-		ocfs2_free(&dev);
-	}
-
+	if (rd)
+		return rd;
 	return ret;
 }
 
+static void populate_sb_info(ocfs2_devices *dev, struct ocfs2_super_block *sb)
+{
+	uint32_t compat, incompat, rocompat;
+
+	if (!sb)
+		return;
+
+	dev->fs_type = 2;
+
+	memcpy(dev->label, sb->s_label, sizeof(dev->label));
+	memcpy(dev->uuid, sb->s_uuid, sizeof(dev->uuid));
+
+	compat = le32_to_cpu(sb->s_feature_compat);
+	incompat = le32_to_cpu(sb->s_feature_incompat);
+	rocompat = le32_to_cpu(sb->s_feature_ro_compat);
+
+	memcpy(dev->label, sb->s_label, sizeof(dev->label));
+	memcpy(dev->uuid, sb->s_uuid, sizeof(dev->uuid));
+
+#define CLUSTERINFO_VALID	(OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK | \
+				 OCFS2_FEATURE_INCOMPAT_CLUSTERINFO)
+
+	if (incompat & OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT)
+		snprintf(dev->stack, sizeof(dev->stack), "%s", "None");
+	else if (incompat & CLUSTERINFO_VALID) {
+		snprintf(dev->stack, sizeof(dev->stack), "%.*s",
+			 OCFS2_STACK_LABEL_LEN, sb->s_cluster_info.ci_stack);
+		snprintf(dev->cluster, sizeof(dev->cluster), "%.*s",
+			 OCFS2_CLUSTER_NAME_LEN, sb->s_cluster_info.ci_cluster);
+		dev->stackflags = sb->s_cluster_info.ci_stackflags;
+	} else
+		snprintf(dev->stack, sizeof(dev->stack), "%s",
+			 OCFS2_CLASSIC_CLUSTER_STACK);
+}
+
+static void do_quick_detect(struct list_head *dev_list)
+{
+	int fd = -1, ret;
+	char buf[512];
+	struct ocfs2_dinode *di;
+	uint32_t offset;
+	struct list_head *pos;
+	ocfs2_devices *dev;
+
+	list_for_each(pos, dev_list) {
+		dev = list_entry(pos, ocfs2_devices, list);
+
+		verbosef(VL_APP, "Probing device %s\n", dev->dev_name);
+
+		fd = open(dev->dev_name, O_RDONLY);
+		if (fd < 0) {
+			verbosef(VL_DEBUG, "Device %s open failed with '%s'\n",
+			 	dev->dev_name, strerror(errno));
+			continue;
+		}
+
+		/* ignore error but log if in verbose */
+		ret = posix_fadvise(fd, 0, (1024 * 1024), POSIX_FADV_DONTNEED);
+		if (ret < 0) {
+			verbosef(VL_DEBUG, "Buffer cache free for device %s "
+				 "failed with '%s'\n", dev->dev_name,
+				 strerror(errno));
+		}
+
+		for (offset = 1; offset <= 8; offset <<= 1) {
+			ret = do_pread(fd, buf, sizeof(buf), (offset * 1024));
+			if (ret < sizeof(buf))
+				break;
+			di = (struct ocfs2_dinode *)buf;
+			if (!memcmp(di->i_signature,
+				    OCFS2_SUPER_BLOCK_SIGNATURE,
+				    strlen(OCFS2_SUPER_BLOCK_SIGNATURE))) {
+				populate_sb_info(dev, &di->id2.i_super);
+				break;
+			}
+		}
+
+		close(fd);
+	}
+}
+
+static void do_full_detect(struct list_head *dev_list)
+{
+	ocfs2_check_heartbeats(dev_list, 1);
+}
 
 int main(int argc, char **argv)
 {
 	errcode_t ret = 0;
+	struct list_head dev_list;
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
+
+	INIT_LIST_HEAD(&(dev_list));
 
 	ret = read_options(argc, argv);
 	if (ret)
@@ -369,7 +510,21 @@ int main(int argc, char **argv)
 
 	o2cb_init();
 
-	ret = ocfs2_detect(device, quick_detect);
+	ret = build_partition_list(&dev_list, device);
+	if (ret) {
+		com_err(progname, ret, "while building partiton list");
+		goto bail;
+	}
+
+	if (quick_detect) {
+		do_quick_detect(&dev_list);
+		print_quick_detect(&dev_list);
+	} else {
+		do_full_detect(&dev_list);
+		print_full_detect(&dev_list);
+	}
+
+	free_partition_list(&dev_list);
 
 bail:
 	return ret;
