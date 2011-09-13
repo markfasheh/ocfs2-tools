@@ -1,142 +1,272 @@
-.TH "o2cb" "7" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2cb" "7" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-o2cb \- Default cluster stack for the \fIOCFS2\fR file system.
-.SH "DESCRIPTION"
+o2cb \- Default cluster stack of the \fIOCFS2\fR file system.
+.SH "SYNOPSIS"
 .PP 
-\fBo2cb\fR is the default cluster stack for the \fIOCFS2\fR file system. It
-includes a node manager (o2nm) to keep track of the nodes in the cluster,
-a heartbeat agent (o2hb) to detect live nodes, a network agent (o2net) for
-intra-cluster node communication and a distributed lock manager (o2dlm)
-to keep track of lock resources. All these components are in-kernel. It also
-includes an in-memory file system, dlmfs, to allow userspace to access the
+\fBo2cb\fR is the default cluster stack of the \fIOCFS2\fR file system. It is an in-kernel
+cluster stack that includes a node manager (o2nm) to keep track of the nodes in the cluster,
+a disk heartbeat agent (o2hb) to detect node live-ness, a network agent (o2net) for intra-cluster
+node communication and a distributed lock manager (o2dlm) to keep track of lock resources.
+It also includes a synthetic file system, dlmfs, to allow applications to access the
 in-kernel dlm.
-
-This cluster stack has two configuration files, namely, \fI/etc/ocfs2/cluster.conf\fR
-and \fI/etc/sysconfig/o2cb\fR. Whereas the former keeps track of the cluster layout,
-the latter keeps track of the cluster timeouts. Both files are only read when the
-cluster is brought online. Values in use by the online cluster can be perused in the
-/sys/kernel/config/cluster directory structure.
 
 .SH "CONFIGURATION"
 .PP
-The cluster layout is specified in \fB/etc/ocfs2/cluster.conf\fR. While it is easier
-to populate and propagate this configuration file using \fBocfs2console(8)\fR, one can
-also do it by manually as long as care is taken to format the file correctly.
+The stack is configured using the \fBo2cb(8)\fR cluster configuration utility and operated
+(online/offline/status) using the \fIo2cb\fR init service.
 
-While the console utility is intuitive to use, there are few points to keep in mind.
 .TP
-	1. The node name needs to match the hostname. It does not need to include the domain name. For example, appserver.oracle.com can be appserver.
+\fBCLUSTER CONFIGURATION\fR
+
+It has two configuration files. One for the cluster layout (/etc/ocfs2/cluster.conf) and the
+other for the cluster timeouts, etc. (/etc/sysconfig/o2cb). More information about these
+two files can be found in \fBocfs2.cluster.conf(5)\fR and \fBo2cb.sysconfig(5)\fR.
+
+The \fBo2cb\fR cluster stack supports two heartbeat modes, namely, \fBlocal\fR and \fBglobal\fR.
+Only one heartbeat mode can be active at any one time.
+
+\fBLocal heartbeat\fR refers to disk heartbeating on all shared devices. In this mode, the
+\fIheartbeat is started during mount and stopped during umount\fR. This mode is easy to
+setup as it does not require configuring heartbeat devices. The one drawback in this mode
+is the overhead on servers having a large number of \fIOCFS2\fR mounts. For example, a server
+with 50 mounts will have 50 heartbeat threads. This is the default heartbeat mode.
+
+\fBGlobal heartbeat\fR, on the other hand, refers to heartbeating on specific shared devices.
+These devices are normal \fIOCFS2\fR formatted volumes that could also be mounted and used
+as clustered file systems. In this mode, the \fIheartbeat is started during cluster online
+and stopped during cluster offline\fR. While this mode can be used for all clusters, it is
+\fIstrongly\fR recommended for clusters having a large number of mounts.
+
+More information on disk heartbeat is provided below.
+
 .TP
-	2. The IP address need not be the one associated with that hostname. As in, any valid IP address on that node can be used. O2CB will not attempt to match the node name (hostname) with the specified IP address.
+\fBKERNEL CONFIGURATION\fR
+
+Two sysctl values need to be set for \fBo2cb\fR to function properly. The first, panic_on_oops,
+must be enabled to turn a kernel oops into a panic. If a kernel thread required for \fBo2cb\fR
+to function crashes, the system must be reset to prevent a cluster hang. If it is not set,
+another node may not be able to distinguish whether a node is unable to respond or slow
+to respond.
+
+The other related sysctl parameter is panic, which specifies the number of seconds after
+a panic that the system will be auto-reset. Setting this parameter to zero disables autoreset;
+the cluster will require manual intervention. This is not preferred in a cluster
+environment.
+
+To manually enable panic on oops and set a 30 sec timeout for reboot on panic, do:
+.in +4n
+.nf
+.sp
+# \fBecho 1 > /proc/sys/kernel/panic_on_oops\fR
+# \fBecho 30 > /proc/sys/kernel/panic\fR
+.fi
+.in
+
+To enable the above on every boot, add the following to /etc/sysctl.conf:
+.in +4n
+.nf
+.sp
+\fBkernel.panic_on_oops = 1\fR
+\fBkernel.panic = 30\fR
+.fi
+.in
+
+.TP
+\fBOS CONFIGURATION\fR
+
+The \fBo2cb\fR cluster stack also requires iptables (firewalling) to be either disabled
+or modified to allow network traffic on the private network interface. The port used by
+\fBo2cb\fR is specified in /etc/ocfs2/cluster.conf.
+
+.SH "DISK HEARTBEAT"
 .PP
-For best performance, use of a private interconnect (lower latency) is recommended.
+O2CB uses disk heartbeat to detect node liveness. The disk heartbeat thread, \fBo2hb\fR,
+periodically reads and writes to a heartbeat file in a OCFS2 file system. Its write payload
+contains a sequence number that it increments in each write. This allows other nodes
+reading the same heartbeat file to detect the change and associate that with a live node.
+Conversely, a node whose sequence number has stopped changing is marked as a possible dead
+node. Possible. Not confirmed. That is because it just could be slow I/Os.
 
-The cluster.conf file is in a stanza format with two types of stanzas, namely, cluster
-and node. A typical cluster.conf will have one cluster stanza and multiple node stanzas.
+To differentiate between a dead node and one that has slow I/Os, O2CB has a disk heartbeat
+threshold (timeout). Only nodes whose sequence number has not incremented for that duration
+are marked dead.
 
-The \fIcluster stanza\fR has two parameters:
-.TP
-\fBnode_count\fR
-Total number of nodes in the cluster
-.TP
-\fBname\fR
-Name of the cluster
+However that node may not be dead but just experiencing slow I/O. To prevent that, the
+heartbeat thread keeps track of the time elapsed since the last completed write. If that
+time exceeds the timeout, it forces a self-fence. It does so to prevent other nodes from
+marking it as dead while it is still alive.
 
+This self-fencing scheme has proven to be very reliable as it relies on kernel timers
+and pci bus reset. External fencing, while attractive, is rarely as reliable as it relies
+on external hardware and software that is prone to failure due to misconfiguration, etc.
+
+Having said that, O2CB disk heartbeat has had its share of problems with self fencing.
+Nodes experiencing slow I/O on only one of multiple devices have to initiate self-fence.
+
+This is because in the default \fBlocal heartbeat\fR scheme, nodes in a cluster may not
+be heartbeating on the same set of devices.
+
+The \fBglobal heartbeat\fR mode addresses this shortcoming by introducing a scheme
+that forces all nodes to heartbeat on the same set of devices. In this scheme, a node
+experiencing a slowdown in I/O on a device may not need to initiate self-fence. It will
+only have to do so if it encounters slowdown on 50% or more of the heartbeat devices.
+In a cluster with 3 heartbeat regions, a slowdown in 1 region will be tolerated. In
+a cluster with 5 regions, a slowdown in 2 will be tolerated.
+
+It is for this reason, this mode is recommended for users that have 3 or more OCFS2
+mounts.
+
+O2CB allows upto \fB32\fR heartbeat regions to be configured in the global heartbeat mode.
+
+.SH "ONLINE CLUSTER MODIFICATION"
 .PP
-The \fInode stanza\fR has five parameters:
-.TP
-\fBip_port\fR
-IP port
-.TP
-\fBip_address\fR
-IP address
-.TP
-\fBnumber\fR
-Unique node number from 0-254
-.TP
-\fBname\fR
-Hostname
-.TP
-\fBcluster\fR
-Name of the cluster
+The O2CB cluster stack allows \fIadding and removing nodes in an online cluster\fR when run
+in the \fBglobal\fR heartbeat mode. Use the \fBo2cb(8)\fR utility to make the changes
+in the configuration and (re)online the cluster using the \fIo2cb\fR init script. The user
+\fBmust\fR do the same on \fIall\fR nodes in the cluster. The cluster will not allow any
+new cluster mounts if the node configuration on all nodes is not the same.
+
+The removal of nodes will only succeed if that node is no longer in use. If the user removes
+an active node from the configuration, the re-online will fail.
+
+The cluster stack also allows \fIadding and removing heartbeat regions in an online cluster\fR.
+Use the \fBo2cb(8)\fR utility to make the changes in the configuration file and (re)online
+the cluster using the \fIo2cb\fR init script. The user \fBmust\fR do the same on \fIall\fR
+nodes in the cluster. The cluster will not allow any new cluster mounts if the heartbeat
+region configuration on all nodes is not the same.
+
+The removal of heartbeat regions will only succeed if the active heartbeat region count is
+greater than \fB3\fR. This is to protect against edge conditions that can destabilize the
+cluster.
+
+.SH "GETTING STARTED"
 .PP
-Users populating cluster.conf manually should follow the format strictly. As in,
-stanza header should start at the first column and end with a colon, stanza parameters
-should start after a tab, a blank line should demarcate each stanza and care taken to
-avoid stray whitespaces.
+The first step in configuring \fBo2cb\fR is deciding whether to setup \fBlocal\fR or \fBglobal\fR
+heartbeat. If \fBglobal\fR heartbeat, then one has to format atleast one heartbeat device.
 
-The O2CB cluster timeouts are specified in \fB/etc/sysconfig/o2cb\fR and can be
-configured using the \fIo2cb\fR init script.
+To format a OCFS2 volume with global heartbeat enabled, do:
+.in +4n
+.nf
+.sp
+# \fBmkfs.ocfs2 --cluster-stack=o2cb --cluster-name=webcluster --global-heartbeat -L "hbvol1" /dev/sdb1\fR
+.fi
+.in
 
-These timeouts are used by the O2CB clusterstack to determine whether a node is dead
-or alive. While the use of default values is recommended, users can experiment with
-other values if the defaults are causing spurious fencing.
+Once formatted, setup /etc/ocfs2/cluster.conf following the example provided in \fBocfs2.cluster.conf(5)\fR.
 
-The \fIcluster timeouts\fR are:
-.TP
-\fBHeartbeat Dead Threshold\fR
-The Disk Heartbeat timeout is the number of two second iterations before a node is
-considered dead. The exact formula used to convert the timeout in seconds to the
-number of iterations is as follows:
+If \fBlocal\fR heartbeat, then one can setup cluster.conf without any heartbeat devices. The next
+step is starting the cluster.
 
-O2CB_HEARTBEAT_THRESHOLD = (((timeout in seconds) / 2) + 1)
+To online the cluster stack, do:
+.in +4n
+.nf
+.sp
+# \fBservice o2cb online\fR
+Loading stack plugin "o2cb": OK
+Loading filesystem "ocfs2_dlmfs": OK
+Mounting ocfs2_dlmfs filesystem at /dlm: OK
+Setting cluster stack "o2cb": OK
+Registering O2CB cluster "webcluster": OK
+Setting O2CB cluster timeouts : OK
+Starting global heartbeat for cluster "webcluster": OK
+.fi
+.in
 
-For e.g., to specify a 60 sec timeout, set it to 31. For 120 secs, set it to 61. The default for this timeout is 60 secs (O2CB_HEARTBEAT_THRESHOLD = 31).
+Once the cluster stack is online, new \fBOCFS2\fR volumes can be formatted normally
+without specifying the cluster stack information. \fImkfs.ocfs2(8)\fR will pick up that
+information automatically.
+.in +4n
+.nf
+.sp
+# \fBmkfs.ocfs2 -L "datavol" /dev/sdc1\fR
+.fi
+.in
 
-.TP
-\fBNetwork Idle Timeout\fR
-The Network Idle timeout specifies the time in milliseconds before a network connection
-is considered dead. It defaults to 30000 ms.
+Meanwhile existing volumes can be converted to the new cluster stack using \fBtunefs.ocfs2(8)\fR
+utility.
+.in +4n
+.nf
+.sp
+# \fBtunefs.ocfs2 --update-cluster-stack /dev/sdd1\fR
+Updating on-disk cluster information to match the running cluster.
+DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS USING THIS FILESYSTEM
+BEFORE MODIFYING ITS CLUSTER CONFIGURATION.
+Update the on-disk cluster information? y
+.fi
+.in
 
-.TP
-\fBNetwork Keepalive Delay\fR
-The Network Keepalive specifies the maximum delay in milliseconds before a keepalive
-packet is sent to another node to check whether it is alive or not. If the node is alive,
-it will respond. Its defaults to 2000 ms.
+Another utility \fBmounted.ocfs2(8)\fR is useful is listing all the \fIOCFS2\fR volumes
+alonghwith the cluster stack information.
 
-.TP
-\fBNetwork Reconnect Delay\fR
-The Network Reconnect specifies the minimum delay in milliseconds between connection
-attempts. It defaults to 2000 ms.
-.PP
+To get a list of OCFS2 volumes, do:
+.in +4n
+.nf
+.sp
+# \fBmounted.ocfs2 -d\fR
+Device     Stack  Cluster     F  UUID                              Label
+/dev/sdb1  o2cb   webcluster  G  DCDA2845177F4D59A0F2DCD8DE507CC3  hbvol1
+/dev/sdc1  None                  23878C320CF3478095D1318CB5C99EED  localmount
+/dev/sdd1  o2cb   webcluster  G  8AB016CD59FC4327A2CDAB69F08518E3  webvol
+/dev/sdg1  o2cb   webcluster  G  77D95EF51C0149D2823674FCC162CF8B  logsvol
+/dev/sdh1  o2cb   webcluster  G  BBA1DBD0F73F449384CE75197D9B7098  scratch
+.fi
+.in
 
-.SH "EXAMPLES"
-A sample /etc/ocfs2/cluster.conf.
+The \fIo2cb\fR init script can also be used to check the status of the cluster,
+offline the cluster, etc.
 
-cluster:
-    node_count = 3
-    name = webcluster
+To check the status of the cluster stack, do:
+.in +4n
+.nf
+.sp
+# \fBservice o2cb status\fR
+Driver for "configfs": Loaded
+Filesystem "configfs": Mounted
+Stack glue driver: Loaded
+Stack plugin "o2cb": Loaded
+Driver for "ocfs2_dlmfs": Loaded
+Filesystem "ocfs2_dlmfs": Mounted
+Checking O2CB cluster "webcluster": Online
+  Heartbeat dead threshold: 62
+  Network idle timeout: 60000
+  Network keepalive delay: 2000
+  Network reconnect delay: 2000
+  Heartbeat mode: Global
+Checking O2CB heartbeat: Active
+  77D95EF51C0149D2823674FCC162CF8B /dev/sdg1
+  DCDA2845177F4D59A0F2DCD8DE507CC3 /dev/sdk1
+  BBA1DBD0F73F449384CE75197D9B7098 /dev/sdh1
+Nodes in O2CB cluster: 6 7 10
+Active userdlm domains:  ovm
+.fi
+.in
 
-node:
-    ip_port = 7777
-    ip_address = 192.168.0.107
-    number = 7
-    name = node7
-    cluster = webcluster
+To offline and unload the cluster stack, do:
+.in +4n
+.nf
+.sp
+# \fBservice o2cb offline\fR
+Clean userdlm domains: OK
+Stopping global heartbeat on cluster "webcluster": OK
+Stopping O2CB cluster webcluster: OK
+Unregistering O2CB cluster "webcluster": OK
 
-node:
-    ip_port = 7777
-    ip_address = 192.168.0.106
-    number = 6
-    name = node6
-    cluster = webcluster
-
-node:
-    ip_port = 7777
-    ip_address = 192.168.0.110
-    number = 10
-    name = node10
-    cluster = webcluster
+# \fBservice o2cb unload\fR
+Clean userdlm domains: OK
+Unmounting ocfs2_dlmfs filesystem: OK
+Unloading module "ocfs2_dlmfs": OK
+Unloading module "ocfs2_stack_o2cb": OK
+.fi
+.in
 
 .SH "SEE ALSO"
-.BR mkfs.ocfs2(8)
-.BR fsck.ocfs2(8)
-.BR tunefs.ocfs2(8)
-.BR debugfs.ocfs2(8)
-.BR ocfs2console(8)
+.BR o2cb(8)
+.BR o2cb.sysconfig(5)
+.BR ocfs2.cluster.conf(5)
+.BR o2hbmonitor(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2010 Oracle. All rights reserved.
+Copyright \(co 2004, 2011 Oracle. All rights reserved.
