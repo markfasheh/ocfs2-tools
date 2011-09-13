@@ -12,7 +12,7 @@ INCLUDES = -I$(TOPDIR)/include -Iinclude
 INCLUDES += $(GLIB_CFLAGS)
 
 CFILES = main.c commands.c dump.c utils.c journal.c find_block_inode.c \
-	find_inode_paths.c dump_fs_locks.c dump_dlm_locks.c
+	find_inode_paths.c dump_fs_locks.c dump_dlm_locks.c stat_sysdir.c
 
 HFILES =				\
 	include/main.h			\
@@ -24,7 +24,8 @@ HFILES =				\
 	include/find_inode_paths.h	\
 	include/ocfs2_internals.h	\
 	include/dump_fs_locks.h		\
-	include/dump_dlm_locks.h
+	include/dump_dlm_locks.h	\
+	include/stat_sysdir.h
 
 OBJS = $(subst .c,.o,$(CFILES))
 

@@ -120,5 +120,6 @@ struct dbgfs_opts {
 #include <dump_fs_locks.h>
 #include <dump_dlm_locks.h>
 #include <dump.h>
+#include <stat_sysdir.h>
 
 #endif		/* __MAIN_H__ */

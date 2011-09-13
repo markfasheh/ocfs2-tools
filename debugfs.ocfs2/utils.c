@@ -881,6 +881,96 @@ int del_from_stringlist(char *str, struct list_head *strlist)
 	return 0;
 }
 
+errcode_t traverse_extents(ocfs2_filesys *fs, struct ocfs2_extent_list *el,
+			   FILE *out)
+{
+	struct ocfs2_extent_block *eb;
+	struct ocfs2_extent_rec *rec;
+	errcode_t ret = 0;
+	char *buf = NULL;
+	int i;
+	uint32_t clusters;
+
+	dump_extent_list(out, el);
+
+	for (i = 0; i < el->l_next_free_rec; ++i) {
+		rec = &(el->l_recs[i]);
+		clusters = ocfs2_rec_clusters(el->l_tree_depth, rec);
+
+		/*
+		 * In a unsuccessful insertion, we may shift a tree
+		 * add a new branch for it and do no insertion. So we
+		 * may meet a extent block which have
+		 * clusters == 0, this should only be happen
+		 * in the last extent rec. */
+		if (!clusters && i == el->l_next_free_rec - 1)
+			break;
+
+		if (el->l_tree_depth) {
+			ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
+			if (ret)
+				goto bail;
+
+			ret = ocfs2_read_extent_block(fs, rec->e_blkno, buf);
+			if (ret)
+				goto bail;
+
+			eb = (struct ocfs2_extent_block *)buf;
+
+			dump_extent_block(out, eb);
+
+			ret = traverse_extents(fs, &(eb->h_list), out);
+			if (ret)
+				goto bail;
+		}
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
+errcode_t traverse_chains(ocfs2_filesys *fs, struct ocfs2_chain_list *cl,
+			  FILE *out)
+{
+	struct ocfs2_group_desc *grp;
+	struct ocfs2_chain_rec *rec;
+	errcode_t ret = 0;
+	char *buf = NULL;
+	uint64_t blkno;
+	int i;
+	int index;
+
+	dump_chain_list(out, cl);
+
+	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
+	if (ret)
+		goto bail;
+
+	for (i = 0; i < cl->cl_next_free_rec; ++i) {
+		rec = &(cl->cl_recs[i]);
+		blkno = rec->c_blkno;
+		index = 0;
+		fprintf(out, "\n");
+		while (blkno) {
+			ret = ocfs2_read_group_desc(fs, blkno, buf);
+			if (ret)
+				goto bail;
+
+			grp = (struct ocfs2_group_desc *)buf;
+			dump_group_descriptor(out, grp, index);
+			blkno = grp->bg_next_group;
+			index++;
+		}
+	}
+
+bail:
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 /*
  * detect_block()
  *

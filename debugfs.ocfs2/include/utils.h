@@ -69,6 +69,12 @@ void init_stringlist(struct list_head *strlist);
 void free_stringlist(struct list_head *strlist);
 errcode_t add_to_stringlist(char *str, struct list_head *strlist);
 int del_from_stringlist(char *str, struct list_head *strlist);
+
+errcode_t traverse_extents(ocfs2_filesys *fs, struct ocfs2_extent_list *el,
+			   FILE *out);
+errcode_t traverse_chains(ocfs2_filesys *fs, struct ocfs2_chain_list *cl,
+			  FILE *out);
+
 enum dump_block_type detect_block (char *buf);
 
 #endif		/* __UTILS_H__ */
