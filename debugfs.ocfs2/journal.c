@@ -34,7 +34,7 @@ static void scan_journal(FILE *out, journal_superblock_t *jsb, char *buf,
 {
 	char *block;
 	char *p;
-	enum dump_block_type type;
+	enum ocfs2_block_type type;
 	journal_header_t *header;
 
 	p = buf;
@@ -49,8 +49,8 @@ static void scan_journal(FILE *out, journal_superblock_t *jsb, char *buf,
 			}
 			dump_jbd_block(out, jsb, header, *blocknum);
 		} else {
-			type = detect_block(block);
-			if (type == DUMP_BLOCK_UNKNOWN) {
+			type = ocfs2_detect_block(block);
+			if (type == OCFS2_BLOCK_UNKNOWN) {
 				if (*last_unknown == 0)
 					*last_unknown = *blocknum;
 			} else {

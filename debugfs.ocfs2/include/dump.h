@@ -20,18 +20,6 @@
 #ifndef __DUMP_H__
 #define __DUMP_H__
 
-enum dump_block_type {
-	DUMP_BLOCK_UNKNOWN,
-	DUMP_BLOCK_INODE,
-	DUMP_BLOCK_EXTENT_BLOCK,
-	DUMP_BLOCK_GROUP_DESCRIPTOR,
-	DUMP_BLOCK_DIR_BLOCK,
-	DUMP_BLOCK_XATTR,
-	DUMP_BLOCK_REFCOUNT,
-	DUMP_BLOCK_DXROOT,
-	DUMP_BLOCK_DXLEAF,
-};
-
 struct list_dir_opts {
 	ocfs2_filesys *fs;
 	FILE *out;
@@ -66,7 +54,7 @@ void dump_jbd_header (FILE *out, journal_header_t *header);
 void dump_jbd_superblock (FILE *out, journal_superblock_t *jsb);
 void dump_jbd_block (FILE *out, journal_superblock_t *jsb,
 		     journal_header_t *header, uint64_t blknum);
-void dump_jbd_metadata (FILE *out, enum dump_block_type type, char *buf,
+void dump_jbd_metadata (FILE *out, enum ocfs2_block_type type, char *buf,
 			uint64_t blknum);
 void dump_jbd_unknown (FILE *out, uint64_t start, uint64_t end);
 void dump_slots (FILE *out, struct ocfs2_slot_map_extended *se,

@@ -151,6 +151,19 @@ typedef struct _ocfs2_dir_scan ocfs2_dir_scan;
 typedef struct _ocfs2_bitmap ocfs2_bitmap;
 typedef struct _ocfs2_devices ocfs2_devices;
 
+enum ocfs2_block_type {
+	OCFS2_BLOCK_UNKNOWN,
+	OCFS2_BLOCK_INODE,
+	OCFS2_BLOCK_SUPERBLOCK,
+	OCFS2_BLOCK_EXTENT_BLOCK,
+	OCFS2_BLOCK_GROUP_DESCRIPTOR,
+	OCFS2_BLOCK_DIR_BLOCK,
+	OCFS2_BLOCK_XATTR,
+	OCFS2_BLOCK_REFCOUNT,
+	OCFS2_BLOCK_DXROOT,
+	OCFS2_BLOCK_DXLEAF,
+};
+
 #define MAXQUOTAS 2
 #define USRQUOTA 0
 #define GRPQUOTA 1
@@ -1622,7 +1635,6 @@ void ocfs2_hamming_fix(void *data, unsigned int d,
 void ocfs2_hamming_fix_block(void *data, unsigned int d, unsigned int fix);
 uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len);
 
-
-
+enum ocfs2_block_type ocfs2_detect_block(char *buf);
 
 #endif  /* _FILESYS_H */

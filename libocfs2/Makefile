@@ -37,6 +37,7 @@ CFILES = 		\
 	bitmap.c	\
 	bitops.c	\
 	blockcheck.c	\
+	blocktype.c	\
 	cached_inode.c	\
 	chain.c		\
 	chainalloc.c	\

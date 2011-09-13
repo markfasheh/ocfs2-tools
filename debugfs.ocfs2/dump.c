@@ -164,33 +164,34 @@ void dump_block_check(FILE *out, struct ocfs2_block_check *bc, void *block)
 {
 	struct ocfs2_block_check tmp = *bc;
 	int crc_fail;
-	enum dump_block_type bt = detect_block(block);
+	enum ocfs2_block_type bt = ocfs2_detect_block(block);
 
 	/* Swap block to little endian for compute_meta_ecc */
 	switch (bt) {
-		case DUMP_BLOCK_INODE:
+		case OCFS2_BLOCK_INODE:
+		case OCFS2_BLOCK_SUPERBLOCK:
 			ocfs2_swap_inode_from_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_EXTENT_BLOCK:
+		case OCFS2_BLOCK_EXTENT_BLOCK:
 			ocfs2_swap_extent_block_from_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_GROUP_DESCRIPTOR:
+		case OCFS2_BLOCK_GROUP_DESCRIPTOR:
 			ocfs2_swap_group_desc_from_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_DIR_BLOCK:
+		case OCFS2_BLOCK_DIR_BLOCK:
 			ocfs2_swap_dir_entries_from_cpu(block,
 					gbls.fs->fs_blocksize);
 			break;
-		case DUMP_BLOCK_XATTR:
+		case OCFS2_BLOCK_XATTR:
 			ocfs2_swap_xattr_block_from_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_REFCOUNT:
+		case OCFS2_BLOCK_REFCOUNT:
 			ocfs2_swap_refcount_block_from_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_DXROOT:
+		case OCFS2_BLOCK_DXROOT:
 			ocfs2_swap_dx_root_from_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_DXLEAF:
+		case OCFS2_BLOCK_DXLEAF:
 			ocfs2_swap_dx_leaf_from_cpu(block);
 			break;
 		default:
@@ -203,29 +204,30 @@ void dump_block_check(FILE *out, struct ocfs2_block_check *bc, void *block)
 
 	/* Swap block back to CPU */
 	switch (bt) {
-		case DUMP_BLOCK_INODE:
+		case OCFS2_BLOCK_INODE:
+		case OCFS2_BLOCK_SUPERBLOCK:
 			ocfs2_swap_inode_to_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_EXTENT_BLOCK:
+		case OCFS2_BLOCK_EXTENT_BLOCK:
 			ocfs2_swap_extent_block_to_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_GROUP_DESCRIPTOR:
+		case OCFS2_BLOCK_GROUP_DESCRIPTOR:
 			ocfs2_swap_group_desc_to_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_DIR_BLOCK:
+		case OCFS2_BLOCK_DIR_BLOCK:
 			ocfs2_swap_dir_entries_to_cpu(block,
 					gbls.fs->fs_blocksize);
 			break;
-		case DUMP_BLOCK_XATTR:
+		case OCFS2_BLOCK_XATTR:
 			ocfs2_swap_xattr_block_to_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_REFCOUNT:
+		case OCFS2_BLOCK_REFCOUNT:
 			ocfs2_swap_refcount_block_to_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_DXROOT:
+		case OCFS2_BLOCK_DXROOT:
 			ocfs2_swap_dx_root_to_cpu(gbls.fs, block);
 			break;
-		case DUMP_BLOCK_DXLEAF:
+		case OCFS2_BLOCK_DXLEAF:
 			ocfs2_swap_dx_leaf_to_cpu(block);
 			break;
 		default:
@@ -933,7 +935,7 @@ void dump_jbd_block(FILE *out, journal_superblock_t *jsb,
  * dump_jbd_metadata()
  *
  */
-void dump_jbd_metadata(FILE *out, enum dump_block_type type, char *buf,
+void dump_jbd_metadata(FILE *out, enum ocfs2_block_type type, char *buf,
 		       uint64_t blknum)
 {
 	struct ocfs2_dir_block_trailer *trailer;
@@ -947,7 +949,8 @@ void dump_jbd_metadata(FILE *out, enum dump_block_type type, char *buf,
 
 	fprintf(out, "\tBlock %"PRIu64": ", blknum);
 	switch (type) {
-	case DUMP_BLOCK_INODE:
+	case OCFS2_BLOCK_INODE:
+	case OCFS2_BLOCK_SUPERBLOCK:
 		fprintf(out, "Inode\n");
 		di = (struct ocfs2_dinode *)buf;
 		ocfs2_swap_inode_to_cpu(gbls.fs, di);
@@ -964,7 +967,7 @@ void dump_jbd_metadata(FILE *out, enum dump_block_type type, char *buf,
 			dump_extent_list(out, &(di->id2.i_list));
 		fprintf(out, "\n");
 		break;
-	case DUMP_BLOCK_EXTENT_BLOCK:
+	case OCFS2_BLOCK_EXTENT_BLOCK:
 		fprintf(out, "Extent\n");
 		eb = (struct ocfs2_extent_block *)buf;
 		ocfs2_swap_extent_block_to_cpu(gbls.fs, eb);
@@ -972,14 +975,14 @@ void dump_jbd_metadata(FILE *out, enum dump_block_type type, char *buf,
 		dump_extent_list(out, &(eb->h_list));
 		fprintf(out, "\n");
 		break;
-	case DUMP_BLOCK_GROUP_DESCRIPTOR:
+	case OCFS2_BLOCK_GROUP_DESCRIPTOR:
 		fprintf(out, "Group\n");
 		ocfs2_swap_group_desc_to_cpu(gbls.fs,
 				      (struct ocfs2_group_desc *)buf);
 		dump_group_descriptor(out, (struct ocfs2_group_desc *)buf, 0);
 		fprintf(out, "\n");
 		break;
-	case DUMP_BLOCK_DIR_BLOCK:
+	case OCFS2_BLOCK_DIR_BLOCK:
 		fprintf(out, "Dirblock\n");
 		/*
 		 * We know there's a trailer, because that's how it
@@ -992,7 +995,7 @@ void dump_jbd_metadata(FILE *out, enum dump_block_type type, char *buf,
 		dump_dir_block(out, buf);
 		fprintf(out, "\n");
 		break;
-	case DUMP_BLOCK_XATTR:
+	case OCFS2_BLOCK_XATTR:
 		fprintf(out, "Xattr\n");
 		xb = (struct ocfs2_xattr_block *)buf;
 		ocfs2_swap_xattr_block_to_cpu(gbls.fs, xb);
@@ -1002,21 +1005,21 @@ void dump_jbd_metadata(FILE *out, enum dump_block_type type, char *buf,
 		}
 		fprintf(out, "\n");
 		break;
-	case DUMP_BLOCK_REFCOUNT:
+	case OCFS2_BLOCK_REFCOUNT:
 		fprintf(out, "Refcount\n");
 		rb = (struct ocfs2_refcount_block *)buf;
 		ocfs2_swap_refcount_block_to_cpu(gbls.fs, rb);
 		dump_refcount_block(out, rb);
 		fprintf(out, "\n");
 		break;
-	case DUMP_BLOCK_DXROOT:
+	case OCFS2_BLOCK_DXROOT:
 		fprintf(out, "DxRoot\n");
 		dx_root = (struct ocfs2_dx_root_block *)buf;
 		ocfs2_swap_dx_root_to_cpu(gbls.fs, dx_root);
 		dump_dx_root(out, dx_root);
 		fprintf(out, "\n");
 		break;
-	case DUMP_BLOCK_DXLEAF:
+	case OCFS2_BLOCK_DXLEAF:
 		fprintf(out, "DxLeaf\n");
 		dx_leaf = (struct ocfs2_dx_leaf *)buf;
 		ocfs2_swap_dx_leaf_to_cpu(dx_leaf);
