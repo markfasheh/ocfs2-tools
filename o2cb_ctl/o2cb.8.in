@@ -1,4 +1,4 @@
-.TH "o2cb" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2cb" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2cb \- Cluster registration utility for the \fIO2CB\fR cluster stack.
 .SH "SYNOPSIS"
@@ -105,36 +105,46 @@ not been enabled.
 Stops global heartbeat on all regions for the cluster. It will silently exit
 if global heartbeat has not been enabled.
 
+.TP
+\fBcluster-status\fR \fI[cluster-name]\fR
+Shows whether the given cluster is offline or online. If no cluster is provided,
+it shows the currently active cluster, if any.
+
 .SH "EXAMPLE"
 
-.TS
-;
-L.
 To create a cluster, mycluster having two nodes, node1 and node2, do:
-[root@node1 ~]# \fBo2cb add-cluster mycluster\fR
-[root@node1 ~]# \fBo2cb add-node mycluster node1 --ip 10.10.10.1\fR
-[root@node1 ~]# \fBo2cb add-node mycluster node2 --ip 10.10.10.2\fR
+.in +4n
+.nf
+.sp
+$ \fBo2cb add-cluster mycluster\fR
+$ \fBo2cb add-node mycluster node1 --ip 10.10.10.1\fR
+$ \fBo2cb add-node mycluster node2 --ip 10.10.10.2\fR
+.fi
+.in
 
 To specify a global heartbeat device, /dev/sda1, do:
-[root@node1 ~]# \fBo2cb add-heartbeat mycluster /dev/sda1\fR
+.in +4n
+.nf
+.sp
+$ \fBo2cb add-heartbeat mycluster /dev/sda1\fR
+.fi
+.in
 
 To enable global heartbeat, do:
-[root@node1 ~]# \fBo2cb heartbeat-mode mycluster global\fR
-
-.TE
-
+.in +4n
+.nf
+.sp
+$ \fBo2cb heartbeat-mode mycluster global\fR
+.fi
+.in
 
 .SH "SEE ALSO"
-.BR mkfs.ocfs2(8)
-.BR debugfs.ocfs2(8)
-.BR fsck.ocfs2(8)
-.BR tunefs.ocfs2(8)
-.BR mounted.ocfs2(8)
-.BR ocfs2console(8)
 .BR o2cb(7)
+.BR o2cb.sysconfig(5)
+.BR ocfs2.cluster.conf(5)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2010 Oracle. All rights reserved.
+Copyright \(co 2010, 2011 Oracle. All rights reserved.

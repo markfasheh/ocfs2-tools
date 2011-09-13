@@ -1,46 +1,54 @@
-.TH "o2info" "1" "October 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2info" "1" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-o2info \- Dump \fIOCFS2\fR file system information on disk.
+o2info \- Show \fIOCFS2\fR file system information.
 .SH "SYNOPSIS"
 \fBo2info\fR [\fB\-C|\-\-cluster\-coherent\fR] [\fB\-\-fs\-features\fR] [\fB\-\-volinfo\fR] [\fB\-\-mkfs\fR] [\fB\-\-freeinode\fR] [\fB\-\-freefrag\fR \fIchunksize\fR] [\fB\-\-space\-usage\fR] [\fB\-\-filestat\fR] <\fBdevice or file\fR>
 
 .SH "DESCRIPTION"
 .PP
-\fBo2info\fR is designed to be an information tool, to display \fIOCFS2\fR file system information on disk. Its main goal on one hand, is to provide a tool to display fs info in a comprehensive way and providing the information which may be missing in \fBdebugfs.ocfs\fR and \fBtunefs.ocfs2\fR such as global bitmap free space fragmentation and free inode info for each slot, on the other hand, it also aims to become a info tool(\fBnot\fR an administration one), which therefore allows all users who may have no read privilege on the underlying device to use the utility. In practice, \fB'o2info /path/to/file/on/ocfs2/vol'\fR use a new \fBOCFS2_IOC_INFO\fR ioctl to get info from fs for a mounted case. For a privileged user(e.g, root), the same info however, can also be accessed by \fB'o2info /dev/sdxN'\fR to direcly manipulate the raw device.
+\fBo2info\fR shows information about \fIOCFS2\fR file systems. It differs from \fBdebugfs.ocfs2(8)\fR
+in that it allows users with limited read priviledges to query similar information. Users do not have
+to have the read privilege on the device as is expected by \fBdebugfs.ocfs2(8)\fR. This utility allows
+users to provide a path to an object on a mounted file system. The user needs to have the read priviledge
+on that object.
 
 .SH "OPTIONS"
 .TP
 \fB\-C, \-\-cluster\-coherent\fR
-Enable cluster (in)coherency for mounted case, means it will attempt to acquire a global PR lock when querying info from a cluster filesystem, which may degrade the performance, default is none cluster-coherency.
+Force cluster coherency when querying a mounted file systems. The is disabled by default.
+Enable this only if accurate information is required as it involves taking cluster locks.
 
 .TP
 \fB\-\-fs\-features\fR
-List all compat, incompat and ro-compat fs features on \fIOCFS2\fR filesystem.
+Show all the file system features (compat, incompat, ro compat) enabled on the file system.
 
 .TP
 \fB\-\-volinfo\fR
-Dump basic volume information, such as blocksize, clustersize, volume label and UUID etc.
+Show file system information such as label, uuid, block and cluster sizes, node slots, etc.
 
 .TP
 \fB\-\-mkfs\fR
-Dump an original format of mkfs.ocfs's arguments, importantly, which can be used directly as a fresh mkfs retry:
-#mkfs.ocfs2 "$(o2info --mkfs /dev/name/or/path/of/file)" /dev/sdaX
+Show file system information in \fBmkfs.ocfs2(8)\fR format.
 
 .TP
 \fB\-\-freeinode\fR
-Display free inode space for all nodes in \fIOCFS2\fR cluster.
+Show the inode (allocated/free) count for all slots in the file system.
 
 .TP
 \fB\-\-freefrag\fR \fIchunksize\fR
-Report free space fragmentation on \fIOCFS2\fR filesystems, it prints how many chunks of chunksize are available as contiguous and aligned free space by scanning the global allocation bitmap. In the meantime, the percentage of contiguous free clusters of size and of alignment chunksize is reported, what's more, it also displays the minimum/maximum/average free chunk size in filesystem, along with a histogram of all free chunks. \fBNOTE\fR, chunksize specified must be a power of two and be equal to or larger than filesystem's clustersize.
+Show the free space fragmentation of the file system. The chunksize should be equal to or
+greater than the cluster size.
 
 .TP
 \fB\-\-space\-usage\fR
-Display file's usage information on disk in terms of how many physical blocks it consumed, how many reserved space and holes in it.
+Show the disk space used by a file in block sized units. It also provides the block count
+of the holes, shared extents and unwritten extents.
 
 .TP
 \fB\-\-filestat\fR
-Display inode's standard stat information, other than this, it also dumps inode's extended info such as extents, fragmentation, holes, unwritten and shared space in clusters.
+Show the extended \fBstat(1)\fR information that includes the number of clusters consumed
+by extended attributes, unwritten extents, shared extents and holes, along with the file
+fragmentation score.
 
 .TP
 \fB\-V, \-\-version\fR
@@ -48,80 +56,76 @@ Show version and exit.
 
 .TP
 \fB\-h, \-\-help\fR
-Display help and exit.
+Show help and exit.
+
+.SH "NOTE"
+.PP
+The utility uses custom info ioctls to query information from a mounted file system. As these
+info ioctls were added starting in Linux kernel 2.6.37, this utility will not work on mounted
+\fIOCFS2\fR file systems running on systems having older kernels.
 
 .SH "EXAMPLES"
-[oracle@node1 ~]# o2info --volinfo /storage/testfile      # For none-privileged users.
-.br
-[root@node1 ~]# o2info --volinfo /dev/sda1
-.br
-       Label: ocfs2-volume
-.br
-        UUID: 976D8E630B3A4F1F95497311A92901FC
-.br
+.PP
+Non-priviledged users can query the volume information by providing the path to a file on
+a mounted file system. Priviledged users can provide the path to the device.
+
+.in +4n
+.nf
+# \fBo2info --volinfo /ocfs2/testfile\fR
+       Label: webhome
+        UUID: 8AB016CD59FC4327A2CDAB69F08518E3
   Block Size: 4096
-.br
-Cluster Size: 4096
-.br
-  Node Slots: 4
-.br
-    Features: backup-super strict-journal-super sparse inline-data xattr
-.br
+Cluster Size: 131072
+  Node Slots: 8
+    Features: backup-super strict-journal-super sparse extended-slotmap 
+    Features: inline-data xattr indexed-dirs refcount discontig-bg clusterinfo 
     Features: unwritten
+.fi
+.in
 
-[oracle@node1 ~]# o2info --freefrag 64 /storage/testfile      # For none-privileged users.
-.br
-[root@node1 ~]# o2info --freefrag 64 /dev/sda1
-.br
+The same goes for querying file system fragmentation.
+
+.in +4n
+.nf
+# \fBo2info --freefrag 128 /ocfs2/testfile\fR
 Blocksize: 4096 bytes
-.br
-Clustersize: 32768 bytes
-.br
-Total clusters: 915704
-.br
-Free clusters: 891687 (97.4%)
-.br
+Clustersize: 131072 bytes
+Total clusters: 409599
+Free clusters: 376537 (91.92%)
 
-Min. free extent: 32 KB
-.br
-Max. free extent: 1032160 KB
-.br
-Avg. free extent: 663552 KB
-.br
+Min. free extent: 256 KB 
+Max. free extent: 4091648 KB
+Avg. free extent: 172672 KB
 
-Chunksize: 131072 bytes (4 clusters)
-.br
-Total chunks: 228927
-.br
-Free chunks: 222888 (97.4%)
-.br
+Chunksize: 131072 bytes (1 clusters)
+Total chunks: 409600
+Free chunks: 376537 (91.9%)
 
 HISTOGRAM OF FREE EXTENT SIZES:
-.br
 Extent Size Range :  Free extents  Free Clusters  Percent
-.br
-   32K...   64K-  :             1             1    0.00%
-.br
-    1M...    2M-  :             9           288    0.03%
-.br
-    8M...   16M-  :             2           831    0.09%
-.br
-   32M...   64M-  :             1          2047    0.23%
-.br
-  128M...  256M-  :             1          8191    0.92%
-.br
-  256M...  512M-  :             2         21706    2.43%
-.br
-  512M... 1024M-  :            27        858623   96.29%
-.br
-
+  256K...  512K-  :             4            10    0.00%
+  512K... 1024K-  :           251          1179    0.31%
+    1M...    2M-  :             5            72    0.02%
+    8M...   16M-  :             3           288    0.08%
+   32M...   64M-  :             1           447    0.12%
+  128M...  256M-  :             2          3371    0.90%
+    1G...    2G-  :             1         13823    3.67%
+    2G...    4G-  :            12        357347   94.90%
+.fi
+.in
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR fsck.ocfs2.checks(8)
+.BR mkfs.ocfs2(8)
+.BR mount.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR o2image(8)
 .BR tunefs.ocfs2(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2010 Oracle. All rights reserved.
+Copyright \(co 2010, 2011 Oracle. All rights reserved.

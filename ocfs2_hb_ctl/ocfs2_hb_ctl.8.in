@@ -1,6 +1,6 @@
-.TH "ocfs2_hb_ctl" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "ocfs2_hb_ctl" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-ocfs2_hb_ctl \- Starts and stops the \fIOCFS2\fR heartbeat on a given device.
+ocfs2_hb_ctl \- Starts and stops the \fIO2CB\fR \fBlocal\fR heartbeat on a given device.
 .SH "SYNOPSIS"
 
 .B ocfs2_hb_ctl
@@ -33,9 +33,13 @@ ocfs2_hb_ctl \- Starts and stops the \fIOCFS2\fR heartbeat on a given device.
 
 .SH "DESCRIPTION"
 .PP 
-\fBocfs2_hb_ctl\fR starts and stops the heartbeat on a \fIOCFS2\fR device.
+\fBocfs2_hb_ctl\fR starts and stops \fBlocal\fR heartbeat on a \fIOCFS2\fR device.
 \fBUsers are strongly urged not to use this tool directly\fR. It is automatically
-invoked by \fImount.ocfs2\fR and other tools that require heartbeat notifications.
+invoked by \fBmount.ocfs2(8)\fR and other tools that require heartbeat notifications.
+
+This utility only operates in the \fBlocal\fR heartbeat mode. It fails silently
+when run in \fBglobal\fR heartbeat mode. More information on the heartbeat modes
+can be found in \fBo2cb(7)\fR.
 
 The tools accepts devices to be specified by its name or its uuid. Service denotes
 the application that is requesting the heartbeat notification.
@@ -72,15 +76,14 @@ This option is usable only with the \fBO2CB\fR cluster stack.
 Displays help and exit.
 
 .SH "SEE ALSO"
-.BR mkfs.ocfs2(8)
-.BR fsck.ocfs2(8)
-.BR tunefs.ocfs2(8)
-.BR mounted.ocfs2(8)
-.BR ocfs2console(8)
-.BR debugfs.ocfs2(8)
+.BR mount.ocfs2(8)
+.BR o2cb(7)
+.BR o2cb(8)
+.BR o2cb.sysconfig(5)
+.BR ocfs2.cluster.conf(5)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2010 Oracle. All rights reserved.
+Copyright \(co 2004, 2011 Oracle. All rights reserved.

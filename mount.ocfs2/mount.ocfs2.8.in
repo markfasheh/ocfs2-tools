@@ -1,4 +1,4 @@
-.TH "mount.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mount.ocfs2" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "SYNOPSIS"
@@ -6,18 +6,18 @@ mount.ocfs2 \-  mount an \fIOCFS2\fR filesystem
 .SH "DESCRIPTION"
 .PP 
 \fBmount.ocfs2\fR mounts an \fIOCFS2\fR filesystem at \fIdir\fR. It is usually
-invoked indirectly by the mount(8) command when using the \fI-t ocfs2\fR option.
+invoked indirectly by the \fBmount(8)\fR command.
 
 .SH "OPTIONS"
 
 .TP
 \fB\_netdev\fR
-The filesystem resides on a device that requires network access (used to prevent
-the system from attempting to mount these filesystems until the network has
-been enabled on the system). \fImount.ocfs2\fR transparently appends this option
-during mount. However, users mounting the volume via /etc/fstab must explicitly
-specify this mount option to delay the system from mounting the volume until
-after the network has been enabled.
+Indicates that the file system resides on a device that requires network access
+(used to prevent the system from attempting to mount these filesystems until the
+network has been enabled on the system). \fBmount.ocfs2(8)\fR transparently appends
+this option during mount. However, users mounting the volume via /etc/fstab must
+explicitly specify this mount option to delay the system from mounting the volume
+until after the network has been enabled.
 
 .TP
 \fBnoatime\fR
@@ -25,21 +25,22 @@ The file system will not update access time.
 
 .TP
 \fBrelatime\fR
-The file system only update atime if the previous atime is older than mtime or ctime.
+The file system will update atime only if the on-disk atime is older than mtime
+or ctime.
 
 .TP
 \fBstrictatime,atime\_quantum=nrsec\fR
 The file system will always perform atime updates, but the minimum update
-interval is specified by atime_quantum. Atime_quantum defaults to 60 secs,
-set it to zero to always update atime. These two options need work together.
+interval is specified by atime_quantum which defaults to 60 secs. Set it to
+zero to always update atime. These two options need work together.
 
 .TP
-\fBacl / noacl\fR
-Enables / disables POSIX ACLs (Access Control Lists) support.
+\fB[no]acl\fR
+Enables / disables POSIX ACLs (access control lists) support.
 
 .TP
-\fBuser_xattr / nouser_xattr\fR
-Enables / disables Extended User Attributes.
+\fB[no]user_xattr\fR
+Enables / disables extended user attributes.
 
 .TP
 \fBcommit=nrsec\fR
@@ -47,47 +48,80 @@ Sync all data and metadata every nrsec seconds. The default value is 5 seconds.
 Zero means default.
 
 .TP
-\fBdata=ordered / data=writeback\fR
+\fBdata=[ordered|writeback]\fR
 Specifies the handling of file data during metadata journalling.
-.RS 1.2i
+
+.RS
 .TP
 \fBordered\fR
-This is the default mode. All data is forced directly out to the main file
-system prior to its metadata being committed to the journal.
-.RE
-.RS 1.2i
+This is the default mode. Data is flushed to disk before the corresponding meta-data
+is committed to the journal.
+
 .TP
 \fBwriteback\fR
-Data  ordering is not preserved - data may be written into the main file system
-after its metadata has been committed to the journal. This is rumored to be
-the highest-throughput option. While it guarantees internal file system
-integrity, it can allow old data to appear in files after a crash and journal
-recovery.
+Data  ordering is not preserved - data may be flushed to disk after the corresponding
+meta-data is committed to the journal. This is rumored to be the higher-throughput
+option. While it guarantees internal file system integrity, it can allow old data to
+appear in files after a crash and journal recovery.
 .RE
 
 .TP
-\fBdatavolume\fR
-\fIThis mount option has been \fBdeprecated\fR in OCFS2 1.6\fR. It has been used
-in the past (\fIOCFS2 1.2\fR and \fIOCFS2 1.4\fR), to force the Oracle RDBMS to
-issue direct IOs to the hosted data files, control files, redo logs, archive logs,
-voting disk, cluster registry, etc. It has been deprecated because it is no longer
-required. Oracle RDBMS users should instead use the \fIinit.ora\fR parameter,
-\fIfilesystemio_options\fR, to enable direct IOs.
+\fBerrors=[remount-ro|errors=panic]\fR
+Specifies the behavior when an on-disk corruption is encountered.
+
+.RS
+.TP
+\fBremount-ro\fR
+This is the default mode. The file system is remounted read-only.
 
 .TP
-\fBerrors=remount-ro / errors=panic\fR
-Define the behavior when an error is encountered. (Either remount the file
-system read-only, or panic and halt the system.) By default, the file system
-is remounted read only.
+\fBpanic\fR
+The system is halted via panic.
+.RE
 
 .TP
 \fBlocalflocks\fR
-This disables cluster-aware flock(2).
+This disables cluster-aware \fBflock(2)\fR.
 
 .TP
-\fBintr / nointr\fR
-The default is intr that allows signals to interrupt cluster operations.
-nointr disables signals during cluster operations.
+\fBcoherency=[full|coherency]\fR
+Specifies the extent of coherency for the cached file data across the cluster.
+This mount option works with Linux kernel \fB2.6.37\fR and later.
+
+.RS
+.TP
+\fBfull\fR
+This is the default mode. The file system ensures the cached file data is coherent
+across the cluster for all IO modes.
+
+.TP
+\fBbuffered\fR
+The file system only ensures the cached file data coherency for buffered mode IOs.
+It does not perform IO serialization for direct IOs. This allows multiple nodes to
+perform concurrent direct IOs to the same file. This is the recommended mode for
+volumes hosting \fIdatabase\fR files.
+.RE
+
+.TP
+\fBresv_level=level\fR
+Specifies the level of allocation reservation for files. The higher the value, the more
+aggressive it is. Valid values are between 0 (reservation off) to 8 (maximum space
+for reservation). It defaults to 2. This mount option works with Linux kernel
+\fB2.6.35\fR and later.
+
+.TP
+\fBdir_resv_level=level\fR
+By default, directory reservation scales with file reserveration. Users should rarely
+need to change this value. If the file allocation reservation is turned off, this option
+will have no effect. This mount option works with Linux kernel \fB2.6.35\fR and later.
+.TP
+\fBinode64\fR
+Indicates that the file system can create inodes at any location in the volume, including
+those which will result in inode numbers greater than 4 billion.
+
+.TP
+\fB[no]intr\fR
+Specifies whether a signal can interrupt IOs. It is disabled by default.
 
 .TP
 \fBro\fR
@@ -97,16 +131,64 @@ Mount the file system read-only.
 \fBrw\fR
 Mount the file system read-write.
 
+.SH "NOTES"
+.PP
+To mount and umount a \fIOCFS2\fR volume, do:
+
+.in +4n
+.nf
+# \fBmount /dev/sda1 /mount/path\fR
+ ...
+# \fBumount /mount/path\fR
+.fi
+.in
+
+Users mounting a clustered volume should be aware of the following:
+
+.in +4n
+1. The cluster stack must to be online for a clustered mount to succeed.
+
+2. The clustered mount operation is not instantaneous; it must wait for the node to join the DLM domain.
+
+3. Likewise, clustered umount is also not instantaneous; it involves migrating all mastered lock-resources to the other nodes in the cluster.
+.in
+
+If the mount fails, detailed errors can be found via \fBdmesg(8)\fR. These might include incorrect
+cluster configuration (say, a missing node or incorrect IP address) or a firewall interfering with
+\fBo2cb\fR network traffic. Check the configuration as listed in \fBo2cb(7)\fR or the man page of
+the active cluster stack.
+
+To auto-mount volumes on startup, the file system tools include an \fIocfs2\fR init service.
+This runs after the \fIo2cb\fR init service has started the cluster. The \fIocfs2\fR init service
+mounts all \fIOCFS2\fR volumes listed in /etc/fstab.
+
+.in +4n
+.nf
+# \fBchkconfig --add o2cb\fR
+o2cb 0:off 1:off 2:on 3:on 4:off 5:on 6:off
+
+$ \fBchkconfig --add ocfs2\fR
+o2cb 0:off 1:off 2:on 3:on 4:off 5:on 6:off
+
+$ \fBcat /etc/fstab\fR
+ ...
+/dev/sda1     /u01     ocfs2     _netdev,defaults     0  0
+ ...
+.fi
+.in
+
 .SH "SEE ALSO"
-.BR mkfs.ocfs2(8)
-.BR fsck.ocfs2(8)
-.BR tunefs.ocfs2(8)
-.BR mounted.ocfs2(8)
 .BR debugfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR mounted.ocfs2(8)
 .BR o2cb(7)
+.BR o2image(8)
+.BR o2info(1)
+.BR tunefs.ocfs2(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2010 Oracle. All rights reserved.
+Copyright \(co 2004, 2011 Oracle. All rights reserved.

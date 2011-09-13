@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "February 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -41,13 +41,13 @@ Specify this option to disable this check.
 Create the journal using options specified on the command\-line. Journal
 options are comma separated, and may take an argument using the equals
 ('=') sign. The following options are supported:
-.RS 1.2i
+
+.RS
 .TP
 \fBsize\fR=\fIjournal\-size\fR
 Create a journal of size \fIjournal\-size\fR. Minimum size is 4M.
 If omitted, a value is heuristically determined based upon the file system size.
-.RE
-.RS 1.2i
+
 .TP
 \fBblock32\fR
 Use a standard 32bit journal.  The journal will be able to access up to
@@ -55,8 +55,7 @@ Use a standard 32bit journal.  The journal will be able to access up to
 \fIOCFS2\fR volumes since the beginning.  The journal is compatible with
 all versions of \fIOCFS2\fR.  Prepending \fBno\fR is equivalent to the
 \fBblock64\fR journal option.
-.RE
-.RS 1.2i
+
 .TP
 \fBblock64\fR
 Use a 64bit journal.  The journal will be able to access up to 2^64-1
@@ -89,18 +88,17 @@ down using \fItunefs.ocfs2\fR.
 Specify how the filesystem is going to be used, so that \fImkfs.ocfs2\fR can
 chose optimal filesystem parameters for that use. The supported
 filesystem types are:
-.RS 1.2i
+
+.RS
 .TP
 \fBmail\fR
 Appropriate for file systems that will host lots of small files.
-.RE
-.RS 1.2i
+
 .TP
 \fBdatafiles\fR
 Appropriate for file systems that will host a relatively small number
 of very large files.
-.RE
-.RS 1.2i
+
 .TP
 \fBvmstore\fR
 Appropriate for file systems that will host Virtual machine images.
@@ -109,47 +107,40 @@ Appropriate for file systems that will host Virtual machine images.
 .TP
 \fB\-\-fs\-features=\fR\fR\fI[no]sparse...\fR
 Turn specific file system features on or off. A comma separated list of feature flags can be provided, and \fImkfs.ocfs2\fR will try to create the file system with those features set according to the list. To turn a feature on, include it in the list. To turn a feature off, prepend \fBno\fR to the name. Choices here will override individual features set via the \fB\-\-fs\-feature\-level\fR option. \fBRefer to the section titled feature compatibility before selecting specific features.\fR The following flags are supported:
-.RS 1.2i
+
+.RS
 .TP
 \fBbackup-super\fR
 \fImkfs.ocfs2\fR, by default, makes up to 6 backup copies of the super block at offsets 1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.  This can be useful in disaster recovery. This feature is fully compatible with all versions of the file system and generally should not be disabled.
-.RE
-.RS 1.2i
+
 .TP
 \fBlocal\fR
 Create the file system as a local mount, so that it can be mounted without a cluster stack.
-.RE
-.RS 1.2i
+
 .TP
 \fBsparse\fR
 Enable support for sparse files. With this, \fIOCFS2\fR can avoid allocating (and zeroing) data to fill holes. Turn this feature on if you can, otherwise extends and some writes might be less performant.
-.RE
-.RS 1.2i
+
 .TP
 \fBunwritten\fR
 Enable unwritten extents support. With this turned on, an application can request that a range of clusters be pre-allocated within a file. \fIOCFS2\fR will mark those extents with a special flag so that expensive data zeroing doesn't have to be performed. Reads and writes to a pre-allocated region act as reads and writes to a hole, except a write will not fail due to lack of data allocation. This feature requires \fBsparse\fR file support to be turned on.
-.RE
-.RS 1.2i
+
 .TP
 \fBinline-data\fR
 Enable inline-data support. If this feature is turned on, \fIOCFS2\fR will store small files and directories inside the inode block. Data is transparently moved out to an extent when it no longer fits inside the inode block. In some cases, this can also make a positive impact on cold-cache directory and file operations.
-.RE
-.RS 1.2i
+
 .TP
 \fBextended-slotmap\fR
-The slot-map is a hidden file on an \fIOCFS2\fR fs which is used to map mounted nodes to system file resources. The extended slot map allows a larger range of possible node numbers, which is useful for userspace cluster stacks. This feature is automatically turned on when needed, thus users have no need to turn this on manually.
-.RE
-.RS 1.2i
+The slot-map is a hidden file on an \fIOCFS2\fR fs which is used to map mounted nodes to system file resources. The extended slot map allows a larger range of possible node numbers, which is useful for userspace cluster stacks. If required, this feature is automatically turned on by \fImkfs.ocfs2\fR.
+
 .TP
 \fBmetaecc\fR
 Enables metadata checksums. With this enabled, the file system computes and stores the checksums in all metadata blocks. It also computes and stores an error correction code capable of fixing single bit errors.
-.RE
-.RS 1.2i
+
 .TP
 \fBrefcount\fR
 Enables creation of reference counted trees. With this enabled, the file system allows users to create inode-based snapshots and clones known as \fBreflinks\fR.
-.RE
-.RS 1.2i
+
 .TP
 \fBxattr\fR
 Enable extended attributes support. With this enabled, users can attach name:value pairs to objects
@@ -158,50 +149,54 @@ NUL byte. While it is not required, printable names (ASCII) are recommended. The
 arbitrary binary data. Attributes can be attached to all types of inodes: regular files, directories,
 symbolic links, device nodes, etc. This feature is required for users wanting to use extended security
 facilities like POSIX ACLs or SELinux.
-.RE
-.RS 1.2i
+
 .TP
 \fBusrquota\fR
 Enable user quota support. With this feature enabled, filesystem will track amount of space
 and number of inodes (files, directories, symbolic links) each user owns. It is then possible
 to limit the maximum amount of space or inodes user can have. See a documentation of
 quota-tools package for more details.
-.RE
-.RS 1.2i
+
 .TP
 \fBgrpquota\fR
 Enable group quota support. With this feature enabled, filesystem will track amount of space
 and number of inodes (files, directories, symbolic links) each group owns. It is then possible
 to limit the maximum amount of space or inodes user can have. See a documentation of
 quota-tools package for more details.
-.RE
-.RS 1.2i
+
 .TP
 \fBindexed-dirs\fR
 Enable directory indexing support. With this feature enabled, the file system creates indexed tree for non-inline directory entries. For large scale directories, directory entry lookup perfromance from the indexed tree is faster then from the legacy directory blocks.
-.RE
-.RS 1.2i
+
 .TP
 \fBdiscontig-bg\fR
 Enables discontiguous block groups. With this feature enabled, the file system is able to grow
 the inode and the extent allocators even when there is no contiguous free chunk available. It
 allows the file system to grow the allocators in smaller (discontiguous) chunks.
+
+.TP
+\fBclusterinfo\fR
+Enables storing the cluster stack information in the superblock. This feature is needed
+to support userspace cluster stacks and the global heartbeat mode in the \fBo2cb\fR
+cluster stack. If needed, this feature is automatically turned on by \fImkfs.ocfs2\fR.
 .RE
 
 .TP
 \fB\-\-fs\-feature\-level=\fR\fR\fIfeature\-level\fR
 Choose from a set of pre-determined file-system features. This option is designed to allow users to conveniently choose a set of file system features which fits their needs. There is no downside to trying a set of features which your module might not support - if it won't mount the new file system simply reformat at a lower level. Feature levels can be fine-tuned via the \fB\-\-fs\-features\fR option. Currently, there are 3 types of feature levels:
-.RS 1.2i
+
+.RS
 .TP
 \fBmax-compat\fR
 Chooses fewer features but ensures that the file system can be mounted from older versions of the \fIOCFS2\fR module.
-.RE
-.RS 1.2i
+
 .TP
 \fBdefault\fR
-The default feature set tries to strike a balance between providing new features and maintaining compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR, \fBunwritten\fR \fBinline-data\fR \fBxattr\fR, \fBindexed-dirs\fR, \fBdiscontig-bg\fR, \fBrefcount\fR and \fBextended-slotmap\fR.
-.RE
-.RS 1.2i
+The default feature set tries to strike a balance between providing new features and maintaining
+compatibility with relatively recent versions of \fIOCFS2\fR. It currently enables \fBsparse\fR,
+\fBunwritten\fR, \fBinline-data\fR, \fBxattr\fR, \fBindexed-dirs\fR, \fBdiscontig-bg\fR, \fBrefcount\fR,
+\fBextended-slotmap\fR and \fBclusterinfo\fR.
+
 .TP
 \fBmax-features\fR
 Choose the maximum amount of features available. This will typically provide the best performance from \fIOCFS2\fR at the expense of creating a file system that is only compatible with very recent versions of the \fIOCFS2\fR kernel module.
@@ -209,12 +204,12 @@ Choose the maximum amount of features available. This will typically provide the
 
 .TP
 \fB\-\-cluster\-stack\fR
-Specify the cluster stack. This option is normally not required as \fBmkfs.ocfs2\fR
+Specify the cluster stack. This option is normally not required as \fImkfs.ocfs2\fR
 chooses the currently active cluster stack. It is required only if the cluster stack
 is not online and the user wishes to use a stack other than the default,
-\fBO2CB\fR. Other cluster stacks known to work with \fIOCFS2\fR are \fBPCMK\fR
-\fI(Pacemaker)\fR and \fBCMAN\fR. Once set, \fIOCFS2\fR will only allow mounting
-the volume if the active cluster stack (and name) matches the one specified on-disk.
+\fBo2cb\fR. Other supported cluster stacks are \fBpcmk\fR (Pacemaker) and \fBcman\fR
+(rgmanager). Once set, \fIOCFS2\fR will only allow mounting the volume if the active
+cluster stack and cluster name matches the one specified on-disk.
 
 .TP
 \fB\-\-cluster\-name\fR
@@ -223,10 +218,11 @@ a \fIcluster\-stack\fR.
 
 .TP
 \fB\-\-global\-heartbeat\fR
-Enable global heartbeat for the \fBO2CB\fR cluster stack. This option is not required
-if the \fBO2CB\fR cluster stack with global heartbeat is online. However, if the
-cluster stack is not up, then this option is required as are \fIcluster\-stack\fR and
-\fIcluster\-name\fR. For more, refer to \fBo2cb(7)\fR.
+Enable the global heartbeat mode of the \fBo2cb\fR cluster stack. This option is not
+required if the \fBo2cb\fR cluster stack with global heartbeat is online as \fImkfs.ocfs2\fR
+will detect the active stack. However, if the cluster stack is not up, then this option
+is required alongwith \fIcluster\-stack\fR and \fIcluster\-name\fR.  For more, refer to
+\fBo2cb(7)\fR.
 
 .TP
 \fB\-\-no-backup-super\fR
@@ -245,7 +241,7 @@ Quiet mode.
 Specify a custom UUID in the plain (2A4D1C581FAA42A1A41D26EFC90C1315) or
 traditional (2a4d1c58-1faa-42a1-a41d-26efc90c1315) format. This option in
 \fBnot\fR recommended because the file system uses the UUID to uniquely identify
-a file system. \fIIf more than one file system were to have the same UUID, one
+a file system. \fBIf more than one file system were to have the same UUID, one
 is very likely to encounter erratic behavior, if not, outright file system
 corruption.\fR
 
@@ -267,28 +263,29 @@ consume the given number of file system blocks (see \fB-b\fR) on the device.
 .SH "FEATURE COMPATIBILITY"
 This section lists the file system features that have been added to the \fIOCFS2\fR
 file system and the version that it first appeared in. The table below lists the versions
-of the mainline Linux kernel and that of the file system for the Enterprise Linux
-Distributions. Users should use this information to enable only those features that
-are available in the file system that they are using. Before enabling new features,
-users are advised to review to the section titled \fBfeature values\fR.
+of the mainline Linux kernel and ocfs2-tools. Users should use this information to
+enable only those features that are available in the file system that they are using.
+Before enabling new features, users are advised to review to the section titled
+\fBfeature values\fR.
 
 .TS
 CENTER ALLBOX;
-LI LI LI
-LB C C.
-Feature	Mainline Kernel Version	Enterprise OCFS2 Version
-local	Linux 2.6.20	OCFS2 1.2
-sparse	Linux 2.6.22	OCFS2 1.4
-unwritten	Linux 2.6.23	OCFS2 1.4
-inline-data	Linux 2.6.24	OCFS2 1.4
-extended-slotmap	Linux 2.6.27	OCFS2 1.6
-metaecc	Linux 2.6.29	OCFS2 1.6
-grpquota	Linux 2.6.29	OCFS2 1.6
-usrquota	Linux 2.6.29	OCFS2 1.6
-xattr	Linux 2.6.29	OCFS2 1.6
-indexed-dirs	Linux 2.6.30	OCFS2 1.6
-refcount	Linux 2.6.32	OCFS2 1.6
-discontig-bg	Linux 2.6.35	OCFS2 1.6
+LB LB LB
+LI C C.
+Feature	Kernel Version	Tools Version
+local	Linux 2.6.20	ocfs2-tools 1.2
+sparse	Linux 2.6.22	ocfs2-tools 1.4
+unwritten	Linux 2.6.23	ocfs2-tools 1.4
+inline-data	Linux 2.6.24	ocfs2-tools 1.4
+extended-slotmap	Linux 2.6.27	ocfs2-tools 1.6
+metaecc	Linux 2.6.29	ocfs2-tools 1.6
+grpquota	Linux 2.6.29	ocfs2-tools 1.6
+usrquota	Linux 2.6.29	ocfs2-tools 1.6
+xattr	Linux 2.6.29	ocfs2-tools 1.6
+indexed-dirs	Linux 2.6.30	ocfs2-tools 1.6
+refcount	Linux 2.6.32	ocfs2-tools 1.6
+discontig-bg	Linux 2.6.35	ocfs2-tools 1.6
+clusterinfo	Linux 2.6.37	ocfs2-tools 1.8
 .TE
 
 .TS
@@ -297,13 +294,14 @@ L.
 Users can query the features enabled in the file system as follows:
 .TE
 
-.TS
-;
-L.
-[root@node1 ~]# tunefs.ocfs2 -Q "Label: %V\\nFeatures: %H %O\\n" /dev/sdg1
+.in +4n
+.nf
+.sp
+# \fBtunefs.ocfs2 -Q "Label: %V\\nFeatures: %H %O\\n" /dev/sdg1\fR
 Label: apache_files_10
 Features: sparse inline-data unwritten
-.TE
+.fi
+.in
 
 .SH "FEATURE VALUES"
 This section lists the hex values that are associated with the file system features.
@@ -334,7 +332,7 @@ mount option, or, disabling that on-disk feature using \fBtunefs.ocfs2\fR.
 .TS
 CENTER ALLBOX;
 LI LI LI
-LB C C.
+LI C C.
 Feature	Category	Hex value
 local	Incompat	8
 sparse	Incompat	10
@@ -345,6 +343,7 @@ indexed-dirs	Incompat	400
 metaecc	Incompat	800
 refcount	Incompat	1000
 discontig-bg	Incompat	2000
+clusterinfo	Incompat	4000
 unwritten	RO Compat	1
 usrquota	RO Compat	2
 grpquota	RO Compat	4
@@ -354,10 +353,12 @@ grpquota	RO Compat	4
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
 .BR fsck.ocfs2(8)
-.BR tunefs.ocfs2(8)
+.BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
-.BR ocfs2console(8)
 .BR o2cb(7)
+.BR o2image(8)
+.BR o2info(1)
+.BR tunefs.ocfs2(8)
 
 .SH "AUTHORS"
 Oracle Corporation

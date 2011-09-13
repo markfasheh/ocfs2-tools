@@ -1,55 +1,66 @@
-.TH "mounted.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mounted.ocfs2" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mounted.ocfs2 \- Detects all \fIOCFS2\fR volumes on a system.
 .SH "SYNOPSIS"
 \fBmounted.ocfs2\fR [\fB\-d\fR] [\fB\-f\fR] [\fIdevice\fR]
 .SH "DESCRIPTION"
 .PP 
-\fBmounted.ocfs2\fR is used to detect \fIOCFS2\fR volume(s) on a system.
-This tool assumes that the nodes detected on the system are part of the
-same cluster as the one specified in \fI/etc/ocfs2/cluster.conf\fR.
+\fBmounted.ocfs2\fR is used to detect \fIOCFS2\fR volume(s) on a system. When run without
+specifying a \fIdevice\fR, it scans all the partitions listed in /proc/partitions.
 
 .SH "OPTIONS"
 .TP
 \fB\-d\fR
-Lists the \fIOCFS2\fR volumes along with their labels and uuids.
-If a device is not specified, it scans all the devices in /proc/partitions.
+Lists the \fIOCFS2\fR volumes along with their labels and uuids. It also lists the
+cluster stack, cluster name and the cluster flags. The possible cluster stacks are
+\fBo2cb\fR, \fBpcmk\fR and \fBcman\fR. \fBNone\fR indicates a local mount or a
+non-clustered volume. A \fBG\fR cluster flag indicates \fIglobal-heartbeat\fR for
+the \fBo2cb\fR cluster stack.
 
 .TP
 \fB\-f\fR
-Lists the \fIOCFS2\fR volumes along with the list of nodes that have
-mounted the volume. The node names are listed if the \fIO2CB\fR cluster
-is online. \fBNote:\fR As this information is gathered using dirty-read,
-the information may be stale.
+Lists the \fIOCFS2\fR volumes along with the list of nodes that have mounted the
+volume.
+
+.SH "NOTE"
+As this utility gathers information without taking any cluster locks, the information
+listed in the full detect mode could be stale. This is only problematic for volumes that
+were not cleanly umounted by the last node. Such volumes will show up mounted (as per
+this utility) on one or more nodes but are in fact not mounted on any node. Such volumes
+are awaiting slot-recovery which is auto-performed on the next mount (or file system check).
 
 .SH "EXAMPLES"
-[root@node1 ~]# mounted.ocfs2 -d
-.br
-Device      FS     Stack  UUID                              Label
-.br
-/dev/sdb1   ocfs2  local  2D1C9636FE38462DB43A75D1DA592207  vmvol
-.br
-/dev/sdj1   ocfs2  o2cb   FF2E239B02D941FEAF25BDAE8DD553B9  dbstore
-.br
+.TS
+;
+L.
+[root@node1 ~]# \fBmounted.ocfs2 -d\fR
+Device     Stack  Cluster     F  UUID                              Label
+/dev/sdc1  None                  23878C320CF3478095D1318CB5C99EED  localmount
+/dev/sdd1  o2cb   webcluster  G  8AB016CD59FC4327A2CDAB69F08518E3  webvol
+/dev/sdg1  o2cb   webcluster  G  77D95EF51C0149D2823674FCC162CF8B  logsvol
+/dev/sdh1  o2cb   webcluster  G  BBA1DBD0F73F449384CE75197D9B7098  scratch
+/dev/sdk1  o2cb   webcluster  G  DCDA2845177F4D59A0F2DCD8DE507CC3  hb1
 
-
-[root@node1 ~]# mounted.ocfs2 -f
-.br
-Device      FS     Nodes
-.br
-/dev/sdb1   ocfs2  node15, node1
-.br
+[root@node1 ~]# \fBmounted.ocfs2 -f\fR
+Device     Stack  Cluster     F  Nodes
+/dev/sdc1  None 
+/dev/sdd1  o2cb   webcluster  G  node1, node3, node10
+/dev/sdg1  o2cb   webcluster  G  node1, node3, node10
+/dev/sdh1  o2cb   webcluster  G  Not mounted
+/dev/sdk1  o2cb   webcluster  G  node1, node3, node10
+.TE
 
 .SH "SEE ALSO"
-.BR mkfs.ocfs2(8)
-.BR fsck.ocfs2(8)
-.BR tunefs.ocfs2(8)
 .BR debugfs.ocfs2(8)
-.BR ocfs2console(8)
-.BR o2cb(7)
+.BR fsck.ocfs2(8)
+.BR mkfs.ocfs2(8)
+.BR mount.ocfs2(8)
+.BR o2image(8)
+.BR o2info(1)
+.BR tunefs.ocfs2(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2010 Oracle. All rights reserved.
+Copyright \(co 2004, 2011 Oracle. All rights reserved.

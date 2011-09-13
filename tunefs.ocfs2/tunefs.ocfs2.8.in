@@ -1,4 +1,4 @@
-.TH "tunefs.ocfs2" "8" "September 2010" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
@@ -6,7 +6,7 @@ tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 
 .SH "DESCRIPTION"
 .PP
-\fBtunefs.ocfs2\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
+\fBtunefs.ocfs2(8)\fR is used to adjust \fIOCFS2\fR file system parameters on disk.
 The tool expects the cluster to be online as it needs to take the appropriate
 cluster locks to write safely to disk.
 
@@ -19,11 +19,11 @@ volume so that it can be mounted on the node that has the original volume mounte
 
 .TP
 \fB\-\-fs\-features=\fR\fI[no]sparse...\fR
-Turn specific file system features on or off. \fItunefs.ocfs2\fR will attempt to enable or disable the feature list provided. To enable a feature, include it in the list. To disable a feature, prepend \fBno\fR to the name. For a list of feature names, see the man page for \fBmkfs.ocfs2\fR.
+Turn specific file system features on or off. \fBtunefs.ocfs2(8)\fR will attempt to enable or disable the feature list provided. To enable a feature, include it in the list. To disable a feature, prepend \fBno\fR to the name. For a list of feature names, refer to \fBmkfs.ocfs2(8)\fR.
 
 .TP
 \fB\-J, \-\-journal\-options\fR \fIoptions\fR
-Modify the journal using options specified on the command\-line. Journal options are comma separated, and may take an argument using the equals ('=') sign. For a list of possible options, see the man page for \fBmkfs.ocfs2\fR.
+Modify the journal using options specified on the command\-line. Journal options are comma separated, and may take an argument using the equals ('=') sign. For a list of possible options, refer to \fBmkfs.ocfs2(8)\fR.
 
 .TP
 \fB\-L, \-\-label\fR \fIvolume\-label\fR
@@ -39,7 +39,7 @@ the space consumed by the journals for those slots.
 .TP
 \fB\-S, \-\-volume\-size\fR
 Grow the size of the \fIOCFS2\fR file system. If \fIblocks-count\fR is not
-specified, \fItunefs.ocfs2\fR extends the volume to the current size of
+specified, \fBtunefs.ocfs2(8)\fR extends the volume to the current size of
 the device.
 
 .TP
@@ -79,7 +79,12 @@ Quiet mode.
 
 .TP
 \fB\-U, \-\-uuid\-reset\fR[=\fInew-uuid]\fR
-Set the volume UUID for the file system. If not provided, will auto generate a new UUID. The format of the provided UUID should be 178BDC83D50241EF94EB474A677D498B or 178BDC83-D502-41EF-94EB-474A677D498B.
+Reset the volume UUID of the file system. If not provided, the utility will auto
+generate it. For custom UUID, specify in either the plain (2A4D1C581FAA42A1A41D26EFC90C1315)
+or the traditional (2a4d1c58-1faa-42a1-a41d-26efc90c1315) format. Users specifying
+custom UUIDs must be careful to ensure that no two volumes have the same UUID. \fBIf more
+than one file system were to have the same UUID, one is very likely to encounter erratic
+behavior, if not, outright file system corruption.\fR
 
 .TP
 \fB\-v, \-\-verbose\fR
@@ -102,7 +107,7 @@ Always answer No in interactive command line.
 Backs up the superblock to fixed offsets (1G, 4G, 16G, 64G, 256G and 1T)
 on disk. This option is useful for users to backup the superblock on volumes
 that the user either explicitly disallowed while formatting, or, used a
-version of \fImkfs.ocfs2\fR (1.2.2 or older) that did not provide this
+version of \fBmkfs.ocfs2(8)\fR (1.2.2 or older) that did not provide this
 facility.
 
 .TP
@@ -115,29 +120,32 @@ Updating on-disk cluster information to match the running cluster.
 
 .TP
 \fIblocks-count\fR
-During resize, \fItunefs.ocfs2\fR automatically determines the size of the given
+During resize, \fBtunefs.ocfs2(8)\fR automatically determines the size of the given
 device and grows the file system such that it uses all of the available space on
 the device. This optional argument specifies that the file system should be
 extended to consume only the given number of file system blocks on the device.
 
 .SH "EXAMPLES"
-[root@node1 ~]# tunefs.ocfs2 -Q "UUID = %U\\nNumSlots = %N\\n" /dev/sda1
-.br
+.TS
+;
+L.
+[root@node1 ~]# \fBtunefs.ocfs2 -Q "UUID = %U\\nNumSlots = %N\\n" /dev/sda1\fR
 UUID = CBB8D5E0C169497C8B52A0FD555C7A3E
-.br
 NumSlots = 4
-.br
+.TE
 
 .SH "SEE ALSO"
-.BR mkfs.ocfs2(8)
-.BR fsck.ocfs2(8)
 .BR debugfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR fsck.ocfs2.checks(8)
+.BR mkfs.ocfs2(8)
+.BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
-.BR ocfs2console(8)
-.BR o2cb(7)
+.BR o2image(8)
+.BR o2info(1)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2010 Oracle. All rights reserved.
+Copyright \(co 2004, 2011 Oracle. All rights reserved.
