@@ -180,6 +180,8 @@ errcode_t o2cbtool_list_clusters(struct o2cb_command *cmd)
 	if (!iter)
 		return -1;
 
+	cmd->o_print_usage = 0;
+
 	while (j_iterator_has_more(iter)) {
 		cluster = j_iterator_get_next(iter);
 		clustername = o2cb_cluster_get_name(cluster);
