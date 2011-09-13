@@ -2115,6 +2115,7 @@ errcode_t o2cb_set_heartbeat_mode(char *cluster_name, char *hbmode)
 	char attr_path[PATH_MAX];
 	char _fake_cluster_name[NAME_MAX];
 	errcode_t ret;
+	int local = 0;
 
 	if (!cluster_name) {
 		ret = _fake_default_cluster(_fake_cluster_name);
@@ -2123,12 +2124,17 @@ errcode_t o2cb_set_heartbeat_mode(char *cluster_name, char *hbmode)
 		cluster_name = _fake_cluster_name;
 	}
 
+	if (!strcmp(hbmode, O2CB_LOCAL_HEARTBEAT_TAG))
+		local = 1;
+
 	ret = snprintf(attr_path, PATH_MAX - 1, O2CB_FORMAT_HEARTBEAT_MODE,
 		       configfs_path, cluster_name);
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
 	ret = o2cb_set_attribute(attr_path, hbmode);
+	if (ret && ret == O2CB_ET_SERVICE_UNAVAILABLE && local)
+		ret = 0;
 
 	return ret;
 }
