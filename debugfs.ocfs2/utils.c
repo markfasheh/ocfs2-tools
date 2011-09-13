@@ -805,8 +805,13 @@ errcode_t open_debugfs_file(const char *debugfs_path, const char *dirname,
 	errcode_t ret = 0;
 	char path[PATH_MAX];
 
-	ret = snprintf(path, PATH_MAX - 1, "%s/%s/%s/%s",
-		       debugfs_path, dirname, uuid, filename);
+	if (uuid)
+		ret = snprintf(path, PATH_MAX - 1, "%s/%s/%s/%s",
+			       debugfs_path, dirname, uuid, filename);
+	else
+		ret = snprintf(path, PATH_MAX - 1, "%s/%s/%s",
+			       debugfs_path, dirname, filename);
+
 	if ((ret <= 0) || (ret == (PATH_MAX - 1)))
 		return O2CB_ET_INTERNAL_FAILURE;
 
