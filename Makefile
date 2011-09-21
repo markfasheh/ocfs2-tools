@@ -77,6 +77,7 @@ DIST_FILES = \
 	svnrev.guess				\
 	Vendor.make				\
 	vendor.guess				\
+	Makepdfs				\
 	documentation/samples/cluster.conf	\
 	$(PKGCONFIG_SOURCES)			\
 	$(DEBIAN_FILES)

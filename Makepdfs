@@ -1,0 +1,112 @@
+# Converts the manpages to pdf and then merges them to one ocfs2-manpages.pdf
+
+OCFS2_7		= libocfs2/ocfs2.7
+O2CB_7		= libo2cb/o2cb.7
+O2CB_8		= o2cb_ctl/o2cb.8
+CLUSCONF_5	= o2cb_ctl/ocfs2.cluster.conf.5
+SYSCONFIG_5	= vendor/common/o2cb.sysconfig.5
+MKFS_8		= mkfs.ocfs2/mkfs.ocfs2.8
+MOUNT_8		= mount.ocfs2/mount.ocfs2.8
+MOUNTED_8	= mounted.ocfs2/mounted.ocfs2.8
+TUNEFS_8	= tunefs.ocfs2/tunefs.ocfs2.8
+O2INFO_1	= o2info/o2info.1
+DEBUGFS_8	= debugfs.ocfs2/debugfs.ocfs2.8
+O2IMAGE_8	= o2image/o2image.8
+O2HBMON_8	= o2monitor/o2hbmonitor.8
+HBCTL_8		= ocfs2_hb_ctl/ocfs2_hb_ctl.8
+FSCK_8		= fsck.ocfs2/fsck.ocfs2.8
+FSCHECKS_8	= fsck.ocfs2/fsck.ocfs2.checks.8
+
+OCFS2_7_PDF	= $(addsuffix .pdf, $(OCFS2_7))
+O2CB_7_PDF	= $(addsuffix .pdf, $(O2CB_7))
+O2CB_8_PDF	= $(addsuffix .pdf, $(O2CB_8))
+CLUSCONF_5_PDF	= $(addsuffix .pdf, $(CLUSCONF_5))
+SYSCONFIG_5_PDF	= $(addsuffix .pdf, $(SYSCONFIG_5))
+MKFS_8_PDF	= $(addsuffix .pdf, $(MKFS_8))
+MOUNT_8_PDF	= $(addsuffix .pdf, $(MOUNT_8))
+MOUNTED_8_PDF	= $(addsuffix .pdf, $(MOUNTED_8))
+TUNEFS_8_PDF	= $(addsuffix .pdf, $(TUNEFS_8))
+O2INFO_1_PDF	= $(addsuffix .pdf, $(O2INFO_1))
+DEBUGFS_8_PDF	= $(addsuffix .pdf, $(DEBUGFS_8))
+O2IMAGE_8_PDF	= $(addsuffix .pdf, $(O2IMAGE_8))
+O2HBMON_8_PDF	= $(addsuffix .pdf, $(O2HBMON_8))
+HBCTL_8_PDF	= $(addsuffix .pdf, $(HBCTL_8))
+FSCK_8_PDF	= $(addsuffix .pdf, $(FSCK_8))
+FSCHECKS_8_PDF	= $(addsuffix .pdf, $(FSCHECKS_8))
+
+ALL_PDFS = $(OCFS2_7_PDF) $(O2CB_7_PDF) $(O2CB_8_PDF) $(CLUSCONF_5_PDF)		\
+	$(SYSCONFIG_5_PDF) $(MKFS_8_PDF) $(MOUNT_8_PDF) $(MOUNTED_8_PDF)	\
+	$(TUNEFS_8_PDF) $(O2INFO_8_PDF) $(DEBUGFS_8_PDF) $(O2IMAGE_8_PDF)	\
+	$(O2HBMON_8_PDF) $(HBCTL_8_PDF) $(FSCK_8_PDF) $(FSCHECKS_8_PDF)
+
+$(OCFS2_7_PDF): $(OCFS2_7)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(O2CB_7_PDF): $(O2CB_7)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(O2CB_8_PDF): $(O2CB_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(CLUSCONF_5_PDF): $(CLUSCONF_5)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(SYSCONFIG_5_PDF): $(SYSCONFIG_5)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(MKFS_8_PDF): $(MKFS_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(MOUNT_8_PDF): $(MOUNT_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(MOUNTED_8_PDF): $(MOUNTED_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(TUNEFS_8_PDF): $(TUNEFS_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(O2INFO_1_PDF): $(O2INFO_1)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(DEBUGFS_8_PDF): $(DEBUGFS_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(O2IMAGE_8_PDF): $(O2IMAGE_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(O2HBMON_8_PDF): $(O2HBMON_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(HBCTL_8_PDF): $(HBCTL_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(FSCK_8_PDF): $(FSCK_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(FSCHECKS_8_PDF): $(FSCHECKS_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+ocfs2-manpages.pdf: $(ALL_PDFS)
+	pdftk $(ALL_PDFS) cat output $@
+
+all: ocfs2-manpages.pdf
+
+clean:
+	@rm -f ocfs2-manpages.pdf $(ALL_PDFS) $(subst .pdf,.ps,$(ALL_PDFS)) 2>/dev/null
