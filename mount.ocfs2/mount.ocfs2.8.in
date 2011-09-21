@@ -135,13 +135,14 @@ Mount the file system read-write.
 .PP
 To mount and umount a \fIOCFS2\fR volume, do:
 
-.in +4n
+
 .nf
-# \fBmount /dev/sda1 /mount/path\fR
+.ft 6
+# mount /dev/sda1 /mount/path
  ...
-# \fBumount /mount/path\fR
+# umount /mount/path
+.ft
 .fi
-.in
 
 Users mounting a clustered volume should be aware of the following:
 
@@ -162,20 +163,20 @@ To auto-mount volumes on startup, the file system tools include an \fIocfs2\fR i
 This runs after the \fIo2cb\fR init service has started the cluster. The \fIocfs2\fR init service
 mounts all \fIOCFS2\fR volumes listed in /etc/fstab.
 
-.in +4n
 .nf
-# \fBchkconfig --add o2cb\fR
+.ft 6
+# chkconfig --add o2cb
 o2cb 0:off 1:off 2:on 3:on 4:off 5:on 6:off
 
-$ \fBchkconfig --add ocfs2\fR
+$ chkconfig --add ocfs2
 o2cb 0:off 1:off 2:on 3:on 4:off 5:on 6:off
 
-$ \fBcat /etc/fstab\fR
+$ cat /etc/fstab
  ...
 /dev/sda1     /u01     ocfs2     _netdev,defaults     0  0
  ...
+.ft
 .fi
-.in
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)

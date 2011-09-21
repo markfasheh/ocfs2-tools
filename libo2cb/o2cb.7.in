@@ -54,22 +54,22 @@ the cluster will require manual intervention. This is not preferred in a cluster
 environment.
 
 To manually enable panic on oops and set a 30 sec timeout for reboot on panic, do:
-.in +4n
+
 .nf
-.sp
-# \fBecho 1 > /proc/sys/kernel/panic_on_oops\fR
-# \fBecho 30 > /proc/sys/kernel/panic\fR
+.ft 6
+# echo 1 > /proc/sys/kernel/panic_on_oops
+# echo 30 > /proc/sys/kernel/panic
+.ft
 .fi
-.in
 
 To enable the above on every boot, add the following to /etc/sysctl.conf:
-.in +4n
+
 .nf
-.sp
-\fBkernel.panic_on_oops = 1\fR
-\fBkernel.panic = 30\fR
+.ft 6
+kernel.panic_on_oops = 1
+kernel.panic = 30
+.ft
 .fi
-.in
 
 .TP
 \fBOS CONFIGURATION\fR
@@ -145,12 +145,14 @@ The first step in configuring \fBo2cb\fR is deciding whether to setup \fBlocal\f
 heartbeat. If \fBglobal\fR heartbeat, then one has to format atleast one heartbeat device.
 
 To format a OCFS2 volume with global heartbeat enabled, do:
-.in +4n
+
 .nf
-.sp
-# \fBmkfs.ocfs2 --cluster-stack=o2cb --cluster-name=webcluster --global-heartbeat -L "hbvol1" /dev/sdb1\fR
+.ps 8
+.ft 6
+# mkfs.ocfs2 --cluster-stack=o2cb --cluster-name=webcluster --global-heartbeat -L "hbvol1" /dev/sdb1
+.ft
+.ps
 .fi
-.in
 
 Once formatted, setup /etc/ocfs2/cluster.conf following the example provided in \fBocfs2.cluster.conf(5)\fR.
 
@@ -158,10 +160,10 @@ If \fBlocal\fR heartbeat, then one can setup cluster.conf without any heartbeat 
 step is starting the cluster.
 
 To online the cluster stack, do:
-.in +4n
+
 .nf
-.sp
-# \fBservice o2cb online\fR
+.ft 6
+# service o2cb online
 Loading stack plugin "o2cb": OK
 Loading filesystem "ocfs2_dlmfs": OK
 Mounting ocfs2_dlmfs filesystem at /dlm: OK
@@ -169,57 +171,61 @@ Setting cluster stack "o2cb": OK
 Registering O2CB cluster "webcluster": OK
 Setting O2CB cluster timeouts : OK
 Starting global heartbeat for cluster "webcluster": OK
+.ft
 .fi
-.in
 
 Once the cluster stack is online, new \fBOCFS2\fR volumes can be formatted normally
 without specifying the cluster stack information. \fImkfs.ocfs2(8)\fR will pick up that
 information automatically.
-.in +4n
+
 .nf
-.sp
-# \fBmkfs.ocfs2 -L "datavol" /dev/sdc1\fR
+.ft 6
+# mkfs.ocfs2 -L "datavol" /dev/sdc1
+.ft
 .fi
-.in
 
 Meanwhile existing volumes can be converted to the new cluster stack using \fBtunefs.ocfs2(8)\fR
 utility.
-.in +4n
+
 .nf
-.sp
-# \fBtunefs.ocfs2 --update-cluster-stack /dev/sdd1\fR
+.ps 9
+.ft 6
+# tunefs.ocfs2 --update-cluster-stack /dev/sdd1
 Updating on-disk cluster information to match the running cluster.
 DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS USING THIS FILESYSTEM
 BEFORE MODIFYING ITS CLUSTER CONFIGURATION.
 Update the on-disk cluster information? y
+.ft
+.ps
 .fi
-.in
 
 Another utility \fBmounted.ocfs2(8)\fR is useful is listing all the \fIOCFS2\fR volumes
 alonghwith the cluster stack information.
 
 To get a list of OCFS2 volumes, do:
-.in +4n
+
 .nf
-.sp
-# \fBmounted.ocfs2 -d\fR
+.ps 9
+.ft 6
+# mounted.ocfs2 -d
 Device     Stack  Cluster     F  UUID                              Label
 /dev/sdb1  o2cb   webcluster  G  DCDA2845177F4D59A0F2DCD8DE507CC3  hbvol1
 /dev/sdc1  None                  23878C320CF3478095D1318CB5C99EED  localmount
 /dev/sdd1  o2cb   webcluster  G  8AB016CD59FC4327A2CDAB69F08518E3  webvol
 /dev/sdg1  o2cb   webcluster  G  77D95EF51C0149D2823674FCC162CF8B  logsvol
 /dev/sdh1  o2cb   webcluster  G  BBA1DBD0F73F449384CE75197D9B7098  scratch
+.ft
+.ps
 .fi
-.in
 
 The \fIo2cb\fR init script can also be used to check the status of the cluster,
 offline the cluster, etc.
 
 To check the status of the cluster stack, do:
-.in +4n
+
 .nf
-.sp
-# \fBservice o2cb status\fR
+.ft 6
+# service o2cb status
 Driver for "configfs": Loaded
 Filesystem "configfs": Mounted
 Stack glue driver: Loaded
@@ -238,26 +244,26 @@ Checking O2CB heartbeat: Active
   BBA1DBD0F73F449384CE75197D9B7098 /dev/sdh1
 Nodes in O2CB cluster: 6 7 10
 Active userdlm domains:  ovm
+.ft
 .fi
-.in
 
 To offline and unload the cluster stack, do:
-.in +4n
+
 .nf
-.sp
-# \fBservice o2cb offline\fR
+.ft 6
+# service o2cb offline
 Clean userdlm domains: OK
 Stopping global heartbeat on cluster "webcluster": OK
 Stopping O2CB cluster webcluster: OK
 Unregistering O2CB cluster "webcluster": OK
 
-# \fBservice o2cb unload\fR
+# service o2cb unload
 Clean userdlm domains: OK
 Unmounting ocfs2_dlmfs filesystem: OK
 Unloading module "ocfs2_dlmfs": OK
 Unloading module "ocfs2_stack_o2cb": OK
+.ft
 .fi
-.in
 
 .SH "SEE ALSO"
 .BR o2cb(8)

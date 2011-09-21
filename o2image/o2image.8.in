@@ -47,22 +47,20 @@ to free up space once the target image size is calculated.
 .SH "EXAMPLES"
 Copies metadata blocks from /dev/sda1 device to sda1.out file.
 
-.in +4n
 .nf
-.sp
-# \fBo2image /dev/sda1 sda1.out\fR
+.ft 6
+# o2image /dev/sda1 sda1.out
+.ft
 .fi
-.in
 
 Copies meta-data blocks from sda1.out onto the /dev/sda1 device. \fBAs this command
 over-writes an existing volume, please use with CAUTION\fR.
 
-.in +4n
 .nf
-.sp
-# \fBo2image -I /dev/sda1 sda1.out\fR
+.ft 6
+# o2image -I /dev/sda1 sda1.out
+.ft
 .fi
-.in
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)

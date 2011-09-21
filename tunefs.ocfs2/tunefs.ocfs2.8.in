@@ -126,13 +126,14 @@ the device. This optional argument specifies that the file system should be
 extended to consume only the given number of file system blocks on the device.
 
 .SH "EXAMPLES"
-.TS
-;
-L.
-[root@node1 ~]# \fBtunefs.ocfs2 -Q "UUID = %U\\nNumSlots = %N\\n" /dev/sda1\fR
+
+.nf
+.ft 6
+# tunefs.ocfs2 -Q "UUID = %U\\nNumSlots = %N\\n" /dev/sda1
 UUID = CBB8D5E0C169497C8B52A0FD555C7A3E
 NumSlots = 4
-.TE
+.ft
+.fi
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)

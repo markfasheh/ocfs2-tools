@@ -4,6 +4,7 @@ OCFS2 \- A Cluster file system for Linux
 
 .SH "INTRODUCTION"
 .PP
+
 \fBOCFS2\fR is a \fBfile system\fR. It allows users to store and retrieve data. The data
 is stored in files that are organized in a hierarchical directory tree. It is a \fBPOSIX compliant\fR
 file system that supports the standard interfaces and the behavioral semantics as spelled out
@@ -67,6 +68,7 @@ ordered data journaling, POSIX-compliant, shared disk cluster file system.
 
 .SH "OVERVIEW"
 .PP
+
 OCFS2 is a general-purpose shared-disk cluster file system for Linux capable of providing
 both high performance and high availability.
 
@@ -267,6 +269,7 @@ was added in Linux kernel \fB2.6.25\fR.
 
 .SH "RECENT CHANGES"
 .PP
+
 The O2CB cluster stack has a \fBglobal heartbeat\fR mode. It allows users to specify
 heartbeat regions that are consistent across all nodes. The cluster stack also allows
 online addition and removal of both nodes and heartbeat regions.
@@ -304,6 +307,7 @@ the same file. This feature works with Linux kernel \fB2.6.37\fR and later.
 
 .SH "COMPATIBILITY"
 .PP
+
 The OCFS2 development teams goes to great lengths to maintain compatibility. It attempts
 to maintain both on-disk and network protocol compatibility across all releases of the
 file system. It does so even while adding new features that entail on-disk format and
@@ -371,14 +375,16 @@ usrquota	Linux 2.6.29	ocfs2-tools 1.6	RO Compat	4
 .BR
 
 To query the features enabled on a volume, do:
-.in +4n
+
 .nf
-.sp
-$ \fBo2info --fs-features /dev/sdf1\fR
+.ps 8
+.ft 6
+$ o2info --fs-features /dev/sdf1
 backup-super strict-journal-super sparse extended-slotmap inline-data xattr
 indexed-dirs refcount discontig-bg clusterinfo unwritten
+.ft
+.ps
 .fi
-.in
 
 .TP
 \fBENABLING AND DISABLING FEATURES\fR
@@ -389,21 +395,21 @@ list. The enabled features are listed as is. The disabled features are prefixed 
 \fBno\fR.  The example below shows the file system being formatted with sparse disabled
 and inline-data enabled.
 
-.in +4n
 .nf
-# \fBmkfs.ocfs2 --fs-features=nosparse,inline-data /dev/sda1\fR
+.ft 6
+# mkfs.ocfs2 --fs-features=nosparse,inline-data /dev/sda1
+.ft
 .fi
-.in
 
 After formatting, the users can toggle features using the tune utility, \fBtunefs.ocfs2(8)\fR.
 This is an \fIoffline\fR operation. The volume needs to be umounted across the cluster.
 The example below shows the sparse feature being enabled and inline-data disabled.
 
-.in +4n
 .nf
-# \fBtunefs.ocfs2 --fs-features=sparse,noinline-data /dev/sda1\fR
+.ft 6
+# tunefs.ocfs2 --fs-features=sparse,noinline-data /dev/sda1
+.ft
 .fi
-.in
 
 Care should be taken before enabling and disabling features. Users planning to use a
 volume with an older version of the file system will be better of not enabling newer
@@ -421,11 +427,13 @@ does one detect the problem? How does one know the name of that incompatible fea
 To begin with, one should look for error messages in \fBdmesg(8)\fR. Mount failures that
 are due to an incompatible feature will always result in an error message like the following:
 
-.in +4n
 .nf
-\fBERROR: couldn't mount because of unsupported optional features (200).\fR
+.ps 9
+.ft 6
+ERROR: couldn't mount because of unsupported optional features (200).
+.ft
+.ps
 .fi
-.in
 
 Here the file system is unable to mount the volume due to an unsupported optional
 feature. That means that that feature is an \fBIncompat\fR feature. By referring to the
@@ -434,11 +442,13 @@ feature enabled. (The value in the error message is in hexadecimal.)
 
 Another example of an error message due to incompatibility is as follows:
 
-.in +4n
 .nf
-\fBERROR: couldn't mount RDWR because of unsupported optional features (1).\fR
+.ps 9
+.ft 6
+ERROR: couldn't mount RDWR because of unsupported optional features (1).
+.ft
+.ps
 .fi
-.in
 
 Here the file system is unable to mount the volume in the RW mode. That means that
 that feature is a \fBRO Compat\fR feature. Another look at the table and it becomes
@@ -449,6 +459,7 @@ the user has the choice of mounting the volume in the RO mode.
 
 .SH "GETTING STARTED"
 .PP
+
 The OCFS2 software is split into two components, namely, kernel and tools. The kernel
 component includes the core file system and the cluster stack, and is packaged along
 with the kernel. The tools component is packaged as \fBocfs2-tools\fR and needs to
@@ -470,36 +481,38 @@ The next step is selecting a cluster stack. The options include:
 The file system allows changing cluster stacks easily using \fBtunefs.ocfs2(8)\fR.
 To list the cluster stacks stamped on the OCFS2 volumes, do:
 
-.in +4n
 .nf
-# \fBmounted.ocfs2 -d\fR
+.ps 9
+.ft 6
+# mounted.ocfs2 -d
 Device     Stack  Cluster     F  UUID                              Label
 /dev/sdb1  o2cb   webcluster  G  DCDA2845177F4D59A0F2DCD8DE507CC3  hbvol1
 /dev/sdc1  None                  23878C320CF3478095D1318CB5C99EED  localmount
 /dev/sdd1  o2cb   webcluster  G  8AB016CD59FC4327A2CDAB69F08518E3  webvol
 /dev/sdg1  o2cb   webcluster  G  77D95EF51C0149D2823674FCC162CF8B  logsvol
 /dev/sdh1  o2cb   webcluster  G  BBA1DBD0F73F449384CE75197D9B7098  scratch
+.ft
+.ps
 .fi
-.in
 
 .TP
-\fBA. NON-CLUSTERED OR LOCAL MOUNT\fR
+\fBNON-CLUSTERED OR LOCAL MOUNT\fR
 
 To format a \fIOCFS2\fR volume as a non-clustered (\fBlocal\fR) volume, do:
 
-.in +4n
 .nf
-$ \fBmkfs.ocfs2 -L "mylabel" --fs-features=local /dev/sda1\fR
+.ft 6
+# mkfs.ocfs2 -L "mylabel" --fs-features=local /dev/sda1
+.ft
 .fi
-.in
 
 To convert an existing clustered volume to a non-clustered volume, do:
 
-.in +4n
 .nf
-$ \fBtunefs.ocfs2 --fs-features=local /dev/sda1\fR
+.ft 6
+# tunefs.ocfs2 --fs-features=local /dev/sda1
+.ft
 .fi
-.in
 
 Non-clustered volumes do not interact with the cluster stack. One can have both
 clustered and non-clustered volumes mounted at the same time.
@@ -511,7 +524,7 @@ creates journals with large extents. If created later, then the journals will be
 fragmented which is not good for performance.
 
 .TP
-\fBB. CLUSTERED MOUNT WITH O2CB CLUSTER STACK\fR
+\fBCLUSTERED MOUNT WITH O2CB CLUSTER STACK\fR
 
 Only one of the two heartbeat mode can be active at any one time. Changing heartbeat
 modes is an offline operation.
@@ -533,19 +546,19 @@ heartbeat devices in cluster.conf.
 
 Once configured, the \fBo2cb\fR cluster stack can be onlined and offlined as follows:
 
-.in +4n
 .nf
-# \fBservice o2cb online\fR
+.ft 6
+# service o2cb online
 Setting cluster stack "o2cb": OK
 Registering O2CB cluster "webcluster": OK
 Setting O2CB cluster timeouts : OK
 
-# \fBservice o2cb offline\fR
+# service o2cb offline
 Clean userdlm domains: OK
 Stopping O2CB cluster webcluster: OK
 Unregistering O2CB cluster "webcluster": OK
+.ft
 .fi
-.in
 
 .TP
 \fBGLOBAL HEARTBEAT\fR
@@ -561,25 +574,21 @@ Also listed there is listing all volumes with the cluster stack stamped on disk.
 In this mode, the heartbeat is started when the cluster is onlined and stopped when
 the cluster is offlined.
 
-.in +4n
 .nf
-# \fBservice o2cb online\fR
+.ft 6
+# service o2cb online
 Setting cluster stack "o2cb": OK
 Registering O2CB cluster "webcluster": OK
 Setting O2CB cluster timeouts : OK
 Starting global heartbeat for cluster "webcluster": OK
 
-# \fBservice o2cb offline\fR
+# service o2cb offline
 Clean userdlm domains: OK
 Stopping global heartbeat on cluster "webcluster": OK
 Stopping O2CB cluster webcluster: OK
 Unregistering O2CB cluster "webcluster": OK
-.fi
-.in
 
-.in +4n
-.nf
-# \fBservice o2cb status\fR
+# service o2cb status
 Driver for "configfs": Loaded
 Filesystem "configfs": Mounted
 Stack glue driver: Loaded
@@ -595,32 +604,33 @@ Checking O2CB cluster "webcluster": Online
 Checking O2CB heartbeat: Active
   77D95EF51C0149D2823674FCC162CF8B /dev/sdg1
 Nodes in O2CB cluster: 92 96
+.ft
 .fi
-.in
 
 .RE
 
 .TP
-\fBC. CLUSTERED MOUNT WITH USERSPACE CLUSTER STACK\fR
+\fBCLUSTERED MOUNT WITH USERSPACE CLUSTER STACK\fR
 
 Configure and online the userspace stack \fBpcmk\fR or \fBcman\fR before using
 \fBtunefs.ocfs2(8)\fR to update the cluster stack on disk.
 
-.in +4n
 .nf
-# \fBtunefs.ocfs2 --update-cluster-stack /dev/sdd1\fR
+.ft 6
+# tunefs.ocfs2 --update-cluster-stack /dev/sdd1
 Updating on-disk cluster information to match the running cluster.
 DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS USING THIS
 FILESYSTEM BEFORE MODIFYING ITS CLUSTER CONFIGURATION.
 Update the on-disk cluster information? y
+.ft
 .fi
-.in
 
 Refer to the cluster stack documentation for information on starting and stopping
 the cluster stack.
 
 .SH "FILE SYSTEM UTILITIES"
 .PP
+
 This sections lists the utilities that are used to manage the \fIOCFS2\fR file systems.
 This includes tools to format, tune, check, mount, debug the file system. Each utility
 has a man page that lists its capabilities in detail.
@@ -693,6 +703,7 @@ system and lists its label, uuid and cluster stack.
 
 .SH "O2CB CLUSTER STACK UTILITIES"
 .PP
+
 This sections lists the utilities that are used to manage \fIO2CB\fR cluster stack.
 Each utility has a man page that lists its capabilities in detail.
 .TP
@@ -716,6 +727,7 @@ and logs warnings once that time exceeds the warn threshold.
 
 .SH "FILE SYSTEM NOTES"
 .PP
+
 This section includes some useful notes that may prove helpful to the user.
 .TP
 \fBBALANCED CLUSTER\fR
@@ -788,8 +800,8 @@ as possible. One way to demonstrate its functioning is to run a script that exte
 multiple files in a circular order. The script below does that by writing one hundred
 4KB chunks to four files, one after another.
 
-.in +4n
 .nf
+.ft 6
 $ for i in $(seq 0 99);
 > do
 >   for j in $(seq 4);
@@ -797,36 +809,36 @@ $ for i in $(seq 0 99);
 >     dd if=/dev/zero of=file$j bs=4K count=1 seek=$i;
 >   done;
 > done;
+.ft
 .fi
-.in
 
 When run on a system running Linux kernel 2.6.34 or earlier, we end up with files with
 100 extents each. That is full fragmentation. As the files are being extended one after
 another, the on-disk allocations are fully interleaved.
 
-.in +4n
 .nf
-$ \fBfilefrag file1 file2 file3 file4\fR
+.ft 6
+$ filefrag file1 file2 file3 file4
 file1: 100 extents found
 file2: 100 extents found
 file3: 100 extents found
 file4: 100 extents found
+.ft
 .fi
-.in
 
 When run on a system running Linux kernel 2.6.35 or later, we see files with 7 extents
 each. That is a lot fewer than before. Fewer extents mean more on-disk contiguity and
 that always leads to better overall performance.
 
-.in +4n
 .nf
-$ \fBfilefrag file1 file2 file3 file4\fR
+.ft 6
+$ filefrag file1 file2 file3 file4
 file1: 7 extents found
 file2: 7 extents found
 file3: 7 extents found
 file4: 7 extents found
+.ft
 .fi
-.in
 
 .TP
 \fBREFLINK OPERATION\fR
@@ -839,33 +851,33 @@ simply adds the blocks allocated to each inode. As it does not know about shared
 extents, it over estimates the space used.  Say, we have a 5GB file in a volume having
 42GB free.
 
-.in +4n
 .nf
-$ \fBls -l\fR
+.ft 6
+$ ls -l
 total 5120000
 -rw-r--r--  1 jeff jeff   5242880000 Sep 24 17:15 myfile
 
-$ \fBdu -m myfile*\fR
+$ du -m myfile*
 5000    myfile
 
-$ \fBdf -h .\fR
+$ df -h .
 Filesystem            Size  Used Avail Use% Mounted on
 /dev/sdd1             50G   8.2G   42G  17% /ocfs2
+.ft
 .fi
-.in
 
 If we were to reflink it 4 times, we would expect the directory listing to report five 5GB
 files, but the df(1) to report no loss of available space. du(1), on the other hand, would
 report the disk usage to climb to 25GB.
 
-.in +4n
 .nf
-$ \fBreflink myfile myfile-ref1\fR
-$ \fBreflink myfile myfile-ref2\fR
-$ \fBreflink myfile myfile-ref3\fR
-$ \fBreflink myfile myfile-ref4\fR
+.ft 6
+$ reflink myfile myfile-ref1
+$ reflink myfile myfile-ref2
+$ reflink myfile myfile-ref3
+$ reflink myfile myfile-ref4
 
-$ \fBls -l\fR
+$ ls -l
 total 25600000
 -rw-r--r--  1 jeff jeff   5242880000 Sep 24 17:15 myfile
 -rw-r--r--  1 jeff jeff   5242880000 Sep 24 17:16 myfile-ref1
@@ -873,27 +885,30 @@ total 25600000
 -rw-r--r--  1 jeff jeff   5242880000 Sep 24 17:16 myfile-ref3
 -rw-r--r--  1 jeff jeff   5242880000 Sep 24 17:16 myfile-ref4
 
-$ \fBdf -h .\fR
+$ df -h .
 Filesystem            Size  Used Avail Use% Mounted on
 /dev/sdd1             50G   8.2G   42G  17% /ocfs2
 
-$ \fBdu -m myfile*\fR
+$ du -m myfile*
 5000    myfile
 5000    myfile-ref1
 5000    myfile-ref2
 5000    myfile-ref3
 5000    myfile-ref4
 25000 total
+.ft
 .fi
-.in
 
 Enter \fBshared-du(1)\fR, a shared extent-aware du. This utility reports the shared
 extents per file in parenthesis and the overall footprint. As expected, it lists the
-overall footprint at 5GB.
+overall footprint at 5GB. One can view the details of the extents using \fBshared-filefrag(1)\fR.
+Both these utilities are available at http://oss.oracle.com/~smushran/reflink-tools/. 
+We are currently in the process of pushing the changes to the upstream maintainers of
+these utilities.
 
-.in +4n
 .nf
-$ \fBshared-du -m -c --shared-size myfile*\fR
+.ft 6
+$ shared-du -m -c --shared-size myfile*
 5000    (5000)  myfile
 5000    (5000)  myfile-ref1
 5000    (5000)  myfile-ref2
@@ -901,19 +916,8 @@ $ \fBshared-du -m -c --shared-size myfile*\fR
 5000    (5000)  myfile-ref4
 25000 total
 5000 footprint
-.fi
-.in
 
-This utility is available at this link (http://oss.oracle.com/~smushran/reflink-tools/). Also
-available is a shared extent-aware filefrag utlity that lists the location of the extents on
-the volume.
-
-We are currently in the process of pushing the changes to the upstream maintainers of
-these utilities.
-
-.in +4n
-.nf
-# \fBshared-filefrag -v myfile\fR
+# shared-filefrag -v myfile
 Filesystem type is: 7461636f
 File size of myfile is 5242880000 (1280000 blocks, blocksize 4096)
 ext logical physical expected length flags
@@ -932,8 +936,8 @@ ext logical physical expected length flags
 42  1227008  2193409  2191872  30720 shared
 43  1257728  2225665  2224128  22272 shared,eof
 myfile: 44 extents found
+.ft
 .fi
-.in
 
 .TP
 \fBDATA COHERENCY\fR
@@ -946,16 +950,18 @@ A simple test to check the data coherency of a shared file system involves concu
 appending the same file. Like running "uname -a >>/dir/file" using a parallel distributed
 shell like dsh or pconsole. If coherent, the file will contain the results from all nodes.
 
-.in +4n
 .nf
-# \fBdsh -R ssh -w node32,node33,node34,node35 "uname -a >> /ocfs2/test"\fR
-# \fBcat /ocfs2/test\fR
+.ft 6
+.ps 8
+# dsh -R ssh -w node32,node33,node34,node35 "uname -a >> /ocfs2/test"
+# cat /ocfs2/test
 Linux node32 2.6.32-10 #1 SMP Fri Sep 17 17:51:41 EDT 2010 x86_64 x86_64 x86_64 GNU/Linux
 Linux node35 2.6.32-10 #1 SMP Fri Sep 17 17:51:41 EDT 2010 x86_64 x86_64 x86_64 GNU/Linux
 Linux node33 2.6.32-10 #1 SMP Fri Sep 17 17:51:41 EDT 2010 x86_64 x86_64 x86_64 GNU/Linux
 Linux node34 2.6.32-10 #1 SMP Fri Sep 17 17:51:41 EDT 2010 x86_64 x86_64 x86_64 GNU/Linux
+.ps
+.ft
 .fi
-.in
 
 OCFS2 is a \fBfully cache coherent\fR cluster file system.
 
@@ -991,13 +997,15 @@ specifying \fB--fs-features=nobackup-super\fR during format.
 
 \fBo2info(1)\fR can be used to view whether the feature has been enabled on a device.
 
-.in +4n
 .nf
-# \fBo2info --fs-features /dev/sdb1\fR
+.ps 8
+.ft 6
+# o2info --fs-features /dev/sdb1
 backup-super strict-journal-super sparse extended-slotmap inline-data xattr
 indexed-dirs refcount discontig-bg clusterinfo unwritten
+.ft
+.ps
 .fi
-.in
 
 In OCFS2, the super block is on the third block. The backups are located at the \fB1G,
 4G, 16G, 64G, 256G and 1T\fB byte offsets. The actual number of backup blocks depends
@@ -1008,9 +1016,10 @@ any backup with the -r option to recover the volume. The example below uses the 
 backup. If successful, \fBfsck.ocfs2(8)\fR overwrites the corrupted super block with
 the backup.
 
-.in +4n
 .nf
-# \fBfsck.ocfs2 -f -r 2 /dev/sdb1\fR
+.ps 8
+.ft 6
+# fsck.ocfs2 -f -r 2 /dev/sdb1
 fsck.ocfs2 1.8.0
 [RECOVER_BACKUP_SUPERBLOCK] Recover superblock information from backup block#1048576? <n> y
 Checking OCFS2 filesystem in /dev/sdb1:
@@ -1032,8 +1041,9 @@ Pass 3: Checking directory connectivity.
 Pass 4a: checking for orphaned inodes
 Pass 4b: Checking inodes link counts.
 All passes succeeded.
+.ft
+.ps
 .fi
-.in
 
 .TP
 \fBSYNTHETIC FILE SYSTEMS\fR
@@ -1092,9 +1102,10 @@ nodes: 12, 32, and 35. It can be ascertained that node 7, the recovery master, i
 currently recovering node 12 and has received the lock states of the dead node from all
 other live nodes.
 
-.in +4n
 .nf
-# \fBcat /sys/kernel/debug/o2dlm/45F81E3B6F2B48CCAAD1AE7945AB2001/dlm_state\fR
+.ps 9
+.ft 6
+# cat /sys/kernel/debug/o2dlm/45F81E3B6F2B48CCAAD1AE7945AB2001/dlm_state
 Domain: 45F81E3B6F2B48CCAAD1AE7945AB2001  Key: 0x10748e61
 Thread Pid: 24542  Node: 7  State: JOINED
 Number of Joins: 1  Joining Node: 255
@@ -1117,16 +1128,18 @@ Recovery Node State:
         34 - DONE
         40 - DONE
         50 - DONE
+.ft
+.ps
 .fi
-.in
 
 The figure below shows the state of a dlm lock resource that is mastered (owned) by
 node 25, with 6 locks in the granted queue and node 26 holding the EX (writelock) lock
 on that resource.
 
-.in +4n
 .nf
-# \fBdebugfs.ocfs2 -R "dlm_locks M000000000000000022d63c00000000" /dev/sda1\fR
+.ps 9
+.ft 6
+# debugfs.ocfs2 -R "dlm_locks M000000000000000022d63c00000000" /dev/sda1
 Lockres: M000000000000000022d63c00000000   Owner: 25    State: 0x0
 Last Used: 0      ASTs Reserved: 0    Inflight: 0    Migration Pending: No
 Refs: 8    Locks: 6    On Lists: None
@@ -1138,17 +1151,19 @@ Reference Map: 26 27 28 94 95
  Granted     95    NL     -1    95:3178429       2     No   No    None
  Granted     25    NL     -1    25:3513994       2     No   No    None
  Granted     26    EX     -1    26:3512906       2     No   No    None
+.ft
+.ps
 .fi
-.in
 
 The figure below shows a lock from the file system perspective. Specifically, it shows a
 lock that is in the process of being upconverted from a NL to EX. Locks in this state are
 are referred to in the file system as busy locks and can be listed using the debugfs.ocfs2
 command, "fs_locks -B".
 
-.in +4n
 .nf
-# \fBdebugfs.ocfs2 -R "fs_locks -B" /dev/sda1\fR
+.ps 9
+.ft 6
+# debugfs.ocfs2 -R "fs_locks -B" /dev/sda1
 Lockres: M000000000000000000000b9aba12ec  Mode: No Lock
 Flags: Initialized Attached Busy
 RO Holders: 0  EX Holders: 0
@@ -1157,8 +1172,9 @@ Requested Mode: Exclusive  Blocking Mode: No Lock
 PR > Gets: 0  Fails: 0    Waits Total: 0us  Max: 0us  Avg: 0ns
 EX > Gets: 1  Fails: 0    Waits Total: 544us  Max: 544us  Avg: 544185ns
 Disk Refreshes: 1
+.ft
+.ps
 .fi
-.in
 
 With this debugging infrastructure in place, users can debug hang issues as follows:
 
@@ -1185,11 +1201,11 @@ would be a lock holder, the count for which is maintained in the fs lock.
 
 At this stage, printing the list of process helps.
 
-.in +4n
 .nf
-$ \fBps -e -o pid,stat,comm,wchan=WIDE-WCHAN-COLUMN\fR
+.ft 6
+$ ps -e -o pid,stat,comm,wchan=WIDE-WCHAN-COLUMN
+.ft
 .fi
-.in
 
 Make a note of all D state processes. At least one of them is responsible for the hang on
 the first node.
@@ -1220,11 +1236,13 @@ If the version of the Linux kernel on the system exporting the volume is older t
 mount option. This disables the READDIRPLUS RPC call to workaround a bug in NFSD,
 detailed in the following link:
 
-.in +4n
 .nf
+.ps 9
+.ft 6
 http://oss.oracle.com/pipermail/ocfs2-announce/2008-June/000025.html
+.ft
+.ps
 .fi
-.in
 
 Users running NFS version 2 can export the volume after having disabled subtree checking
 (mount option no_subtree_check). Be warned, disabling the check has security implications
@@ -1247,9 +1265,10 @@ tool.
 
 To list the system directory (referred to as double-slash), do:
 
-.in +4n
 .nf
-# \fBdebugfs.ocfs2 -R "ls -l //" /dev/sde1\fR
+.ps 8
+.ft 6
+# debugfs.ocfs2 -R "ls -l //" /dev/sde1
         66     drwxr-xr-x  10  0  0         3896 19-Jul-2011 13:36 .
         66     drwxr-xr-x  10  0  0         3896 19-Jul-2011 13:36 ..
         67     -rw-r--r--   1  0  0            0 19-Jul-2011 13:36 bad_blocks
@@ -1269,16 +1288,17 @@ To list the system directory (referred to as double-slash), do:
         81     -rw-r--r--   1  0  0            0 19-Jul-2011 13:36 local_alloc:0001
         82     -rw-r--r--   1  0  0            0 19-Jul-2011 13:36 truncate_log:0000
         83     -rw-r--r--   1  0  0            0 19-Jul-2011 13:36 truncate_log:0001
+.ft 1
+.ps
 .fi
-.in
 
 The file names that end with numbers are slot specific and are referred to as node-local
 system files. The set of node-local files used by a node can be determined from the slot
 map. To list the slot map, do:
 
-.in +4n
 .nf
-# \fBdebugfs.ocfs2 -R "slotmap" /dev/sde1\fR
+.ft 6
+# debugfs.ocfs2 -R "slotmap" /dev/sde1
     Slot#    Node#
         0       32
         1       35
@@ -1286,8 +1306,8 @@ map. To list the slot map, do:
         3       31
         4       34
         5       33
+.ft 1
 .fi
-.in
 
 For more information, refer to the OCFS2 support guides available in the Documentation
 section at http://oss.oracle.com/projects/ocfs2.
@@ -1405,23 +1425,24 @@ If you are interested in contributing, email the development team at ocfs2-devel
 
 .SH "ACKNOWLEDGEMENTS"
 .PP
+
 The principal developers of the OCFS2 file system, its tools and the O2CB cluster stack,
-are \fBJoel Becker\fR, \fBZach Brown\fR, \fBMark Fasheh\fR, \fBJan Kara\fR, \fBKurt Hackel\fR,
-\fBTao Ma\fR, \fBSunil Mushran\fR, \fBTiger Yang\fR and \fBTristan Ye\fR.
+are \fIJoel Becker\fR, \fIZach Brown\fR, \fIMark Fasheh\fR, \fIJan Kara\fR, \fIKurt Hackel\fR,
+\fITao Ma\fR, \fISunil Mushran\fR, \fITiger Yang\fR and \fITristan Ye\fR.
 
 Other developers who have contributed to the file system via bug fixes, testing, etc.
-are \fBWim Coekaerts\fR, \fBSrinivas Eeda\fR, \fBColy Li\fR, \fBJeff Mahoney\fR,
-\fBMarcos Matsunaga\fR, \fBGoldwyn Rodrigues\fR, \fBManish Singh\fR and \fBWengang Wang\fR.
+are \fIWim Coekaerts\fR, \fISrinivas Eeda\fR, \fIColy Li\fR, \fIJeff Mahoney\fR,
+\fIMarcos Matsunaga\fR, \fIGoldwyn Rodrigues\fR, \fIManish Singh\fR and \fIWengang Wang\fR.
 
-The members of the Linux Cluster community including \fBAndrew Beekhof\fR,
-\fBLars Marowsky-Bree\fR, \fBFabio Massimo Di Nitto\fR and \fBDavid Teigland\fR.
+The members of the Linux Cluster community including \fIAndrew Beekhof\fR,
+\fILars Marowsky-Bree\fR, \fIFabio Massimo Di Nitto\fR and \fIDavid Teigland\fR.
 
-The members of the Linux File system community including \fBChristoph Hellwig\fR and
-\fBChris Mason\fR.
+The members of the Linux File system community including \fIChristoph Hellwig\fR and
+\fIChris Mason\fR.
 
-The corporations that have contributed resources for this project including \fBOracle\fR,
-\fBSUSE Labs\fR, \fBEMC\fR, \fBEmulex\fR, \fBHP\fR, \fBIBM\fR, \fBIntel\fR and
-\fBNetwork Appliance\fR.
+The corporations that have contributed resources for this project including \fIOracle\fR,
+\fISUSE Labs\fR, \fIEMC\fR, \fIEmulex\fR, \fIHP\fR, \fIIBM\fR, \fIIntel\fR and
+\fINetwork Appliance\fR.
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)

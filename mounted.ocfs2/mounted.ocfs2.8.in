@@ -22,7 +22,7 @@ the \fBo2cb\fR cluster stack.
 Lists the \fIOCFS2\fR volumes along with the list of nodes that have mounted the
 volume.
 
-.SH "NOTE"
+.SH "NOTES"
 As this utility gathers information without taking any cluster locks, the information
 listed in the full detect mode could be stale. This is only problematic for volumes that
 were not cleanly umounted by the last node. Such volumes will show up mounted (as per
@@ -30,25 +30,39 @@ this utility) on one or more nodes but are in fact not mounted on any node. Such
 are awaiting slot-recovery which is auto-performed on the next mount (or file system check).
 
 .SH "EXAMPLES"
-.TS
-;
-L.
-[root@node1 ~]# \fBmounted.ocfs2 -d\fR
+
+To view the list of \fIOCFS2\fR volumes, do:
+
+.nf
+.ps 9
+.ft 6
+# mounted.ocfs2 -d
 Device     Stack  Cluster     F  UUID                              Label
 /dev/sdc1  None                  23878C320CF3478095D1318CB5C99EED  localmount
 /dev/sdd1  o2cb   webcluster  G  8AB016CD59FC4327A2CDAB69F08518E3  webvol
 /dev/sdg1  o2cb   webcluster  G  77D95EF51C0149D2823674FCC162CF8B  logsvol
 /dev/sdh1  o2cb   webcluster  G  BBA1DBD0F73F449384CE75197D9B7098  scratch
 /dev/sdk1  o2cb   webcluster  G  DCDA2845177F4D59A0F2DCD8DE507CC3  hb1
+.ft
+.ps
+.fi
 
-[root@node1 ~]# \fBmounted.ocfs2 -f\fR
+To view the list of nodes that have potentially (see notes) mounted the \fIOCFS2\fR
+volumes, do:
+
+.nf
+.ps 9
+.ft 6
+# mounted.ocfs2 -f
 Device     Stack  Cluster     F  Nodes
 /dev/sdc1  None 
 /dev/sdd1  o2cb   webcluster  G  node1, node3, node10
 /dev/sdg1  o2cb   webcluster  G  node1, node3, node10
 /dev/sdh1  o2cb   webcluster  G  Not mounted
 /dev/sdk1  o2cb   webcluster  G  node1, node3, node10
-.TE
+.ft
+.ps
+.fi
 
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)

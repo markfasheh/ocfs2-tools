@@ -113,30 +113,30 @@ it shows the currently active cluster, if any.
 .SH "EXAMPLE"
 
 To create a cluster, mycluster having two nodes, node1 and node2, do:
-.in +4n
+
 .nf
-.sp
-$ \fBo2cb add-cluster mycluster\fR
-$ \fBo2cb add-node mycluster node1 --ip 10.10.10.1\fR
-$ \fBo2cb add-node mycluster node2 --ip 10.10.10.2\fR
+.ft 6
+$ o2cb add-cluster mycluster
+$ o2cb add-node mycluster node1 --ip 10.10.10.1
+$ o2cb add-node mycluster node2 --ip 10.10.10.2
+.ft
 .fi
-.in
 
 To specify a global heartbeat device, /dev/sda1, do:
-.in +4n
+
 .nf
-.sp
-$ \fBo2cb add-heartbeat mycluster /dev/sda1\fR
+.ft 6
+$ o2cb add-heartbeat mycluster /dev/sda1
+.ft
 .fi
-.in
 
 To enable global heartbeat, do:
-.in +4n
+
 .nf
-.sp
-$ \fBo2cb heartbeat-mode mycluster global\fR
+.ft 6
+$ o2cb heartbeat-mode mycluster global
+.ft
 .fi
-.in
 
 .SH "SEE ALSO"
 .BR o2cb(7)

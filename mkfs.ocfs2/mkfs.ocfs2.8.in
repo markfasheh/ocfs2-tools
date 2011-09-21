@@ -294,14 +294,13 @@ L.
 Users can query the features enabled in the file system as follows:
 .TE
 
-.in +4n
 .nf
-.sp
-# \fBtunefs.ocfs2 -Q "Label: %V\\nFeatures: %H %O\\n" /dev/sdg1\fR
+.ft 6
+# tunefs.ocfs2 -Q "Label: %V\\nFeatures: %H %O\\n" /dev/sdg1
 Label: apache_files_10
 Features: sparse inline-data unwritten
+.ft
 .fi
-.in
 
 .SH "FEATURE VALUES"
 This section lists the hex values that are associated with the file system features.
@@ -310,7 +309,13 @@ incompatibility. When a user attempts to mount an \fBOCFS2\fR volume that has fe
 enabled that are not supported by the running file system software, it will fail
 with an error like:
 
-\fBERROR: couldn't mount because of unsupported optional features (200).\fR
+.nf
+.ps 9
+.ft 6
+ERROR: couldn't mount because of unsupported optional features (200).
+.ft
+.ps
+.fi
 
 By referring to the table below, it becomes apparent that the user attempted to mount
 a volume with the \fIxattr\fR (extended attributes) feature enabled with a version of
@@ -322,7 +327,13 @@ Some features allow the file system to be mounted with an older version of the s
 provided the mount is read-only. If a user attempts to mount such a volume in a read-write
 mode, it will fail with an error like:
 
-\fBERROR: couldn't mount RDWR because of unsupported optional features (1).\fR
+.nf
+.ps 9
+.ft 6
+ERROR: couldn't mount RDWR because of unsupported optional features (1).
+.ft
+.ps
+.fi
 
 This error indicates that the volume had the \fIunwritten\fR RO compat feature enabled.
 This volume can be mounted by an older file system software only in the read-only mode.

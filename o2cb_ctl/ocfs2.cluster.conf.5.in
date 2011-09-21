@@ -77,18 +77,22 @@ to avoid stray white-spaces.
 The example below illustrates populating a cluster.conf with a cluster called webcluster,
 having 3 nodes and 3 global heartbeat regions, using the \fBo2cb(8)\fR utility.
 
-.in +4n
 .nf
-.sp
-$ \fBo2cb add-cluster webcluster\fR
-$ \fBo2cb add-node webcluster node7 --ip 192.168.0.107 --number 7\fR
-$ \fBo2cb add-node webcluster node6 --ip 192.168.0.106 --number 6\fR
-$ \fBo2cb add-node webcluster node10 --ip 192.168.0.110 --number 10\fR
-$ \fBo2cb add-heartbeat webcluster /dev/sdg1\fR
-$ \fBo2cb add-heartbeat webcluster /dev/sdk1\fR
-$ \fBo2cb add-heartbeat webcluster /dev/sdh1\fR
-$ \fBo2cb heartbeat-mode webcluster global\fR
-$ \fBo2cb list-cluster webcluster\fR
+.ps 10
+.ft 6
+$ o2cb add-cluster webcluster
+
+$ o2cb add-node webcluster node7 --ip 192.168.0.107 --number 7
+$ o2cb add-node webcluster node6 --ip 192.168.0.106 --number 6
+$ o2cb add-node webcluster node10 --ip 192.168.0.110 --number 10
+
+$ o2cb add-heartbeat webcluster /dev/sdg1
+$ o2cb add-heartbeat webcluster /dev/sdk1
+$ o2cb add-heartbeat webcluster /dev/sdh1
+
+$ o2cb heartbeat-mode webcluster global
+
+$ o2cb list-cluster webcluster
 heartbeat:
         region = 77D95EF51C0149D2823674FCC162CF8B
         cluster = webcluster
@@ -126,8 +130,9 @@ cluster:
         node_count = 3
         heartbeat_mode = global
         name = webcluster
+.ft
+.ps
 .fi
-.in
 
 .SH "SEE ALSO"
 .BR o2cb(7)
