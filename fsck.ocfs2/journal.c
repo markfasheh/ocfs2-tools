@@ -602,7 +602,7 @@ out:
 errcode_t o2fsck_replay_journals(ocfs2_filesys *fs, int *replayed)
 {
 	errcode_t err = 0, ret = 0;
-	struct journal_info *jis, *ji;
+	struct journal_info *jis = NULL, *ji;
 	journal_superblock_t *jsb;
 	char *buf = NULL;
 	int journal_trouble = 0;

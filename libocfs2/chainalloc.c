@@ -156,7 +156,7 @@ static errcode_t create_chainalloc_region(ocfs2_filesys *fs,
 					  struct ocfs2_group_desc *gd,
 					  struct chainalloc_bitmap_private *cb)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	int total_bits = gd->bg_bits;
 	int region_bits = 0, bit_offset = 0, set_bits = 0;
 	uint64_t start_bit;

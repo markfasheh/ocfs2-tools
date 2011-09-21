@@ -259,7 +259,7 @@ static void free_partition_list(struct list_head *dev_list)
 static errcode_t build_partition_list(struct list_head *dev_list, char *device)
 {
 	errcode_t ret = 0;
-	FILE *proc;
+	FILE *proc = NULL;
 	char line[512];
 	char name[512];
 	char *devname = NULL;

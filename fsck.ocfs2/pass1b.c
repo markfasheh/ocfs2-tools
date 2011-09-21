@@ -569,7 +569,7 @@ static int process_xattr_buckets(ocfs2_filesys *fs,
 				 int ref_recno,
 				 void *priv_data)
 {
-	errcode_t ret;
+	errcode_t ret = 0;
 	struct process_extents_context *pc = priv_data;
 
 	assert(!tree_depth);

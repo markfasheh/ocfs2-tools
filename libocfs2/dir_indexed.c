@@ -429,6 +429,7 @@ static errcode_t ocfs2_expand_inline_dx_root(ocfs2_filesys *fs,
 		goto out;
 
 out:
+	ocfs2_free(&dx_leaves);
 	return ret;
 }
 
@@ -1413,7 +1414,7 @@ errcode_t ocfs2_dx_dir_search(ocfs2_filesys *fs,
 	struct ocfs2_dx_entry *dx_entry;
 	struct ocfs2_dir_entry *dir_ent;
 	uint32_t leaf_cpos;
-	uint64_t blkno;
+	uint64_t blkno = 0;
 	int i, found;
 
 	if (dx_root->dr_flags & OCFS2_DX_FLAG_INLINE)
