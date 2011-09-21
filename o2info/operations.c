@@ -57,6 +57,7 @@ static void o2i_info(struct o2info_operation *op, const char *fmt, ...)
 	fprintf(stdout, "%s Info: ", op->to_name);
 	va_start(ap, fmt);
 	vfprintf(stdout, fmt, ap);
+	va_end(ap);
 
 	return;
 }
@@ -68,6 +69,7 @@ static void o2i_error(struct o2info_operation *op, const char *fmt, ...)
 	fprintf(stderr, "%s Error: ", op->to_name);
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
+	va_end(ap);
 
 	return;
 }
