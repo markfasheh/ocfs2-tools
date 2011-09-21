@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
 	ocfs2_filesys *fs;
 	char *dev, *block;
 	uint64_t blkno;
-	char c;
+	int c;
 
 	static struct option long_options[] = {
 		{"force", 0, 0, 'F'},

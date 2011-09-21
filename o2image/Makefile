@@ -5,7 +5,7 @@ include $(TOPDIR)/Preamble.make
 WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
            -Wmissing-declarations
 
-CFLAGS = $(OPTS) $(WARNINGS)
+CFLAGS += $(WARNINGS)
 
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a

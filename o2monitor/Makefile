@@ -7,7 +7,7 @@ SBIN_EXTRA = o2hbmonitor
 WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
            -Wmissing-declarations
 
-CFLAGS = $(OPTS) $(WARNINGS)
+CFLAGS += $(WARNINGS)
 
 INCLUDES = -I$(TOPDIR)/include -I.
 
