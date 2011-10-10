@@ -112,9 +112,9 @@ int prompt_input(o2fsck_state *ost, unsigned flags, struct prompt_code code,
 		ans = ost->ost_answer ? 'y' : 'n';
 	} else {
 		if (flags & PY)
-			printf(yes);
+			printf("%s", yes);
 		else if (flags & PN)
-			printf(no);
+			printf("%s", no);
 	}
 
 	fflush(stdout);

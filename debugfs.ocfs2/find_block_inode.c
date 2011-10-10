@@ -203,7 +203,7 @@ static errcode_t lookup_global_bitmap(ocfs2_filesys *fs, uint64_t *blkno)
 	char sysfile[50];
 	errcode_t ret = 0;
 
-	snprintf(sysfile, sizeof(sysfile),
+	snprintf(sysfile, sizeof(sysfile), "%s",
 		 ocfs2_system_inodes[GLOBAL_BITMAP_SYSTEM_INODE].si_name);
 
 	ret = ocfs2_lookup(fs, fs->fs_sysdir_blkno, sysfile,

@@ -711,7 +711,7 @@ static void do_open(char **args)
 	gbls.cwd = strdup("/");
 
 	/* lookup heartbeat file */
-	snprintf(sysfile, sizeof(sysfile),
+	snprintf(sysfile, sizeof(sysfile), "%s",
 		  ocfs2_system_inodes[HEARTBEAT_SYSTEM_INODE].si_name);
 	ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
 			   strlen(sysfile), NULL, &gbls.hb_blkno);
@@ -719,7 +719,7 @@ static void do_open(char **args)
 		gbls.hb_blkno = 0;
 
 	/* lookup slotmap file */
-	snprintf(sysfile, sizeof(sysfile),
+	snprintf(sysfile, sizeof(sysfile), "%s",
 		  ocfs2_system_inodes[SLOT_MAP_SYSTEM_INODE].si_name);
 	ret = ocfs2_lookup(gbls.fs, gbls.sysdir_blkno, sysfile,
 			   strlen(sysfile), NULL, &gbls.slotmap_blkno);

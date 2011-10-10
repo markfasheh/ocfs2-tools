@@ -163,7 +163,7 @@ static errcode_t check_metaecc(ocfs2_filesys *fs,
 		if (crc == new_check.bc_crc32e) {
 			snprintf(outbuf + result_offset,
 				sizeof(outbuf) - result_offset, "PASS\n");
-			fprintf(stderr, outbuf);
+			fprintf(stderr, "%s", outbuf);
 			goto do_check_end;
 		}
 
@@ -176,13 +176,13 @@ static errcode_t check_metaecc(ocfs2_filesys *fs,
 		if (crc == new_check.bc_crc32e) {
 			snprintf(outbuf + result_offset,
 				sizeof(outbuf) - result_offset, "ECC Fixup\n");
-			fprintf(stderr, outbuf);
+			fprintf(stderr, "%s", outbuf);
 			goto do_check_end;
 		}
 
 		snprintf(outbuf + result_offset,
 			sizeof(outbuf) - result_offset, "FAIL\n");
-		fprintf(stderr, outbuf);
+		fprintf(stderr, "%s", outbuf);
 
 		offset = snprintf(outbuf, sizeof(outbuf), "Calculated");
 		while (offset < crc_offset)
@@ -190,7 +190,7 @@ static errcode_t check_metaecc(ocfs2_filesys *fs,
 		snprintf(outbuf + crc_offset, sizeof(outbuf) - crc_offset,
 			"CRC32: %.8"PRIx32"    ECC: %.4"PRIx16"\n",
 			crc, ecc);
-		fprintf(stderr, outbuf);
+		fprintf(stderr, "%s", outbuf);
 		err = -1;
 do_check_end:
 		check.bc_crc32e = cpu_to_le32(new_check.bc_crc32e);

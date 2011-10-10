@@ -233,7 +233,7 @@ static int process_options(struct mount_options *mo)
 	}
 
 	if (mo->type && strcmp(mo->type, OCFS2_FS_NAME)) {
-		com_err(progname, OCFS2_ET_UNKNOWN_FILESYSTEM, mo->type);
+		com_err(progname, OCFS2_ET_UNKNOWN_FILESYSTEM, "%s", mo->type);
 		return -1;
 	}
 

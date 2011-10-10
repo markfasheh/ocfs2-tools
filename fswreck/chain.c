@@ -198,7 +198,7 @@ static void mess_up_sys_chains(ocfs2_filesys *fs, uint16_t slotnum,
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 	
 	if (slotnum == UINT16_MAX)
-		snprintf(sysfile, sizeof(sysfile),
+		snprintf(sysfile, sizeof(sysfile), "%s",
 		ocfs2_system_inodes[GLOBAL_BITMAP_SYSTEM_INODE].si_name);
 	else
 		snprintf(sysfile, sizeof(sysfile),
@@ -254,7 +254,7 @@ void mess_up_chains_cpg(ocfs2_filesys *fs, enum fsck_type type,
 	uint64_t blkno;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 
-	snprintf(sysfile, sizeof(sysfile),
+	snprintf(sysfile, sizeof(sysfile), "%s",
 		 ocfs2_system_inodes[GLOBAL_BITMAP_SYSTEM_INODE].si_name);
 
 	ret = ocfs2_lookup(fs, sb->s_system_dir_blkno, sysfile,

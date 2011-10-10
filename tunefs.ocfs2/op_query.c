@@ -150,7 +150,7 @@ static int handle_label(FILE *stream, const struct printf_info *info,
 {
 	char label[OCFS2_MAX_VOL_LABEL_LEN + 1];
 
-	snprintf(label, OCFS2_MAX_VOL_LABEL_LEN + 1,
+	snprintf(label, OCFS2_MAX_VOL_LABEL_LEN + 1, "%s",
 		 (char *)OCFS2_RAW_SB(query_fs->fs_super)->s_label);
 
 	return print_string(stream, info, args, label);
