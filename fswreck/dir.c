@@ -464,14 +464,20 @@ void mess_up_dir_parent_dup(ocfs2_filesys *fs, enum fsck_type type,
 void mess_up_dir_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	errcode_t ret;
-	char *buf = NULL;
-	struct ocfs2_dinode *di;
+	char *buf = NULL, *buf2 = NULL;
+	struct ocfs2_dinode *di, *di2;
 	struct ocfs2_extent_list *el;
-	uint64_t tmp_blkno;
+	uint64_t tmp_blkno, file_ino, dir2;
+	int i;
+	struct ocfs2_extent_rec *er;
 
 	create_directory(fs, blkno, &tmp_blkno);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		FSWRK_COM_FATAL(progname, ret);
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf2);
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
@@ -484,29 +490,51 @@ void mess_up_dir_inode(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 	if (!(di->i_flags & OCFS2_VALID_FL))
 		FSWRK_FATAL("not a valid file");
 
-	if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
-
-		FSWRK_FATAL("Inlined directory");
-
-	} else {
-
-		el = &(di->id2.i_list);
-		if (el->l_next_free_rec == 0)
-			FSWRK_FATAL("directory empty");
-
-		el->l_next_free_rec = 0;
+	switch (type) {
+	case DIR_HOLE:
+		create_named_directory(fs, "tmp1", &dir2);
+		for (i = 0; i < fs->fs_blocksize; i++) {
+			if (i%2)
+				create_file(fs, blkno, &file_ino);
+			else
+				create_file(fs, dir2, &file_ino);
+		}
+		ret = ocfs2_read_inode(fs, dir2, buf2);
+		di2 = (struct ocfs2_dinode *)buf2;
+		el = &(di2->id2.i_list);
+		er = &(el->l_recs[0]);
+		er->e_cpos += 2;
+		er = &(el->l_recs[1]);
+		er->e_cpos += 3;
+		di2->i_size += 23 * fs->fs_clustersize;
+		ret = ocfs2_write_inode(fs, dir2, buf2);
+		fprintf(stdout, "DIR_HOLE: Messed up extent records of %"
+				PRIu64" to show a hole.\n", dir2);
+		break;
+	case DIR_ZERO:
+		if (di->i_dyn_features & OCFS2_INLINE_DATA_FL) {
+			FSWRK_FATAL("Inlined directory");
+		} else {
+			el = &(di->id2.i_list);
+			if (el->l_next_free_rec == 0)
+				FSWRK_FATAL("directory empty");
+			el->l_next_free_rec = 0;
+		}
+		fprintf(stdout, "DIR_ZERO: Corrupt directory#%"PRIu64
+				", empty its content.\n", tmp_blkno);
+		break;
+	default:
+		fprintf(stdout, "Invalid code passed for dir\n");
 	}
 
-	fprintf(stdout, "DIR_ZERO: "
-		"Corrupt directory#%"PRIu64", empty its content.\n", 
-		tmp_blkno);
-
 	ret = ocfs2_write_inode(fs, tmp_blkno, buf);
-	if (ret) 
+	if (ret)
 		FSWRK_COM_FATAL(progname, ret);	
 
 	if (buf)
 		ocfs2_free(&buf);
+	if (buf2)
+		ocfs2_free(&buf2);
 	return;
 }
 

@@ -28,7 +28,7 @@
 
 extern char *progname;
 
-static void create_named_directory(ocfs2_filesys *fs, char *dirname,
+void create_named_directory(ocfs2_filesys *fs, char *dirname,
 				   uint64_t *blkno)
 {
 	errcode_t ret;
@@ -149,6 +149,9 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 		func = mess_up_root;
 		break;
 	case DIR_ZERO:
+		func = mess_up_dir_inode;
+		break;
+	case DIR_HOLE:
 		func = mess_up_dir_inode;
 		break;
 	case DIRENT_DOTTY_DUP:

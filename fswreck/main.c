@@ -117,6 +117,8 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "Corrupt dir's dotdot entry's ino it points to"),
 	define_prompt_code(DIR_ZERO, corrupt_file,
 			   "Corrupt directory, empty its content"),
+	define_prompt_code(DIR_HOLE, corrupt_file,
+			   "Create a hole in the directory"),
 	define_prompt_code(DIRENT_DOTTY_DUP, corrupt_file,
 			   "Duplicate '.' dirent to a directory"),
 	define_prompt_code(DIRENT_NOT_DOTTY, corrupt_file,
