@@ -161,19 +161,19 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 		func = mess_up_dir_inode;
 		break;
 	case DIRENT_DOTTY_DUP:
-		func = mess_up_dir_dot;
+		func = mess_up_dir_ent;
 		break;
 	case DIRENT_NOT_DOTTY:
-		func = mess_up_dir_dot;
+		func = mess_up_dir_ent;
 		break;
 	case DIRENT_DOT_INODE:
-		func = mess_up_dir_dot;
+		func = mess_up_dir_ent;
 		break;
 	case DIRENT_DOT_EXCESS:
-		func = mess_up_dir_dot;
+		func = mess_up_dir_ent;
 		break;
 	case DIR_DOTDOT:
-		func = mess_up_dir_dotdot;
+		func = mess_up_dir_ent;
 		break;
 	case DIRENT_ZERO:
 		func = mess_up_dir_ent;

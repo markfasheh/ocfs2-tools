@@ -393,26 +393,6 @@ static void damage_dir_content(ocfs2_filesys *fs, uint64_t dir,
 	return;
 }
 
-void mess_up_dir_dot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
-{
-	uint64_t tmp_blkno;
-
-	create_directory(fs, blkno, &tmp_blkno);
-	damage_dir_content(fs, tmp_blkno, type);
-
-	return;
-}
-
-void mess_up_dir_dotdot(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
-{
-	uint64_t tmp_blkno;
-
-	create_directory(fs, blkno, &tmp_blkno);
-	damage_dir_content(fs, tmp_blkno, type);
-
-	return;
-}
-
 void mess_up_dir_ent(ocfs2_filesys *fs, enum fsck_type type, uint64_t blkno)
 {
 	uint64_t tmp_blkno;
