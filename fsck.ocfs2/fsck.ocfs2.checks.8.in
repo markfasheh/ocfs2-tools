@@ -1143,6 +1143,12 @@ structures are directories, refcount trees, dx_trees etc.
 
 Answering yes will remove the hole by updating the offset to the expected value.
 
+.SS "EXTENT_OVERLAP"
+The extents of the file overlap, which means there could be two or more
+possible data for a particular offset for the file.
+
+Answering yes will serialize the extents.
+
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
 .BR fsck.ocfs2(8)

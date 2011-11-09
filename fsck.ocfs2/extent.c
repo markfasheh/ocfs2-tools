@@ -162,6 +162,15 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		*changed = 1;
 	}
 
+	if ((er->e_cpos < offset) &&
+		prompt(ost, PY, PR_EXTENT_OVERLAP,
+			"Extent record of owner %"PRIu64" is incorrectly "
+			"set to %d instead of %d. Fix?", owner, er->e_cpos,
+			offset)) {
+		er->e_cpos = offset;
+		*changed = 1;
+	}
+
 	if (el->l_tree_depth) {
 		int is_valid = 0;
 		/* we only expect a given depth when we descend to extent blocks
