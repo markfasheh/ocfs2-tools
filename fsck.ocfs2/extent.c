@@ -447,6 +447,7 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 		struct ocfs2_extent_rec *er =
 			&(el->l_recs[el->l_next_free_rec - 1]);
 		uint64_t expected;
+
 		if (el->l_tree_depth)
 			expected = er->e_cpos + er->e_int_clusters;
 		else
@@ -459,6 +460,19 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 				(uint64_t)di->i_blkno,
 				(uint64_t)di->i_size, expected)) {
 			di->i_size = expected;
+
+			/*
+			 * Remove dirindexing... will be rebuilt in pass 2
+			 *
+			 * TODO: This clearing does not free the blocks used
+			 * for indexing. It expects the fsck to reclaim the
+			 * blocks. We might want to clean this up by using a
+			 * refactored ocfs2_dx_dir_truncate().
+			 */
+			if (di->i_dyn_features & OCFS2_INDEXED_DIR_FL) {
+				di->i_dx_root = 0ULL;
+				di->i_dyn_features &= ~OCFS2_INDEXED_DIR_FL;
+			}
 			changed = 1;
 		}
 	}

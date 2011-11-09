@@ -732,6 +732,13 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		verbosef("dir inode %"PRIu64" i_size %"PRIu64"\n",
 			 dbe->e_ino, (uint64_t)di->i_size);
 
+		/* Set the flag for index rebuilding */
+		if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super))
+			&& !(di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+			&& !(di->i_dyn_features & OCFS2_INDEXED_DIR_FL)) {
+			ret_flags |= OCFS2_DIRENT_CHANGED;
+		}
+
 	}
 
 	verbosef("dir block %"PRIu64" block offs %"PRIu64" in ino\n",
@@ -896,9 +903,9 @@ next:
 			goto out;
 		}
 
-		if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super)) &&
-		    !(di->i_dyn_features & OCFS2_INLINE_DATA_FL) &&
-		    (di->i_dyn_features  & OCFS2_INDEXED_DIR_FL)) {
+		if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super))
+			&& !(di->i_dyn_features & OCFS2_INLINE_DATA_FL)) {
+			di->i_dyn_features |= OCFS2_INDEXED_DIR_FL;
 			ret = o2fsck_try_add_reidx_dir(&dd->re_idx_dirs, dbe->e_ino);
 			if (ret) {
 				com_err(whoami, ret, "while adding block for "
