@@ -27,6 +27,8 @@ typedef errcode_t (check_leaf_er_func)(o2fsck_state *ost,
 				       struct ocfs2_extent_list *el,
 				       struct ocfs2_extent_rec *er,
 				       int *changed,
+				       uint32_t offset,
+				       int no_holes,
 				       void *para);
 typedef errcode_t (mark_leaf_er_alloc_func)(o2fsck_state *ost,
 					    struct ocfs2_extent_rec *er,
@@ -50,12 +52,15 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		   uint64_t owner,
 		   struct ocfs2_extent_list *el,
-		   uint16_t max_recs, int *changed);
+		   uint16_t max_recs, uint32_t offset, int no_holes,
+		   int *changed);
 errcode_t o2fsck_check_extent_rec(o2fsck_state *ost,
 				  uint64_t owner,
 				  struct ocfs2_extent_list *el,
 				  struct ocfs2_extent_rec *er,
 				  int *changed,
+				  uint32_t offset,
+				  int no_holes,
 				  void *para);
 
 errcode_t o2fsck_mark_tree_clusters_allocated(o2fsck_state *ost,

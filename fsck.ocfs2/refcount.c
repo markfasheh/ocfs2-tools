@@ -64,7 +64,8 @@ struct refcount_tree {
 };
 
 static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
-			  uint64_t root_blkno, uint64_t *c_end, int *is_valid);
+			  uint64_t root_blkno, uint64_t *c_end,
+			  uint32_t offset, int no_holes, int *is_valid);
 
 static void check_rl(o2fsck_state *ost,
 		     uint64_t rb_blkno, uint64_t root_blkno,
@@ -167,7 +168,8 @@ static errcode_t refcount_check_leaf_extent_rec(o2fsck_state *ost,
 						uint64_t owner,
 						struct ocfs2_extent_list *el,
 						struct ocfs2_extent_rec *er,
-						int *changed,
+						int *changed, uint32_t offset,
+						int no_holes,
 						void *para)
 {
 	errcode_t ret;
@@ -175,7 +177,8 @@ static errcode_t refcount_check_leaf_extent_rec(o2fsck_state *ost,
 	struct check_refcount_rec *check = para;
 
 	ret = check_rb(ost, er->e_blkno,
-		       check->root_blkno, &check->c_end, &is_valid);
+		       check->root_blkno, &check->c_end, offset, no_holes,
+		       &is_valid);
 
 	if (!is_valid &&
 	    prompt(ost, PY, PR_REFCOUNT_BLOCK_INVALID,
@@ -190,7 +193,8 @@ static errcode_t refcount_check_leaf_extent_rec(o2fsck_state *ost,
 }
 
 static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
-			  uint64_t root_blkno, uint64_t *c_end, int *is_valid)
+			  uint64_t root_blkno, uint64_t *c_end,
+			  uint32_t offset, int no_holes, int *is_valid)
 {
 	int changed = 0;
 	char *buf = NULL;
@@ -279,7 +283,7 @@ static errcode_t check_rb(o2fsck_state *ost, uint64_t blkno,
 		 * here.
 		 */
 		check_el(ost, &ei, rb->rf_blkno, &rb->rf_list,
-			 max_recs, &changed);
+			 max_recs, offset, no_holes, &changed);
 		*c_end = check.c_end;
 
 		if (ei.ei_clusters != rb->rf_clusters &&
@@ -387,7 +391,7 @@ errcode_t o2fsck_check_refcount_tree(o2fsck_state *ost,
 		return ret;
 
 	ret = check_rb(ost, di->i_refcount_loc, di->i_refcount_loc,
-		       &c_end, &is_valid);
+		       &c_end, 0, 0, &is_valid);
 
 	/*
 	 * Add refcount tree to the rb-tree.

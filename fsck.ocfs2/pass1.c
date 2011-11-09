@@ -815,7 +815,7 @@ static errcode_t o2fsck_check_dx_dir(o2fsck_state *ost, struct ocfs2_dinode *di)
 
 	ret = check_el(ost, &ei, di->i_blkno, &dx_root->dr_list,
 			ocfs2_extent_recs_per_dx_root(fs->fs_blocksize),
-			&changed);
+			0, 0, &changed);
 	if (ret)
 		goto out;
 

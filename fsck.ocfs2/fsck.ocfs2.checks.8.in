@@ -1137,6 +1137,12 @@ index entry will cause lookups on this name to fail.
 
 Answering yes will rebuild the directory index, restoring the missing entry.
 
+.SS "NO_HOLES"
+A metadata structure encountered a hole where it should not. Examples of such
+structures are directories, refcount trees, dx_trees etc.
+
+Answering yes will remove the hole by updating the offset to the expected value.
+
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
 .BR fsck.ocfs2(8)

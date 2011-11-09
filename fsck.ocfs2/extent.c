@@ -49,6 +49,7 @@ static const char *whoami = "extent.c";
 
 static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 			  uint64_t owner, uint64_t blkno,
+			  uint32_t offset, int no_holes,
 			  int *is_valid)
 {
 	int changed = 0;
@@ -113,10 +114,9 @@ static errcode_t check_eb(o2fsck_state *ost, struct extent_info *ei,
 
 	/* XXX worry about suballoc node/bit */
 	/* XXX worry about next_leaf_blk */
-
 	check_el(ost, ei, owner, &eb->h_list,
-		 ocfs2_extent_recs_per_eb(ost->ost_fs->fs_blocksize), 
-		 &changed);
+		 ocfs2_extent_recs_per_eb(ost->ost_fs->fs_blocksize),
+		 offset, no_holes, &changed);
 
 	if (changed) {
 		ret = ocfs2_write_extent_block(ost->ost_fs, blkno, buf);
@@ -139,7 +139,9 @@ out:
 static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 			  uint64_t owner,
 			  struct ocfs2_extent_list *el,
-			  struct ocfs2_extent_rec *er, int *changed)
+			  struct ocfs2_extent_rec *er,
+			  uint32_t offset, int no_holes,
+			  int *changed)
 {
 	errcode_t ret = 0;
 	uint32_t clusters;
@@ -151,6 +153,15 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 	if (ocfs2_block_out_of_range(ost->ost_fs, er->e_blkno))
 		goto out;
 
+	if (no_holes && (er->e_cpos != offset) &&
+		prompt(ost, PY, PR_NO_HOLES,
+			"Extent record of owner %"PRIu64" is incorrectly "
+			"set to %d instead of %d. Fix?", owner, er->e_cpos,
+			offset)) {
+		er->e_cpos = offset;
+		*changed = 1;
+	}
+
 	if (el->l_tree_depth) {
 		int is_valid = 0;
 		/* we only expect a given depth when we descend to extent blocks
@@ -158,8 +169,9 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 		 * is checked */
 		ei->ei_expect_depth = 1;
 		ei->ei_expected_depth = el->l_tree_depth - 1;
-		check_eb(ost, ei, owner, er->e_blkno, &is_valid);
-		if (!is_valid && 
+		check_eb(ost, ei, owner, er->e_blkno, offset, no_holes,
+			 &is_valid);
+		if (!is_valid &&
 		    prompt(ost, PY, PR_EXTENT_EB_INVALID,
 			   "The extent record for cluster offset "
 			   "%"PRIu32" in owner %"PRIu64" refers to an invalid "
@@ -175,7 +187,8 @@ static errcode_t check_er(o2fsck_state *ost, struct extent_info *ei,
 	}
 
 	if (ei->chk_rec_func)
-		ret = ei->chk_rec_func(ost, owner, el, er, changed, ei->para);
+		ret = ei->chk_rec_func(ost, owner, el, er, changed, offset,
+				no_holes, ei->para);
 	/* XXX offer to remove leaf records with er_clusters set to 0? */
 
 	/* XXX check that the blocks that are referenced aren't already 
@@ -188,7 +201,8 @@ out:
 errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		   uint64_t owner,
 		   struct ocfs2_extent_list *el,
-		   uint16_t max_recs, int *changed)
+		   uint16_t max_recs, uint32_t offset, int no_holes,
+		   int *changed)
 {
 	int trust_next_free = 1;
 	struct ocfs2_extent_rec *er;
@@ -259,7 +273,12 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		/* returns immediately if blkno is out of range.
 		 * descends into eb.  checks that data er doesn't
 		 * reference past the volume or anything crazy. */
-		check_er(ost, ei, owner, el, er, changed);
+		check_er(ost, ei, owner, el, er, offset, no_holes, changed);
+
+		if (el->l_tree_depth)
+			offset += er->e_int_clusters;
+		else
+			offset += er->e_leaf_clusters;
 
 		/* offer to remove records that point to nowhere */
 		if (ocfs2_block_out_of_range(ost->ost_fs, er->e_blkno) && 
@@ -313,6 +332,8 @@ errcode_t o2fsck_check_extent_rec(o2fsck_state *ost,
 				  struct ocfs2_extent_list *el,
 				  struct ocfs2_extent_rec *er,
 				  int *changed,
+				  uint32_t offset,
+				  int no_holes,
 				  void *para)
 {
 	uint32_t clusters, last_cluster;
@@ -417,8 +438,30 @@ errcode_t o2fsck_check_extents(o2fsck_state *ost,
 	ei.para = di;
 	ret = check_el(ost, &ei, di->i_blkno, &di->id2.i_list,
 	         ocfs2_extent_recs_per_inode(ost->ost_fs->fs_blocksize),
+		 0, S_ISDIR(di->i_mode),
 		 &changed);
 
+	if (S_ISDIR(di->i_mode) && !(di->i_dyn_features
+				& OCFS2_INLINE_DATA_FL)) {
+		struct ocfs2_extent_list *el = &(di->id2.i_list);
+		struct ocfs2_extent_rec *er =
+			&(el->l_recs[el->l_next_free_rec - 1]);
+		uint64_t expected;
+		if (el->l_tree_depth)
+			expected = er->e_cpos + er->e_int_clusters;
+		else
+			expected = er->e_cpos + er->e_leaf_clusters;
+		expected = ocfs2_clusters_to_bytes(ost->ost_fs, expected);
+		if ((di->i_size > expected) && prompt(ost, PY,
+				PR_INODE_SIZE, "Inode %"PRIu64" has a size of "
+				"%"PRIu64" but has %"PRIu64" bytes of actual "
+				"data. Correct the file size?",
+				(uint64_t)di->i_blkno,
+				(uint64_t)di->i_size, expected)) {
+			di->i_size = expected;
+			changed = 1;
+		}
+	}
 	if (changed)
 		o2fsck_write_inode(ost, di->i_blkno, di);
 

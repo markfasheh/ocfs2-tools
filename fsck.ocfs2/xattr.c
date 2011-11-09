@@ -395,7 +395,8 @@ static errcode_t check_xattr_value(o2fsck_state *ost,
 				((void *)xh + offset);
 			struct ocfs2_extent_list *el = &xv->xr_list;
 			owner = start + offset / ost->ost_fs->fs_blocksize;
-			ret = check_el(ost, &ei, owner, el, 1, &change);
+			ret = check_el(ost, &ei, owner, el, 1,
+					0, 0, &change);
 			if (ret)
 				return ret;
 			if (change)
@@ -612,7 +613,7 @@ static errcode_t o2fsck_check_xattr_index_block(o2fsck_state *ost,
 	ei.mark_rec_alloc_func = o2fsck_mark_tree_clusters_allocated;
 	ei.para = di;
 	ret = check_el(ost, &ei, xb->xb_blkno, el,
-		ocfs2_xattr_recs_per_xb(ost->ost_fs->fs_blocksize),
+		ocfs2_xattr_recs_per_xb(ost->ost_fs->fs_blocksize), 0, 0,
 		changed);
 	if (ret)
 		return ret;
