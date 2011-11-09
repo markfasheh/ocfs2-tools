@@ -346,6 +346,32 @@ static void mess_up_record(ocfs2_filesys *fs, uint64_t blkno,
 			" from %"PRIu64 " to %"PRIu64"\n",
 			blkno, oldno, er->e_blkno);
 			break;
+		case EXTENT_OVERLAP:
+			ret = ocfs2_extend_allocation(fs, blkno, 2);
+			if (ret)
+				FSWRK_COM_FATAL(progname, ret);
+			ret = ocfs2_read_inode(fs, blkno, buf);
+			if (ret)
+				FSWRK_COM_FATAL(progname, ret);
+			er = &(el->l_recs[1]);
+			er->e_cpos -= 1;
+			fprintf(stdout, "EXTENT_OVERLAP: "
+			"Corrupt inode#%"PRIu64", change cpos "
+			" to overlap\n", blkno);
+			break;
+		case EXTENT_HOLE:
+			ret = ocfs2_extend_allocation(fs, blkno, 2);
+			if (ret)
+				FSWRK_COM_FATAL(progname, ret);
+			ret = ocfs2_read_inode(fs, blkno, buf);
+			if (ret)
+				FSWRK_COM_FATAL(progname, ret);
+			er = &(el->l_recs[1]);
+			er->e_cpos += 11;
+			fprintf(stdout, "EXTENT_HOLE: "
+			"Corrupt inode#%"PRIu64", change cpos "
+			" to increase hole\n", blkno);
+			break;
 		default:
 			goto bail;
 		}

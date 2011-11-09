@@ -85,6 +85,12 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case EXTENT_BLKNO_RANGE:
 		func = mess_up_extent_record;
 		break;
+	case EXTENT_OVERLAP:
+		func = mess_up_extent_record;
+		break;
+	case EXTENT_HOLE:
+		func = mess_up_extent_record;
+		break;
 	case EXTENT_LIST_DEPTH:
 		func = mess_up_extent_list;
 		break;
