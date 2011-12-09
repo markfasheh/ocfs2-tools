@@ -673,7 +673,6 @@ static errcode_t check_chain(o2fsck_state *ost,
 			     struct ocfs2_chain_rec *chain,
 			     char *buf1,
 			     char *buf2,
-			     char *pre_cache_buf,
 			     int *chain_changed,
 			     ocfs2_bitmap *allowed,
 			     ocfs2_bitmap *forbidden)
@@ -683,8 +682,6 @@ static errcode_t check_chain(o2fsck_state *ost,
 	uint64_t blkno;
 	errcode_t ret = 0;
 	int depth = 0, clear_ref = 0;
-	int blocks_per_group = ocfs2_clusters_to_blocks(ost->ost_fs,
-							cs->cs_cpg);
 
 	verbosef("free %u total %u blkno %"PRIu64"\n", chain->c_free,
 		 chain->c_total, (uint64_t)chain->c_blkno);
@@ -738,15 +735,6 @@ static errcode_t check_chain(o2fsck_state *ost,
 			/* this will just result in a bad blkno from
 			 * the read below.. */
 		}
-
-		/*
-		 * Pre-cache the entire group.  Don't care about failure.
-		 * If it works, the following ocfs2_read_group_desc() will
-		 * get the block out of the cache.
-		 */
-		if (pre_cache_buf)
-			ocfs2_read_blocks(ost->ost_fs, blkno,
-					  blocks_per_group, pre_cache_buf);
 
 		ret = ocfs2_read_group_desc(ost->ost_fs, blkno, (char *)bg2);
 		if (ret == OCFS2_ET_BAD_GROUP_DESC_MAGIC) {
@@ -855,13 +843,12 @@ out:
 static errcode_t verify_chain_alloc(o2fsck_state *ost,
 				    struct ocfs2_dinode *di,
 				    char *buf1, char *buf2,
-				    char *pre_cache_buf,
 				    ocfs2_bitmap *allowed,
 				    ocfs2_bitmap *forbidden)
 {
 	struct chain_state cs = {0, };
 	struct ocfs2_chain_list *cl;
-	int i, max_count;
+	uint16_t i, max_count;
 	struct ocfs2_chain_rec *cr;
 	uint32_t free = 0, total = 0;
 	int changed = 0, trust_next_free = 1;
@@ -952,13 +939,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	if (trust_next_free)
 		max_count = cl->cl_next_free_rec;
 
-	/*
-	 * We walk the chains backwards for caching reasons.  Basically,
-	 * at the end the last blocks we read will be the most recently
-	 * used in the cache.  We want that to be the first chains,
-	 * especially for the inode scan, which will read forwards.
-	 */
-	for (i = max_count - 1; i >= 0; i--) {
+	for (i = 0; i < max_count; i++) {
 		cr = &cl->cl_recs[i];
 
 		/* reset for each run */
@@ -966,8 +947,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			.cs_chain_no = i,
 			.cs_cpg = cl->cl_cpg,
 		};
-		ret = check_chain(ost, di, &cs, cr, buf1, buf2, pre_cache_buf,
-				  &changed, allowed, forbidden);
+		ret = check_chain(ost, di, &cs, cr, buf1, buf2, &changed,
+				  allowed, forbidden);
 		/* XXX what?  not checking ret? */
 
 		if (cr->c_blkno != 0) {
@@ -994,13 +975,12 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			 * we copy the last chain into the missing spot
 			 * instead of shifting everyone over a spot 
 			 * to minimize the number of chains we have to
-			 * update.  we then reset i so that we can go
-			 * over that chain and fix bg_chain */
+			 * update */
 			if (i < (cl->cl_next_free_rec - 1)) {
 				*cr = cl->cl_recs[cl->cl_next_free_rec - 1];
 				memset(&cl->cl_recs[cl->cl_next_free_rec - 1],
 					0, sizeof(struct ocfs2_chain_rec));
-				i++;
+				i--;
 			}
 
 			cl->cl_next_free_rec--;
@@ -1120,7 +1100,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 		o2fsck_bitmap_set(allowed, blkno, NULL);
 	}
 
-	ret = verify_chain_alloc(ost, di, buf1, buf2, NULL, allowed, forbidden);
+	ret = verify_chain_alloc(ost, di, buf1, buf2, allowed, forbidden);
 	if (ret) {
 		com_err(whoami, ret, "while looking up chain allocator inode "
 			"%"PRIu64, (uint64_t)di->i_blkno);
@@ -1275,7 +1255,6 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	uint64_t blkno;
 	uint32_t pre_repair_clusters;
 	char *blocks = NULL;
-	char *pre_cache_buf = NULL;
 	struct ocfs2_dinode *di = NULL;
 	ocfs2_filesys *fs = ost->ost_fs;
 	ocfs2_cached_inode **ci;
@@ -1301,27 +1280,6 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		goto out;
 	}
 	di = (struct ocfs2_dinode *)blocks;
-
-	/*
-	 * We also allocate a pre-cache buffer of 4MB for reading entire
-	 * suballocator groups.  Some blocksizes have smaller groups, but
-	 * none have larger (see
-	 * libocfs2/alloc.c:ocfs2_clusters_per_group()).  This allows
-	 * us to pre-fill the I/O cache; we're already reading the group
-	 * descriptor, so slurping the whole thing shouldn't hurt.
-	 *
-	 * If this allocation fails, we just ignore it.  It's a cache.
-	 */
-	o2fsck_reset_blocks_cached();
-	if (o2fsck_worth_caching(1)) {
-		ret = ocfs2_malloc_blocks(fs->fs_io,
-					  ocfs2_blocks_in_bytes(fs, 4 * 1024 * 1024),
-					  &pre_cache_buf);
-		if (ret)
-			verbosef("Unable to allocate group pre-cache "
-				 "buffer, %s\n",
-				 "ignoring");
-	}
 
 	ret = ocfs2_malloc0(max_slots * sizeof(ocfs2_cached_inode *), 
 			    &ost->ost_inode_allocs);
@@ -1456,7 +1414,7 @@ retry_bitmap:
 					 blocks + ost->ost_fs->fs_blocksize,
 					 blocks + 
 					 (ost->ost_fs->fs_blocksize * 2), 
-					 pre_cache_buf, NULL, NULL);
+					 NULL, NULL);
 
 		/* XXX maybe helped by the alternate super block */
 		if (ret)
@@ -1515,7 +1473,7 @@ retry_bitmap:
 					 blocks + ost->ost_fs->fs_blocksize,
 					 blocks + 
 					 (ost->ost_fs->fs_blocksize * 2), 
-					 pre_cache_buf, NULL, NULL);
+					 NULL, NULL);
 
 		/* XXX maybe helped by the alternate super block */
 		if (ret)
@@ -1527,8 +1485,6 @@ retry_bitmap:
 	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 out:
-	if (pre_cache_buf)
-		ocfs2_free(&pre_cache_buf);
 	if (blocks)
 		ocfs2_free(&blocks);
 	if (ret)
