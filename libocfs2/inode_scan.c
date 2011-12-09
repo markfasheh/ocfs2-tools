@@ -331,17 +331,13 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 	if (ret)
 		goto out_scan;
 
-	/* Minimum 8 inodes in the buffer */
-	scan->buffer_blocks = fs->fs_clustersize / fs->fs_blocksize;
-	if (scan->buffer_blocks < 8) {
-		scan->buffer_blocks =
-			((8 * fs->fs_blocksize) +
-			 (fs->fs_clustersize - 1)) /
-			fs->fs_clustersize;
-		scan->buffer_blocks =
-			ocfs2_clusters_to_blocks(fs,
-						 scan->buffer_blocks);
-	}
+	/*
+	 * Ideally the buffer size should be one cpg. But finding that value
+	 * is not worth the effort. Instead we default to 4MB, which is a
+	 * typical value in most ocfs2 file systems.
+	 */
+#define OPEN_SCAN_BUFFER_SIZE	(4 * 1024 * 1024)
+	scan->buffer_blocks = OPEN_SCAN_BUFFER_SIZE / fs->fs_blocksize;
 
 	ret = ocfs2_malloc_blocks(fs->fs_io, scan->buffer_blocks,
 				  &scan->group_buffer);
