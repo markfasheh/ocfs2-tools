@@ -36,6 +36,11 @@ void tools_progress_enable(void);
 void tools_progress_disable(void);
 
 /*
+ * Returns 1 if progress display is enabled, 0 if not.
+ */
+int tools_progress_enabled(void);
+
+/*
  * Callers should use the progress API unconditionally.  If the progress
  * display is not enabled, the functions are no-ops.
  *

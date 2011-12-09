@@ -497,11 +497,6 @@ void tools_progress_restore(void)
 	progress_write();
 }
 
-int tools_progress_enabled(void)
-{
-	return progress_on;
-}
-
 
 /*
  * Public API
@@ -524,6 +519,11 @@ void tools_progress_enable(void)
 void tools_progress_disable(void)
 {
 	progress_on = 0;
+}
+
+int tools_progress_enabled(void)
+{
+	return progress_on;
 }
 
 struct tools_progress *tools_progress_start(const char *long_name,

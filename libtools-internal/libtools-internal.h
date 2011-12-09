@@ -25,6 +25,5 @@ int tools_verbosity(void);
 int tools_is_interactive(void);
 void tools_progress_clear(void);
 void tools_progress_restore(void);
-int tools_progress_enabled(void);
 
 #endif  /* _LIBTOOLS_INTERNAL_H */
