@@ -85,6 +85,9 @@ static errcode_t ocfs2_load_allocator(ocfs2_filesys *fs,
 		ret = ocfs2_read_cached_inode(fs, blkno, alloc_cinode);
 		if (ret)
 			return ret;
+		/* Ignore error */
+		ocfs2_cache_chain_allocator_blocks(fs,
+						   (*alloc_cinode)->ci_inode);
 	}
 
 	if (!(*alloc_cinode)->ci_chains) {
