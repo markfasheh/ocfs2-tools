@@ -303,6 +303,94 @@ uint64_t ocfs2_get_block_from_group(ocfs2_filesys *fs,
 		ocfs2_clusters_to_blocks(fs, rec->e_cpos));
 }
 
+errcode_t ocfs2_cache_chain_allocator_blocks(ocfs2_filesys *fs,
+					     struct ocfs2_dinode *di)
+{
+	struct io_vec_unit *ivus = NULL;
+	char *buf = NULL;
+	errcode_t ret = 0;
+	int i, j, count;
+	struct ocfs2_chain_list *cl;
+	struct ocfs2_chain_rec *cr;
+	struct ocfs2_group_desc *gd;
+	io_channel *channel = fs->fs_io;
+	int blocksize = fs->fs_blocksize;
+	int64_t group_size;
+
+	if (!(di->i_flags & OCFS2_CHAIN_FL)) {
+		ret = OCFS2_ET_INODE_NOT_VALID;
+		goto out;
+	}
+
+	if (!channel)
+		goto out;
+
+	if (!di->i_clusters)
+		goto out;
+
+	group_size = (int64_t)di->i_clusters / di->id2.i_chain.cl_cpg;
+	group_size *= blocksize;
+
+	if (group_size > io_get_cache_size(channel))
+		goto out;
+
+	cl = &(di->id2.i_chain);
+	count = cl->cl_next_free_rec;
+
+	ret = ocfs2_malloc_blocks(channel, count, &buf);
+	if (ret)
+		goto out;
+	memset(buf, 0, count * blocksize);
+
+	ret = ocfs2_malloc(sizeof(struct io_vec_unit) * count, &ivus);
+	if (ret)
+		goto out;
+
+	for (i = 0; i < count; ++i) {
+		cr = &(cl->cl_recs[i]);
+		ivus[i].ivu_blkno = cr->c_blkno;
+		ivus[i].ivu_buf = buf + (i * blocksize);
+		ivus[i].ivu_buflen = blocksize;
+	}
+
+	while (count) {
+		ret = io_vec_read_blocks(channel, ivus, count);
+		if (ret)
+			goto out;
+
+		for (i = 0, j = 0; i < count; ++i) {
+			gd = (struct ocfs2_group_desc *)ivus[i].ivu_buf;
+
+			ret = ocfs2_validate_meta_ecc(fs, ivus[i].ivu_buf,
+						      &gd->bg_check);
+			if (ret)
+				goto out;
+
+			if (memcmp(gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE,
+				   strlen(OCFS2_GROUP_DESC_SIGNATURE))) {
+				ret = OCFS2_ET_BAD_GROUP_DESC_MAGIC;
+				goto out;
+			}
+			ocfs2_swap_group_desc_to_cpu(fs, gd);
+
+			if ((gd->bg_next_group > OCFS2_SUPER_BLOCK_BLKNO) &&
+			    (gd->bg_next_group < fs->fs_blocks)) {
+				ivus[j].ivu_blkno = gd->bg_next_group;
+				memset(ivus[j].ivu_buf, 0, blocksize);
+				ivus[j].ivu_buflen = blocksize;
+				j++;
+			}
+		}
+
+		count = j;
+	}
+
+out:
+	ocfs2_free(&ivus);
+	ocfs2_free(&buf);
+	return ret;
+}
+
 #ifdef DEBUG_EXE
 #include <stdlib.h>
 #include <getopt.h>

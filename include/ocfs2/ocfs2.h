@@ -681,6 +681,8 @@ uint64_t ocfs2_get_block_from_group(ocfs2_filesys *fs,
 				    struct ocfs2_group_desc *grp,
 				    int bpc, int bit_offset);
 
+errcode_t ocfs2_cache_chain_allocator_blocks(ocfs2_filesys *fs,
+					     struct ocfs2_dinode *di);
 errcode_t ocfs2_chain_iterate(ocfs2_filesys *fs,
 			      uint64_t blkno,
 			      int (*func)(ocfs2_filesys *fs,
