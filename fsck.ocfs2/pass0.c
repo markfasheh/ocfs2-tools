@@ -1334,6 +1334,11 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 		}
 	}
 
+	/* Warm up the cache with the groups */
+	ret = ocfs2_cache_chain_allocator_blocks(fs, di);
+	if (ret)
+		verbosef("Caching global bitmap failed, err %d\n", (int)ret);
+
 retry_bitmap:
 	pre_repair_clusters = di->i_clusters;
 	ret = verify_bitmap_descs(ost, di, blocks + ost->ost_fs->fs_blocksize,
@@ -1410,6 +1415,12 @@ retry_bitmap:
 		verbosef("found inode alloc %"PRIu64" at block %"PRIu64"\n",
 			 (uint64_t)di->i_blkno, blkno);
 
+		/* Warm up the cache with the groups */
+		ret = ocfs2_cache_chain_allocator_blocks(fs, di);
+		if (ret)
+			verbosef("Caching inode alloc failed, err %d\n",
+				 (int)ret);
+
 		ret = verify_chain_alloc(ost, di,
 					 blocks + ost->ost_fs->fs_blocksize,
 					 blocks + 
@@ -1468,6 +1479,12 @@ retry_bitmap:
 
 		verbosef("found extent alloc %"PRIu64" at block %"PRIu64"\n",
 			 (uint64_t)di->i_blkno, blkno);
+
+		/* Warm up the cache with the groups */
+		ret = ocfs2_cache_chain_allocator_blocks(fs, di);
+		if (ret)
+			verbosef("Caching extent alloc failed, err %d\n",
+				 (int)ret);
 
 		ret = verify_chain_alloc(ost, di,
 					 blocks + ost->ost_fs->fs_blocksize,
