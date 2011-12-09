@@ -290,7 +290,8 @@ void o2fsck_print_resource_track(char *pass, o2fsck_state *ost,
 {
 	struct ocfs2_io_stats *rtio = &rt->rt_io_stats;
 	uint64_t total_io, cache_read;
-	float rtime, utime, stime;
+	float rtime_s, utime_s, stime_s, walltime;
+	uint32_t rtime_m, utime_m, stime_m;
 
 	if (!ost->ost_show_stats)
 		return ;
@@ -298,12 +299,22 @@ void o2fsck_print_resource_track(char *pass, o2fsck_state *ost,
 	if (pass && !ost->ost_show_extended_stats)
 		return;
 
-	rtime = timeval_in_secs(&rt->rt_real_time);
-	utime = timeval_in_secs(&rt->rt_user_time);
-	stime = timeval_in_secs(&rt->rt_sys_time);
+#define split_time(_t, _m, _s)			\
+	do {					\
+		(_s) = timeval_in_secs(&_t);	\
+		(_m) = (_s) / 60;		\
+		(_s) -= ((_m) * 60);		\
+	} while (0);
+
+	split_time(rt->rt_real_time, rtime_m, rtime_s);
+	split_time(rt->rt_user_time, utime_m, utime_s);
+	split_time(rt->rt_sys_time, stime_m, stime_s);
+
+	walltime = timeval_in_secs(&rt->rt_real_time) -
+		timeval_in_secs(&rt->rt_user_time);
 
 	cache_read = (uint64_t)rtio->is_cache_hits * io_get_blksize(channel);
-	total_io = cache_read + rtio->is_bytes_read + rtio->is_bytes_written;
+	total_io = rtio->is_bytes_read + rtio->is_bytes_written;
 
 	if (!pass)
 		printf("  Cache size: %uMB\n",
@@ -312,10 +323,10 @@ void o2fsck_print_resource_track(char *pass, o2fsck_state *ost,
 	printf("  I/O read disk/cache: %lluMB / %lluMB, write: %lluMB, "
 	       "rate: %.2fMB/s\n", mbytes(rtio->is_bytes_read),
 	       mbytes(cache_read), mbytes(rtio->is_bytes_written),
-	       (double)(mbytes(total_io) / rtime));
+	       (double)(mbytes(total_io) / walltime));
 
-	printf("  Times real: %.3fs, user: %.3fs, sys: %.3fs\n", rtime, utime,
-	       stime);
+	printf("  Times real: %dm%.3fs, user: %dm%.3fs, sys: %dm%.3fs\n",
+	       rtime_m, rtime_s, utime_m, utime_s, stime_m, stime_s);
 }
 
 /* Number of blocks available in the I/O cache */
