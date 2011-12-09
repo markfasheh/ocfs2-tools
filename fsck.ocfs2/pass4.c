@@ -119,6 +119,8 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 		goto out;
 	}
 
+	ost->ost_orphan_count++;
+
 	/* Only ask for confirmation in force check. */
 	if (ost->ost_force) {
 		if (!prompt(ost, PY, PR_INODE_ORPHANED,
@@ -143,6 +145,8 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 		ret_flags |= OCFS2_DIRENT_ABORT;
 		goto out;
 	}
+
+	ost->ost_orphan_deleted_count++;
 
 	/* Only calculate icount in force check. */
 	if (ost->ost_force) {
@@ -310,8 +314,12 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 	char *buf = NULL;
 	errcode_t ret;
 	uint64_t blkno = 0, start;
+	ocfs2_filesys *fs = ost->ost_fs;
+	struct o2fsck_resource_track rt;
 
-	printf("Pass 4a: checking for orphaned inodes\n");
+	printf("Pass 4a: Checking for orphaned inodes\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	ret = replay_orphan_dir(ost, 0);
 	if (ret) {
@@ -320,7 +328,13 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 		goto out;
 	}
 
-	printf("Pass 4b: Checking inodes link counts.\n");
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 4a", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
+
+	printf("Pass 4b: Checking inodes link counts\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
 	if (ret) {
@@ -335,6 +349,10 @@ errcode_t o2fsck_pass4(o2fsck_state *ost)
 		check_link_counts(ost, di, blkno);
 		start = blkno + 1;
 	}
+
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 4b", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 out:
 	if (buf)

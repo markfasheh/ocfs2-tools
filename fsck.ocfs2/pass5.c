@@ -460,6 +460,7 @@ errcode_t o2fsck_pass5(o2fsck_state *ost)
 	ocfs2_filesys *fs = ost->ost_fs;
 	struct ocfs2_super_block *super = OCFS2_RAW_SB(fs->fs_super);
 	int has_usrquota, has_grpquota;
+	struct o2fsck_resource_track rt;
 
 	has_usrquota = OCFS2_HAS_RO_COMPAT_FEATURE(super,
 				OCFS2_FEATURE_RO_COMPAT_USRQUOTA);
@@ -468,7 +469,10 @@ errcode_t o2fsck_pass5(o2fsck_state *ost)
 	/* Nothing to check? */
 	if (!has_usrquota && !has_grpquota)
 		return 0;
-	printf("Pass 5: Checking quota information.\n");
+	printf("Pass 5: Checking quota information\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
+
 	if (has_usrquota) {
 		ret = ocfs2_new_quota_hash(qhash + USRQUOTA);
 		if (ret) {
@@ -516,6 +520,10 @@ errcode_t o2fsck_pass5(o2fsck_state *ost)
 			goto out;
 		}
 	}
+
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 5", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 	return 0;
 out:

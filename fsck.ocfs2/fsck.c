@@ -133,6 +133,8 @@ static void print_usage(void)
 		" -b superblock	Treat given block as the super block\n"
 		" -B blocksize	Force the given block size\n"
 		" -G		Ask to fix mismatched inode generations\n"
+		" -t		Show I/O statistics\n"
+		" -tt		Show I/O statistics per pass\n"
 		" -u		Access the device with buffering\n"
 		" -V		Output fsck.ocfs2's version\n"
 		" -v		Provide verbose debugging output\n"
@@ -407,6 +409,52 @@ static void print_version(void)
 	fprintf(stderr, "%s %s\n", whoami, VERSION);
 }
 
+#define P_(singular, plural, n) ((n) == 1 ? (singular) : (plural))
+
+static void show_stats(o2fsck_state *ost)
+{
+	uint32_t dir_links, num_links;
+
+	if (!ost->ost_show_stats)
+		return;
+
+	dir_links = ost->ost_dir_count;
+	num_links = ost->ost_links_count - ost->ost_dir_count;
+
+	printf("\n  # of inodes with depth 0/1/2/3/4/5: %u/%u/%u/%u/%u/%u\n",
+	       ost->ost_tree_depth_count[0], ost->ost_tree_depth_count[1],
+	       ost->ost_tree_depth_count[2], ost->ost_tree_depth_count[3],
+	       ost->ost_tree_depth_count[4], ost->ost_tree_depth_count[5]);
+	printf("  # of orphaned inodes found/deleted: %u/%u\n",
+	       ost->ost_orphan_count, ost->ost_orphan_deleted_count);
+
+	printf(P_("\n%12u regular file", "\n%12u regular files",
+		  ost->ost_file_count), ost->ost_file_count);
+	printf(P_(" (%u inline,", " (%u inlines,",
+		  ost->ost_inline_file_count), ost->ost_inline_file_count);
+	printf(P_(" %u reflink)\n", " %u reflinks)\n",
+		  ost->ost_reflinks_count), ost->ost_reflinks_count);
+	printf(P_("%12u directory", "%12u directories",
+		  ost->ost_dir_count), ost->ost_dir_count);
+	printf(P_(" (%u inline)\n", " (%u inlines)\n",
+		  ost->ost_inline_dir_count), ost->ost_inline_dir_count);
+	printf(P_("%12u character device file\n",
+		  "%12u character device files\n", ost->ost_chardev_count),
+	       ost->ost_chardev_count);
+	printf(P_("%12u block device file\n", "%12u block device files\n",
+		  ost->ost_blockdev_count), ost->ost_blockdev_count);
+	printf(P_("%12u fifo\n", "%12u fifos\n", ost->ost_fifo_count),
+	       ost->ost_fifo_count);
+	printf(P_("%12u link\n", "%12u links\n", num_links), num_links);
+	printf(P_("%12u symbolic link", "%12u symbolic links",
+		  ost->ost_symlinks_count), ost->ost_symlinks_count);
+	printf(P_(" (%u fast symbolic link)\n", " (%u fast symbolic links)\n",
+		  ost->ost_fast_symlinks_count), ost->ost_fast_symlinks_count);
+	printf(P_("%12u socket\n", "%12u sockets\n", ost->ost_sockets_count),
+	       ost->ost_sockets_count);
+	printf("\n");
+}
+
 static errcode_t open_and_check(o2fsck_state *ost, char *filename,
 				int open_flags, uint64_t blkno,
 				uint64_t blksize)
@@ -655,7 +703,7 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while((c = getopt(argc, argv, "b:B:DfFGnupavVyr:")) != EOF) {
+	while ((c = getopt(argc, argv, "b:B:DfFGnupavVytr:")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -736,6 +784,12 @@ int main(int argc, char **argv)
 
 			case 'r':
 				sb_num = read_number(optarg);
+				break;
+
+			case 't':
+				if (ost->ost_show_stats)
+					ost->ost_show_extended_stats = 1;
+				ost->ost_show_stats = 1;
 				break;
 
 			default:
@@ -984,7 +1038,10 @@ done:
 	else {
 		fsck_mask = FSCK_OK;
 		ost->ost_saw_error = 0;
-		printf("All passes succeeded.\n");
+		printf("All passes succeeded.\n\n");
+		o2fsck_print_resource_track(NULL, ost, &ost->ost_rt,
+					    ost->ost_fs->fs_io);
+		show_stats(ost);
 	}
 
 clear_dirty_flag:

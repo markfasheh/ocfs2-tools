@@ -397,8 +397,12 @@ errcode_t o2fsck_pass3(o2fsck_state *ost)
 {
 	o2fsck_dir_parent *dp;
 	errcode_t ret = 0;
+	ocfs2_filesys *fs = ost->ost_fs;
+	struct o2fsck_resource_track rt;
 
-	printf("Pass 3: Checking directory connectivity.\n");
+	printf("Pass 3: Checking directory connectivity\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	/* these could probably share more code.  We might need to treat the
 	 * other required directories like root here */
@@ -434,6 +438,10 @@ errcode_t o2fsck_pass3(o2fsck_state *ost)
 		if (ret)
 			goto out;
 	}
+
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 3", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 out:
 	return ret;

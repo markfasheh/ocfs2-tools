@@ -438,6 +438,7 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
 				       struct ocfs2_dinode *di)
 {
 	int clear = 0;
+	int depth;
 
 	verbosef("checking inode %"PRIu64"'s fields\n", blkno);
 
@@ -538,27 +539,55 @@ static void o2fsck_verify_inode_fields(ocfs2_filesys *fs,
 		o2fsck_bitmap_set(ost->ost_dir_inodes, blkno, NULL);
 		o2fsck_add_dir_parent(&ost->ost_dir_parents, blkno, 0, 0,
 				      di->i_flags & OCFS2_ORPHANED_FL);
+		ost->ost_dir_count++;
+		if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+			ost->ost_inline_dir_count++;
 	} else if (S_ISREG(di->i_mode)) {
 		o2fsck_bitmap_set(ost->ost_reg_inodes, blkno, NULL);
+		ost->ost_file_count++;
+		if (di->i_dyn_features & OCFS2_INLINE_DATA_FL)
+			ost->ost_inline_file_count++;
 	} else if (S_ISLNK(di->i_mode)) {
 		/* we only make sure a link's i_size matches
 		 * the link names length in the file data later when
 		 * we walk the inode's blocks */
-	} else {
-		if (!S_ISCHR(di->i_mode) && !S_ISBLK(di->i_mode) &&
-		    !S_ISFIFO(di->i_mode) && !S_ISSOCK(di->i_mode)) {
-			clear = 1;
-			goto out;
-		}
-
+		ost->ost_symlinks_count++;
+		if (!di->i_clusters)
+			ost->ost_fast_symlinks_count++;
+	} else if (S_ISCHR(di->i_mode)) {
 		/* i_size?  what other sanity testing for devices? */
+		ost->ost_chardev_count++;
+	} else if (S_ISBLK(di->i_mode)) {
+		ost->ost_blockdev_count++;
+	} else if (S_ISFIFO(di->i_mode)) {
+		ost->ost_fifo_count++;
+	} else if (S_ISSOCK(di->i_mode)) {
+		ost->ost_sockets_count++;
+	} else {
+		clear = 1;
+		goto out;
 	}
+
+	if (!(S_ISLNK(di->i_mode) && !di->i_clusters) &&
+	    !(di->i_dyn_features & OCFS2_INLINE_DATA_FL) &&
+	    !(di->i_flags & (OCFS2_LOCAL_ALLOC_FL |
+			     OCFS2_CHAIN_FL | OCFS2_DEALLOC_FL))) {
+		depth = di->id2.i_list.l_tree_depth;
+		depth = ocfs2_min(depth, OCFS2_MAX_PATH_DEPTH);
+		ost->ost_tree_depth_count[depth]++;
+	}
+
+	if (di->i_dyn_features & OCFS2_HAS_REFCOUNT_FL)
+		ost->ost_reflinks_count++;
 
 	/* put this after all opportunities to clear so we don't have to
 	 * unwind it */
-	if (di->i_links_count)
+	if (di->i_links_count) {
 		o2fsck_icount_set(ost->ost_icount_in_inodes, di->i_blkno,
 					di->i_links_count);
+		if (di->i_links_count > 1)
+			ost->ost_links_count++;
+	}
 
 	/* orphan inodes are a special case. if -n is given pass4 will try
 	 * and assert that their links_count should include the dirent
@@ -1427,8 +1456,11 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 	ocfs2_inode_scan *scan;
 	ocfs2_filesys *fs = ost->ost_fs;
 	int valid;
+	struct o2fsck_resource_track rt;
 
-	printf("Pass 1: Checking inodes and blocks.\n");
+	printf("Pass 1: Checking inodes and blocks\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	ret = ocfs2_malloc_block(fs->fs_io, &buf);
 	if (ret) {
@@ -1510,6 +1542,10 @@ out_free:
 
 	if (!ret && ost->ost_duplicate_clusters)
 		ret = ocfs2_pass1_dups(ost);
+
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 1", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 out:
 	return ret;

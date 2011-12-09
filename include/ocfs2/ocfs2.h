@@ -313,6 +313,17 @@ errcode_t io_set_blksize(io_channel *channel, int blksize);
 int io_get_blksize(io_channel *channel);
 int io_get_fd(io_channel *channel);
 
+struct ocfs2_io_stats {
+	uint64_t is_bytes_read;
+	uint64_t is_bytes_written;
+	uint32_t is_cache_hits;
+	uint32_t is_cache_misses;
+	uint32_t is_cache_inserts;
+	uint32_t is_cache_removes;
+};
+
+void io_get_stats(io_channel *channel, struct ocfs2_io_stats *stats);
+
 /*
  * Raw I/O functions.  They will use the I/O cache if available.  The
  * _nocache version will not add a block to the cache, but if the block is
@@ -338,6 +349,7 @@ errcode_t io_write_block_nocache(io_channel *channel, int64_t blkno, int count,
 errcode_t io_init_cache(io_channel *channel, size_t nr_blocks);
 void io_set_nocache(io_channel *channel, bool nocache);
 errcode_t io_init_cache_size(io_channel *channel, size_t bytes);
+size_t io_get_cache_size(io_channel *channel);
 errcode_t io_share_cache(io_channel *from, io_channel *to);
 errcode_t io_mlock_cache(io_channel *channel);
 void io_destroy_cache(io_channel *channel);

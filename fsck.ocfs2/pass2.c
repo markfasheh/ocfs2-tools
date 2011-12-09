@@ -955,8 +955,12 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 		.last_ino = 0,
 		.re_idx_dirs = RB_ROOT,
 	};
+	ocfs2_filesys *fs = ost->ost_fs;
+	struct o2fsck_resource_track rt;
 
-	printf("Pass 2: Checking directory entries.\n");
+	printf("Pass 2: Checking directory entries\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	o2fsck_strings_init(&dd.strings);
 
@@ -1000,6 +1004,10 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 	release_re_idx_dirs_rbtree(&dd.re_idx_dirs);
 
 	o2fsck_strings_free(&dd.strings);
+
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 2", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 out:
 	if (dd.dirblock_buf)
 		ocfs2_free(&dd.dirblock_buf);

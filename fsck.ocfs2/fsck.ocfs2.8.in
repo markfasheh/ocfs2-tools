@@ -79,6 +79,11 @@ Use this option to specify the backup, 1 thru 6, to use to recover the
 superblock.
 
 .TP
+\fB\-t\fR
+Show I/O statistics. If this option is specified twice, it shows the statistics
+on a pass by pass basis.
+
+.TP
 \fB\-y\fR 
 Give the 'yes' answer to all questions that fsck will ask.  This will repair
 all faults that \fBfsck.ocfs2\fR finds but will not give the operator a chance to intervene if \fBfsck.ocfs2\fR decides that it wants to drastically repair the file system.

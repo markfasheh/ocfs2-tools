@@ -48,6 +48,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <time.h>
+#include <sys/times.h>
 
 #include "ocfs2/ocfs2.h"
 #include "ocfs2/bitops.h"
@@ -1280,8 +1281,11 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 	ocfs2_cached_inode **ci;
 	int max_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
 	int i, type, bitmap_retried = 0;
+	struct o2fsck_resource_track rt;
 
 	printf("Pass 0a: Checking cluster allocation chains\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	/*
 	 * The I/O buffer is 3 blocks. We apportion our I/O buffer
@@ -1417,7 +1421,13 @@ retry_bitmap:
 		}
 	}
 
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 0a", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
+
 	printf("Pass 0b: Checking inode allocation chains\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	/* first the global inode alloc and then each of the node's
 	 * inode allocators */
@@ -1474,7 +1484,13 @@ retry_bitmap:
 		}
 	}
 
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 0b", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
+
 	printf("Pass 0c: Checking extent block allocation chains\n");
+
+	o2fsck_init_resource_track(&rt, fs->fs_io);
 
 	for (i = 0; i < max_slots; i++) {
 		ret = ocfs2_lookup_system_inode(fs, EXTENT_ALLOC_SYSTEM_INODE,
@@ -1505,6 +1521,10 @@ retry_bitmap:
 		if (ret)
 			goto out;
 	}
+
+	o2fsck_compute_resource_track(&rt, fs->fs_io);
+	o2fsck_print_resource_track("Pass 0c", ost, &rt, fs->fs_io);
+	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 out:
 	if (pre_cache_buf)

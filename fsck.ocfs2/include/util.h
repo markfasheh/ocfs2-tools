@@ -83,4 +83,15 @@ void __o2fsck_bitmap_clear(ocfs2_bitmap *bitmap, uint64_t bitno, int *oldval,
 	__o2fsck_bitmap_set((_map), (_bit), (_old), __FUNCTION__)
 #define o2fsck_bitmap_clear(_map, _bit, _old)				\
 	__o2fsck_bitmap_clear((_map), (_bit), (_old), __FUNCTION__);
+
+void o2fsck_init_resource_track(struct o2fsck_resource_track *rt,
+				io_channel *channel);
+void o2fsck_compute_resource_track(struct o2fsck_resource_track *rt,
+				   io_channel *channel);
+void o2fsck_print_resource_track(char *pass, o2fsck_state *ost,
+				 struct o2fsck_resource_track *rt,
+				 io_channel *channel);
+void o2fsck_add_resource_track(struct o2fsck_resource_track *rt1,
+			       struct o2fsck_resource_track *rt2);
+
 #endif /* __O2FSCK_UTIL_H__ */

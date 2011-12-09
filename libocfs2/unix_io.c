@@ -87,6 +87,12 @@ struct io_cache {
 	unsigned long ic_data_buffer_len;
 	int ic_locked;
 	int ic_use_count;
+
+	/* stats */
+	uint32_t ic_hits;
+	uint32_t ic_misses;
+	uint32_t ic_inserts;
+	uint32_t ic_removes;
 };
 
 struct _io_channel {
@@ -97,6 +103,10 @@ struct _io_channel {
 	int io_fd;
 	bool io_nocache;
 	struct io_cache *io_cache;
+
+	/* stats */
+	uint64_t io_bytes_read;
+	uint64_t io_bytes_written;
 };
 
 /*
@@ -144,6 +154,8 @@ out:
 		memset(data + tot, 0, size - tot);
 	}
 
+	channel->io_bytes_read += tot;
+
 	return ret;
 }
 
@@ -181,6 +193,8 @@ out:
 		*completed = tot / channel->io_blksize;
 	if (!ret && (tot != size))
 		ret = OCFS2_ET_SHORT_WRITE;
+
+	channel->io_bytes_written += tot;
 
 	return ret;
 }
@@ -238,6 +252,7 @@ static void io_cache_insert(struct io_cache *ic,
 
 	rb_link_node(&insert_icb->icb_node, parent, p);
 	rb_insert_color(&insert_icb->icb_node, &ic->ic_lookup);
+	ic->ic_inserts++;
 }
 
 static void io_cache_seen(struct io_cache *ic, struct io_cache_block *icb)
@@ -278,6 +293,7 @@ static struct io_cache_block *io_cache_pop_lru(struct io_cache *ic)
 
 	icb = list_entry(ic->ic_lru.next, struct io_cache_block, icb_list);
 	io_cache_disconnect(ic, icb);
+	ic->ic_removes++;
 
 	return icb;
 }
@@ -312,10 +328,12 @@ static errcode_t io_cache_read_blocks(io_channel *channel, int64_t blkno,
 		icb = io_cache_lookup(ic, blkno + good_blocks);
 		if (!icb)
 			break;
+		ic->ic_hits++;
 	}
 
 	/* Read any blocks not in the cache */
 	if (good_blocks < count) {
+		ic->ic_misses += (count - good_blocks);
 		ret = unix_io_read_block(channel, blkno + good_blocks,
 					 count - good_blocks,
 					 data + (channel->io_blksize *
@@ -585,6 +603,12 @@ errcode_t io_init_cache_size(io_channel *channel, size_t bytes)
 	return io_init_cache(channel, blocks);
 }
 
+size_t io_get_cache_size(io_channel *channel)
+{
+	if (channel->io_cache)
+		return channel->io_cache->ic_data_buffer_len;
+	return 0;
+}
 
 errcode_t io_share_cache(io_channel *from, io_channel *to)
 {
@@ -769,6 +793,21 @@ int io_get_blksize(io_channel *channel)
 int io_get_fd(io_channel *channel)
 {
 	return channel->io_fd;
+}
+
+void io_get_stats(io_channel *channel, struct ocfs2_io_stats *stats)
+{
+	struct io_cache *ioc = channel->io_cache;
+
+	memset(stats, 0, sizeof(struct ocfs2_io_stats));
+	stats->is_bytes_read = channel->io_bytes_read;
+	stats->is_bytes_written = channel->io_bytes_written;
+	if (ioc) {
+		stats->is_cache_hits = ioc->ic_hits;
+		stats->is_cache_misses = ioc->ic_misses;
+		stats->is_cache_inserts = ioc->ic_inserts;
+		stats->is_cache_removes = ioc->ic_removes;
+	}
 }
 
 /*
