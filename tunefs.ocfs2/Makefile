@@ -5,7 +5,7 @@ include $(TOPDIR)/Preamble.make
 LIBTOOLS_INTERNAL_LIBS = -L$(TOPDIR)/libtools-internal -ltools-internal
 LIBTOOLS_INTERNAL_DEPS = $(TOPDIR)/libtools-internal/libtools-internal.a
 
-LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2 -laio
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)

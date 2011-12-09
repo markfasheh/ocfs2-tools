@@ -31,7 +31,7 @@ HFILES =				\
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2 -laio
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 
 MANS = debugfs.ocfs2.8

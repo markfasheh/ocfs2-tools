@@ -8,7 +8,7 @@ SBIN_PROGRAMS = fsck.ocfs2
 DEFINES += -DVERSION=\"$(VERSION)\"
 
 INCLUDES = -I$(TOPDIR)/include -Iinclude
-LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2 -laio
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)
 LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a

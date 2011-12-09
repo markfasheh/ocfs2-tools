@@ -354,6 +354,16 @@ errcode_t io_share_cache(io_channel *from, io_channel *to);
 errcode_t io_mlock_cache(io_channel *channel);
 void io_destroy_cache(io_channel *channel);
 
+
+struct io_vec_unit {
+	uint64_t	ivu_blkno;
+	char		*ivu_buf;
+	uint32_t	ivu_buflen;
+};
+
+errcode_t io_vec_read_blocks(io_channel *channel, struct io_vec_unit *ivus,
+			     int count);
+
 errcode_t ocfs2_read_super(ocfs2_filesys *fs, uint64_t superblock, char *sb);
 /* Writes the main superblock at OCFS2_SUPER_BLOCK_BLKNO */
 errcode_t ocfs2_write_primary_super(ocfs2_filesys *fs);

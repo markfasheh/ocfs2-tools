@@ -42,6 +42,7 @@
 #include <sys/resource.h>
 #include <sys/utsname.h>
 #include <linux/fs.h>
+#include <libaio.h>
 #endif
 #include <sys/mman.h>
 #include <inttypes.h>
@@ -117,6 +118,65 @@ static inline int one_meg_of_blocks(io_channel *channel)
 {
 	int count = ONE_MEGABYTE + channel->io_blksize - 1;
 	return count / channel->io_blksize;
+}
+
+static errcode_t unix_vec_read_blocks(io_channel *channel,
+				      struct io_vec_unit *ivus, int count)
+{
+	int i;
+	int ret;
+	io_context_t io_ctx;
+	struct iocb *iocb = NULL, **iocbs = NULL;
+	struct io_event *events = NULL;
+	int64_t offset;
+	int submitted, completed = 0;
+
+	ret = OCFS2_ET_NO_MEMORY;
+	iocb = malloc((sizeof(struct iocb) * count));
+	iocbs = malloc((sizeof(struct iocb *) * count));
+	events = malloc((sizeof(struct io_event) * count));
+	if (!iocb || !iocbs || !events)
+		goto out;
+
+	memset(&io_ctx, 0, sizeof(io_ctx));
+	ret = io_queue_init(count, &io_ctx);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < count; ++i) {
+		offset = ivus[i].ivu_blkno * channel->io_blksize;
+		io_prep_pread(&(iocb[i]), channel->io_fd, ivus[i].ivu_buf,
+			      ivus[i].ivu_buflen, offset);
+		iocbs[i] = &iocb[i];
+	}
+
+resubmit:
+	ret = io_submit(io_ctx, count - completed, &iocbs[completed]);
+	if (!ret && (count - completed))
+		ret = OCFS2_ET_SHORT_READ;
+	if (ret < 0)
+		goto out;
+	submitted = ret;
+
+	ret = io_getevents(io_ctx, submitted, submitted, events, NULL);
+	if (ret < 0)
+		goto out;
+
+	completed += submitted;
+	if (completed < count)
+		goto resubmit;
+
+out:
+	if (ret >= 0)
+		ret = 0;
+	if (!ret)
+		channel->io_bytes_read += (count * channel->io_blksize);
+	free(iocb);
+	free(iocbs);
+	free(events);
+	io_queue_release(io_ctx);
+
+	return ret;
 }
 
 static errcode_t unix_io_read_block(io_channel *channel, int64_t blkno,
@@ -296,6 +356,58 @@ static struct io_cache_block *io_cache_pop_lru(struct io_cache *ic)
 	ic->ic_removes++;
 
 	return icb;
+}
+
+/*
+ * Unlike its sync counterpart, this function issues ios even for cached blocks.
+ */
+static errcode_t io_cache_vec_read_blocks(io_channel *channel,
+					  struct io_vec_unit *ivus,
+					  int count, bool nocache)
+{
+	struct io_cache *ic = channel->io_cache;
+	struct io_cache_block *icb;
+	errcode_t ret = 0;
+	int i, j, blksize = channel->io_blksize;
+	uint64_t blkno;
+	uint32_t numblks;
+	char *buf;
+
+	/*
+	 * Read all blocks. We could extend this to not issue ios for already
+	 * cached blocks. But is it worth the effort?
+	 */
+	ret = unix_vec_read_blocks(channel, ivus, count);
+	if (ret)
+		goto out;
+
+	/* refresh cache */
+	for (i = 0; i < count; i++) {
+		blkno = ivus[i].ivu_blkno;
+		numblks = ivus[i].ivu_buflen / blksize;
+		buf = ivus[i].ivu_buf;
+
+		for (j = 0; j < numblks; ++j, ++blkno, buf += blksize) {
+			icb = io_cache_lookup(ic, blkno);
+			if (!icb) {
+				if (nocache)
+					continue;
+				icb = io_cache_pop_lru(ic);
+				icb->icb_blkno = blkno;
+				io_cache_insert(ic, icb);
+			}
+
+			memcpy(icb->icb_buf, buf, blksize);
+
+			if (nocache)
+				io_cache_unsee(ic, icb);
+			else
+				io_cache_seen(ic, icb);
+		}
+	}
+
+out:
+	return ret;
 }
 
 /*
@@ -820,6 +932,16 @@ void io_get_stats(io_channel *channel, struct ocfs2_io_stats *stats)
 void io_set_nocache(io_channel *channel, bool nocache)
 {
 	channel->io_nocache = nocache;
+}
+
+errcode_t io_vec_read_blocks(io_channel *channel, struct io_vec_unit *ivus,
+			     int count)
+{
+	if (channel->io_cache)
+		return io_cache_vec_read_blocks(channel, ivus, count,
+						channel->io_nocache);
+	else
+		return unix_vec_read_blocks(channel, ivus, count);
 }
 
 errcode_t io_read_block(io_channel *channel, int64_t blkno, int count,
