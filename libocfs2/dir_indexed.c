@@ -186,6 +186,7 @@ static int dir_trailer_func(ocfs2_filesys *fs,
 		ret = OCFS2_EXTENT_ERROR;
 		goto out;
 	}
+	ocfs2_swap_dir_entries_to_cpu(blk, fs->fs_blocksize);
 
 	err = ocfs2_check_dir_trailer_space(fs, di, blkno, blk);
 	if (err) {
@@ -1454,6 +1455,7 @@ errcode_t ocfs2_dx_dir_search(ocfs2_filesys *fs,
 		ret = ocfs2_read_blocks(fs, dx_entry->dx_dirent_blk, 1, dir_buf);
 		if (ret)
 			goto out;
+		ocfs2_swap_dir_entries_to_cpu(dir_buf, fs->fs_blocksize);
 
 		found = ocfs2_search_dirblock(fs, dir_buf, name, namelen,
 						fs->fs_blocksize, &dir_ent);

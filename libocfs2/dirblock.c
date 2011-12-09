@@ -137,7 +137,6 @@ static errcode_t ocfs2_swap_dir_entries_direction(void *buf, uint64_t bytes,
 
 		if (((name_len & 0xFF) + 12) > rec_len)
 			retval = OCFS2_ET_DIR_CORRUPTED;
-
 		p += rec_len;
 	}
 	return retval;
@@ -158,7 +157,7 @@ void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer)
 		return;
 
 	trailer->db_compat_inode = bswap_64(trailer->db_compat_inode);
-	trailer->db_compat_rec_len = bswap_64(trailer->db_compat_rec_len);
+	trailer->db_compat_rec_len = bswap_16(trailer->db_compat_rec_len);
 	trailer->db_blkno = bswap_64(trailer->db_blkno);
 	trailer->db_parent_dinode = bswap_64(trailer->db_parent_dinode);
 	trailer->db_free_rec_len = bswap_16(trailer->db_free_rec_len);
@@ -192,7 +191,7 @@ errcode_t ocfs2_read_dir_block(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 	}
 
 	retval = ocfs2_swap_dir_entries_to_cpu(buf, end);
-	if (!retval)
+	if (retval)
 		goto out;
 
 	if (trailer)
@@ -392,7 +391,7 @@ void ocfs2_swap_dx_leaf_to_cpu(struct ocfs2_dx_leaf *dx_leaf)
 	if (cpu_is_little_endian)
 		return;
 	dx_leaf->dl_blkno = bswap_64(dx_leaf->dl_blkno);
-	dx_leaf->dl_fs_generation = bswap_64(dx_leaf->dl_fs_generation);
+	dx_leaf->dl_fs_generation = bswap_32(dx_leaf->dl_fs_generation);
 	ocfs2_swap_dx_entry_list_to_cpu(&dx_leaf->dl_list);
 }
 
@@ -401,7 +400,7 @@ void ocfs2_swap_dx_leaf_from_cpu(struct ocfs2_dx_leaf *dx_leaf)
 	if (cpu_is_little_endian)
 		return;
 	dx_leaf->dl_blkno = bswap_64(dx_leaf->dl_blkno);
-	dx_leaf->dl_fs_generation = bswap_64(dx_leaf->dl_fs_generation);
+	dx_leaf->dl_fs_generation = bswap_32(dx_leaf->dl_fs_generation);
 	ocfs2_swap_dx_entry_list_from_cpu(&dx_leaf->dl_list);
 }
 
