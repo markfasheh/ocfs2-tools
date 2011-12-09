@@ -65,6 +65,7 @@ errcode_t o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino,
 
 	rb_link_node(&dbe->e_node, parent, p);
 	rb_insert_color(&dbe->e_node, &db->db_root);
+	db->db_numblocks++;
 
 out:
 	return ret;

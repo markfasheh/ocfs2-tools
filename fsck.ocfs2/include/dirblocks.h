@@ -29,6 +29,7 @@
 
 typedef struct _o2fsck_dirblocks {
 	struct rb_root	db_root;
+	uint64_t	db_numblocks;
 } o2fsck_dirblocks;
 
 typedef struct _o2fsck_dirblock_entry {
