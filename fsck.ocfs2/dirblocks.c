@@ -151,6 +151,8 @@ void o2fsck_dir_block_iterate(o2fsck_state *ost, dirblock_iterator func,
 		ret = func(dbe, priv_data);
 		if (ret & OCFS2_DIRENT_ABORT)
 			break;
+		if (ost->ost_prog)
+			tools_progress_step(ost->ost_prog, 1);
 	}
 }
 

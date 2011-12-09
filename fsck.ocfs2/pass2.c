@@ -962,6 +962,14 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 
 	o2fsck_init_resource_track(&rt, fs->fs_io);
 
+	if (tools_progress_enabled() && ost->ost_dirblocks.db_numblocks) {
+		ost->ost_prog =
+			tools_progress_start("Scanning directories", "dirs",
+					     ost->ost_dirblocks.db_numblocks);
+		if (ost->ost_prog)
+			setbuf(stdout, NULL);
+	}
+
 	o2fsck_strings_init(&dd.strings);
 
 	ret = ocfs2_malloc_block(ost->ost_fs->fs_io, &dd.dirblock_buf);
@@ -1009,6 +1017,11 @@ errcode_t o2fsck_pass2(o2fsck_state *ost)
 	o2fsck_print_resource_track("Pass 2", ost, &rt, fs->fs_io);
 	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 out:
+	if (ost->ost_prog) {
+		tools_progress_stop(ost->ost_prog);
+		setlinebuf(stdout);
+	}
+	tools_progress_disable();
 	if (dd.dirblock_buf)
 		ocfs2_free(&dd.dirblock_buf);
 	if (dd.inoblock_buf)

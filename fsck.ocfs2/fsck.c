@@ -133,6 +133,7 @@ static void print_usage(void)
 		" -b superblock	Treat given block as the super block\n"
 		" -B blocksize	Force the given block size\n"
 		" -G		Ask to fix mismatched inode generations\n"
+		" -P		Show progress\n"
 		" -t		Show I/O statistics\n"
 		" -tt		Show I/O statistics per pass\n"
 		" -u		Access the device with buffering\n"
@@ -703,7 +704,9 @@ int main(int argc, char **argv)
 	setlinebuf(stderr);
 	setlinebuf(stdout);
 
-	while ((c = getopt(argc, argv, "b:B:DfFGnupavVytr:")) != EOF) {
+	tools_progress_disable();
+
+	while ((c = getopt(argc, argv, "b:B:DfFGnupavVytPr:")) != EOF) {
 		switch (c) {
 			case 'b':
 				blkno = read_number(optarg);
@@ -762,6 +765,10 @@ int main(int argc, char **argv)
 				 */
 				ost->ost_ask = 0;
 				ost->ost_answer = 0;
+				break;
+
+			case 'P':
+				tools_progress_enable();
 				break;
 
 			case 'y':

@@ -1457,6 +1457,7 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 	ocfs2_filesys *fs = ost->ost_fs;
 	int valid;
 	struct o2fsck_resource_track rt;
+	uint64_t numinodes;
 
 	printf("Pass 1: Checking inodes and blocks\n");
 
@@ -1474,6 +1475,16 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 	if (ret) {
 		com_err(whoami, ret, "while opening inode scan");
 		goto out_free;
+	}
+
+	if (tools_progress_enabled()) {
+		numinodes = ocfs2_get_max_inode_count(scan);
+		if (numinodes)
+			ost->ost_prog =
+				tools_progress_start("Scanning inodes",
+						     "inodes", numinodes);
+		if (ost->ost_prog)
+			setbuf(stdout, NULL);
 	}
 
 	for(;;) {
@@ -1525,6 +1536,9 @@ errcode_t o2fsck_pass1(o2fsck_state *ost)
 		}
 
 		update_inode_alloc(ost, di, blkno, valid);
+
+		if (ost->ost_prog)
+			tools_progress_step(ost->ost_prog, 1);
 	}
 
 	mark_local_allocs(ost);
@@ -1548,5 +1562,9 @@ out_free:
 	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 out:
+	if (ost->ost_prog) {
+		tools_progress_stop(ost->ost_prog);
+		setlinebuf(stdout);
+	}
 	return ret;
 }

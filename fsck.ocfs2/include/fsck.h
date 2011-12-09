@@ -28,6 +28,7 @@
 
 #include "icount.h"
 #include "dirblocks.h"
+#include "tools-internal/progress.h"
 
 struct refcount_file;
 
@@ -96,6 +97,7 @@ typedef struct _o2fsck_state {
 	errcode_t ost_err;
 
 	struct o2fsck_resource_track	ost_rt;
+	struct tools_progress		*ost_prog;
 
 	/* counters */
 	uint32_t	ost_file_count;

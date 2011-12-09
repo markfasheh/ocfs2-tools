@@ -72,6 +72,10 @@ with the value 4 logically or'd into the exit code.  (See the
 boot scripts.
 
 .TP
+\fB\-P\fR
+Show progress.
+
+.TP
 \fB\-r\fR \fIbackup-number\fR
 \fImkfs.ocfs2\fR makes upto 6 backup copies of the superblock at offsets
 1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.
