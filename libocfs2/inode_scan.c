@@ -6,7 +6,7 @@
  * Scan all inodes in an OCFS2 filesystem.  For the OCFS2 userspace
  * library.
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -17,11 +17,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  * 
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 021110-1307, USA.
- *
  * Ideas taken from e2fsprogs/lib/ext2fs/inode_scan.c
  *   Copyright (C) 1993, 1994, 1995, 1996, 1997 Theodore Ts'o.
  */
@@ -256,6 +251,27 @@ static int get_next_inode_alloc(ocfs2_inode_scan *scan)
 		cinode->ci_inode->id1.bitmap1.i_total;
 
 	return 0;
+}
+
+uint64_t ocfs2_get_max_inode_count(ocfs2_inode_scan *scan)
+{
+	struct ocfs2_dinode *di = NULL;
+	uint64_t count = 0;
+	int i;
+
+	if (!scan || !scan->num_inode_alloc)
+		return 0;
+
+	for (i = 0; i < scan->num_inode_alloc; i++) {
+		if (scan->inode_alloc[i])
+			di = scan->inode_alloc[i]->ci_inode;
+		if (!di)
+			continue;
+		count += ocfs2_clusters_to_blocks(scan->fs, di->i_clusters);
+		di = NULL;
+	}
+
+	return count;
 }
 
 errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,

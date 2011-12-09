@@ -603,6 +603,7 @@ errcode_t ocfs2_open_inode_scan(ocfs2_filesys *fs,
 void ocfs2_close_inode_scan(ocfs2_inode_scan *scan);
 errcode_t ocfs2_get_next_inode(ocfs2_inode_scan *scan,
 			       uint64_t *blkno, char *inode);
+uint64_t ocfs2_get_max_inode_count(ocfs2_inode_scan *scan);
 
 errcode_t ocfs2_open_dir_scan(ocfs2_filesys *fs, uint64_t dir, int flags,
 			      ocfs2_dir_scan **ret_scan);
