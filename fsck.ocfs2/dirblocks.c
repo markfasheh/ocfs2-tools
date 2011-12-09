@@ -36,6 +36,52 @@
 #include "util.h"
 #include "extent.h"
 
+#define NUM_RA_BLOCKS		1024
+static void o2fsck_readahead_dirblocks(o2fsck_state *ost, struct rb_node *node,
+				       struct rb_node **last_read_node)
+{
+	ocfs2_filesys *fs = ost->ost_fs;
+	o2fsck_dirblock_entry *dbe;
+	struct io_vec_unit *ivus = NULL;
+	char *buf = NULL;
+	int buflen =  NUM_RA_BLOCKS * fs->fs_blocksize;
+	uint32_t offset = 0;
+	int i;
+	errcode_t ret;
+
+	*last_read_node = NULL;
+
+	if (!fs->fs_io)
+		return;
+
+	if (buflen > io_get_cache_size(fs->fs_io))
+		return;
+
+	ret = ocfs2_malloc_blocks(fs->fs_io, NUM_RA_BLOCKS, &buf);
+	if (ret)
+		goto out;
+	 memset(buf, 0, buflen);
+
+	ret = ocfs2_malloc(sizeof(struct io_vec_unit) * NUM_RA_BLOCKS, &ivus);
+	if (ret)
+		goto out;
+
+	for (i = 0; node && (i < NUM_RA_BLOCKS); ++i, node = rb_next(node)) {
+		dbe = rb_entry(node, o2fsck_dirblock_entry, e_node);
+		ivus[i].ivu_blkno = dbe->e_blkno;
+		ivus[i].ivu_buf = buf + offset;
+		ivus[i].ivu_buflen = fs->fs_blocksize;
+		offset += fs->fs_blocksize;
+		*last_read_node = node;
+	}
+
+	ret = io_vec_read_blocks(fs->fs_io, ivus, i);
+
+out:
+	ocfs2_free(&ivus);
+	ocfs2_free(&buf);
+}
+
 errcode_t o2fsck_add_dir_block(o2fsck_dirblocks *db, uint64_t ino,
 			       uint64_t blkno, uint64_t blkcount)
 {
@@ -143,16 +189,22 @@ void o2fsck_dir_block_iterate(o2fsck_state *ost, dirblock_iterator func,
 {
 	o2fsck_dirblocks *db = &ost->ost_dirblocks;
 	o2fsck_dirblock_entry *dbe;
-	struct rb_node *node;
+	struct rb_node *node, *last_read_node = NULL;
 	unsigned ret;
+	int readahead = 1;
 
 	for (node = rb_first(&db->db_root); node; node = rb_next(node)) {
 		dbe = rb_entry(node, o2fsck_dirblock_entry, e_node);
+		if (readahead)
+			o2fsck_readahead_dirblocks(ost, node, &last_read_node);
+		readahead = 0;
 		ret = func(dbe, priv_data);
 		if (ret & OCFS2_DIRENT_ABORT)
 			break;
 		if (ost->ost_prog)
 			tools_progress_step(ost->ost_prog, 1);
+		if (last_read_node == node)
+			readahead = 1;
 	}
 }
 
