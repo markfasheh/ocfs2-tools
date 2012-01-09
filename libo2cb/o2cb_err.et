@@ -22,7 +22,7 @@
 	error_table o2cb
 
 ec	O2CB_ET_INVALID_CLUSTER_NAME,
-	"Invalid name for a cluster"
+	"Cluster name is invalid"
 
 ec	O2CB_ET_NO_MEMORY,
 	"Memory allocation failed"
@@ -79,12 +79,12 @@ ec	O2CB_ET_BAD_VERSION,
 	"Revision of OCFS2-Tools is out of date."
 
 ec      O2CB_ET_INVALID_STACK_NAME,
-        "Cluster stack specified does not match the one currently running"
+        "Cluster stack is invalid"
 
 ec	O2CB_ET_UNKNOWN_REGION,
 	"Heartbeat region could not be found"
 
 ec	O2CB_ET_INVALID_HEARTBEAT_MODE,
-	"Active heartbeat mode does not match the configuration on disk"
+	"Heartbeat mode is invalid"
 
 	end
