@@ -214,7 +214,8 @@ cluster stack and cluster name matches the one specified on-disk.
 .TP
 \fB\-\-cluster\-name\fR
 Specify the name of the cluster. This option is mandatory if the user has specified
-a \fIcluster\-stack\fR.
+a \fIcluster\-stack\fR. This name is restricted to a max of 16 characters. Additionally,
+the \fBo2cb\fR cluster stack allows only alpha-numeric characters.
 
 .TP
 \fB\-\-global\-heartbeat\fR

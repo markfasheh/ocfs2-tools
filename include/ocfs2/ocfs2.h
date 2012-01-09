@@ -137,9 +137,6 @@
 #define OCFS2_QF_INFO_DIRTY 1
 #define OCFS2_QF_INFO_LOADED 2
 
-/* Classic (historically speaking) cluster stack */
-#define OCFS2_CLASSIC_CLUSTER_STACK	"o2cb"
-
 typedef void (*ocfs2_chb_notify)(int state, char *progress, void *data);
 
 typedef struct _ocfs2_filesys ocfs2_filesys;

@@ -5,7 +5,7 @@
  *
  * OCFS2 format utility
  *
- * Copyright (C) 2004 Oracle.  All rights reserved.
+ * Copyright (C) 2004, 2011 Oracle.  All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public
@@ -15,11 +15,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public
- * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 021110-1307, USA.
  *
  */
 
@@ -163,6 +158,69 @@ static void translate_uuid(char *uuid_32, char *uuid_36)
 		}
 		uuid_36[i] = *cp++;
 	}
+}
+
+static int is_cluster_info_valid(State *s, char *stack_name,
+				 char *cluster_name, int globalhb)
+{
+	int len = 0;
+
+	if (!stack_name && !cluster_name && !globalhb)
+		return 1;
+
+	if (s->mount == MOUNT_LOCAL) {
+		if (stack_name || cluster_name || globalhb) {
+			com_err(s->progname, O2CB_ET_INVALID_STACK_NAME,
+				"; local mount is incompatible with "
+				"the specified cluster attribute");
+			return 0;
+		}
+		return 1;
+	}
+
+	if (!stack_name || !strlen(stack_name)) {
+		com_err(s->progname, O2CB_ET_INVALID_STACK_NAME,
+			"; missing cluster stack");
+		return 0;
+	}
+
+	if (!o2cb_valid_stack_name(stack_name)) {
+		com_err(s->progname, O2CB_ET_INVALID_STACK_NAME,
+			"; unknown cluster stack '%s'", stack_name);
+		return 0;
+	}
+
+	if (!cluster_name) {
+		com_err(s->progname, O2CB_ET_INVALID_CLUSTER_NAME,
+			"; missing cluster name");
+		return 0;
+	}
+
+	if (!strcmp(stack_name, OCFS2_CLASSIC_CLUSTER_STACK)) {
+		if (!o2cb_valid_o2cb_cluster_name(cluster_name)) {
+			com_err(s->progname, O2CB_ET_INVALID_CLUSTER_NAME,
+				"; max %d alpha-numeric characters",
+				OCFS2_CLUSTER_NAME_LEN);
+			return 0;
+		}
+	} else {
+		if (!o2cb_valid_cluster_name(cluster_name)) {
+			com_err(s->progname, O2CB_ET_INVALID_CLUSTER_NAME,
+				"; max %d characters", OCFS2_CLUSTER_NAME_LEN);
+			return 0;
+		}
+	}
+
+	if (globalhb) {
+		if (strcmp(stack_name, OCFS2_CLASSIC_CLUSTER_STACK)) {
+			com_err(s->progname, O2CB_ET_INVALID_STACK_NAME,
+				"; global heartbeat mode is only applicable to "
+				"the o2cb cluster stack");
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 static void
@@ -1007,9 +1065,9 @@ get_state(int argc, char **argv)
 					"Option --cluster-stack requires an argument");
 				exit(1);
 			}
-			if (strlen(optarg) != OCFS2_STACK_LABEL_LEN) {
-				com_err(progname, 0,
-					"Invalid argument to --cluster-stack");
+			if (!o2cb_valid_stack_name(optarg)) {
+				com_err(progname, O2CB_ET_INVALID_STACK_NAME,
+					"; unknown cluster stack '%s'", optarg);
 				exit(1);
 			}
 			if (stack_name)
@@ -1021,11 +1079,6 @@ get_state(int argc, char **argv)
 			if (!optarg || !strlen(optarg)) {
 				com_err(progname, 0,
 					"Option --cluster-name requires an argument");
-				exit(1);
-			}
-			if (strlen(optarg) > OCFS2_CLUSTER_NAME_LEN) {
-				com_err(progname, 0,
-					"Cluster name is too long");
 				exit(1);
 			}
 			if (cluster_name)
@@ -1161,25 +1214,8 @@ get_state(int argc, char **argv)
 	if (mount != -1)
 		s->mount = mount;
 
-	if ((stack_name || cluster_name || globalhb) &&
-	    (s->mount == MOUNT_LOCAL)) {
-		com_err(progname, 0,
-			"Local mount is incompatible with specifying a cluster stack");
+	if (!is_cluster_info_valid(s, stack_name, cluster_name, globalhb))
 		exit(1);
-	}
-
-	if (globalhb && stack_name &&
-	    strcmp(stack_name, OCFS2_CLASSIC_CLUSTER_STACK)) {
-		com_err(progname, 0, "Global heartbeat is incompatible "
-			"with the cluster stack, %s", stack_name);
-		exit(1);
-	}
-
-	if ((stack_name && !cluster_name) || (!stack_name && cluster_name)) {
-		com_err(progname, 0, "Both cluster stack and the cluster name "
-			"need to be specified");
-		exit(1);
-	}
 
 	s->cluster_stack = stack_name;
 	s->cluster_name = cluster_name;
@@ -1329,7 +1365,7 @@ usage(const char *progname)
 		"\n\t\t[--fs-features=[[no]sparse,...]] [--global-heartbeat]"
 		"\n\t\t[--cluster-stack=stackname] [--cluster-name=clustername]"
 		"\n\t\t[--no-backup-super] device [blocks-count]\n", progname);
-	exit(0);
+	exit(1);
 }
 
 static void
