@@ -315,5 +315,7 @@ bail:
 	if (oc_config)
 		o2cb_config_free(oc_config);
 
+	ret = ret ? 1 : 0;
+
 	return ret;
 }
