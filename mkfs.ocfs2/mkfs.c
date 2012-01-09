@@ -1324,7 +1324,7 @@ usage(const char *progname)
 	fprintf(stderr, "usage: %s [-b block-size] [-C cluster-size] "
 		"[-J journal-options]\n\t\t[-L volume-label] [-M mount-type] "
 		"[-N number-of-node-slots]\n\t\t[-T filesystem-type] [-U uuid]"
-		"[-HFqvV] "
+		"[-HFnqvV] [--dry-run]"
 		"\n\t\t[--fs-feature-level=[default|max-compat|max-features]] "
 		"\n\t\t[--fs-features=[[no]sparse,...]] [--global-heartbeat]"
 		"\n\t\t[--cluster-stack=stackname] [--cluster-name=clustername]"
