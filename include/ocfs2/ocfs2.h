@@ -831,8 +831,6 @@ errcode_t ocfs2_file_write(ocfs2_cached_inode *ci, void *buf, uint32_t count,
 
 errcode_t ocfs2_fill_cluster_desc(ocfs2_filesys *fs,
 				  struct o2cb_cluster_desc *desc);
-errcode_t ocfs2_set_cluster_flags(ocfs2_filesys *fs,
-				  struct o2cb_cluster_desc *desc);
 errcode_t ocfs2_set_cluster_desc(ocfs2_filesys *fs,
 				 struct o2cb_cluster_desc *desc);
 errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,

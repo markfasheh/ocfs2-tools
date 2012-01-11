@@ -133,94 +133,107 @@ errcode_t ocfs2_fill_cluster_desc(ocfs2_filesys *fs,
 	return 0;
 }
 
-errcode_t ocfs2_set_cluster_flags(ocfs2_filesys *fs,
-				  struct o2cb_cluster_desc *desc)
+static errcode_t ocfs2_set_cluster_flags(ocfs2_filesys *fs,
+					 struct o2cb_cluster_desc *desc)
 {
-	errcode_t ret = 0;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
-	int globalhb;
 
 	sb->s_cluster_info.ci_stackflags = 0;
 
-	/* exit if userspace as it does not have any stack flags currently */
-	if (ocfs2_userspace_stack(sb))
+	/* exit if classic o2cb (default cluster stack) */
+	if (!desc->c_stack)
 		goto out;
 
-	/* the stack has to be o2cb... if not it is a BUG */
-	if (strcmp(desc->c_stack, OCFS2_CLASSIC_CLUSTER_STACK)) {
-		ret = OCFS2_ET_INVALID_ARGUMENT;
+	if (strcmp(desc->c_stack, OCFS2_CLASSIC_CLUSTER_STACK))
+		goto out;
+
+	if ((desc->c_flags & OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT))
+		sb->s_cluster_info.ci_stackflags |=
+			OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT;
+out:
+	return 0;
+}
+
+static errcode_t ocfs2_set_cluster_incompats(ocfs2_filesys *fs,
+					     struct o2cb_cluster_desc *desc)
+{
+	errcode_t ret = 0;
+	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
+
+	/* if default stack, then disable both clusterinfo and userspace */
+	if (!desc->c_stack) {
+		sb->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+		sb->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_CLUSTERINFO;
 		goto out;
 	}
 
-	/* exit if not o2cb global hb is not active */
-	ret = o2cb_global_heartbeat_mode(desc->c_cluster, &globalhb);
-	if (ret || !globalhb)
-		goto out;
+	/* extended slot map has to be enabled for non default stack */
+	if (!ocfs2_uses_extended_slot_map(sb)) {
+		sb->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP;
+		ret = ocfs2_format_slot_map(fs);
+		if (ret)
+			goto out;
+	}
 
-	/* enable clusterinfo if not yet enabled */
-	if (!ocfs2_clusterinfo_valid(sb))
+	/* if o2cb, then enable clusterinfo and disable userspace */
+	if (!strcmp(desc->c_stack, OCFS2_CLASSIC_CLUSTER_STACK)) {
 		sb->s_feature_incompat |=
 			OCFS2_FEATURE_INCOMPAT_CLUSTERINFO;
+		sb->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+		goto out;
+	}
 
-	/* set the o2cb cluster flag */
-	sb->s_cluster_info.ci_stackflags |=
-		OCFS2_CLUSTER_O2CB_GLOBAL_HEARTBEAT;
+	/* if not o2cb, then enable userspace only if clusterinfo disabled */
+	if (!(sb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_CLUSTERINFO))
+		sb->s_feature_incompat |=
+			OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
+	else
+		sb->s_feature_incompat &=
+			~OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
 
 out:
 	return ret;
 }
 
-
 errcode_t ocfs2_set_cluster_desc(ocfs2_filesys *fs,
 				 struct o2cb_cluster_desc *desc)
 {
-	errcode_t ret;
+	errcode_t ret = OCFS2_ET_INVALID_ARGUMENT;
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 
-	if (!(sb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_CLUSTERINFO)) {
-		if (!desc->c_stack) {
-			ret = OCFS2_ET_INVALID_ARGUMENT;
+	if (!desc->c_stack) {
+		memset(sb->s_cluster_info.ci_stack, 0, OCFS2_STACK_LABEL_LEN);
+		memset(sb->s_cluster_info.ci_cluster, 0,
+		       OCFS2_CLUSTER_NAME_LEN);
+	} else {
+		if (!o2cb_valid_stack_name(desc->c_stack))
 			goto out;
-		}
-	}
 
-	if (desc->c_stack) {
-		if (!desc->c_stack[0] || !desc->c_cluster ||
-		    !desc->c_cluster[0]) {
-			ret = OCFS2_ET_INVALID_ARGUMENT;
-			goto out;
-		}
-
-		if (!ocfs2_uses_extended_slot_map(sb)) {
-			sb->s_feature_incompat |=
-				OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP;
-			ret = ocfs2_format_slot_map(fs);
-			if (ret)
+		if (!strcmp(desc->c_stack, OCFS2_CLASSIC_CLUSTER_STACK)) {
+			if (!o2cb_valid_o2cb_cluster_name(desc->c_cluster))
+				goto out;
+		} else {
+			if (!o2cb_valid_cluster_name(desc->c_cluster))
 				goto out;
 		}
 
-		/*
-		 * if clusterinfo is not set and the stackname != o2cb,
-		 * then set the userspace flag
-		 */
-		if (!(sb->s_feature_incompat &
-		      OCFS2_FEATURE_INCOMPAT_CLUSTERINFO)) {
-			if (strcmp(desc->c_stack, OCFS2_CLASSIC_CLUSTER_STACK))
-				sb->s_feature_incompat |=
-					OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
-		}
 		memcpy(sb->s_cluster_info.ci_stack, desc->c_stack,
 		       OCFS2_STACK_LABEL_LEN);
 		memcpy(sb->s_cluster_info.ci_cluster, desc->c_cluster,
 		       OCFS2_CLUSTER_NAME_LEN);
-
-		ret = ocfs2_set_cluster_flags(fs, desc);
-		if (ret)
-			goto out;
-	} else {
-		sb->s_feature_incompat &=
-			~OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK;
 	}
+
+	ret = ocfs2_set_cluster_flags(fs, desc);
+	if (ret)
+		goto out;
+
+	ret = ocfs2_set_cluster_incompats(fs, desc);
+	if (ret)
+		goto out;
 
 	ret = ocfs2_write_super(fs);
 
