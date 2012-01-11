@@ -289,6 +289,9 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 		else
 			offset += er->e_leaf_clusters;
 
+		if (changed)
+			clusters = ocfs2_rec_clusters(el->l_tree_depth, er);
+
 		/* offer to remove records that point to nowhere */
 		if (ocfs2_block_out_of_range(ost->ost_fs, er->e_blkno) && 
 		    prompt(ost, PY, PR_EXTENT_BLKNO_RANGE,
