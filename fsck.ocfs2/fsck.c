@@ -640,23 +640,24 @@ static errcode_t recover_cluster_info(o2fsck_state *ost)
 	     !strcmp(running.c_cluster, disk.c_cluster)))
 		goto bail;
 
+#define RECOVER_CLUSTER_WARNING						\
+	"The running cluster is using the %s stack\n"			\
+	"%s%s, but the filesystem is configured for\n"			\
+	"the %s stack%s%s. Thus, %s cannot\n"				\
+	"determine whether the filesystem is in use or not. This utility can\n"\
+	"reconfigure the filesystem to use the currently running cluster configuration.\n"\
+	"DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS USING THIS\n"\
+	"FILESYSTEM BEFORE MODIFYING ITS CLUSTER CONFIGURATION.\n"	\
+	"Recover cluster configuration information the running cluster?"
+
 	/* recover the backup information to superblock. */
-	if (prompt(ost, PN, PR_RECOVER_CLUSTER_INFO,
-		   "The running cluster is using the %s stack%s%s, but "
-		   "the filesystem is configured for the %s stack%s%s.  "
-		   "Thus, %s cannot determine whether the filesystem is in "
-		   "use.  %s can reconfigure the filesystem to use the "
-		   "currently running cluster configuration.  DANGER: "
-		   "YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS "
-		   "USING THIS FILESYSTEM BEFORE MODIFYING ITS CLUSTER "
-		   "CONFIGURATION.  Recover cluster configuration "
-		   "information the running cluster?",
+	if (prompt(ost, PN, PR_RECOVER_CLUSTER_INFO, RECOVER_CLUSTER_WARNING,
 		   running.c_stack ? running.c_stack : "classic o2cb",
-		   running.c_stack ? " with the cluster name " : "",
+		   running.c_stack ? "with the cluster name " : "",
 		   running.c_stack ? running.c_cluster : "",
 		   disk.c_stack ? disk.c_stack : "classic o2cb",
 		   disk.c_stack ? " with the cluster name " : "",
-		   disk.c_stack ? disk.c_cluster : "", whoami, whoami)) {
+		   disk.c_stack ? disk.c_cluster : "", whoami)) {
 		ret = ocfs2_set_cluster_desc(ost->ost_fs, &running);
 		if (ret)
 			goto bail;
