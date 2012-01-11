@@ -1469,7 +1469,7 @@ errcode_t ocfs2_dx_dir_search(ocfs2_filesys *fs,
 	}
 
 	if (found <= 0) {
-		ret = OCFS2_ET_DIRENT_NOT_FOUND;
+		ret = OCFS2_ET_FILE_NOT_FOUND;
 		goto out;
 	}
 
