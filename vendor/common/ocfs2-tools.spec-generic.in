@@ -125,6 +125,7 @@ fi
 /sbin/o2cb
 /sbin/mount.ocfs2
 /sbin/o2image
+/sbin/o2cluster
 /sbin/ocfs2_hb_ctl
 /usr/bin/o2info
 /usr/sbin/o2hbmonitor
