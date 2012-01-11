@@ -49,6 +49,9 @@ void mess_up_journal(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 
+	if (slotnum == UINT16_MAX)
+		slotnum = max_slots - 1;
+
 	ret = ocfs2_lookup_system_inode(fs, JOURNAL_SYSTEM_INODE,
 					slotnum, &j_blkno);
 	if (ret)
