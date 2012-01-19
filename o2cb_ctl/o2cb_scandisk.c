@@ -124,8 +124,11 @@ static void add_to_list(struct list_head *device_list, struct devnode *node)
 	while (path) {
 		if (node->mapper)
 			add = !strncmp(path->path, "/dev/mapper/", 12);
-		else
+		else {
 			add = !strncmp(path->path, "/dev/sd", 7);
+			if (!add)
+				add = !strncmp(path->path, "/dev/loop", 9);
+		}
 		if (add) {
 			hb = malloc(sizeof(struct hb_devices));
 			if (hb) {
