@@ -165,7 +165,7 @@ $(DIST_SUBDIRS):
 dist-mkdir:
 	$(SHELL) $(TOPDIR)/mkinstalldirs $(DIST_DIR)
 
-DIST_ALL_FILES = Makefile $(BIN_EXTRA) $(SBIN_EXTRA) $(MANS) $(VERSION_FILES) $(DIST_FILES)
+DIST_ALL_FILES = Makefile $(MANS) $(VERSION_FILES) $(DIST_FILES)
 
 dist-copy: dist-mkdir $(DIST_ALL_FILES) $(DIST_RULES)
 	@for file in $(DIST_ALL_FILES); do \
