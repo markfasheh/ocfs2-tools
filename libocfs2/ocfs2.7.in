@@ -1,6 +1,6 @@
-.TH "OCFS2" "7" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "OCFS2" "7" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
-OCFS2 \- A Cluster file system for Linux
+OCFS2 \- A Shared-Disk Cluster File System for Linux
 
 .SH "INTRODUCTION"
 .PP
@@ -670,6 +670,14 @@ utility.
 
 This utility detects the cluster status and aborts if the cluster is offline or does
 not match the cluster stamped on disk.
+
+.TP
+\fBo2cluster(8)\fR
+This is the file system \fIcluster stack update\fR utility. It allows the users to update
+the on-disk cluster stack to the one provided.
+
+This utility only updates the disk if the utility is reasonably assured that the file system
+is not in use on any node.
 
 .TP
 \fBo2info(1)\fR
@@ -1451,6 +1459,7 @@ The corporations that have contributed resources for this project including \fIO
 .BR mkfs.ocfs2(8)
 .BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
+.BR o2cluster(8)
 .BR o2image(8)
 .BR o2info(1)
 .BR o2cb(7)
@@ -1464,4 +1473,4 @@ The corporations that have contributed resources for this project including \fIO
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2011 Oracle. All rights reserved.
+Copyright \(co 2004, 2012 Oracle. All rights reserved.

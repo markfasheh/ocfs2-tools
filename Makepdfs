@@ -9,6 +9,7 @@ MKFS_8		= mkfs.ocfs2/mkfs.ocfs2.8
 MOUNT_8		= mount.ocfs2/mount.ocfs2.8
 MOUNTED_8	= mounted.ocfs2/mounted.ocfs2.8
 TUNEFS_8	= tunefs.ocfs2/tunefs.ocfs2.8
+O2CLUSTER_8	= tunefs.ocfs2/o2cluster.8
 O2INFO_1	= o2info/o2info.1
 DEBUGFS_8	= debugfs.ocfs2/debugfs.ocfs2.8
 O2IMAGE_8	= o2image/o2image.8
@@ -26,6 +27,7 @@ MKFS_8_PDF	= $(addsuffix .pdf, $(MKFS_8))
 MOUNT_8_PDF	= $(addsuffix .pdf, $(MOUNT_8))
 MOUNTED_8_PDF	= $(addsuffix .pdf, $(MOUNTED_8))
 TUNEFS_8_PDF	= $(addsuffix .pdf, $(TUNEFS_8))
+O2CLUSTER_8_PDF	= $(addsuffix .pdf, $(O2CLUSTER_8))
 O2INFO_1_PDF	= $(addsuffix .pdf, $(O2INFO_1))
 DEBUGFS_8_PDF	= $(addsuffix .pdf, $(DEBUGFS_8))
 O2IMAGE_8_PDF	= $(addsuffix .pdf, $(O2IMAGE_8))
@@ -36,8 +38,9 @@ FSCHECKS_8_PDF	= $(addsuffix .pdf, $(FSCHECKS_8))
 
 ALL_PDFS = $(OCFS2_7_PDF) $(O2CB_7_PDF) $(O2CB_8_PDF) $(CLUSCONF_5_PDF)		\
 	$(SYSCONFIG_5_PDF) $(MKFS_8_PDF) $(MOUNT_8_PDF) $(MOUNTED_8_PDF)	\
-	$(TUNEFS_8_PDF) $(O2INFO_8_PDF) $(DEBUGFS_8_PDF) $(O2IMAGE_8_PDF)	\
-	$(O2HBMON_8_PDF) $(HBCTL_8_PDF) $(FSCK_8_PDF) $(FSCHECKS_8_PDF)
+	$(TUNEFS_8_PDF) $(O2CLUSTER_8_PDF) $(O2INFO_8_PDF) $(DEBUGFS_8_PDF)	\
+	$(O2IMAGE_8_PDF) $(O2HBMON_8_PDF) $(HBCTL_8_PDF) $(FSCK_8_PDF)		\
+	$(FSCHECKS_8_PDF)
 
 $(OCFS2_7_PDF): $(OCFS2_7)
 	groff -man -t -T ps -P-pletter $< > $<.ps
@@ -72,6 +75,10 @@ $(MOUNTED_8_PDF): $(MOUNTED_8)
 	ps2pdf $<.ps $@
 
 $(TUNEFS_8_PDF): $(TUNEFS_8)
+	groff -man -t -T ps -P-pletter $< > $<.ps
+	ps2pdf $<.ps $@
+
+$(O2CLUSTER_8_PDF): $(O2CLUSTER_8)
 	groff -man -t -T ps -P-pletter $< > $<.ps
 	ps2pdf $<.ps $@
 

@@ -1,4 +1,4 @@
-.TH "fsck.ocfs2.checks" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "fsck.ocfs2.checks" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 fsck.ocfs2.checks \- Consistency checks that 
 .BR fsck.ocfs2(8)
@@ -1155,6 +1155,7 @@ Answering yes will serialize the extents.
 .BR mkfs.ocfs2(8)
 .BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
+.BR o2cluster(8)
 .BR o2image(8)
 .BR o2info(1)
 .BR tunefs.ocfs2(8)
@@ -1163,4 +1164,4 @@ Answering yes will serialize the extents.
 Oracle Corporation.
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2011 Oracle. All rights reserved.
+Copyright \(co 2004, 2012 Oracle. All rights reserved.

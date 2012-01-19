@@ -1,4 +1,4 @@
-.TH "o2cb" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2cb" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2cb \- Cluster registration utility for the \fIO2CB\fR cluster stack.
 .SH "SYNOPSIS"
@@ -147,4 +147,4 @@ $ o2cb heartbeat-mode mycluster global
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2010, 2011 Oracle. All rights reserved.
+Copyright \(co 2010, 2012 Oracle. All rights reserved.

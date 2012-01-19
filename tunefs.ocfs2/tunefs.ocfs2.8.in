@@ -1,4 +1,4 @@
-.TH "tunefs.ocfs2" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "tunefs.ocfs2" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 tunefs.ocfs2 \- Change \fIOCFS2\fR file system parameters.
 .SH "SYNOPSIS"
@@ -116,7 +116,9 @@ Lists the files having holes. This option is useful when disabling the \fIsparse
 
 .TP
 \fB\-\-update-cluster-stack\fR
-Updating on-disk cluster information to match the running cluster.
+Updating on-disk cluster information to match the running cluster. Users looking to
+update the on-disk cluster stack without starting the new cluster should use the
+\fBo2cluster(8)\fR utility.
 
 .TP
 \fIblocks-count\fR
@@ -142,6 +144,7 @@ NumSlots = 4
 .BR mkfs.ocfs2(8)
 .BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
+.BR o2cluster(8)
 .BR o2image(8)
 .BR o2info(1)
 
@@ -149,4 +152,4 @@ NumSlots = 4
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2011 Oracle. All rights reserved.
+Copyright \(co 2004, 2012 Oracle. All rights reserved.

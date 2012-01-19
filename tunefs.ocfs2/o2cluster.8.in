@@ -1,0 +1,108 @@
+.TH "o2cluster" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH "NAME"
+o2cluster \- Change cluster stack stamped on an \fIOCFS2\fR file system.
+.SH "SYNOPSIS"
+\fBo2cluster\fR [\fB\-o\fR|\fB\-\-show\-ondisk\fR] [\fB\-r\fR|\fB\-\-show\-running\fR] [\fB\-u\fR|\fB\-\-update\fR[=<clusterstack>]] [\fB\-hvVyn\fR] [device]
+
+.SH "DESCRIPTION"
+.PP
+\fBo2cluster\fR is used to change the cluster stack stamped on an \fBOCFS2\fR file system.
+It also used to list the active cluster stack and the one stamped on-disk. This utility does
+not expect the cluster to be online. It only updates the file system if it is reasonably
+assured that it is not in-use on any other node. Clean journals implies the file system is
+not in-use. This utility aborts if it detects even one dirty journal.
+
+\fIBefore using this utility, the user should use other means to ensure that the volume is
+not in-use, and more importantly, not about to be put in-use\fR. While clean journals implies
+the file system is not in-use, there is a tiny window after the check and before the update
+during which another node could mount the file system using the older cluster stack.
+
+If a dirty journal is detected, it implies one of two scenarios. Either the file system is
+mounted on another node, or, the last node to have it mounted, crashed. There is no way, short
+of joining the cluster, that the utility can use to differentiate between the two. Considering
+this utility is targetted to be used in scenarios when the user is looking to change the
+on-disk cluster stack, it becomes a chicken-and-egg problem.
+
+If one were to run into this scenario, the user should manually re-confirm that the file system
+is not in-use on another node and then run \fBfsck.ocfs2(8)\fR. It will update the on-disk cluster
+stack to the active cluster stack, and, do a complete file system check.
+
+.SH "SPECIFYING CLUSTER STACK
+.PP
+The cluster stack can be specified in one of two forms. The first as \fBdefault\fR, denoting the
+original \fIclassic o2cb\fR cluster stack with local heartbeat. The second as a triplet with the
+stack name, the cluster name and the cluster flags separated by commas. Like \fBo2cb,mycluster,global\fR.
+
+The valid stack names are \fBo2cb\fR, \fBpcmk\fR, and \fBcman\fR.
+
+The cluster name can be upto 16 characters. The \fIo2cb\fR stack further restricts the names to
+contain only alphanumeric characters.
+
+The valid flags for the \fIo2cb\fR stack are \fBlocal\fR and \fBglobal\fR, denoting the two heartbeat
+modes. The only valid flag for the other stacks is \fBnone\fR.
+
+.SH "OPTIONS"
+.TP
+\fB\-o\fR|\fB\-\-show\-ondisk\fR
+Shows the cluster stack stamped on-disk.
+
+.TP
+\fB\-r\fR|\fB\-\-show\-running\fR
+Shows the active cluster stack.
+
+.TP
+\fB\-u\fR|\fB\-\-update\fR[=\fI<clusterstack>\fR]
+Updates the on-disk cluster stack with the one provided. If no cluster stack is provided, the
+utility detects the active cluster stack and stamps it on-disk.
+
+.TP
+\fB\-v, \-\-verbose\fR
+Verbose mode.
+
+.TP
+\fB\-V, \-\-version\fR
+Show version and exit.
+
+.TP
+\fB\-y, \-\-yes\fR
+Always answer Yes in interactive command line.
+
+.TP
+\fB\-n, \-\-no\fR
+Always answer No in interactive command line.
+
+.SH "EXAMPLES"
+
+.nf
+.ps 9
+.ft 6
+# o2cluster -r
+o2cb,myactivecluster,global
+
+# o2cluster -o /dev/sda1
+o2cb,mycluster,global
+
+# o2cluster --update=o2cb,yourcluster,global /dev/sdb1
+Changing the clusterstack from o2cb,mycluster,global to o2cb,yourcluster,global. Continue? y
+Updated successfully.
+
+.ft
+.ps
+.fi
+
+.SH "SEE ALSO"
+.BR debugfs.ocfs2(8)
+.BR fsck.ocfs2(8)
+.BR fsck.ocfs2.checks(8)
+.BR mkfs.ocfs2(8)
+.BR mount.ocfs2(8)
+.BR mounted.ocfs2(8)
+.BR o2image(8)
+.BR o2info(1)
+.BR tunefs.ocfs2(8)
+
+.SH "AUTHORS"
+Oracle Corporation
+
+.SH "COPYRIGHT"
+Copyright \(co 2011, 2012 Oracle. All rights reserved.

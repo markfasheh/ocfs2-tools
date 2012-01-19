@@ -1,4 +1,4 @@
-.TH "ocfs2_hb_ctl" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "ocfs2_hb_ctl" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 ocfs2_hb_ctl \- Starts and stops the \fIO2CB\fR \fBlocal\fR heartbeat on a given device.
 .SH "SYNOPSIS"
@@ -81,9 +81,10 @@ Displays help and exit.
 .BR o2cb(8)
 .BR o2cb.sysconfig(5)
 .BR ocfs2.cluster.conf(5)
+.BR o2cluster(8)
 
 .SH "AUTHORS"
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2011 Oracle. All rights reserved.
+Copyright \(co 2004, 2012 Oracle. All rights reserved.

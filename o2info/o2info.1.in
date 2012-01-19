@@ -1,4 +1,4 @@
-.TH "o2info" "1" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2info" "1" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2info \- Show \fIOCFS2\fR file system information.
 .SH "SYNOPSIS"
@@ -121,6 +121,7 @@ Extent Size Range :  Free extents  Free Clusters  Percent
 .BR mkfs.ocfs2(8)
 .BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
+.BR o2cluster(8)
 .BR o2image(8)
 .BR tunefs.ocfs2(8)
 
@@ -128,4 +129,4 @@ Extent Size Range :  Free extents  Free Clusters  Percent
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2010, 2011 Oracle. All rights reserved.
+Copyright \(co 2010, 2012 Oracle. All rights reserved.

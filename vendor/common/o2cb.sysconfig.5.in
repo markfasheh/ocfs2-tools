@@ -1,4 +1,4 @@
-.TH "/etc/sysconfig/o2cb" "5" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "/etc/sysconfig/o2cb" "5" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 /etc/sysconfig/o2cb \- Cluster configuration file for the \fBo2cb\fR cluster stack.
 .SH "SYNOPSIS"
@@ -135,4 +135,4 @@ O2CB_RECONNECT_DELAY_MS=2000
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2011 Oracle. All rights reserved.
+Copyright \(co 2004, 2012 Oracle. All rights reserved.

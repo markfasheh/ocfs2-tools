@@ -1,4 +1,4 @@
-.TH "mkfs.ocfs2" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "mkfs.ocfs2" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
@@ -368,6 +368,7 @@ grpquota	RO Compat	4
 .BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
 .BR o2cb(7)
+.BR o2cluster(8)
 .BR o2image(8)
 .BR o2info(1)
 .BR tunefs.ocfs2(8)
@@ -376,4 +377,4 @@ grpquota	RO Compat	4
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2011 Oracle. All rights reserved.
+Copyright \(co 2004, 2012 Oracle. All rights reserved.

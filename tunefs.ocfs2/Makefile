@@ -50,7 +50,7 @@ SBIN_PROGRAMS = tunefs.ocfs2 o2cluster
 INCLUDES = -I$(TOPDIR)/include -I.
 DEFINES = -DVERSION=\"$(VERSION)\"
 
-MANS = tunefs.ocfs2.8
+MANS = tunefs.ocfs2.8 o2cluster.8
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
@@ -98,7 +98,7 @@ O2CLUSTER_OBJS = $(subst .c,.o,$(O2CLUSTER_CFILES))
 $(LIBOCFS2NE_OBJS): $(HFILES_GEN)
 $(OCFS2NE_OBJS): $(HFILES_GEN)
 
-DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in o2ne_err.et
+DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in o2cluster.8.in o2ne_err.et
 
 libocfs2ne.a: $(LIBOCFS2NE_OBJS)
 	rm -f $@

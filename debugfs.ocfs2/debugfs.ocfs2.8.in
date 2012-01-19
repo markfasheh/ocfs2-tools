@@ -1,4 +1,4 @@
-.TH "debugfs.ocfs2" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "debugfs.ocfs2" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 debugfs.ocfs2 \- OCFS2 file system debugger.
 .SH "SYNOPSIS"
@@ -289,6 +289,7 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 .BR mkfs.ocfs2(8)
 .BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
+.BR o2cluster(8)
 .BR o2image(8)
 .BR o2info(1)
 .BR ocfs2(7)
@@ -298,4 +299,4 @@ This tool has been modelled after \fBdebugfs\fR, a debugging tool for ext2.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2004, 2011 Oracle. All rights reserved.
+Copyright \(co 2004, 2012 Oracle. All rights reserved.

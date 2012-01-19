@@ -1,4 +1,4 @@
-.TH "o2hbmonitor" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2hbmonitor" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2hbmonitor \- Monitors disk heartbeat in the O2CB cluster stack
 .SH "SYNOPSIS"
@@ -45,4 +45,4 @@ This utility works with Linux kernel \fB2.6.37\fR and later.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2010, 2011 Oracle. All rights reserved.
+Copyright \(co 2010, 2012 Oracle. All rights reserved.

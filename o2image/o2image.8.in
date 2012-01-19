@@ -1,4 +1,4 @@
-.TH "o2image" "8" "August 2011" "Version @VERSION@" "OCFS2 Manual Pages"
+.TH "o2image" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
 .SH "NAME"
 o2image \- Copy or restore \fIOCFS2\fR file system meta-data
 .SH "SYNOPSIS"
@@ -69,6 +69,7 @@ over-writes an existing volume, please use with CAUTION\fR.
 .BR mkfs.ocfs2(8)
 .BR mount.ocfs2(8)
 .BR mounted.ocfs2(8)
+.BR o2cluster(8)
 .BR o2info(1)
 .BR tunefs.ocfs2(8)
 
@@ -76,4 +77,4 @@ over-writes an existing volume, please use with CAUTION\fR.
 Oracle Corporation
 
 .SH "COPYRIGHT"
-Copyright \(co 2007, 2011 Oracle. All rights reserved.
+Copyright \(co 2007, 2012 Oracle. All rights reserved.

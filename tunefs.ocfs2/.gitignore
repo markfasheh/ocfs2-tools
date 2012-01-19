@@ -7,3 +7,5 @@ tunefs.ocfs2.8
 o2ne_err.[ch]
 debug_*
 ocfs2ne
+o2cluster
+o2cluster.8
