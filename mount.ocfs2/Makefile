@@ -6,7 +6,7 @@ sbindir = $(root_sbindir)
 SBIN_PROGRAMS = mount.ocfs2
 
 INCLUDES = -I$(TOPDIR)/include
-LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2 -laio
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)
 LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a
@@ -28,6 +28,6 @@ DIST_FILES = $(CORE_CFILES) $(MOUNT_CFILES)	\
 	     $(HFILES) $(addsuffix .in,$(MANS))
 
 mount.ocfs2: $(MOUNT_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
-	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(AIO_LIBS)
 
 include $(TOPDIR)/Postamble.make

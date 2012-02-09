@@ -35,7 +35,7 @@ DIST_RULES = dist-subdircreate
 
 OBJS = $(subst .c,.o,$(CFILES))
 
-LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2 -laio
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)
@@ -48,6 +48,6 @@ dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
 fswreck: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
-	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(GLIB_LIBS) $(COM_ERR_LIBS)
+	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(GLIB_LIBS) $(COM_ERR_LIBS) $(AIO_LIBS)
 
 include $(TOPDIR)/Postamble.make

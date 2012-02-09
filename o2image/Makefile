@@ -7,7 +7,7 @@ WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
 
 CFLAGS += $(WARNINGS)
 
-LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2 -laio
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm
@@ -32,6 +32,6 @@ OBJS = $(subst .c,.o,$(CFILES))
 DIST_FILES = $(CFILES) $(HFILES) o2image.8.in
 
 o2image: $(OBJS) $(LIBOCFS2_DEPS)
-	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS)
+	$(LINK) $(GLIB_LIBS) $(LIBOCFS2_LIBS) $(COM_ERR_LIBS) $(AIO_LIBS)
 
 include $(TOPDIR)/Postamble.make

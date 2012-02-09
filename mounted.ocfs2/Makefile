@@ -2,7 +2,7 @@ TOPDIR = ..
 
 include $(TOPDIR)/Preamble.make
 
-LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2 -laio
+LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a
 
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)
@@ -27,6 +27,6 @@ MANS = mounted.ocfs2.8
 DIST_FILES = $(CFILES) mounted.ocfs2.8.in
 
 mounted.ocfs2: $(OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) ${LIBTOOLS_INTERNAL_DEPS}
-	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS)  $(LIBO2CB_LIBS) ${LIBTOOLS_INTERNAL_DEPS} $(COM_ERR_LIBS) $(UUID_LIBS)
+	$(LINK) $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS)  $(LIBO2CB_LIBS) ${LIBTOOLS_INTERNAL_DEPS} $(COM_ERR_LIBS) $(UUID_LIBS) $(AIO_LIBS)
 
 include $(TOPDIR)/Postamble.make

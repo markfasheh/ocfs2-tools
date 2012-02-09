@@ -114,6 +114,15 @@ AC_CHECK_HEADER(uuid/uuid.h, :,
   AC_MSG_ERROR([Unable to find uuid headers]))
 AC_SUBST(UUID_LIBS)
 
+AIO_LIBS=
+AC_CHECK_LIB(aio, io_setup, AIO_LIBS=-laio)
+if test "x$AIO_LIBS" = "x"; then
+  AC_MSG_ERROR([Unable to find libaio library])
+fi
+AC_CHECK_HEADER(libaio.h, :,
+  AC_MSG_ERROR([Unable to find /usr/include/libaio.h]))
+AC_SUBST(AIO_LIBS)
+
 NCURSES_LIBS=
 AC_CHECK_LIB(ncurses, tgetstr, NCURSES_LIBS=-lncurses)
 if test "x$NCURSES_LIBS" = "x"; then
