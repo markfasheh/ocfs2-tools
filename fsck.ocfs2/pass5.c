@@ -500,7 +500,7 @@ errcode_t o2fsck_pass5(o2fsck_state *ost)
 		com_err(whoami, ret, "while computing quota usage");
 		goto out;
 	}
-	if (has_usrquota) {
+	if (has_usrquota && ost->ost_fs->fs_flags & OCFS2_FLAG_RW) {
 		ret = recreate_quota_files(fs, USRQUOTA);
 		if (ret)
 			goto out;
@@ -510,7 +510,7 @@ errcode_t o2fsck_pass5(o2fsck_state *ost)
 			goto out;
 		}
 	}
-	if (has_grpquota) {
+	if (has_grpquota && ost->ost_fs->fs_flags & OCFS2_FLAG_RW) {
 		ret = recreate_quota_files(fs, GRPQUOTA);
 		if (ret)
 			goto out;
