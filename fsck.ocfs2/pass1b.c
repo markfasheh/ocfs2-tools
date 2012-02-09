@@ -711,6 +711,7 @@ static errcode_t pass1b_process_inode(o2fsck_state *ost,
 	 */
 	if ((di->i_flags & (OCFS2_SUPER_BLOCK_FL | OCFS2_LOCAL_ALLOC_FL |
 			    OCFS2_DEALLOC_FL)) ||
+	    (di->i_dyn_features & OCFS2_INLINE_DATA_FL) ||
 	    (S_ISLNK(di->i_mode) && di->i_clusters == 0))
 		goto xattrs;
 
