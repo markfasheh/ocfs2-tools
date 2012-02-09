@@ -258,7 +258,7 @@ static errcode_t scan_devices(errcode_t (*func)(const char *,
 			      struct hb_ctl_options *hbo)
 {
 	errcode_t err = 0;
-	int rc, major, minor;
+	int major, minor;
 	FILE *f;
 	char *buffer, *name;
 
@@ -276,7 +276,7 @@ static errcode_t scan_devices(errcode_t (*func)(const char *,
 	f = fopen("/proc/partitions", "r");
 	if (!f)
 	{
-		rc = -errno;
+		err = -errno;
 		goto out_free;
 	}
 

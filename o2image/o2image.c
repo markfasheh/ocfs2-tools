@@ -90,17 +90,13 @@ static errcode_t mark_dealloc_bits(ocfs2_filesys *ofs,
 static errcode_t traverse_extents(ocfs2_filesys *ofs,
 				  struct ocfs2_extent_list *el)
 {
-	struct ocfs2_super_block *super;
 	struct ocfs2_extent_block *eb;
 	struct ocfs2_extent_rec *rec;
 	struct ocfs2_image_state *ost = ofs->ost;
 	errcode_t ret = 0;
 	char *buf = NULL;
-	__le32 bits;
 	int i, j;
 
-	super = OCFS2_RAW_SB(ofs->fs_super);
-	bits = super->s_clustersize_bits - super->s_blocksize_bits;
 	ret = ocfs2_malloc_block(ofs->fs_io, &buf);
 	if (ret)
 		goto out;
@@ -498,13 +494,11 @@ out:
 
 static errcode_t write_raw_image_file(ocfs2_filesys *ofs, int fd)
 {
-	struct ocfs2_super_block *super;
 	char *blk_buf = NULL;
 	uint64_t blk = -1;
 	ssize_t count;
 	errcode_t ret;
 
-	super = OCFS2_RAW_SB(ofs->fs_super);
 	ret = ocfs2_malloc_block(ofs->fs_io, &blk_buf);
 	if (ret) {
 		com_err(program_name, ret, "while allocating I/O buffer");

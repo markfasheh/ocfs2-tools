@@ -880,7 +880,6 @@ static errcode_t parse_options(int argc, char *argv[], char **device)
 	int c;
 	errcode_t err;
 	struct option *long_options = NULL;
-	char error[PATH_MAX];
 	char *optstring = NULL;
 	struct tunefs_option *opt;
 
@@ -889,7 +888,6 @@ static errcode_t parse_options(int argc, char *argv[], char **device)
 		goto out;
 
 	opterr = 0;
-	error[0] = '\0';
 	while ((c = getopt_long(argc, argv, optstring,
 				long_options, NULL)) != EOF) {
 		opt = NULL;

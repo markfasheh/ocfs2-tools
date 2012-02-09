@@ -1238,7 +1238,7 @@ errcode_t o2cb_stop_heartbeat(struct o2cb_cluster_desc *cluster,
 			      struct o2cb_region_desc *region)
 {
 	errcode_t ret, up_ret;
-	int hb_refs;
+	int hb_refs = 0;
 	int semid;
 
 	ret = o2cb_mutex_down_lookup(region->r_name, &semid);

@@ -437,7 +437,7 @@ bail:
 	if (s_nsec)
 		free(s_nsec);
 
-	return 0;
+	return ret;
 }
 
 int o2info_get_human_time(char **htime, struct timespec t)

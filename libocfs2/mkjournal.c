@@ -275,7 +275,7 @@ errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 {
 	errcode_t ret;
 	char *blk;
-	journal_superblock_t *disk, *jsb;
+	journal_superblock_t *disk;
 	
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
 		return OCFS2_ET_RO_FILESYS;
@@ -289,7 +289,6 @@ errcode_t ocfs2_write_journal_superblock(ocfs2_filesys *fs, uint64_t blkno,
 		return ret;
 
 	disk = (journal_superblock_t *)blk;
-	jsb = (journal_superblock_t *)jsb_buf;
 
 	memcpy(blk, jsb_buf, fs->fs_blocksize);
 	ocfs2_swap_journal_superblock(disk);

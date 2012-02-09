@@ -60,7 +60,7 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 			  void *priv_data)
 {
 	errcode_t ret;
-	int len, oldval;
+	int len;
 	int reti = 0;
 	char *old_path, *path;
 	struct walk_path *wp = priv_data;
@@ -88,8 +88,6 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 	memcpy(path + len, dentry->name, dentry->name_len);
 	if (dentry->file_type == OCFS2_FT_DIR)
 		path[len + dentry->name_len] = '/';
-
-	oldval = 0;
 
 	if (!wp->quiet)
 		fprintf(stdout, "[trace] %13"PRIu64" %s\n",

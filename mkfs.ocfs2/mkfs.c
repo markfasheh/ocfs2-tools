@@ -163,8 +163,6 @@ static void translate_uuid(char *uuid_32, char *uuid_36)
 static int is_cluster_info_valid(State *s, char *stack_name,
 				 char *cluster_name, int globalhb)
 {
-	int len = 0;
-
 	if (!stack_name && !cluster_name && !globalhb)
 		return 1;
 

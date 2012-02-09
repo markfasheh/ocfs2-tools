@@ -409,7 +409,7 @@ static ssize_t do_pread(int fd, void *buf, size_t count, off_t offset)
 
 static void populate_sb_info(ocfs2_devices *dev, struct ocfs2_super_block *sb)
 {
-	uint32_t compat, incompat, rocompat;
+	uint32_t incompat;
 
 	if (!sb)
 		return;
@@ -419,9 +419,7 @@ static void populate_sb_info(ocfs2_devices *dev, struct ocfs2_super_block *sb)
 	memcpy(dev->label, sb->s_label, sizeof(dev->label));
 	memcpy(dev->uuid, sb->s_uuid, sizeof(dev->uuid));
 
-	compat = le32_to_cpu(sb->s_feature_compat);
 	incompat = le32_to_cpu(sb->s_feature_incompat);
-	rocompat = le32_to_cpu(sb->s_feature_ro_compat);
 
 	memcpy(dev->label, sb->s_label, sizeof(dev->label));
 	memcpy(dev->uuid, sb->s_uuid, sizeof(dev->uuid));

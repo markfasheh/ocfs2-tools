@@ -376,7 +376,6 @@ static errcode_t parse_options(int argc, char *argv[], char **device_or_file)
 	int c, lopt_idx = 0;
 	errcode_t err;
 	struct option *long_options = NULL;
-	char error[PATH_MAX];
 	char *optstring = NULL;
 	struct o2info_option *opt;
 
@@ -385,7 +384,6 @@ static errcode_t parse_options(int argc, char *argv[], char **device_or_file)
 		goto out;
 
 	opterr = 0;
-	error[0] = '\0';
 	while ((c = getopt_long(argc, argv, optstring,
 				long_options, &lopt_idx)) != EOF) {
 		opt = NULL;

@@ -414,12 +414,11 @@ static void print_version(void)
 
 static void show_stats(o2fsck_state *ost)
 {
-	uint32_t dir_links, num_links;
+	uint32_t num_links;
 
 	if (!ost->ost_show_stats)
 		return;
 
-	dir_links = ost->ost_dir_count;
 	num_links = ost->ost_links_count - ost->ost_dir_count;
 
 	printf("\n  # of inodes with depth 0/1/2/3/4/5: %u/%u/%u/%u/%u/%u\n",

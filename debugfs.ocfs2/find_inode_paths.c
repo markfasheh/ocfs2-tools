@@ -43,7 +43,7 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 			  int blocksize, char *buf, void *priv_data)
 {
 	errcode_t ret;
-	int len, oldval;
+	int len;
 	int reti = 0;
 	int i = 0;
 	int print = 0;
@@ -73,8 +73,6 @@ static int walk_tree_func(struct ocfs2_dir_entry *dentry,
 	memcpy(path + len, dentry->name, dentry->name_len);
 	if (dentry->file_type == OCFS2_FT_DIR)
 		path[len + dentry->name_len] = '/';
-
-	oldval = 0;
 
 	for (i = 0; i < wp->count; ++i) {
 		if (dentry->inode == wp->inode[i]) {
