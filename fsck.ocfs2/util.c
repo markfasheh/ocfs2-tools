@@ -201,14 +201,14 @@ void o2fsck_init_resource_track(struct o2fsck_resource_track *rt,
 {
 	struct rusage r;
 
+	gettimeofday(&rt->rt_real_time, 0);
+
 	io_get_stats(channel, &rt->rt_io_stats);
 
 	memset(&r, 0, sizeof(struct rusage));
 	getrusage(RUSAGE_SELF, &r);
 	rt->rt_user_time = r.ru_utime;
 	rt->rt_sys_time = r.ru_stime;
-
-	gettimeofday(&rt->rt_real_time, 0);
 }
 
 static inline float timeval_in_secs(struct timeval *tv)
@@ -263,9 +263,9 @@ void o2fsck_compute_resource_track(struct o2fsck_resource_track *rt,
 	struct ocfs2_io_stats _ios, *ios = &_ios;
 	struct ocfs2_io_stats *rtio = &rt->rt_io_stats;
 
+	getrusage(RUSAGE_SELF, &r);
 	gettimeofday(&time_end, 0);
 
-	getrusage(RUSAGE_SELF, &r);
 	diff_timeval(&r.ru_utime, &rt->rt_user_time);
 	diff_timeval(&r.ru_stime, &rt->rt_sys_time);
 	diff_timeval(&time_end, &rt->rt_real_time);
@@ -312,6 +312,10 @@ void o2fsck_print_resource_track(char *pass, o2fsck_state *ost,
 
 	walltime = timeval_in_secs(&rt->rt_real_time) -
 		timeval_in_secs(&rt->rt_user_time);
+
+	/* TODO: Investigate why user time is sometimes > wall time*/
+	if (walltime < 0)
+		walltime = 0;
 
 	cache_read = (uint64_t)rtio->is_cache_hits * io_get_blksize(channel);
 	total_io = rtio->is_bytes_read + rtio->is_bytes_written;
