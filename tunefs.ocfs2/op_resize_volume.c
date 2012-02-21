@@ -535,10 +535,24 @@ static errcode_t check_new_size(ocfs2_filesys *fs, uint64_t new_size,
 	}
 
 	device_clusters = device_blocks >> b_to_c_bits;
-	if (device_clusters > UINT32_MAX)
-		device_clusters = UINT32_MAX;
-	if (!try_clusters)
+
+	if (!try_clusters) {
+		if (device_clusters > UINT32_MAX) {
+			verbosef(VL_APP,
+				 "Clusters (%"PRIu64" is greater than "
+				 "maximum possible clusters %"PRIu32"\n",
+				 device_clusters, UINT32_MAX);
+			try_blocks = UINT32_MAX << b_to_c_bits;
+			errorf("Clusters %"PRIu64" is greater than max allowed"
+			       " %"PRIu32".\nIf you want to resize to %"PRIu64
+			       " blocks please specify %"PRIu64" as "
+			       "blocks-count.\n", device_clusters,
+				UINT32_MAX, try_blocks, try_blocks);
+			return TUNEFS_ET_INVALID_NUMBER;
+		}
 		try_clusters = device_clusters;
+	}
+
 	try_blocks = try_clusters << b_to_c_bits;
 
 	/* Now we're guaranteed that try_clusters is within range */
