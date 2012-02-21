@@ -2080,6 +2080,14 @@ out:
 	return err;
 }
 
+int tunefs_is_journal64(ocfs2_filesys *fs)
+{
+	struct tunefs_filesystem_state *state = tunefs_get_state(fs);
+	if (state->ts_journal_features.opt_incompat & JBD2_FEATURE_INCOMPAT_64BIT)
+		return 1;
+	return 0;
+}
+
 errcode_t tunefs_close(ocfs2_filesys *fs)
 {
 	errcode_t tmp, err = 0;

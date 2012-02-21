@@ -310,5 +310,6 @@ errcode_t tunefs_prepare_dir_trailer(ocfs2_filesys *fs,
 errcode_t tunefs_install_dir_trailer(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 				struct tunefs_trailer_context *tc);
 void tunefs_trailer_context_free(struct tunefs_trailer_context *tc);
+int tunefs_is_journal64(ocfs2_filesys *fs);
 
 #endif  /* _LIBTUNEFS_H */

@@ -514,6 +514,7 @@ static errcode_t check_new_size(ocfs2_filesys *fs, uint64_t new_size,
 	int b_to_c_bits =
 		OCFS2_RAW_SB(fs->fs_super)->s_clustersize_bits -
 		OCFS2_RAW_SB(fs->fs_super)->s_blocksize_bits;
+	int block64 = tunefs_is_journal64(fs);
 
 	if (new_size > max_bytes) {
 		verbosef(VL_APP,
@@ -578,7 +579,7 @@ static errcode_t check_new_size(ocfs2_filesys *fs, uint64_t new_size,
 		return TUNEFS_ET_INVALID_NUMBER;
 	}
 
-	if (try_blocks > UINT32_MAX) {
+	if (!block64 && (try_blocks > UINT32_MAX)) {
 		verbosef(VL_APP,
 			 "Requested %"PRIu32" clusters (%"PRIu64" "
 			 "blocks)\n",
