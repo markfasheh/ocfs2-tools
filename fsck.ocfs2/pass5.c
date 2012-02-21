@@ -248,14 +248,14 @@ static errcode_t o2fsck_check_data_blk(o2fsck_state *ost, int type,
 				    PRIu64" %"PRIu64" Space: %"PRIu64" %"
 				    PRIu64"\nUse found limits?",
 				    type2name(type), ddquot->dqb_id,
-				    dquot->d_ddquot.dqb_isoftlimit,
-				    dquot->d_ddquot.dqb_ihardlimit,
-				    dquot->d_ddquot.dqb_bsoftlimit,
-				    dquot->d_ddquot.dqb_bhardlimit,
-				    ddquot->dqb_isoftlimit,
-				    ddquot->dqb_ihardlimit,
-				    ddquot->dqb_bsoftlimit,
-				    ddquot->dqb_bhardlimit))
+				    (uint64_t)dquot->d_ddquot.dqb_isoftlimit,
+				    (uint64_t)dquot->d_ddquot.dqb_ihardlimit,
+				    (uint64_t)dquot->d_ddquot.dqb_bsoftlimit,
+				    (uint64_t)dquot->d_ddquot.dqb_bhardlimit,
+				    (uint64_t)ddquot->dqb_isoftlimit,
+				    (uint64_t)ddquot->dqb_ihardlimit,
+				    (uint64_t)ddquot->dqb_bsoftlimit,
+				    (uint64_t)ddquot->dqb_bhardlimit))
 				continue;
 		} else if (dquot && !valid) {
 			if (!prompt(ost, PN, PR_DUP_DQBLK_INVALID,
@@ -267,14 +267,14 @@ static errcode_t o2fsck_check_data_blk(o2fsck_state *ost, int type,
 				    " Inode: %"PRIu64" %"PRIu64" Space: %"
 				    PRIu64" %"PRIu64"\nUse found limits?",
 				    type2name(type), ddquot->dqb_id,
-				    dquot->d_ddquot.dqb_isoftlimit,
-				    dquot->d_ddquot.dqb_ihardlimit,
-				    dquot->d_ddquot.dqb_bsoftlimit,
-				    dquot->d_ddquot.dqb_bhardlimit,
-				    ddquot->dqb_isoftlimit,
-				    ddquot->dqb_ihardlimit,
-				    ddquot->dqb_bsoftlimit,
-				    ddquot->dqb_bhardlimit))
+				    (uint64_t)dquot->d_ddquot.dqb_isoftlimit,
+				    (uint64_t)dquot->d_ddquot.dqb_ihardlimit,
+				    (uint64_t)dquot->d_ddquot.dqb_bsoftlimit,
+				    (uint64_t)dquot->d_ddquot.dqb_bhardlimit,
+				    (uint64_t)ddquot->dqb_isoftlimit,
+				    (uint64_t)ddquot->dqb_ihardlimit,
+				    (uint64_t)ddquot->dqb_bsoftlimit,
+				    (uint64_t)ddquot->dqb_bhardlimit))
 				continue;
 		} else if (!dquot && !valid) {
 			if (!prompt(ost, PN, PR_DQBLK_INVALID,
@@ -283,10 +283,10 @@ static errcode_t o2fsck_check_data_blk(o2fsck_state *ost, int type,
 				    PRIu64" %"PRIu64" Space: %"PRIu64" %"
 				    PRIu64"\nUse found limits?",
 				    type2name(type), ddquot->dqb_id,
-				    ddquot->dqb_isoftlimit,
-				    ddquot->dqb_ihardlimit,
-				    ddquot->dqb_bsoftlimit,
-				    ddquot->dqb_bhardlimit))
+				    (uint64_t)ddquot->dqb_isoftlimit,
+				    (uint64_t)ddquot->dqb_ihardlimit,
+				    (uint64_t)ddquot->dqb_bsoftlimit,
+				    (uint64_t)ddquot->dqb_bhardlimit))
 				continue;
 		}
 

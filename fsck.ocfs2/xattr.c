@@ -290,7 +290,7 @@ static errcode_t check_xattr_entry(o2fsck_state *ost,
 				    " value size is %"PRIu64
 				    ", clear this entry?",
 				    xattr_object[xi->location], xi->blkno,
-				    local, xe->xe_value_size)) {
+				    local, (uint64_t)xe->xe_value_size)) {
 				ret = -1;
 				break;
 			} else

@@ -321,11 +321,12 @@ void o2fsck_print_resource_track(char *pass, o2fsck_state *ost,
 	total_io = rtio->is_bytes_read + rtio->is_bytes_written;
 
 	if (!pass)
-		printf("  Cache size: %uMB\n",
+		printf("  Cache size: %luMB\n",
 		       mbytes(io_get_cache_size(channel)));
 
-	printf("  I/O read disk/cache: %lluMB / %lluMB, write: %lluMB, "
-	       "rate: %.2fMB/s\n", mbytes(rtio->is_bytes_read),
+	printf("  I/O read disk/cache: %"PRIu64"MB / %"PRIu64"MB, "
+	       "write: %"PRIu64"MB, rate: %.2fMB/s\n",
+	       mbytes(rtio->is_bytes_read),
 	       mbytes(cache_read), mbytes(rtio->is_bytes_written),
 	       (double)(mbytes(total_io) / walltime));
 

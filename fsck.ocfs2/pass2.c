@@ -241,7 +241,7 @@ static void fix_dir_trailer(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		   "physcal block %"PRIu64" in directory inode %"PRIu64" "
 		   "has an invalid db_blkno of %"PRIu64".  Fix it?",
 		   dbe->e_blkcount, dbe->e_blkno, dbe->e_ino,
-		   trailer->db_blkno)) {
+		   (uint64_t)trailer->db_blkno)) {
 		trailer->db_blkno = dbe->e_blkno;
 		*flags |= OCFS2_DIRENT_CHANGED;
 	}
@@ -252,7 +252,7 @@ static void fix_dir_trailer(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 		   "physcal block %"PRIu64" in directory inode %"PRIu64" "
 		   "claims it belongs to inoe %"PRIu64".  Fix it?",
 		   dbe->e_blkcount, dbe->e_blkno, dbe->e_ino,
-		   trailer->db_parent_dinode)) {
+		   (uint64_t)trailer->db_parent_dinode)) {
 		trailer->db_parent_dinode = dbe->e_ino;
 		*flags |= OCFS2_DIRENT_CHANGED;
 	}

@@ -384,21 +384,21 @@ static errcode_t process_dup_clusters(struct process_extents_context *pc,
 			com_err(whoami, ret,
 				"while testing cluster %"PRIu32" of inode "
 				"%"PRIu64" in the duplicate cluster map",
-				p_cpos, pc->di->i_blkno);
+				p_cpos, (uint64_t)pc->di->i_blkno);
 			break;
 		}
 
 		if (was_set) {
 			verbosef("Marking multiply-claimed cluster %"PRIu32
 				 " as claimed by inode %"PRIu64"\n",
-				 p_cpos, pc->di->i_blkno);
+				 p_cpos, (uint64_t)pc->di->i_blkno);
 			ret = dup_insert(pc->dct, p_cpos, pc->di, v_cpos);
 			if (ret) {
 				com_err(whoami, ret,
 					"while marking duplicate cluster "
 					"%"PRIu32" as owned by inode "
 					"%"PRIu64,
-					p_cpos, pc->di->i_blkno);
+					p_cpos, (uint64_t)pc->di->i_blkno);
 				break;
 			}
 		}
@@ -503,7 +503,7 @@ static errcode_t process_xattr_header(struct process_extents_context *pc,
 		if (ret)
 			com_err(whoami, ret,
 				"while processing xattrs on inode %"PRIu64,
-				pc->di->i_blkno);
+				(uint64_t)pc->di->i_blkno);
 
 		if (!ret)
 			ret = pc->ret;
@@ -543,7 +543,7 @@ static errcode_t process_one_bucket_list(struct process_extents_context *pc,
 			com_err(whoami, ret,
 				"while reading the xattr bucket at "
 				"%"PRIu64" on inode %"PRIu64,
-				blkno, pc->di->i_blkno);
+				blkno, (uint64_t)pc->di->i_blkno);
 			break;
 		}
 
@@ -605,7 +605,7 @@ static errcode_t process_xattr_tree(struct process_extents_context *pc,
 	if (ret)
 		com_err(whoami, ret,
 			"while processing xattrs on inode %"PRIu64,
-			pc->di->i_blkno);
+			(uint64_t)pc->di->i_blkno);
 
 	if (!ret)
 		ret = pc->ret;
@@ -624,7 +624,7 @@ static errcode_t process_xattr_block(struct process_extents_context *pc)
 		com_err(whoami, ret,
 			"while allocating a buffer to read the xattr block "
 			"on inode %"PRIu64,
-			pc->di->i_xattr_loc);
+			(uint64_t)pc->di->i_xattr_loc);
 		goto out;
 	}
 
