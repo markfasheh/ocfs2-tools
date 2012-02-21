@@ -1252,13 +1252,13 @@ static int dirblocks_proxy(ocfs2_filesys *fs, uint64_t blkno,
 
 	ret = ocfs2_read_dir_block(fs, ctxt->di, blkno, ctxt->buf);
 	if (!ret) {
-		fprintf(ctxt->out, "\tDirbloc: %"PRIu64"\n", blkno);
+		fprintf(ctxt->out, "\tDirblock: %"PRIu64"\n", blkno);
 		dump_dir_block(ctxt->out, ctxt->buf);
 	} else
 		com_err(gbls.cmd, ret,
 			"while reading dirblock %"PRIu64" on inode "
 			"%"PRIu64"\n",
-			blkno, ctxt->di->i_blkno);
+			blkno, (uint64_t)ctxt->di->i_blkno);
 	return 0;
 }
 
@@ -2076,7 +2076,7 @@ static void walk_refcount_block(FILE *out, struct ocfs2_refcount_block *rb,
 			com_err("refcount", ret,
 				"while traversing the extent tree "
 				"of refcount block %"PRIu64,
-				rb->rf_blkno);
+				(uint64_t)rb->rf_blkno);
 	}
 
 	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
@@ -2093,7 +2093,7 @@ static void walk_refcount_block(FILE *out, struct ocfs2_refcount_block *rb,
 			com_err("refcount", ret,
 				"while looking up next refcount leaf in "
 				"recount block %"PRIu64"\n",
-				rb->rf_blkno);
+				(uint64_t)rb->rf_blkno);
 			break;
 		}
 

@@ -73,7 +73,7 @@ static int show_system_inode(struct ocfs2_dir_entry *rec, uint64_t blocknr,
 		ret = traverse_extents(fs, &(di->id2.i_list), out);
 	if (ret)
 		com_err(gbls.cmd, ret, "while traversing inode at block "
-			"%"PRIu64, rec->inode);
+			"%"PRIu64, (uint64_t)rec->inode);
 
 	if (S_ISDIR(di->i_mode)) {
 		ls.fs = ls_opts->fs;
@@ -86,7 +86,7 @@ static int show_system_inode(struct ocfs2_dir_entry *rec, uint64_t blocknr,
 					(void *)&ls);
 		if (ret)
 			com_err(gbls.cmd, ret, "while iterating // at block "
-				"%"PRIu64, rec->inode);
+				"%"PRIu64, (uint64_t)rec->inode);
 		ocfs2_free(&ls.buf);
 	}
 

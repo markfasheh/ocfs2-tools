@@ -379,7 +379,7 @@ void dump_inode(FILE *out, struct ocfs2_dinode *in)
 
 	if (in->i_suballoc_loc)
 		fprintf(out, "   Sub Alloc Group %"PRIu64"\n",
-			in->i_suballoc_loc);
+			(uint64_t)in->i_suballoc_loc);
 	else
 		fprintf(out, "\n");
 
@@ -502,7 +502,7 @@ void dump_extent_block(FILE *out, struct ocfs2_extent_block *blk)
 
 	if (blk->h_suballoc_loc)
 		fprintf(out, "   SubAlloc Group: %"PRIu64"\n",
-			blk->h_suballoc_loc);
+			(uint64_t)blk->h_suballoc_loc);
 	else
 		fprintf(out, "\n");
 
@@ -591,12 +591,13 @@ int dump_dir_entry(struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset,
 static void dump_dir_trailer(FILE *out, struct ocfs2_dir_block_trailer *trailer)
 {
 	fprintf(out,
-		"\tTrailer Block: %-15"PRIu64" Inode: %-15"PRIu64" rec_len: %-4u\n",
-		trailer->db_blkno, trailer->db_parent_dinode,
+		"\tTrailer Block: %"PRIu64"   Inode: %"PRIu64"   Len: %u\n",
+		(uint64_t)trailer->db_blkno,
+		(uint64_t)trailer->db_parent_dinode,
 		trailer->db_compat_rec_len);
 	fprintf(out,
-		"\tLargest hole: %u  Next in list: %-15"PRIu64"\n",
-		trailer->db_free_rec_len, trailer->db_free_next);
+		"\tLargest Hole: %u   Next Block: %"PRIu64"\n",
+		trailer->db_free_rec_len, (uint64_t)trailer->db_free_next);
 	dump_block_check(out, &trailer->db_check, trailer);
 }
 
@@ -691,7 +692,7 @@ void dump_dx_root(FILE *out, struct ocfs2_dx_root_block *dr)
 
 	if (dr->dr_suballoc_loc)
 		fprintf(out, "   SubAlloc Group: %"PRIu64"\n",
-			dr->dr_suballoc_loc);
+			(uint64_t)dr->dr_suballoc_loc);
 	else
 		fprintf(out, "\n");
 
@@ -1359,7 +1360,7 @@ void dump_refcount_block(FILE *out, struct ocfs2_refcount_block *rb)
 
 	if (rb->rf_suballoc_loc)
 		fprintf(out, "   SubAlloc Group: %"PRIu64"\n",
-			rb->rf_suballoc_loc);
+			(uint64_t)rb->rf_suballoc_loc);
 	else
 		fprintf(out, "\n");
 
@@ -1395,7 +1396,8 @@ void dump_refcount_records(FILE *out, struct ocfs2_refcount_block *rb)
 	for (i = 0; i < rl->rl_used; i++) {
 		fprintf(out,
 			"\t%-3d %-20"PRIu64"   %-12"PRIu32"   %"PRIu32"\n",
-			i, rl->rl_recs[i].r_cpos, rl->rl_recs[i].r_clusters,
+			i, (uint64_t)rl->rl_recs[i].r_cpos,
+			rl->rl_recs[i].r_clusters,
 			rl->rl_recs[i].r_refcount);
 	}
 }
