@@ -34,7 +34,6 @@ static int set_journal_size_parse_option(struct tunefs_operation *op,
 	errcode_t err;
 	uint64_t *new_size;
 
-
 	if (!arg) {
 		errorf("No size specified\n");
 		goto out;
@@ -66,6 +65,7 @@ static int set_journal_size_run(struct tunefs_operation *op,
 	int rc = 0;
 	uint64_t *argp = (uint64_t *)op->to_private;
 	uint64_t new_size = *argp;
+	ocfs2_fs_options null_options;
 
 	ocfs2_free(&argp);
 	op->to_private = NULL;
@@ -75,8 +75,10 @@ static int set_journal_size_run(struct tunefs_operation *op,
 			    fs->fs_devname, new_size))
 		goto out;
 
+	memset(&null_options, 0, sizeof(ocfs2_fs_options));
+
 	tunefs_block_signals();
-	err = tunefs_set_journal_size(fs, new_size);
+	err = tunefs_set_journal_size(fs, new_size, null_options, null_options);
 	tunefs_unblock_signals();
 	if (err) {
 		rc = 1;

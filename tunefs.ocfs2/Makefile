@@ -40,6 +40,7 @@ OCFS2NE_OPERATIONS =			\
 	op_resize_volume		\
 	op_set_label			\
 	op_set_journal_size		\
+	op_set_journal_block		\
 	op_set_slot_count		\
 	op_update_cluster_stack		\
 	op_set_quota_sync_interval	\

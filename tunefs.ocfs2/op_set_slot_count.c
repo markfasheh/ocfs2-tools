@@ -1071,6 +1071,9 @@ static errcode_t update_slot_count(ocfs2_filesys *fs, int num_slots)
 {
 	errcode_t ret = 0;
 	int orig_slots = OCFS2_RAW_SB(fs->fs_super)->s_max_slots;
+	ocfs2_fs_options null_options;
+
+	memset(&null_options, 0, sizeof(ocfs2_fs_options));
 
 	if (num_slots == orig_slots) {
 		verbosef(VL_APP,
@@ -1099,7 +1102,7 @@ static errcode_t update_slot_count(ocfs2_filesys *fs, int num_slots)
 		/* Grow the new journals to match the first slot */
 		verbosef(VL_APP,
 			 "Allocating space for the new journals\n");
-		ret = tunefs_set_journal_size(fs, 0);
+		ret = tunefs_set_journal_size(fs, 0, null_options, null_options);
 		if (!ret)
 			verbosef(VL_APP, "Journal space allocated\n");
 		else {

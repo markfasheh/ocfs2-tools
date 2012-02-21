@@ -584,9 +584,10 @@ static errcode_t check_new_size(ocfs2_filesys *fs, uint64_t new_size,
 			 "Requested %"PRIu32" clusters (%"PRIu64" "
 			 "blocks)\n",
 			 try_clusters, try_blocks);
-		errorf("The Journaled Block Device (JBD) cannot "
-		       "support more than %"PRIu32" blocks\n",
-		       UINT32_MAX);
+		errorf("The file system journal is not configured to support "
+		       "more than %"PRIu32" blocks.\n"
+		       "Please enable \"block64\" journal feature before "
+		       "resizing the file system.\n", UINT32_MAX);
 		return TUNEFS_ET_INVALID_NUMBER;
 	}
 
