@@ -34,6 +34,15 @@ static int set_journal_block32_run(struct tunefs_operation *op,
 	int rc = 0;
 	ocfs2_fs_options mask, options;
 
+	if (fs->fs_blocks > UINT32_MAX) {
+		tcom_err(TUNEFS_ET_OPERATION_FAILED,
+			"; cannot enable block32 journal feature on "
+			"device \"%s\" having more that %u blocks",
+			fs->fs_devname, UINT32_MAX);
+		rc = 1;
+		goto out;
+	}
+
 	memset(&mask, 0, sizeof(ocfs2_fs_options));
 	memset(&options, 0, sizeof(ocfs2_fs_options));
 	mask.opt_incompat |= JBD2_FEATURE_INCOMPAT_64BIT;
