@@ -149,6 +149,52 @@ done:
 	return ;
 }
 
+void get_journal_compat_flag(uint32_t flags, char *buf, size_t count)
+{
+	size_t out = 0;
+
+	*buf = '\0';
+
+	if (flags & JBD2_FEATURE_COMPAT_CHECKSUM)
+		out += snprintf(buf + out, count - out, "checksum ");
+
+	if (flags & ~JBD2_FEATURE_COMPAT_CHECKSUM)
+		out += snprintf(buf + out, count - out, "unknown");
+}
+
+void get_journal_incompat_flag(uint32_t flags, char *buf, size_t count)
+{
+	size_t out = 0;
+
+	*buf = '\0';
+
+	if (flags & JBD2_FEATURE_INCOMPAT_REVOKE)
+		out += snprintf(buf + out, count - out, "revoke ");
+
+	if (flags & JBD2_FEATURE_INCOMPAT_64BIT)
+		out += snprintf(buf + out, count - out, "block64 ");
+	else
+		out += snprintf(buf + out, count - out, "block32 ");
+
+	if (flags & JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT)
+		out += snprintf(buf + out, count - out, "async-commit ");
+
+	if (flags & ~(JBD2_FEATURE_INCOMPAT_REVOKE |
+		      JBD2_FEATURE_INCOMPAT_64BIT |
+		      JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT))
+		out += snprintf(buf + out, count - out, "unknown");
+}
+
+void get_journal_rocompat_flag(uint32_t flags, char *buf, size_t count)
+{
+	size_t out = 0;
+
+	*buf = '\0';
+
+	if (flags)
+		out += snprintf(buf + out, count - out, "unknown");
+}
+
 /*
  * Adds nanosec to the ctime output. eg. Tue Jul 19 13:36:52.123456 2011
  * On error, returns an empty string.

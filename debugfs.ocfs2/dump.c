@@ -807,6 +807,10 @@ void dump_jbd_header(FILE *out, journal_header_t *header)
  */
 void dump_jbd_superblock(FILE *out, journal_superblock_t *jsb)
 {
+	char buf[PATH_MAX];
+	uint32_t compat = ntohl(jsb->s_feature_compat);
+	uint32_t incompat = ntohl(jsb->s_feature_incompat);
+	uint32_t rocompat = ntohl(jsb->s_feature_ro_compat);
 	int i;
 
 	fprintf(out, "\tBlock 0: Journal Superblock\n");
@@ -821,11 +825,14 @@ void dump_jbd_superblock(FILE *out, journal_superblock_t *jsb)
 
 	fprintf(out, "\tError: %d\n", ntohl(jsb->s_errno));
 
-	fprintf(out, "\tFeatures Compat: 0x%"PRIx32"   "
-		 "Incompat: 0x%"PRIx32"   RO Compat: 0x%"PRIx32"\n",
-		 ntohl(jsb->s_feature_compat),
-		 ntohl(jsb->s_feature_incompat),
-		 ntohl(jsb->s_feature_ro_compat));
+	get_journal_compat_flag(compat, buf, sizeof(buf));
+	fprintf(out, "\tFeature Compat: %u %s\n", compat, buf);
+
+	get_journal_incompat_flag(incompat, buf, sizeof(buf));
+	fprintf(out, "\tFeature Incompat: %u %s\n", incompat, buf);
+
+	get_journal_rocompat_flag(rocompat, buf, sizeof(buf));
+	fprintf(out, "\tFeature RO compat: %u %s\n", rocompat, buf);
 
 	fprintf(out, "\tJournal UUID: ");
 	for(i = 0; i < 16; i++)
