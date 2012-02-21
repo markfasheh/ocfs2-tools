@@ -1639,6 +1639,13 @@ static errcode_t tunefs_global_bitmap_check(ocfs2_filesys *fs)
 	di = (struct ocfs2_dinode *)buf;
 	cl = &(di->id2.i_chain);
 
+	/* Warm up the cache with the groups */
+	ret = ocfs2_cache_chain_allocator_blocks(fs, di);
+	if (ret)
+		verbosef(VL_LIB, "Caching global bitmap failed, err %d\n",
+			 (int)ret);
+	ret = 0;
+
 	for (i = 0; i < cl->cl_next_free_rec; ++i) {
 		ret = tunefs_validate_chain_group(fs, di, i);
 		if (ret)
