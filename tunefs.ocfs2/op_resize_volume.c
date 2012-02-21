@@ -552,8 +552,7 @@ static errcode_t check_new_size(ocfs2_filesys *fs, uint64_t new_size,
 		}
 		try_clusters = device_clusters;
 	}
-
-	try_blocks = try_clusters << b_to_c_bits;
+	try_blocks = (uint64_t)try_clusters << b_to_c_bits;
 
 	/* Now we're guaranteed that try_clusters is within range */
 
