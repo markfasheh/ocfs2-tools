@@ -66,9 +66,9 @@
 #define OCFS2_GROUP_DESC_SIGNATURE      "GROUP01"
 #define OCFS2_XATTR_BLOCK_SIGNATURE	"XATTR01"
 #define OCFS2_DIR_TRAILER_SIGNATURE	"DIRTRL1"
-#define OCFS2_REFCOUNT_BLOCK_SIGNATURE	"REFCNT1"
 #define OCFS2_DX_ROOT_SIGNATURE		"DXDIR01"
 #define OCFS2_DX_LEAF_SIGNATURE		"DXLEAF1"
+#define OCFS2_REFCOUNT_BLOCK_SIGNATURE	"REFCNT1"
 
 /* Compatibility flags */
 #define OCFS2_HAS_COMPAT_FEATURE(sb,mask)			\
@@ -97,11 +97,11 @@
 					 | OCFS2_FEATURE_INCOMPAT_INLINE_DATA \
 					 | OCFS2_FEATURE_INCOMPAT_EXTENDED_SLOT_MAP \
 					 | OCFS2_FEATURE_INCOMPAT_USERSPACE_STACK \
-					 | OCFS2_FEATURE_INCOMPAT_META_ECC \
 					 | OCFS2_FEATURE_INCOMPAT_XATTR \
-					 | OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE \
+					 | OCFS2_FEATURE_INCOMPAT_META_ECC \
 					 | OCFS2_FEATURE_INCOMPAT_INDEXED_DIRS \
-					 | OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG \
+					 | OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE \
+					 | OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG	\
 					 | OCFS2_FEATURE_INCOMPAT_CLUSTERINFO)
 #define OCFS2_FEATURE_RO_COMPAT_SUPP	(OCFS2_FEATURE_RO_COMPAT_UNWRITTEN \
 					 | OCFS2_FEATURE_RO_COMPAT_USRQUOTA \
@@ -243,28 +243,41 @@
 #define OCFS2_HAS_XATTR_FL	(0x0002)
 #define OCFS2_INLINE_XATTR_FL	(0x0004)
 #define OCFS2_INDEXED_DIR_FL	(0x0008)
-#define OCFS2_HAS_REFCOUNT_FL	(0x0010)
+#define OCFS2_HAS_REFCOUNT_FL   (0x0010)
 
 /* Inode attributes, keep in sync with EXT2 */
-#define OCFS2_SECRM_FL		(0x00000001)	/* Secure deletion */
-#define OCFS2_UNRM_FL		(0x00000002)	/* Undelete */
-#define OCFS2_COMPR_FL		(0x00000004)	/* Compress file */
-#define OCFS2_SYNC_FL		(0x00000008)	/* Synchronous updates */
-#define OCFS2_IMMUTABLE_FL	(0x00000010)	/* Immutable file */
-#define OCFS2_APPEND_FL		(0x00000020)	/* writes to file may only append */
-#define OCFS2_NODUMP_FL		(0x00000040)	/* do not dump file */
-#define OCFS2_NOATIME_FL	(0x00000080)	/* do not update atime */
-#define OCFS2_DIRSYNC_FL	(0x00010000)	/* dirsync behaviour (directories only) */
+#define OCFS2_SECRM_FL			FS_SECRM_FL	/* Secure deletion */
+#define OCFS2_UNRM_FL			FS_UNRM_FL	/* Undelete */
+#define OCFS2_COMPR_FL			FS_COMPR_FL	/* Compress file */
+#define OCFS2_SYNC_FL			FS_SYNC_FL	/* Synchronous updates */
+#define OCFS2_IMMUTABLE_FL		FS_IMMUTABLE_FL	/* Immutable file */
+#define OCFS2_APPEND_FL			FS_APPEND_FL	/* writes to file may only append */
+#define OCFS2_NODUMP_FL			FS_NODUMP_FL	/* do not dump file */
+#define OCFS2_NOATIME_FL		FS_NOATIME_FL	/* do not update atime */
+/* Reserved for compression usage... */
+#define OCFS2_DIRTY_FL			FS_DIRTY_FL
+#define OCFS2_COMPRBLK_FL		FS_COMPRBLK_FL	/* One or more compressed clusters */
+#define OCFS2_NOCOMP_FL			FS_NOCOMP_FL	/* Don't compress */
+#define OCFS2_ECOMPR_FL			FS_ECOMPR_FL	/* Compression error */
+/* End compression flags --- maybe not all used */
+#define OCFS2_BTREE_FL			FS_BTREE_FL	/* btree format dir */
+#define OCFS2_INDEX_FL			FS_INDEX_FL	/* hash-indexed directory */
+#define OCFS2_IMAGIC_FL			FS_IMAGIC_FL	/* AFS directory */
+#define OCFS2_JOURNAL_DATA_FL		FS_JOURNAL_DATA_FL /* Reserved for ext3 */
+#define OCFS2_NOTAIL_FL			FS_NOTAIL_FL	/* file tail should not be merged */
+#define OCFS2_DIRSYNC_FL		FS_DIRSYNC_FL	/* dirsync behaviour (directories only) */
+#define OCFS2_TOPDIR_FL			FS_TOPDIR_FL	/* Top of directory hierarchies*/
+#define OCFS2_RESERVED_FL		FS_RESERVED_FL	/* reserved for ext2 lib */
 
-#define OCFS2_FL_VISIBLE	(0x000100FF)	/* User visible flags */
-#define OCFS2_FL_MODIFIABLE	(0x000100FF)	/* User modifiable flags */
+#define OCFS2_FL_VISIBLE		FS_FL_USER_VISIBLE	/* User visible flags */
+#define OCFS2_FL_MODIFIABLE		FS_FL_USER_MODIFIABLE	/* User modifiable flags */
 
 /*
  * Extent record flags (e_node.leaf.flags)
  */
 #define OCFS2_EXT_UNWRITTEN		(0x01)	/* Extent is allocated but
 						 * unwritten */
-#define OCFS2_EXT_REFCOUNTED		(0x02)	/* Extent is reference
+#define OCFS2_EXT_REFCOUNTED		(0x02)  /* Extent is reference
 						 * counted in an associated
 						 * refcount tree */
 
@@ -333,6 +346,7 @@ enum {
 	USER_QUOTA_SYSTEM_INODE,
 	GROUP_QUOTA_SYSTEM_INODE,
 #define OCFS2_LAST_GLOBAL_SYSTEM_INODE GROUP_QUOTA_SYSTEM_INODE
+#define OCFS2_FIRST_LOCAL_SYSTEM_INODE ORPHAN_DIR_SYSTEM_INODE
 	ORPHAN_DIR_SYSTEM_INODE,
 	EXTENT_ALLOC_SYSTEM_INODE,
 	INODE_ALLOC_SYSTEM_INODE,
@@ -341,8 +355,12 @@ enum {
 	TRUNCATE_LOG_SYSTEM_INODE,
 	LOCAL_USER_QUOTA_SYSTEM_INODE,
 	LOCAL_GROUP_QUOTA_SYSTEM_INODE,
+#define OCFS2_LAST_LOCAL_SYSTEM_INODE LOCAL_GROUP_QUOTA_SYSTEM_INODE
 	NUM_SYSTEM_INODES
 };
+#define NUM_GLOBAL_SYSTEM_INODES OCFS2_FIRST_LOCAL_SYSTEM_INODE
+#define NUM_LOCAL_SYSTEM_INODES	\
+		(NUM_SYSTEM_INODES - OCFS2_FIRST_LOCAL_SYSTEM_INODE)
 
 static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 	/* Global system inodes (single copy) */
@@ -404,6 +422,7 @@ static struct ocfs2_system_inode_info ocfs2_system_inodes[NUM_SYSTEM_INODES] = {
 #define OCFS2_LINK_MAX		32000
 #define	OCFS2_DX_LINK_MAX	((1U << 31) - 1U)
 #define	OCFS2_LINKS_HI_SHIFT	16
+#define	OCFS2_DX_ENTRIES_MAX	(0xffffffffU)
 
 #define S_SHIFT			12
 static unsigned char ocfs2_type_by_mode[S_IFMT >> S_SHIFT] = {
@@ -430,7 +449,7 @@ static unsigned char ocfs2_type_by_mode[S_IFMT >> S_SHIFT] = {
 struct ocfs2_block_check {
 /*00*/	__le32 bc_crc32e;	/* 802.3 Ethernet II CRC32 */
 	__le16 bc_ecc;		/* Single-error-correction parity vector.
-				   This is a simple Hamming code dependant
+				   This is a simple Hamming code dependent
 				   on the blocksize.  OCFS2's maximum
 				   blocksize, 4K, requires 16 parity bits,
 				   so we fit in __le16. */
@@ -712,7 +731,7 @@ struct ocfs2_dinode {
 	__le16 i_dyn_features;
 	__le64 i_xattr_loc;
 /*80*/	struct ocfs2_block_check i_check;	/* Error checking */
-	__le64 i_dx_root;
+/*88*/	__le64 i_dx_root;		/* Pointer to dir index root block */
 /*90*/	__le64 i_refcount_loc;
 	__le64 i_suballoc_loc;		/* Suballocator block group this
 					   inode belongs to.  Only valid
@@ -739,7 +758,7 @@ struct ocfs2_dinode {
 							  after an unclean
 							  shutdown */
 		} journal1;
-	} id1;				/* Inode type dependant 1 */
+	} id1;				/* Inode type dependent 1 */
 /*C0*/	union {
 		struct ocfs2_super_block	i_super;
 		struct ocfs2_local_alloc	i_lab;
@@ -853,11 +872,11 @@ struct ocfs2_dx_root_block {
 	__le32		dr_reserved2;
 	__le64		dr_free_blk;		/* Pointer to head of free
 						 * unindexed block list. */
-	__le64          dr_suballoc_loc;        /* Suballocator block group
-						 * this root belongs to.
-						 * Only valid if allocated
-						 * from a discontiguous
-						 * block group. */
+	__le64		dr_suballoc_loc;	/* Suballocator block group
+						   this root belongs to.
+						   Only valid if allocated
+						   from a discontiguous
+						   block group */
 	__le64		dr_reserved3[14];
 	union {
 		struct ocfs2_extent_list dr_list; /* Keep this aligned to 128
@@ -1008,7 +1027,7 @@ struct ocfs2_xattr_entry {
 	__le16	xe_name_offset;  /* byte offset from the 1st entry in the
 				    local xattr storage(inode, xattr block or
 				    xattr bucket). */
-	__u8	xe_name_len;	 /* xattr name len, does't include prefix. */
+	__u8	xe_name_len;	 /* xattr name len, doesn't include prefix. */
 	__u8	xe_type;         /* the low 7 bits indicate the name prefix
 				  * type and the highest bit indicates whether
 				  * the EA is stored in the local storage. */
@@ -1068,13 +1087,13 @@ struct ocfs2_xattr_tree_root {
 /*10*/	struct ocfs2_extent_list xt_list; /* Extent record list */
 };
 
+#define OCFS2_XATTR_INLINE_SIZE	80
 #define OCFS2_XATTR_INDEXED	0x1
 #define OCFS2_HASH_SHIFT	5
 #define OCFS2_XATTR_ROUND	3
 #define OCFS2_XATTR_SIZE(size)	(((size) + OCFS2_XATTR_ROUND) & \
 				~(OCFS2_XATTR_ROUND))
 
-#define OCFS2_XATTR_INLINE_SIZE	80
 #define OCFS2_XATTR_BUCKET_SIZE			4096
 #define OCFS2_XATTR_MAX_BLOCKS_PER_BUCKET 	(OCFS2_XATTR_BUCKET_SIZE \
 						 / OCFS2_MIN_BLOCKSIZE)
@@ -1455,7 +1474,6 @@ ocfs2_get_ref_rec_low_cpos(const struct ocfs2_refcount_rec *rec)
 {
 	return le64_to_cpu(rec->r_cpos) & OCFS2_32BIT_POS_MASK;
 }
-
 #else
 static inline int ocfs2_fast_symlink_chars(int blocksize)
 {
