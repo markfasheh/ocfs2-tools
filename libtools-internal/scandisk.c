@@ -116,7 +116,7 @@ static void flush_dev_cache(struct devlisthead *devlisthead)
 static struct devnode *alloc_list_obj(struct devlisthead *devlisthead, int maj,
 				      int min)
 {
-	struct devnode *nextnode, *startnode;
+	struct devnode *nextnode;
 
 	nextnode = malloc(sizeof(struct devnode));
 	if (!nextnode)
@@ -124,22 +124,17 @@ static struct devnode *alloc_list_obj(struct devlisthead *devlisthead, int maj,
 
 	memset(nextnode, 0, sizeof(struct devnode));
 
-	if (!devlisthead->devnode) {
-		devlisthead->devnode = startnode = nextnode;
-	} else {
-		startnode = devlisthead->devnode;
-		while (startnode->next)
-			startnode = startnode->next;
+	if (!devlisthead->devnode)
+		devlisthead->devnode = nextnode;
+	else
+		devlisthead->tail->next = nextnode;
 
-		/* always append what we find */
-		startnode->next = nextnode;
-		startnode = nextnode;
-	}
+	devlisthead->tail = nextnode;
 
-	startnode->maj = maj;
-	startnode->min = min;
+	nextnode->maj = maj;
+	nextnode->min = min;
 
-	return startnode;
+	return nextnode;
 }
 
 /* really annoying but we have no way to know upfront how
@@ -147,7 +142,7 @@ static struct devnode *alloc_list_obj(struct devlisthead *devlisthead, int maj,
  * Once we find a device, we know maj/min and this new path.
  * add_path_obj will add the given path to the devnode
  */
-static int add_path_obj(struct devnode *startnode, char *path)
+static int add_path_obj(struct devnode *startnode, const char *path)
 {
 	struct devpath *nextpath, *startpath;
 
@@ -179,7 +174,7 @@ static int add_path_obj(struct devnode *startnode, char *path)
  * this function simply avoid duplicate code around.
  */
 static int add_lsdev_block(struct devlisthead *devlisthead, struct stat *sb,
-			   char *path)
+			   const char *path)
 {
 	int maj, min;
 	struct devnode *startnode;
@@ -224,7 +219,7 @@ static int dev_is_block(struct stat *sb, char *path)
  * -1 for generic errors
  * -2 -ENOMEM
  */
-static int lsdev(struct devlisthead *devlisthead, char *path)
+static int lsdev(struct devlisthead *devlisthead, const char *path)
 {
 	int i, n, err = 0;
 	struct dirent **namelist;
@@ -248,7 +243,7 @@ static int lsdev(struct devlisthead *devlisthead, char *path)
 
 				if (dev_is_block(&sb, newpath))
 					if (!add_lsdev_block
-					    (devlisthead, &sb, newpath) < 0)
+					    (devlisthead, &sb, newpath))
 						return -2;
 			}
 		}
@@ -276,32 +271,38 @@ static int scanprocpart(struct devlisthead *devlisthead)
 	unsigned long long blkcnt;
 	char device[128];
 	struct devnode *startnode;
+
 	fp = fopen("/proc/partitions", "r");
 	if (!fp)
 		return 0;
-	while (fgets(line, sizeof(line), fp)
-	       != NULL) {
+
+	while (fgets(line, sizeof(line), fp) != NULL) {
 
 		if (strlen(line) > 128 + (22))
 			continue;
-		sscanf(line, "%4d %4d %10llu %s",
-		       &major, &minor, &blkcnt, device);
+
+		if (sscanf(line, "%4d %4d %10llu %s",
+		       &major, &minor, &blkcnt, device) < 4)
+			continue;
 
 		/* careful here.. if there is no device, we are scanning the
 		 * first two lines that are not useful to us
 		 */
 		if (!strlen(device))
 			continue;
+
 		startnode =
 		    find_dev_by_majmin(devlisthead->devnode, major, minor);
 		if (!startnode) {
 			startnode = alloc_list_obj(devlisthead, major, minor);
-			if (!startnode)
+			if (!startnode) {
+				fclose(fp);
 				return -2;
+			}
 		}
 
 		startnode->procpart = 1;
-		strcpy(startnode->procname, device);
+		strncpy(startnode->procname, device, sizeof(startnode->procname) - 1);
 	}
 
 	fclose(fp);
@@ -336,14 +337,14 @@ static int scanmdstat(struct devlisthead *devlisthead)
 	while (fgets(line, sizeof(line), fp) != NULL) {
 
 		/* i like things to be absolutely clean */
-		memset(device, 0, 16);
-		memset(separator, 0, 4);
-		memset(status, 0, 16);
-		memset(personality, 0, 16);
-		memset(firstdevice, 0, 16);
-		memset(devices, 0, 4096);
+		memset(device, 0, sizeof(device));
+		memset(separator, 0, sizeof(separator));
+		memset(status, 0, sizeof(status));
+		memset(personality, 0, sizeof(personality));
+		memset(firstdevice, 0, sizeof(firstdevice));
+		memset(devices, 0, sizeof(devices));
 
-		if (strlen(line) > 4096)
+		if (strlen(line) >= sizeof(line))
 			continue;
 
 		/* we only parse stuff that starts with ^md
@@ -351,8 +352,9 @@ static int scanmdstat(struct devlisthead *devlisthead)
 		if (!(line[0] == 'm' && line[1] == 'd'))
 			continue;
 
-		sscanf(line, "%s %s %s %s %s",
-		       device, separator, status, personality, firstdevice);
+		if (sscanf(line, "%s %s %s %s %s",
+		       device, separator, status, personality, firstdevice) < 5)
+			continue;
 
 		/* scan only raids that are active */
 		if (strcmp(status, "active"))
@@ -368,8 +370,15 @@ static int scanmdstat(struct devlisthead *devlisthead)
 
 		/* trunkate the string from sdaX[Y] to sdaX and
 		 * copy the whole device string over */
-		memset(strstr(firstdevice, "["), 0, 1);
-		strcpy(devices, strstr(line, firstdevice));
+		tmp = strstr(firstdevice, "[");
+		if (!tmp)
+			continue;
+		memset(tmp, 0, 1);
+
+		tmp = strstr(line, firstdevice);
+		if (!tmp)
+			continue;
+		strncpy(devices, tmp, sizeof(devices) - 1);
 
 		/* if we don't find any slave (for whatever reason)
 		 * keep going */
@@ -378,8 +387,11 @@ static int scanmdstat(struct devlisthead *devlisthead)
 
 		tmp = devices;
 		while ((tmp) && ((next = strstr(tmp, " ")) || strlen(tmp))) {
+			char *tmp2;
 
-			memset(strstr(tmp, "["), 0, 1);
+			tmp2 = strstr(tmp, "[");
+			if (tmp2)
+				memset(tmp2, 0, 1);
 
 			startnode =
 			    find_dev_by_path(devlisthead->devnode, tmp, 1);
@@ -418,10 +430,10 @@ static int scanmapper(struct devlisthead *devlisthead)
 		return 0;
 
 	while (fgets(line, sizeof(line), fp) != NULL) {
-		memset(major, 0, 4);
-		memset(device, 0, 64);
+		memset(major, 0, sizeof(major));
+		memset(device, 0, sizeof(device));
 
-		if (strlen(line) > 4096)
+		if (strlen(line) > sizeof(line))
 			continue;
 
 		if (!strncmp(line, "Block devices:", 13)) {
@@ -432,7 +444,8 @@ static int scanmapper(struct devlisthead *devlisthead)
 		if (!start)
 			continue;
 
-		sscanf(line, "%s %s", major, device);
+		if (sscanf(line, "%s %s", major, device) < 2)
+			continue;
 
 		if (!strncmp(device, "device-mapper", 13)) {
 			maj = atoi(major);
@@ -485,8 +498,13 @@ static int sysfs_is_dev(char *path, int *maj, int *min)
 	if (!lstat(newpath, &sb)) {
 		f = fopen(newpath, "r");
 		if (f) {
-			fscanf(f, "%d:%d", maj, min);
+			int err;
+
+			err = fscanf(f, "%d:%d", maj, min);
 			fclose(f);
+			if ((err == EOF) || (err != 2))
+				return -1;
+
 			return 1;
 		} else
 			return -1;
@@ -513,8 +531,12 @@ static int sysfs_is_removable(char *path)
 	if (!lstat(newpath, &sb)) {
 		f = fopen(newpath, "r");
 		if (f) {
-			fscanf(f, "%d\n", &i);
+			int err;
+
+			err = fscanf(f, "%d\n", &i);
 			fclose(f);
+			if ((err == EOF) || (err != 1))
+				i = -1;
 		}
 	}
 	return i;
@@ -529,7 +551,7 @@ static int sysfs_is_removable(char *path)
  * always return the amount of entries in the dir if successful
  * or any return value from scandir.
  */
-static int sysfs_has_subdirs_entries(char *path, char *subdir)
+static int sysfs_has_subdirs_entries(char *path, const char *subdir)
 {
 	char newpath[MAXPATHLEN];
 	struct dirent **namelist;
@@ -589,14 +611,29 @@ static int sysfs_is_disk(char *path)
 		goto found;
 
 	snprintf(newpath, sizeof(newpath), "%s/../device/media", path);
-	if (lstat(newpath, &sb))
-		return -1;
+	if (!lstat(newpath, &sb))
+		goto found;
+
+	snprintf(newpath, sizeof(newpath), "%s/device/devtype", path);
+	if (!lstat(newpath, &sb))
+		return 1;
+
+	snprintf(newpath, sizeof(newpath), "%s/../device/devtype", path);
+	if (!lstat(newpath, &sb))
+		return 1;
+
+	return -1;
 
       found:
 	f = fopen(newpath, "r");
 	if (f) {
-		fscanf(f, "%d\n", &i);
+		int err;
+
+		err = fscanf(f, "%d\n", &i);
 		fclose(f);
+
+		if ((err == EOF) || (err != 1))
+			return 0;
 
 		switch (i) {
 		case 0x0:	/* scsi type_disk */
@@ -621,10 +658,10 @@ static int sysfs_is_disk(char *path)
  * -1 on generic error
  * -2 -ENOMEM
  */
-static int scansysfs(struct devlisthead *devlisthead, char *path)
+static int scansysfs(struct devlisthead *devlisthead, const char *path, int level, int parent_holder)
 {
 	struct devnode *startnode;
-	int i, n, maj, min;
+	int i, n, maj = -1, min = -1, has_holder;
 	struct dirent **namelist;
 	struct stat sb;
 	char newpath[MAXPATHLEN];
@@ -637,35 +674,48 @@ static int scansysfs(struct devlisthead *devlisthead, char *path)
 		if (namelist[n]->d_name[0] != '.') {
 			snprintf(newpath, sizeof(newpath),
 				 "%s/%s", path, namelist[n]->d_name);
-			if (!lstat(newpath, &sb)) {
 
-				if (S_ISDIR(sb.st_mode))
-					if (scansysfs(devlisthead, newpath) < 0)
-						return -1;
-
+			if (!lstat(newpath, &sb) && level)
 				if (S_ISLNK(sb.st_mode))
 					continue;
 
-				if (sysfs_is_dev(newpath, &maj, &min) > 0) {
-					startnode =
-					    alloc_list_obj(devlisthead, maj,
-							   min);
-					if (!startnode)
-						return -2;
+			has_holder = parent_holder;
 
-					startnode->sysfsattrs.sysfs = 1;
-					startnode->sysfsattrs.removable =
-					    sysfs_is_removable(newpath);
-					startnode->sysfsattrs.holders =
+			if (sysfs_is_dev(newpath, &maj, &min) > 0) {
+				startnode =
+				    alloc_list_obj(devlisthead, maj,
+						   min);
+				if (!startnode)
+					return -2;
+
+				startnode->sysfsattrs.sysfs = 1;
+				startnode->sysfsattrs.removable =
+				    sysfs_is_removable(newpath);
+
+				if (!parent_holder)
+					has_holder =
 					    sysfs_has_subdirs_entries(newpath,
 								      "holders");
-					startnode->sysfsattrs.slaves =
-					    sysfs_has_subdirs_entries(newpath,
-								      "slaves");
-					startnode->sysfsattrs.disk =
-					    sysfs_is_disk(newpath);
-				}
+
+				startnode->sysfsattrs.holders = has_holder;
+
+				startnode->sysfsattrs.slaves =
+				    sysfs_has_subdirs_entries(newpath,
+							      "slaves");
+				startnode->sysfsattrs.disk =
+				    sysfs_is_disk(newpath);
 			}
+
+			if (!stat(newpath, &sb) && !level)
+				if (S_ISDIR(sb.st_mode))
+					if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
+						return -1;
+
+			if (!lstat(newpath, &sb))
+				if (S_ISDIR(sb.st_mode))
+					if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
+						return -1;
+
 		}
 		free(namelist[n]);
 	}
@@ -714,7 +764,7 @@ struct devlisthead *scan_for_dev(struct devlisthead *devlisthead,
 	/* it's important we check those 3 errors and abort in case
 	 * as it means that we are running out of mem,
 	 */
-	devlisthead->sysfs = res = scansysfs(devlisthead, SYSBLOCKPATH);
+	devlisthead->sysfs = res = scansysfs(devlisthead, SYSBLOCKPATH, 0, 0);
 	if (res < -1)
 		goto emergencyout;
 
