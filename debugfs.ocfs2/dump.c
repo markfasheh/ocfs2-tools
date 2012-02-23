@@ -1090,17 +1090,18 @@ void dump_hb(FILE *out, char *buf, uint32_t len)
 	uint32_t i;
 	struct o2hb_disk_heartbeat_block *hb;
 
-	fprintf(out, "\t%4s: %4s %16s %16s %8s\n",
-		 "node", "node", "seq", "generation", "checksum");
+	fprintf(out, "\t%4s: %4s %16s %16s %8s %6s\n",
+		 "node", "node", "seq", "generation", "checksum", "deadms");
 	
 	for (i = 0; i < 255 && ((i + 1) * 512 < len); ++i) {
 		hb = (struct o2hb_disk_heartbeat_block *)(buf + (i * 512));
 		ocfs2_swap_disk_heartbeat_block(hb);
 		if (hb->hb_seq)
 			fprintf(out, "\t%4u: %4u %016"PRIx64" %016"PRIx64" "
-				 "%08"PRIx32"\n", i,
+				 "%08"PRIx32" %6u\n", i,
 				 hb->hb_node, (uint64_t)hb->hb_seq,
-				 (uint64_t)hb->hb_generation, hb->hb_cksum);
+				 (uint64_t)hb->hb_generation, hb->hb_cksum,
+				 hb->hb_dead_ms);
 	}
 
 	return ;

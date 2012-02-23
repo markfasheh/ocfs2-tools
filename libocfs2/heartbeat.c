@@ -39,6 +39,7 @@ void ocfs2_swap_disk_heartbeat_block(struct o2hb_disk_heartbeat_block *hb)
 	hb->hb_seq        = bswap_64(hb->hb_seq);
 	hb->hb_cksum      = bswap_32(hb->hb_cksum);
 	hb->hb_generation = bswap_64(hb->hb_generation);
+	hb->hb_dead_ms    = bswap_32(hb->hb_dead_ms);
 }
 
 errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
