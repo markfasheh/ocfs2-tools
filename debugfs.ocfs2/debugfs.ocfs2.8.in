@@ -229,8 +229,10 @@ Print the listing  of the files in the directory \fIfilespec\fR. The
 \fI\-l\fR flag will list files in the long format.
 
 .TP
-\fInet_stats [interval [count]]\fR
-Display net statistics.
+\fInet_stats [-f <file>] [interval [count]]\fR
+Display the net statistics. This command expects the debugfs filesystem to be
+mounted at \fI/sys/kernel/debug\fR. The \fIinterval\fR is in seconds. Use the
+\fI-f\fR parameter to specify a saved copy of /sys/kernel/debug/o2net/stats.
 
 .TP
 \fIncheck [<lockname>|<inode#>] ...\fR

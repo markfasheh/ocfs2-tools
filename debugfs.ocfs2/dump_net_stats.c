@@ -119,8 +119,9 @@ static void show_net_stats(FILE *out, struct net_stats *prev,
 #define CURRENT_O2NET_STATS_PROTO	1
 #define MAX_O2NET_STATS_STR_LEN		1024
 
-static int read_net_stats(const char *debugfs_path, struct net_stats *stats,
-			    int num_entries, unsigned long *proto)
+static int read_net_stats(const char *debugfs_path, char *path,
+			  struct net_stats *stats, int num_entries,
+			  unsigned long *proto)
 {
 	FILE *file = NULL;
 	char rec1[MAX_O2NET_STATS_STR_LEN], rec2[MAX_O2NET_STATS_STR_LEN];
@@ -129,11 +130,21 @@ static int read_net_stats(const char *debugfs_path, struct net_stats *stats,
 
 	memset(stats, 0, sizeof(struct net_stats) * num_entries);
 
-	ret = open_debugfs_file(debugfs_path, "o2net", NULL, "stats", &file);
-	if (ret) {
-		com_err(cmd, ret, "Could not open %s/o2net/stats\n",
-			debugfs_path);
-		goto bail;
+	if (!path) {
+		ret = open_debugfs_file(debugfs_path, "o2net", NULL, "stats",
+					&file);
+		if (ret) {
+			com_err(cmd, ret, "; could not open %s/o2net/stats",
+				debugfs_path);
+			goto bail;
+		}
+	} else {
+		file = fopen(path, "r");
+		if (!file) {
+			ret = errno;
+			com_err(cmd, ret, "\"%s\"", path);
+			goto bail;
+		}
 	}
 
 	while (fgets(rec1, sizeof(rec1), file)) {
@@ -196,7 +207,7 @@ bail:
 	return ret;
 }
 
-void dump_net_stats(FILE *out, int interval, int count)
+void dump_net_stats(FILE *out, char *path, int interval, int count)
 {
 	errcode_t ret;
 	char debugfs_path[PATH_MAX];
@@ -216,7 +227,8 @@ void dump_net_stats(FILE *out, int interval, int count)
 	memset(prev, 0 , sizeof(buf1));
 
 	do {
-		ret = read_net_stats(debugfs_path, curr, O2NM_MAX_NODES, &proto);
+		ret = read_net_stats(debugfs_path, path, curr, O2NM_MAX_NODES,
+				     &proto);
 		if (ret)
 			break;
 

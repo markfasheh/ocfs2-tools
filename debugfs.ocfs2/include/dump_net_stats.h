@@ -35,6 +35,6 @@ struct net_stats {
 	long long ns_proc_time;
 };
 
-void dump_net_stats(FILE *out, int interval, int count);
+void dump_net_stats(FILE *out, char *path, int interval, int count);
 
 #endif		/* _DUMP_NET_STATS_H_ */
