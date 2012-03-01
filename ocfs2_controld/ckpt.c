@@ -167,7 +167,7 @@ static int call_ckpt_open(struct ckpt_handle *handle, int write)
 			log_debug("Opened checkpoint \"%.*s\" with handle 0x%llx",
 				  handle->ch_name.length,
 				  handle->ch_name.value,
-				  handle->ch_handle);
+				  (unsigned long long)handle->ch_handle);
 			break;
 		}
 		if ((rc != -EAGAIN) &&
@@ -470,7 +470,7 @@ int ckpt_section_store(struct ckpt_handle *handle, const char *section,
 		return -EINVAL;
 	}
 	if (data_len > CKPT_MAX_SECTION_SIZE) {
-		log_error("Error: attempt to store %d bytes in a section "
+		log_error("Error: attempt to store %lu bytes in a section "
 			  "(max is %d)",
 			  data_len, CKPT_MAX_SECTION_SIZE);
 		return -EINVAL;
@@ -612,7 +612,7 @@ int setup_ckpt(void)
 		ais_err_to_errno(error, &rc, &reason);
 		if (!rc) {
 			log_debug("Connected to CKPT service with handle 0x%llx",
-				  daemon_handle);
+				  (unsigned long long)daemon_handle);
 			break;
 		}
 		if (rc != -EAGAIN) {

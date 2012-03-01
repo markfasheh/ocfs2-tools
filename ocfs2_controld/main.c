@@ -666,7 +666,7 @@ static int checkpoint_to_proto_version(char *data, size_t data_len,
 	if (data_len != sizeof(struct proto_version_str)) {
 		log_error("Protocol version string \"%.*s\" has incorrect "
 			  "length",
-			  data_len, data);
+			  (int)data_len, data);
 		return -EINVAL;
 	}
 	memcpy((char *)&str, data, data_len);
@@ -674,7 +674,7 @@ static int checkpoint_to_proto_version(char *data, size_t data_len,
 	if ((str.space != ' ') || (str.null != '\0')) {
 		log_error("Protocol version string \"%.*s\" has invalid "
 			  "separators",
-			  data_len, data);
+			  (int)data_len, data);
 		return -EINVAL;
 	}
 	str.space = '\0';
