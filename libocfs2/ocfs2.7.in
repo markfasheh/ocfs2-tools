@@ -761,29 +761,51 @@ amount of node number juggling will help you there.
 .TP
 \fBFILE DELETION\fR
 In Linux, rm(1) removes the directory entry. It does not necessarily delete the corresponding
-inode. By removing the directory entry, it gives the illusion that the inode has been deleted.
+inode. But by removing the directory entry, it gives the illusion that the inode has been deleted.
 This puzzles users when they do not see a corresponding up-tick in the reported free space.
 The reason is that inode deletion has a few more hurdles to cross.
 
-First is the hard link count. This indicates the number of directory entries pointing to that
-inode. As long as a directory entry is linked to that inode, it cannot be deleted. The file
-system has to wait for that count to drop to zero.
+First is the hard link count, that indicates the number of directory entries pointing to that
+inode. As long as an inode has one or more directory entries pointing to it, it cannot be deleted.
+The file system has to wait for the removal of all those directory entries. In other words, wait
+for that count to drop to zero.
 
 The second hurdle is the POSIX semantics allowing files to be unlinked even while they are
-in use. In OCFS2, that translates to in use across the cluster. The file system has to wait
+in-use. In OCFS2, that translates to in-use across the cluster. The file system has to wait
 for all processes across the cluster to stop using the inode.
 
-Once these two conditions are met, the inode is deleted and the freed bits are flushed to
-disk on the next sync.
+Once these conditions are met, the inode is deleted and the freed space is visible after the
+next sync.
 
-This assumes that the inode was not reflinked. If it was, then the deletion would only
-release space that was private to the inode. Shared space would only be released when
-the last inode using it is deleted.
+Now the amount of space freed depends on the allocation. Only space that is actually allocated
+to that inode is freed. The example below shows a sparsely allocated file of size 51TB of which
+only 2.4GB is actually allocated.
 
-Users interested in following the trail can use debugfs.ocfs2(8) to view the node specific
-system files orphan_dir and truncate_log. Once the link count is zero, an inode is moved
-to the orphan_dir. After deletion, the freed bits are added to the truncate_log, where
-they remain until the next sync, during which the bits are flushed to the global bitmap.
+.nf
+.ft 6
+$ ls -lsh largefile 
+2.4G -rw-r--r-- 1 mark mark 51T Sep 29 15:04 largefile
+.ft
+.fi
+
+Furthermore, for reflinked files, only private extents are freed. Shared extents are freed
+when the last inode accessing it, is deleted. The example below shows a 4GB file that shares
+3GB with other reflinked files. Deleting it will increase the free space by 1GB. However, if
+it is the only remaining file accessing the shared extents, the full 4G will be freed.
+(More information on the shared-du(1) utility is provided below.)
+
+.nf
+.ft 6
+$ shared-du -m -c --shared-size reflinkedfile
+4000    (3000)  reflinkedfile
+.ft
+.fi
+
+The deletion itself is a multi-step process. Once the hard link count falls to zero, the
+inode is moved to the orphan_dir system directory where it remains until the last process,
+across the cluster, stops using the inode. Then the file system frees the extents and adds
+the freed space count to the truncate_log system file where it remains until the next sync.
+The freed space is made visible to the user only after that sync.
 
 .TP
 \fBDIRECTORY LISTING\fR
@@ -791,8 +813,7 @@ ls(1) may be a simple command, but it is not cheap. What is expensive is not the
 where it reads the directory listing, but the second part where it reads all the inodes, also
 referred as an inode stat(2). If the inodes are not in cache, this can entail disk I/O.
 Now, while a cold cache inode stat(2) is expensive in all file systems, it is especially so in
-a clustered file system. It needs to take a lock on each node, pure overhead when
-compared to a local file system.
+a clustered file system as it needs to take a cluster lock on each inode.
 
 A hot cache stat(2), on the other hand, has shown to perform on OCFS2 like it does on
 EXT3.
