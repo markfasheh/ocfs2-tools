@@ -315,7 +315,6 @@ static JConfig *j_config_parse_any(JConfigCtxt *cfc,
 static void j_config_parse_base(GScanner *scanner, JConfigCtxt *cfc)
 {
     gboolean done;
-    gchar *toknam;
     GTokenValue *value;
     
     value = &scanner->next_value;
@@ -369,11 +368,9 @@ static void j_config_parse_base(GScanner *scanner, JConfigCtxt *cfc)
                 /* Another one I don't think I should get */
                 break;
             case G_TOKEN_IDENTIFIER:
-                toknam = "G_TOKEN_IDENTIFIER";
                 j_config_parse_stanza_name(scanner, cfc);
                 break;
             default:
-                toknam = "NONE";
                 if (cfc->verbose)
                     g_warning("Unknown token\n");
                 cfc->error = TRUE;
@@ -1060,7 +1057,6 @@ JConfigStanza *j_config_add_stanza(JConfig *cf,
 {
     JConfigStanza *cfs;
     GList *elem;
-    GList *tmp;
 
     g_return_val_if_fail(cf != NULL, NULL);
     g_return_val_if_fail(stanza_name != NULL, NULL);
@@ -1086,8 +1082,6 @@ JConfigStanza *j_config_add_stanza(JConfig *cf,
                             g_strdup(stanza_name),
                             elem);
     }
-    else
-        tmp = g_list_append(elem, cfs);
 
     return(cfs);
 }  /* j_config_add_stanza() */
