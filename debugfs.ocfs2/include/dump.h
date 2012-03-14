@@ -42,6 +42,7 @@ void dump_extent_list (FILE *out, struct ocfs2_extent_list *ext);
 void dump_chain_list (FILE *out, struct ocfs2_chain_list *cl);
 void dump_extent_block (FILE *out, struct ocfs2_extent_block *blk);
 void dump_group_descriptor (FILE *out, struct ocfs2_group_desc *grp, int index);
+void dump_group_extents(FILE *out, struct ocfs2_group_desc *grp);
 int  dump_dir_entry (struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset, int blocksize,
 		     char *buf, void *priv_data);
 void dump_dx_root (FILE *out, struct ocfs2_dx_root_block *dx_root);

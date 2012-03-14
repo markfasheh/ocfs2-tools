@@ -64,6 +64,7 @@ static void do_extent(char **args);
 static void do_frag(char **args);
 static void do_fs_locks(char **args);
 static void do_group(char **args);
+static void do_grpextents(char **args);
 static void do_hb(char **args);
 static void do_help(char **args);
 static void do_icheck(char **args);
@@ -187,6 +188,11 @@ static struct command commands[] = {
 		do_group,
 		"group <block#>",
 		"Show chain group",
+	},
+	{ "grpextents",
+		do_grpextents,
+		"grpextents <block#>",
+		"Show free extents in a chain group",
 	},
 	{ "hb",
 		do_hb,
@@ -1241,6 +1247,36 @@ static void do_group(char **args)
 	close_pager(out);
 
 	return ;
+}
+
+static void do_grpextents(char **args)
+{
+	struct ocfs2_group_desc *grp;
+	uint64_t blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+
+	if (process_inodestr_args(args, 1, &blkno) != 1)
+		return;
+
+	buf = gbls.blockbuf;
+	out = open_pager(gbls.interactive);
+	while (blkno) {
+		ret = ocfs2_read_group_desc(gbls.fs, blkno, buf);
+		if (ret) {
+			com_err(args[0], ret, "while reading block group "
+				"descriptor %"PRIu64"", blkno);
+			close_pager(out);
+			return;
+		}
+
+		grp = (struct ocfs2_group_desc *)buf;
+		dump_group_extents(out, grp);
+		blkno = grp->bg_next_group;
+	}
+
+	close_pager(out);
 }
 
 static int dirblocks_proxy(ocfs2_filesys *fs, uint64_t blkno,
