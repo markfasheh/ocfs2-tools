@@ -26,6 +26,8 @@
 #ifndef _OCFS2_HEARTBEAT_H
 #define _OCFS2_HEARTBEAT_H
 
+#define O2HB_PAYLOAD_SIZE	32
+
 struct o2hb_disk_heartbeat_block {
 	__le64 hb_seq;
 	__u8  hb_node;
@@ -33,6 +35,7 @@ struct o2hb_disk_heartbeat_block {
 	__le32 hb_cksum;
 	__le64 hb_generation;
 	__le32 hb_dead_ms;
+	__u8  hb_payload[O2HB_PAYLOAD_SIZE];
 };
 
 #endif /* _OCFS2_HEARTBEAT_H */
