@@ -429,12 +429,11 @@ static struct ocfs2_path *ocfs2_new_path(char *buf,
 					 struct ocfs2_extent_list *root_el,
 					 uint64_t blkno)
 {
-	errcode_t ret = 0;
 	struct ocfs2_path *path = NULL;
 
 	assert(root_el->l_tree_depth < OCFS2_MAX_PATH_DEPTH);
 
-	ret = ocfs2_malloc0(sizeof(*path), &path);
+	ocfs2_malloc0(sizeof(*path), &path);
 	if (path) {
 		path->p_tree_depth = root_el->l_tree_depth;
 		path->p_node[0].blkno = blkno;
@@ -1422,14 +1421,9 @@ static errcode_t ocfs2_rotate_subtree_right(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	int i;
-	char *right_leaf_eb;
-	char *left_leaf_eb = NULL;
 	struct ocfs2_extent_list *right_el, *left_el;
 	struct ocfs2_extent_rec move_rec;
-	struct ocfs2_extent_block *eb;
 
-	left_leaf_eb = path_leaf_buf(left_path);
-	eb = (struct ocfs2_extent_block *)left_leaf_eb;
 	left_el = path_leaf_el(left_path);
 
 	if (left_el->l_next_free_rec != left_el->l_count)
@@ -1445,7 +1439,6 @@ static errcode_t ocfs2_rotate_subtree_right(ocfs2_filesys *fs,
 	assert(left_path->p_node[subtree_index].blkno ==
 	       right_path->p_node[subtree_index].blkno);
 
-	right_leaf_eb = path_leaf_buf(right_path);
 	right_el = path_leaf_el(right_path);
 
 	ocfs2_create_empty_extent(right_el);
@@ -1799,10 +1792,7 @@ static errcode_t ocfs2_unlink_subtree(ocfs2_filesys *fs,
 	errcode_t ret;
 	int i;
 	struct ocfs2_extent_list *root_el = left_path->p_node[subtree_index].el;
-	struct ocfs2_extent_list *el;
 	struct ocfs2_extent_block *eb;
-
-	el = path_leaf_el(left_path);
 
 	eb = (struct ocfs2_extent_block *)right_path->p_node[subtree_index + 1].buf;
 
@@ -1834,7 +1824,6 @@ static int ocfs2_rotate_subtree_left(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	int i, del_right_subtree = 0, right_has_empty = 0;
-	char *root_buf;
 	struct ocfs2_extent_list *right_leaf_el, *left_leaf_el;
 	struct ocfs2_extent_block *eb;
 
@@ -1842,7 +1831,6 @@ static int ocfs2_rotate_subtree_left(ocfs2_filesys *fs,
 
 	right_leaf_el = path_leaf_el(right_path);
 	left_leaf_el = path_leaf_el(left_path);
-	root_buf = left_path->p_node[subtree_index].buf;
 	assert(left_path->p_node[subtree_index].blkno ==
 	       right_path->p_node[subtree_index].blkno);
 
@@ -3763,7 +3751,6 @@ static int ocfs2_split_extent(struct insert_ctxt *insert_ctxt,
 	char *last_eb_buf = NULL;
 	struct ocfs2_extent_rec *rec = &el->l_recs[split_index];
 	struct ocfs2_merge_ctxt merge_ctxt;
-	struct ocfs2_extent_list *rightmost_el;
 	ocfs2_filesys *fs = insert_ctxt->fs;
 
 	if (rec->e_cpos > split_rec.e_cpos ||
@@ -3791,18 +3778,12 @@ static int ocfs2_split_extent(struct insert_ctxt *insert_ctxt,
 	 * rightmost extent list.
 	 */
 	if (path->p_tree_depth) {
-		struct ocfs2_extent_block *eb;
 		ret = ocfs2_read_extent_block(fs,
 				ocfs2_et_get_last_eb_blk(insert_ctxt->et),
 				last_eb_buf);
 		if (ret)
 			goto out;
-
-		eb = (struct ocfs2_extent_block *) last_eb_buf;
-
-		rightmost_el = &eb->h_list;
-	} else
-		rightmost_el = path_root_el(path);
+	}
 
 	if (rec->e_cpos == split_rec.e_cpos &&
 	    rec->e_leaf_clusters == split_rec.e_leaf_clusters)
@@ -4030,7 +4011,7 @@ static int ocfs2_truncate_rec(ocfs2_filesys *fs,
 {
 	errcode_t ret;
 	uint32_t left_cpos, rec_range, trunc_range;
-	int wants_rotate = 0, is_rightmost_tree_rec = 0;
+	int is_rightmost_tree_rec = 0;
 	struct ocfs2_path *left_path = NULL;
 	struct ocfs2_extent_list *el = path_leaf_el(path);
 	struct ocfs2_extent_rec *rec;
@@ -4096,7 +4077,6 @@ static int ocfs2_truncate_rec(ocfs2_filesys *fs,
 
 		memset(rec, 0, sizeof(*rec));
 		ocfs2_cleanup_merge(el, index);
-		wants_rotate = 1;
 
 		next_free = el->l_next_free_rec;
 		if (is_rightmost_tree_rec && next_free > 1) {
