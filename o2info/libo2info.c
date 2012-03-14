@@ -405,7 +405,7 @@ static int do_fiemap(int fd, int flags, struct o2info_fiemap *ofp)
 	char buf[4096];
 
 	int ret = 0, last = 0;
-	int cluster_shift = 0, blk_shift = 0;
+	int cluster_shift = 0;
 	int count = (sizeof(buf) - sizeof(struct fiemap)) /
 		     sizeof(struct fiemap_extent);
 
@@ -418,9 +418,6 @@ static int do_fiemap(int fd, int flags, struct o2info_fiemap *ofp)
 
 	if (ofp->clustersize)
 		cluster_shift = ul_log2(ofp->clustersize);
-
-	if (ofp->blocksize)
-		blk_shift = ul_log2(ofp->blocksize);
 
 	memset(fiemap, 0, sizeof(*fiemap));
 
