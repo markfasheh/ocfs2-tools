@@ -43,7 +43,6 @@
 
 int			our_nodeid = 0;
 static int		pcmk_ci;
-static int		stonithd_ci;
 static char *		clustername = "pacemaker";
 extern struct list_head mounts;
 const char *stackname = "pcmk";
