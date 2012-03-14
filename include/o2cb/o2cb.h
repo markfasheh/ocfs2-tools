@@ -131,6 +131,14 @@ void o2cb_free_hb_regions_list(char **regions);
 errcode_t o2cb_global_heartbeat_mode(char *cluster_name, int *global);
 errcode_t o2cb_set_heartbeat_mode(char *cluster_name, char *mode);
 
+errcode_t o2cb_set_heartbeat_dead_threshold(char *cluster_name, char *value);
+
+errcode_t o2cb_set_idle_timeout(char *cluster_name, char *timeout);
+
+errcode_t o2cb_set_keepalive_delay(char *cluster_name, char *delay);
+
+errcode_t o2cb_set_reconnect_delay(char *cluster_name, char *delay);
+
 errcode_t o2cb_control_daemon_debug(char **debug);
 
 struct o2cb_cluster_desc {

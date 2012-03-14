@@ -220,8 +220,7 @@ bail:
 	return ret;
 }
 
-static errcode_t register_heartbeat_mode(O2CBCluster *cluster,
-					 gchar *clustername)
+static errcode_t register_heartbeat_mode(O2CBCluster *cluster, gchar *clustername)
 {
 	errcode_t ret;
 	gchar *hbmode = NULL;

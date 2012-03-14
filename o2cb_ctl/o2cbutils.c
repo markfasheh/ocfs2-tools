@@ -76,3 +76,14 @@ int is_heartbeat_active(char *clustername)
 bail:
 	return active;
 }
+
+errcode_t get_running_cluster(struct o2cb_cluster_desc *desc)
+{
+	errcode_t ret;
+
+	ret = o2cb_init();
+	if (!ret)
+		ret = o2cb_running_cluster_desc(desc);
+
+	return ret;
+}

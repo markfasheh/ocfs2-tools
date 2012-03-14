@@ -110,6 +110,14 @@ if global heartbeat has not been enabled.
 Shows whether the given cluster is offline or online. If no cluster is provided,
 it shows the currently active cluster, if any.
 
+.TP
+\fBonline-cluster\fR \fIcluster-name\fR
+Online the given cluster.
+
+.TP
+\fBoffline-cluster\fR \fIcluster-name\fR
+Offline the given cluster.
+
 .SH "EXAMPLE"
 
 To create a cluster, mycluster having two nodes, node1 and node2, do:

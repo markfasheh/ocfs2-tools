@@ -28,7 +28,8 @@ DEFINES = -DVERSION=\"$(VERSION)\"
 O2CB_CONFIG_CFILES = o2cb_config.c jconfig.c jiterator.c
 O2CB_CTL_CFILES = ${O2CB_CONFIG_CFILES} o2cb_ctl.c
 O2CB_CFILES = ${O2CB_CONFIG_CFILES} o2cbtool.c op_cluster.c op_node.c op_heartbeat.c \
-		op_lists.c op_register.c op_start.c o2cb_scandisk.c op_status.c o2cbutils.c
+		op_lists.c op_register.c op_start.c o2cb_scandisk.c op_status.c op_online.c \
+		o2cbutils.c
 
 O2CB_CTL_OBJS = $(subst .c,.o,$(O2CB_CTL_CFILES))
 O2CB_OBJS = $(subst .c,.o,$(O2CB_CFILES))
@@ -56,6 +57,7 @@ op_register_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 op_start_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 o2cb_scandisk_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 op_status_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
+op_online_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 o2cbutils_CPPFLAGS = $(GLIB_CFLAGS) -DG_DISABLE_DEPRECATED
 
 o2cb_ctl: $(O2CB_CTL_OBJS) $(LIBOCFS2_DEPS) $(LIBO2CB_DEPS)

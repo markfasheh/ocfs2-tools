@@ -41,6 +41,11 @@
 #define O2CB_FORMAT_HEARTBEAT_REGION_ATTR	O2CB_FORMAT_HEARTBEAT_REGION "/%s"
 #define O2CB_FORMAT_HEARTBEAT_MODE	O2CB_FORMAT_HEARTBEAT_DIR "/mode"
 
+#define O2CB_FORMAT_DEAD_THRESHOLD	O2CB_FORMAT_HEARTBEAT_DIR "/dead_threshold"
+#define O2CB_FORMAT_IDLE_TIMEOUT	O2CB_FORMAT_CLUSTER "/idle_timeout_ms"
+#define O2CB_FORMAT_KEEPALIVE_DELAY	O2CB_FORMAT_CLUSTER "/keepalive_delay_ms"
+#define O2CB_FORMAT_RECONNECT_DELAY	O2CB_FORMAT_CLUSTER "/reconnect_delay_ms"
+
 /*
  * Cluster info flags (ocfs2_cluster_info.ci_stackflags)
  */

@@ -89,6 +89,9 @@ errcode_t o2cbtool_stop_heartbeat(struct o2cb_command *cmd);
 
 errcode_t o2cbtool_cluster_status(struct o2cb_command *cmd);
 
+errcode_t o2cbtool_online_cluster(struct o2cb_command *cmd);
+errcode_t o2cbtool_offline_cluster(struct o2cb_command *cmd);
+
 void o2cbtool_block_signals(int how);
 
 /* utility functions */

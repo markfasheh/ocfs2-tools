@@ -126,6 +126,18 @@ struct o2cb_command o2cbtool_cmds[] = {
 		.o_help = "Returns 0 if cluster online, 1 otherwise.",
 	},
 	{
+		.o_name = "online-cluster",
+		.o_action = o2cbtool_online_cluster,
+		.o_usage = "[<clustername>]",
+		.o_help = "Online cluster",
+	},
+	{
+		.o_name = "offline-cluster",
+		.o_action = o2cbtool_offline_cluster,
+		.o_usage = "[<clustername>]",
+		.o_help = "Offline cluster",
+	},
+	{
 		.o_name = NULL,
 		.o_action = NULL,
 	},
