@@ -51,7 +51,6 @@ static void add_entry_to_directory(State *s, DirData *dir, char *name,
 static uint32_t blocks_needed(State *s);
 static uint32_t sys_blocks_needed(uint32_t num_slots);
 static uint32_t system_dir_blocks_needed(State *s);
-static void check_32bit_blocks(State *s);
 static void format_superblock(State *s, SystemFileDiskRecord *rec,
 			      SystemFileDiskRecord *root_rec,
 			      SystemFileDiskRecord *sys_rec);
@@ -601,9 +600,7 @@ main(int argc, char **argv)
 
 	create_generation(s);
 
-	print_state (s);
-
-	check_32bit_blocks(s);
+	print_state(s);
 
 	if (s->dry_run) {
 		close_device(s);
@@ -1606,9 +1603,9 @@ fill_defaults(State *s)
 			uint64_t dev_size = 0;
 
 			if ((ret * blocksize) > (2 * 1024 * 1024)) {
-				fprintf(stderr,
-					"%s: Warning: Volume larger than required for a heartbeat device\n",
-					s->progname);
+				fprintf(stderr, "%s: Warning: Volume larger "
+					"than 2MB not required for a heartbeat "
+					"device\n", s->progname);
 			}
 
 			/* Blocks for system dir, root dir,
@@ -1639,7 +1636,7 @@ fill_defaults(State *s)
 				com_err(s->progname, 0,
 					"%"PRIu64" blocks were specified and "
 					"this is greater than the %"PRIu64" "
-					"blocks that make up %s.\n", 
+					"blocks that make up %s.", 
 					s->specified_size_in_blocks,
 					s->volume_size_in_blocks, 
 					s->device_name);
@@ -1708,13 +1705,6 @@ fill_defaults(State *s)
 	s->nr_cluster_groups = cgs.cgs_cluster_groups;
 	s->tail_group_bits = cgs.cgs_tail_group_bits;
 
-#if 0
-	printf("volume_size_in_clusters = %u\n", s->volume_size_in_clusters);
-	printf("global_cpg = %u\n", s->global_cpg);
-	printf("nr_cluster_groups = %u\n", s->nr_cluster_groups);
-	printf("tail_group_bits = %u\n", s->tail_group_bits);
-#endif
-
 	if (s->hb_dev)
 		s->initial_slots = 0;
 
@@ -1733,6 +1723,25 @@ fill_defaults(State *s)
 	s->journal_size_in_bytes = figure_journal_size(s->journal_size_in_bytes, s);
 
 	s->extent_alloc_size_in_clusters = figure_extent_alloc_size(s);
+
+
+	/* To be or not to be.... a 64-bit journal */
+	if (s->journal64)
+		return;
+
+	if (s->volume_size_in_blocks >= UINT32_MAX) {
+		com_err(s->progname, EFBIG, "Volumes larger than 4 billion "
+			"blocks need to enable 64-bit journals. "
+			"Re-run with \"-J block64\".");
+		exit(1);
+	}
+
+#define ONE_TERA_BYTE		(__UINT64_C(1099511627776))
+	if (s->volume_size_in_blocks >= ONE_TERA_BYTE) {
+		com_err(s->progname, 0, "WARNING: Large volumes should enable "
+			"64-bit journals to allow for online resizing beyond "
+			"16TB. To enable, re-run with \"-J block64\".");
+	}
 }
 
 static int
@@ -2270,28 +2279,6 @@ adjust_volume_size(State *s)
 /* this will go away once we have patches to jbd to support 64bit blocks.
  * ocfs2 will only fail mounts when it finds itself asked to mount a large
  * device in a kernel that doesn't have a smarter jbd. */
-static void
-check_32bit_blocks(State *s)
-{
-	uint64_t max = UINT32_MAX;
-       
-	if (s->journal64)
-		return;
-
-	if (s->volume_size_in_blocks <= max)
-		return;
-
-	fprintf(stderr, "ERROR: jbd can only store block numbers in 32 bits. "
-		"%s can hold %"PRIu64" blocks which overflows this limit. If "
-		"you have a new enough Ocfs2 with JBD2 support, you can try "
-		"formatting with the \"-Jblock64\" option to turn on support "
-		"for this size block device.\n"
-		"Otherwise, consider increasing the block size or "
-		"decreasing the device size.\n",
-		s->device_name, s->volume_size_in_blocks);
-
-	exit(1);
-}
 
 static void mkfs_swap_inode_from_cpu(State *s, struct ocfs2_dinode *di)
 {
@@ -2572,7 +2559,7 @@ format_file(State *s, SystemFileDiskRecord *rec)
 		if (dir_len >
 		    ocfs2_max_inline_data_with_xattr(s->blocksize, di)) {
 			com_err(s->progname, 0,
-				"Inline a dir which shouldn't be inline.\n");
+				"Inline a dir which shouldn't be inline.");
 			clear_both_ends(s);
 			exit(1);
 		}
@@ -2876,8 +2863,8 @@ print_state(State *s)
 	if (s->hb_dev)
 		printf("Heartbeat device\n");
 	else
-		printf("Journal size: %"PRIu64"\n",
-		       s->journal_size_in_bytes);
+		printf("Journal size: %"PRIu64" (%d-bit journal)\n",
+		       s->journal_size_in_bytes, (s->journal64 ? 64 : 32));
 	printf("Node slots: %u\n", s->initial_slots);
 }
 
