@@ -54,6 +54,7 @@ static void do_curdev(char **args);
 static void do_decode_lockres(char **args);
 static void do_dirblocks(char **args);
 static void do_dlm_locks(char **args);
+static void do_dlm_stats(char **args);
 static void do_dump(char **args);
 static void do_dx_dump(char **args);
 static void do_dx_leaf(char **args);
@@ -133,6 +134,11 @@ static struct command commands[] = {
 		do_dlm_locks,
 		"dlm_locks [-f <file>] [-l] lockname",
 		"Show live dlm locking state",
+	},
+	{ "dlm_stats",
+		do_dlm_stats,
+		"dlm_stats [interval [count]]",
+		"Show dlm statistics",
 	},
 	{ "dump",
 		do_dump,
@@ -2273,4 +2279,23 @@ static void do_stat_sysdir(char **args)
 
 bail:
 	return ;
+}
+
+static void do_dlm_stats(char **args)
+{
+	int interval = 0, count = 0;
+	char *dlm_stats_usage = "usage: dlm_stats [interval [count]]";
+	char *endptr;
+
+	if (args[1]) {
+		interval = strtoul(args[1], &endptr, 0);
+		if (!*endptr && args[2])
+			count = strtoul(args[2], &endptr, 0);
+		if (*endptr) {
+			fprintf(stderr, "%s\n", dlm_stats_usage);
+			return ;
+		}
+	}
+
+	dump_dlm_stats(stdout, gbls.fs->uuid_str, interval, count);
 }

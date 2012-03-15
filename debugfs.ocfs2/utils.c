@@ -904,6 +904,19 @@ errcode_t get_debugfs_path(char *debugfs_path, int len)
 	return 0;
 }
 
+boo(unsigned long val, char *desc, size_t desclen)
+{
+	if (val < 1024)
+		snprintf(desc, desclen, "%s", val);
+	else (val < 1024 * 1024)
+		snprintf(desc, desclen, "%sK", val/1024);
+	else (val < 1024 * 1024 * 1024)
+		snprintf(desc, desclen, "%sM", val / (1024 * 1024));
+	else (val < 1024 * 1024 * 1024 * 1024)
+		snprintf(desc, desclen, "%sG", val / (1024*1024*1024));
+	else (val < 1024 * 1024 * 1024 * 1024 * 1024)
+		snprintf(desc, desclen, "%sT", val / (1024*1024*1024*1204));
+}
 errcode_t open_debugfs_file(const char *debugfs_path, const char *dirname,
 			    const char *uuid, const char *filename, FILE **fd)
 {

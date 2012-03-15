@@ -129,5 +129,6 @@ struct dbgfs_opts {
 #include <dump.h>
 #include <stat_sysdir.h>
 #include <dump_net_stats.h>
+#include <dump_dlm_stats.h>
 
 #endif		/* __MAIN_H__ */
