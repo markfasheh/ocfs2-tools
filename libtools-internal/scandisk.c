@@ -675,9 +675,12 @@ static int scansysfs(struct devlisthead *devlisthead, const char *path, int leve
 			snprintf(newpath, sizeof(newpath),
 				 "%s/%s", path, namelist[n]->d_name);
 
+			/* newer version of sysfs has symlinks follow them */
 			if (!lstat(newpath, &sb) && level)
 				if (S_ISLNK(sb.st_mode))
-					continue;
+					if (!stat(newpath, &sb))
+						if (S_ISBLK(sb.st_mode))
+							continue;
 
 			has_holder = parent_holder;
 
