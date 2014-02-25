@@ -177,7 +177,9 @@ static errcode_t determine_stack(void)
 	ssize_t len;
 	char line[100];
 	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	int setup_performed = 0;
 
+redo:
 	len = read_stack_file(line, sizeof(line));
 	if (len > 0) {
 		if (line[len - 1] == '\n') {
@@ -197,8 +199,11 @@ static errcode_t determine_stack(void)
 			err = 0;
 		}
 	} else if (len == -ENOENT) {
-		current_stack = &classic_stack;
-		err = 0;
+		if (!setup_performed) {
+			o2cb_setup_stack(OCFS2_CLASSIC_CLUSTER_STACK);
+			setup_performed = 1;
+			goto redo;
+		}
 	}
 
 	return err;
