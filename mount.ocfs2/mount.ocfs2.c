@@ -358,6 +358,12 @@ int main(int argc, char **argv)
 	if (verbose)
 		printf("device=%s\n", mo.dev);
 
+	ret = o2cb_setup_stack((char *)OCFS2_RAW_SB(fs->fs_super)->s_cluster_info.ci_stack);
+	if (ret) {
+		com_err(progname, ret, "while setting up stack\n");
+		goto bail;
+	}
+
 	if (clustered) {
 		ret = o2cb_init();
 		if (ret) {

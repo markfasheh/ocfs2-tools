@@ -208,5 +208,6 @@ void o2cb_control_close(void);
 errcode_t o2cb_control_node_down(const char *uuid, unsigned int nodeid);
 
 errcode_t o2cb_get_hb_ctl_path(char *buf, int count);
+errcode_t o2cb_setup_stack(char *stack_name);
 
 #endif  /* _O2CB_H */

@@ -29,6 +29,7 @@
 #include <sys/ioctl.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
+#include <sys/wait.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -142,6 +143,22 @@ static ssize_t read_single_line_file(const char *file, char *line,
 	f = fopen(file, "r");
 	if (f) {
 		if (fgets(line, count, f))
+			ret = strlen(line);
+		fclose(f);
+	} else
+		ret = -errno;
+
+	return ret;
+}
+
+static int write_single_line_file(char *filename, char *line, size_t count)
+{
+	ssize_t ret = 0;
+	FILE *f;
+
+	f = fopen(filename, "w");
+	if (f) {
+		if (fputs(line, f))
 			ret = strlen(line);
 		fclose(f);
 	} else
@@ -2581,4 +2598,93 @@ errcode_t o2cb_get_hb_ctl_path(char *buf, int count)
 	close(fd);
 
 	return 0;
+}
+
+#define MODPROBE_COMMAND	"/sbin/modprobe"
+#define USER_KERNEL_MODULE	"ocfs2_stack_user"
+#define O2CB_KERNEL_MODULE	"ocfs2_stack_o2cb"
+
+static int perform_modprobe(char *module_name)
+{
+	pid_t child;
+	int child_status;
+
+	char *argv[3];
+
+	argv[0] = MODPROBE_COMMAND;
+	argv[1] = module_name;
+	argv[2] = NULL;
+
+	child = fork();
+	if (child == 0) {
+		execv(MODPROBE_COMMAND, argv);
+		/* If execv fails, we have a problem */
+		return -EINVAL;
+	} else
+		wait(&child_status);
+
+	return child_status;
+}
+
+errcode_t o2cb_setup_stack(char *stack_name)
+{
+	char line[64];
+	int modprobe_performed = 0, write_performed = 0;
+	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
+	int len;
+
+redo:
+	len = read_single_line_file(CLUSTER_STACK_FILE, line, sizeof(line));
+
+	if (len > 0) {
+		if (line[len - 1] == '\n') {
+			line[len - 1] = '\0';
+			len--;
+		}
+
+		if (len != OCFS2_STACK_LABEL_LEN) {
+			err = O2CB_ET_INTERNAL_FAILURE;
+			goto out;
+		}
+
+		if (!strncmp(line, stack_name, OCFS2_STACK_LABEL_LEN)) {
+			err = 0;
+			goto out;
+		}
+
+		if (!write_performed) {
+			len = write_single_line_file(CLUSTER_STACK_FILE,
+					stack_name, strlen(stack_name));
+			if (len < 0)
+				goto out;
+			write_performed = 1;
+			goto redo;
+		}
+
+	} else if (len == -ENOENT) {
+		if (!modprobe_performed) {
+			perform_modprobe("ocfs2");
+			if ((!strncmp(stack_name, OCFS2_PCMK_CLUSTER_STACK,
+						OCFS2_STACK_LABEL_LEN)) ||
+				(!strncmp(stack_name, OCFS2_CMAN_CLUSTER_STACK,
+						OCFS2_STACK_LABEL_LEN)))
+				perform_modprobe(USER_KERNEL_MODULE);
+			else if (!strncmp(stack_name, classic_stack.s_name,
+						OCFS2_STACK_LABEL_LEN))
+				perform_modprobe(O2CB_KERNEL_MODULE);
+
+			write_single_line_file(CLUSTER_STACK_FILE, stack_name,
+					OCFS2_STACK_LABEL_LEN);
+			write_performed = 1;
+			goto redo;
+		} else
+			err = O2CB_ET_INTERNAL_FAILURE;
+	} else {
+		err = O2CB_ET_INTERNAL_FAILURE;
+		goto out;
+	}
+
+	err = 0;
+out:
+	return err;
 }
