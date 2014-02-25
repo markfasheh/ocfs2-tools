@@ -11,6 +11,11 @@ LIBRARIES = libo2cb.a
 
 CFLAGS += -fPIC
 
+ifneq ($(BUILD_CMAP_SUPPORT),)
+DEFINES += -DHAVE_CMAP
+endif
+
+
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
 DEBUG_EXE_PROGRAMS = $(addprefix debug_,$(subst .c,,$(DEBUG_EXE_FILES)))

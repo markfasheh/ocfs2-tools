@@ -37,6 +37,9 @@
 #include <ctype.h>
 
 #include <linux/types.h>
+#ifdef HAVE_CMAP
+#include <corosync/cmap.h>
+#endif
 
 #include "o2cb/o2cb.h"
 #include "o2cb/o2cb_client_proto.h"
@@ -1962,6 +1965,30 @@ static errcode_t classic_list_clusters(char ***clusters)
 	return o2cb_list_dir(path, clusters);
 }
 
+#ifdef HAVE_CMAP
+static errcode_t user_list_clusters(char ***clusters)
+{
+	cmap_handle_t handle;
+	char **list;
+	int rv;
+
+	rv = cmap_initialize(&handle);
+	if (rv != CS_OK)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	/* We supply only one cluster_name */
+	list = (char **)malloc(sizeof(char *) * 2);
+	rv = cmap_get_string(handle, "totem.cluster_name", &list[0]);
+	if (rv != CS_OK) {
+		free(list);
+		return O2CB_ET_INTERNAL_FAILURE;
+	}
+
+	list[1] = NULL;
+	*clusters = list;
+	return 0;
+}
+#else
 static errcode_t user_list_clusters(char ***clusters)
 {
 	errcode_t err = O2CB_ET_SERVICE_UNAVAILABLE;
@@ -2011,6 +2038,7 @@ out:
 
 	return err;
 }
+#endif
 
 errcode_t o2cb_list_clusters(char ***clusters)
 {

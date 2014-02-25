@@ -382,6 +382,25 @@ if test "x$cpg_found" = "xyes" -a "x$ckpt_found" = "xyes" -a "x$libdlmcontrol_fo
 fi
 AC_SUBST(BUILD_OCFS2_CONTROLD)
 
+LIBCMAP_FOUND=
+AC_CHECK_HEADER(corosync/cmap.h, LIBCMAP_FOUND=yes,
+  [AC_MSG_WARN([corosync/cmap.h not found, cmap support will not be built. Older api will be used])])
+AC_SUBST(LIBCMAP_FOUND)
+
+fsdlm_found=
+if test "x$LIBCMAP_FOUND" = "xyes"; then
+  AC_CHECK_LIB(cmap, cmap_initialize, cmap_found=yes)
+  if test "x$cmap_found" = "xyes"; then
+    AC_MSG_WARN([libcmap not found, cmap support will not be built. Older api will be used])
+  fi
+fi
+
+BUILD_CMAP_SUPPORT=
+if test "x$cmap_found" = "xyes"; then
+  BUILD_CMAP_SUPPORT=yes
+fi
+AC_SUBST(BUILD_CMAP_SUPPORT)
+
 BUILD_PCMK_SUPPORT=
 if test "x$pcmk_found" = "xyes" -a "x$BUILD_OCFS2_CONTROLD" = "xyes"; then
   BUILD_PCMK_SUPPORT=yes
