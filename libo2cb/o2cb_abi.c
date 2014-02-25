@@ -40,6 +40,9 @@
 #ifdef HAVE_CMAP
 #include <corosync/cmap.h>
 #endif
+#ifdef HAVE_FSDLM
+#include <libdlm.h>
+#endif
 
 #include "o2cb/o2cb.h"
 #include "o2cb/o2cb_client_proto.h"
@@ -50,6 +53,7 @@
 #define LOCKING_PROTOCOL_FILE	"/sys/fs/ocfs2/max_locking_protocol"
 #define OCFS2_STACK_LABEL_LEN	4
 #define CONTROL_DEVICE		"/dev/misc/ocfs2_control"
+#define DLM_RECOVER_CALLBACK   "/sys/fs/ocfs2/dlm_recover_callback_support"
 
 static errcode_t o2cb_validate_cluster_name(struct o2cb_cluster_desc *desc);
 static errcode_t o2cb_validate_cluster_flags(struct o2cb_cluster_desc *desc,
@@ -1384,6 +1388,26 @@ static errcode_t user_begin_group_join(struct o2cb_cluster_desc *cluster,
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
 
+#ifdef HAVE_FSDLM
+	uint32_t maj, min, pat;
+
+	if (strncmp(cluster->c_stack, OCFS2_PCMK_CLUSTER_STACK, OCFS2_STACK_LABEL_LEN))
+			goto no_pcmk;
+
+	rc = dlm_kernel_version(&maj, &min, &pat);
+
+	if (rc < 0)
+		return O2CB_ET_SERVICE_UNAVAILABLE;
+
+	if (read_single_line_file(DLM_RECOVER_CALLBACK, buf, 3) > 0) {
+		/* Controld is not required */
+		if (maj < 6)
+			return O2CB_ET_INTERNAL_FAILURE;
+		return 0;
+	}
+no_pcmk:
+#endif
+
 	if (control_daemon_fd != -1) {
 		/* fprintf(stderr, "Join already in progress!\n"); */
 		err = O2CB_ET_INTERNAL_FAILURE;
@@ -1475,6 +1499,13 @@ static errcode_t user_complete_group_join(struct o2cb_cluster_desc *cluster,
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
 
+#ifdef HAVE_FSDLM
+	if (read_single_line_file(DLM_RECOVER_CALLBACK, buf, 3) > 0) {
+		/* Controld is not required */
+		return 0;
+	}
+#endif
+
 	if (control_daemon_fd == -1) {
 		/* fprintf(stderr, "Join not started!\n"); */
 		err = O2CB_ET_SERVICE_UNAVAILABLE;
@@ -1544,6 +1575,13 @@ static errcode_t user_group_leave(struct o2cb_cluster_desc *cluster,
 	client_message message;
 	char *argv[OCFS2_CONTROLD_MAXARGS + 1];
 	char buf[OCFS2_CONTROLD_MAXLINE];
+
+#ifdef HAVE_FSDLM
+	if (read_single_line_file(DLM_RECOVER_CALLBACK, buf, 3) > 0) {
+		/* Controld is not required */
+		return 0;
+	}
+#endif
 
 	if (control_daemon_fd != -1) {
 		/* fprintf(stderr, "Join in progress!\n"); */

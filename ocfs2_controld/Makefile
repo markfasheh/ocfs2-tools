@@ -18,7 +18,7 @@ PCMK_INCLUDES = -I/usr/include/pacemaker -I/usr/include/heartbeat/ $(GLIB_CFLAGS
 endif
 
 INCLUDES = -I$(TOPDIR)/include -I. $(PCMK_INCLUDES)
-LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
+LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb -ldlm_lt
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 LIBOCFS2_LIBS = -L$(TOPDIR)/libocfs2 -locfs2
 LIBOCFS2_DEPS = $(TOPDIR)/libocfs2/libocfs2.a

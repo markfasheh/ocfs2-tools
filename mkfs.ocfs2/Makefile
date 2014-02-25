@@ -13,6 +13,9 @@ LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 ifneq ($(BUILD_CMAP_SUPPORT),)
 LIBO2CB_LIBS += -lcmap
 endif
+ifneq ($(BUILD_FSDLM_SUPPORT),)
+LIBO2CB_LIBS += -ldlm_lt
+endif
 
 LIBO2DLM_LIBS = -L$(TOPDIR)/libo2dlm -lo2dlm $(DL_LIBS)
 LIBO2DLM_DEPS = $(TOPDIR)/libo2dlm/libo2dlm.a

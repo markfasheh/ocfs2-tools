@@ -15,6 +15,9 @@ ifneq ($(BUILD_CMAP_SUPPORT),)
 DEFINES += -DHAVE_CMAP
 endif
 
+ifneq ($(BUILD_FSDLM_SUPPORT),)
+DEFINES += -DHAVE_FSDLM
+endif
 
 ifneq ($(OCFS2_DEBUG_EXE),)
 DEBUG_EXE_FILES = $(shell awk '/DEBUG_EXE/{if (k[FILENAME] == 0) {print FILENAME; k[FILENAME] = 1;}}' $(CFILES))
