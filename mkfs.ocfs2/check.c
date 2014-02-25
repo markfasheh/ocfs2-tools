@@ -339,6 +339,15 @@ int ocfs2_check_volume(State *s)
 		goto nolock;
 
 	if (!s->force) {
+		if (s->cluster_stack) {
+			ret = o2cb_setup_stack(s->cluster_stack);
+			if (ret) {
+				com_err(s->progname, ret,
+					"while setting up stack\n");
+				return -1;
+			}
+		}
+
 		ret = o2cb_init();
 		if (ret) {
 			com_err(s->progname, ret,
