@@ -490,6 +490,15 @@ void dump_group_descriptor(FILE *out, struct ocfs2_group_desc *grp, int index)
 	return ;
 }
 
+void dump_group_extents(FILE *out, struct ocfs2_group_desc *grp)
+{
+	fprintf(out, "\tGroup# %"PRIu64"   Total: %u   Used: %u   Free: %u\n",
+		(uint64_t)grp->bg_blkno, grp->bg_bits,
+		(grp->bg_bits - grp->bg_free_bits_count),
+		grp->bg_free_bits_count);
+	print_contig_bits(out, grp);
+}
+
 /*
  * dump_dir_entry()
  *

@@ -64,6 +64,7 @@ errcode_t rdump_inode(ocfs2_filesys *fs, uint64_t blkno, const char *name,
 		      const char *dumproot, int verbose);
 void crunch_strsplit(char **args);
 void find_max_contig_free_bits(struct ocfs2_group_desc *gd, int *max_contig_free_bits);
+void print_contig_bits(FILE *out, struct ocfs2_group_desc *gd);
 
 errcode_t get_debugfs_path(char *debugfs_path, int len);
 errcode_t open_debugfs_file(const char *debugfs_path, const char *dirname,

@@ -816,6 +816,65 @@ void find_max_contig_free_bits(struct ocfs2_group_desc *gd, int *max_contig_free
 	}
 }
 
+void print_contig_bits(FILE *out, struct ocfs2_group_desc *gd)
+{
+	int x, free_bits, start, end = 0, avg = 0, found = 0, total = 0;
+	int max_contig_free_bits = 0;
+
+#define HEADER_FORMAT		"%-3s   %-6s   %-6s"
+#define DATA_FORMAT		"%-3d   %-6d   %-6d"
+
+#define LEFT_HEADER		"\t"HEADER_FORMAT"    "
+#define MIDDLE_HEADER		HEADER_FORMAT"    "
+#define RIGHT_HEADER		HEADER_FORMAT"\n"
+
+#define LEFT_DATA		"\t"DATA_FORMAT"    "
+#define MIDDLE_DATA		DATA_FORMAT"    "
+#define RIGHT_DATA		DATA_FORMAT"\n"
+
+	while (end < gd->bg_bits) {
+		start = ocfs2_find_next_bit_clear(gd->bg_bitmap, gd->bg_bits,
+						  end);
+		if (start >= gd->bg_bits)
+			break;
+
+		end = ocfs2_find_next_bit_set(gd->bg_bitmap, gd->bg_bits, start);
+		free_bits = end - start;
+
+		if (!free_bits)
+			continue;
+
+		if (!found) {
+			fprintf(out, LEFT_HEADER, "###", "Start", "Length");
+			fprintf(out, MIDDLE_HEADER, "###", "Start", "Length");
+			fprintf(out, RIGHT_HEADER, "###", "Start", "Length");
+		}
+
+		found++;
+		x = found % 3;
+		if (x == 1)
+		        fprintf(out, LEFT_DATA, found, start, free_bits);
+		else if (x == 2)
+		        fprintf(out, MIDDLE_DATA, found, start, free_bits);
+		else
+		        fprintf(out, RIGHT_DATA, found, start, free_bits);
+
+		total += free_bits;
+
+		if (max_contig_free_bits < free_bits)
+			max_contig_free_bits = free_bits;
+	}
+
+	if (found) {
+		avg = total / found;
+		if (found % 3)
+			fprintf(out, "\n");
+	}
+
+	fprintf(out, "\tFree Extent Count: %d   Longest: %d   Average: %d\n\n",
+		found, max_contig_free_bits, avg);
+}
+
 #define SYSFS_BASE		"/sys/kernel/"
 #define DEBUGFS_PATH		SYSFS_BASE "debug"
 #define DEBUGFS_ALTERNATE_PATH	"/debug"
