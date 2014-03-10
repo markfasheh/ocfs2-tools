@@ -225,10 +225,15 @@ static errcode_t register_heartbeat_mode(O2CBCluster *cluster,
 {
 	errcode_t ret;
 	gchar *hbmode = NULL;
+	int localhb;
 
 	hbmode = o2cb_cluster_get_heartbeat_mode(cluster);
+	localhb = !strcmp(hbmode, O2CB_LOCAL_HEARTBEAT_TAG);
 
 	ret = o2cb_set_heartbeat_mode(clustername, hbmode);
+	if (ret && localhb)
+		ret = 0;
+
 	if (ret)
 		tcom_err(ret, "while registering heartbeat mode '%s'", hbmode);
 
