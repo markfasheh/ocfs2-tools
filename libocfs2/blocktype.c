@@ -82,3 +82,78 @@ enum ocfs2_block_type ocfs2_detect_block(char *buf)
 
 	return OCFS2_BLOCK_UNKNOWN;
 }
+
+static void ocfs2_swap_block(ocfs2_filesys *fs, void *block, int to_cpu)
+{
+	enum ocfs2_block_type bt = ocfs2_detect_block(block);
+
+	switch (bt) {
+		case OCFS2_BLOCK_INODE:
+		case OCFS2_BLOCK_SUPERBLOCK:
+			if (to_cpu)
+				ocfs2_swap_inode_to_cpu(fs, block);
+			else
+				ocfs2_swap_inode_from_cpu(fs, block);
+			break;
+		case OCFS2_BLOCK_EXTENT_BLOCK:
+			if (to_cpu)
+				ocfs2_swap_extent_block_to_cpu(fs, block);
+			else
+				ocfs2_swap_extent_block_from_cpu(fs, block);
+			break;
+		case OCFS2_BLOCK_GROUP_DESCRIPTOR:
+			if (to_cpu)
+				ocfs2_swap_group_desc_to_cpu(fs, block);
+			else
+				ocfs2_swap_group_desc_from_cpu(fs, block);
+			break;
+		case OCFS2_BLOCK_DIR_BLOCK:
+			if (to_cpu)
+				ocfs2_swap_dir_entries_to_cpu(block,
+							fs->fs_blocksize);
+			else
+				ocfs2_swap_dir_entries_from_cpu(block,
+							fs->fs_blocksize);
+			break;
+		case OCFS2_BLOCK_XATTR:
+			if (to_cpu)
+				ocfs2_swap_xattr_block_to_cpu(fs, block);
+			else
+				ocfs2_swap_xattr_block_from_cpu(fs, block);
+			break;
+		case OCFS2_BLOCK_REFCOUNT:
+			if (to_cpu)
+				ocfs2_swap_refcount_block_to_cpu(fs, block);
+			else
+				ocfs2_swap_refcount_block_from_cpu(fs, block);
+			break;
+		case OCFS2_BLOCK_DXROOT:
+			if (to_cpu)
+				ocfs2_swap_dx_root_to_cpu(fs, block);
+			else
+				ocfs2_swap_dx_root_from_cpu(fs, block);
+			break;
+		case OCFS2_BLOCK_DXLEAF:
+			if (to_cpu)
+				ocfs2_swap_dx_leaf_to_cpu(block);
+			else
+				ocfs2_swap_dx_leaf_from_cpu(block);
+			break;
+	}
+
+	return ;
+}
+
+/*
+ * ocfs2_swap_block...() silently ignores unknown block types. The caller
+ * needs to detect unknown blocks.
+ */
+void ocfs2_swap_block_from_cpu(ocfs2_filesys *fs, void *block)
+{
+	ocfs2_swap_block(fs, block, 0);
+}
+
+void ocfs2_swap_block_to_cpu(ocfs2_filesys *fs, void *block)
+{
+	ocfs2_swap_block(fs, block, 1);
+}

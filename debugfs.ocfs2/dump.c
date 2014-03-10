@@ -157,87 +157,30 @@ void dump_fast_symlink(FILE *out, char *link)
 }
 
 /*
- * dump_block_check
+ * dump_block_check()
  *
+ * As the checksum is computed in the disk format, we have to swap_from_cpu
+ * before computing it.
  */
 void dump_block_check(FILE *out, struct ocfs2_block_check *bc, void *block)
 {
 	struct ocfs2_block_check tmp = *bc;
 	int crc_fail;
-	enum ocfs2_block_type bt = ocfs2_detect_block(block);
-
-	/* Swap block to little endian for compute_meta_ecc */
-	switch (bt) {
-		case OCFS2_BLOCK_INODE:
-		case OCFS2_BLOCK_SUPERBLOCK:
-			ocfs2_swap_inode_from_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_EXTENT_BLOCK:
-			ocfs2_swap_extent_block_from_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_GROUP_DESCRIPTOR:
-			ocfs2_swap_group_desc_from_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_DIR_BLOCK:
-			ocfs2_swap_dir_entries_from_cpu(block,
-					gbls.fs->fs_blocksize);
-			break;
-		case OCFS2_BLOCK_XATTR:
-			ocfs2_swap_xattr_block_from_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_REFCOUNT:
-			ocfs2_swap_refcount_block_from_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_DXROOT:
-			ocfs2_swap_dx_root_from_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_DXLEAF:
-			ocfs2_swap_dx_leaf_from_cpu(block);
-			break;
-		default:
-			fprintf(out, "Unable to determine block type");
-			return;
-	}
-
-	/* Re-compute based on what we got from disk */
-	ocfs2_compute_meta_ecc(gbls.fs, block, bc);
-
-	/* Swap block back to CPU */
-	switch (bt) {
-		case OCFS2_BLOCK_INODE:
-		case OCFS2_BLOCK_SUPERBLOCK:
-			ocfs2_swap_inode_to_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_EXTENT_BLOCK:
-			ocfs2_swap_extent_block_to_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_GROUP_DESCRIPTOR:
-			ocfs2_swap_group_desc_to_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_DIR_BLOCK:
-			ocfs2_swap_dir_entries_to_cpu(block,
-					gbls.fs->fs_blocksize);
-			break;
-		case OCFS2_BLOCK_XATTR:
-			ocfs2_swap_xattr_block_to_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_REFCOUNT:
-			ocfs2_swap_refcount_block_to_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_DXROOT:
-			ocfs2_swap_dx_root_to_cpu(gbls.fs, block);
-			break;
-		case OCFS2_BLOCK_DXLEAF:
-			ocfs2_swap_dx_leaf_to_cpu(block);
-			break;
-		default:
-			break;
-	}
-
-	crc_fail = memcmp(bc, &tmp, sizeof(*bc));
 
 	fprintf(out, "\tCRC32: %.8"PRIx32"   ECC: %.4"PRIx16"\n",
 		le32_to_cpu(tmp.bc_crc32e), le16_to_cpu(tmp.bc_ecc));
+
+	/* Cannot validate unknown blocks */
+	if (ocfs2_detect_block(block) == OCFS2_BLOCK_UNKNOWN) {
+		fprintf(out, "\t**UNKNOWN BLOCK** (Cannot validate checksum)\n");
+		return;
+	}
+
+	ocfs2_swap_block_from_cpu(gbls.fs, block);
+	ocfs2_compute_meta_ecc(gbls.fs, block, bc);
+	ocfs2_swap_block_to_cpu(gbls.fs, block);
+
+	crc_fail = memcmp(bc, &tmp, sizeof(*bc));
 	if (crc_fail)
 		fprintf(out, "\t**FAILED CHECKSUM** Computed CRC32: %.8"
 			PRIx32"   ECC: %.4"PRIx16"\n",

@@ -1656,5 +1656,7 @@ void ocfs2_hamming_fix_block(void *data, unsigned int d, unsigned int fix);
 uint32_t crc32_le(uint32_t crc, unsigned char const *p, size_t len);
 
 enum ocfs2_block_type ocfs2_detect_block(char *buf);
+void ocfs2_swap_block_from_cpu(ocfs2_filesys *fs, void *block);
+void ocfs2_swap_block_to_cpu(ocfs2_filesys *fs, void *block);
 
 #endif  /* _FILESYS_H */
