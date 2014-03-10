@@ -1762,9 +1762,9 @@ errcode_t o2cb_group_leave(struct o2cb_cluster_desc *cluster,
 void o2cb_free_cluster_desc(struct o2cb_cluster_desc *cluster)
 {
 	if (cluster->c_stack)
-		free(cluster->c_stack);
+		ocfs2_free(&cluster->c_stack);
 	if (cluster->c_cluster)
-		free(cluster->c_cluster);
+		ocfs2_free(&cluster->c_cluster);
 }
 
 errcode_t o2cb_running_cluster_desc(struct o2cb_cluster_desc *cluster)
@@ -1815,10 +1815,8 @@ errcode_t o2cb_running_cluster_desc(struct o2cb_cluster_desc *cluster)
 out:
 	if (clusters)
 		o2cb_free_cluster_list(clusters);
-	if (err) {
-		free(cluster->c_stack);
-		free(cluster->c_cluster);
-	}
+	if (err)
+		o2cb_free_cluster_desc(cluster);
 
 	return err;
 }
