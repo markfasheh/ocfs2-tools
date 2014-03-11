@@ -231,6 +231,10 @@ static inline void ocfs2_swap_inline_dir(ocfs2_filesys *fs,
 	if (bytes > max_inline)
 	    bytes = max_inline;
 
+	/* if inode is empty do not swap */
+	if (di->i_size == 0)
+		return;
+
 	if (to_cpu)
 		ocfs2_swap_dir_entries_to_cpu(de_buf, bytes);
 	else
