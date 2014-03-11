@@ -735,9 +735,11 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 		/* Set the flag for index rebuilding */
 		if (ocfs2_supports_indexed_dirs(OCFS2_RAW_SB(dd->fs->fs_super))
 			&& !(di->i_dyn_features & OCFS2_INLINE_DATA_FL)
-			&& !(di->i_dyn_features & OCFS2_INDEXED_DIR_FL)) {
-			ret_flags |= OCFS2_DIRENT_CHANGED;
-		}
+			&& !(di->i_dyn_features & OCFS2_INDEXED_DIR_FL) 
+			&& prompt(dd->ost, PY, PR_DX_TREE_MISSING, 
+				  "Directory %"PRIu64" is missing index. "
+				  "Rebuild?", dbe->e_ino))
+				ret_flags |= OCFS2_DIRENT_CHANGED;
 
 	}
 

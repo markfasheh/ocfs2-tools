@@ -1149,6 +1149,17 @@ possible data for a particular offset for the file.
 
 Answering yes will serialize the extents.
 
+.SS "DX_TREE_CORRUPT"
+The index tree of the directory is corrupt.
+
+Answering yes will rebuild the directory index, in pass 2.
+
+
+.SS "DX_TREE_MISSING"
+The index of this directory is missing.
+
+Answering yes will rebuild the directory index.
+
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
 .BR fsck.ocfs2(8)

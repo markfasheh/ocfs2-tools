@@ -917,10 +917,14 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 	}
 
 	ret = o2fsck_check_dx_dir(ost, di);
-	if (ret) {
-		com_err(whoami, ret, "while iterating over the dir indexed "
-			"tree for directory inode %"PRIu64, (uint64_t)di->i_blkno);
-		goto out;
+	if (ret && prompt(ost, PY, PR_DX_TREE_CORRUPT,
+			  "Inode %"PRIu64" has invalid dx tree. "
+			  "Reset for later rebuild?", (uint64_t)di->i_blkno)) {
+		ocfs2_dx_dir_truncate(fs, di->i_blkno);
+		di->i_dx_root = 0ULL;
+		di->i_dyn_features &= ~OCFS2_INDEXED_DIR_FL;
+		o2fsck_write_inode(ost, di->i_blkno, di);
+		ret = 0;
 	}
 
 	if (S_ISLNK(di->i_mode))
