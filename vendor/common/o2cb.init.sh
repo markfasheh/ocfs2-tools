@@ -1835,7 +1835,35 @@ status()
     userdlm_status
 }
 
+#
+# online_status()
+#
+# Return codes to userspace. ** Do not change. **
+# 0 is online, 1 is offline, 2 is error
+#
+online-status()
+{
+    CLUSTER="${1:-${O2CB_BOOTCLUSTER}}"
+    if [ -z "$CLUSTER" ]
+    then
+        return 2
+    fi
 
+    check_online "$CLUSTER"
+    RC=$?
+    if [ "$RC" = "2" ]
+    then
+        echo "online"
+        exit 0
+    elif [ "$RC" = "0" ]
+    then
+        echo "offline"
+        exit 1
+    else
+        echo "error"
+        exit 2
+    fi
+}
 
 case "$1" in
     start)
@@ -1867,6 +1895,10 @@ case "$1" in
     online)
         load
         online "$2"
+        ;;
+
+    online-status)
+        online-status "$2"
         ;;
 
     offline)
@@ -1907,7 +1939,7 @@ case "$1" in
         ;;
 
     *)
-        echo "Usage: $0 {start|stop|restart|force-reload|enable|disable|configure|load|unload|online|offline|force-offline|status}"
+        echo "Usage: $0 {start|stop|restart|force-reload|enable|disable|configure|load|unload|online|offline|force-offline|status|online-status}"
         exit 1
         ;;
 esac
