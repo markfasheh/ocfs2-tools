@@ -1247,6 +1247,9 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 		goto out;
 	dx_root = (struct ocfs2_dx_root_block *)dx_buf;
 
+	/* set inode to use indexed-dirs */
+	di->i_dyn_features |= OCFS2_INDEXED_DIR_FL;
+
 	ret = ocfs2_init_dir_trailers(fs, di, dx_root);
 	if (ret)
 		goto out;
@@ -1281,8 +1284,6 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 	ret = ocfs2_read_inode(fs, dir, di_buf);
 	if (ret)
 		goto out;
-	/* set inode to use indexed-dirs */
-	di->i_dyn_features |= OCFS2_INDEXED_DIR_FL;
 
 	ret = ocfs2_write_inode(fs, dir, di_buf);
 	if(ret)
