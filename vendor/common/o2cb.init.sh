@@ -617,6 +617,19 @@ mount_filesystem()
     return 0
 }
 
+o2cbmounts()
+{
+    if [ "$#" != "1" -o -z "$1" ]
+    then
+        echo "o2cbmounts(): Missing arguments" >&2
+        exit 1
+    fi
+
+    FSNAME="$1"
+
+    LC_ALL=C awk -v FSNAME=$FSNAME 'BEGIN {fsname = FSNAME;} $3 == fsname  { print $2 }' /proc/mounts
+}
+
 #
 # unmount_filesystem()
 # Unmount a pseudo-filesystem of type $1 from mountpoint $2.  It will
@@ -637,14 +650,34 @@ unmount_filesystem()
     if check_filesystem "$FSNAME" "$MOUNTPOINT"
     then
         echo -n "Unmounting ${FSNAME} filesystem: "
-        umount $MOUNTPOINT
-        RC=$?
-        if [ $RC != 0 ]
+        remaining=$(o2cbmounts $FSNAME)
+        sig=
+        retry=3
+        while [ -n "$remaining" -a "$retry" -gt 0 ]
+        do
+            if [ "$retry" -lt 3 ]; then
+                echo -n "Retry unmounting $FSNAME} filesystem: "
+            fi
+
+            umount $MOUNTPOINT
+            RC=$?
+            if_fail $RC
+
+            remaining=$(o2cbmounts $FSNAME)
+            [ -z "$remaining" ] && break
+
+            fuser -km $sig $remaining >/dev/null 2>&1
+            sleep 5
+            retry=$(($retry - 1))
+            sig=-9
+        done
+	
+        remaining=$(o2cbmounts $FSNAME)
+        if [ -n "$remaining" ]
         then
             echo "Unable to unmount ${FSNAME} filesystem" >&2
             return 1
         fi
-        if_fail $RC  # For the success string
     fi
 
     unload_filesystem "$FSNAME"
@@ -1002,15 +1035,26 @@ userdlm_status()
 #
 clean_userdlm_domains()
 {
-    for domain in $(userdlm_domains)
-    do
-        domain_path="${DLMFS_DIR}/${domain}"
-        magic=$(stat -f --printf="%t" ${domain_path})
-        if [ "x$magic" = "x$DLMFS_MAGIC" ]
-        then
-            rm -rf ${domain_path}
-        fi
-    done
+    # Cleanup only if mounted
+    magic=$(stat -f --printf="%t" ${DLMFS_DIR})
+    if [ "x$magic" = "x$DLMFS_MAGIC" ]
+    then
+        echo -n "Clean userdlm domains: "
+        # Kill all processes accessing dlmfs
+        fuser -km -9 ${DLMFS_DIR} >/dev/null 2>&1
+
+        # Remove all domains and locks
+        for domain in $(userdlm_domains)
+        do
+            domain_path="${DLMFS_DIR}/${domain}"
+            magic=$(stat -f --printf="%t" ${domain_path})
+            if [ "x$magic" = "x$DLMFS_MAGIC" ]
+            then
+                rm -rf ${domain_path}
+            fi
+        done
+        echo "OK"
+    fi
 }
 
 #
