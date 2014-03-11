@@ -32,6 +32,8 @@ OCFS2_SYS_DIR="/sys/fs/ocfs2"
 LOADED_PLUGINS_FILE="${OCFS2_SYS_DIR}/loaded_cluster_plugins"
 CLUSTER_STACK_FILE="${OCFS2_SYS_DIR}/cluster_stack"
 DLMFS_CAPABILITIES_FILE='/sys/module/ocfs2_dlmfs/parameters/capabilities'
+DLMFS_DIR="/dlm"
+DLMFS_MAGIC="76a9f425"
 DEBUGFS_DIR="/sys/kernel/debug"
 
 if [ -f /etc/sysconfig/o2cb ]
@@ -83,6 +85,21 @@ configfs_path()
     fi
 }
 
+touch_lockfile()
+{
+    if [ -d /var/lock/subsys ]
+    then
+        touch /var/lock/subsys/o2cb
+    fi
+}
+
+remove_lockfile()
+{
+    if [ -e /var/lock/subsys/o2cb ]
+    then
+        rm /var/lock/subsys/o2cb
+    fi
+}
 
 #
 # if_fail()
@@ -953,10 +970,47 @@ load_stack_o2cb()
         fi
     fi
 
-    mount_filesystem "ocfs2_dlmfs" "/dlm"
+    mount_filesystem "ocfs2_dlmfs" $DLMFS_DIR
     if_fail $?
 
     return 0
+}
+
+# Return the list of userdlm domains
+#
+userdlm_domains()
+{
+    magic=$(stat -f --printf="%t" ${DLMFS_DIR})
+    if [ "x$magic" = "x$DLMFS_MAGIC" ]
+    then
+        ls ${DLMFS_DIR}
+    fi
+}
+
+#
+# Print userdlm domains
+#
+userdlm_status()
+{
+    [ -n "$(userdlm_domains)" ] && {
+        echo "Active userdlm domains: " $(userdlm_domains)
+    }
+}
+
+#
+# Force removes all userdlm domains
+#
+clean_userdlm_domains()
+{
+    for domain in $(userdlm_domains)
+    do
+        domain_path="${DLMFS_DIR}/${domain}"
+        magic=$(stat -f --printf="%t" ${domain_path})
+        if [ "x$magic" = "x$DLMFS_MAGIC" ]
+        then
+            rm -rf ${domain_path}
+        fi
+    done
 }
 
 #
@@ -1021,7 +1075,7 @@ load_stack_user()
 
     if dlmfs_user_capable
     then
-        mount_filesystem "ocfs2_dlmfs" "/dlm"
+        mount_filesystem "ocfs2_dlmfs" $DLMFS_DIR
         if_fail $?
     fi
 
@@ -1078,7 +1132,7 @@ unload_stack_o2cb()
         fi
     fi
 
-    unmount_filesystem "ocfs2_dlmfs" "/dlm"
+    unmount_filesystem "ocfs2_dlmfs" $DLMFS_DIR
     if_fail $?
 
     unload_stack_plugins
@@ -1101,7 +1155,7 @@ unload_stack_user()
         exit 1
     fi
 
-    unmount_filesystem "ocfs2_dlmfs" "/dlm"
+    unmount_filesystem "ocfs2_dlmfs" $DLMFS_DIR
     if_fail $?
 
     unload_stack_plugins
@@ -1133,7 +1187,7 @@ status_stack_plugin()
 status_stack_o2cb()
 {
     status_stack_plugin
-    status_filesystem "ocfs2_dlmfs" "/dlm"
+    status_filesystem "ocfs2_dlmfs" $DLMFS_DIR
 }
 
 status_stack_user()
@@ -1220,6 +1274,8 @@ check_load_module()
 load()
 {
     PLUGIN="$(select_stack_plugin)"
+
+    touch_lockfile
 
     # XXX: SPECIAL CASE!  We must load configfs for configfs_path() to work
     load_filesystem "configfs"
@@ -1605,6 +1661,8 @@ offline()
         FORCE=0
     fi
 
+    clean_userdlm_domains
+
     offline_$PLUGIN "$CLUSTER" "$FORCE"
 
     unload_filesystem "ocfs2"
@@ -1627,6 +1685,8 @@ unload()
     PLUGIN="$(select_stack_plugin)"
 
     unload_stack_$PLUGIN
+
+    remove_lockfile
 
     # Only unmount configfs if there are no other users
     if [ -z "$(ls -1 "$(configfs_path)" 2>/dev/null)" ]
@@ -1727,6 +1787,8 @@ status()
     fi
 
     online_status "$CLUSTER"
+
+    userdlm_status
 }
 
 
