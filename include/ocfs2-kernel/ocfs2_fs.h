@@ -1682,7 +1682,7 @@ static inline int ocfs2_sprintf_system_inode_name(char *buf, int len,
 }
 
 static inline void ocfs2_set_de_type(struct ocfs2_dir_entry *de,
-				    umode_t mode)
+				    unsigned short mode)
 {
 	de->file_type = ocfs2_type_by_mode[(mode & S_IFMT)>>S_SHIFT];
 }
