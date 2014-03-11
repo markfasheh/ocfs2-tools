@@ -176,6 +176,12 @@ static void damage_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 			bg->bg_chain, (bg->bg_chain + 10));
 		bg->bg_chain += 10;
 		break;
+	case GROUP_CHAIN_LOOP:
+		fprintf(stdout, "Corrput GROUP_LOOP: "
+			"change group next from %"PRIu64" to %"PRIu64"\n",
+			bg->bg_next_group, cr->c_blkno);
+		bg->bg_next_group = cpu_to_le64(cr->c_blkno);
+		break;
 	case GROUP_FREE_BITS:
 		fprintf(stdout, "Corrput GROUP_FREE_BITS: "
 			"change group free bits from %u to %u\n",

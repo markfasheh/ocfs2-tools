@@ -102,6 +102,8 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "Corrupt chain group's blkno"),
 	define_prompt_code(GROUP_CHAIN, corrupt_group_desc, "", 1,
 			   "Corrupt chain group's chain where it was in"),
+	define_prompt_code(GROUP_CHAIN_LOOP, corrupt_group_desc, "", 1,
+			   "Corrupt group's chain to form a loop"),
 	define_prompt_code(GROUP_FREE_BITS, corrupt_group_desc, "", 1,
 			   "Corrupt chain group's free bits"),
 	define_prompt_code(CHAIN_COUNT, corrupt_sys_file, "", 1,

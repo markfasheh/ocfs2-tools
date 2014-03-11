@@ -331,6 +331,9 @@ void corrupt_group_desc(ocfs2_filesys *fs, enum fsck_type type,
 	case GROUP_FREE_BITS:
 		func = mess_up_group_minor;
 		break;
+	case GROUP_CHAIN_LOOP:
+		func = mess_up_group_minor;
+		break;
 	case GROUP_GEN:
 		func = mess_up_group_gen;
 		break;
