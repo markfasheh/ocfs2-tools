@@ -666,6 +666,46 @@ out:
 	return ret;
 }
 
+static errcode_t break_loop(o2fsck_state *ost, struct ocfs2_chain_rec *chain,
+		unsigned int max_depth)
+{
+	uint64_t *list;
+	int i;
+	unsigned int depth = 0;
+	uint64_t blkno = chain->c_blkno;
+	char *buf;
+	struct ocfs2_group_desc *gd;
+	errcode_t ret = ocfs2_malloc0(sizeof(uint64_t) * max_depth, &list);
+	if (ret)
+		goto out;
+	ret =  ocfs2_malloc_block(ost->ost_fs->fs_io, &buf);
+	if (ret)
+		goto out;
+	gd = (struct ocfs2_group_desc *)buf;
+
+	while (blkno && (depth<=max_depth)) {
+		list[depth++] = blkno;
+		ret = ocfs2_read_group_desc(ost->ost_fs, blkno, buf);
+		if (ret)
+			goto out;
+		blkno = gd->bg_next_group;
+		for (i=0; i<depth; i++)
+			if (list[i]==blkno) {
+				gd->bg_next_group = 0;
+				verbosef("Breaking gd loop %"PRIu64"\n", blkno);
+				ret = ocfs2_write_group_desc(ost->ost_fs,
+						blkno, buf);
+				goto out;
+			}
+	}
+out:
+	if (list)
+		ocfs2_free(&list);
+	if (buf)
+		ocfs2_free(&buf);
+	return ret;
+}
+
 /* this takes a slightly ridiculous number of arguments :/ */
 static errcode_t check_chain(o2fsck_state *ost,
 			     struct ocfs2_dinode *di,
@@ -675,7 +715,8 @@ static errcode_t check_chain(o2fsck_state *ost,
 			     char *buf2,
 			     int *chain_changed,
 			     ocfs2_bitmap *allowed,
-			     ocfs2_bitmap *forbidden)
+			     ocfs2_bitmap *forbidden,
+			     unsigned int max_depth)
 {
 	struct ocfs2_group_desc *bg1 = (struct ocfs2_group_desc *)buf1;
 	struct ocfs2_group_desc *bg2 = (struct ocfs2_group_desc *)buf2;
@@ -792,6 +833,14 @@ static errcode_t check_chain(o2fsck_state *ost,
 		/* the loop will now start by reading bg1->next_group */
 		memcpy(buf1, buf2, ost->ost_fs->fs_blocksize);
 		depth++;
+		if (depth > max_depth) {
+			 if (prompt(ost, PY, PR_GROUP_CHAIN_LOOP,
+			    "Loop detected in chain %d at block %"PRIu64
+			    ". Break the loop?",cs->cs_chain_no,
+			    (uint64_t) chain->c_blkno))
+				ret = break_loop(ost, chain, max_depth);
+			break;
+		}
 	}
 
 	/* we hit the premature end of a chain.. clear the last
@@ -854,6 +903,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	int changed = 0, trust_next_free = 1;
 	errcode_t ret = 0;
 	uint64_t chain_bytes;
+	unsigned int num_gds, max_chain_len;
 
 	if (memcmp(di->i_signature, OCFS2_INODE_SIGNATURE,
 		   strlen(OCFS2_INODE_SIGNATURE))) {
@@ -883,9 +933,12 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 	/* XXX should we check suballoc_node? */
 
 	cl = &di->id2.i_chain;
+	num_gds = (di->i_clusters + cl->cl_cpg)/cl->cl_cpg;
+	max_chain_len = (num_gds + cl->cl_count)/cl->cl_count;
 
-	verbosef("cl cpg %u bpc %u count %u next %u\n", 
-		 cl->cl_cpg, cl->cl_bpc, cl->cl_count, cl->cl_next_free_rec);
+	verbosef("cl cpg %u bpc %u count %u next %u gds %u max_ch_len %u\n",
+		 cl->cl_cpg, cl->cl_bpc, cl->cl_count, cl->cl_next_free_rec,
+		 num_gds, max_chain_len);
 
 	max_count = ocfs2_chain_recs_per_inode(ost->ost_fs->fs_blocksize);
 
@@ -948,7 +1001,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			.cs_cpg = cl->cl_cpg,
 		};
 		ret = check_chain(ost, di, &cs, cr, buf1, buf2, &changed,
-				  allowed, forbidden);
+				  allowed, forbidden, max_chain_len);
 		/* XXX what?  not checking ret? */
 
 		if (cr->c_blkno != 0) {

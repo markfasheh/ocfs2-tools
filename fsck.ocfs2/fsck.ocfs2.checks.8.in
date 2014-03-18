@@ -202,6 +202,15 @@ valid in its bitmap.
 Answering yes decreases the number of recorded free bits so that it equals
 the total number of bits in the group descriptor's bitmap.
 
+.SS "GROUP_CHAIN_LOOP"
+A chain may loop if the next field of the group descriptor points to one of
+the previous group descriptors in the chain. This causes the ocfs2 code, both
+user space and kernel module to loop forever.
+
+Answering yes breaks the loop at an optimum location so that all the existing
+group descriptors are in the chain. However, it cannot re-connect stray group
+descriptors and must rely on the rest of the fsck code to fix it.
+
 .SS "CHAIN_COUNT"
 The chain list embedded in an inode is limited by the block size and the
 number of bytes consumed by the rest of the inode.  A chain list header was
