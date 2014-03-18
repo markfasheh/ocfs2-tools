@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/fd.h>
+#include <linux/major.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -256,6 +257,58 @@ static void free_partition_list(struct list_head *dev_list)
 	}
 }
 
+static void list_rm_device(struct list_head *dev_list, int major, int minor)
+{
+	struct list_head *pos1, *pos2;
+	ocfs2_devices *dev;
+
+	list_for_each_safe(pos1, pos2, dev_list) {
+		dev = list_entry(pos1, ocfs2_devices, list);
+		if ((dev->maj_num == major) && (dev->min_num == minor)) {
+			if (dev->map)
+				ocfs2_free(&dev->map);
+			list_del(&(dev->list));
+			ocfs2_free(&dev);
+		}
+	}
+}
+
+static int is_partition(int major, int minor)
+{
+	char path[PATH_MAX + 1];
+	struct stat info;
+
+	snprintf(path, sizeof(path), "/sys/dev/block/%d:%d/partition",
+			major, minor);
+
+	return !stat(path, &info);
+}
+
+static int find_whole_disk_minor(int major, int minor) {
+#ifndef SCSI_BLK_MAJOR
+#ifdef SCSI_DISK0_MAJOR
+#ifdef SCSI_DISK8_MAJOR
+#define SCSI_DISK_MAJOR(M) ((M) == SCSI_DISK0_MAJOR || \
+		  ((M) >= SCSI_DISK1_MAJOR && (M) <= SCSI_DISK7_MAJOR) || \
+		  ((M) >= SCSI_DISK8_MAJOR && (M) <= SCSI_DISK15_MAJOR))
+#else
+#define SCSI_DISK_MAJOR(M) ((M) == SCSI_DISK0_MAJOR || \
+		  ((M) >= SCSI_DISK1_MAJOR && (M) <= SCSI_DISK7_MAJOR))
+#endif /* defined(SCSI_DISK8_MAJOR) */
+#define SCSI_BLK_MAJOR(M) (SCSI_DISK_MAJOR((M)) || (M) == SCSI_CDROM_MAJOR)
+#else
+#define SCSI_BLK_MAJOR(M)  ((M) == SCSI_DISK_MAJOR || (M) == SCSI_CDROM_MAJOR)
+#endif /* defined(SCSI_DISK0_MAJOR) */
+#endif /* defined(SCSI_BLK_MAJOR) */
+	if (major == HD_MAJOR)
+		return (minor - (minor%64));
+
+	if (SCSI_BLK_MAJOR(major))
+	       return (minor - (minor%16));
+	/* FIXME: Catch all */
+	return 0;
+}
+
 static errcode_t build_partition_list(struct list_head *dev_list, char *device)
 {
 	errcode_t ret = 0;
@@ -326,6 +379,11 @@ static errcode_t build_partition_list(struct list_head *dev_list, char *device)
 				 dev->dev_name);
 			ocfs2_free(&dev);
 			continue;
+		}
+
+		if (is_partition(major, minor)) {
+			int whole_minor = find_whole_disk_minor(major, minor);
+			list_rm_device(dev_list, major, whole_minor);
 		}
 
 		dev->maj_num = major;
