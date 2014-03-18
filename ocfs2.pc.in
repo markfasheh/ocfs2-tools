@@ -7,5 +7,5 @@ Name: ocfs2
 Description: Userspace ocfs2 library
 Version: @VERSION@
 Requires: o2dlm o2cb com_err
-Libs: -L${libdir} -locfs2
+Libs: -L${libdir} -locfs2 -laio
 Cflags: -I${includedir}
