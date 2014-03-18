@@ -664,6 +664,15 @@ static errcode_t fix_dirent_index(o2fsck_dirblock_entry *dbe,
 		ret = ocfs2_lookup(dd->fs, dbe->e_ino, dirent->name,
 				   dirent->name_len, NULL, &ino);
 		if (ret) {
+			if ((ret == OCFS2_ET_DIR_CORRUPTED) &&
+			    prompt(dd->ost, PY, PR_DX_LOOKUP_FAILED,
+				"Directory inode %"PRIu64" has invalid index. "
+				"Rebuild index tree?", dbe->e_ino)) {
+					*flags |= OCFS2_DIRENT_CHANGED;
+					ret = 0;
+					goto out;
+			}
+
 			if (ret != OCFS2_ET_FILE_NOT_FOUND)
 				goto out;
 			ret = 0;
