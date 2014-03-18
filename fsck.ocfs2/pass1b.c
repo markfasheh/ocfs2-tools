@@ -961,12 +961,20 @@ static int walk_iterate(struct ocfs2_dir_entry *de, uint64_t blocknr,
 static void walk_cwd(struct dir_scan_context *scan)
 {
 	errcode_t ret;
-	struct ocfs2_dir_entry de;
+	struct ocfs2_dir_entry *de;
+	int len = sizeof(struct ocfs2_dir_entry);
 
-	memcpy(de.name, scan->ds_cwd, scan->ds_cwdlen);
-	de.name_len = scan->ds_cwdlen;
-	name_inode(scan, &de);
+	if (scan->ds_cwdlen > OCFS2_MAX_FILENAME_LEN)
+		len = sizeof(struct ocfs2_dir_entry) + scan->ds_cwdlen
+			- OCFS2_MAX_FILENAME_LEN;
 
+	ret = ocfs2_malloc(len, &de);
+
+	memcpy(de->name, scan->ds_cwd, scan->ds_cwdlen);
+	de->name_len = scan->ds_cwdlen;
+	name_inode(scan, de);
+	free(de);
+ 
 	ret = ocfs2_dir_iterate(scan->ds_ost->ost_fs, scan->ds_ino,
 				OCFS2_DIRENT_FLAG_EXCLUDE_DOTS, NULL,
 				walk_iterate, scan);
