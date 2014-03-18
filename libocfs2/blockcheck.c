@@ -360,7 +360,7 @@ errcode_t ocfs2_block_check_validate(void *data, size_t blocksize,
 	if (crc == check.bc_crc32e)
 		goto out;
 
-	err = OCFS2_ET_IO;
+	err = OCFS2_ET_BAD_CRC32;
 
 out:
 	bc->bc_crc32e = cpu_to_le32(check.bc_crc32e);

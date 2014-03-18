@@ -195,4 +195,7 @@ ec	OCFS2_ET_DX_BALANCE_EMPTY_LEAF,
 ec	OCFS2_ET_NONEMTY_QUOTA_HASH,
 	"Freeing non-empty quota hash"
 
+ec	OCFS2_ET_BAD_CRC32,
+	"Bad CRC32"
+
 	end
