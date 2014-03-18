@@ -1437,10 +1437,12 @@ errcode_t ocfs2_dx_dir_search(ocfs2_filesys *fs,
 		entry_list = &dx_leaf->dl_list;
 	}
 
-	assert(entry_list->de_count > 0);
-	assert(entry_list->de_num_used > 0);
-	assert(dx_root->dr_num_entries > 0);
-
+	if ((entry_list->de_count == 0) || (entry_list->de_num_used == 0) ||
+			(dx_root->dr_num_entries == 0)) {
+		ret = OCFS2_ET_DIR_CORRUPTED;
+		goto out;
+	}
+	
 	ret = ocfs2_malloc_block(fs->fs_io, &dir_buf);
 	if (ret)
 		goto out;
