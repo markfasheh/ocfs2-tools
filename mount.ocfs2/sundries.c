@@ -223,6 +223,37 @@ matching_opts (const char *options, const char *test_opts) {
      return 1;
 }
 
+/*
+ * Converts private "dm-N" names to "/dev/mapper/<name>"
+ *
+ * Since 2.6.29 (patch 784aae735d9b0bba3f8b9faef4c8b30df3bf0128) kernel sysfs
+ * provides the real DM device names in /sys/block/<ptname>/dm/name
+ */
+char *
+canonicalize_dm_name(const char *ptname)
+{
+	FILE	*f;
+	size_t	sz;
+	char	path[256], name[256], *res = NULL;
+	int	err;
+
+	snprintf(path, sizeof(path), "/sys/block/%s/dm/name", ptname);
+	f = fopen(path, "r");
+	if (!f)
+		return NULL;
+
+	/* read "<name>\n" from sysfs */
+	err = fgets(name, sizeof(name), f);
+	sz = strlen(name);
+	if (!err && sz > 1) {
+		name[sz - 1] = '\0';
+		snprintf(path, sizeof(path), "/dev/mapper/%s", name);
+		res = strdup(path);
+	}
+	fclose(f);
+	return res;
+}
+
 /* Make a canonical pathname from PATH.  Returns a freshly malloced string.
    It is up the *caller* to ensure that the PATH is sensible.  i.e.
    canonicalize ("/dev/fd0/.") returns "/dev/fd0" even though ``/dev/fd0/.''
@@ -231,6 +262,7 @@ matching_opts (const char *options, const char *test_opts) {
 char *
 canonicalize (const char *path) {
 	char canonical[PATH_MAX+2];
+	char *p;
 
 	if (path == NULL)
 		return NULL;
@@ -241,8 +273,13 @@ canonicalize (const char *path) {
 	    streq(path, "devpts"))
 		return xstrdup(path);
 #endif
-	if (myrealpath (path, canonical, PATH_MAX+1))
-		return xstrdup(canonical);
-
-	return xstrdup(path);
+	if (!myrealpath(path, canonical, PATH_MAX+1))
+		return xstrdup(path);
+	p = strrchr(canonical, '/');
+	if (p && strncmp(p, "/dm-", 4) == 0 && isdigit(*(p + 4))) {
+		p = canonicalize_dm_name(p+1);
+		if (p)
+			return p;
+	}
+	return xstrdup(canonical);
 }

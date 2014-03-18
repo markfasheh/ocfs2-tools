@@ -312,6 +312,7 @@ int main(int argc, char **argv)
 	int clustered = 1;
 	int group_join = 0;
 	struct stat statbuf;
+	const char *spec;
 
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
@@ -414,8 +415,8 @@ int main(int argc, char **argv)
 		}
 		group_join = 1;
 	}
-
-	ret = mount(mo.dev, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS,
+	spec = canonicalize(mo.dev);
+	ret = mount(spec, mo.dir, OCFS2_FS_NAME, mo.flags & ~MS_NOSYS,
 		    mo.xtra_opts);
 	if (ret) {
 		ret = errno;
