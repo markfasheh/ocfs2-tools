@@ -1169,6 +1169,12 @@ The index of this directory is missing.
 
 Answering yes will rebuild the directory index.
 
+.SS "BAD_CRC32"
+The metadata block has a bad CRC32, which means either the block or the 
+crc32 field is corrupted. 
+
+Answering yes will recalculate the CRC32.
+
 .SH "SEE ALSO"
 .BR debugfs.ocfs2(8)
 .BR fsck.ocfs2(8)
