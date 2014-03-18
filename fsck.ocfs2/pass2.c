@@ -722,7 +722,15 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 
 		ret = ocfs2_read_inode(dd->ost->ost_fs, dbe->e_ino,
 				       dd->inoblock_buf);
-		if (ret) {
+		if (ret == OCFS2_ET_BAD_CRC32) {
+			if (prompt(dd->ost, PY, PR_BAD_CRC32, 
+						"Directory inode %"PRIu64" "
+						"has bad CRC32. Recalculate CRC32 "
+						"and write inode block?", dbe->e_ino)) {
+				ocfs2_write_inode(dd->ost->ost_fs, dbe->e_ino,
+						dd->inoblock_buf);
+			}
+		} else if (ret) {
 			com_err(whoami, ret, "while reading dir inode %"PRIu64,
 				dbe->e_ino);
 			ret_flags |= OCFS2_DIRENT_ABORT;
