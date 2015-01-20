@@ -57,6 +57,7 @@ DIST_FILES = \
 	CREDITS					\
 	MAINTAINERS				\
 	README					\
+	README.O2CB				\
 	Config.make.in				\
 	Preamble.make				\
 	Postamble.make				\
@@ -79,6 +80,7 @@ DIST_FILES = \
 	vendor.guess				\
 	Makepdfs				\
 	documentation/samples/cluster.conf	\
+	documentation/users_guide.txt		\
 	$(PKGCONFIG_SOURCES)			\
 	$(DEBIAN_FILES)
 
