@@ -363,7 +363,7 @@ static int set_logmode_sysfs(const char *path, struct log_entry *entry)
 static int get_logmode_sysfs(const char *path, const char *name)
 {
 	char *logpath;
-	char *current_mask;
+	char *current_mask = NULL;
 
 	logpath = g_strdup_printf(LOG_CTL_SYSFS_FORMAT, path, name);
 	if (g_file_get_contents(logpath, &current_mask,
@@ -372,6 +372,7 @@ static int get_logmode_sysfs(const char *path, const char *name)
 	}
 	g_free(logpath);
 
+	g_free(current_mask);
 	return 0;
 }
 
