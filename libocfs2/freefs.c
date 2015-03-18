@@ -32,11 +32,37 @@
 
 #include "ocfs2/ocfs2.h"
 
+void ocfs2_free_fs_inode_allocs(ocfs2_filesys *fs)
+{
+	uint16_t i;
+	uint16_t max_slots = 0;
+	struct ocfs2_super_block *osb = OCFS2_RAW_SB(fs->fs_super);
+	if (!osb)
+		return;
+	max_slots = osb->s_max_slots;
+	ocfs2_free_cached_inode(fs, fs->fs_system_inode_alloc);
+
+	if (fs->fs_inode_allocs) {
+		for (i = 0; i < max_slots; i++) {
+			ocfs2_free_cached_inode(fs, fs->fs_inode_allocs[i]);
+		}
+	}
+
+	if (fs->fs_eb_allocs) {
+		for (i = 0; i < max_slots; i++) {
+			ocfs2_free_cached_inode(fs, fs->fs_eb_allocs[i]);
+		}
+	}
+
+	return;
+}
 
 void ocfs2_freefs(ocfs2_filesys *fs)
 {
 	if (!fs)
 		abort();
+
+	ocfs2_free_fs_inode_allocs(fs);
 
 	if (fs->fs_orig_super)
 		ocfs2_free(&fs->fs_orig_super);
@@ -44,6 +70,12 @@ void ocfs2_freefs(ocfs2_filesys *fs)
 		ocfs2_free(&fs->fs_super);
 	if (fs->fs_devname)
 		ocfs2_free(&fs->fs_devname);
+	if (fs->fs_inode_allocs)
+		ocfs2_free(&fs->fs_inode_allocs);
+	if (fs->fs_eb_allocs)
+		ocfs2_free(&fs->fs_eb_allocs);
+	if (fs->ost)
+		ocfs2_free(&fs->ost);
 	if (fs->fs_io)
 		io_close(fs->fs_io);
 
