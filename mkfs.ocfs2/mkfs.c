@@ -21,6 +21,7 @@
 #include "mkfs.h"
 
 static State *get_state(int argc, char **argv);
+static void free_state(State *s);
 static int get_number(char *arg, uint64_t *res);
 static void parse_journal_opts(char *progname, const char *opts,
 			       uint64_t *journal_size_in_bytes,
@@ -36,7 +37,7 @@ static void do_pwrite(State *s, const void *buf, size_t count,
 static AllocBitmap *initialize_bitmap(State *s, uint32_t bits,
 				      uint32_t unit_bits, const char *name,
 				      SystemFileDiskRecord *bm_record);
-
+static void free_global_bitmap(State *s, AllocBitmap *global_bm);
 static int
 find_clear_bits(void *buf, unsigned int size, uint32_t num_bits, uint32_t offset);
 static int alloc_bytes_from_bitmap(State *s, uint64_t bytes,
@@ -46,6 +47,7 @@ static int alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 			     uint64_t *start, uint64_t *num);
 static uint64_t alloc_inode(State *s, uint16_t *suballoc_bit);
 static DirData *alloc_directory(State *s);
+static void free_directory(DirData *dir);
 static void add_entry_to_directory(State *s, DirData *dir, char *name,
 				   uint64_t byte_off, uint8_t type);
 static uint32_t blocks_needed(State *s);
@@ -67,6 +69,7 @@ static void close_device(State *s);
 static int initial_slots_for_volume(uint64_t size);
 static void create_generation(State *s);
 static void init_record(State *s, SystemFileDiskRecord *rec, int type, int mode);
+static void free_records(SystemFileDiskRecord *record[]);
 static void print_state(State *s);
 static void clear_both_ends(State *s);
 static int ocfs2_clusters_per_group(int block_size,
@@ -76,6 +79,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint64_t blkno,
 					   uint16_t chain, uint16_t cpg,
 					   uint16_t bpc);
+static void free_alloc_group(AllocGroup *group);
 static void index_system_dirs(State *s, ocfs2_filesys *fs);
 static void create_lost_found_dir(State *s, ocfs2_filesys *fs);
 static void format_journals(State *s, ocfs2_filesys *fs);
@@ -818,11 +822,16 @@ main(int argc, char **argv)
 	if (!s->hb_dev)
 		finish_normal_format(s);
 
+	free_directory(root_dir);
+	free_directory(system_dir);
+	for (i = 0; i < s->initial_slots; ++i)
+		free_directory(orphan_dir[i]);
 	close_device(s);
 
 	if (!s->quiet)
 		printf("%s successful\n\n", s->progname);
-
+	free_state(s);
+	free_records(record);
 	return 0;
 }
 
@@ -1225,6 +1234,48 @@ get_state(int argc, char **argv)
 		s->no_backup_super = no_backup_super;
 
 	return s;
+}
+
+static void
+free_state(State *s)
+{
+	if(!s)
+		return;
+
+	if (s->vol_label) {
+		free(s->vol_label);
+		s->vol_label = NULL;
+	}
+
+	if (s->device_name) {
+		free(s->device_name);
+		s->device_name = NULL;
+	}
+
+	if (s->cluster_stack) {
+		free(s->cluster_stack);
+		s->cluster_stack = NULL;
+	}
+
+	if (s->cluster_name) {
+		free(s->cluster_name);
+		s->cluster_name = NULL;
+	}
+
+	if (s->global_bm) {
+		free_global_bitmap(s, s->global_bm);
+		s->global_bm = NULL;
+	}
+
+	if (s->system_group) {
+		free_alloc_group(s->system_group);
+		s->system_group = NULL;
+	}
+
+	free(s);
+	s = NULL;
+
+	return;
 }
 
 static int
@@ -1841,6 +1892,27 @@ initialize_alloc_group(State *s, const char *name,
 	return group;
 }
 
+static void
+free_alloc_group(AllocGroup *group)
+{
+	if (!group)
+		return;
+
+	if (group->gd) {
+		free(group->gd);
+		group->gd = NULL;
+	}
+
+	if (group->name) {
+		free(group->name);
+		group->name = NULL;
+	}
+
+	free(group);
+	group = NULL;
+	return;
+}
+
 static AllocBitmap *
 initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 		  const char *name, SystemFileDiskRecord *bm_record)
@@ -1942,6 +2014,33 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 	}
 
 	return bitmap;
+}
+
+static void
+free_global_bitmap(State *s, AllocBitmap *global_bm)
+{
+	int i;
+
+	if (!global_bm)
+		return;
+
+	if (global_bm->name) {
+		free(global_bm->name);
+		global_bm->name = NULL;
+	}
+
+	if (global_bm->groups) {
+
+		for(i = 0; i < s->nr_cluster_groups; i++)
+			free_alloc_group(global_bm->groups[i]);
+
+		free(global_bm->groups);
+		global_bm->groups = NULL;
+	}
+
+	free(global_bm);
+	global_bm = NULL;
+	return;
 }
 
 #if 0
@@ -2126,6 +2225,21 @@ alloc_directory(State *s)
 	memset(dir, 0, sizeof(DirData));
 
 	return dir;
+}
+
+static void
+free_directory(DirData *dir)
+{
+	if (dir) {
+		if (dir->buf) {
+			free(dir->buf);
+			dir->buf = NULL;
+		}
+		free(dir);
+		dir = NULL;
+	}
+
+	return;
 }
 
 static void
@@ -2829,6 +2943,23 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int mode)
 	case SFI_OTHER:
 		break;
 	}
+}
+
+static void
+free_records(SystemFileDiskRecord *record[])
+{
+	int i;
+
+	if (!record)
+		return;
+
+	for (i = 0; i < NUM_SYSTEM_INODES; i++) {
+		if (record[i]) {
+			free(record[i]);
+			record[i] = NULL;
+		}
+	}
+	return;
 }
 
 static void
