@@ -1002,6 +1002,10 @@ static errcode_t parse_options(int argc, char *argv[], char **device)
 	}
 
 out:
+	if(optstring)
+		free(optstring);
+	if (long_options)
+		free(long_options);
 	return err;
 }
 
