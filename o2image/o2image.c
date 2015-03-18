@@ -674,9 +674,10 @@ static int prompt_image_creation(ocfs2_filesys *ofs, int rawflg, char *filename)
 		img_size/1024, free_spc/1024);
 	if (toupper(getchar()) != 'Y') {
 		fprintf(stdout, "Aborting image creation.\n");
+		free(filepath);
 		return 0;
 	}
-
+	free(filepath);
 	return 1;
 }
 
