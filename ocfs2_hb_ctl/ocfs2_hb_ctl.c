@@ -631,6 +631,12 @@ int main(int argc, char **argv)
 	block_signals(SIG_UNBLOCK);
 
 bail:
+	if (hbo.dev_str)
+		free(hbo.dev_str);
+	if (hbo.service)
+		free(hbo.service);
+	if (hbo.uuid_str)
+		free(hbo.uuid_str);
 	free_desc();
 	return ret ? 1 : 0;
 }
