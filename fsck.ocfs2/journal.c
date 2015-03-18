@@ -925,6 +925,10 @@ static errcode_t check_journal_walk(o2fsck_state *ost,
 		ret = func(ost, ci, jc);
 		if (ret)
 			break;
+		if (ci) {
+			ocfs2_free_cached_inode(fs, ci);
+			ci = NULL;
+		}
 	}
 
 	if (ci)
