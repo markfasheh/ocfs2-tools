@@ -313,7 +313,7 @@ int main(int argc, char **argv)
 	int group_join = 0;
 	struct stat statbuf;
 	const char *spec;
-
+	char *opts_string = NULL;
 	initialize_ocfs_error_table();
 	initialize_o2dl_error_table();
 	initialize_o2cb_error_table();
@@ -452,12 +452,9 @@ int main(int argc, char **argv)
 	}
 
 	change_local_hb_io_priority(fs, mo.dev);
-
-	update_mtab_entry(mo.dev, mo.dir, OCFS2_FS_NAME,
-			  fix_opts_string(((mo.flags & ~MS_NOMTAB) |
-					   (clustered ? MS_NETDEV : 0)),
-					  mo.xtra_opts, NULL),
-			  mo.flags, 0, 0);
+	opts_string = fix_opts_string(((mo.flags & ~MS_NOMTAB) |
+				(clustered ? MS_NETDEV : 0)), mo.xtra_opts, NULL);
+	update_mtab_entry(mo.dev, mo.dir, OCFS2_FS_NAME, opts_string, mo.flags, 0, 0);
 
 	block_signals (SIG_UNBLOCK);
 
@@ -474,6 +471,7 @@ bail:
 		free(mo.xtra_opts);
 	if (mo.type)
 		free(mo.type);
-
+	if (opts_string)
+		free(opts_string);
 	return ret ? 1 : 0;
 }
