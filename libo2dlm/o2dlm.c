@@ -102,9 +102,10 @@ static errcode_t o2dlm_generate_random_value(int64_t *value)
 	if ((randfd = open("/dev/urandom", O_RDONLY)) == -1)
 		return O2DLM_ET_RANDOM;
 
-	if (read(randfd, value, readlen) != readlen)
+	if (read(randfd, value, readlen) != readlen) {
+		close(randfd);
 		return O2DLM_ET_RANDOM;
-
+	}
 	close(randfd);
 
 	return 0;
