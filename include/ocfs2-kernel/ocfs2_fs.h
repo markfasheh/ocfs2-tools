@@ -317,6 +317,8 @@
 
 /* Journal limits (in bytes) */
 #define OCFS2_MIN_JOURNAL_SIZE		(4 * 1024 * 1024)
+/* Minimum Journal size shift with respect to cluster size */
+#define OCFS2_MIN_CLUSTER_TO_JOURNAL_SIZE_SHIFT		3
 
 /*
  * Default local alloc size (in megabytes)

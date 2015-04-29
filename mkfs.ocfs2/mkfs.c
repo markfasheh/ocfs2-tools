@@ -1450,10 +1450,30 @@ static unsigned int journal_size_vmstore(State *s)
 	return 32768;
 }
 
+static int journal_size_valid(unsigned int j_blocks, State *s)
+{
+	return (j_blocks * s->initial_slots + 1024) <=
+		s->volume_size_in_blocks;
+}
+
+/* For operations such as mkdir that can require more than a cluster worth
+ * of journal credits, journal size should be greater than cluster size * 8.
+ * The kernel allows the maximum transaction buffer to be 1\4 th of the
+ * journal size and this is further divided by 2 for transaction
+ * reservation support. We calculate minimum journal size here
+ * accordingly and and ceil w.r.t to the cluster size.*/
+static unsigned int journal_min_size(uint32_t cluster_size)
+{
+	return (cluster_size << OCFS2_MIN_CLUSTER_TO_JOURNAL_SIZE_SHIFT)
+		+ cluster_size;
+}
+
 /* stolen from e2fsprogs, modified to fit ocfs2 patterns */
 static uint64_t figure_journal_size(uint64_t size, State *s)
 {
 	unsigned int j_blocks;
+	uint64_t ret;
+	unsigned int min_journal_size;
 
 	if (s->hb_dev)
 		return 0;
@@ -1463,19 +1483,27 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 		exit(1);
 	}
 
+	min_journal_size = journal_min_size(s->cluster_size);
 	if (size > 0) {
 		j_blocks = size >> s->blocksize_bits;
 		/* mke2fs knows about free blocks at this point, but
 		 * we don't so lets just take a wild guess as to what
 		 * the fs overhead we're looking at will be. */
-		if ((j_blocks * s->initial_slots + 1024) > 
-		    s->volume_size_in_blocks) {
+		if (!journal_size_valid(j_blocks, s)) {
 			fprintf(stderr, 
 				"Journal size too big for filesystem.\n");
 			exit(1);
 		}
 
-		return align_bytes_to_clusters_ceil(s, size);
+		ret = align_bytes_to_clusters_ceil(s, size);
+		/* It is better to fail mkfs than to create a non-functional
+		 * filesystem.*/
+		if (ret < min_journal_size) {
+			fprintf(stderr,
+				"Journal size too small for filesystem.\n");
+			exit(1);
+		}
+		return ret;
 	}
 
 	switch (s->fs_type) {
@@ -1493,7 +1521,22 @@ static uint64_t figure_journal_size(uint64_t size, State *s)
 		break;
 	}
 
-	return align_bytes_to_clusters_ceil(s, j_blocks << s->blocksize_bits);
+	ret = align_bytes_to_clusters_ceil(s, j_blocks << s->blocksize_bits);
+	/* If the default journal size is less than the minimum required
+	 * size, set the default to the minimum size. Then fail if
+	 * the journal size is not valid*/
+	if (ret < min_journal_size) {
+		ret = min_journal_size;
+		j_blocks = ret >> s->blocksize_bits;
+		if (!journal_size_valid(j_blocks, s)) {
+			fprintf(stderr,
+				"Volume size too small for required "
+				"configuration.\nIncrease volume size or "
+				"reduce cluster size\n");
+			exit(1);
+		}
+	}
+	return ret;
 }
 
 static uint32_t cluster_size_default(State *s)
