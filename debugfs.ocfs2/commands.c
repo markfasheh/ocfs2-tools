@@ -534,6 +534,7 @@ static int process_open_args(char **args,
 	int num, argc, c;
 
 	for (argc = 0; (args[argc]); ++argc);
+	dev = strdup(args[1]);
 	optind = 0;
 	while ((c = getopt(argc, args, "is:")) != EOF) {
 		switch (c) {
@@ -544,26 +545,31 @@ static int process_open_args(char **args,
 				s = strtoul(optarg, &ptr, 0);
 				break;
 			default:
-				return 1;
+				ret = 1;
+				goto bail;
 				break;
 		}
 	}
 
-	if (!s)
-		return 0;
+	if (!s) {
+		ret = 0;
+		goto bail;
+	}
 
 	num = ocfs2_get_backup_super_offsets(NULL, byte_off,
 					     ARRAY_SIZE(byte_off));
-	if (!num)
-		return -1;
+	if (!num) {
+		ret = -1;
+		goto bail;
+	}
 
 	if (s < 1 || s > num) {
 		fprintf(stderr, "Backup super block is outside of valid range"
 			"(between 1 and %d)\n", num);
-		return -1;
+		ret = -1;
+		goto bail;
 	}
 
-	dev = strdup(args[1]);
 	ret = get_blocksize(dev, byte_off[s-1], &blksize, s);
 	if (ret) {
 		com_err(args[0],ret, "Can't get the blocksize from the device"
