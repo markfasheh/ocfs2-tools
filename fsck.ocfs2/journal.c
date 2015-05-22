@@ -339,6 +339,7 @@ static errcode_t replay_blocks(ocfs2_filesys *fs, struct journal_info *ji,
 			tagp += 16;
 	}
 	
+	*next_block = jwrap(ji->ji_jsb, *next_block);
 out:
 	if (io_buf)
 		ocfs2_free(&io_buf);
