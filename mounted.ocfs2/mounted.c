@@ -366,13 +366,14 @@ static errcode_t build_partition_list(struct list_head *dev_list, char *device)
 		}
 
 		/* skip devices smaller than 1M */
-		ret = ocfs2_get_device_size(dev->dev_name, 4096, &numblocks);
-		if (ret < 0) {
+
+		if (ocfs2_get_device_size(dev->dev_name, 4096, &numblocks)) {
 			verbosef(VL_DEBUG, "Unable to get size of %s\n",
 				 dev->dev_name);
 			ocfs2_free(&dev);
 			continue;
 		}
+
 
 		if (numblocks <= (1024 * 1024 / 4096)) {
 			verbosef(VL_DEBUG, "Skipping small device %s\n",
