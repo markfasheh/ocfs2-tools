@@ -72,6 +72,7 @@ struct devnode {
 	int md;			/* 0 nothing to do with raid, 1 is raid,
 				 * 2 is raid slave - data from /proc/mdstat */
 	int mapper;		/* 0 nothing, 1 we believe it's a devmap dev */
+	int power;		/* 0 nothing, 1 we believe it is powerpath device */
 	void *filter;		/* your filter output.. whatever it is */
 };
 
@@ -92,6 +93,7 @@ struct devlisthead {
 				 * /proc/mdstat */
 	int mapper;		/* set to 1 if we were able to run
 				 * something against mapper */
+	int power;		/* set to 1 if we detected a powerpath device */
 };
 
 typedef void (*devfilter) (struct devnode * cur, void *arg);

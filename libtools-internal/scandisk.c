@@ -466,6 +466,60 @@ static int scanmapper(struct devlisthead *devlisthead)
 	return 1;
 }
 
+/* scanpower parses /proc/devices to identify what maj are associated
+ * with powerpath devices
+ */
+static int scanpower(struct devlisthead *devlisthead)
+{
+	struct devnode *startnode;
+	FILE *fp;
+	char line[4096];
+	char major[4];
+	char device[64];
+	int maj, start = 0;
+	int found = 0;
+
+	fp = fopen("/proc/devices", "r");
+	if (!fp)
+		return 0;
+
+	while (fgets(line, sizeof(line), fp) != NULL) {
+		memset(major, 0, 4);
+		memset(device, 0, 64);
+
+		if (strlen(line) > 4096)
+			continue;
+
+		if (!strncmp(line, "Block devices:", 13)) {
+			start = 1;
+			continue;
+		}
+
+		if (!start)
+			continue;
+
+		sscanf(line, "%s %s", major, device);
+
+		if (!strncmp(device, "power", 5)) {
+			found = 1;
+			maj = atoi(major);
+			startnode = devlisthead->devnode;
+
+			while (startnode) {
+				if (startnode->maj == maj)
+					startnode->power = 1;
+
+				startnode = startnode->next;
+			}
+
+		}
+
+	}
+
+	fclose(fp);
+	return found;
+}
+
 /* scan through the list and execute the custom filter for each entry */
 static void run_filter(struct devlisthead *devlisthead,
 		       devfilter filter, void *filter_args)
@@ -781,7 +835,10 @@ struct devlisthead *scan_for_dev(struct devlisthead *devlisthead,
 
 	/* from now on we don't alloc mem ourselves but only add info */
 	devlisthead->mdstat = scanmdstat(devlisthead);
+
 	devlisthead->mapper = scanmapper(devlisthead);
+
+	devlisthead->power = scanpower(devlisthead);
 	if (filter)
 		run_filter(devlisthead, filter, filter_args);
 
