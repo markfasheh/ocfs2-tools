@@ -1,0 +1,14 @@
+[Unit]
+Description=Load ocfs2 Modules
+Requires=o2cb.service
+After=o2cb.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/ocfs2.init start
+ExecStop=/sbin/ocfs2.init stop
+ExecReload=/sbin/ocfs2.init restart
+
+[Install]
+WantedBy=multi-user.target

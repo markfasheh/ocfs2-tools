@@ -20,6 +20,7 @@ $(TOPDIR)/ocfs2-tools-$(DIST_VERSION)-$(PKG_VERSION).$(VENDOR_EXTENSION).src.rpm
 		-e 's,@@PYVERSION@@,'$(PYVERSION)',g' \
 		-e 's,@@COMPILE_PY@@,'$(COMPILE_PY)',g' \
 		-e 's,@@CHKCONFIG_DEP@@,'$(CHKCONFIG_DEP)',g' \
+		-e 's,@@SYSTEMD_ENABLED@@,'$(SYSTEMD_ENABLED)',g' \
 		< "$(TOPDIR)/vendor/common/ocfs2-tools.spec-generic" \
 		> "$(TOPDIR)/vendor/common/ocfs2-tools.spec"
 	$(RPMBUILD) -bs --define "_sourcedir $(RPM_TOPDIR)" --define "_srcrpmdir $(RPM_TOPDIR)" "$(TOPDIR)/vendor/common/ocfs2-tools.spec"
