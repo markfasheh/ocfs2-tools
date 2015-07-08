@@ -1027,6 +1027,11 @@ static void do_stat(char **args)
 		index++;
 	}
 
+	if (!args[index]) {
+		fprintf(stderr, "%s\n", stat_usage);
+		return ;
+	}
+
 	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
 			      args[index], &blkno);
 	if (ret) {
