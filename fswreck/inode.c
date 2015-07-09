@@ -27,7 +27,8 @@
 /* This file will create the errors for the inode.
  *
  * Inode field error: 	INODE_SUBALLOC, INODE_GEN, INODE_GEN_FIX,INODE_BLKNO,
-			INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT
+			INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT,
+			INODE_BLOCK_ECC
  *
  * Inode link not connected error: INODE_NOT_CONNECTED
  *
@@ -128,6 +129,14 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 			"Corrupte inode#%"PRIu64", set link count to 0\n",
 			blkno);
 		break;
+	case INODE_BLOCK_ECC:
+		fprintf(stdout, "INODE_BLOCK_ECC: "
+			"Corrupte inode#%"PRIu64", set both i_check.bc_crc32e"
+			"=%"PRIu64" and i_check.bc_ecc=%"PRIu64" to 0x1234\n",
+			blkno, di->i_check.bc_crc32e, di->i_check.bc_ecc);
+		di->i_check.bc_crc32e = 0x1234;
+		di->i_check.bc_ecc = 0x1234;
+		break;
 	case REFCOUNT_FLAG_INVALID:
 		di->i_dyn_features |= OCFS2_HAS_REFCOUNT_FL;
 		fprintf(stdout, "REFCOUNT_FLAG_INVALD: "
@@ -145,7 +154,11 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 		FSWRK_FATAL("Invalid type[%d]\n", type);
 	}
 
-	ret = ocfs2_write_inode(fs, blkno, buf);
+	if (type != INODE_BLOCK_ECC)
+		ret = ocfs2_write_inode(fs, blkno, buf);
+	else
+		ret = ocfs2_write_inode_without_meta_ecc(fs, blkno, buf);
+
 	if (ret)
 		FSWRK_COM_FATAL(progname, ret);
 

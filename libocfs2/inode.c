@@ -360,6 +360,46 @@ out:
 	return ret;
 }
 
+/**
+ * Same as ocfs2_write_inode, but without ocfs2_compute_meta_ecc function so
+ * that the inode meta CRC and ECC value wouldn't be overwritten after corrupted
+ * in fswreck.
+ */
+errcode_t ocfs2_write_inode_without_meta_ecc(ocfs2_filesys *fs, uint64_t blkno,
+			    char *inode_buf)
+{
+	errcode_t ret;
+	char *blk;
+	struct ocfs2_dinode *di;
+
+	if (!(fs->fs_flags & OCFS2_FLAG_RW))
+		return OCFS2_ET_RO_FILESYS;
+
+	if ((blkno < OCFS2_SUPER_BLOCK_BLKNO) ||
+	    (blkno > fs->fs_blocks))
+		return OCFS2_ET_BAD_BLKNO;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &blk);
+	if (ret)
+		return ret;
+
+	memcpy(blk, inode_buf, fs->fs_blocksize);
+
+	di = (struct ocfs2_dinode *)blk;
+	ocfs2_swap_inode_from_cpu(fs, di);
+
+	ret = io_write_block(fs->fs_io, blkno, 1, blk);
+	if (ret)
+		goto out;
+
+	fs->fs_flags |= OCFS2_FLAG_CHANGED;
+	ret = 0;
+
+out:
+	ocfs2_free(&blk);
+
+	return ret;
+}
 
 #ifdef DEBUG_EXE
 #include <stdlib.h>

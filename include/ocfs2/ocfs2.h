@@ -391,6 +391,8 @@ errcode_t ocfs2_read_inode(ocfs2_filesys *fs, uint64_t blkno,
 			   char *inode_buf);
 errcode_t ocfs2_write_inode(ocfs2_filesys *fs, uint64_t blkno,
 			    char *inode_buf);
+errcode_t ocfs2_write_inode_without_meta_ecc(ocfs2_filesys *fs, uint64_t blkno,
+			    char *inode_buf);
 errcode_t ocfs2_check_directory(ocfs2_filesys *fs, uint64_t dir);
 int ocfs2_check_dir_entry(ocfs2_filesys *fs, struct ocfs2_dir_entry *de,
 				char *dir_buf, unsigned int offset);
