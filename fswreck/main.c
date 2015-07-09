@@ -329,6 +329,8 @@ static struct prompt_code prompt_codes[NUM_FSCK_TYPE] = {
 			   "corrupt refcount record and handle them in dup"),
 	define_prompt_code(INODE_BLOCK_ECC, corrupt_file, "", 1,
 			   "corrupt inode's i_check filed"),
+	define_prompt_code(INODE_VALID_FLAG, corrupt_file, "", 1,
+			   "corrupt inode's i_flags filed"),
 };
 
 #undef define_prompt_code

@@ -228,6 +228,9 @@ void corrupt_file(ocfs2_filesys *fs, enum fsck_type type, uint16_t slotnum)
 	case INODE_BLOCK_ECC:
 		func = mess_up_inode_field;
 		break;
+	case INODE_VALID_FLAG:
+		func = mess_up_inode_field;
+		break;
 	default:
 		FSWRK_FATAL("Invalid code=%d", type);
 	}

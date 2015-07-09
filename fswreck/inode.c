@@ -28,7 +28,7 @@
  *
  * Inode field error: 	INODE_SUBALLOC, INODE_GEN, INODE_GEN_FIX,INODE_BLKNO,
 			INODE_NZ_DTIME, INODE_SIZE, INODE_CLUSTERS, INODE_COUNT,
-			INODE_BLOCK_ECC
+			INODE_BLOCK_ECC, INODE_VALID_FLAG
  *
  * Inode link not connected error: INODE_NOT_CONNECTED
  *
@@ -136,6 +136,12 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 			blkno, di->i_check.bc_crc32e, di->i_check.bc_ecc);
 		di->i_check.bc_crc32e = 0x1234;
 		di->i_check.bc_ecc = 0x1234;
+		break;
+	case INODE_VALID_FLAG:
+		fprintf(stdout, "INODE_VALID_FLAG: "
+			"Corrupt inode#%"PRIu64", clear inode valid flag\n",
+			blkno);
+		di->i_flags &= ~OCFS2_VALID_FL;
 		break;
 	case REFCOUNT_FLAG_INVALID:
 		di->i_dyn_features |= OCFS2_HAS_REFCOUNT_FL;
