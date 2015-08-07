@@ -79,6 +79,7 @@ static int truncate_iterate(ocfs2_filesys *fs,
 	int func_ret = OCFS2_EXTENT_ERROR;
 	char *buf = NULL;
 	struct ocfs2_extent_list *el = NULL;
+	int cleanup_rec = 0;
 
 	if ((rec->e_cpos + ocfs2_rec_clusters(tree_depth, rec)) <=
 							new_size_in_clusters)
@@ -99,7 +100,7 @@ static int truncate_iterate(ocfs2_filesys *fs,
 				goto bail;
 		}
 
-		memset(rec, 0, sizeof(struct ocfs2_extent_rec));
+		cleanup_rec = 1;
 	} else {
 		/* we're truncating into the middle of the rec */
 		len = rec->e_cpos +
@@ -140,7 +141,7 @@ static int truncate_iterate(ocfs2_filesys *fs,
 				ret = ocfs2_delete_extent_block(fs, rec->e_blkno);
 				if (ret)
 					goto bail;
-				memset(rec, 0, sizeof(struct ocfs2_extent_rec));
+					cleanup_rec = 1;
 			}
 		}
 	}
@@ -159,6 +160,8 @@ static int truncate_iterate(ocfs2_filesys *fs,
 
 	func_ret =  OCFS2_EXTENT_CHANGED;
 bail:
+	if (cleanup_rec)
+		memset(rec, 0, sizeof(struct ocfs2_extent_rec));
 	if (buf)
 		ocfs2_free(&buf);
 	return func_ret;
@@ -399,6 +402,10 @@ truncate:
 		ci->ci_inode->i_size = new_i_size;
 		ret = ocfs2_write_cached_inode(fs, ci);
 	}
+
+	if (!ret && !new_i_size && ci->ci_inode->i_refcount_loc &&
+		(ci->ci_inode->i_dyn_features & OCFS2_HAS_REFCOUNT_FL))
+		ret = ocfs2_detach_refcount_tree(fs, ino, ci->ci_inode->i_refcount_loc);
 out:
 	if (ci)
 		ocfs2_free_cached_inode(fs, ci);
