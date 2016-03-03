@@ -77,6 +77,8 @@ void rb_insert_color(struct rb_node *node, struct rb_root *root)
 	while ((parent = node->rb_parent) && parent->rb_color == RB_RED)
 	{
 		gparent = parent->rb_parent;
+		if (!gparent)
+			break;
 
 		if (parent == gparent->rb_left)
 		{
