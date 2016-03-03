@@ -109,7 +109,7 @@ errcode_t ocfs2_malloc_blocks(io_channel *channel, int num_blocks,
 	blksize = io_get_blksize(channel);
 	if (((unsigned long long)num_blocks * blksize) > SIZE_MAX)
 		return OCFS2_ET_NO_MEMORY;
-	bytes = num_blocks * blksize;
+	bytes = (unsigned long long)num_blocks * blksize;
 
 	/*
 	 * Older glibcs abort when they can't memalign() something.
