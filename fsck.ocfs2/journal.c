@@ -722,7 +722,7 @@ out:
 	if (buf)
 		ocfs2_free(&buf);
 	if (used_blocks)
-		ocfs2_bitmap_free(used_blocks);
+		ocfs2_bitmap_free(&used_blocks);
 
 	return ret;
 }

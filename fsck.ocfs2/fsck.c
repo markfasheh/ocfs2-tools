@@ -202,17 +202,17 @@ errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost)
 {
 	errcode_t ret;
 
-	ocfs2_bitmap_free(ost->ost_dir_inodes);
+	ocfs2_bitmap_free(&ost->ost_dir_inodes);
 	ost->ost_dir_inodes = NULL;
 
-	ocfs2_bitmap_free(ost->ost_reg_inodes);
+	ocfs2_bitmap_free(&ost->ost_reg_inodes);
 	ost->ost_reg_inodes = NULL;
 
-	ocfs2_bitmap_free(ost->ost_allocated_clusters);
+	ocfs2_bitmap_free(&ost->ost_allocated_clusters);
 	ost->ost_allocated_clusters = NULL;
 
 	if (ost->ost_duplicate_clusters) {
-		ocfs2_bitmap_free(ost->ost_duplicate_clusters);
+		ocfs2_bitmap_free(&ost->ost_duplicate_clusters);
 		ost->ost_duplicate_clusters = NULL;
 	}
 

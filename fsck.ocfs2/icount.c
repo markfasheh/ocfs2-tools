@@ -232,7 +232,7 @@ void o2fsck_icount_free(o2fsck_icount *icount)
 	struct rb_node *node;
 	icount_node *in; 
 
-	ocfs2_bitmap_free(icount->ic_single_bm);
+	ocfs2_bitmap_free(&icount->ic_single_bm);
 	while((node = rb_first(&icount->ic_multiple_tree)) != NULL) {
 		in = rb_entry(node, icount_node, in_node);
 		rb_erase(node, &icount->ic_multiple_tree);

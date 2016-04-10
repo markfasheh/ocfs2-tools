@@ -1293,9 +1293,9 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 
 out:
 	if (allowed)
-		ocfs2_bitmap_free(allowed);
+		ocfs2_bitmap_free(&allowed);
 	if (forbidden)
-		ocfs2_bitmap_free(forbidden);
+		ocfs2_bitmap_free(&forbidden);
 	return ret;
 }
 

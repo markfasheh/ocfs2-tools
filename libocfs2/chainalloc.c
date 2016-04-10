@@ -433,7 +433,7 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 	char name[256];
 
 	if (cinode->ci_chains)
-		ocfs2_bitmap_free(cinode->ci_chains);
+		ocfs2_bitmap_free(&cinode->ci_chains);
 
 	total_bits = (uint64_t)fs->fs_clusters *
 		cinode->ci_inode->id2.i_chain.cl_bpc;
@@ -454,7 +454,7 @@ errcode_t ocfs2_load_chain_allocator(ocfs2_filesys *fs,
 				    cinode, gb_blkno);
 	ret = ocfs2_bitmap_read(cinode->ci_chains);
 	if (ret) {
-		ocfs2_bitmap_free(cinode->ci_chains);
+		ocfs2_bitmap_free(&cinode->ci_chains);
 		return ret;
 	}
 

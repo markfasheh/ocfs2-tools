@@ -74,7 +74,7 @@ errcode_t ocfs2_free_cached_inode(ocfs2_filesys *fs,
 		return OCFS2_ET_INVALID_ARGUMENT;
 	
 	if (cinode->ci_chains)
-		ocfs2_bitmap_free(cinode->ci_chains);
+		ocfs2_bitmap_free(&cinode->ci_chains);
 
 	if (cinode->ci_inode)
 		ocfs2_free(&cinode->ci_inode);
@@ -106,7 +106,7 @@ errcode_t ocfs2_refresh_cached_inode(ocfs2_filesys *fs,
 				     ocfs2_cached_inode *cinode)
 {
 	if (cinode->ci_chains) {
-		ocfs2_bitmap_free(cinode->ci_chains);
+		ocfs2_bitmap_free(&cinode->ci_chains);
 		cinode->ci_chains = NULL;
 	}
 

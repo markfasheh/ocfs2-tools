@@ -270,8 +270,8 @@ int main(int argc, char *argv[])
 	if (!ret && we.has_dups)
 		ret = run_scan(&we, 1);
 
-	ocfs2_bitmap_free(we.extent_map);
-	ocfs2_bitmap_free(we.dup_map);
+	ocfs2_bitmap_free(&we.extent_map);
+	ocfs2_bitmap_free(&we.dup_map);
 
 out_close:
 	ret = ocfs2_close(fs);

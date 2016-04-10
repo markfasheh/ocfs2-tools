@@ -37,7 +37,7 @@
 
 /* The public API */
 
-void ocfs2_bitmap_free(ocfs2_bitmap *bitmap)
+void ocfs2_bitmap_free(ocfs2_bitmap **bitmap)
 {
 	struct rb_node *node;
 	struct ocfs2_bitmap_region *br;
@@ -47,18 +47,18 @@ void ocfs2_bitmap_free(ocfs2_bitmap *bitmap)
 	 * it should have done it in destroy_notify.  Same with the
 	 * private pointers.
 	 */
-	if (bitmap->b_ops->destroy_notify)
-		(*bitmap->b_ops->destroy_notify)(bitmap);
+	if ((*bitmap)->b_ops->destroy_notify)
+		(*(*bitmap)->b_ops->destroy_notify)(*bitmap);
 
-	while ((node = rb_first(&bitmap->b_regions)) != NULL) {
+	while ((node = rb_first(&(*bitmap)->b_regions)) != NULL) {
 		br = rb_entry(node, struct ocfs2_bitmap_region, br_node);
 
-		rb_erase(&br->br_node, &bitmap->b_regions);
+		rb_erase(&br->br_node, &(*bitmap)->b_regions);
 		ocfs2_bitmap_free_region(br);
 	}
 
-	ocfs2_free(&bitmap->b_description);
-	ocfs2_free(&bitmap);
+	ocfs2_free(&(*bitmap)->b_description);
+	ocfs2_free(bitmap);
 }
 
 errcode_t ocfs2_bitmap_set(ocfs2_bitmap *bitmap, uint64_t bitno,
@@ -907,14 +907,14 @@ errcode_t ocfs2_cluster_bitmap_new(ocfs2_filesys *fs,
 		ret = ocfs2_bitmap_alloc_region(bitmap, bitoff, 0,
 						alloc_bits, &br);
 		if (ret) {
-			ocfs2_bitmap_free(bitmap);
+			ocfs2_bitmap_free(&bitmap);
 			return ret;
 		}
 
 		ret = ocfs2_bitmap_insert_region(bitmap, br);
 		if (ret) {
 			ocfs2_bitmap_free_region(br);
-			ocfs2_bitmap_free(bitmap);
+			ocfs2_bitmap_free(&bitmap);
 			return ret;
 		}
 
@@ -1241,7 +1241,7 @@ int main(int argc, char *argv[])
 
 	run_test(bitmap);
 
-	ocfs2_bitmap_free(bitmap);
+	ocfs2_bitmap_free(&bitmap);
 
 out_close:
 	ocfs2_close(fs);
