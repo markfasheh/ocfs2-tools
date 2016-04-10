@@ -261,6 +261,7 @@ int main(int argc, char *argv[])
         ret = ocfs2_cluster_bitmap_new(fs, "Dup extent map",
                                        &we.dup_map);
         if (ret) {
+		ocfs2_bitmap_free(&we.extent_map);
 		com_err(argv[0], ret, 
 			"while creating the dup map");
 		goto out_close;

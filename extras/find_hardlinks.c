@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
 	uint64_t blkno;
 	char *filename;
 	ocfs2_filesys *fs;
-	struct walk_path wp;
+	struct walk_path wp = {0};
 
 	blkno = OCFS2_SUPER_BLOCK_BLKNO;
 
@@ -264,6 +264,11 @@ int main(int argc, char *argv[])
 	}
 
 out_close:
+	if (wp.inode_map)
+		ocfs2_bitmap_free(&wp.inode_map);
+	if (wp.dup_map)
+		ocfs2_bitmap_free(&wp.dup_map);
+
 	ret = ocfs2_close(fs);
 	if (ret) {
 		com_err(argv[0], ret,
