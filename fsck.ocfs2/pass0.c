@@ -1008,7 +1008,8 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			free += cs.cs_free_bits;
 			total += cs.cs_total_bits;
 			continue;
-		}
+		} else if (allowed && forbidden)
+			continue;
 
 		if (prompt(ost, PY, PR_CHAIN_EMPTY,
 			   "Chain %d in allocator inode %"PRIu64" "
