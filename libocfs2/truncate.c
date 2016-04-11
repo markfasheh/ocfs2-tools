@@ -33,6 +33,7 @@
 #include <assert.h>
 #include <errno.h>
 #include "ocfs2/ocfs2.h"
+#include "ocfs2/byteorder.h"
 
 struct truncate_ctxt {
 	uint64_t ino;
@@ -356,6 +357,16 @@ errcode_t ocfs2_truncate_full(ocfs2_filesys *fs, uint64_t ino,
 	if (ret)
 		goto out;
 
+	/* in case of dio crashed, force do trucate since blocks may already
+	 * be allocated
+	 */
+	if (ci->ci_inode->i_flags & cpu_to_le32(OCFS2_DIO_ORPHANED_FL)) {
+		ci->ci_inode->i_flags &= ~cpu_to_le32(OCFS2_DIO_ORPHANED_FL);
+		ci->ci_inode->i_dio_orphaned_slot = 0;
+		new_i_size = ci->ci_inode->i_size;
+		goto truncate;
+	}
+
 	if (ci->ci_inode->i_size == new_i_size)
 		goto out;
 
@@ -364,6 +375,7 @@ errcode_t ocfs2_truncate_full(ocfs2_filesys *fs, uint64_t ino,
 		goto out;
 	}
 
+truncate:
 	if ((S_ISLNK(ci->ci_inode->i_mode) && !ci->ci_inode->i_clusters) ||
 	    (ci->ci_inode->i_dyn_features & OCFS2_INLINE_DATA_FL))
 		ret = ocfs2_truncate_inline(fs, ino, new_i_size);

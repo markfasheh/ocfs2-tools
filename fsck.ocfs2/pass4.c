@@ -100,6 +100,9 @@ out:
 	return;
 }
 
+#define OCFS2_DIO_ORPHAN_PREFIX "dio-"
+#define OCFS2_DIO_ORPHAN_PREFIX_LEN 4
+
 static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 				 uint64_t blocknr,
 				 int	offset,
@@ -138,6 +141,11 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 		goto out;
 	}
 
+	/* do not delete inode in case of dio orphan entry */
+	if (!strncmp(dirent->name, OCFS2_DIO_ORPHAN_PREFIX,
+			OCFS2_DIO_ORPHAN_PREFIX_LEN))
+		goto out_check;
+
 	ret = ocfs2_delete_inode(ost->ost_fs, dirent->inode);
 	if (ret) {
 		com_err(whoami, ret, "while deleting orphan inode %"PRIu64
@@ -148,6 +156,7 @@ static int replay_orphan_iterate(struct ocfs2_dir_entry *dirent,
 
 	ost->ost_orphan_deleted_count++;
 
+out_check:
 	/* Only calculate icount in force check. */
 	if (ost->ost_force) {
 		/*
