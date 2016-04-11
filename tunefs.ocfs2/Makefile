@@ -35,7 +35,8 @@ OCFS2NE_FEATURES =			\
 	feature_xattr			\
 	feature_indexed_dirs		\
 	feature_quota			\
-	feature_clusterinfo
+	feature_clusterinfo		\
+	feature_append_dio
 
 OCFS2NE_OPERATIONS =			\
 	op_cloned_volume		\
