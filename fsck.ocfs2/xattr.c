@@ -252,7 +252,7 @@ static errcode_t check_xattr_entry(o2fsck_state *ost,
 				    PRIu64" refers to a used area at %u,"
 				    " clear this entry?",
 				    xattr_object[xi->location], xi->blkno,
-				    XE_OFFSET(xh, xe))) {
+				    (uint32_t)XE_OFFSET(xh, xe))) {
 				ret = -1;
 				break;
 			} else
