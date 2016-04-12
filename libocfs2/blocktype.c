@@ -139,6 +139,8 @@ static void ocfs2_swap_block(ocfs2_filesys *fs, void *block, int to_cpu)
 			else
 				ocfs2_swap_dx_leaf_from_cpu(block);
 			break;
+		default:
+			break;
 	}
 
 	return ;

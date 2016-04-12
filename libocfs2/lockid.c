@@ -99,11 +99,12 @@ errcode_t ocfs2_decode_lockres(char *lockres, enum ocfs2_lock_type *type,
 		return OCFS2_ET_INVALID_LOCKRES;
 
 	if (t != OCFS2_LOCK_TYPE_DENTRY) {
-		i = sscanf(l + 1, OCFS2_LOCK_ID_PAD"%016llx%08x", &b, &g);
+		i = sscanf(l + 1, OCFS2_LOCK_ID_PAD"%016llx%08x",
+				(unsigned long long *)&b, &g);
 		if (i != 2)
 			return OCFS2_ET_INVALID_LOCKRES;
 	} else {
-		i = sscanf(l + 1, "%016llx", &p);
+		i = sscanf(l + 1, "%016llx", (unsigned long long *)&p);
 		if (i != 1)
 			return OCFS2_ET_INVALID_LOCKRES;
 		b = strtoull(&l[OCFS2_DENTRY_LOCK_INO_START], NULL, 16);
