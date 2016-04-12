@@ -70,23 +70,23 @@ static errcode_t resize_slot_map_file(ocfs2_filesys *fs, uint64_t slotsize)
 	minsize = OCFS2_MAX_SLOTS * sizeof(struct ocfs2_extended_slot);
 
 	if (slotsize > maxsize) {
-		fprintf(stderr, "Error: The requested size (%llu bytes) is "
-			"larger than the allocated size (%llu bytes).\n",
+		fprintf(stderr, "Error: The requested size (%"PRIu64" bytes) is "
+			"larger than the allocated size (%"PRIu64" bytes).\n",
 			slotsize, maxsize);
 		ret = OCFS2_ET_INVALID_ARGUMENT;
 		goto out;
 	}
 
 	if (slotsize < minsize) {
-		fprintf(stderr, "Error: The requested size (%llu bytes) is "
+		fprintf(stderr, "Error: The requested size (%"PRIu64" bytes) is "
 			"smaller than the minimum acceptable size "
-			"(%llu bytes).\n", slotsize, minsize);
+			"(%"PRIu64" bytes).\n", slotsize, minsize);
 		ret = OCFS2_ET_INVALID_ARGUMENT;
 		goto out;
 	}
 
 	fprintf(stdout, "About to change the size of //slotmap from %llu bytes "
-		"to %llu bytes.\nContinue(y/N)? ", di->i_size, slotsize);
+		"to %"PRIu64" bytes.\nContinue(y/N)? ", di->i_size, slotsize);
 	while (1) {
 		c = getchar();
 		if (!isalpha(c))
@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 	ret = resize_slot_map_file(fs, size);
 	if (!ret)
 		fprintf(stdout, "Changed the size of //slotmap on device "
-			"\"%s\" to %llu bytes.\n", device, size);
+			"\"%s\" to %"PRIu64" bytes.\n", device, size);
 	if (ret && ret != OCFS2_ET_TOO_MANY_SLOTS)
 		com_err(progname, ret, "while resizing //slotmap on device "
 			"\"%s\"", device);
