@@ -222,7 +222,8 @@ static int handle_ro_compat(FILE *stream, const struct printf_info *info,
 	return len;
 }
 
-static int handle_arginfo(const struct printf_info *info, size_t n, int *types)
+static int handle_arginfo(const struct printf_info *info, size_t n, int *types,
+		int *size)
 {
 	return 0;
 }
@@ -323,19 +324,19 @@ static int query_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 		return 1;
 	}
 
-	register_printf_function('B', handle_blocksize, handle_arginfo);
-	register_printf_function('T', handle_clustersize, handle_arginfo);
-	register_printf_function('N', handle_numslots, handle_arginfo);
-	register_printf_function('R', handle_rootdir, handle_arginfo);
-	register_printf_function('Y', handle_sysdir, handle_arginfo);
-	register_printf_function('P', handle_clustergroup, handle_arginfo);
+	register_printf_specifier('B', handle_blocksize, handle_arginfo);
+	register_printf_specifier('T', handle_clustersize, handle_arginfo);
+	register_printf_specifier('N', handle_numslots, handle_arginfo);
+	register_printf_specifier('R', handle_rootdir, handle_arginfo);
+	register_printf_specifier('Y', handle_sysdir, handle_arginfo);
+	register_printf_specifier('P', handle_clustergroup, handle_arginfo);
 
-	register_printf_function('V', handle_label, handle_arginfo);
-	register_printf_function('U', handle_uuid, handle_arginfo);
+	register_printf_specifier('V', handle_label, handle_arginfo);
+	register_printf_specifier('U', handle_uuid, handle_arginfo);
 
-	register_printf_function('M', handle_compat, handle_arginfo);
-	register_printf_function('H', handle_incompat, handle_arginfo);
-	register_printf_function('O', handle_ro_compat, handle_arginfo);
+	register_printf_specifier('M', handle_compat, handle_arginfo);
+	register_printf_specifier('H', handle_incompat, handle_arginfo);
+	register_printf_specifier('O', handle_ro_compat, handle_arginfo);
 
 	query_fs = fs;
 	fprintf(stdout, fmt);

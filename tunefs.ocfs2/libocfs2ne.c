@@ -750,7 +750,7 @@ static int dirblock_scan_iterate(ocfs2_filesys *fs, uint64_t blkno,
 	verbosef(VL_DEBUG,
 		 "Reading dinode %"PRIu64" dirblock %"PRIu64" at block "
 		 "%"PRIu64"\n",
-		 tc->d_di->i_blkno, bcount, blkno);
+		 (uint64_t)tc->d_di->i_blkno, bcount, blkno);
 	ret = ocfs2_read_dir_block(fs, tc->d_di, blkno, db->db_buf);
 	if (ret)
 		goto out;

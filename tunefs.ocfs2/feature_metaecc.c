@@ -399,7 +399,7 @@ static int dirdata_iterate(ocfs2_filesys *fs, struct ocfs2_extent_rec *rec,
 
 	if (tree_depth) {
 		verbosef(VL_DEBUG, "Reading extent block at %"PRIu64"\n",
-			 rec->e_blkno);
+			 (uint64_t)rec->e_blkno);
 		eb = (struct ocfs2_extent_block *)buf;
 		ret = ocfs2_read_extent_block(fs, rec->e_blkno, (char *)eb);
 		if (ret)
@@ -451,7 +451,7 @@ static int metadata_iterate(ocfs2_filesys *fs, struct ocfs2_extent_rec *rec,
 		goto out;
 
 	verbosef(VL_DEBUG, "Reading extent block at %"PRIu64"\n",
-		 rec->e_blkno);
+		 (uint64_t)rec->e_blkno);
 	ret = ocfs2_read_extent_block(fs, rec->e_blkno, (char *)eb);
 	if (ret)
 		goto out;
@@ -670,7 +670,7 @@ static errcode_t install_trailers(ocfs2_filesys *fs,
 		tc = list_entry(pos, struct tunefs_trailer_context, d_list);
 		verbosef(VL_DEBUG,
 			 "Writing trailer for dinode %"PRIu64"\n",
-			 tc->d_di->i_blkno);
+			 (uint64_t)tc->d_di->i_blkno);
 		tunefs_block_signals();
 		ret = tunefs_install_dir_trailer(fs, tc->d_di, tc);
 		tunefs_unblock_signals();
