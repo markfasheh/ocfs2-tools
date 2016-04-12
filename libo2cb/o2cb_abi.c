@@ -204,6 +204,9 @@ redo:
 			o2cb_setup_stack(OCFS2_CLASSIC_CLUSTER_STACK);
 			setup_performed = 1;
 			goto redo;
+		} else {
+			current_stack = &classic_stack;
+			err = 0;
 		}
 	}
 
@@ -2615,11 +2618,12 @@ static int perform_modprobe(char *module_name)
 	pid_t child;
 	int child_status;
 
-	char *argv[3];
+	char *argv[4];
 
 	argv[0] = MODPROBE_COMMAND;
 	argv[1] = module_name;
-	argv[2] = NULL;
+	argv[2] = "-q";
+	argv[3] = NULL;
 
 	child = fork();
 	if (child == 0) {
@@ -2678,7 +2682,7 @@ redo:
 			else if (!strncmp(stack_name, classic_stack.s_name,
 						OCFS2_STACK_LABEL_LEN))
 				perform_modprobe(O2CB_KERNEL_MODULE);
-
+			modprobe_performed = 1;
 			write_single_line_file(CLUSTER_STACK_FILE, stack_name,
 					OCFS2_STACK_LABEL_LEN);
 			write_performed = 1;
