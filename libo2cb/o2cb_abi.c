@@ -49,6 +49,7 @@
 #include "o2cb/o2cb_client_proto.h"
 #include "o2cb_abi.h"
 #include "o2cb_crc32.h"
+#include "ocfs2/ocfs2.h"
 
 #define CLUSTER_STACK_FILE	"/sys/fs/ocfs2/cluster_stack"
 #define LOCKING_PROTOCOL_FILE	"/sys/fs/ocfs2/max_locking_protocol"
