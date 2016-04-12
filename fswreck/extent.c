@@ -160,7 +160,7 @@ static void damage_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 			eb->h_blkno += 1;
 			fprintf(stdout, "EB_BLKNO: Corrupt inode#%"PRIu64", "
 				"change extent block's number from %"PRIu64" to "
-			       	"%"PRIu64"\n", blkno, oldblkno, eb->h_blkno);
+			       	"%"PRIu64"\n", blkno, oldblkno, (uint64_t)eb->h_blkno);
 			break;
 		case EB_GEN:
 		case EB_GEN_FIX:
@@ -180,7 +180,7 @@ static void damage_extent_block(ocfs2_filesys *fs, uint64_t blkno,
 			memset(eb->h_signature, 'a', sizeof(eb->h_signature));
 			fprintf(stdout, "Corrupt the signature of extent block "
 				"%"PRIu64"\n",
-				eb->h_blkno);
+				(uint64_t)eb->h_blkno);
 			break;
 		case EXTENT_LIST_DEPTH: 
 			oldno = eb->h_list.l_tree_depth;
@@ -327,7 +327,7 @@ static void mess_up_record(ocfs2_filesys *fs, uint64_t blkno,
 			fprintf(stdout, "EXTENT_BLKNO_UNALIGNED: "
 				"Corrupt inode#%"PRIu64", change blkno "
 				"from %"PRIu64 " to %"PRIu64"\n",
-				blkno, oldno, er->e_blkno);
+				blkno, oldno, (uint64_t)er->e_blkno);
 			break;
 	 	case EXTENT_CLUSTERS_OVERRUN:
 			oldno = er->e_leaf_clusters;
@@ -344,7 +344,7 @@ static void mess_up_record(ocfs2_filesys *fs, uint64_t blkno,
 			fprintf(stdout, "EXTENT_BLKNO_RANGE: "
 			"Corrupt inode#%"PRIu64", change blkno "
 			" from %"PRIu64 " to %"PRIu64"\n",
-			blkno, oldno, er->e_blkno);
+			blkno, oldno, (uint64_t)er->e_blkno);
 			break;
 		case EXTENT_OVERLAP:
 			ret = ocfs2_extend_allocation(fs, blkno, 2);

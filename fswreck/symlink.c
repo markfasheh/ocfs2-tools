@@ -204,7 +204,7 @@ static void corrupt_symlink_file(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "LINK_SIZE: "
 			"Corrupt inode#%"PRIu64","
 			"change size from %"PRIu64" to %"PRIu64"\n",
-			blkno, di->i_size, (di->i_size + 10));
+			blkno, (uint64_t)di->i_size, ((uint64_t)di->i_size + 10));
 		di->i_size += 10;
 		break;
 	case LINK_BLOCKS:

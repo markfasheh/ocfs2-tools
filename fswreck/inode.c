@@ -81,13 +81,13 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "INODE_BLKNO: "
 			"Corrupt inode#%"PRIu64", change i_blkno from %"PRIu64
 			" to %"PRIu64"\n",
-			blkno, di->i_blkno, (di->i_blkno + 100));
+			blkno, (uint64_t)di->i_blkno, ((uint64_t)di->i_blkno + 100));
 		di->i_blkno += 100;
 		break;
 	case INODE_NZ_DTIME:
 		fprintf(stdout, "INODE_NZ_DTIME: "
 			"Corrupt inode#%"PRIu64", change i_dtime from %"PRIu64
-			" to 100\n", blkno, di->i_dtime);
+			" to 100\n", blkno, (uint64_t)di->i_dtime);
 		di->i_dtime = 100;
 		break;
 	case INODE_SUBALLOC:
@@ -101,14 +101,14 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "INODE_SIZE: "
 			"Corrupt inode#%"PRIu64", change i_size"
 			" from %"PRIu64" to %"PRIu64"\n",
-			 blkno, di->i_size, (di->i_size + 100));
+			 blkno, (uint64_t)di->i_size, ((uint64_t)di->i_size + 100));
 		di->i_size += 100;
 		break;
 	case INODE_SPARSE_SIZE:
 		fprintf(stdout, "INODE_SPARSE_SIZE: "
 			"Corrupt inode#%"PRIu64", change i_size "
 			"from %"PRIu64" to %u\n",
-			 blkno, di->i_size, fs->fs_clustersize);
+			 blkno, (uint64_t)di->i_size, fs->fs_clustersize);
 		di->i_size = fs->fs_clustersize;
 		break;
 	case INODE_CLUSTERS:
@@ -132,7 +132,7 @@ static void damage_inode(ocfs2_filesys *fs, uint64_t blkno,
 	case INODE_BLOCK_ECC:
 		fprintf(stdout, "INODE_BLOCK_ECC: "
 			"Corrupte inode#%"PRIu64", set both i_check.bc_crc32e"
-			"=%"PRIu64" and i_check.bc_ecc=%"PRIu64" to 0x1234\n",
+			"=%u and i_check.bc_ecc=%u to 0x1234\n",
 			blkno, di->i_check.bc_crc32e, di->i_check.bc_ecc);
 		di->i_check.bc_crc32e = 0x1234;
 		di->i_check.bc_ecc = 0x1234;

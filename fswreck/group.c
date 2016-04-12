@@ -118,7 +118,7 @@ static void damage_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	case GROUP_EXPECTED_DESC:
 		fprintf(stdout, "Corrput GROUP_EXPECED_DESC: "
 			"delete the group desciptor#%"PRIu64" from the chain "
-			"#%d\n", bg->bg_next_group, bg->bg_chain);
+			"#%d\n", (uint64_t)bg->bg_next_group, bg->bg_chain);
 		bg->bg_next_group = 0;
 		break;
 	case GROUP_UNEXPECTED_DESC:
@@ -161,13 +161,13 @@ static void damage_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	case GROUP_PARENT:
 		fprintf(stdout, "Corrput GROUP_PARENT: "
 			"change group parent from %"PRIu64" to %"PRIu64"\n",
-			bg->bg_parent_dinode, (bg->bg_parent_dinode + 10));
+			(uint64_t)bg->bg_parent_dinode, ((uint64_t)bg->bg_parent_dinode + 10));
 		bg->bg_parent_dinode += 10;
 		break;
 	case GROUP_BLKNO:
 		fprintf(stdout, "Corrput GROUP_BLKNO: "
 			"change group blkno from %"PRIu64" to %"PRIu64"\n",
-			bg->bg_blkno, (bg->bg_blkno + 10));
+			(uint64_t)bg->bg_blkno, ((uint64_t)bg->bg_blkno + 10));
 		bg->bg_blkno += 10;
 		break;
 	case GROUP_CHAIN:
@@ -179,7 +179,7 @@ static void damage_group_desc(ocfs2_filesys *fs, uint64_t blkno,
 	case GROUP_CHAIN_LOOP:
 		fprintf(stdout, "Corrput GROUP_LOOP: "
 			"change group next from %"PRIu64" to %"PRIu64"\n",
-			bg->bg_next_group, cr->c_blkno);
+			(uint64_t)bg->bg_next_group, (uint64_t)cr->c_blkno);
 		bg->bg_next_group = cpu_to_le64(cr->c_blkno);
 		break;
 	case GROUP_FREE_BITS:

@@ -89,7 +89,7 @@ static void mess_up_sys_file(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "Corrupt CHAIN_EMPTY:"
 			" Modified e_blkno "
 			"in block#%"PRIu64" from %"PRIu64" to 0\n",
-			 blkno,	cr->c_blkno);
+			 blkno,	(uint64_t)cr->c_blkno);
 		cr->c_blkno = 0;
 		break;
 	case CHAIN_I_CLUSTERS:
@@ -102,7 +102,7 @@ static void mess_up_sys_file(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "Corrupt CHAIN_I_SIZE:"
 			"change i_size "
 			"in block#%"PRIu64" from %"PRIu64" to %"PRIu64"\n",
-			 blkno, di->i_size, (di->i_size + 10));
+			 blkno, (uint64_t)di->i_size, ((uint64_t)di->i_size + 10));
 		di->i_size += 10;
 		break;
 	case CHAIN_GROUP_BITS:
@@ -120,7 +120,7 @@ static void mess_up_sys_file(ocfs2_filesys *fs, uint64_t blkno,
 		fprintf(stdout, "Corrupt CHAIN_HEAD_LINK_RANGE:"
 			"change  "
 			"in block#%"PRIu64" from %"PRIu64" to %"PRIu64"\n",
-			 blkno, oldblkno, cr->c_blkno);
+			 blkno, oldblkno, (uint64_t)cr->c_blkno);
 		break;
 	case CHAIN_LINK_GEN:
 	case CHAIN_LINK_MAGIC:
@@ -151,7 +151,7 @@ static void mess_up_sys_file(ocfs2_filesys *fs, uint64_t blkno,
 			    ocfs2_clusters_to_blocks(fs, fs->fs_clusters) + 10;
 			fprintf(stdout, "Corrupt CHAIN_LINK_RANGE: "
 				"change next group from %"PRIu64" to %"PRIu64
-				" \n", oldblkno, bg->bg_next_group);
+				" \n", oldblkno, (uint64_t)bg->bg_next_group);
 		}
 		
 		ret = ocfs2_write_group_desc(fs, cr->c_blkno, (char *)bg);
