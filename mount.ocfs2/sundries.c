@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <mntent.h>		/* for MNTTYPE_SWAP */
+#include<ctype.h>
+
 #include "fstab.h"
 #include "sundries.h"
 #include "realpath.h"
@@ -229,13 +231,13 @@ matching_opts (const char *options, const char *test_opts) {
  * Since 2.6.29 (patch 784aae735d9b0bba3f8b9faef4c8b30df3bf0128) kernel sysfs
  * provides the real DM device names in /sys/block/<ptname>/dm/name
  */
-char *
+static char *
 canonicalize_dm_name(const char *ptname)
 {
 	FILE	*f;
 	size_t	sz;
 	char	path[256], name[256], *res = NULL;
-	int	err;
+	char	*s;
 
 	snprintf(path, sizeof(path), "/sys/block/%s/dm/name", ptname);
 	f = fopen(path, "r");
@@ -243,9 +245,9 @@ canonicalize_dm_name(const char *ptname)
 		return NULL;
 
 	/* read "<name>\n" from sysfs */
-	err = fgets(name, sizeof(name), f);
+	s = fgets(name, sizeof(name), f);
 	sz = strlen(name);
-	if (!err && sz > 1) {
+	if (s && sz > 1) {
 		name[sz - 1] = '\0';
 		snprintf(path, sizeof(path), "/dev/mapper/%s", name);
 		res = strdup(path);
