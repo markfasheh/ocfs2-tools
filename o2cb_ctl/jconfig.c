@@ -289,6 +289,7 @@ static JConfig *j_config_parse_any(JConfigCtxt *cfc,
                       g_strerror(errno));
         }
         cfc->error = TRUE;
+        g_scanner_destroy(scanner);
         return(NULL);
     }
 
@@ -778,7 +779,7 @@ static void j_config_parse_stanza_attr(GScanner *scanner,
     
 attribute_free:
     g_free(attr_name);
-    g_string_free(attr_value, FALSE);
+    g_string_free(attr_value, TRUE);
 }
 
 
@@ -1240,6 +1241,8 @@ JConfig *j_config_parse_file(const gchar *filename)
     if (cfc)
     {
         cf = j_config_parse_file_with_context(cfc, filename);
+        if (cfc->cfs)
+            j_config_free_stanza(cfc->cfs);
         j_config_context_free(cfc);
     }
 
@@ -1286,6 +1289,8 @@ JConfig *j_config_parse_memory(gchar *buffer, gint buf_len)
     if (cfc)
     {
         cf = j_config_parse_memory_with_context(cfc, buffer, buf_len);
+        if (cfc->cfs)
+            j_config_free_stanza(cfc->cfs);
         j_config_context_free(cfc);
     }
 
@@ -1606,10 +1611,21 @@ static void j_config_free_config_node(gpointer key,
 void j_config_free(JConfig *cf)
 {
     g_return_if_fail(cf != NULL);
+    GList *list;
 
     g_hash_table_foreach(cf->stanzas, j_config_free_config_node, NULL);
     g_hash_table_destroy(cf->stanzas);
     g_free(cf->filename);
+
+    list = cf->stanza_names;
+    while (list)
+    {
+        g_free(list->data);
+        list->data = NULL;
+        list = list->next;
+    }
+    g_list_free(cf->stanza_names);
+
     g_free(cf);
 }  /* j_config_free() */
 
