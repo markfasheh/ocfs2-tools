@@ -127,8 +127,10 @@ static gint o2cb_cluster_fill_node(O2CBCluster *cluster,
     /* NB: _add_node() gives us a node number, but we're going to
      * override it, because we know better. */
     node = o2cb_cluster_add_node(cluster, name);
-    if (!node)
-        return -ENOMEM;
+    if (!node) {
+        rc = -ENOMEM;
+        goto out_error;
+    }
 
     rc = -EINVAL;
     num_s = j_config_get_attribute(cfs, "number");
@@ -178,7 +180,7 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
 {
     gint rc;
     gulong val;
-    gchar *count, *ptr, *hb_mode = NULL;
+    gchar *count = NULL, *ptr, *hb_mode = NULL;
     O2CBCluster *cluster;
     JIterator *iter;
     JConfigStanza *n_cfs;
@@ -261,6 +263,7 @@ static gint o2cb_config_fill_cluster(O2CBConfig *config, JConfig *cf,
 out_error:
     g_free(hb_mode);
     g_free(match.value);
+    g_free(count);
 
     return rc;
 }  /* o2cb_config_fill_cluster() */
