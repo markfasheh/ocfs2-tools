@@ -186,6 +186,23 @@ static void clear_attrs(O2CBContext *ctxt)
     g_list_free(ctxt->oc_attrs);
 }  /* clear_attrs() */
 
+static void clear_objects(O2CBContext *ctxt)
+{
+    GList *list;
+
+    list = ctxt->oc_objects;
+    if (!list)
+        return;
+
+    while (list)
+    {
+        g_free(list->data);
+        list->data = NULL;
+        list = list->next;
+    }
+
+    g_list_free(ctxt->oc_objects);
+}
 
 static gboolean attr_set(O2CBContext *ctxt, const gchar *attr_name)
 {
@@ -515,6 +532,7 @@ static gint find_objects_for_type(O2CBContext *ctxt)
     JIterator *c_iter, *n_iter;
     O2CBCluster *cluster;
     O2CBNode *node;
+    gchar *object = NULL;
 
     c_iter = o2cb_config_get_clusters(ctxt->oc_config);
 
@@ -530,7 +548,9 @@ static gint find_objects_for_type(O2CBContext *ctxt)
 
         if (ctxt->oc_type == O2CB_TYPE_CLUSTER)
         {
-            add_object(ctxt, o2cb_cluster_get_name(cluster));
+            object = o2cb_cluster_get_name(cluster);
+            add_object(ctxt, object);
+            g_free(object);
         }
         else if (ctxt->oc_type == O2CB_TYPE_NODE)
         {
@@ -544,7 +564,9 @@ static gint find_objects_for_type(O2CBContext *ctxt)
             while (j_iterator_has_more(n_iter))
             {
                 node = j_iterator_get_next(n_iter);
-                add_object(ctxt, o2cb_node_get_name(node));
+                object = o2cb_node_get_name(node);
+                add_object(ctxt, object);
+                g_free(object);
             }
             j_iterator_free(n_iter);
         }
@@ -615,7 +637,6 @@ static gint run_info_clusters(O2CBContext *ctxt)
     gchar *name;
     gchar *format;
 
-
     if (ctxt->oc_compact_info)
     {
         format = "%s:%u:%s\n";
@@ -643,7 +664,7 @@ static gint run_info_clusters(O2CBContext *ctxt)
             return -ENOENT;
         }
 
-        fprintf(stdout, format, o2cb_cluster_get_name(cluster),
+        fprintf(stdout, format, name,
                 o2cb_cluster_get_node_count(cluster),
                 "configured");
 
@@ -661,7 +682,7 @@ static gint run_info_nodes(O2CBContext *ctxt)
     O2CBNode *node;
     gchar *name;
     gchar *format;
-
+    gchar *cluster_name = NULL;
 
     if (ctxt->oc_compact_info)
     {
@@ -707,13 +728,15 @@ static gint run_info_nodes(O2CBContext *ctxt)
             return -ENOENT;
         }
 
+        cluster_name = o2cb_cluster_get_name(cluster);
         fprintf(stdout, format,
-                o2cb_node_get_name(node),
-                o2cb_cluster_get_name(cluster),
+                name,
+                cluster_name,
                 o2cb_node_get_number(node),
                 o2cb_node_get_ip_string(node),
                 o2cb_node_get_port(node),
                 "configured");
+        g_free(cluster_name);
 
         list = list->next;
     }
@@ -911,7 +934,7 @@ static gint online_cluster(O2CBContext *ctxt, O2CBCluster *cluster)
     }
 
 out_error:
-
+    g_free(name);
     return rc;
 }  /* online_cluster() */
 
@@ -1286,6 +1309,7 @@ static gint run_create_nodes(O2CBContext *ctxt)
             com_err(PROGNAME, err, "while determining if node %s is local",
                     name);
             rc = -EINVAL;
+            g_free(number);
             goto out;
         }
 
@@ -1418,6 +1442,7 @@ gint main(gint argc, gchar *argv[])
     if (ctxt.oc_config)
         o2cb_config_free(ctxt.oc_config);
     clear_attrs(&ctxt);
+    clear_objects(&ctxt);
 
 out_error:
     return rc;
