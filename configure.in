@@ -390,7 +390,7 @@ AC_SUBST(LIBCMAP_FOUND)
 fsdlm_found=
 if test "x$LIBCMAP_FOUND" = "xyes"; then
   AC_CHECK_LIB(cmap, cmap_initialize, cmap_found=yes)
-  if test "x$cmap_found" = "xyes"; then
+  if ! test "x$cmap_found" = "xyes"; then
     AC_MSG_WARN([libcmap not found, cmap support will not be built. Older api will be used])
   fi
 fi
