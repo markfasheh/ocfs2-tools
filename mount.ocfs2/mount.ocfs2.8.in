@@ -66,7 +66,7 @@ appear in files after a crash and journal recovery.
 .RE
 
 .TP
-\fBerrors=[remount-ro|errors=panic]\fR
+\fBerrors=[remount-ro|errors=panic|errors=continue]\fR
 Specifies the behavior when an on-disk corruption is encountered.
 
 .RS
@@ -77,6 +77,13 @@ This is the default mode. The file system is remounted read-only.
 .TP
 \fBpanic\fR
 The system is halted via panic.
+.RE
+
+.RS
+.TP
+\fBcontinue\fR
+Ignore errors. Just log error message, return error code to the calling process
+and continue.
 .RE
 
 .TP
