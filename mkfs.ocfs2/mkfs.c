@@ -2797,7 +2797,6 @@ init_record(State *s, SystemFileDiskRecord *rec, int type, int mode)
 {
 	memset(rec, 0, sizeof(SystemFileDiskRecord));
 
-	rec->flags = OCFS2_VALID_FL | OCFS2_SYSTEM_FL;
 	rec->mode = mode;
 
 	rec->links = S_ISDIR(mode) ? 0 : 1;
