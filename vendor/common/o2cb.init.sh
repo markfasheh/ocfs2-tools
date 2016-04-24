@@ -1925,16 +1925,20 @@ case "$1" in
         ;;
 
     enable)
-        O2CB_ENABLED=true
-        write_sysconfig
-        if_fail "$?" "Unable to write the driver configuration"
+        if [ "$O2CB_ENABLED" != "true" ]; then
+            O2CB_ENABLED=true
+            write_sysconfig
+            if_fail "$?" "Unable to write the driver configuration"
+        fi
         start
         ;;
 
     disable)
-        O2CB_ENABLED=false
-        write_sysconfig
-        if_fail "$?" "Unable to write the driver configuration"
+        if [ "$O2CB_ENABLED" != "false" ]; then
+            O2CB_ENABLED=false
+            write_sysconfig
+            if_fail "$?" "Unable to write the driver configuration"
+        fi
         stop
         ;;
 
