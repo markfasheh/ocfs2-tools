@@ -1315,9 +1315,24 @@ check_load_module()
     return 2
 }
 
+check_debugfs_mount()
+{
+    echo "checking debugfs..."
+
+    mount | grep debugfs | grep /sys/kernel/debug > /dev/null
+    if [ "$?" -eq "1" ]
+    then
+        mount -t debugfs nodev /sys/kernel/debug
+    fi
+}
+
+
+
 load()
 {
     PLUGIN="$(select_stack_plugin)"
+
+    check_debugfs_mount
 
     touch_lockfile
 
@@ -1820,6 +1835,16 @@ online_status()
     online_status_$PLUGIN "$CLUSTER"
 }
 
+debugfs_mount_status()
+{
+    if mount | grep debugfs | grep /sys/kernel/debug > /dev/null
+    then
+        echo "Debug file system at /sys/kernel/debug: mounted"
+    else
+        echo "Debug file system at /sys/kernel/debug: not mounted"
+    fi
+}
+
 status()
 {
     load_status
@@ -1833,6 +1858,8 @@ status()
     online_status "$CLUSTER"
 
     userdlm_status
+
+    debugfs_mount_status
 }
 
 #
