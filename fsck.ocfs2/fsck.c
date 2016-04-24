@@ -845,10 +845,13 @@ int main(int argc, char **argv)
 			fprintf(stdout, "\nWARNING!!! Running fsck.ocfs2 (read-"
 				"only) on a mounted filesystem may detect "
 				"invalid errors.\n\n");
-		else
-			fprintf(stdout, "\nWARNING!!! Running fsck.ocfs2 on a "
+		else {
+			fprintf(stdout, "\nRunning fsck.ocfs2 on a "
 				"mounted filesystem may cause SEVERE "
-				"filesystem damage.\n\n");
+				"filesystem damage, abort.\n\n");
+			fsck_mask |= FSCK_CANCELED;
+			goto out;
+		}
 		proceed = 0;
 	}
 
