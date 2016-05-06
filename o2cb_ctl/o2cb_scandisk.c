@@ -57,7 +57,7 @@ static int fill_desc(char *device, struct o2cb_region_desc *reg,
 	return ret;
 }
 
-static void get_device_uuids(struct scan_context *ctxt, struct list_head *hbdevs)
+static int get_device_uuids(struct scan_context *ctxt, struct list_head *hbdevs)
 {
 	struct o2cb_device *od;
 	struct list_head *pos, *pos1;
@@ -71,7 +71,7 @@ static void get_device_uuids(struct scan_context *ctxt, struct list_head *hbdevs
 	}
 
 	if (!numhbdevs)
-		return;
+		return 0;
 
 	list_for_each(pos, &ctxt->sc_devlist) {
 		hb = list_entry(pos, struct hb_devices, hb_list);
@@ -97,6 +97,8 @@ static void get_device_uuids(struct scan_context *ctxt, struct list_head *hbdevs
 		if (!numhbdevs)
 			break;
 	}
+
+	return numhbdevs;
 }
 
 static void free_scan_context(struct scan_context *ctxt)
@@ -198,9 +200,10 @@ void o2cb_scandisk(struct list_head *hbdevs)
 		dev = scan_for_dev(NULL, 5, filter_devices, ctxt);
 		if (!dev)
 			goto bail;
-	} while (ctxt->sc_rescan);
 
-	get_device_uuids(ctxt, hbdevs);
+		if (!get_device_uuids(ctxt, hbdevs))
+			break;
+	} while (ctxt->sc_rescan);
 
 bail:
 	free_scan_context(ctxt);
