@@ -969,6 +969,10 @@ static void walk_cwd(struct dir_scan_context *scan)
 			- OCFS2_MAX_FILENAME_LEN;
 
 	ret = ocfs2_malloc(len, &de);
+	if (ret) {
+		pass1c_warn(ret);
+		return;
+	}
 
 	memcpy(de->name, scan->ds_cwd, scan->ds_cwdlen);
 	de->name_len = scan->ds_cwdlen;
