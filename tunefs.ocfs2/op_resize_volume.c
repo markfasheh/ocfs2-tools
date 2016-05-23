@@ -543,7 +543,7 @@ static errcode_t check_new_size(ocfs2_filesys *fs, uint64_t new_size,
 				 "Clusters (%"PRIu64" is greater than "
 				 "maximum possible clusters %"PRIu32"\n",
 				 device_clusters, UINT32_MAX);
-			try_blocks = UINT32_MAX << b_to_c_bits;
+			try_blocks = (uint64_t)UINT32_MAX << b_to_c_bits;
 			errorf("Clusters %"PRIu64" is greater than max allowed"
 			       " %"PRIu32".\nIf you want to resize to %"PRIu64
 			       " blocks please specify %"PRIu64" as "
