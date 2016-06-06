@@ -171,13 +171,16 @@ out:
 	return err;
 }
 
-static errcode_t get_uuid(char *dev, char *uuid)
+static errcode_t get_uuid(char *dev, char **uuid)
 {
 	errcode_t ret;
 
 	ret = get_desc(dev);
-	if (!ret) 
-		strcpy(uuid, region_desc->r_name);
+	if (!ret) {
+		*uuid = strdup(region_desc->r_name);
+		if (!*uuid)
+			ret = OCFS2_ET_NO_MEMORY;
+	}
 
 	return ret;
 }
@@ -543,7 +546,7 @@ int main(int argc, char **argv)
 	struct hb_ctl_options hbo = {
 		.action = HB_ACTION_UNKNOWN,
 	};
-	char hbuuid[33];
+	char *hbuuid = NULL;
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
@@ -577,7 +580,7 @@ int main(int argc, char **argv)
 	}
 
 	if (!hbo.uuid_str) {
-		err = get_uuid(hbo.dev_str, hbuuid);
+		err = get_uuid(hbo.dev_str, &hbuuid);
 		if (err) {
 			com_err(progname, err, "while reading uuid");
 			ret = -EINVAL;
@@ -631,6 +634,9 @@ int main(int argc, char **argv)
 	block_signals(SIG_UNBLOCK);
 
 bail:
+	ocfs2_free(&hbo.dev_str);
+	ocfs2_free(&hbo.service);
+	ocfs2_free(&hbo.uuid_str);
 	free_desc();
 	return ret ? 1 : 0;
 }
