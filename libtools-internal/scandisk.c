@@ -709,15 +709,15 @@ static int scansysfs(struct devlisthead *devlisthead, const char *path, int leve
 				    sysfs_is_disk(newpath);
 			}
 
-			if (!stat(newpath, &sb) && !level)
+			if (!stat(newpath, &sb) && !level) {
 				if (S_ISDIR(sb.st_mode))
 					if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
 						return -1;
-
-			if (!lstat(newpath, &sb))
+			} else if (!lstat(newpath, &sb)) {
 				if (S_ISDIR(sb.st_mode))
 					if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
 						return -1;
+			}
 
 		}
 		free(namelist[n]);
