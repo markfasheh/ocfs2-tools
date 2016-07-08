@@ -39,6 +39,9 @@ Requires: bash, which, coreutils, net-tools, e2fsprogs, @@CHKCONFIG_DEP@@, glib2
 BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, @@PYGTK_NAME@@ >= 1.99.16, python-devel >= @@PYVERSION@@, util-linux >= 2.12j, @@BUILD_DEP_PKG@@
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
+%if !%{build_ocfs2console}
+Obsoletes: ocfs2console
+%endif
 
 %description
 Tools to manage Oracle Cluster Filesystem 2 volumes.
