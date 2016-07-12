@@ -169,7 +169,7 @@ errcode_t ocfs2_allocate_unwritten_extents(ocfs2_filesys *fs, uint64_t ino,
 {
 	errcode_t ret = 0;
 	uint32_t n_clusters = 0, cpos;
-	uint64_t p_blkno, v_blkno, v_end, contig_blocks, wanted_blocks;
+	uint64_t p_blkno = 0, v_blkno, v_end, contig_blocks, wanted_blocks;
 	ocfs2_cached_inode *ci = NULL;
 
 	if (!(fs->fs_flags & OCFS2_FLAG_RW))
@@ -198,6 +198,9 @@ errcode_t ocfs2_allocate_unwritten_extents(ocfs2_filesys *fs, uint64_t ino,
 		ret = ocfs2_extent_map_get_blocks(ci, v_blkno, 1,
 						  &p_blkno, &contig_blocks,
 						  NULL);
+		if (ret)
+			continue;
+
 		if (p_blkno) {
 			v_blkno += contig_blocks;
 			continue;
