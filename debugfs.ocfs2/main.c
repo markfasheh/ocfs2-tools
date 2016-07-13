@@ -198,7 +198,7 @@ static void get_options(int argc, char **argv, struct dbgfs_opts *opts)
 		{ "noprompt", 0, 0, 'n' },
 		{ "decode", 0, 0, 'd' },
 		{ "encode", 0, 0, 'e' },
-		{ "superblock", 0, 0, 's' },
+		{ "superblock", 1, 0, 's' },
 		{ "image", 0, 0, 'i' },
 		{ 0, 0, 0, 0}
 	};
