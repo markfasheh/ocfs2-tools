@@ -1,2 +1,1 @@
-KERNEL=="ocfs2_control", NAME="misc/ocfs2_control", MODE="0660"
-
+KERNEL=="ocfs2_control", SYMLINK+="misc/ocfs2_control", MODE="0660"
