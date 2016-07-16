@@ -2138,8 +2138,10 @@ static errcode_t create_generation(uint32_t *value)
 	if (randfd < 0)
 		return errno;
 
-	if (read(randfd, value, readlen) != readlen)
+	if (read(randfd, value, readlen) != readlen) {
+		close(randfd);
 		return errno;
+	}
 
 	close(randfd);
 
