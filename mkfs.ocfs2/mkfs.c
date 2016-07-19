@@ -883,7 +883,7 @@ get_state(int argc, char **argv)
 		{ "verbose", 0, 0, 'v' },
 		{ "quiet", 0, 0, 'q' },
 		{ "version", 0, 0, 'V' },
-		{ "journal-options", 0, 0, 'J'},
+		{ "journal-options", 1, 0, 'J'},
 		{ "heartbeat-device", 0, 0, 'H'},
 		{ "force", 0, 0, 'F'},
 		{ "mount", 1, 0, 'M'},
