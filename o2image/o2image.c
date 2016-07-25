@@ -329,8 +329,7 @@ out:
 	return ret;
 }
 
-static errcode_t o2image_initialize(ocfs2_filesys *ofs, int raw_flag,
-				    int install_flag)
+static errcode_t o2image_initialize(ocfs2_filesys *ofs, int raw_flag)
 {
 	uint64_t blocks[OCFS2_MAX_BACKUP_SUPERBLOCKS];
 	struct ocfs2_super_block *super;
@@ -772,7 +771,7 @@ int main(int argc, char **argv)
 			goto out;
 		}
 
-		ret = o2image_initialize(ofs, raw_flag, install_flag);
+		ret = o2image_initialize(ofs, raw_flag);
 		if (ret) {
 			com_err(program_name, ret, "during o2image initialize");
 			goto out;
