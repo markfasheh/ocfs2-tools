@@ -511,6 +511,7 @@ int dump_dir_entry(struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset,
 	struct ocfs2_dinode *di;
 	char perms[20];
 	char timestr[40];
+	errcode_t ret;
 
 	rec->name[rec->name_len] = '\0';
 
@@ -520,7 +521,10 @@ int dump_dir_entry(struct ocfs2_dir_entry *rec, uint64_t blocknr, int offset,
 			rec->rec_len, rec->name_len, rec->file_type, rec->name);
 	} else {
 		memset(ls->buf, 0, ls->fs->fs_blocksize);
-		ocfs2_read_inode(ls->fs, rec->inode, ls->buf);
+		ret = ocfs2_read_inode(ls->fs, rec->inode, ls->buf);
+		if (ret)
+			return ret;
+
 		di = (struct ocfs2_dinode *)ls->buf;
 
 		inode_perms_to_str(di->i_mode, perms, sizeof(perms));
