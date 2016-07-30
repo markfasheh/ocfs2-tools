@@ -66,10 +66,6 @@ errcode_t ocfs2_image_free_bitmap(ocfs2_filesys *ofs)
 	struct ocfs2_image_state *ost = ofs->ost;
 	int i;
 
-	/* image bitmaps are allocated only for ocfs2 image image files */
-	if (!(ofs->fs_flags & OCFS2_FLAG_IMAGE_FILE))
-		return 0;
-
 	if (!ost->ost_bmparr)
 		return 0;
 
