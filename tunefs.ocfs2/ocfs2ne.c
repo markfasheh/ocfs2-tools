@@ -1002,6 +1002,8 @@ static errcode_t parse_options(int argc, char *argv[], char **device)
 	}
 
 out:
+	ocfs2_free(&optstring);
+	ocfs2_free(&long_options);
 	return err;
 }
 
