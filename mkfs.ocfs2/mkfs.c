@@ -21,6 +21,7 @@
 #include "mkfs.h"
 
 static State *get_state(int argc, char **argv);
+static void free_state(State *s);
 static int get_number(char *arg, uint64_t *res);
 static void parse_journal_opts(char *progname, const char *opts,
 			       uint64_t *journal_size_in_bytes,
@@ -46,6 +47,7 @@ static int alloc_from_bitmap(State *s, uint64_t num_bits, AllocBitmap *bitmap,
 			     uint64_t *start, uint64_t *num);
 static uint64_t alloc_inode(State *s, uint16_t *suballoc_bit);
 static DirData *alloc_directory(State *s);
+static void free_directory(DirData *dir);
 static void add_entry_to_directory(State *s, DirData *dir, char *name,
 				   uint64_t byte_off, uint8_t type);
 static uint32_t blocks_needed(State *s);
@@ -76,6 +78,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   uint64_t blkno,
 					   uint16_t chain, uint16_t cpg,
 					   uint16_t bpc);
+static void free_alloc_group(AllocGroup *group);
 static void index_system_dirs(State *s, ocfs2_filesys *fs);
 static void create_lost_found_dir(State *s, ocfs2_filesys *fs);
 static void format_journals(State *s, ocfs2_filesys *fs);
@@ -580,12 +583,14 @@ main(int argc, char **argv)
 	/* bail if volume already mounted on cluster, etc. */
 	switch (ocfs2_check_volume(s)) {
 	case -1:
+		free_state(s);
 		return 1;
 	case 1:
 		if (s->prompt) {
 			fprintf(stdout, "Proceed (y/N): ");
 			if (toupper(getchar()) != 'Y') {
 				printf("Aborting operation.\n");
+				free_state(s);
 				return 1;
 			}
 		}
@@ -607,6 +612,7 @@ main(int argc, char **argv)
 
 	if (s->dry_run) {
 		close_device(s);
+		free_state(s);
 		return 0;
 	}
 
@@ -823,6 +829,16 @@ main(int argc, char **argv)
 	if (!s->quiet)
 		printf("%s successful\n\n", s->progname);
 
+	free_directory(root_dir);
+	free_directory(system_dir);
+	for (i = 0; i < s->initial_slots; i++)
+		free_directory(orphan_dir[i]);
+
+	for (i = 0; i < NUM_SYSTEM_INODES; i++)
+		ocfs2_free(&record[i]);
+
+	free_state(s);
+
 	return 0;
 }
 
@@ -899,8 +915,6 @@ get_state(int argc, char **argv)
 
 	if (argc && *argv)
 		progname = basename(argv[0]);
-	else
-		progname = strdup("mkfs.ocfs2");
 
 	while (1) {
 		c = getopt_long(argc, argv, "b:C:L:N:J:M:vnqVFHxT:U:",
@@ -1225,6 +1239,25 @@ get_state(int argc, char **argv)
 		s->no_backup_super = no_backup_super;
 
 	return s;
+}
+
+static void
+free_state(State *s)
+{
+	int i;
+
+	ocfs2_free(&s->vol_label);
+	ocfs2_free(&s->device_name);
+	ocfs2_free(&s->cluster_stack);
+	ocfs2_free(&s->cluster_name);
+
+	for (i = 0; i < s->nr_cluster_groups; i++)
+		free_alloc_group(s->global_bm->groups[i]);
+	ocfs2_free(&s->global_bm->groups);
+	ocfs2_free(&s->global_bm->name);
+	ocfs2_free(&s->global_bm);
+
+	free_alloc_group(s->system_group);
 }
 
 static int
@@ -1841,6 +1874,14 @@ initialize_alloc_group(State *s, const char *name,
 	return group;
 }
 
+static void
+free_alloc_group(AllocGroup *group)
+{
+	ocfs2_free(&group->name);
+	ocfs2_free(&group->gd);
+	ocfs2_free(&group);
+}
+
 static AllocBitmap *
 initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 		  const char *name, SystemFileDiskRecord *bm_record)
@@ -2126,6 +2167,13 @@ alloc_directory(State *s)
 	memset(dir, 0, sizeof(DirData));
 
 	return dir;
+}
+
+static void
+free_directory(DirData *dir)
+{
+	ocfs2_free(&dir->buf);
+	ocfs2_free(&dir);
 }
 
 static void
