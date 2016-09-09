@@ -1673,7 +1673,9 @@ static void do_encode_lockres(char **args)
 				blkno);
 			return;
 		}
-		gen = inode->i_generation;
+
+		if (inode->i_flags & OCFS2_SYSTEM_FL)
+			gen = inode->i_generation;
 	}
 
 	ret = ocfs2_encode_lockres(type, blkno, gen, 0, lock);

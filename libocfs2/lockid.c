@@ -65,10 +65,6 @@ errcode_t ocfs2_encode_lockres(enum ocfs2_lock_type type, uint64_t blkno,
 	if (type >= OCFS2_NUM_LOCK_TYPES)
 		return OCFS2_ET_INVALID_LOCKRES;
 
-	blkno = (type == OCFS2_LOCK_TYPE_RENAME) ? 0 : blkno;
-	generation = ((type == OCFS2_LOCK_TYPE_SUPER) ||
-		      (type == OCFS2_LOCK_TYPE_RENAME)) ? 0 : generation;
-
 	if (type != OCFS2_LOCK_TYPE_DENTRY) {
 		snprintf(lockres, OCFS2_LOCK_ID_MAX_LEN, "%c%s%016"PRIx64"%08x",
 			 ocfs2_lock_type_char(type), OCFS2_LOCK_ID_PAD,
