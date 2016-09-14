@@ -62,8 +62,8 @@ struct resize_specs {
 
 static errcode_t online_resize_lock(ocfs2_filesys *fs)
 {
-	return tunefs_dlm_lock(fs, lock_name, O2DLM_LEVEL_EXMODE,
-			       O2DLM_TRYLOCK);
+	return tunefs_dlm_lock(fs, lock_name, O2DLM_TRYLOCK,
+			       O2DLM_LEVEL_EXMODE);
 }
 
 static errcode_t online_resize_unlock(ocfs2_filesys *fs)
