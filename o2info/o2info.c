@@ -348,8 +348,7 @@ static errcode_t o2info_append_task(struct o2info_operation *o2p)
 		task->o2p_task = o2p;
 		list_add_tail(&task->o2p_list, &o2info_op_task_list);
 		o2info_op_task_count++;
-	} else
-		ocfs2_free(&task);
+	}
 
 	return err;
 }
