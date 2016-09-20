@@ -299,7 +299,6 @@ static errcode_t dup_insert(struct dup_context *dct, uint32_t cluster,
 	di = dup_inode_lookup(dct, dinode->i_blkno);
 	if (!di) {
 		dup_inode_insert(dct, new_di);
-		di = new_di;
 		new_di = NULL;
 	}
 
@@ -312,7 +311,6 @@ static errcode_t dup_insert(struct dup_context *dct, uint32_t cluster,
 	}
 	if (!dco) {
 		list_add_tail(&new_dco->dco_list, &dc->dc_owners);
-		dco = new_dco;
 		new_dco = NULL;
 	}
 
