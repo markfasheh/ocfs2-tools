@@ -1251,13 +1251,16 @@ free_state(State *s)
 	ocfs2_free(&s->cluster_stack);
 	ocfs2_free(&s->cluster_name);
 
-	for (i = 0; i < s->nr_cluster_groups; i++)
-		free_alloc_group(s->global_bm->groups[i]);
-	ocfs2_free(&s->global_bm->groups);
-	ocfs2_free(&s->global_bm->name);
-	ocfs2_free(&s->global_bm);
+	if (s->global_bm) {
+		for (i = 0; i < s->nr_cluster_groups; i++)
+			free_alloc_group(s->global_bm->groups[i]);
+		ocfs2_free(&s->global_bm->groups);
+		ocfs2_free(&s->global_bm->name);
+		ocfs2_free(&s->global_bm);
+	}
 
 	free_alloc_group(s->system_group);
+	ocfs2_free(&s);
 }
 
 static int
@@ -1877,9 +1880,11 @@ initialize_alloc_group(State *s, const char *name,
 static void
 free_alloc_group(AllocGroup *group)
 {
-	ocfs2_free(&group->name);
-	ocfs2_free(&group->gd);
-	ocfs2_free(&group);
+	if (group) {
+		ocfs2_free(&group->name);
+		ocfs2_free(&group->gd);
+		ocfs2_free(&group);
+	}
 }
 
 static AllocBitmap *
