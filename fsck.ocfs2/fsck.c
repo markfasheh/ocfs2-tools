@@ -79,6 +79,8 @@ static o2fsck_state _ost;
 static int cluster_locked = 0;
 
 static void mark_magical_clusters(o2fsck_state *ost);
+static errcode_t fsck_lock_fs(o2fsck_state *ost);
+static void fsck_unlock_fs(o2fsck_state *ost);
 
 static void handle_signal(int sig)
 {
@@ -518,6 +520,8 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 	if (!replayed)
 		goto out;
 
+	fsck_unlock_fs(ost);
+
 	ret = ocfs2_close(ost->ost_fs);
 	if (ret) {
 		com_err(whoami, ret, "while closing \"%s\"", filename);
@@ -525,6 +529,13 @@ static errcode_t maybe_replay_journals(o2fsck_state *ost, char *filename,
 	}
 
 	ret = open_and_check(ost, filename, open_flags, blkno, blksize);
+	if (ret) {
+		com_err(whoami, ret, "while opening and checking \"%s\"",
+				filename);
+		goto out;
+	}
+
+	ret = fsck_lock_fs(ost);
 out:
 	return ret;
 }
@@ -674,6 +685,67 @@ bail:
 	o2cb_free_cluster_desc(&disk);
 
 	return ret;
+}
+
+static errcode_t fsck_lock_fs(o2fsck_state *ost)
+{
+	errcode_t ret;
+
+	ret = o2cb_init();
+	if (ret) {
+		com_err(whoami, ret, "while initializing the cluster");
+		goto bail;
+	}
+
+	block_signals(SIG_BLOCK);
+	ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
+	if (ret == O2CB_ET_INVALID_STACK_NAME ||
+			ret == O2CB_ET_INVALID_CLUSTER_NAME ||
+			ret == O2CB_ET_INVALID_HEARTBEAT_MODE) {
+		block_signals(SIG_UNBLOCK);
+		ret = recover_cluster_info(ost);
+		if (ret) {
+			com_err(whoami, ret,
+					"while recovering cluster information");
+			goto bail;
+		}
+		block_signals(SIG_BLOCK);
+		ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
+	}
+	if (ret) {
+		block_signals(SIG_UNBLOCK);
+		com_err(whoami, ret, "while initializing the DLM");
+		goto bail;
+	}
+
+	ret = ocfs2_lock_down_cluster(ost->ost_fs);
+	if (ret) {
+		if (ost->ost_fs->fs_dlm_ctxt)
+			ocfs2_shutdown_dlm(ost->ost_fs, whoami);
+		block_signals(SIG_UNBLOCK);
+		com_err(whoami, ret, "while locking down the cluster");
+		goto bail;
+	}
+	cluster_locked = 1;
+	block_signals(SIG_UNBLOCK);
+
+bail:
+	return ret;
+}
+
+static void fsck_unlock_fs(o2fsck_state *ost)
+{
+	if (!ost->ost_fs)
+		return;
+
+	block_signals(SIG_BLOCK);
+	if (ost->ost_fs->fs_dlm_ctxt)
+		ocfs2_release_cluster(ost->ost_fs);
+	cluster_locked = 0;
+
+	if (ost->ost_fs->fs_dlm_ctxt)
+		ocfs2_shutdown_dlm(ost->ost_fs, whoami);
+	block_signals(SIG_UNBLOCK);
 }
 
 int main(int argc, char **argv)
@@ -902,41 +974,11 @@ int main(int argc, char **argv)
 
 	if (open_flags & OCFS2_FLAG_RW && !ost->ost_skip_o2cb &&
 	    !ocfs2_mount_local(ost->ost_fs)) {
-		ret = o2cb_init();
+		ret = fsck_lock_fs(ost);
 		if (ret) {
-			com_err(whoami, ret, "while initializing the cluster");
+			fsck_mask |= FSCK_ERROR;
 			goto close;
 		}
-
-		block_signals(SIG_BLOCK);
-		ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
-		if (ret == O2CB_ET_INVALID_STACK_NAME ||
-		    ret == O2CB_ET_INVALID_CLUSTER_NAME ||
-		    ret == O2CB_ET_INVALID_HEARTBEAT_MODE) {
-			block_signals(SIG_UNBLOCK);
-			ret = recover_cluster_info(ost);
-			if (ret) {
-				com_err(whoami, ret,
-					"while recovering cluster information");
-				goto close;
-			}
-			block_signals(SIG_BLOCK);
-			ret = ocfs2_initialize_dlm(ost->ost_fs, whoami);
-		}
-		if (ret) {
-			block_signals(SIG_UNBLOCK);
-			com_err(whoami, ret, "while initializing the DLM");
-			goto close;
-		}
-
-		ret = ocfs2_lock_down_cluster(ost->ost_fs);
-		if (ret) {
-			block_signals(SIG_UNBLOCK);
-			com_err(whoami, ret, "while locking down the cluster");
-			goto close;
-		}
-		cluster_locked = 1;
-		block_signals(SIG_UNBLOCK);
 	}
 
 	printf("Checking OCFS2 filesystem in %s:\n", filename);
@@ -1086,18 +1128,9 @@ clear_dirty_flag:
 	}
 
 unlock:
-	block_signals(SIG_BLOCK);
-	if (ost->ost_fs->fs_dlm_ctxt)
-		ocfs2_release_cluster(ost->ost_fs);
-	cluster_locked = 0;
-	block_signals(SIG_UNBLOCK);
+	fsck_unlock_fs(ost);
 
 close:
-	block_signals(SIG_BLOCK);
-	if (ost->ost_fs->fs_dlm_ctxt)
-		ocfs2_shutdown_dlm(ost->ost_fs, whoami);
-	block_signals(SIG_UNBLOCK);
-
 	if (ost->ost_fs) {
 		ret = ocfs2_close(ost->ost_fs);
 		if (ret) {
