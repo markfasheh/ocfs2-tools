@@ -1001,6 +1001,7 @@ int main(int argc, char **argv)
 		if (ret) {
 			printf("fsck saw unrecoverable errors in the journal "
 				"files and will not continue.\n");
+			fsck_mask |= FSCK_ERROR;
 			goto unlock;
 		}
 	}
