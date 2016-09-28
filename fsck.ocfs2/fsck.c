@@ -471,6 +471,7 @@ static errcode_t open_and_check(o2fsck_state *ost, char *filename,
 	if (ret) {
 		printf("fsck saw unrecoverable errors in the super block and "
 		       "will not continue.\n");
+		ocfs2_close(ost->ost_fs);
 		goto out;
 	}
 
@@ -1097,11 +1098,13 @@ close:
 		ocfs2_shutdown_dlm(ost->ost_fs, whoami);
 	block_signals(SIG_UNBLOCK);
 
-	ret = ocfs2_close(ost->ost_fs);
-	if (ret) {
-		com_err(whoami, ret, "while closing file \"%s\"", filename);
-		/* XXX I wonder about this error.. */
-		fsck_mask |= FSCK_ERROR;
+	if (ost->ost_fs) {
+		ret = ocfs2_close(ost->ost_fs);
+		if (ret) {
+			com_err(whoami, ret, "while closing file \"%s\"", filename);
+			/* XXX I wonder about this error.. */
+			fsck_mask |= FSCK_ERROR;
+		}
 	} 
 
 out:
