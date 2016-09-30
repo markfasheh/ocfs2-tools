@@ -176,7 +176,6 @@ static int is_cluster_info_valid(State *s, char *stack_name,
 				"the specified cluster attribute");
 			return 0;
 		}
-		return 1;
 	}
 
 	if (!stack_name || !strlen(stack_name)) {
