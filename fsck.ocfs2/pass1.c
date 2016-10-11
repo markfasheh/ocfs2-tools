@@ -952,7 +952,7 @@ static errcode_t o2fsck_check_blocks(ocfs2_filesys *fs, o2fsck_state *ost,
 		ret = ocfs2_block_iterate_inode(fs, di,
 					        OCFS2_BLOCK_FLAG_APPEND,
 						clear_block, &vb);
-		di->i_flags &= !OCFS2_VALID_FL;
+		di->i_flags &= ~OCFS2_VALID_FL;
 		o2fsck_write_inode(ost, di->i_blkno, di);
 		/* for a directory, we also need to clear it 
 		 * from the dir_parent rb-tree. */
