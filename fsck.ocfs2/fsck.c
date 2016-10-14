@@ -234,6 +234,22 @@ errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost)
 	return 0;
 }
 
+static void o2fsck_state_release(o2fsck_state *ost)
+{
+	if (ost->ost_dir_inodes)
+		ocfs2_bitmap_free(&ost->ost_dir_inodes);
+	if (ost->ost_reg_inodes)
+		ocfs2_bitmap_free(&ost->ost_reg_inodes);
+	if (ost->ost_allocated_clusters)
+		ocfs2_bitmap_free(&ost->ost_allocated_clusters);
+	if (ost->ost_duplicate_clusters)
+		ocfs2_bitmap_free(&ost->ost_duplicate_clusters);
+	if (ost->ost_icount_in_inodes)
+		o2fsck_icount_free(ost->ost_icount_in_inodes);
+	if (ost->ost_icount_refs)
+		o2fsck_icount_free(ost->ost_icount_refs);
+}
+
 static errcode_t check_superblock(o2fsck_state *ost)
 {
 	struct ocfs2_dinode *di = ost->ost_fs->fs_super;
@@ -1139,7 +1155,9 @@ close:
 			/* XXX I wonder about this error.. */
 			fsck_mask |= FSCK_ERROR;
 		}
-	} 
+	}
+
+	o2fsck_state_release(ost);
 
 out:
 	return fsck_mask;

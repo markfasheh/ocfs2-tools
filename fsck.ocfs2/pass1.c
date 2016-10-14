@@ -83,6 +83,7 @@ void o2fsck_free_inode_allocs(o2fsck_state *ost)
 
 	for (i = 0; i < OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_max_slots; i++)
 		ocfs2_free_cached_inode(ost->ost_fs, ost->ost_inode_allocs[i]);
+	ocfs2_free(&ost->ost_inode_allocs);
 }
 
 /* update our in memory images of the inode chain alloc bitmaps.  these
@@ -146,8 +147,6 @@ static void update_inode_alloc(o2fsck_state *ost,
 
 			ost->ost_write_inode_alloc_asked = 1;
 			ost->ost_write_inode_alloc = !!yn;
-			if (!ost->ost_write_inode_alloc)
-				o2fsck_free_inode_allocs(ost);
 		}
 		break;
 	}
@@ -1447,8 +1446,6 @@ static void write_inode_alloc(o2fsck_state *ost)
 			com_err(whoami, ret, "while trying to write back slot "
 				"%d's inode allocator", i);
 	}
-
-	o2fsck_free_inode_allocs(ost);
 }
 
 errcode_t o2fsck_pass1(o2fsck_state *ost)
@@ -1566,6 +1563,7 @@ out_free:
 	o2fsck_add_resource_track(&ost->ost_rt, &rt);
 
 out:
+	o2fsck_free_inode_allocs(ost);
 	if (ost->ost_prog) {
 		tools_progress_stop(ost->ost_prog);
 		setlinebuf(stdout);
