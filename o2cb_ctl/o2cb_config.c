@@ -549,6 +549,7 @@ gint o2cb_config_store(O2CBConfig *config, const gchar *filename)
     g_free(text);
 
 out:
+    j_config_free(cf);
     return rc;
 }  /* o2cb_config_store() */
 
