@@ -18,8 +18,18 @@
 # Force LC_ALL=C
 export LC_ALL=C
 
+if [ -f /etc/redhat-release ]
+then
+. /etc/init.d/functions
+
+start_daemon () {
+    daemon  $*
+}
+else
 # Let's try to use the LSB functions
 . /lib/lsb/init-functions
+fi
+
 if [ $? != 0 ]
 then
     echo "Unable to load LSB init functions" >&2
