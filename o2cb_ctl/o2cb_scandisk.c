@@ -124,6 +124,8 @@ static void add_to_list(struct list_head *device_list, struct devnode *node)
 	while (path) {
 		if (node->mapper)
 			add = !strncmp(path->path, "/dev/mapper/", 12);
+		else if (node->power)
+			add = !strncmp(path->path, "/dev/emcpower", 13);
 		else {
 			add = !strncmp(path->path, "/dev/sd", 7);
 			if (!add)

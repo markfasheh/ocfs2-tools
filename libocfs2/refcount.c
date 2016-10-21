@@ -2207,6 +2207,57 @@ out:
 	return ret;
 }
 
+errcode_t ocfs2_detach_refcount_tree(ocfs2_filesys *fs,
+				     uint64_t ino, uint64_t refcount_loc)
+{
+	errcode_t ret;
+	char *buf = NULL;
+	struct ocfs2_dinode *di;
+	struct ocfs2_refcount_block *rb;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret)
+		return ret;
+
+	ret = ocfs2_read_refcount_block(fs, refcount_loc, buf);
+	if (ret)
+		goto out;
+
+	rb = (struct ocfs2_refcount_block *)buf;
+	rb->rf_count += -1;
+
+	if (!rb->rf_count) {
+		ret = ocfs2_delete_refcount_block(fs, rb->rf_blkno);
+		if (ret) {
+			com_err("refcount", ret, "remove refcount tree <%lu> failed.\n", rb->rf_blkno);
+			goto out;
+		}
+	} else {
+		ret = ocfs2_write_refcount_block(fs, refcount_loc, buf);
+		if (ret) {
+			com_err("refcount", ret, "update refcount tree <%lu> failed.\n", rb->rf_blkno);
+			goto out;
+		}
+	}
+
+	ret = ocfs2_read_inode(fs, ino, buf);
+	if (ret) {
+		com_err("refcount", ret, "read inode %lu fail, stop setting refcount tree <%lu>.\n",
+			ino, rb->rf_blkno);
+		goto out;
+	}
+
+	di = (struct ocfs2_dinode *)buf;
+
+	di->i_refcount_loc = 0;
+	di->i_dyn_features &= ~OCFS2_HAS_REFCOUNT_FL;
+
+	ret = ocfs2_write_inode(fs, ino, buf);
+out:
+	ocfs2_free(&buf);
+	return ret;
+}
+
 struct xattr_value_cow_object {
 	struct ocfs2_xattr_value_root *xv;
 	uint64_t xe_blkno;

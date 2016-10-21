@@ -17,6 +17,7 @@
 
 %define build_ocfs2console	0
 %define compile_py		0
+%define systemd_enabled	@@SYSTEMD_ENABLED@@
 
 %if %{build_ocfs2console}
 %define compile_py		@@COMPILE_PY@@
@@ -34,8 +35,8 @@ Distribution: Oracle
 Vendor: Oracle
 Packager: nobody <nobody@oracle.com>
 Exclusiveos: Linux
-Requires: bash, which, coreutils, net-tools, modutils, e2fsprogs, @@CHKCONFIG_DEP@@, glib2 >= 2.2.3, util-linux >= 2.12j, redhat-lsb
-BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, @@PYGTK_NAME@@ >= 1.99.16, python-devel >= @@PYVERSION@@, util-linux >= 2.12j
+Requires: bash, which, coreutils, net-tools, e2fsprogs, @@CHKCONFIG_DEP@@, glib2 >= 2.2.3, util-linux >= 2.12j, redhat-lsb, @@INSTALL_DEP_PKG@@
+BuildRequires: e2fsprogs-devel, glib2-devel >= 2.2.3, @@PYGTK_NAME@@ >= 1.99.16, python-devel >= @@PYVERSION@@, util-linux >= 2.12j, @@BUILD_DEP_PKG@@
 
 BuildRoot: %{_tmppath}/ocfs2-tools-%{PACKAGE_VERSION}-%{PACKAGE_RELEASE}-root
 
@@ -80,9 +81,18 @@ make
 
 %install
 
-mkdir -p $RPM_BUILD_ROOT/etc/init.d
-cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
-cp -f vendor/common/ocfs2.init $RPM_BUILD_ROOT/etc/init.d/ocfs2
+%if %{systemd_enabled}
+	mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
+	cp -f  vendor/common/o2cb.service $RPM_BUILD_ROOT/usr/lib/systemd/system/
+	cp -f  vendor/common/ocfs2.service $RPM_BUILD_ROOT/usr/lib/systemd/system/
+	mkdir -p $RPM_BUILD_ROOT/sbin
+	cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/sbin
+	cp -f vendor/common/ocfs2.init $RPM_BUILD_ROOT/sbin
+%else
+	mkdir -p $RPM_BUILD_ROOT/etc/init.d
+	cp -f vendor/common/o2cb.init $RPM_BUILD_ROOT/etc/init.d/o2cb
+	cp -f vendor/common/ocfs2.init $RPM_BUILD_ROOT/etc/init.d/ocfs2
+%endif
 if [ -f /etc/redhat-release ]
 then
     # Red Hat chkconfig is completely and utterly broken
@@ -104,14 +114,27 @@ rm -rf "$RPM_BUILD_ROOT"
 
 
 %post
-/sbin/chkconfig --add o2cb >/dev/null
-/sbin/chkconfig --add ocfs2 >/dev/null
+%if !%{systemd_enabled}
+	/sbin/chkconfig --add o2cb >/dev/null
+	/sbin/chkconfig --add ocfs2 >/dev/null
+%else
+	# clean up start/kill entry in /etc/rc*.d/ when upgrade.
+	if [ -f /etc/init.d/o2cb ]; then
+		/sbin/chkconfig --del o2cb >/dev/null
+	fi
+
+	if [ -f /etc/init.d/ocfs2 ]; then
+		/sbin/chkconfig --del ocfs2 >/dev/null
+	fi
+%endif
 
 %preun
-if [ $1 = 0 ]; then     # execute this only if we are NOT doing an upgrade
-	/sbin/chkconfig --del ocfs2 >/dev/null
-	/sbin/chkconfig --del o2cb >/dev/null
-fi
+%if !%{systemd_enabled}
+	if [ $1 = 0 ]; then     # execute this only if we are NOT doing an upgrade
+		/sbin/chkconfig --del ocfs2 >/dev/null
+		/sbin/chkconfig --del o2cb >/dev/null
+	fi
+%endif
 
 %files
 %defattr(-,root,root)
@@ -127,10 +150,17 @@ fi
 /sbin/o2image
 /sbin/o2cluster
 /sbin/ocfs2_hb_ctl
-/usr/bin/o2info
-/usr/sbin/o2hbmonitor
+%if %{systemd_enabled}
+/sbin/o2cb.init
+/sbin/ocfs2.init
+/usr/lib/systemd/system/o2cb.service
+/usr/lib/systemd/system/ocfs2.service
+%else
 /etc/init.d/o2cb
 /etc/init.d/ocfs2
+%endif
+/usr/bin/o2info
+/usr/sbin/o2hbmonitor
 %config(noreplace) /etc/sysconfig/o2cb
 /usr/share/man/man8/debugfs.ocfs2.8.gz
 /usr/share/man/man8/fsck.ocfs2.8.gz
@@ -172,6 +202,9 @@ fi
 
 
 %changelog
+* Thu Jun 18 2015 Junxiao Bi <junxiao.bi@oracle.com>
+- Add systemd support
+
 * Thu Jan 27 2005 Manish Singh <manish.singh@oracle.com>
 - Add ocfs2console
 

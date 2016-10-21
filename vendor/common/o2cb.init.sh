@@ -610,6 +610,7 @@ mount_filesystem()
     mount -t ${FSNAME} ${FSNAME} ${MOUNTPOINT}
     if [ $? != 0 ]
     then
+        check_filesystem "$FSNAME" "$MOUNTPOINT" && return 2
         echo "Unable to mount ${FSNAME} filesystem" >&2
         return 1
     fi

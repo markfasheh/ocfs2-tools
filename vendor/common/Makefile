@@ -25,6 +25,8 @@ DIST_FILES =					\
 	ocfs2-tools.spec-generic.in		\
 	51-ocfs2.rules				\
 	Vendor.make				\
-	o2cb.sysconfig.5.in
+	o2cb.sysconfig.5.in		\
+	o2cb.service			\
+	ocfs2.service
 
 include $(TOPDIR)/Postamble.make

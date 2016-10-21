@@ -520,6 +520,8 @@ int ocfs2_get_refcount_rec(ocfs2_filesys *fs,
 errcode_t ocfs2_create_refcount_tree(ocfs2_filesys *fs, uint64_t *refcount_loc);
 errcode_t ocfs2_attach_refcount_tree(ocfs2_filesys *fs,
 				     uint64_t ino, uint64_t refcount_loc);
+errcode_t ocfs2_detach_refcount_tree(ocfs2_filesys *fs,
+				     uint64_t ino, uint64_t refcount_loc);
 errcode_t ocfs2_swap_dir_entries_from_cpu(void *buf, uint64_t bytes);
 errcode_t ocfs2_swap_dir_entries_to_cpu(void *buf, uint64_t bytes);
 void ocfs2_swap_dir_trailer(struct ocfs2_dir_block_trailer *trailer);
