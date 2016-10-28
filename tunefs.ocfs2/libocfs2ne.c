@@ -1795,6 +1795,7 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 		state->ts_journal_features.opt_incompat |=
 			jsb->s_feature_incompat;
 		ocfs2_free_cached_inode(fs, ci);
+		ci = NULL;
 	}
 
 	/*
