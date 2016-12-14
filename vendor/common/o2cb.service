@@ -8,7 +8,6 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/sbin/o2cb.init enable
 ExecStop=/sbin/o2cb.init disable
-ExecRestart=/sbin/o2cb.init restart
 
 [Install]
 WantedBy=multi-user.target
