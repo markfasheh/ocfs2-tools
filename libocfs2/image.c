@@ -163,7 +163,8 @@ errcode_t ocfs2_image_load_bitmap(ocfs2_filesys *ofs)
 	struct ocfs2_image_state *ost;
 	struct ocfs2_image_hdr *hdr;
 	uint64_t blk_off, bits_set;
-	int count, i, j, fd;
+	int i, j, fd;
+	ssize_t count;
 	errcode_t ret;
 	char *blk;
 
@@ -218,8 +219,10 @@ errcode_t ocfs2_image_load_bitmap(ocfs2_filesys *ofs)
 		 */
 		count = pread64(fd, ost->ost_bmparr[i].arr_map,
 				ost->ost_bmpblksz, blk_off);
-		if (count < ost->ost_bmpblksz)
+		if (count < 0) {
+			ret = OCFS2_ET_IO;
 			goto out;
+		}
 
 		/* add bits set in this bitmap */
 		for (j = 0; j < (ost->ost_bmpblksz * 8); j++)
