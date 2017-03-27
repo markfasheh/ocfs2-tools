@@ -49,7 +49,7 @@
 #define SYS_CONFIG_DIR			"/sys/kernel/config"
 #define O2HB_CLUSTER_DIR		SYS_CONFIG_DIR"/cluster"
 #define O2HB_HEARTBEAT_DIR		O2HB_CLUSTER_DIR"/%s/heartbeat"
-#define O2HB_DEAD_THRESHOLD		O2HB_HEARTBEAT_DIR"/threshold"
+#define O2HB_DEAD_THRESHOLD		O2HB_HEARTBEAT_DIR"/dead_threshold"
 #define O2HB_DEVICE			O2HB_HEARTBEAT_DIR"/%s/dev"
 
 #define SYS_DEBUG_DIR			"/sys/kernel/debug"
