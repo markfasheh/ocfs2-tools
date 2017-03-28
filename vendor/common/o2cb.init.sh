@@ -235,7 +235,7 @@ read_timeout()
 set_timeouts_o2cb()
 {
     O2CB_HEARTBEAT_THRESHOLD_FILE_OLD=/proc/fs/ocfs2_nodemanager/hb_dead_threshold
-    O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/threshold
+    O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/dead_threshold
     if [ -n "$O2CB_HEARTBEAT_THRESHOLD" ]; then
         if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
             echo "$O2CB_HEARTBEAT_THRESHOLD" > "$O2CB_HEARTBEAT_THRESHOLD_FILE"
@@ -270,7 +270,7 @@ show_timeouts_o2cb()
 {
 
     O2CB_HEARTBEAT_THRESHOLD_FILE_OLD=/proc/fs/ocfs2_nodemanager/hb_dead_threshold
-    O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/threshold
+    O2CB_HEARTBEAT_THRESHOLD_FILE=$(configfs_path)/cluster/${CLUSTER}/heartbeat/dead_threshold
     if [ -f "$O2CB_HEARTBEAT_THRESHOLD_FILE" ]; then
         VAL=`cat "$O2CB_HEARTBEAT_THRESHOLD_FILE"`
         echo "  Heartbeat dead threshold: ${VAL}"
