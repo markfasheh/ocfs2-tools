@@ -141,7 +141,7 @@ static int truncate_iterate(ocfs2_filesys *fs,
 				ret = ocfs2_delete_extent_block(fs, rec->e_blkno);
 				if (ret)
 					goto bail;
-					cleanup_rec = 1;
+				cleanup_rec = 1;
 			}
 		}
 	}
