@@ -1084,7 +1084,7 @@ JConfigStanza *j_config_add_stanza(JConfig *cf,
                             elem);
     }
     else
-        g_list_append(elem, cfs);
+        elem = g_list_append(elem, cfs);
 
     return(cfs);
 }  /* j_config_add_stanza() */
