@@ -2229,20 +2229,20 @@ errcode_t ocfs2_detach_refcount_tree(ocfs2_filesys *fs,
 	if (!rb->rf_count) {
 		ret = ocfs2_delete_refcount_block(fs, rb->rf_blkno);
 		if (ret) {
-			com_err("refcount", ret, "remove refcount tree <%lu> failed.\n", rb->rf_blkno);
+			com_err("refcount", ret, "remove refcount tree <%llu> failed.\n", rb->rf_blkno);
 			goto out;
 		}
 	} else {
 		ret = ocfs2_write_refcount_block(fs, refcount_loc, buf);
 		if (ret) {
-			com_err("refcount", ret, "update refcount tree <%lu> failed.\n", rb->rf_blkno);
+			com_err("refcount", ret, "update refcount tree <%llu> failed.\n", rb->rf_blkno);
 			goto out;
 		}
 	}
 
 	ret = ocfs2_read_inode(fs, ino, buf);
 	if (ret) {
-		com_err("refcount", ret, "read inode %lu fail, stop setting refcount tree <%lu>.\n",
+		com_err("refcount", ret, "read inode %lu fail, stop setting refcount tree <%llu>.\n",
 			ino, rb->rf_blkno);
 		goto out;
 	}
