@@ -914,6 +914,8 @@ get_state(int argc, char **argv)
 
 	if (argc && *argv)
 		progname = basename(argv[0]);
+	else
+		progname = "mkfs.ocfs2";
 
 	while (1) {
 		c = getopt_long(argc, argv, "b:C:L:N:J:M:vnqVFHxT:U:",
