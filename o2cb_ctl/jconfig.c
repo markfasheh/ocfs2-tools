@@ -1408,7 +1408,7 @@ JIterator *j_config_get_stanzas(JConfig *cf,
                 }
                 else
                 {
-                    if (matches[i].value != '\0')
+                    if (matches[i].value != NULL)
                         break;
                 }
             }
