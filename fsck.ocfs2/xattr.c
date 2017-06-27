@@ -474,10 +474,9 @@ static uint16_t detect_xattr_bucket_count(char *bucket,
 	for (i = 0; i < max_buckets; i++) {
 		xh = (struct ocfs2_xattr_header *)bucket_buf;
 		if (xh->xh_count < max_count &&
-		    xh->xh_free_start >
-		    (xh->xh_count * ENTRY_SIZE &&
+		    xh->xh_free_start > xh->xh_count * ENTRY_SIZE &&
 		    xh->xh_free_start <= max_offset &&
-		    xh->xh_name_value_len <= max_offset - xh->xh_free_start)) {
+		    xh->xh_name_value_len <= max_offset - xh->xh_free_start) {
 			bucket_buf += OCFS2_XATTR_BUCKET_SIZE;
 			continue;
 		} else

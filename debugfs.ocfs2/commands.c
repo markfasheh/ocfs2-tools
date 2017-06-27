@@ -1194,7 +1194,7 @@ static void do_logdump(char **args)
 	uint16_t slotnum;
 	uint64_t blkno;
 	FILE *out;
-	int index = 1, traverse = 1;
+	int index = 1;
 	const char *logdump_usage = "usage: logdump [-T] <slot#>";
 
 	if (check_device_open())
@@ -1206,7 +1206,6 @@ static void do_logdump(char **args)
 	}
 
 	if (!strncmp(args[index], "-T", 2)) {
-		traverse = 0;
 		index++;
 	}
 
