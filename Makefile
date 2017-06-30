@@ -20,13 +20,22 @@ CHKCONFIG_DEP = chkconfig
 COMPILE_PY = 1
 endif
 
-SUBDIRS = include libtools-internal libo2dlm libo2cb libocfs2 fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2_controld o2image o2info o2monitor extras fswreck patches
+SUBDIRS1 = include
+SUBDIRS2 = libtools-internal libo2dlm libo2cb
+SUBDIRS3 = libocfs2
+SUBDIRS4 = fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2_controld o2image o2info o2monitor extras fswreck patches
 
 ifdef BUILD_OCFS2CONSOLE
-SUBDIRS += ocfs2console
+SUBDIRS4 += ocfs2console
 endif
 
-SUBDIRS += vendor
+SUBDIRS4 += vendor
+
+$(SUBDIRS2): $(SUBDIRS1)
+$(SUBDIRS3): $(SUBDIRS2)
+$(SUBDIRS4): $(SUBDIRS3)
+
+SUBDIRS = $(SUBDIRS1) $(SUBDIRS2) $(SUBDIRS3) $(SUBDIRS4)
 
 PKGCONFIG_SOURCES =	\
 	o2cb.pc.in	\
