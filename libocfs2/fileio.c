@@ -18,8 +18,8 @@
  * 
  * You should have received a copy of the GNU General Public
  * License along with this program; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 021110-1307, USA.
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
+ * Boston, MA  02110-1301 USA.
  *
  * Ideas taken from e2fsprogs/lib/ext2fs/fileio.c
  *   Copyright (C) 1997 Theodore Ts'o.
