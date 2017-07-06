@@ -659,7 +659,11 @@ update_mtab (const char *dir, struct my_mntent *instead) {
 	   */
 	    struct stat sbuf;
 	    if (stat (MOUNTED, &sbuf) == 0)
-		chown (MOUNTED_TEMP, sbuf.st_uid, sbuf.st_gid);
+		if (chown (MOUNTED_TEMP, sbuf.st_uid, sbuf.st_gid) < 0) {
+			int errsv = errno;
+			fprintf(stderr, _("error changing ownership of %s: %s\n"),
+				MOUNTED_TEMP, strerror (errsv));
+		}
 	}
 
 	/* rename mtemp to mtab */
