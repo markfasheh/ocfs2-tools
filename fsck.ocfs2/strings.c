@@ -31,7 +31,7 @@
 #include "ocfs2/ocfs2.h"
 
 #include "fsck.h"
-#include "strings.h"
+#include "o2fsck_strings.h"
 #include "util.h"
 
 struct string_entry {

@@ -64,7 +64,7 @@ HFILES = 	include/fsck.h		\
 		include/problem.h	\
 		include/refcount.h	\
 		include/slot_recovery.h	\
-		include/strings.h	\
+		include/o2fsck_strings.h	\
 		include/util.h
 
 

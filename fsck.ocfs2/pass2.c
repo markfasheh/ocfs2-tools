@@ -43,7 +43,7 @@
 #include "fsck.h"
 #include "pass2.h"
 #include "problem.h"
-#include "strings.h"
+#include "o2fsck_strings.h"
 #include "util.h"
 
 static const char *whoami = "pass2";
