@@ -316,6 +316,8 @@ errcode_t ocfs2_cache_chain_allocator_blocks(ocfs2_filesys *fs,
 	io_channel *channel = fs->fs_io;
 	int blocksize = fs->fs_blocksize;
 	int64_t group_size;
+	unsigned int num_gds, max_chain_len;
+	int depth = 0;
 
 	if (!(di->i_flags & OCFS2_CHAIN_FL)) {
 		ret = OCFS2_ET_INODE_NOT_VALID;
@@ -336,6 +338,9 @@ errcode_t ocfs2_cache_chain_allocator_blocks(ocfs2_filesys *fs,
 
 	cl = &(di->id2.i_chain);
 	count = cl->cl_next_free_rec;
+
+	num_gds = (di->i_clusters + cl->cl_cpg)/cl->cl_cpg;
+	max_chain_len = (num_gds + cl->cl_count)/cl->cl_count;
 
 	ret = ocfs2_malloc_blocks(channel, count, &buf);
 	if (ret)
@@ -383,6 +388,9 @@ errcode_t ocfs2_cache_chain_allocator_blocks(ocfs2_filesys *fs,
 		}
 
 		count = j;
+		if (++depth >= max_chain_len)
+			goto out;
+
 	}
 
 out:
