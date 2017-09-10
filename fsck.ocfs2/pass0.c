@@ -635,7 +635,15 @@ static errcode_t maybe_fix_clusters_per_group(o2fsck_state *ost,
 	blkno = cl->cl_recs[0].c_blkno;
 
 	ret = ocfs2_read_group_desc(ost->ost_fs, blkno, (char *)gd);
-	if (ret) {
+	if ((ret == OCFS2_ET_BAD_GROUP_DESC_MAGIC) ||
+	    (!ret && gd->bg_generation != ost->ost_fs_generation)) {
+		if (prompt(ost, PY, PR_GROUP_EXPECTED_DESC,
+			    "Group descriptor at block %"PRIu64" is corrupted. "
+			    "Go fixing it in the following steps?", blkno)) {
+			ret = 0;
+		}
+		goto out;
+	} else if (ret) {
 		com_err(whoami, ret, "while reading group descriptor "
 			"at block %"PRIu64" to fix cl_cpg", blkno);
 		goto out;
@@ -1219,8 +1227,8 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 		 * its values.. we only preserve the bitmap if the signature
 		 * and generation match this volume */
 		ret = ocfs2_read_group_desc(ost->ost_fs, blkno, (char *)bg);
-		if (ret == OCFS2_ET_BAD_GROUP_DESC_MAGIC ||
-		    bg->bg_generation != ost->ost_fs_generation) {
+		if ((ret == OCFS2_ET_BAD_GROUP_DESC_MAGIC) ||
+		    (!ret && bg->bg_generation != ost->ost_fs_generation)) {
 			memset(bg, 0, ost->ost_fs->fs_blocksize);
 			ocfs2_init_group_desc(ost->ost_fs, bg, blkno,
 					      ost->ost_fs_generation,
