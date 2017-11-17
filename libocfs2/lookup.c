@@ -73,6 +73,8 @@ static errcode_t ocfs2_find_entry_dx(ocfs2_filesys *fs,
 	struct ocfs2_dir_lookup_result lookup;
 	errcode_t ret;
 
+	memset(&lookup, 0, sizeof(struct ocfs2_dir_lookup_result));
+
 	ret = ocfs2_malloc_block(fs->fs_io, &dx_root_buf);
 	if (ret)
 		goto out;
@@ -81,7 +83,6 @@ static errcode_t ocfs2_find_entry_dx(ocfs2_filesys *fs,
 		goto out;
 	dx_root = (struct ocfs2_dx_root_block *)dx_root_buf;
 
-	memset(&lookup, 0, sizeof(struct ocfs2_dir_lookup_result));
 	ocfs2_dx_dir_name_hash(fs, ls->name,
 			ls->len, &lookup.dl_hinfo);
 
