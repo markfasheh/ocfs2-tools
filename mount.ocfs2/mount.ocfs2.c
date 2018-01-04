@@ -434,8 +434,15 @@ int main(int argc, char **argv)
 			o2cb_complete_group_join(&cluster, &desc, errno);
 		}
 		block_signals (SIG_UNBLOCK);
-		com_err(progname, ret, "while mounting %s on %s. Check 'dmesg' "
-			"for more information on this error.", mo.dev, mo.dir);
+		if (ret == -EROFS)
+			com_err(progname, OCFS2_ET_RO_FILESYS, "while mounting %s "
+				"on %s, please try fixing this by fsck.ocfs2 and then "
+				"retry mounting", mo.dev, mo.dir);
+		else
+			com_err(progname, OCFS2_ET_INTERNAL_FAILURE,
+				"while mounting %s on %s. Check 'dmesg' for more "
+				"information on this error %d.", mo.dev, mo.dir,
+				(int)ret);
 		goto bail;
 	}
 	if (group_join) {
