@@ -1,5 +1,6 @@
 [Unit]
-Description=Load ocfs2 Modules
+Description=Mount ocfs2 Filesystems
+Documentation=man:ocfs2(7) man:mount.ocfs2(8)
 Requires=o2cb.service
 After=o2cb.service
 

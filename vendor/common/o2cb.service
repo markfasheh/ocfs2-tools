@@ -1,5 +1,6 @@
 [Unit]
 Description=Load o2cb Modules
+Documentation=man:o2cb(7) man:o2cb.sysconfig(5)
 Requires=network.service
 After=network.service
 
