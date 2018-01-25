@@ -25,7 +25,7 @@
 #define _LARGEFILE64_SOURCE
 #define _GNU_SOURCE /* Because libc really doesn't want us using O_DIRECT? */
 
-#include <sys/types.h>
+#include <sys/sysmacros.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
