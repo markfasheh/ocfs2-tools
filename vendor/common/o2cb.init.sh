@@ -1148,11 +1148,11 @@ unload_stack_plugins()
     # we have nothing to do.
     [ ! -e "$LOADED_PLUGINS_FILE" ] && return 2
 
-    while read plugin
+    for plugin in $(cat "$LOADED_PLUGINS_FILE")
     do
         unload_module "ocfs2_stack_${plugin}"
         if_fail $? "Unable to unload ocfs2_stack_${plugin}"
-    done <"$LOADED_PLUGINS_FILE"
+    done
 
     unload_module "ocfs2_stackglue"
     if_fail $? "Unable to unload ocfs2_stackglue"
