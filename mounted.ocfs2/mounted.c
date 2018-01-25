@@ -569,7 +569,7 @@ int main(int argc, char **argv)
 
 	ret = build_partition_list(&dev_list, device);
 	if (ret) {
-		com_err(progname, ret, "while building partiton list");
+		com_err(progname, ret, "while building partition list");
 		goto bail;
 	}
 

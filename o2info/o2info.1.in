@@ -7,9 +7,9 @@ o2info \- Show \fIOCFS2\fR file system information.
 .SH "DESCRIPTION"
 .PP
 \fBo2info\fR shows information about \fIOCFS2\fR file systems. It differs from \fBdebugfs.ocfs2(8)\fR
-in that it allows users with limited read priviledges to query similar information. Users do not have
+in that it allows users with limited read privileges to query similar information. Users do not have
 to have the read privilege on the device as is expected by \fBdebugfs.ocfs2(8)\fR. This utility allows
-users to provide a path to an object on a mounted file system. The user needs to have the read priviledge
+users to provide a path to an object on a mounted file system. The user needs to have the read privilege
 on that object.
 
 .SH "OPTIONS"
@@ -66,7 +66,7 @@ info ioctls were added starting in Linux kernel 2.6.37, this utility will not wo
 
 .SH "EXAMPLES"
 .PP
-Non-priviledged users can query the volume information by providing the path to a file on
+Non-privileged users can query the volume information by providing the path to a file on
 a mounted file system. Priviledged users can provide the path to the device.
 
 .in +4n

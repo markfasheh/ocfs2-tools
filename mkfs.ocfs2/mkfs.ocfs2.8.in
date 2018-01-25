@@ -145,8 +145,8 @@ Enables creation of reference counted trees. With this enabled, the file system 
 .TP
 \fBxattr\fR
 Enable extended attributes support. With this enabled, users can attach name:value pairs to objects
-within the file system. In \fIOCFS2\fR, the names can be upto 255 bytes in length, terminated by the first
-NUL byte. While it is not required, printable names (ASCII) are recommended. The values can be upto 64KB of
+within the file system. In \fIOCFS2\fR, the names can be up to 255 bytes in length, terminated by the first
+NUL byte. While it is not required, printable names (ASCII) are recommended. The values can be up to 64KB of
 arbitrary binary data. Attributes can be attached to all types of inodes: regular files, directories,
 symbolic links, device nodes, etc. This feature is required for users wanting to use extended security
 facilities like POSIX ACLs or SELinux.
@@ -167,7 +167,7 @@ quota-tools package for more details.
 
 .TP
 \fBindexed-dirs\fR
-Enable directory indexing support. With this feature enabled, the file system creates indexed tree for non-inline directory entries. For large scale directories, directory entry lookup perfromance from the indexed tree is faster then from the legacy directory blocks.
+Enable directory indexing support. With this feature enabled, the file system creates indexed tree for non-inline directory entries. For large scale directories, directory entry lookup performance from the indexed tree is faster then from the legacy directory blocks.
 
 .TP
 \fBdiscontig-bg\fR

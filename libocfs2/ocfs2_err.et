@@ -112,7 +112,7 @@ ec	OCFS2_ET_INVALID_BIT,
 	"Bit does not exist in bitmap range"
 
 ec	OCFS2_ET_INTERNAL_FAILURE,
-	"Internal logic faliure"
+	"Internal logic failure"
 
 ec	OCFS2_ET_BAD_GROUP_DESC_MAGIC,
 	"Bad magic number in group descriptor"

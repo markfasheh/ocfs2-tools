@@ -24,7 +24,7 @@ supported by the same file system.
 \fBO2CB_BOOTCLUSTER\fR
 Name of the active cluster. While /etc/ocfs2/cluster.conf can hold descriptions of
 multiple clusters, only one can be active at any one time. The name of that
-active cluster is specified here. The name itself can be upto 16 alphanumeric
+active cluster is specified here. The name itself can be up to 16 alphanumeric
 characters [0-9A-Za-z] with no special characters.
 .PP
 

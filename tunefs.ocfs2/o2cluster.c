@@ -66,7 +66,7 @@ static void usage(int rc)
 
 	verbosef(VL_OUT, "Valid stack names are \"o2cb\", \"pcmk\" and \"cman\".\n\n");
 
-	verbosef(VL_OUT, "Cluster names can be upto 16 characters. The o2cb stack further restricts\n");
+	verbosef(VL_OUT, "Cluster names can be up to 16 characters. The o2cb stack further restricts\n");
 	verbosef(VL_OUT, "the names to contain only alphanumeric characters.\n\n");
 
 	verbosef(VL_OUT, "For the o2cb stack, valid flags are \"local\" and \"global\" denoting the two\n");

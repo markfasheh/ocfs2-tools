@@ -124,7 +124,7 @@ static void check_rl(o2fsck_state *ost,
 			   "this record from the refcount list?",
 			   i, rb_blkno, root_blkno)) {
 			if (!trust_used) {
-				printf("Can't remove the record becuase "
+				printf("Can't remove the record because "
 				       "rl_used hasn't been fixed\n");
 				continue;
 			}
@@ -139,7 +139,7 @@ static void check_rl(o2fsck_state *ost,
 			   "this record from the refcount list?",
 			   i, rb_blkno, root_blkno)) {
 			if (!trust_used) {
-				printf("Can't remove the record becuase "
+				printf("Can't remove the record because "
 				       "rl_used hasn't been fixed\n");
 				continue;
 			}

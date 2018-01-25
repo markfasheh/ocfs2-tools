@@ -641,7 +641,7 @@ Answering yes remove this flag from the file.
 
 .SS "REFCOUNT_LOC_INVALID"
 Refcount loc can only be valid if the file has refcount flag set. Fsck has
-found that a file has refcount loc while it does't have refcount flag set.
+found that a file has refcount loc while it doesn't have refcount flag set.
 
 Answering yes reset refcount loc to zero for the file.
 
@@ -718,7 +718,7 @@ information is sane.
 
 .SS "REFCOUNT_BLOCK_INVALID"
 Refcount block stores the refcount record for physical clusters of a file.
-It is found refering an invalid refcount block.
+It is found referring an invalid refcount block.
 
 Answering yes remove this refcount block.
 
@@ -732,7 +732,7 @@ of clusters that were associated with the tree.
 
 .SS "REFCOUNT_ROOT_BLOCK_INVALID"
 Root refcount block is the root of the refcount record for a file. It is found
-refering an invalid refcount block.
+referring an invalid refcount block.
 
 Answering yes remove this refcount block and clear refcount flag from this file.
 
@@ -749,9 +749,9 @@ record is found whichs claims the wrong refcount for some physical clusters.
 Answering yes update the corresponding refcount record.
 
 .SS "REFCOUNT_COUNT"
-Refcount tree contains a record of how many files refering to this tree.
+Refcount tree contains a record of how many files referring to this tree.
 A tree was found whose recorded number of files doesn't match the real
-files refering to the tree.
+files referring to the tree.
 
 Answering yes resets the number of files to reflect the real number
 of files that were associated with the tree.

@@ -1082,7 +1082,7 @@ static int print_func(struct dup_cluster *dc, struct dup_inode *di,
  * 3. It has the same tree as others.
  * Store refcount_loc if we find one.
  *
- * if there is other file that does't have the same tree, set refcount_loc
+ * if there is other file that doesn't have the same tree, set refcount_loc
  * to UINT64_MAX and stop the search.
  */
 static int find_refcount_func(struct dup_cluster *dc, struct dup_inode *di,

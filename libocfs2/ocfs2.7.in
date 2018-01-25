@@ -281,7 +281,7 @@ cluster. It replaces the older utility \fBo2cb_ctl(8)\fR which has being depreca
 \fBocfs2console(8)\fR has been obsoleted.
 
 \fBo2info(8)\fR is a new utility that can be used to provide file system information.
-It allows non-priviledged users to see the enabled file system features, block and
+It allows non-privileged users to see the enabled file system features, block and
 cluster sizes, extended file stat, free space fragmentation, etc.
 
 \fBo2hbmonitor(8)\fR is a \fBo2hb\fR heartbeat monitor. It is an extremely light weight
@@ -289,7 +289,7 @@ utility that logs messages to the system logger once the heartbeat delay exceeds
 warn threshold. This utility is useful in identifying volumes encountering I/O delays.
 
 \fBdebugfs.ocfs2(8)\fR has some new commands. \fInet_stats\fR shows the \fBo2net\fR
-message times between various nodes. This is useful in indentifying nodes are that slowing
+message times between various nodes. This is useful in identifying nodes are that slowing
 down the cluster operations. \fIstat_sysdir\fR allows the user to dump the entire system
 directory that can be used to debug issues. \fIgrpextents\fR dumps the complete free space
 fragmentation in the cluster group allocator.
@@ -517,7 +517,7 @@ To convert an existing clustered volume to a non-clustered volume, do:
 Non-clustered volumes do not interact with the cluster stack. One can have both
 clustered and non-clustered volumes mounted at the same time.
 
-While formating a non-clustered volume, users should consider the possibility of later
+While formatting a non-clustered volume, users should consider the possibility of later
 converting that volume to a clustered one. If there is a possibility of that, then the
 user should add enough node-slots using the -N option. Adding node-slots during format
 creates journals with large extents. If created later, then the journals will be
@@ -684,7 +684,7 @@ is not in use on any node.
 This is the file system \fIinformation\fR utility. It provides information like the features
 enabled on disk, block size, cluster size, free space fragmentation, etc.
 
-It can be used by both priviledged and non-priviledged users. Users having read permission
+It can be used by both privileged and non-privileged users. Users having read permission
 on the device can provide the path to the device. Other users can provide the path to a
 file on a mounted file system.
 
