@@ -226,7 +226,7 @@ errcode_t o2fsck_state_reinit(ocfs2_filesys *fs, o2fsck_state *ost)
 
 	ret = o2fsck_state_init(fs, ost);
 	if (ret) {
-		com_err(whoami, ret, "while intializing o2fsck_state.");
+		com_err(whoami, ret, "while initializing o2fsck_state.");
 		return ret;
 	}
 

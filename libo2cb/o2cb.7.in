@@ -116,7 +116,7 @@ a cluster with 5 regions, a slowdown in 2 will be tolerated.
 It is for this reason, this mode is recommended for users that have 3 or more OCFS2
 mounts.
 
-O2CB allows upto \fB32\fR heartbeat regions to be configured in the global heartbeat mode.
+O2CB allows up to \fB32\fR heartbeat regions to be configured in the global heartbeat mode.
 
 .SH "ONLINE CLUSTER MODIFICATION"
 .PP

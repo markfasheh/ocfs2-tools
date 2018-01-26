@@ -613,7 +613,7 @@ static errcode_t fix_dirent_dups(o2fsck_state *ost,
 
 	if (was_set) {
 		printf("Directory inode %"PRIu64" contains a duplicate "
-		       "occurance " "of the file name '%.*s' but fsck was "
+		       "occurrence " "of the file name '%.*s' but fsck was "
 		       "unable to come up with a unique name so this duplicate "
 		       "name will not be dealt with.\n.",
 			dbe->e_ino, dirent->name_len, dirent->name);
@@ -621,7 +621,7 @@ static errcode_t fix_dirent_dups(o2fsck_state *ost,
 	}
 
 	if (!prompt(ost, PY, PR_DIRENT_DUPLICATE,
-		    "Directory inode %"PRIu64" contains a duplicate occurance "
+		    "Directory inode %"PRIu64" contains a duplicate occurrence "
 		    "of the file name '%.*s'.  Replace this duplicate name "
 		    "with '%s'?", dbe->e_ino, dirent->name_len, dirent->name,
 		    new_name)) {

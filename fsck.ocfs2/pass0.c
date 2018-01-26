@@ -177,7 +177,7 @@ static void check_discontig_bg(o2fsck_state *ost, int cpg,
 	if ((bg->bg_list.l_count >
 	     ocfs2_extent_recs_per_gd(ost->ost_fs->fs_blocksize)) &&
 	    prompt(ost, PY, PR_DISCONTIG_BG_COUNT,
-		   "Discontigous group descriptor at block %"PRIu64" has "
+		   "Discontiguous group descriptor at block %"PRIu64" has "
 		   "an extent count of %u, but discontiguous groups can "
 		   "only hold %u records.  Set it to %u?", blkno,
 		   bg->bg_list.l_count,
@@ -1027,7 +1027,7 @@ static errcode_t verify_chain_alloc(o2fsck_state *ost,
 			   (uint64_t)di->i_blkno)) {
 
 			if (!trust_next_free) {
-				printf("Can't remove the chain becuase "
+				printf("Can't remove the chain because "
 				       "next_free_rec hasn't been fixed\n");
 				continue;
 			}

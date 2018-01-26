@@ -20,7 +20,7 @@ during which another node could mount the file system using the older cluster st
 If a dirty journal is detected, it implies one of two scenarios. Either the file system is
 mounted on another node, or, the last node to have it mounted, crashed. There is no way, short
 of joining the cluster, that the utility can use to differentiate between the two. Considering
-this utility is targetted to be used in scenarios when the user is looking to change the
+this utility is targeted to be used in scenarios when the user is looking to change the
 on-disk cluster stack, it becomes a chicken-and-egg problem.
 
 If one were to run into this scenario, the user should manually re-confirm that the file system
@@ -35,7 +35,7 @@ stack name, the cluster name and the cluster flags separated by commas. Like \fB
 
 The valid stack names are \fBo2cb\fR, \fBpcmk\fR, and \fBcman\fR.
 
-The cluster name can be upto 16 characters. The \fIo2cb\fR stack further restricts the names to
+The cluster name can be up to 16 characters. The \fIo2cb\fR stack further restricts the names to
 contain only alphanumeric characters.
 
 The valid flags for the \fIo2cb\fR stack are \fBlocal\fR and \fBglobal\fR, denoting the two heartbeat

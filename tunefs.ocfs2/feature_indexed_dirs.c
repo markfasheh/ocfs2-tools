@@ -62,7 +62,7 @@ static errcode_t build_dx_dir(ocfs2_filesys *fs, struct ocfs2_dinode *di,
 		ret = ocfs2_dx_dir_truncate(fs, di->i_blkno);
 		if (ret) {
 			ret = TUNEFS_ET_DX_DIRS_TRUNCATE_FAILED;
-			tcom_err(ret, "while rebulid indexed tree");
+			tcom_err(ret, "while rebuild indexed tree");
 		}
 	}
 

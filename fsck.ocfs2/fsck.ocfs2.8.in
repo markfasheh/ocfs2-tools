@@ -77,7 +77,7 @@ Show progress.
 
 .TP
 \fB\-r\fR \fIbackup-number\fR
-\fImkfs.ocfs2\fR makes upto 6 backup copies of the superblock at offsets
+\fImkfs.ocfs2\fR makes up to 6 backup copies of the superblock at offsets
 1G, 4G, 16G, 64G, 256G and 1T depending on the size of the volume.
 Use this option to specify the backup, 1 thru 6, to use to recover the
 superblock.

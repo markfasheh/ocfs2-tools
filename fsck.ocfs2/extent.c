@@ -300,7 +300,7 @@ errcode_t check_el(o2fsck_state *ost, struct extent_info *ei,
 			   "this record from the extent list?", i, owner)) {
 
 			if (!trust_next_free) {
-				printf("Can't remove the record becuase "
+				printf("Can't remove the record because "
 				       "next_free_rec hasn't been fixed\n");
 				continue;
 			}

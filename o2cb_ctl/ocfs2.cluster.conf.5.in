@@ -18,7 +18,7 @@ allows only one cluster to be active at any one time. The name of this active cl
 in /etc/sysconfig/o2cb [\fBo2cb.sysconfig(5)\fR].
 
 The \fBcluster stanza\fR specifies the name of the cluster, number of nodes and the heartbeat mode.
-The cluster name can include upto 16 alphanumeric characters [0-9A-Za-z]. No special characters
+The cluster name can include up to 16 alphanumeric characters [0-9A-Za-z]. No special characters
 are allowed.
 
 .TS
@@ -28,7 +28,7 @@ LB L.
 Parameters	Description
 node_count	Number of nodes in the cluster
 heartbeat_mode	\fBlocal\fR or \fBglobal\fR heartbeat
-name	Cluster name (upto 16 alphanumeric chars [0-9A-Za-z])
+name	Cluster name (up to 16 alphanumeric chars [0-9A-Za-z])
 .TE
 .BR
 
@@ -54,7 +54,7 @@ cluster	Cluster name (should match the name in the cluster stanza)
 .BR
 
 The \fBheartbeat stanza\fR specifies the global heartbeat region UUIDs. A cluster can have
-upto 32 heartbeat regions. This is an optional stanza and is only required if the global
+up to 32 heartbeat regions. This is an optional stanza and is only required if the global
 heartbeat mode is enabled. In other words, the regions are only used if \fBheartbeat_mode = global\fR
 is in the \fIcluster\fR stanza. If not, this stanza is ignored.
 

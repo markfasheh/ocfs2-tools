@@ -108,7 +108,7 @@ static errcode_t create_quota_files(ocfs2_filesys *fs, int type,
 
 	ret = ocfs2_init_global_quota_file(fs, type);
 	if (ret) {
-		tcom_err(ret, "while initilizing global %s quota files",
+		tcom_err(ret, "while initializing global %s quota files",
 			 type2name(type));
 		return ret;
 	}
@@ -118,7 +118,7 @@ static errcode_t create_quota_files(ocfs2_filesys *fs, int type,
 		 type2name(type));
 	ret = ocfs2_init_local_quota_files(fs, type);
 	if (ret) {
-		tcom_err(ret, "while initilizing local %s quota files",
+		tcom_err(ret, "while initializing local %s quota files",
 			 type2name(type));
 		return ret;
 	}
