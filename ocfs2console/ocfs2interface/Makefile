@@ -19,6 +19,9 @@ LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb -ldlm_lt
 else
 LIBO2CB_LIBS = -L$(TOPDIR)/libo2cb -lo2cb
 endif
+ifneq ($(BUILD_CMAP_SUPPORT),)
+LIBO2CB_LIBS += -lcmap
+endif
 LIBO2CB_DEPS = $(TOPDIR)/libo2cb/libo2cb.a
 
 ifdef HAVE_BLKID
@@ -94,16 +97,16 @@ INSTALL_RULES = install-pylib
 DIST_FILES = $(PLIST_CFILES) $(PLIST_HFILES) $(GIDLE_CFILES) $(OCFS2_CFILES) $(O2CB_CFILES) $(PYSRC) $(addsuffix .in,$(BUILT_PYSRC))
 
 plistmodule.so: $(PLIST_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS) $(BLKID_DEPS)
-	$(LINK) -shared $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(BLKID_LIBS) $(COM_ERR_LIBS) $(GLIB_LIBS)
+	$(LINK) -shared $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(BLKID_LIBS) $(COM_ERR_LIBS) $(GLIB_LIBS) $(shell python-config --libs)
 
 gidlemodule.so: $(GIDLE_OBJS)
-	$(LINK) -shared $(GLIB_LIBS)
+	$(LINK) -shared $(GLIB_LIBS) $(shell python-config --libs)
 
 ocfs2module.so: $(OCFS2_OBJS) $(LIBOCFS2_DEPS) $(LIBO2DLM_DEPS) $(LIBO2CB_DEPS)
-	$(LINK) -shared $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(UUID_LIBS)
+	$(LINK) -shared $(LIBOCFS2_LIBS) $(LIBO2DLM_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(UUID_LIBS) $(shell python-config --libs)
 
 o2cbmodule.so: $(O2CB_OBJS) $(LIBO2CB_DEPS)
-	$(LINK) -shared $(LIBO2CB_LIBS) $(COM_ERR_LIBS)
+	$(LINK) -shared $(LIBOCFS2_LIBS) $(LIBO2CB_LIBS) $(COM_ERR_LIBS) $(shell python-config --libs)
 
 install-pylib:
 	$(SHELL) $(TOPDIR)/mkinstalldirs $(DESTDIR)$(pyexecdir)/ocfs2interface
