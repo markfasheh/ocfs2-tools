@@ -543,6 +543,44 @@ static void finish_normal_format(State *s)
 	ocfs2_close(fs);
 }
 
+static inline int discard_blocks(State *s, uint64_t from,
+		uint64_t count)
+{
+	uint64_t range[2];
+
+	range[0] = from << s->blocksize_bits;
+	range[1] = count << s->blocksize_bits;
+
+	return ioctl(s->fd, BLKDISCARD, &range);
+}
+
+static int discard_device_blocks(State *s)
+{
+	uint64_t blocks = s->volume_size_in_blocks;
+	uint64_t count = DISCARD_STEP_MB;
+	uint64_t cur = 0;
+	int retval = 0;
+
+	count *= (1024 * 1024);
+	count >>= s->blocksize_bits;
+
+	while (cur < blocks) {
+		if (cur + count > blocks)
+			count = blocks - cur;
+
+		retval = discard_blocks(s, cur, count);
+		if (retval) {
+			if (!s->quiet && errno != EOPNOTSUPP)
+				com_err(s->progname, 0, "Discard device blocks: %s",
+					strerror(errno));
+			break;
+		}
+		cur += count;
+	}
+
+	return retval;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -614,6 +652,9 @@ main(int argc, char **argv)
 		free_state(s);
 		return 0;
 	}
+
+	if (s->discard_blocks)
+		discard_device_blocks(s);
 
 	clear_both_ends(s);
 
@@ -796,7 +837,7 @@ main(int argc, char **argv)
 
 	write_directory_data(s, root_dir);
 	write_directory_data(s, system_dir);
-	
+
 	if (!hb_dev_skip(s, ORPHAN_DIR_SYSTEM_INODE)) {
 		for (i = 0; i < s->initial_slots; ++i)
 			write_directory_data(s, orphan_dir[i]);
@@ -889,6 +930,7 @@ get_state(int argc, char **argv)
 	int no_backup_super = -1;
 	enum ocfs2_feature_levels level = OCFS2_FEATURE_LEVEL_DEFAULT;
 	ocfs2_fs_options feature_flags = {0,0,0}, reverse_flags = {0,0,0};
+	int discard_blocks = 1;
 
 	static struct option long_options[] = {
 		{ "block-size", 1, 0, 'b' },
@@ -903,6 +945,8 @@ get_state(int argc, char **argv)
 		{ "force", 0, 0, 'F'},
 		{ "mount", 1, 0, 'M'},
 		{ "dry-run", 0, 0, 'n' },
+		{ "nodiscard", 0, 0, 'o'},
+		{ "discard", 0, 0, 'O'},
 		{ "no-backup-super", 0, 0, BACKUP_SUPER_OPTION },
 		{ "fs-feature-level=", 1, 0, FEATURE_LEVEL },
 		{ "fs-features=", 1, 0, FEATURES_OPTION },
@@ -1103,6 +1147,14 @@ get_state(int argc, char **argv)
 			globalhb = 1;
 			break;
 
+		case 'O':
+			discard_blocks = 1;
+			break;
+
+		case 'o':
+			discard_blocks = 0;
+			break;
+
 		default:
 			usage(progname);
 			break;
@@ -1148,6 +1200,7 @@ get_state(int argc, char **argv)
 	s->quiet         = quiet;
 	s->force         = force;
 	s->dry_run       = dry_run;
+	s->discard_blocks = discard_blocks;
 
 	s->prompt        = xtool ? 0 : 1;
 
