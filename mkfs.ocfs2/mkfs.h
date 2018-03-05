@@ -41,6 +41,7 @@
 #include <inttypes.h>
 #include <ctype.h>
 #include <assert.h>
+#include <sys/ioctl.h>
 
 #include <uuid/uuid.h>
 
@@ -91,6 +92,14 @@
 #define CLUSTERS_MAX           (UINT32_MAX - 1)
 
 #define MAX_EXTALLOC_RESERVE_PERCENT	5
+
+#define DISCARD_STEP_MB         2048
+
+#if defined(__linux__) && !defined(BLKDISCARD)
+#define BLKDISCARD		_IO(0x12,119)
+#endif
+
+
 
 enum {
 	SFI_JOURNAL,
@@ -193,6 +202,7 @@ struct _State {
 	int inline_data;
 	int dx_dirs;
 	int dry_run;
+	int discard_blocks;
 
 	uint32_t blocksize;
 	uint32_t blocksize_bits;
