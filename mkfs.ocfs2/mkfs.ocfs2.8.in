@@ -2,7 +2,7 @@
 .SH "NAME"
 mkfs.ocfs2 \- Creates an \fIOCFS2\fR file system.
 .SH "SYNOPSIS"
-\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-\-fs\-features=\fR\fI[no]sparse...\fR] [\fB\-\-fs\-feature\-level=\fR\fIfeature\-level\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-\-cluster\-stack=\fR\fIstackname\fR] [\fB\-\-cluster\-name=\fR\fIclustername\fR] [\fB\-\-global\-heartbeat\fR] [\fB\-FqvV\fR] \fIdevice\fR [\fIblocks-count\fI]
+\fBmkfs.ocfs2\fR [\fB\-b\fR \fIblock\-size\fR] [\fB\-C\fR \fIcluster\-size\fR] [\fB\-L\fR \fIvolume\-label\fR] [\fB\-M\fR \fImount-type\fR] [\fB\-N\fR \fInumber\-of\-nodes\fR] [\fB\-J\fR \fIjournal\-options\fR] [\fB\-\-fs\-features=\fR\fI[no]sparse...\fR] [\fB\-\-fs\-feature\-level=\fR\fIfeature\-level\fR] [\fB\-T\fR \fIfilesystem\-type\fR] [\fB\-\-cluster\-stack=\fR\fIstackname\fR] [\fB\-\-cluster\-name=\fR\fIclustername\fR] [\fB\-\-global\-heartbeat\fR] [\fB\-\-discard | \-\-nodiscard\fR] [\fB\-FqvV\fR] \fIdevice\fR [\fIblocks-count\fI]
 .SH "DESCRIPTION"
 .PP
 \fBmkfs.ocfs2\fR is used to create an \fIOCFS2\fR file system on a \fIdevice\fR,
@@ -225,6 +225,19 @@ required if the \fBo2cb\fR cluster stack with global heartbeat is online as \fIm
 will detect the active stack. However, if the cluster stack is not up, then this option
 is required alongwith \fIcluster\-stack\fR and \fIcluster\-name\fR.  For more, refer to
 \fBo2cb(7)\fR.
+
+.TP
+\fB\-\-discard\fR
+Attempt to discard blocks at mkfs time (discarding blocks initially is useful
+on solid state devices and sparse / thin-provisioned storage). When the device
+advertises that discard also zeroes data (any subsequent read after the discard
+and before write returns zero), then mark all not-yet-zeroed blocks as
+zeroed. This significantly speeds up filesystem initialization. This is set
+as default.
+
+.TP
+\fB\-\-nodiscard\fR
+Do not attempt to discard blocks at mkfs time.
 
 .TP
 \fB\-\-no-backup-super\fR
