@@ -1258,7 +1258,9 @@ errcode_t o2cb_start_heartbeat(struct o2cb_cluster_desc *cluster,
 	}
 
 	ret = __o2cb_get_ref(semid, !region->r_persist);
-	/* XXX: Maybe stop heartbeat on error here? */
+	if (ret)
+		o2cb_remove_heartbeat_region(cluster->c_cluster,
+					   region->r_name);
 up:
 	up_ret = o2cb_mutex_up(semid);
 	if (up_ret && !ret)
