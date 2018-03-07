@@ -690,7 +690,7 @@ static void do_open(char **args)
 	}
 
 	flags = gbls.allow_write ? OCFS2_FLAG_RW : OCFS2_FLAG_RO;
-        flags |= OCFS2_FLAG_HEARTBEAT_DEV_OK|OCFS2_FLAG_NO_ECC_CHECKS;
+	flags |= OCFS2_FLAG_HEARTBEAT_DEV_OK | OCFS2_FLAG_NO_ECC_CHECKS;
 	if (gbls.imagefile)
 		flags |= OCFS2_FLAG_IMAGE_FILE;
 
@@ -702,6 +702,11 @@ static void do_open(char **args)
 			dev);
 		return ;
 	}
+	
+	if (OCFS2_HAS_INCOMPAT_FEATURE(OCFS2_RAW_SB(gbls.fs->fs_super),
+				OCFS2_FEATURE_INCOMPAT_META_ECC))
+		gbls.fs->fs_flags &= ~OCFS2_FLAG_NO_ECC_CHECKS;
+
 
 	/* allocate blocksize buffer */
 	ret = ocfs2_malloc_block(gbls.fs->fs_io, &gbls.blockbuf);
