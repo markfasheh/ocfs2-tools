@@ -222,8 +222,7 @@ static int handle_ro_compat(FILE *stream, const struct printf_info *info,
 	return len;
 }
 
-static int handle_arginfo(const struct printf_info *info, size_t n, int *types,
-		int *size)
+static int handle_arginfo(const struct printf_info *info, size_t n, int *types)
 {
 	return 0;
 }
