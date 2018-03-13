@@ -27,6 +27,7 @@
  */
 
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
+#define _DEFAULT_SOURCE
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>

@@ -23,6 +23,7 @@
  */
 
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
+#define _DEFAULT_SOURCE
 #define _LARGEFILE64_SOURCE
 
 #include <string.h>

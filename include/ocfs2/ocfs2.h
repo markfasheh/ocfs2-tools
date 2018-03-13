@@ -30,6 +30,9 @@
 #ifndef _XOPEN_SOURCE
 # define _XOPEN_SOURCE 600
 #endif
+#ifndef _DEFAULT_SOURCE
+# define _DEFAULT_SOURCE // for loff_t, needed for glibc >= 2.28
+#endif
 #ifndef _LARGEFILE64_SOURCE
 # define _LARGEFILE64_SOURCE
 #endif

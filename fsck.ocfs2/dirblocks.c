@@ -22,6 +22,7 @@
  * Just a simple rbtree wrapper to record directory blocks and the inodes
  * that own them.
  */
+#define _DEFAULT_SOURCE
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
