@@ -565,7 +565,7 @@ static void unlink_group_desc(o2fsck_state *ost,
 	ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 	if (ret) {
 		/* XXX ugh, undo the bitmap math? */
-		com_err(whoami, ret, "while writing inode alloc inode "
+		com_err(whoami, ret, "while writing global bitmap inode "
 			    "%"PRIu64, (uint64_t)di->i_blkno);
 		ost->ost_saw_error = 1;
 		goto out;
@@ -660,7 +660,7 @@ static errcode_t maybe_fix_clusters_per_group(o2fsck_state *ost,
 		cl->cl_cpg = new_cl_cpg;
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
-			com_err(whoami, ret, "while writing inode alloc inode "
+			com_err(whoami, ret, "while writing global bitmap inode "
 				"%"PRIu64" to fix cl_cpg",
 				(uint64_t)di->i_blkno);
 			ost->ost_saw_error = 1;
@@ -1291,7 +1291,7 @@ static errcode_t verify_bitmap_descs(o2fsck_state *ost,
 
 		ret = ocfs2_write_inode(ost->ost_fs, di->i_blkno, (char *)di);
 		if (ret) {
-			com_err(whoami, ret, "while writing inode alloc inode "
+			com_err(whoami, ret, "while writing global bitmap inode "
 				    "%"PRIu64, (uint64_t)di->i_blkno);
 			ost->ost_saw_error = 1;
 			goto out;
@@ -1360,12 +1360,12 @@ errcode_t o2fsck_pass0(o2fsck_state *ost)
 
 	ret = ocfs2_read_inode(ost->ost_fs, blkno, (char *)di);
 	if (ret) {
-		com_err(whoami, ret, "reading inode alloc inode "
+		com_err(whoami, ret, "reading global bitmap inode "
 			"%"PRIu64" for verification", blkno);
 		goto out;
 	}
 
-	verbosef("found inode alloc %"PRIu64" at block %"PRIu64"\n",
+	verbosef("found global bitmap %"PRIu64" at block %"PRIu64"\n",
 		 (uint64_t)di->i_blkno, blkno);
 
 	ret = maybe_fix_clusters_per_group(ost, di);
@@ -1534,7 +1534,7 @@ retry_bitmap:
 
 		ret = ocfs2_read_inode(ost->ost_fs, blkno, (char *)di);
 		if (ret) {
-			com_err(whoami, ret, "reading inode alloc inode "
+			com_err(whoami, ret, "reading extent alloc inode "
 				"%"PRIu64" for verification", blkno);
 			goto out;
 		}
