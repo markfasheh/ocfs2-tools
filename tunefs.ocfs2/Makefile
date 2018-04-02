@@ -105,6 +105,7 @@ O2CLUSTER_OBJS = $(subst .c,.o,$(O2CLUSTER_CFILES))
 
 $(LIBOCFS2NE_OBJS): $(HFILES_GEN)
 $(OCFS2NE_OBJS): $(HFILES_GEN)
+$(O2CLUSTER_OBJS): $(HFILES_GEN)
 
 DIST_FILES = $(CFILES) $(HFILES) tunefs.ocfs2.8.in o2cluster.8.in o2ne_err.et
 
