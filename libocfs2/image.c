@@ -61,13 +61,13 @@ void ocfs2_image_swap_header(struct ocfs2_image_hdr *hdr)
 	hdr->hdr_superblkcnt	= bswap_64(hdr->hdr_superblkcnt);
 }
 
-errcode_t ocfs2_image_free_bitmap(ocfs2_filesys *ofs)
+void ocfs2_image_free_bitmap(ocfs2_filesys *ofs)
 {
 	struct ocfs2_image_state *ost = ofs->ost;
 	int i;
 
 	if (!ost->ost_bmparr)
-		return 0;
+		return;
 
 	for (i=0; i<ost->ost_bmpblks; i++)
 		if (ost->ost_bmparr[i].arr_self)
@@ -75,7 +75,7 @@ errcode_t ocfs2_image_free_bitmap(ocfs2_filesys *ofs)
 
 	if (ost->ost_bmparr)
 		ocfs2_free(&ost->ost_bmparr);
-	return 0;
+	return;
 }
 
 /*

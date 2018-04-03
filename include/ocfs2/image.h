@@ -100,7 +100,7 @@ struct ocfs2_image_state {
 };
 
 errcode_t ocfs2_image_load_bitmap(ocfs2_filesys *ofs);
-errcode_t ocfs2_image_free_bitmap(ocfs2_filesys *ofs);
+void ocfs2_image_free_bitmap(ocfs2_filesys *ofs);
 errcode_t ocfs2_image_alloc_bitmap(ocfs2_filesys *ofs);
 void ocfs2_image_mark_bitmap(ocfs2_filesys *ofs, uint64_t blkno);
 int ocfs2_image_test_bit(ocfs2_filesys *ofs, uint64_t blkno);
