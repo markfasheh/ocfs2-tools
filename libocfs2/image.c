@@ -166,7 +166,7 @@ errcode_t ocfs2_image_load_bitmap(ocfs2_filesys *ofs)
 	int i, j, fd;
 	ssize_t count;
 	errcode_t ret;
-	char *blk;
+	char *blk = NULL;
 
 	ret = ocfs2_malloc0(sizeof(struct ocfs2_image_state), &ofs->ost);
 	if (ret)
@@ -175,7 +175,7 @@ errcode_t ocfs2_image_load_bitmap(ocfs2_filesys *ofs)
 	ost = ofs->ost;
 	ret = ocfs2_malloc_block(ofs->fs_io, &blk);
 	if (ret)
-		return ret;
+		goto out;
 
 	/* read ocfs2 image header */
 	ret = io_read_block(ofs->fs_io, 0, 1, blk);
@@ -204,7 +204,7 @@ errcode_t ocfs2_image_load_bitmap(ocfs2_filesys *ofs)
 
 	ret = ocfs2_image_alloc_bitmap(ofs);
 	if (ret)
-		return ret;
+		goto out;
 
 	/* load bitmap blocks ocfs2 image state */
 	bits_set = 0;
@@ -235,6 +235,10 @@ errcode_t ocfs2_image_load_bitmap(ocfs2_filesys *ofs)
 out:
 	if (blk)
 		ocfs2_free(&blk);
+	if (ret) {
+		ocfs2_image_free_bitmap(ofs);
+		ocfs2_free(&ofs->ost);
+	}
 	return ret;
 }
 
