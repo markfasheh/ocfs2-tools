@@ -32,6 +32,9 @@ ocfs2console:
 o2info:
 	Written by Tristan Ye.
 
+defrag.ocfs2:
+	Written by Larry Chen.
+
 ocfs2console/blkid:
 	From e2fsprogs 1.37, by Theodore Ts'o and Andreas Dilger.
 
