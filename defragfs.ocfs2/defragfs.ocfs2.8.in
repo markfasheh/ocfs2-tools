@@ -1,0 +1,76 @@
+.TH "defragfs.ocfs2" "8" "January 2012" "Version @VERSION@" "OCFS2 Manual Pages"
+.SH NAME
+defragfs.ocfs2 \- online defragmenter for ocfs2 filesystem
+.SH SYNOPSIS
+defragfs.ocfs2 [\-c] [\-v] [\-l] [\-g] [\-h][target]...
+.SH DESCRIPTION
+.PP
+.B defragfs.ocfs2
+reduces fragmentation of ocfs2 based file. The file targeted by
+.B defragfs.ocfs2
+is created on ocfs2 filesystem The targeted file gets more contiguous blocks and improves the file access
+speed.
+.PP
+.I target
+is a regular file, a directory, or a device that is mounted as ocfs2 filesystem.
+If
+.I target
+is a directory,
+.B defragfs.ocfs2
+reduces fragmentation of all files in it. If
+.I target
+is a device,
+.B defragfs.ocfs2
+gets the mount point of it and reduces fragmentation of all files in this mount
+point.
+.SH OPTIONS
+.TP
+.B \-c
+Print the numbers of files that should be processed 
+.TP
+.B \-v
+verbose mode, the current fragmentation count and the ideal fragmentation count are
+printed for each file.
+.IP
+If this option is specified,
+.I target
+is never defragmented.
+.TP
+.B \-l
+.B defragfs.ocfs2 
+will run in low io mode, which means it will regularly yield cpu to allow other processes to run.
+.TP
+.B \-g
+.B defragfs.ocfs2
+regularly records the current progress. So if it is interrupted, the next time you run 
+.B defragfs.ocfs2
+with this option, it will resume from the recorded progress. 
+Note that if this option is specified, other options are ignored and replaced by those that were recorded.
+.TP
+.B \-h
+Print help info
+
+.SH NOTES
+.B defragfs.ocfs2
+does not support files in lost+found directory. When
+.I target
+is a device or a mount point,
+.B defragfs.ocfs2
+doesn't defragment files in mount point of other device.
+.PP
+It is completely
+.B not
+recommended to run against a file while it is actively in another application.
+Since the read/write of a file involves a dlm lock, this can result in a performance slowdown to both defragfs.ocfs2
+and the application due to contention.
+.PP
+If the file system's free space is fragmented, or if there is
+insufficient free space available, defragfs.ocfs2 may not be able
+to improve the file's fragmentation.
+.PP
+Non-privileged users can execute
+.B defragfs.ocfs2
+to their own file. Therefore, it is desirable to be executed by root user.
+.SH AUTHOR
+Written by Larry Chen <lchen@suse.com>
+

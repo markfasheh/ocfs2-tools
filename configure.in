@@ -476,6 +476,7 @@ o2cb_ctl/ocfs2.cluster.conf.5
 vendor/common/o2cb.sysconfig.5
 libocfs2/ocfs2.7
 vendor/common/ocfs2-tools.spec-generic
+defragfs.ocfs2/defragfs.ocfs2.8
 ])
 
 AC_OUTPUT
