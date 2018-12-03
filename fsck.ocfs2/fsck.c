@@ -876,7 +876,6 @@ int main(int argc, char **argv)
 			case 'V':
 				print_version();
 				exit(FSCK_USAGE);
-				break;
 
 			case 'r':
 				sb_num = read_number(optarg);
@@ -892,7 +891,6 @@ int main(int argc, char **argv)
 				fsck_mask |= FSCK_USAGE;
 				print_usage();
 				goto out;
-				break;
 		}
 	}
 
