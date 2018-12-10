@@ -28,6 +28,7 @@
 
 #define _XOPEN_SOURCE 600  /* Triggers XOPEN2K in features.h */
 #define _LARGEFILE64_SOURCE
+#define _DEFAULT_SOURCE
 
 #include <stdlib.h>
 #include <getopt.h>

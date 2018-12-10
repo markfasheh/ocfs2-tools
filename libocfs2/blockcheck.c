@@ -23,6 +23,7 @@
 
 #define _XOPEN_SOURCE 600 /* Triggers magic in features.h */
 #define _LARGEFILE64_SOURCE
+#define _DEFAULT_SOURCE
 
 #ifdef DEBUG_EXE
 # define _BSD_SOURCE  /* For timersub() */

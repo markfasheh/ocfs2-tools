@@ -23,6 +23,8 @@
  *
  */
 
+#define _DEFAULT_SOURCE
+
 #include "ocfs2/ocfs2.h"
 
 struct fs_feature_flags {
