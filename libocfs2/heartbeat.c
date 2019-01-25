@@ -98,7 +98,10 @@ errcode_t ocfs2_fill_heartbeat_desc(ocfs2_filesys *fs,
 	blocks = ocfs2_rec_clusters(0, rec) << cluster_bits;
 	blocks >>= block_bits;
 
-	if (blocks > O2NM_MAX_NODES)
+	if (blocks < O2NM_MAX_NODES) {
+		ret = OCFS2_ET_BAD_HEARTBEAT_FILE;
+		goto leave;
+	} else
 		blocks = O2NM_MAX_NODES;
 
 	start_block = rec->e_blkno << block_bits;
