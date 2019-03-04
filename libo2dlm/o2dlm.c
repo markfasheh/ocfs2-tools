@@ -803,7 +803,7 @@ static errcode_t load_fsdlm(struct o2dlm_ctxt *ctxt)
 		goto out;
 	}
 
-	ctxt->ct_lib_handle = dlopen("libdlm_lt.so",
+	ctxt->ct_lib_handle = dlopen("libdlm_lt.so.3",
 				     RTLD_NOW | RTLD_LOCAL);
 	if (!ctxt->ct_lib_handle)
 		goto out;
