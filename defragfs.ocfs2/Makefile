@@ -31,10 +31,4 @@ defragfs.ocfs2: $(OBJS)
 dist-subdircreate:
 	$(TOPDIR)/mkinstalldirs $(DIST_DIR)/include
 
-CLEAN_RULES = defragfs-clean 
-
-defragfs-clean:
-	rm  defragfs.ocfs2.8
-
-.PHONY: defragfs-clean
 include $(TOPDIR)/Postamble.make
