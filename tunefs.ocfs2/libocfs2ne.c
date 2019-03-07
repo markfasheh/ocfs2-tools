@@ -1712,7 +1712,7 @@ static errcode_t tunefs_close_bitmap_check(ocfs2_filesys *fs)
 	return ret;
 }
 
-static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
+static errcode_t tunefs_journal_check(ocfs2_filesys *fs, bool offline)
 {
 	errcode_t ret;
 	char *jsb_buf = NULL;
@@ -1728,7 +1728,8 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 	if (state->ts_journal_clusters)
 		return 0;
 
-	verbosef(VL_LIB, "Checking for dirty journals\n");
+	if (offline)
+		verbosef(VL_LIB, "Checking for dirty journals\n");
 
 	ret = ocfs2_malloc_block(fs->fs_io, &jsb_buf);
 	if (ret) {
@@ -1763,15 +1764,18 @@ static errcode_t tunefs_journal_check(ocfs2_filesys *fs)
 			ocfs2_max(state->ts_journal_clusters,
 				  ci->ci_inode->i_clusters);
 
-		dirty = (ci->ci_inode->id1.journal1.ij_flags &
-			 OCFS2_JOURNAL_DIRTY_FL);
-		if (dirty) {
-			ret = TUNEFS_ET_JOURNAL_DIRTY;
-			verbosef(VL_LIB,
-				 "Node slot %d's journal is dirty. Run "
-				 "fsck.ocfs2 to replay all dirty journals.",
-				 i);
-			break;
+		if (offline) {
+			dirty = (ci->ci_inode->id1.journal1.ij_flags &
+				OCFS2_JOURNAL_DIRTY_FL);
+			if (dirty) {
+				ret = TUNEFS_ET_JOURNAL_DIRTY;
+				verbosef(VL_LIB,
+					"Node slot %d's journal is dirty."
+					"Run fsck.ocfs2 to replay all "
+					"dirty journals.",
+					i);
+				break;
+			}
 		}
 
 		ret = ocfs2_extent_map_get_blocks(ci, 0, 1, &blkno, &contig, NULL);
@@ -2013,6 +2017,7 @@ errcode_t tunefs_open(const char *device, int flags,
 	errcode_t err, tmp;
 	int open_flags;
 	ocfs2_filesys *fs = NULL;
+	bool offline;
 
 	verbosef(VL_LIB, "Opening device \"%s\"\n", device);
 
@@ -2074,16 +2079,20 @@ errcode_t tunefs_open(const char *device, int flags,
 	if (err == TUNEFS_ET_CLUSTER_SKIPPED)
 		goto out;
 
-	/* Offline operations need clean journals */
-	if (err != TUNEFS_ET_PERFORM_ONLINE) {
-		tmp = tunefs_journal_check(fs);
-		if (!tmp)
-			tmp = tunefs_open_bitmap_check(fs);
-		if (tmp) {
-			err = tmp;
-			tunefs_unlock_filesystem(fs);
-		}
-	} else {
+	offline = (err != TUNEFS_ET_PERFORM_ONLINE);
+	/* Offline operations need clean journals. For online operations,
+	 * only read the journal super block. Check bitmap and dirty
+	 * journals only for offline operations.
+	 */
+	tmp = tunefs_journal_check(fs, offline);
+	if (!tmp && offline)
+		tmp = tunefs_open_bitmap_check(fs);
+	if (tmp) {
+		err = tmp;
+		tunefs_unlock_filesystem(fs);
+		goto out;
+	}
+	if (!offline) {
 		tmp = tunefs_open_online_descriptor(fs);
 		if (tmp) {
 			err = tmp;
