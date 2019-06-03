@@ -548,7 +548,7 @@ static int sysfs_is_dev(char *path, int *maj, int *min)
 	char newpath[MAXPATHLEN];
 	struct stat sb;
 	FILE *f;
-	snprintf(newpath, sizeof(newpath), "%s/dev", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/dev", (int)sizeof(newpath) - 5, path);
 	if (!lstat(newpath, &sb)) {
 		f = fopen(newpath, "r");
 		if (f) {
@@ -581,7 +581,7 @@ static int sysfs_is_removable(char *path)
 	struct stat sb;
 	int i = -1;
 	FILE *f;
-	snprintf(newpath, sizeof(newpath), "%s/removable", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/removable", (int)sizeof(newpath) - 11, path);
 	if (!lstat(newpath, &sb)) {
 		f = fopen(newpath, "r");
 		if (f) {
@@ -652,27 +652,27 @@ static int sysfs_is_disk(char *path)
 	int i = -1;
 	FILE *f;
 
-	snprintf(newpath, sizeof(newpath), "%s/device/type", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/device/type", (int)sizeof(newpath) - 13, path);
 	if (!lstat(newpath, &sb))
 		goto found;
 
-	snprintf(newpath, sizeof(newpath), "%s/../device/type", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/../device/type", (int)sizeof(newpath) - 16, path);
 	if (!lstat(newpath, &sb))
 		goto found;
 
-	snprintf(newpath, sizeof(newpath), "%s/device/media", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/device/media", (int)sizeof(newpath) - 14, path);
 	if (!lstat(newpath, &sb))
 		goto found;
 
-	snprintf(newpath, sizeof(newpath), "%s/../device/media", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/../device/media", (int)sizeof(newpath) - 17, path);
 	if (!lstat(newpath, &sb))
 		goto found;
 
-	snprintf(newpath, sizeof(newpath), "%s/device/devtype", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/device/devtype", (int)sizeof(newpath) - 16, path);
 	if (!lstat(newpath, &sb))
 		return 1;
 
-	snprintf(newpath, sizeof(newpath), "%s/../device/devtype", path);
+	snprintf(newpath, sizeof(newpath), "%.*s/../device/devtype", (int)sizeof(newpath) - 19, path);
 	if (!lstat(newpath, &sb))
 		return 1;
 

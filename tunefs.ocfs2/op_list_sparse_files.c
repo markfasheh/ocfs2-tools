@@ -404,7 +404,7 @@ static errcode_t list_sparse(ocfs2_filesys *fs)
 		ctxt.fs = fs;
 		ctxt.multi_link_files = RB_ROOT;
 		ctxt.func = list_sparse_iterate;
-		sprintf(ctxt.file_name, "%s/", file_name);
+		sprintf(ctxt.file_name, "%.*s/", (int)sizeof(ctxt.file_name) - 2, file_name);
 		ctxt.file_name_len = strlen(ctxt.file_name);
 		ret = ocfs2_dir_iterate(fs, blkno,
 					OCFS2_DIRENT_FLAG_EXCLUDE_DOTS,
