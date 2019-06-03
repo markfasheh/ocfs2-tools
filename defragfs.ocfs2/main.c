@@ -644,7 +644,7 @@ int main(int argc, char *argv[])
 	int _mode_flag = 0;
 	int index;
 	struct resume_record rr_tmp;
-	struct list_head *pos;
+	struct list_head *pos, *pos2;
 
 	init_signal_handler();
 
@@ -674,7 +674,7 @@ int main(int argc, char *argv[])
 	current_uid = getuid();
 
 	/* Main process */
-	list_for_each(pos, &rr.r_argvs) {
+	list_for_each_safe(pos, pos2, &rr.r_argvs) {
 		struct argv_node *n = list_entry(pos, struct argv_node, a_list);
 		char *path = n->a_path;
 
