@@ -577,7 +577,7 @@ static void dump_mode_flag(int mode_flag)
 
 static int parse_opt(int argc, char **argv, int *_mode_flag)
 {
-	char opt;
+	int opt;
 
 	if (argc == 1)
 		return 0;
