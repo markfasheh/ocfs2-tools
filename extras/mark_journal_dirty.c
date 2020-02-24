@@ -219,7 +219,7 @@ int main(int argc,
 	ret = ocfs2_open(filename, OCFS2_FLAG_RW, 0, 0, &fs);
 	if (ret) {
 		com_err(argv[0], ret, "while opening file \"%s\"", filename);
-		goto out_close;
+		goto out;
 	}
 
 	if (debug)
@@ -258,5 +258,6 @@ out_close:
 			"while closing file \"%s\"", filename);
 	}
 
+out:
 	return 0;
 }
