@@ -482,14 +482,6 @@ static errcode_t get_blocksize(char* dev, uint64_t offset, uint64_t *blocksize,
 	if (ret)
 		goto bail;
 
-	/* since ocfs2_super_block inode can be stored in OCFS2_MIN_BLOCKSIZE,
-	 * so here we just use the minimum block size and read the information
-	 * in the specific offset.
-	 */
-	ret = io_set_blksize(channel, OCFS2_MIN_BLOCKSIZE);
-	if (ret)
-		goto bail;
-
 	ret = ocfs2_malloc_block(channel, &buf);
 	if (ret)
 		goto bail;
@@ -507,7 +499,7 @@ static errcode_t get_blocksize(char* dev, uint64_t offset, uint64_t *blocksize,
 		offset = hdr->hdr_superblocks[super_no-1] * hdr->hdr_fsblksz;
 	}
 
-	blkno = offset / OCFS2_MIN_BLOCKSIZE;
+	blkno = offset / io_get_blksize(channel);
 	ret = io_read_block(channel, blkno, 1, buf);
 	if (ret)
 		goto bail;
