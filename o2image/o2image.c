@@ -113,7 +113,7 @@ static errcode_t traverse_extents(ocfs2_filesys *ofs,
 			if (ret)
 				goto out;
 		} else {
-			for (j = 0; j < (rec->e_int_clusters*ost->ost_bpc); j++)
+			for (j = 0; j < (rec->e_leaf_clusters*ost->ost_bpc); j++)
 				ocfs2_image_mark_bitmap(ofs,
 							(rec->e_blkno + j));
 		}
