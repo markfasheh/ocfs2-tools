@@ -127,6 +127,12 @@ Indicates that the file system can create inodes at any location in the volume, 
 those which will result in inode numbers greater than 4 billion.
 
 .TP
+\fBnocluster\fR
+This option allows users to mount a clustered volume without configuring the cluster stack.
+However, you must be aware that you can only mount the file system from one node at the
+same time, otherwise, the file system may be damaged. Please use it with caution.
+
+.TP
 \fB[no]intr\fR
 Specifies whether a signal can interrupt IOs. It is disabled by default.
 

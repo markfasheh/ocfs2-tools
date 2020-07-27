@@ -13,6 +13,7 @@
 #include <rpc/types.h>
 #endif
 
+extern int nocluster_opt;
 extern int mount_quiet;
 extern int verbose;
 extern int sloppy;

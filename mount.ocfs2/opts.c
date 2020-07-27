@@ -120,6 +120,11 @@ static int parse_string_opt(char *s)
 	struct string_opt_map *m;
 	int lth;
 
+	if (!strncmp(s, "nocluster", 9)) {
+		nocluster_opt = 1;
+		return 0;
+	}
+
 	for (m = &string_opt_map[0]; m->tag; m++) {
 		lth = strlen(m->tag);
 		if (!strncmp(s, m->tag, lth)) {

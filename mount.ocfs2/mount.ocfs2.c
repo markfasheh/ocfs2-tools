@@ -28,6 +28,7 @@
 
 int verbose = 0;
 int mount_quiet = 0;
+int nocluster_opt = 0;
 char *progname = NULL;
 
 static int nomtab = 0;
@@ -112,7 +113,7 @@ static errcode_t add_mount_options(ocfs2_filesys *fs,
 	char stackstr[strlen(OCFS2_CLUSTER_STACK_ARG) + OCFS2_STACK_LABEL_LEN + 1];
 	struct ocfs2_super_block *sb = OCFS2_RAW_SB(fs->fs_super);
 
-	if (ocfs2_mount_local(fs) || ocfs2_is_hard_readonly(fs)) {
+	if (ocfs2_mount_local(fs) || nocluster_opt || ocfs2_is_hard_readonly(fs)) {
 		add = OCFS2_HB_NONE;
 		goto addit;
 	}
@@ -345,7 +346,19 @@ int main(int argc, char **argv)
 		goto bail;
 	}
 
-	clustered = (0 == ocfs2_mount_local(fs));
+	clustered = ((0 == ocfs2_mount_local(fs)) && (0 == nocluster_opt));
+
+	if ((0 == ocfs2_mount_local(fs)) && nocluster_opt) {
+		fprintf(stdout, "Warning: to mount a clustered volume without the cluster stack.\n"
+				"Please make sure you only mount the file system from one node.\n"
+				"Otherwise, the file system may be damaged.\n"
+				"Proceed (y/N): ");
+		if (toupper(getchar()) != 'Y') {
+			printf("Aborting operation.\n");
+			ret = 1;
+			goto bail;
+		}
+	}
 
 	if (ocfs2_is_hard_readonly(fs) && (clustered ||
 					   !(mo.flags & MS_RDONLY))) {
