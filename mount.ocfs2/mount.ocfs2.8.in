@@ -26,7 +26,7 @@ The file system will not update access time.
 .TP
 \fBrelatime\fR
 The file system will update atime only if the on-disk atime is older than mtime
-or ctime.
+or ctime. This is the default mode.
 
 .TP
 \fBstrictatime,atime\_quantum=nrsec\fR
@@ -36,11 +36,11 @@ zero to always update atime. These two options need work together.
 
 .TP
 \fB[no]acl\fR
-Enables / disables POSIX ACLs (access control lists) support.
+Enables / disables POSIX ACLs (access control lists) support. It is enabled by default.
 
 .TP
 \fB[no]user_xattr\fR
-Enables / disables extended user attributes.
+Enables / disables extended user attributes. It is enabled by default.
 
 .TP
 \fBcommit=nrsec\fR
