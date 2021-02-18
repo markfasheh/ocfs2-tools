@@ -391,6 +391,11 @@ void o2fsck_init_cache(o2fsck_state *ost, enum o2fsck_cache_hint hint)
 
 	av_blocks = blocks_wanted;
 	avpages = sysconf(_SC_AVPHYS_PAGES);
+	/*
+	 * Consider taking lower amount of available memory instead
+	 * of all so that the system doesn't get into memory crunch.
+	 */
+	avpages = avpages / 5;
 	pages_wanted = blocks_wanted * fs->fs_blocksize / getpagesize();
 	if (pages_wanted > avpages)
 		av_blocks = avpages * getpagesize() / fs->fs_blocksize;
