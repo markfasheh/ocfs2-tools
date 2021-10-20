@@ -530,7 +530,7 @@ static void do_quick_detect(struct list_head *dev_list)
 
 		for (offset = 1; offset <= 8; offset <<= 1) {
 			ret = do_pread(fd, buf, sizeof(buf), (offset * 1024));
-			if (ret < sizeof(buf))
+			if (ret == -1 || ret != sizeof(buf))
 				break;
 			di = (struct ocfs2_dinode *)buf;
 			if (!memcmp(di->i_signature,
