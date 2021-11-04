@@ -1262,10 +1262,10 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 
 	ret = ocfs2_write_dx_root(fs, dr_blkno, dx_buf);
 	if (ret)
-		goto out;
+		goto trunc_out;
 	ret = ocfs2_write_inode(fs, dir, di_buf);
 	if (ret)
-		goto out;
+		goto trunc_out;
 
 	ctxt.dir_blkno = dir;
 	ctxt.dx_root_blkno = dr_blkno;
@@ -1276,18 +1276,18 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 	if (ctxt.err)
 		ret = ctxt.err;
 	if (ret)
-		goto out;
+		goto trunc_out;
 
 	ret = ocfs2_read_dx_root(fs, dr_blkno, dx_buf);
 	if (ret)
-		goto out;
+		goto trunc_out;
 	ret = ocfs2_read_inode(fs, dir, di_buf);
 	if (ret)
-		goto out;
+		goto trunc_out;
 
 	ret = ocfs2_write_inode(fs, dir, di_buf);
-	if(ret)
-		goto out;
+	if (ret)
+		goto trunc_out;
 
 	/* check quota for dx_leaf */
 	change = ocfs2_clusters_to_bytes(fs,
@@ -1297,10 +1297,12 @@ errcode_t ocfs2_dx_dir_build(ocfs2_filesys *fs,
 
 	ret = ocfs2_apply_quota_change(fs, usrhash, grphash,
 					uid, gid, change, 0);
-	if (ret) {
-		/* exceed quota, truncate the indexed tree */
-		ret = ocfs2_dx_dir_truncate(fs, dir);
-	}
+
+trunc_out:
+	/* if the indexed dir attribute creation fails,
+	 * we must roll back */
+	if (ret)
+		ocfs2_dx_dir_truncate(fs, dir);
 
 out:
 	err = ocfs2_finish_quota_change(fs, usrhash, grphash);
