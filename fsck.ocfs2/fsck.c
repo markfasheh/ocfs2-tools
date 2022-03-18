@@ -707,6 +707,10 @@ static errcode_t fsck_lock_fs(o2fsck_state *ost)
 {
 	errcode_t ret;
 
+	if (!(ost->ost_fs->fs_flags & OCFS2_FLAG_RW) || ost->ost_skip_o2cb ||
+	    ocfs2_mount_local(ost->ost_fs))
+		return 0;
+
 	ret = o2cb_init();
 	if (ret) {
 		com_err(whoami, ret, "while initializing the cluster");
@@ -986,13 +990,10 @@ int main(int argc, char **argv)
 		goto out;
 	}
 
-	if (open_flags & OCFS2_FLAG_RW && !ost->ost_skip_o2cb &&
-	    !ocfs2_mount_local(ost->ost_fs)) {
-		ret = fsck_lock_fs(ost);
-		if (ret) {
-			fsck_mask |= FSCK_ERROR;
-			goto close;
-		}
+	ret = fsck_lock_fs(ost);
+	if (ret) {
+		fsck_mask |= FSCK_ERROR;
+		goto close;
 	}
 
 	printf("Checking OCFS2 filesystem in %s:\n", filename);
