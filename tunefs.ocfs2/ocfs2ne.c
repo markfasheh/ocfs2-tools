@@ -102,6 +102,7 @@ extern struct tunefs_operation update_cluster_stack_op;
 extern struct tunefs_operation cloned_volume_op;
 extern struct tunefs_operation set_usrquota_sync_interval_op;
 extern struct tunefs_operation set_grpquota_sync_interval_op;
+extern struct tunefs_operation set_mmp_update_interval_op;
 
 /* List of operations we're going to run */
 static LIST_HEAD(tunefs_run_list);
@@ -639,6 +640,17 @@ static struct tunefs_option set_grpquota_sync_interval_option = {
 	.opt_op		= &set_grpquota_sync_interval_op,
 };
 
+static struct tunefs_option set_mmp_update_interval_option = {
+	.opt_option	= {
+		.name		= "mmp-update-interval",
+		.val		= 300,
+		.has_arg	= 1,
+	},
+	.opt_help	= "   --mmp-update-interval <interval>",
+	.opt_handle	= generic_handle_arg,
+	.opt_op		= &set_mmp_update_interval_op,
+};
+
 /* The order here creates the order in print_usage() */
 static struct tunefs_option *options[] = {
 	&help_option,
@@ -661,6 +673,7 @@ static struct tunefs_option *options[] = {
 	&cloned_volume_option,
 	&set_usrquota_sync_interval_option,
 	&set_grpquota_sync_interval_option,
+	&set_mmp_update_interval_option,
 	&yes_option,
 	&no_option,
 	NULL,

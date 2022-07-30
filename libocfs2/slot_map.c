@@ -49,9 +49,12 @@ void ocfs2_swap_slot_map_extended(struct ocfs2_slot_map_extended *se,
 	if (!cpu_is_big_endian)
 		return;
 
-	for (i = 0; i < num_slots; i++)
+	for (i = 0; i < num_slots; i++) {
 		se->se_slots[i].es_node_num =
 			bswap_32(se->se_slots[i].es_node_num);
+		se->se_slots[i].es_valid =
+			bswap_32(se->se_slots[i].es_valid);
+	}
 }
 
 static errcode_t __ocfs2_read_slot_map(ocfs2_filesys *fs,
