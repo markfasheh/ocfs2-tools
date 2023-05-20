@@ -23,7 +23,7 @@ endif
 SUBDIRS1 = include
 SUBDIRS2 = libtools-internal libo2dlm libo2cb
 SUBDIRS3 = libocfs2
-SUBDIRS4 = fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2_controld o2image o2info o2monitor extras fswreck patches defragfs.ocfs2
+SUBDIRS4 = fsck.ocfs2 mkfs.ocfs2 mounted.ocfs2 tunefs.ocfs2 debugfs.ocfs2 o2cb_ctl ocfs2_hb_ctl mount.ocfs2 ocfs2_controld o2image o2info o2monitor extras fswreck defragfs.ocfs2
 
 ifdef BUILD_OCFS2CONSOLE
 SUBDIRS4 += ocfs2console
