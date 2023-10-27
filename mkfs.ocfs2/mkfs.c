@@ -1689,7 +1689,7 @@ fill_defaults(State *s)
 	int sectsize;
 	uint64_t ret;
 	struct ocfs2_cluster_group_sizes cgs;
-	uint64_t tmp;
+	uint64_t volume_size_in_clusters_tmp;
 
 	pagesize = getpagesize();
 
@@ -1827,10 +1827,19 @@ fill_defaults(State *s)
 
 	s->cluster_size_bits = get_bits(s, s->cluster_size);
 
+	/* volume size in clusters must not exceed UINT32_MAX */
+	volume_size_in_clusters_tmp = s->volume_size_in_bytes >> s->cluster_size_bits;
+	if (volume_size_in_clusters_tmp > UINT32_MAX) {
+		com_err(s->progname, 0,
+			"The ocfs2 filesystem on device \"%s\" cannot be "
+			"larger than %"PRIu32" clusters\n",
+			s->device_name, UINT32_MAX);
+		exit(1);
+	}
+
 	/* volume size needs to be cluster aligned */
-	s->volume_size_in_clusters = s->volume_size_in_bytes >> s->cluster_size_bits;
-	tmp = (uint64_t)s->volume_size_in_clusters;
-	s->volume_size_in_bytes = tmp << s->cluster_size_bits;
+	s->volume_size_in_clusters = volume_size_in_clusters_tmp;
+	s->volume_size_in_bytes = volume_size_in_clusters_tmp << s->cluster_size_bits;
 	s->volume_size_in_blocks = s->volume_size_in_bytes >> s->blocksize_bits;
 	
 	s->reserved_tail_size = 0;
