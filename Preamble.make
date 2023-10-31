@@ -28,7 +28,7 @@ DIST_RULES =
 INCLUDES =
 DEFINES = 
 
-CFLAGS += -pipe -D_DEFAULT_SOURCE=1
+CFLAGS += -pipe -Wno-format-security -D_DEFAULT_SOURCE=1
 # protect with configure?
 CDEPFLAGS = -MD -MP -MF $(@D)/.$(basename $(@F)).d
 
