@@ -216,6 +216,11 @@ static struct fs_feature_flags ocfs2_supported_features[] = {
 		{0, OCFS2_FEATURE_INCOMPAT_APPEND_DIO, 0},
 	},
 	{
+		"mmp",
+		{0, OCFS2_FEATURE_INCOMPAT_MMP, 0},
+		{0, OCFS2_FEATURE_INCOMPAT_MMP, 0},
+	},
+	{
 		NULL,
 		{0, 0, 0},
 		{0, 0, 0}
@@ -309,6 +314,10 @@ static struct feature_name ocfs2_feature_names[] = {
 	{
 		.fn_name = "append-dio",
 		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_APPEND_DIO, 0},
+	},
+	{
+		.fn_name = "mmp",
+		.fn_flag = {0, OCFS2_FEATURE_INCOMPAT_MMP, 0},
 	},
 	{
 		.fn_name = NULL,

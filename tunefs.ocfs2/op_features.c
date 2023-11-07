@@ -48,6 +48,7 @@ extern struct tunefs_feature indexed_dirs_feature;
 extern struct tunefs_feature discontig_bg_feature;
 extern struct tunefs_feature clusterinfo_feature;
 extern struct tunefs_feature append_dio_feature;
+extern struct tunefs_feature mmp_feature;
 
 /* List of features supported by ocfs2ne */
 static struct tunefs_feature *features[] = {
@@ -66,6 +67,7 @@ static struct tunefs_feature *features[] = {
 	&discontig_bg_feature,
 	&clusterinfo_feature,
 	&append_dio_feature,
+	&mmp_feature,
 	NULL,
 };
 

@@ -103,7 +103,8 @@
 					 | OCFS2_FEATURE_INCOMPAT_REFCOUNT_TREE \
 					 | OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG	\
 					 | OCFS2_FEATURE_INCOMPAT_CLUSTERINFO \
-					 | OCFS2_FEATURE_INCOMPAT_APPEND_DIO)
+					 | OCFS2_FEATURE_INCOMPAT_APPEND_DIO \
+					 | OCFS2_FEATURE_INCOMPAT_MMP)
 #define OCFS2_FEATURE_RO_COMPAT_SUPP	(OCFS2_FEATURE_RO_COMPAT_UNWRITTEN \
 					 | OCFS2_FEATURE_RO_COMPAT_USRQUOTA \
 					 | OCFS2_FEATURE_RO_COMPAT_GRPQUOTA)
@@ -182,6 +183,11 @@
  * Append Direct IO support
  */
 #define OCFS2_FEATURE_INCOMPAT_APPEND_DIO	0x8000
+
+/*
+ * Multiple mount protection
+ */
+#define OCFS2_FEATURE_INCOMPAT_MMP  0x10000
 
 /*
  * backup superblock flag is used to indicate that this volume
@@ -586,8 +592,7 @@ struct ocfs2_slot_map {
 };
 
 struct ocfs2_extended_slot {
-/*00*/	__u8	es_valid;
-	__u8	es_reserved1[3];
+/*00*/	__le32	es_valid;
 	__le32	es_node_num;
 /*10*/
 };
@@ -662,7 +667,7 @@ struct ocfs2_super_block {
 						     INCOMPAT flag set. */
 /*B8*/	__le16 s_xattr_inline_size;	/* extended attribute inline size
 					   for this fs*/
-	__le16 s_reserved0;
+	__le16 s_mmp_update_interval; /* # seconds to wait in MMP checking */
 	__le32 s_dx_seed[3];		/* seed[0-2] for dx dir hash.
 					 * s_uuid_hash serves as seed[3]. */
 /*C0*/  __le64 s_reserved2[15];		/* Fill out superblock */

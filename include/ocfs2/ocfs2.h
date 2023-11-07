@@ -64,6 +64,7 @@
 						 OCFS2_FEATURE_INCOMPAT_RESIZE_INPROG | \
 						 OCFS2_FEATURE_INCOMPAT_LOCAL_MOUNT   | \
 						 OCFS2_FEATURE_INCOMPAT_INLINE_DATA   | \
+						 OCFS2_FEATURE_INCOMPAT_MMP   | \
 						 OCFS2_FEATURE_INCOMPAT_TUNEFS_INPROG)
 
 #define OCFS2_LIB_FEATURE_RO_COMPAT_SUPP	OCFS2_FEATURE_RO_COMPAT_SUPP
@@ -1346,6 +1347,13 @@ static inline int ocfs2_writes_unwritten_extents(struct ocfs2_super_block *osb)
 		return 0;
 
 	if (osb->s_feature_ro_compat & OCFS2_FEATURE_RO_COMPAT_UNWRITTEN)
+		return 1;
+	return 0;
+}
+
+static inline int ocfs2_supports_mmp(struct ocfs2_super_block *osb)
+{
+	if (osb->s_feature_incompat & OCFS2_FEATURE_INCOMPAT_MMP)
 		return 1;
 	return 0;
 }

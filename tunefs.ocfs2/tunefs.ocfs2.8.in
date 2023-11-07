@@ -127,6 +127,12 @@ device and grows the file system such that it uses all of the available space on
 the device. This optional argument specifies that the file system should be
 extended to consume only the given number of file system blocks on the device.
 
+.TP
+\fB\-\-mmp\-update\-interval\fR \fIinterval\-time\fR
+Adjust the initial MMP update interval to \fIinterval\fR seconds. Specifying an
+\fIinterval\fR of 0 means to use the default interval. The specified interval
+must be less than 300 seconds. Requires that the \fBmmp\fR feature be enabled.
+
 .SH "EXAMPLES"
 
 .nf

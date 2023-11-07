@@ -100,4 +100,7 @@ ec	TUNEFS_ET_DX_DIRS_BUILD_FAILED,
 ec	TUNEFS_ET_INSTALL_DIR_TRAILER_FAILED,
 	"Install directory trailer failed"
 
+ec	TUNEFS_ET_INVALID_ARGUMENT,
+	"Invalid argument"
+
 	end

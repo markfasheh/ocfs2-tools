@@ -36,7 +36,8 @@ OCFS2NE_FEATURES =			\
 	feature_indexed_dirs		\
 	feature_quota			\
 	feature_clusterinfo		\
-	feature_append_dio
+	feature_append_dio		\
+	feature_mmp
 
 OCFS2NE_OPERATIONS =			\
 	op_cloned_volume		\
@@ -51,6 +52,7 @@ OCFS2NE_OPERATIONS =			\
 	op_set_slot_count		\
 	op_update_cluster_stack		\
 	op_set_quota_sync_interval	\
+	op_set_mmp_update_interval
 
 sbindir = $(root_sbindir)
 SBIN_PROGRAMS = tunefs.ocfs2 o2cluster

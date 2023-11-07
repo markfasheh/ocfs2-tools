@@ -1014,6 +1014,38 @@ void dump_jbd_unknown(FILE *out, uint64_t start, uint64_t end)
 	return ;
 }
 
+struct match_mmp_seq {
+	const char *str;
+	unsigned int valid;
+};
+
+#define OCFS2_MMP_SEQ_MAX  0xE24D4D4FU
+static struct match_mmp_seq mmp_seq_str[] = {
+	{"OCFS2_MMP_SEQ", 0xFFFFFFFF},
+	{"OCFS2_MMP_SEQ_CLEAN", 0xFF4D4D50U},
+	{"OCFS2_MMP_SEQ_FSCK", 0xE24D4D50U},
+	{"OCFS2_MMP_SEQ_MAX",  0xE24D4D4FU},
+	{"OCFS2_MMP_SEQ_INIT", 0x0},
+	{"OCFS2_VALID_CLUSTER",  0xE24D4D55U},
+	{"OCFS2_VALID_NOCLUSTER", 0xE24D4D5AU},
+};
+
+static const char *mmp_str(unsigned int valid)
+{
+	int i;
+	int len = ARRAY_SIZE(mmp_seq_str);
+
+	if (valid > 0 && valid < OCFS2_MMP_SEQ_MAX)
+		return mmp_seq_str[0].str;
+
+	for (i = 1; i < len; i++) {
+		if (valid == mmp_seq_str[i].valid)
+			return mmp_seq_str[i].str;
+	}
+
+	return NULL;
+}
+
 /*
  * dump_slots()
  *
@@ -1022,22 +1054,23 @@ void dump_slots(FILE *out, struct ocfs2_slot_map_extended *se,
 		struct ocfs2_slot_map *sm, int num_slots)
 {
 	int i;
-        unsigned int node_num;
+	unsigned int node_num, valid;
 	
-	fprintf(out, "\t%5s   %5s\n", "Slot#", "Node#");
+	fprintf(out, "\t%5s   %5s   %15s\n", "Slot#", "Node#", "valid(mmp seq)#");
 	
 	for (i = 0; i < num_slots; ++i) {
 		if (se) {
 			if (!se->se_slots[i].es_valid)
 				continue;
 			node_num = se->se_slots[i].es_node_num;
+			valid = se->se_slots[i].es_valid;
 		} else {
 			if (sm->sm_slots[i] == (uint16_t)OCFS2_INVALID_SLOT)
 				continue;
 			node_num = sm->sm_slots[i];
 		}
 
-		fprintf(out, "\t%5d   %5u\n", i, node_num);
+		fprintf(out, "\t%5d   %5u   0x%8x(%s)\n", i, node_num, valid, mmp_str(valid));
 	}
 }
 

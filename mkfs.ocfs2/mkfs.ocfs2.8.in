@@ -180,6 +180,12 @@ allows the file system to grow the allocators in smaller (discontiguous) chunks.
 Enables storing the cluster stack information in the superblock. This feature is needed
 to support userspace cluster stacks and the global heartbeat mode in the \fBo2cb\fR
 cluster stack. If needed, this feature is automatically turned on by \fImkfs.ocfs2\fR.
+
+.TP
+\fBmmp\fR
+Enables multiple mount protection (MMP). With this feature enabled, filesystem will be
+protected from being mounted more than once. Default mmp sequence time is 5s, user can
+modify it by \fBtunefs.ocfs2\fR option mmp_update_interval.
 .RE
 
 .TP
