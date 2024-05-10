@@ -37,6 +37,12 @@ struct strings {
 	struct list_head s_list;
 };
 
+enum ocfs2_traverse_chains_action {
+	DUMP_GD = 0,
+	DUMP_GD_FREE_BITS,
+	RECORD_GD_FREE_BITS,
+};
+
 void get_incompat_flag(struct ocfs2_super_block *sb, char *buf, size_t count);
 void get_tunefs_flag(struct ocfs2_super_block *sb, char *buf, size_t count);
 void get_compat_flag(struct ocfs2_super_block *sb, char *buf, size_t count);
@@ -78,7 +84,7 @@ int del_from_stringlist(char *str, struct list_head *strlist);
 errcode_t traverse_extents(ocfs2_filesys *fs, struct ocfs2_extent_list *el,
 			   FILE *out);
 errcode_t traverse_chains(ocfs2_filesys *fs, struct ocfs2_chain_list *cl,
-			  FILE *out);
+			  FILE *out, enum ocfs2_traverse_chains_action action);
 
 enum dump_block_type detect_block (char *buf);
 

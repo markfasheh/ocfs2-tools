@@ -63,6 +63,7 @@ static void do_encode_lockres(char **args);
 static void do_extent(char **args);
 static void do_frag(char **args);
 static void do_fs_locks(char **args);
+static void do_gd_free_bits(char **args);
 static void do_group(char **args);
 static void do_grpextents(char **args);
 static void do_hb(char **args);
@@ -183,6 +184,11 @@ static struct command commands[] = {
 		do_fs_locks,
 		"fs_locks [-f <file>] [-l] [-B]",
 		"Show live fs locking state",
+	},
+	{ "gd_free_bits",
+		do_gd_free_bits,
+		"gd_free_bits [-s]",
+		"Show/save free bits of gd block.",
 	},
 	{ "group",
 		do_group,
@@ -1048,7 +1054,8 @@ static void do_stat(char **args)
 			dump_local_alloc(out, &(inode->id2.i_lab));
 		else if ((inode->i_flags & OCFS2_CHAIN_FL))
 			ret = traverse_chains(gbls.fs,
-					      &(inode->id2.i_chain), out);
+					      &(inode->id2.i_chain), out,
+					      DUMP_GD);
 		else if (S_ISLNK(inode->i_mode) && !inode->i_clusters)
 			dump_fast_symlink(out,
 					  (char *)inode->id2.i_symlink);
@@ -1214,6 +1221,82 @@ static void do_logdump(char **args)
 	close_pager(out);
 	if (ret)
 		com_err(gbls.cmd, ret, "while reading journal");
+
+	return;
+}
+
+/*
+ * How to work:
+ * scan '//global_bitmap' and show the contiguous free bits for each
+ * gd (group describe) block. if '-s' is set, this function will
+ * record the free bits info into gd block.
+ */
+static void do_gd_free_bits(char **args)
+{
+	struct ocfs2_dinode *inode;
+	uint64_t blkno;
+	char *buf = NULL;
+	FILE *out;
+	errcode_t ret = 0;
+	const char *gd_free_bits_usage = "usage: gd_free_bits [-s]";
+	int index = 1, save = 0, argc = 0;
+
+	if (check_device_open())
+		return;
+
+	for (argc = 0; (args[argc]); ++argc);
+
+	if (argc == 2) {
+		if (!strncmp(args[argc-1], "-s", 2)) {
+			save = 1;
+		} else {
+			fprintf(stderr, "%s\n", gd_free_bits_usage);
+			return;
+		}
+	}
+
+	ret = string_to_inode(gbls.fs, gbls.root_blkno, gbls.cwd_blkno,
+			      "//global_bitmap", &blkno);
+	if (ret) {
+		com_err(args[0], ret, "'%s'", args[index]);
+		return;
+	}
+
+	buf = gbls.blockbuf;
+	ret = ocfs2_read_inode(gbls.fs, blkno, buf);
+	if (ret) {
+		com_err(args[0], ret, "while reading inode %"PRIu64"", blkno);
+		return;
+	}
+
+	inode = (struct ocfs2_dinode *)buf;
+
+	if (!(inode->i_flags & OCFS2_CHAIN_FL)) {
+		ret = OCFS2_ET_INODE_NOT_VALID;
+		com_err(args[0], ret, "//global_bitmap format is wrong\n");
+	}
+
+	out = open_pager(gbls.interactive);
+
+	if (save) {
+		ret = traverse_chains(gbls.fs, &(inode->id2.i_chain), out,
+			       RECORD_GD_FREE_BITS);
+		if (ret)
+			com_err(args[0], ret, "while recording free_bits at block "
+					"%"PRIu64, blkno);
+		else
+			fprintf(out, "recording succeed\n");
+
+	} else {
+		dump_inode(out, inode);
+		ret = traverse_chains(gbls.fs, &(inode->id2.i_chain), out,
+			       DUMP_GD_FREE_BITS);
+		if (ret)
+			com_err(args[0], ret, "while traversing inode at block "
+					"%"PRIu64, blkno);
+	}
+
+	close_pager(out);
 
 	return;
 }

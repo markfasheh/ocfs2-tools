@@ -64,7 +64,7 @@ static int show_system_inode(struct ocfs2_dir_entry *rec, uint64_t blocknr,
 	if ((di->i_flags & OCFS2_LOCAL_ALLOC_FL))
 		dump_local_alloc(out, &(di->id2.i_lab));
 	else if ((di->i_flags & OCFS2_CHAIN_FL))
-		ret = traverse_chains(fs, &(di->id2.i_chain), out);
+		ret = traverse_chains(fs, &(di->id2.i_chain), out, DUMP_GD);
 	else if (S_ISLNK(di->i_mode) && !di->i_clusters)
 		dump_fast_symlink(out, (char *)di->id2.i_symlink);
 	else if (di->i_flags & OCFS2_DEALLOC_FL)

@@ -490,6 +490,34 @@ void dump_group_descriptor(FILE *out, struct ocfs2_group_desc *grp, int index)
 	return ;
 }
 
+/* copy from dump_group_descriptor() */
+void dump_gd_free_bits(FILE *out, struct ocfs2_group_desc *grp, int index)
+{
+	int max_contig_free_bits = 0;
+
+	if (!index) {
+		fprintf(out, "\tGroup Chain: %u   Parent Inode: %"PRIu64"  "
+			 "Generation: %u\n",
+			 grp->bg_chain,
+			 (uint64_t)grp->bg_parent_dinode,
+			 grp->bg_generation);
+		dump_block_check(out, &grp->bg_check, grp);
+
+		fprintf(out, "\t##   %-15s   %-6s   %-6s   %-6s   %-6s   %-6s   %-6s\n",
+			"Block#", "Total", "Used", "Free", "Contig", "Disk-contig", "Size");
+	}
+
+	find_max_contig_free_bits(grp, &max_contig_free_bits);
+
+	fprintf(out, "\t%-2d   %-15"PRIu64"   %-6u   %-6u   %-6u   %-6u   %-11u   %-6u\n",
+		index, (uint64_t)grp->bg_blkno, grp->bg_bits,
+		(grp->bg_bits - grp->bg_free_bits_count),
+		grp->bg_free_bits_count, max_contig_free_bits,
+		grp->bg_contig_free_bits, grp->bg_size);
+
+	return ;
+}
+
 void dump_group_extents(FILE *out, struct ocfs2_group_desc *grp)
 {
 	fprintf(out, "\tGroup# %"PRIu64"   Total: %u   Used: %u   Free: %u\n",
