@@ -189,6 +189,12 @@ contents of the lock value block and \fI-f <file>\fR to specify a
 saved copy of /sys/kernel/debug/ocfs2/<UUID>/locking_state.
 
 .TP
+\fIgd_free_bits [-s]\fR
+Display the contiguous free bits of group descriptor blocks which are
+managed by //global_bitmap. \fI-s\fR to record contiguous free bits
+in group descriptor block. The [-s] option requires debugfs.ocfs2 option \fI-w\fR.
+
+.TP
 \fIgroup <block#>\fR
 Display the contents of the group descriptor at \fIblock#\fR.
 

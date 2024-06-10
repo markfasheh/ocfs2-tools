@@ -1061,8 +1061,80 @@ bail:
 	return ret;
 }
 
+static int show_gd(ocfs2_filesys *fs, struct ocfs2_group_desc *grp,
+		uint64_t *blkno, char *buf, FILE *out)
+{
+	int ret = 0;
+	int index = 0;
+
+	while (*blkno) {
+		ret = ocfs2_read_group_desc(fs, *blkno, buf);
+		if (ret)
+			goto bail;
+
+		grp = (struct ocfs2_group_desc *)buf;
+		dump_group_descriptor(out, grp, index);
+		*blkno = grp->bg_next_group;
+		index++;
+	}
+bail:
+	return ret;
+}
+
+static int show_gd_free_bits(ocfs2_filesys *fs, struct ocfs2_group_desc *grp,
+			uint64_t *blkno, char *buf, FILE *out)
+{
+	int ret = 0;
+	int index = 0;
+
+	while (*blkno) {
+		ret = ocfs2_read_group_desc(fs, *blkno, buf);
+		if (ret) {
+			fprintf(stderr, "read group descriptor error\n");
+			goto bail;
+		}
+
+		grp = (struct ocfs2_group_desc *)buf;
+		dump_gd_free_bits(out, grp, index);
+		*blkno = grp->bg_next_group;
+		index++;
+
+	}
+bail:
+	return ret;
+}
+
+static int record_gd_free_bits(ocfs2_filesys *fs, struct ocfs2_group_desc *grp,
+			uint64_t *blkno, char *buf, FILE *out)
+{
+	int ret = 0;
+	int max_contig_free_bits = 0;
+
+	while (*blkno) {
+		ret = ocfs2_read_group_desc(fs, *blkno, buf);
+		if (ret) {
+			fprintf(stderr, "read group descriptor error\n");
+			goto bail;
+		}
+
+		grp = (struct ocfs2_group_desc *)buf;
+		*blkno = grp->bg_next_group;
+
+		find_max_contig_free_bits(grp, &max_contig_free_bits);
+		if (max_contig_free_bits <= grp->bg_free_bits_count)
+			grp->bg_contig_free_bits = max_contig_free_bits;
+		ret = ocfs2_write_group_desc(fs, grp->bg_blkno, buf);
+		if (ret) {
+			fprintf(stderr, "write group descriptor error\n");
+			goto bail;
+		}
+	}
+bail:
+	return ret;
+}
+
 errcode_t traverse_chains(ocfs2_filesys *fs, struct ocfs2_chain_list *cl,
-			  FILE *out)
+			  FILE *out, enum ocfs2_traverse_chains_action action)
 {
 	struct ocfs2_group_desc *grp;
 	struct ocfs2_chain_rec *rec;
@@ -1070,9 +1142,16 @@ errcode_t traverse_chains(ocfs2_filesys *fs, struct ocfs2_chain_list *cl,
 	char *buf = NULL;
 	uint64_t blkno;
 	int i;
-	int index;
 
-	dump_chain_list(out, cl);
+	switch (action) {
+	case DUMP_GD:
+		/* fallthrough */
+	case DUMP_GD_FREE_BITS:
+		dump_chain_list(out, cl);
+		break;
+	default:
+		break;
+	}
 
 	ret = ocfs2_malloc_block(gbls.fs->fs_io, &buf);
 	if (ret)
@@ -1081,18 +1160,22 @@ errcode_t traverse_chains(ocfs2_filesys *fs, struct ocfs2_chain_list *cl,
 	for (i = 0; i < cl->cl_next_free_rec; ++i) {
 		rec = &(cl->cl_recs[i]);
 		blkno = rec->c_blkno;
-		index = 0;
-		fprintf(out, "\n");
-		while (blkno) {
-			ret = ocfs2_read_group_desc(fs, blkno, buf);
-			if (ret)
-				goto bail;
-
-			grp = (struct ocfs2_group_desc *)buf;
-			dump_group_descriptor(out, grp, index);
-			blkno = grp->bg_next_group;
-			index++;
+		switch (action) {
+		case DUMP_GD:
+			fprintf(out, "\n");
+			ret = show_gd(fs, grp, &blkno, buf, out);
+			break;
+		case DUMP_GD_FREE_BITS:
+			fprintf(out, "\n");
+			ret = show_gd_free_bits(fs, grp, &blkno, buf, out);
+			break;
+		case RECORD_GD_FREE_BITS:
+			fprintf(out, "Chain rec list: %lu\n", blkno);
+			ret = record_gd_free_bits(fs, grp, &blkno, buf, out);
+			break;
 		}
+		if (ret)
+			goto bail;
 	}
 
 bail:
