@@ -140,6 +140,8 @@ static void add_to_list(struct list_head *device_list, struct devnode *node)
 				add = !strncmp(path->path, "/dev/rbd", 8);
 			if (!add)
 				add = !strncmp(path->path, "/dev/drbd", 9);
+			if (!add)
+				add = !strncmp(path->path, "/dev/nbd", 8);
 		}
 		if (add) {
 			hb = malloc(sizeof(struct hb_devices));
