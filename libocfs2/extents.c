@@ -277,6 +277,7 @@ static int extent_iterate_el(struct ocfs2_extent_list *el,
 				if (el->l_tree_depth == 1)
 					ctxt->last_eb_blkno =
 							el->l_recs[i].e_blkno;
+
 				ctxt->last_eb_cpos = el->l_recs[i].e_cpos;
 			}
 
@@ -478,6 +479,7 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 	struct ocfs2_extent_list *el;
 	errcode_t ret;
 	struct extent_context ctxt;
+	struct ocfs2_extent_block *eb;
 
 	ret = OCFS2_ET_INODE_NOT_VALID;
 	if (!(inode->i_flags & OCFS2_VALID_FL))
@@ -542,6 +544,26 @@ errcode_t ocfs2_extent_iterate_inode(ocfs2_filesys *fs,
 out_abort:
 	if (!ret && (iret & OCFS2_EXTENT_CHANGED))
 		ret = ocfs2_write_inode(fs, inode->i_blkno, (char *)inode);
+
+	/*
+	 * Check i_last_eb_blk and set
+	 * its next leaf to zero.
+	 */
+	if (!ret && el->l_tree_depth) {
+		ctxt.errcode = ocfs2_read_extent_block(fs,
+					inode->i_last_eb_blk,
+					ctxt.eb_bufs[0]);
+
+		eb = (struct ocfs2_extent_block *)ctxt.eb_bufs[0];
+
+		if (!ctxt.errcode && eb->h_next_leaf_blk != 0) {
+			eb->h_next_leaf_blk = 0;
+			ctxt.errcode = ocfs2_write_extent_block(fs,
+						inode->i_last_eb_blk,
+						ctxt.eb_bufs[0]);
+		}
+		ret = ctxt.errcode;
+	}
 
 out_eb_bufs:
 	if (ctxt.eb_bufs) {
