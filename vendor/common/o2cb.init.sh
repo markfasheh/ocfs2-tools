@@ -20,8 +20,10 @@ export LC_ALL=C
 
 if [ -f /etc/redhat-release ]
 then
-. /etc/init.d/functions
-
+    if [ -f /etc/init.d/functions ]
+    then
+        . /etc/init.d/functions
+    fi
 start_daemon () {
     daemon  $*
 }
