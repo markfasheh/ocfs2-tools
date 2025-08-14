@@ -209,10 +209,6 @@ static int chain_iterate_cl(struct ocfs2_chain_list *cl,
 			break;
 	}
 
-	if (iret & OCFS2_CHAIN_CHANGED) {
-		/* Something here ? */
-	}
-
 	return iret;
 }
 
