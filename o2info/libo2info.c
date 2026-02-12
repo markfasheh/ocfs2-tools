@@ -25,10 +25,10 @@
 #include <inttypes.h>
 #include <sys/ioctl.h>
 #include <linux/fs.h>
+#include <linux/fiemap.h>
 
 #include "ocfs2/ocfs2.h"
 #include "ocfs2/bitops.h"
-#include "ocfs2-kernel/fiemap.h"
 #include "tools-internal/verbose.h"
 #include "libo2info.h"
 
