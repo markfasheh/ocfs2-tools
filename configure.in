@@ -123,15 +123,6 @@ AC_CHECK_HEADER(libaio.h, :,
   AC_MSG_ERROR([Unable to find /usr/include/libaio.h]))
 AC_SUBST(AIO_LIBS)
 
-NCURSES_LIBS=
-AC_CHECK_LIB(ncurses, tgetstr, NCURSES_LIBS=-lncurses)
-if test "x$NCURSES_LIBS" = "x"; then
-  AC_MSG_ERROR([Unable to find ncurses library])
-fi
-AC_SUBST(NCURSES_LIBS)
-
-saved_LDFLAGS="$LDFLAGS"
-LDFLAGS="$LDFLAGS -lncurses"
 READLINE_LIBS=
 AC_CHECK_LIB(readline, readline, READLINE_LIBS=-lreadline)
 if test "x$READLINE_LIBS" = "x"; then
@@ -209,7 +200,6 @@ AC_SUBST(OCFS2_DYNAMIC_CTL)
 BUILD_DEBUGOCFS2=
 
 ocfs_tools_save_LIBS="$LIBS"
-LIBS="$LIBS -lncurses"
 AC_CHECK_LIB(readline, readline,
   [AC_CHECK_HEADER(readline/readline.h,
     BUILD_DEBUGOCFS2=yes,
