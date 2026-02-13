@@ -21,14 +21,6 @@
 #define OCFS2_IOCTL_H
 
 /*
- * ioctl commands
- */
-#define OCFS2_IOC_GETFLAGS	_IOR('f', 1, long)
-#define OCFS2_IOC_SETFLAGS	_IOW('f', 2, long)
-#define OCFS2_IOC32_GETFLAGS	_IOR('f', 1, int)
-#define OCFS2_IOC32_SETFLAGS	_IOW('f', 2, int)
-
-/*
  * Space reservation / allocation / free ioctls and argument structure
  * are designed to be compatible with XFS.
  *
