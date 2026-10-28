@@ -48,19 +48,65 @@
 
 static const char *whoami = "pass2";
 
-int o2fsck_test_inode_allocated(o2fsck_state *ost, uint64_t blkno)
+/*
+ * A dirent's inode number can fall outside every inode allocator group,
+ * for instance when a whole inode group was lost and its clusters were
+ * later reused for file data.  ocfs2_test_inode_allocated() then returns
+ * OCFS2_ET_INVALID_BIT.  Only in that case, read the block: if it does
+ * not carry an inode signature there is no inode left to protect, so the
+ * inode is reported as O2FSCK_INODE_LOST.  Any other error, or a block
+ * that still holds an inode, is logged and keeps the conservative answer
+ * O2FSCK_INODE_ALLOCATED.
+ *
+ * Callers that only care whether an inode is in use treat anything other
+ * than O2FSCK_INODE_FREE as allocated.
+ */
+enum o2fsck_inode_state o2fsck_get_inode_state(o2fsck_state *ost,
+					       uint64_t blkno)
 {
+	ocfs2_filesys *fs = ost->ost_fs;
 	errcode_t ret;
 	int was_set;
+	char *buf = NULL;
 
-	ret = ocfs2_test_inode_allocated(ost->ost_fs, blkno, &was_set);
+	ret = ocfs2_test_inode_allocated(fs, blkno, &was_set);
+	if (!ret)
+		return was_set ? O2FSCK_INODE_ALLOCATED : O2FSCK_INODE_FREE;
+
 	/* XXX this should stop fsck from marking the fs clean */
-	if (ret) {
+	if (ret != OCFS2_ET_INVALID_BIT) {
 		com_err(whoami, ret, "while testing if inode %"PRIu64" is "
 			"allocated.  Continuing as though it is.", blkno);
-		was_set = 1;
+		return O2FSCK_INODE_ALLOCATED;
 	}
-	return was_set;
+
+	ret = ocfs2_malloc_block(fs->fs_io, &buf);
+	if (ret) {
+		com_err(whoami, ret, "while allocating a buffer to test "
+			"inode %"PRIu64".  Continuing as though it is "
+			"allocated.", blkno);
+		return O2FSCK_INODE_ALLOCATED;
+	}
+
+	ret = ocfs2_read_inode(fs, blkno, buf);
+	ocfs2_free(&buf);
+
+	if (ret == OCFS2_ET_BAD_INODE_MAGIC)
+		return O2FSCK_INODE_LOST;
+
+	if (ret) {
+		com_err(whoami, ret, "while reading block %"PRIu64" to test "
+			"for a lost inode.  Continuing as though it is "
+			"allocated.", blkno);
+	} else {
+		/* The block holds a valid inode that no allocator covers */
+		com_err(whoami, OCFS2_ET_INVALID_BIT, "while testing if "
+			"inode %"PRIu64" is allocated.  Its block holds an "
+			"inode but no inode allocator covers it.  Continuing "
+			"as though it is allocated.", blkno);
+	}
+
+	return O2FSCK_INODE_ALLOCATED;
 }
 
 struct dirblock_data {
@@ -392,27 +438,45 @@ static void fix_dirent_inode(o2fsck_state *ost, o2fsck_dirblock_entry *dbe,
 			     struct ocfs2_dir_entry *dirent, int offset,
 			     unsigned int *flags)
 {
-	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode) &&
-	    prompt(ost, PY, PR_DIRENT_INODE_RANGE,
-		   "Directory entry '%.*s' refers to inode "
-		   "number %"PRIu64" which is out of range, clear the entry?",
-		   dirent->name_len, dirent->name, (uint64_t)dirent->inode)) {
+	int fix = 0;
 
-		dirent->inode = 0;
-		*flags |= OCFS2_DIRENT_CHANGED;
-		goto out;
+	if (ocfs2_block_out_of_range(ost->ost_fs, dirent->inode)) {
+		/* Nothing more to test for a block that isn't on the device */
+		if (prompt(ost, PY, PR_DIRENT_INODE_RANGE,
+			   "Directory entry '%.*s' refers to inode "
+			   "number %"PRIu64" which is out of range, clear "
+			   "the entry?", dirent->name_len, dirent->name,
+			   (uint64_t)dirent->inode)) {
+			dirent->inode = 0;
+			*flags |= OCFS2_DIRENT_CHANGED;
+		}
+		return;
 	}
 
-	if (!o2fsck_test_inode_allocated(ost, dirent->inode) &&
-	    prompt(ost, PY, PR_DIRENT_INODE_FREE,
-		   "Directory entry '%.*s' refers to inode number "
-		   "%"PRIu64" which isn't allocated, clear the entry?", 
-		   dirent->name_len, dirent->name, (uint64_t)dirent->inode)) {
+	switch (o2fsck_get_inode_state(ost, dirent->inode)) {
+	case O2FSCK_INODE_ALLOCATED:
+		return;
+	case O2FSCK_INODE_LOST:
+		fix = prompt(ost, PY, PR_DIRENT_INODE_LOST,
+			     "Directory entry '%.*s' refers to inode number "
+			     "%"PRIu64" which is outside every inode allocator "
+			     "and whose block holds no inode, clear the "
+			     "entry?", dirent->name_len, dirent->name,
+			     (uint64_t)dirent->inode);
+		break;
+	case O2FSCK_INODE_FREE:
+		fix = prompt(ost, PY, PR_DIRENT_INODE_FREE,
+			     "Directory entry '%.*s' refers to inode number "
+			     "%"PRIu64" which isn't allocated, clear the "
+			     "entry?", dirent->name_len, dirent->name,
+			     (uint64_t)dirent->inode);
+		break;
+	}
+
+	if (fix) {
 		dirent->inode = 0;
 		*flags |= OCFS2_DIRENT_CHANGED;
 	}
-out:
-	return;
 }
 
 #define type_entry(type) [type] = #type
@@ -718,7 +782,8 @@ static unsigned pass2_dir_block_iterate(o2fsck_dirblock_entry *dbe,
 	struct ocfs2_dinode *di = (struct ocfs2_dinode *)dd->inoblock_buf; 
 	errcode_t ret = 0;
 
-	if (!o2fsck_test_inode_allocated(dd->ost, dbe->e_ino)) {
+	if (o2fsck_get_inode_state(dd->ost, dbe->e_ino) ==
+	    O2FSCK_INODE_FREE) {
 		printf("Directory block %"PRIu64" belongs to directory inode "
 		       "%"PRIu64" which isn't allocated.  Ignoring this "
 		       "block.", dbe->e_blkno, dbe->e_ino);

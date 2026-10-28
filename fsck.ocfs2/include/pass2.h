@@ -27,7 +27,14 @@
 #include "fsck.h"
 
 errcode_t o2fsck_pass2(o2fsck_state *ost);
-int o2fsck_test_inode_allocated(o2fsck_state *ost, uint64_t blkno);
+enum o2fsck_inode_state {
+	O2FSCK_INODE_ALLOCATED,	/* includes the error fallbacks */
+	O2FSCK_INODE_FREE,
+	O2FSCK_INODE_LOST,	/* outside every allocator, block has no inode */
+};
+
+enum o2fsck_inode_state o2fsck_get_inode_state(o2fsck_state *ost,
+					       uint64_t blkno);
 
 #endif /* __O2FSCK_PASS2_H__ */
 
