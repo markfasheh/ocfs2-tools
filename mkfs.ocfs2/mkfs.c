@@ -77,7 +77,7 @@ static AllocGroup * initialize_alloc_group(State *s, const char *name,
 					   SystemFileDiskRecord *alloc_inode,
 					   uint64_t blkno,
 					   uint16_t chain, uint16_t cpg,
-					   uint16_t bpc);
+					   uint16_t bpc, int suballoc);
 static void free_alloc_group(AllocGroup *group);
 static void index_system_dirs(State *s, ocfs2_filesys *fs);
 static void create_lost_found_dir(State *s, ocfs2_filesys *fs);
@@ -702,12 +702,13 @@ main(int argc, char **argv)
                                 &(crap_rec.extent_off),
                                 &(crap_rec.extent_len));
 
+	/* make this a suballoc group */
 	s->system_group =
 		initialize_alloc_group(s, "system inode group", tmprec,
 				       crap_rec.extent_off >> s->blocksize_bits,
 				       0,
                                        crap_rec.extent_len >> s->cluster_size_bits,
-				       s->cluster_size / s->blocksize);
+				       s->cluster_size / s->blocksize, 1);
 
 	tmprec->group = s->system_group;
 	tmprec->chain_off =
@@ -1950,7 +1951,7 @@ static AllocGroup *
 initialize_alloc_group(State *s, const char *name,
 		       SystemFileDiskRecord *alloc_inode,
 		       uint64_t blkno, uint16_t chain,
-		       uint16_t cpg, uint16_t bpc)
+		       uint16_t cpg, uint16_t bpc, int suballoc)
 {
 	AllocGroup *group;
 
@@ -1963,7 +1964,8 @@ initialize_alloc_group(State *s, const char *name,
 	strcpy((char *)group->gd->bg_signature, OCFS2_GROUP_DESC_SIGNATURE);
 	group->gd->bg_generation = s->vol_generation;
 	group->gd->bg_size =
-			(uint32_t)ocfs2_group_bitmap_size(s->blocksize, 0, 0);
+			(uint32_t)ocfs2_group_bitmap_size(s->blocksize,
+					suballoc, s->feature_flags.opt_incompat);
 	group->gd->bg_bits = cpg * bpc;
 	group->gd->bg_chain = chain;
 	group->gd->bg_parent_dinode = alloc_inode->fe_off >> 
@@ -2038,7 +2040,7 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 	s->first_cluster_group_blkno = (uint64_t)s->first_cluster_group << c_to_b_bits;
 	bitmap->groups[0] = initialize_alloc_group(s, "stupid", bm_record,
 						   s->first_cluster_group_blkno,
-						   0, s->global_cpg, 1);
+						   0, s->global_cpg, 1, 0);
 	/* The first bit is set by initialize_alloc_group, hence
 	 * we start at 1.  For this group (which contains the clusters
 	 * containing the superblock and first group descriptor), we
@@ -2060,7 +2062,7 @@ initialize_bitmap(State *s, uint32_t bits, uint32_t unit_bits,
 			cpg = s->tail_group_bits;
 		bitmap->groups[i] = initialize_alloc_group(s, "stupid",
 							   bm_record, blkno,
-							   chain, cpg, 1);
+							   chain, cpg, 1, 0);
 		if (wrapped) {
 			/* link the previous group to this guy. */
 			j = i - recs_per_inode;
