@@ -847,6 +847,17 @@ use.
 
 Answering yes clears this directory entry.
 
+.SS "DIRENT_INODE_LOST"
+Each directory entry contains an inode field which the entry's name corresponds
+to.  An entry was found which referenced an inode number that is not covered
+by any inode allocator group, and the block at that number does not contain
+an inode.  This happens when an inode group has been lost, for example after
+its group descriptor fell out of the allocator chain and its clusters were
+reused for file data.  Entries whose block still holds an inode are left
+alone.
+
+Answering yes clears this directory entry.
+
 .SS "DIRENT_TYPE"
 Each directory entry contains a field which describes the type of file
 that the entry refers to.  An entry was found whose type doesn't match the
