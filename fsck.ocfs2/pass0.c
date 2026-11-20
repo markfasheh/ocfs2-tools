@@ -354,9 +354,12 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 				   uint64_t blkno,
 				   int *clear_ref)
 {
+	uint64_t sysblkno;
+	ocfs2_filesys *fs = ost->ost_fs;
 	errcode_t ret = 0;
 	int changed = 0;
 	int max_free_bits = 0;
+	int suballoc, max_bitmap_size;
 
 	verbosef("checking desc at %"PRIu64"; blkno %"PRIu64" size %u bits %u "
 		 "free_bits %u chain %u generation %u\n", blkno,
@@ -441,6 +444,35 @@ static errcode_t repair_group_desc(o2fsck_state *ost,
 		   bg->bg_free_bits_count, max_free_bits)) {
 		bg->bg_free_bits_count = max_free_bits;
 		changed = 1;
+	}
+
+	/*
+	 * suballoc groups are limited to OCFS2_MAX_BG_BITMAP_SIZE when
+	 * OCFS2_FEATURE_INCOMPAT_DISCONTIG_BG enabled.
+	 */
+	ret = ocfs2_lookup_system_inode(fs, GLOBAL_BITMAP_SYSTEM_INODE,
+					0, &sysblkno);
+	if (!ret) {
+		suballoc = ((uint64_t)di->i_blkno != sysblkno);
+		max_bitmap_size = ocfs2_group_bitmap_size(fs->fs_blocksize,
+			suballoc,
+			OCFS2_RAW_SB(ost->ost_fs->fs_super)->s_feature_incompat);
+		/* list the bitmap block numbers and size */
+		verbosef(
+			"repr_grp_desc sblkno %ld i_blkno %ld bg_sz %d msz %d\n",
+			sysblkno, (uint64_t)di->i_blkno, bg->bg_size,
+			max_bitmap_size);
+
+		if ((bg->bg_size > max_bitmap_size) &&
+		    prompt(ost, PY, PR_GROUP_FREE_BITS,
+			   "Group descriptor at block %"PRIu64" claims to "
+			   "have %u bitmap size which is greater than %u"
+			   " maximum bits. "
+			   "Drop the bitmap size down to the maximum?", blkno,
+			   bg->bg_size, max_bitmap_size)) {
+			bg->bg_size = max_bitmap_size;
+			changed = 1;
+		}
 	}
 
 	if (ocfs2_gd_is_discontig(bg))
