@@ -761,16 +761,22 @@ static int scansysfs(struct devlisthead *devlisthead, const char *path, int leve
 							      "slaves");
 				startnode->sysfsattrs.disk =
 				    sysfs_is_disk(newpath);
-			}
 
-			if (!stat(newpath, &sb) && !level) {
-				if (S_ISDIR(sb.st_mode))
-					if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
-						return -1;
-			} else if (!lstat(newpath, &sb)) {
-				if (S_ISDIR(sb.st_mode))
-					if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
-						return -1;
+				/* only dive into directories that are
+				 * themselves devices: everything else (queue,
+				 * device, holders, slaves, ...) would create
+				 * bogus duplicate devnodes with the same
+				 * major/minor that steal the /dev paths of the
+				 * real device. */
+				if (!stat(newpath, &sb) && !level) {
+					if (S_ISDIR(sb.st_mode))
+						if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
+							return -1;
+				} else if (!lstat(newpath, &sb)) {
+					if (S_ISDIR(sb.st_mode))
+						if (scansysfs(devlisthead, newpath, 1, has_holder) < 0)
+							return -1;
+				}
 			}
 
 		}
