@@ -279,6 +279,23 @@ static char * process_escapes(char *queryfmt)
 	return fmt;
 }
 
+static void query_register_specifiers(void)
+{
+	register_printf_function('B', handle_blocksize, handle_arginfo);
+	register_printf_function('T', handle_clustersize, handle_arginfo);
+	register_printf_function('N', handle_numslots, handle_arginfo);
+	register_printf_function('R', handle_rootdir, handle_arginfo);
+	register_printf_function('Y', handle_sysdir, handle_arginfo);
+	register_printf_function('P', handle_clustergroup, handle_arginfo);
+
+	register_printf_function('V', handle_label, handle_arginfo);
+	register_printf_function('U', handle_uuid, handle_arginfo);
+
+	register_printf_function('M', handle_compat, handle_arginfo);
+	register_printf_function('H', handle_incompat, handle_arginfo);
+	register_printf_function('O', handle_ro_compat, handle_arginfo);
+}
+
 static int query_parse_option(struct tunefs_operation *op, char *arg)
 {
 	int argtype;
@@ -290,8 +307,11 @@ static int query_parse_option(struct tunefs_operation *op, char *arg)
 
 	/*
 	 * We want to make sure that there are no "standard" specifiers in
-	 * the format, only our own.
+	 * the format, only our own.  Register ours first: glibc >= 2.35
+	 * implements the C23 %B conversion, so an unregistered %B would be
+	 * counted as a standard argument and rejected.
 	 */
+	query_register_specifiers();
 	if (parse_printf_format(arg, 1, &argtype)) {
 		errorf("Unknown type specifier in the query format: "
 		       "\"%s\"\n",
@@ -322,20 +342,6 @@ static int query_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 			 "while escaping the query format");
 		return 1;
 	}
-
-	register_printf_function('B', handle_blocksize, handle_arginfo);
-	register_printf_function('T', handle_clustersize, handle_arginfo);
-	register_printf_function('N', handle_numslots, handle_arginfo);
-	register_printf_function('R', handle_rootdir, handle_arginfo);
-	register_printf_function('Y', handle_sysdir, handle_arginfo);
-	register_printf_function('P', handle_clustergroup, handle_arginfo);
-
-	register_printf_function('V', handle_label, handle_arginfo);
-	register_printf_function('U', handle_uuid, handle_arginfo);
-
-	register_printf_function('M', handle_compat, handle_arginfo);
-	register_printf_function('H', handle_incompat, handle_arginfo);
-	register_printf_function('O', handle_ro_compat, handle_arginfo);
 
 	query_fs = fs;
 	fprintf(stdout, fmt);
