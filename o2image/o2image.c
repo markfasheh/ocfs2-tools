@@ -541,7 +541,7 @@ static errcode_t write_image_file(ocfs2_filesys *ofs, int fd)
 
 	ret = ocfs2_malloc_block(ofs->fs_io, &buf);
 	if (ret) {
-		com_err(program_name, ret, "allocating %lu bytes ",
+		com_err(program_name, ret, "allocating %u bytes ",
 			ofs->fs_blocksize);
 		return ret;
 	}
