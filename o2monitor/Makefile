@@ -4,7 +4,7 @@ include $(TOPDIR)/Preamble.make
 
 SBIN_EXTRA = o2hbmonitor
 
-WARNINGS = -Wall -Wstrict-prototypes -Wno-format -Wmissing-prototypes \
+WARNINGS = -Wall -Wstrict-prototypes -Wmissing-prototypes \
            -Wmissing-declarations
 
 CFLAGS += $(WARNINGS)

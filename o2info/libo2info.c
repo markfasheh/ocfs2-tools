@@ -484,8 +484,8 @@ static int do_fiemap(int fd, int flags, struct o2info_fiemap *ofp)
 	} while (!last);
 
 	if (extents_got != num_extents) {
-		fprintf(stderr, "Got wrong extents number, expected:%lu, "
-			"got:%lu\n", num_extents, extents_got);
+		fprintf(stderr, "Got wrong extents number, expected:%u, "
+			"got:%u\n", num_extents, extents_got);
 		return -1;
 	}
 

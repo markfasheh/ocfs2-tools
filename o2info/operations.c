@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <sys/raw.h>
+#include <sys/sysmacros.h>
 #include <inttypes.h>
 
 #include "ocfs2/ocfs2.h"
@@ -452,7 +453,7 @@ static int o2info_gen_mkfs_string(struct o2info_mkfs oms, char **mkfs)
 	char buf[4096];
 
 #define MKFS "-N %u "		\
-	     "-J size=%llu "	\
+	     "-J size=%"PRIu64" "	\
 	     "-b %u "		\
 	     "-C %u "		\
 	     "%s "		\
@@ -723,7 +724,7 @@ static void o2info_report_freefrag(struct o2info_freefrag *off)
 
 	fprintf(stdout, "Blocksize: %u bytes\n", 1 << off->blksize_bits);
 	fprintf(stdout, "Clustersize: %u bytes\n", 1 << off->clustersize_bits);
-	fprintf(stdout, "Total clusters: %llu\nFree clusters: %u (%0.1f%%)\n",
+	fprintf(stdout, "Total clusters: %u\nFree clusters: %u (%0.1f%%)\n",
 		off->clusters, off->free_clusters,
 		(double)off->free_clusters * 100 / off->clusters);
 
@@ -758,7 +759,7 @@ static void o2info_report_freefrag(struct o2info_freefrag *off)
 		end = start << 1;
 
 		if (off->histogram.fc_chunks[i] != 0) {
-			snprintf(end_str, 32,  "%5lu%c-", end, *unitp);
+			snprintf(end_str, 32,  "%5u%c-", end, *unitp);
 			if (i == (OCFS2_INFO_MAX_HIST - 1))
 				strcpy(end_str, "max ");
 			fprintf(stdout, "%5u%c...%7s  :  "
@@ -876,8 +877,8 @@ static int space_usage_run(struct o2info_operation *op,
 	if (ret)
 		goto out;
 
-	fprintf(stdout, "Blocks: %-10u Shared: %-10u\tUnwritten: %-7u "
-		"Holes: %-6u\n", st.st_blocks, ofp.shared, ofp.unwrittens,
+	fprintf(stdout, "Blocks: %-10lld Shared: %-10u\tUnwritten: %-7u "
+		"Holes: %-6u\n", (long long)st.st_blocks, ofp.shared, ofp.unwrittens,
 		ofp.holes);
 
 out:
@@ -924,18 +925,24 @@ static int o2info_report_filestat(struct o2info_method *om,
 		ofp->blocksize = st->st_blksize;
 
 	fprintf(stdout, "  File: %s\n", path);
-	fprintf(stdout, "  Size: %-10lu\tBlocks: %-10u IO Block: %-6u %s\n",
-		st->st_size, st->st_blocks, ofp->blocksize, filetype);
+	fprintf(stdout, "  Size: %-10lld\tBlocks: %-10lld IO Block: %-6u %s\n",
+		(long long)st->st_size, (long long)st->st_blocks, ofp->blocksize, filetype);
 	 if (S_ISBLK(st->st_mode) || S_ISCHR(st->st_mode))
-		fprintf(stdout, "Device: %xh/%dd\tInode: %-10i  Links: %-5u"
-			" Device type: %u,%u\n", st->st_dev, st->st_dev,
-			st->st_ino, st->st_nlink,
-			st->st_dev >> 16UL, st->st_dev & 0x0000FFFF);
+		fprintf(stdout, "Device: %llxh/%llud\tInode: %-10llu  Links: %-5lu"
+			" Device type: %u,%u\n",
+			(unsigned long long)st->st_dev,
+			(unsigned long long)st->st_dev,
+			(unsigned long long)st->st_ino,
+			(unsigned long)st->st_nlink,
+			major(st->st_rdev), minor(st->st_rdev));
 	else
-		fprintf(stdout, "Device: %xh/%dd\tInode: %-10i  Links: %u\n",
-			st->st_dev, st->st_dev, st->st_ino, st->st_nlink);
-	fprintf(stdout, " Frag%: %-10.2f\tClusters: %-8u Extents: "
-		"%-6lu Score: %.0f\n", ofp->frag, ofp->clusters,
+		fprintf(stdout, "Device: %llxh/%llud\tInode: %-10llu  Links: %lu\n",
+			(unsigned long long)st->st_dev,
+			(unsigned long long)st->st_dev,
+			(unsigned long long)st->st_ino,
+			(unsigned long)st->st_nlink);
+	fprintf(stdout, " Frag%%: %-10.2f\tClusters: %-8u Extents: "
+		"%-6u Score: %.0f\n", ofp->frag, ofp->clusters,
 		ofp->num_extents, ofp->score);
 	fprintf(stdout, "Shared: %-10u\tUnwritten: %-7u Holes: %-8u "
 		"Xattr: %u\n", ofp->shared, ofp->unwrittens,
