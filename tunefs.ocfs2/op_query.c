@@ -338,7 +338,12 @@ static int query_run(struct tunefs_operation *op, ocfs2_filesys *fs,
 	register_printf_function('O', handle_ro_compat, handle_arginfo);
 
 	query_fs = fs;
+	/* fmt is the user's --query format built from our registered custom specifiers */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
 	fprintf(stdout, fmt);
+#pragma GCC diagnostic pop
 	query_fs = NULL;
 
 	ocfs2_free(&fmt);
