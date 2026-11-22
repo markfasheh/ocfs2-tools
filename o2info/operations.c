@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <sys/raw.h>
+#include <sys/sysmacros.h>
 #include <inttypes.h>
 
 #include "ocfs2/ocfs2.h"
@@ -933,8 +934,7 @@ static int o2info_report_filestat(struct o2info_method *om,
 			(unsigned long long)st->st_dev,
 			(unsigned long long)st->st_ino,
 			(unsigned long)st->st_nlink,
-			(unsigned int)(st->st_dev >> 16UL),
-			(unsigned int)(st->st_dev & 0x0000FFFF));
+			major(st->st_rdev), minor(st->st_rdev));
 	else
 		fprintf(stdout, "Device: %llxh/%llud\tInode: %-10llu  Links: %lu\n",
 			(unsigned long long)st->st_dev,
